@@ -54,8 +54,7 @@ public class HabbiconPacketTests
         items.Clear();
         recent.Clear();
 
-        for (var i = 0; i < 2; i++)
-        {
+        for (var i = 0; i < 2; i++) {
             var shopAfter = new RecordingPacket();
             shop.Compose(shopAfter);
             var userAfter = new RecordingPacket();
@@ -133,10 +132,8 @@ public class HabbiconPacketTests
             [nameof(MessengerMessageComposer)] = 4904
         };
 
-        foreach (var (type, expected) in new[] { (typeof(ClientPacketHeader), expectedIncoming), (typeof(ServerPacketHeader), expectedOutgoing) })
-        {
-            foreach (var (name, id) in expected)
-            {
+        foreach (var (type, expected) in new[] { (typeof(ClientPacketHeader), expectedIncoming), (typeof(ServerPacketHeader), expectedOutgoing) }) {
+            foreach (var (name, id) in expected) {
                 Assert.Equal(id, (uint)type.GetField(name)!.GetRawConstantValue()!);
             }
 
@@ -144,14 +141,11 @@ public class HabbiconPacketTests
             Assert.Equal(ids.Length, ids.Distinct().Count());
         }
 
-        foreach (var file in Directory.GetFiles(Repo("Resources/Revisions"), "*.json"))
-        {
+        foreach (var file in Directory.GetFiles(Repo("Resources/Revisions"), "*.json")) {
             using var json = JsonDocument.Parse(File.ReadAllText(file));
 
-            foreach (var (key, expected) in new[] { ("IncomingHeaders", expectedIncoming), ("OutgoingHeaders", expectedOutgoing) })
-            {
-                foreach (var (name, id) in expected)
-                {
+            foreach (var (key, expected) in new[] { ("IncomingHeaders", expectedIncoming), ("OutgoingHeaders", expectedOutgoing) }) {
+                foreach (var (name, id) in expected) {
                     Assert.Equal(id, json.RootElement.GetProperty(key).GetProperty(name).GetUInt32());
                 }
             }
@@ -190,13 +184,11 @@ public class HabbiconPacketTests
         service.Rejection = 3;
         await handler.Parse(client, Incoming(61));
 
-        if (purchase)
-        {
+        if (purchase) {
             Assert.Equal(ServerPacketHeader.PurchaseErrorComposer, Assert.Single(sent).Header);
             Assert.Equal(3, new Communication.Flash.FlashIncomingPacket { Buffer = sent[0].Payload }.ReadInt());
         }
-        else
-        {
+        else {
             Assert.Empty(sent);
         }
     }

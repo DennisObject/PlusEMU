@@ -10,21 +10,18 @@ public partial class WiredComponent
 {
     internal int? ReadBuiltin(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
     {
-        if (frame.RoomId != _room.Id || !frame.Contains(holder))
-        {
+        if (frame.RoomId != _room.Id || !frame.Contains(holder)) {
             return null;
         }
 
         var key = RoomWiredBuiltinVariables.Normalize(reference.Token);
 
-        if (holder.Target == WiredVariableTarget.User)
-        {
+        if (holder.Target == WiredVariableTarget.User) {
             var user = _room.GetRoomUserManager().GetRoomUserByVirtualId(holder.EntityId);
 
             if (user == null || user.IsBot || WiredVariableRuntimeFrames.UserHolder(user) != holder
                 || frame.RuntimeContext is { } userContext && (!userContext.UserIdentity.TryGetValue(user.VirtualId, out var visit)
-                    || !ReferenceEquals(visit, user)))
-            {
+                    || !ReferenceEquals(visit, user))) {
                 return null;
             }
 
@@ -36,8 +33,7 @@ public partial class WiredComponent
             };
         }
 
-        if (holder.Target != WiredVariableTarget.Furni)
-        {
+        if (holder.Target != WiredVariableTarget.Furni) {
             return null;
         }
 
@@ -45,13 +41,11 @@ public partial class WiredComponent
 
         if (item == null || WiredVariableRuntimeFrames.FurniHolder(item) != holder
             || frame.RuntimeContext is { } itemContext && (!itemContext.FurniIdentity.TryGetValue(item.Id, out var captured)
-                || !ReferenceEquals(captured, item)))
-        {
+                || !ReferenceEquals(captured, item))) {
             return null;
         }
 
-        if (item.IsWallItem && ReadWall(item, out var position))
-        {
+        if (item.IsWallItem && ReadWall(item, out var position)) {
             return key switch
             {
                 "@position.x" => position.X,
@@ -69,15 +63,13 @@ public partial class WiredComponent
 
     public void RecordRoomNetworkForward(RoomUser actor, uint destinationRoomId) => _engine.Mutate(() =>
     {
-        if (actor.IsBot || !ReferenceEquals(_room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId), actor))
-        {
+        if (actor.IsBot || !ReferenceEquals(_room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId), actor)) {
             return false;
         }
 
         var player = actor.GetClient()?.GetHabbo();
 
-        if (player == null)
-        {
+        if (player == null) {
             return false;
         }
 
@@ -91,44 +83,27 @@ public partial class WiredComponent
 
     private bool WriteWall(Item item, string key, int value)
     {
-        if (!ReadWall(item, out var position))
-        {
+        if (!ReadWall(item, out var position)) {
             return false;
         }
 
         WiredWallPosition next;
 
-        switch (key)
-        {
+        switch (key) {
             case "@position.x":
-                next = position with
-                {
-                    X = value
-                };
+                next = position with { X = value };
                 break;
             case "@position.y":
-                next = position with
-                {
-                    Y = value
-                };
+                next = position with { Y = value };
                 break;
             case "@wallitem_offset":
-                next = position with
-                {
-                    Offset = value
-                };
+                next = position with { Offset = value };
                 break;
             case "@altitude" when value % 100 == 0:
-                next = position with
-                {
-                    Altitude = value / 100
-                };
+                next = position with { Altitude = value / 100 };
                 break;
             case "@rotation" when value is 4 or 6:
-                next = position with
-                {
-                    Left = value == 4
-                };
+                next = position with { Left = value == 4 };
                 break;
             default:
                 return false;
@@ -136,8 +111,7 @@ public partial class WiredComponent
 
         var validated = _room.GetRoomItemHandler().WallPositionCheck(next.ToString());
 
-        if (validated == null || next == position)
-        {
+        if (validated == null || next == position) {
             return false;
         }
 
@@ -152,31 +126,26 @@ public partial class WiredComponent
     {
         var context = frame.RuntimeContext;
 
-        if (context == null || !ReferenceEquals(context.Room, _room))
-        {
+        if (context == null || !ReferenceEquals(context.Room, _room)) {
             return false;
         }
 
         var key = RoomWiredBuiltinVariables.Normalize(reference.Token);
         var movement = new WiredRoomMovement(DispatchWalkTransition);
 
-        if (holder.Target == WiredVariableTarget.Furni)
-        {
+        if (holder.Target == WiredVariableTarget.Furni) {
             var item = _room.GetRoomItemHandler().GetItem(unchecked((uint)holder.EntityId));
 
             if (item == null || WiredVariableRuntimeFrames.FurniHolder(item) != holder
-                || !context.FurniIdentity.TryGetValue(item.Id, out var captured) || !ReferenceEquals(captured, item))
-            {
+                || !context.FurniIdentity.TryGetValue(item.Id, out var captured) || !ReferenceEquals(captured, item)) {
                 return false;
             }
 
-            if (item.IsWallItem)
-            {
+            if (item.IsWallItem) {
                 return WriteWall(item, key, value);
             }
 
-            if (!item.IsFloorItem)
-            {
+            if (!item.IsFloorItem) {
                 return false;
             }
 
@@ -190,13 +159,11 @@ public partial class WiredComponent
             };
         }
 
-        if (holder.Target == WiredVariableTarget.User)
-        {
+        if (holder.Target == WiredVariableTarget.User) {
             var user = _room.GetRoomUserManager().GetRoomUserByVirtualId(holder.EntityId);
 
             if (user == null || WiredVariableRuntimeFrames.UserHolder(user) != holder
-                || !context.UserIdentity.TryGetValue(user.VirtualId, out var captured) || !ReferenceEquals(captured, user))
-            {
+                || !context.UserIdentity.TryGetValue(user.VirtualId, out var captured) || !ReferenceEquals(captured, user)) {
                 return false;
             }
 
@@ -215,19 +182,14 @@ public partial class WiredComponent
     // Module.Change invokes this completion only after releasing its value lock.
     internal void PublishBuiltinStateChanged(Item item, WiredVariableFrame frame) => _engine.Mutate(() =>
     {
-        if (frame.RoomId != _room.Id || !_targets.IsAttached(item))
-        {
+        if (frame.RoomId != _room.Id || !_targets.IsAttached(item)) {
             return false;
         }
 
         var context = frame.RuntimeContext;
         // The write already happened and this completion took it: a user who left is not named, the change stays.
         var actor = FurnitureStateEvents.Present(_room, context?.Event.Kind == WiredEventKind.Leave ? null : context?.Event.Actor);
-        QueueRuntimeEvent(new(WiredEventKind.StateChanged)
-        {
-            EventItem = item,
-            Actor = actor
-        }, frame.Depth + 1);
+        QueueRuntimeEvent(new(WiredEventKind.StateChanged) { EventItem = item, Actor = actor }, frame.Depth + 1);
 
         return true;
     });

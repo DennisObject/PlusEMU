@@ -39,8 +39,7 @@ public static class WiredItemConditions
 
     public static bool MatchesAltitude(WiredConfiguration config, IEnumerable<Item> items)
     {
-        if (!WiredRoomOperations.TryAltitude(config.Text, out var target))
-        {
+        if (!WiredRoomOperations.TryAltitude(config.Text, out var target)) {
             return false;
         }
 

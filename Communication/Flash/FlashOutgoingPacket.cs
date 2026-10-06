@@ -10,10 +10,7 @@ namespace Plus.Communication.Flash;
 public class FlashOutgoingPacket : IOutgoingPacket
 {
     private readonly RecyclableMemoryStream _stream;
-    public int MessageId
-    {
-        get; set;
-    }
+    public int MessageId { get; set; }
 
     public FlashOutgoingPacket(RecyclableMemoryStream stream)
     {
@@ -29,8 +26,7 @@ public class FlashOutgoingPacket : IOutgoingPacket
         var buffer = ArrayPool<byte>.Shared.Rent(sizeof(short));
         var span = buffer.AsSpan();
 
-        if (BitConverter.IsLittleEndian)
-        {
+        if (BitConverter.IsLittleEndian) {
             value = BinaryPrimitives.ReverseEndianness(value);
         }
 
@@ -44,8 +40,7 @@ public class FlashOutgoingPacket : IOutgoingPacket
         var buffer = ArrayPool<byte>.Shared.Rent(sizeof(int));
         var span = buffer.AsSpan();
 
-        if (BitConverter.IsLittleEndian)
-        {
+        if (BitConverter.IsLittleEndian) {
             value = BinaryPrimitives.ReverseEndianness(value);
         }
 
@@ -58,8 +53,7 @@ public class FlashOutgoingPacket : IOutgoingPacket
         var buffer = ArrayPool<byte>.Shared.Rent(sizeof(uint));
         var span = buffer.AsSpan();
 
-        if (BitConverter.IsLittleEndian)
-        {
+        if (BitConverter.IsLittleEndian) {
             value = BinaryPrimitives.ReverseEndianness(value);
         }
 
@@ -78,12 +72,10 @@ public class FlashOutgoingPacket : IOutgoingPacket
     {
         var buffer = !string.IsNullOrEmpty(value) ? Encoding.UTF8.GetBytes(value) : Array.Empty<byte>();
 
-        if (buffer.Length <= ushort.MaxValue)
-        {
+        if (buffer.Length <= ushort.MaxValue) {
             WriteShort((short)buffer.Length);
 
-            if (buffer.Length > 0)
-            {
+            if (buffer.Length > 0) {
                 _stream.Write(buffer, 0, buffer.Length);
             }
         }
@@ -94,8 +86,7 @@ public class FlashOutgoingPacket : IOutgoingPacket
         var buffer = ArrayPool<byte>.Shared.Rent(sizeof(double));
         var span = buffer.AsSpan();
 
-        if (BitConverter.IsLittleEndian)
-        {
+        if (BitConverter.IsLittleEndian) {
             var dSpan = new Span<byte>(BitConverter.GetBytes(value));
             dSpan.Reverse();
             value = BitConverter.ToDouble(dSpan);

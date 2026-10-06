@@ -23,61 +23,26 @@ public sealed class RoomItemStore(IDatabase database) : IRoomItemStore
     public void ClearRoom(uint itemId) => Execute("UPDATE items SET room_id = 0 WHERE id = @itemId LIMIT 1", new { itemId });
     public void SaveWallPosition(uint itemId, string wallPosition) => Execute("UPDATE items SET wall_pos = @wallPosition WHERE id = @itemId LIMIT 1", new { wallPosition, itemId });
     public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) =>
-        Execute("UPDATE items SET room_id = @roomId, x = @x, y = @y, z = @z, rot = @rotation WHERE id = @itemId LIMIT 1", new
-        {
-            roomId,
-            x,
-            y,
-            z,
-            rotation,
-            itemId
-        });
+        Execute("UPDATE items SET room_id = @roomId, x = @x, y = @y, z = @z, rot = @rotation WHERE id = @itemId LIMIT 1", new { roomId, x, y, z, rotation, itemId });
     public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) =>
         Execute("UPDATE items SET room_id = @roomId, x = @x, y = @y, z = @z, rot = @rotation, wall_pos = @wallPosition WHERE id = @itemId LIMIT 1",
-            new
-            {
-                roomId,
-                x,
-                y,
-                z,
-                rotation,
-                wallPosition,
-                itemId
-            });
+            new { roomId, x, y, z, rotation, wallPosition, itemId });
 
     public void SaveMoved(IReadOnlyList<RoomItemSave> items)
     {
         using var connection = database.Connection();
 
-        foreach (var item in items)
-        {
-            if (!string.IsNullOrEmpty(item.ExtraData))
-            {
-                connection.Execute("UPDATE items SET extra_data = @extraData WHERE id = @id LIMIT 1", new
-                {
-                    extraData = item.ExtraData,
-                    item.Id
-                });
+        foreach (var item in items) {
+            if (!string.IsNullOrEmpty(item.ExtraData)) {
+                connection.Execute("UPDATE items SET extra_data = @extraData WHERE id = @id LIMIT 1", new { extraData = item.ExtraData, item.Id });
             }
 
-            if (item.SaveWallPosition)
-            {
-                connection.Execute("UPDATE items SET wall_pos = @wallPosition WHERE id = @id LIMIT 1", new
-                {
-                    item.WallPosition,
-                    item.Id
-                });
+            if (item.SaveWallPosition) {
+                connection.Execute("UPDATE items SET wall_pos = @wallPosition WHERE id = @id LIMIT 1", new { item.WallPosition, item.Id });
             }
 
             connection.Execute("UPDATE items SET x = @x, y = @y, z = @z, rot = @rotation WHERE id = @id LIMIT 1",
-                new
-                {
-                    item.X,
-                    item.Y,
-                    item.Z,
-                    item.Rotation,
-                    item.Id
-                });
+                new { item.X, item.Y, item.Z, item.Rotation, item.Id });
         }
     }
 

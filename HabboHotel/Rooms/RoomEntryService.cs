@@ -18,13 +18,11 @@ public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock) :
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
-        if (!room.GetRoomUserManager().AddAvatarToRoom(session))
-        {
+        if (!room.GetRoomUserManager().AddAvatarToRoom(session)) {
             room.GetRoomUserManager().RemoveUserFromRoom(session, false);
 
             return;
@@ -33,8 +31,7 @@ public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock) :
         room.SendObjects(session);
         habbo.Messenger?.NotifyChangesToFriends();
 
-        if (habbo.HabboStats.QuestId > 0)
-        {
+        if (habbo.HabboStats.QuestId > 0) {
             quests.QuestReminder(session, habbo.HabboStats.QuestId);
         }
 
@@ -42,8 +39,7 @@ public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock) :
         session.Send(new RoomVisualizationSettingsComposer(room.WallThickness, room.FloorThickness, Convert.ToBoolean(room.Hidewall)));
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Username);
 
-        if (user != null && habbo.PetId == 0)
-        {
+        if (user != null && habbo.PetId == 0) {
             room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
         }
 
@@ -51,8 +47,7 @@ public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock) :
         room.GetWired()?.TriggerEvent(WiredBoxType.TriggerRoomEnter, habbo);
         var now = clock.GetUtcNow();
 
-        if (habbo.FloodUntil is { } floodUntil && now < floodUntil)
-        {
+        if (habbo.FloodUntil is { } floodUntil && now < floodUntil) {
             session.Send(new FloodControlComposer(RemainingFloodSeconds(now, floodUntil)));
         }
     }

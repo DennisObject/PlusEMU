@@ -13,20 +13,11 @@ internal sealed class Vector3D
         Z = z;
     }
 
-    public int X
-    {
-        get; set;
-    }
+    public int X { get; set; }
 
-    public int Y
-    {
-        get; set;
-    }
+    public int Y { get; set; }
 
-    public double Z
-    {
-        get; set;
-    }
+    public double Z { get; set; }
 
     public Vector2D ToVector2D() => new(X, Y);
 }

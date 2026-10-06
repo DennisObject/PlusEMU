@@ -21,8 +21,7 @@ public sealed class ClubDatabaseFactAttribute : FactAttribute
     public const string Variable = "PLUS_CLUB_TEST_CONNECTION_STRING";
     public ClubDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable(Variable) == null)
-        {
+        if (Environment.GetEnvironmentVariable(Variable) == null) {
             Skip = $"Set {Variable} to a disposable task_acl_tests_ database with update 23.";
         }
     }
@@ -48,8 +47,7 @@ public class ClubMembershipDatabaseTests : IDisposable
     {
         var connection = Environment.GetEnvironmentVariable(ClubDatabaseFactAttribute.Variable)!;
 
-        if (!new MySqlConnectionStringBuilder(connection).Database.StartsWith("task_acl_tests_", StringComparison.Ordinal))
-        {
+        if (!new MySqlConnectionStringBuilder(connection).Database.StartsWith("task_acl_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Disposable database required.");
         }
 
@@ -186,36 +184,27 @@ public class ClubMembershipDatabaseTests : IDisposable
         await account.OpenAsync();
         using var transaction = await account.BeginTransactionAsync();
         await account.ExecuteAsync("SELECT id FROM users FORCE INDEX(PRIMARY) WHERE id=@userId FOR UPDATE",
-            new
-            {
-                userId = User
-            }, transaction);
+            new { userId = User }, transaction);
         var connectionRequests = 0;
         _database.BeforeConnection = () => Interlocked.Increment(ref connectionRequests);
         var workerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var refresh = Task.Run(() => { workerEntered.SetResult(); _access.Refresh(User); });
 
-        try
-        {
+        try {
             await workerEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             using var observer = new MySqlConnection(account.ConnectionString);
             var elapsed = System.Diagnostics.Stopwatch.StartNew();
             AccountLockWait? waiting = null;
 
-            while (elapsed.Elapsed < TimeSpan.FromSeconds(5))
-            {
+            while (elapsed.Elapsed < TimeSpan.FromSeconds(5)) {
                 waiting = await observer.QuerySingleOrDefaultAsync<AccountLockWait>("""
                     SELECT requesting.trx_query AS WaitingQuery FROM information_schema.INNODB_LOCK_WAITS w
                     JOIN information_schema.INNODB_TRX requesting ON requesting.trx_id=w.requesting_trx_id
                     JOIN information_schema.INNODB_TRX blocking ON blocking.trx_id=w.blocking_trx_id
                     WHERE blocking.trx_mysql_thread_id=@blocker LIMIT 1
-                    """, new
-                {
-                    blocker = account.ServerThread
-                });
+                    """, new { blocker = account.ServerThread });
 
-                if (waiting != null)
-                {
+                if (waiting != null) {
                     break;
                 }
 
@@ -230,20 +219,15 @@ public class ClubMembershipDatabaseTests : IDisposable
             Assert.Contains(User.ToString(System.Globalization.CultureInfo.InvariantCulture), waiting.WaitingQuery);
             // With the old secondary-index-first refresh, this write deadlocks while holding PRIMARY.
             await account.ExecuteAsync("UPDATE users SET credits=999 WHERE id=@userId",
-                new
-                {
-                    userId = User
-                }, transaction);
+                new { userId = User }, transaction);
             await transaction.CommitAsync();
             await refresh.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal(999, Scalar("SELECT credits FROM users WHERE id=957001"));
         }
-        finally
-        {
+        finally {
             _database.BeforeConnection = null;
 
-            if (transaction.Connection != null)
-            {
+            if (transaction.Connection != null) {
                 await transaction.RollbackAsync();
             }
 
@@ -280,11 +264,12 @@ public class ClubMembershipDatabaseTests : IDisposable
         Assert.Equal(1, _rewards.Gifts(_habbo).Available);
         Sql("CREATE TRIGGER club_test_gift_failure BEFORE INSERT ON items FOR EACH ROW BEGIN IF NEW.user_id = 957001 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'test gift rollback'; END IF; END");
 
-        try
-        {
+        try {
             Assert.Throws<MySqlException>(() => _rewards.Claim(_habbo, "hc_arab_chair"));
         }
-        finally { Sql("DROP TRIGGER club_test_gift_failure"); }
+        finally {
+            Sql("DROP TRIGGER club_test_gift_failure");
+        }
 
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM club_gift_claims WHERE user_id = 957001"));
         Assert.Equal(0, Scalar("SELECT gifts_claimed FROM user_club_memberships WHERE user_id = 957001"));
@@ -304,11 +289,12 @@ public class ClubMembershipDatabaseTests : IDisposable
         Assert.Null(_rewards.Claim(_habbo, "not_a_gift"));
         Sql("UPDATE club_gift_offers SET days_required = 100 WHERE catalog_item_id = 65398");
 
-        try
-        {
+        try {
             Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair"));
         }
-        finally { Sql("UPDATE club_gift_offers SET days_required = 0 WHERE catalog_item_id = 65398"); }
+        finally {
+            Sql("UPDATE club_gift_offers SET days_required = 0 WHERE catalog_item_id = 65398");
+        }
 
         _gift.ClubLevel = 3;
         Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair"));
@@ -340,10 +326,7 @@ public class ClubMembershipDatabaseTests : IDisposable
         }
         Assert.False(_rewards.Charge(_habbo, 99, deliver: Refuse));
         Assert.Throws<InvalidOperationException>(() => _rewards.Charge(_habbo, 99, deliver: (connection, transaction) =>
-        {
-            Refuse(connection, transaction);
-            throw new InvalidOperationException("delivery failed");
-        }));
+        { Refuse(connection, transaction); throw new InvalidOperationException("delivery failed"); }));
         Assert.Equal(900, _habbo.Credits);
         Assert.Equal(900, Scalar("SELECT credits FROM users WHERE id = 957001"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items WHERE user_id = 957001"));
@@ -354,18 +337,15 @@ public class ClubMembershipDatabaseTests : IDisposable
     {
         Sql("UPDATE catalog_items SET limited_stack = 1, limited_sells = 0 WHERE id = 65398");
 
-        try
-        {
+        try {
             Assert.False(_rewards.Charge(_habbo, 99, deliver: (connection, transaction) =>
-            {
-                Assert.Equal(1, CatalogLimitedStock.Reserve(connection, transaction, 65398));
-
-                return false;
-            }));
+            { Assert.Equal(1, CatalogLimitedStock.Reserve(connection, transaction, 65398)); return false; }));
             Assert.Equal(0, Scalar("SELECT limited_sells FROM catalog_items WHERE id = 65398"));
             Assert.Equal(1000, _habbo.Credits);
         }
-        finally { Sql("UPDATE catalog_items SET limited_stack = 0, limited_sells = 0 WHERE id = 65398"); }
+        finally {
+            Sql("UPDATE catalog_items SET limited_stack = 0, limited_sells = 0 WHERE id = 65398");
+        }
     }
     [ClubDatabaseFact]
     public async Task PaydaysPersistSpendingAndReplayCannotPayTwice()
@@ -395,10 +375,7 @@ public class ClubMembershipDatabaseTests : IDisposable
     }
     private sealed class AccountLockWait
     {
-        public string? WaitingQuery
-        {
-            get; set;
-        }
+        public string? WaitingQuery { get; set; }
     }
     private void Sql(string sql)
     {

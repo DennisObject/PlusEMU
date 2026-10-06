@@ -47,30 +47,23 @@ internal sealed partial class WiredStackEngine
 
     internal WiredEngineLimits Limits => _limits;
     // Raised under the engine lock; the handler must not call back into the engine.
-    internal Action<WiredEngineLimit, string>? LimitReached
-    {
-        get; set;
-    }
+    internal Action<WiredEngineLimit, string>? LimitReached { get; set; }
     // The queue is read live: removal, cancellation and Clear change it without ending a pass.
     internal WiredEngineWindow ReadStats()
     {
-        lock (_sync)
-        {
+        lock (_sync) {
             return _stats.Read(_now(), PendingCount);
         }
     }
 
     public bool Add(IWiredItem box)
     {
-        lock (_sync)
-        {
-            if (!_items.TryAdd(box.Item.Id, box))
-            {
+        lock (_sync) {
+            if (!_items.TryAdd(box.Item.Id, box)) {
                 return false;
             }
 
-            if (box is IWiredTimedTrigger timer)
-            {
+            if (box is IWiredTimedTrigger timer) {
                 timer.Reset(_now());
             }
 
@@ -82,10 +75,8 @@ internal sealed partial class WiredStackEngine
 
     public bool Remove(uint id)
     {
-        lock (_sync)
-        {
-            if (!_items.Remove(id, out var removed))
-            {
+        lock (_sync) {
+            if (!_items.Remove(id, out var removed)) {
                 return false;
             }
 
@@ -99,34 +90,29 @@ internal sealed partial class WiredStackEngine
 
     public bool TryGet(uint id, [NotNullWhen(true)] out IWiredItem? box)
     {
-        lock (_sync)
-        {
+        lock (_sync) {
             return _items.TryGetValue(id, out box);
         }
     }
 
     public void Clear()
     {
-        lock (_sync)
-        {
+        lock (_sync) {
             _items.Clear();
             _stacks.Clear();
 
-            foreach (var entry in _schedule.UnorderedItems.ToArray())
-            {
+            foreach (var entry in _schedule.UnorderedItems.ToArray()) {
                 CancelAuxiliary(entry.Element);
             }
 
             _schedule.Clear();
             _pending.Clear();
 
-            foreach (var dispatch in _dispatches)
-            {
+            foreach (var dispatch in _dispatches) {
                 dispatch.Current?.Dispose();
             }
 
-            foreach (var dispatch in _dispatches)
-            {
+            foreach (var dispatch in _dispatches) {
                 dispatch.IsQueued = false;
             }
 
@@ -140,10 +126,8 @@ internal sealed partial class WiredStackEngine
     // A successful publication cancels all firings that captured this stack.
     public void CancelPending(IWiredItem box)
     {
-        lock (_sync)
-        {
-            if (_activeFiring?.Stack.Contains(box) == true)
-            {
+        lock (_sync) {
+            if (_activeFiring?.Stack.Contains(box) == true) {
                 _activeFiring.Cancelled = true;
             }
 
@@ -155,21 +139,18 @@ internal sealed partial class WiredStackEngine
                 && !pending.CapturedBoxes.Contains(box)
                 && (pending.Signal == null || (pending.Signal.Receiver.GetX, pending.Signal.Receiver.GetY) != tile)).ToArray();
 
-            foreach (var pending in _dispatches.Except(kept))
-            {
+            foreach (var pending in _dispatches.Except(kept)) {
                 pending.Current?.Dispose();
             }
 
-            foreach (var pending in _dispatches)
-            {
+            foreach (var pending in _dispatches) {
                 pending.IsQueued = false;
             }
 
             _dispatches.Clear();
             _queuedSlots = 0;
 
-            foreach (var pending in kept)
-            {
+            foreach (var pending in kept) {
                 QueueDispatch(pending);
             }
 
@@ -186,8 +167,7 @@ internal sealed partial class WiredStackEngine
         var context = CreateContext((arguments ?? []).ToArray(), _queuedDepth ?? (_runtimeContext?.Depth ?? _context?.Depth ?? -1) + 1);
         _queuedDepth = null;
 
-        if (TooDeep(context.Depth))
-        {
+        if (TooDeep(context.Depth)) {
             return false;
         }
 
@@ -196,10 +176,8 @@ internal sealed partial class WiredStackEngine
         // Each registered trigger is visited once, even when a tile has several of the same type.
         foreach (var trigger in _stacks.Values.SelectMany(x => x)
                      .Where(x => x is not IWiredContextualTrigger && x.Type == type && IsKind(x, InteractionType.WiredTrigger))
-                     .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray())
-        {
-            if (OutOfBudget())
-            {
+                     .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray()) {
+            if (OutOfBudget()) {
                 break;
             }
 
@@ -221,23 +199,19 @@ internal sealed partial class WiredStackEngine
     {
         var depth = (_context?.Depth ?? 0) + 1;
 
-        if (TooDeep(depth))
-        {
+        if (TooDeep(depth)) {
             return false;
         }
 
         var matched = false;
         var visited = new HashSet<(int, int)>();
 
-        foreach (var target in targets.OrderBy(x => x.GetZ).ThenBy(x => x.Id).ToArray())
-        {
-            if (!_items.TryGetValue(target.Id, out var box) || !IsAttached(box))
-            {
+        foreach (var target in targets.OrderBy(x => x.GetZ).ThenBy(x => x.Id).ToArray()) {
+            if (!_items.TryGetValue(target.Id, out var box) || !IsAttached(box)) {
                 continue;
             }
 
-            if (!visited.Add((target.GetX, target.GetY)))
-            {
+            if (!visited.Add((target.GetX, target.GetY))) {
                 continue;
             }
 
@@ -252,37 +226,32 @@ internal sealed partial class WiredStackEngine
         RefreshStacks();
         DrainDueActions();
 
-        foreach (var box in _items.Values.ToArray())
-        {
+        foreach (var box in _items.Values.ToArray()) {
             // IWiredCycle remains the saved-delay contract; only periodic triggers tick.
-            if (!IsAttached(box) || !IsKind(box, InteractionType.WiredTrigger) || box is not IWiredCycle cycle)
-            {
+            if (!IsAttached(box) || !IsKind(box, InteractionType.WiredTrigger) || box is not IWiredCycle cycle) {
                 continue;
             }
 
-            if (OutOfBudget())
-            {
+            if (OutOfBudget()) {
                 break;
             }
 
-            if (cycle.TickCount > 0)
-            {
+            if (cycle.TickCount > 0) {
                 cycle.TickCount--;
             }
-            else
-            {
+            else {
                 _remaining--;
 
-                try
-                {
+                try {
                     cycle.OnCycle();
                 }
-                catch (Exception e) { _error(e); }
+                catch (Exception e) {
+                    _error(e);
+                }
             }
         }
 
-        if (_runtimeRoom != null)
-        {
+        if (_runtimeRoom != null) {
             RunRuntimeTimersAndSignals();
         }
 
@@ -297,36 +266,29 @@ internal sealed partial class WiredStackEngine
     {
         var firedAt = _now();
 
-        if (TooDeep(context.Depth) || !IsActorPresent(context))
-        {
+        if (TooDeep(context.Depth) || !IsActorPresent(context)) {
             return false;
         }
 
         var stack = GetStack(source);
 
-        if (stack.Length == 0)
-        {
+        if (stack.Length == 0) {
             return false;
         }
 
-        if (_runtimeRoom != null && stack.Any(x => x is IWiredConfiguredItem))
-        {
+        if (_runtimeRoom != null && stack.Any(x => x is IWiredConfiguredItem)) {
             var typed = _runtimeContext?.Fork(_runtimeContext.Event, context.Depth)
                 ?? CreateContext((_legacyRuntimeEvent ?? new(WiredEventKind.Periodic)) with
-                {
-                    Actor = context.ActorVisit as Plus.HabboHotel.Rooms.RoomUser ?? context.Arguments.FirstOrDefault() as Plus.HabboHotel.Rooms.RoomUser ?? _legacyRuntimeEvent?.Actor
-                }, context.Depth);
+                { Actor = context.ActorVisit as Plus.HabboHotel.Rooms.RoomUser ?? context.Arguments.FirstOrDefault() as Plus.HabboHotel.Rooms.RoomUser ?? _legacyRuntimeEvent?.Actor }, context.Depth);
             typed.Trigger = source;
 
-            if (_runtimeContext == null)
-            {
+            if (_runtimeContext == null) {
                 SeedEvent(typed);
             }
 
             var accepted = RunRuntimeStack(source, typed, null, conditionActors, defer: onAccepted == null);
 
-            if (accepted)
-            {
+            if (accepted) {
                 onAccepted?.Invoke();
             }
 
@@ -335,10 +297,8 @@ internal sealed partial class WiredStackEngine
 
         var conditions = stack.Where(x => IsKind(x, InteractionType.WiredCondition)).ToArray();
 
-        foreach (var condition in conditions)
-        {
-            if (OutOfBudget())
-            {
+        foreach (var condition in conditions) {
+            if (OutOfBudget()) {
                 return false;
             }
 
@@ -346,8 +306,7 @@ internal sealed partial class WiredStackEngine
                 ? Execute(condition, context)
                 : conditionActors.Any(actor => Execute(condition, CreateContext(actor, context.Depth)));
 
-            if (!passed)
-            {
+            if (!passed) {
                 return false;
             }
 
@@ -358,18 +317,15 @@ internal sealed partial class WiredStackEngine
         var actions = stack.Where(x => IsKind(x, InteractionType.WiredEffect)
                                       && x.Type != WiredBoxType.AddonRandomEffect).ToArray();
 
-        if (addons.Length > 0)
-        {
-            foreach (var addon in addons)
-            {
+        if (addons.Length > 0) {
+            foreach (var addon in addons) {
                 Flash(addon);
             }
 
             actions = actions.Length == 0 ? [] : [actions[Random.Shared.Next(actions.Length)]];
         }
 
-        if (!CanSchedule(actions))
-        {
+        if (!CanSchedule(actions)) {
             return false;
         }
 
@@ -383,26 +339,22 @@ internal sealed partial class WiredStackEngine
     private bool CanSchedule(IWiredItem[] actions, bool prepared = false)
     {
         if (actions.Length > 0 && PendingCount >= _limits.MaxPendingStacks
-            && _pending.RemoveWhere(chain => !IsChainValid(chain)) > 0)
-        {
+            && _pending.RemoveWhere(chain => !IsChainValid(chain)) > 0) {
             PruneSchedule();
         }
 
-        if (actions.Length > 0 && QueueFull(1))
-        {
+        if (actions.Length > 0 && QueueFull(1)) {
             return false;
         }
 
         // Preparation must happen synchronously; reject before acceptance if its calls cannot fit.
-        if (prepared)
-        {
+        if (prepared) {
             return true;
         }
 
         var preparations = actions.Count(action => action is IWiredFiringPreparation);
 
-        if (preparations <= _remaining)
-        {
+        if (preparations <= _remaining) {
             return true;
         }
 
@@ -421,13 +373,11 @@ internal sealed partial class WiredStackEngine
     internal bool ScheduleActions(IWiredItem source, IWiredItem[] capturedStack, IWiredItem[] actions,
         WiredExecutionContext context, Func<IWiredItem, long>? delayMilliseconds = null, long? firedAt = null, bool prepared = false)
     {
-        if (!CanSchedule(actions, prepared))
-        {
+        if (!CanSchedule(actions, prepared)) {
             return false;
         }
 
-        if (actions.Length == 0)
-        {
+        if (actions.Length == 0) {
             return true;
         }
 
@@ -436,20 +386,16 @@ internal sealed partial class WiredStackEngine
         var startedAt = firedAt ?? _now();
         _pending.Add(chain);
 
-        foreach (var action in actions)
-        {
-            if (!_pending.Contains(chain))
-            {
+        foreach (var action in actions) {
+            if (!_pending.Contains(chain)) {
                 break;
             }
 
             var due = startedAt + Math.Max(0, (delayMilliseconds ?? GetDelay)(action));
 
             if (!prepared && action is IWiredFiringPreparation preparation
-                && !Invoke(action, context, () => preparation.Prepare(context.Arguments)))
-            {
-                if (--chain.Remaining == 0)
-                {
+                && !Invoke(action, context, () => preparation.Prepare(context.Arguments))) {
+                if (--chain.Remaining == 0) {
                     _pending.Remove(chain);
                 }
 
@@ -471,13 +417,11 @@ internal sealed partial class WiredStackEngine
         var kept = entries.Where(x => _pending.Contains(x.Element.Chain)).ToArray();
         _schedule.Clear();
 
-        foreach (var entry in kept)
-        {
+        foreach (var entry in kept) {
             _schedule.Enqueue(entry.Element, entry.Priority);
         }
 
-        foreach (var entry in entries.Where(x => !_pending.Contains(x.Element.Chain)))
-        {
+        foreach (var entry in entries.Where(x => !_pending.Contains(x.Element.Chain))) {
             CancelAuxiliary(entry.Element);
         }
     }
@@ -485,29 +429,24 @@ internal sealed partial class WiredStackEngine
     private void DrainDueActions()
     {
         // Nested stack calls enqueue their actions, and the active drain keeps global ordering.
-        if (_draining)
-        {
+        if (_draining) {
             return;
         }
 
         _draining = true;
         var prune = false;
 
-        try
-        {
-            while (_schedule.TryPeek(out _, out var priority) && priority.Due <= _now() && !OutOfBudget())
-            {
+        try {
+            while (_schedule.TryPeek(out _, out var priority) && priority.Due <= _now() && !OutOfBudget()) {
                 var scheduled = _schedule.Dequeue();
                 var chain = scheduled.Chain;
 
-                if (!_pending.Contains(chain))
-                {
+                if (!_pending.Contains(chain)) {
                     CancelAuxiliary(scheduled);
                     continue;
                 }
 
-                if (!IsChainValid(chain))
-                {
+                if (!IsChainValid(chain)) {
                     _pending.Remove(chain);
                     CancelAuxiliary(scheduled);
                     prune = true;
@@ -516,10 +455,8 @@ internal sealed partial class WiredStackEngine
 
                 var action = scheduled.Box;
 
-                try
-                {
-                    if (!IsAttached(action) || (action.Item.GetX, action.Item.GetY) != chain.Tile)
-                    {
+                try {
+                    if (!IsAttached(action) || (action.Item.GetX, action.Item.GetY) != chain.Tile) {
                         CancelAuxiliary(scheduled);
                         continue;
                     }
@@ -528,34 +465,30 @@ internal sealed partial class WiredStackEngine
                     var previousAction = _executingAction;
                     _executingAction = scheduled;
 
-                    try
-                    {
+                    try {
                         var succeeded = scheduled.Callback == null ? Execute(action, chain.Context)
                             : Invoke(action, chain.Context, () => { scheduled.Callback(); return true; });
 
-                        if (succeeded && chain.Context.Runtime?.Policy.StopOnSuccess == true)
-                        {
+                        if (succeeded && chain.Context.Runtime?.Policy.StopOnSuccess == true) {
                             _pending.Remove(chain);
                             prune = true;
                         }
                     }
-                    finally { _executingAction = previousAction; }
+                    finally {
+                        _executingAction = previousAction;
+                    }
 
                     Flash(action);
                 }
-                finally
-                {
-                    if (--chain.Remaining == 0)
-                    {
+                finally {
+                    if (--chain.Remaining == 0) {
                         _pending.Remove(chain);
                     }
                 }
             }
         }
-        finally
-        {
-            if (prune)
-            {
+        finally {
+            if (prune) {
                 PruneSchedule();
             }
 
@@ -569,11 +502,12 @@ internal sealed partial class WiredStackEngine
 
     private void Flash(IWiredItem box)
     {
-        try
-        {
+        try {
             _flash(box.Item);
         }
-        catch (Exception e) { _error(e); }
+        catch (Exception e) {
+            _error(e);
+        }
     }
 
     private WiredExecutionContext CreateContext(object[] arguments, int depth) =>
@@ -592,8 +526,7 @@ internal sealed partial class WiredStackEngine
 
     private bool Invoke(IWiredItem box, WiredExecutionContext context, Func<bool> body)
     {
-        if (OutOfBudget() || !IsAttached(box) || !IsActorPresent(context))
-        {
+        if (OutOfBudget() || !IsAttached(box) || !IsActorPresent(context)) {
             return false;
         }
 
@@ -604,17 +537,22 @@ internal sealed partial class WiredStackEngine
         var previousRuntime = _runtimeContext;
         _runtimeContext = context.Runtime;
 
-        if (context.Runtime != null)
-        {
+        if (context.Runtime != null) {
             context.Runtime.NowMilliseconds = _now();
         }
 
-        try
-        {
+        try {
             return body();
         }
-        catch (Exception e) { _error(e); return false; }
-        finally { _context = previous; _runtimeContext = previousRuntime; }
+        catch (Exception e) {
+            _error(e);
+
+            return false;
+        }
+        finally {
+            _context = previous;
+            _runtimeContext = previousRuntime;
+        }
     }
 
     private bool IsAttached(IWiredItem box) => _items.TryGetValue(box.Item.Id, out var registered)
@@ -642,18 +580,15 @@ internal sealed partial class WiredStackEngine
     {
         // Item coordinates can change through rollers and movement without a wired hook.
         // Rebuild the tile index at the seam, so callers never have to remember invalidation.
-        foreach (var box in _items.Values.ToArray())
-        {
-            if (!_attached(box))
-            {
+        foreach (var box in _items.Values.ToArray()) {
+            if (!_attached(box)) {
                 Remove(box.Item.Id);
             }
         }
 
         _stacks.Clear();
 
-        foreach (var group in _items.Values.GroupBy(x => (x.Item.GetX, x.Item.GetY)))
-        {
+        foreach (var group in _items.Values.GroupBy(x => (x.Item.GetX, x.Item.GetY))) {
             _stacks[group.Key] = group.OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
         }
 
@@ -662,24 +597,19 @@ internal sealed partial class WiredStackEngine
 
     private T Pass<T>(Func<T> body)
     {
-        lock (_sync)
-        {
-            if (_passDepth++ == 0)
-            {
+        lock (_sync) {
+            if (_passDepth++ == 0) {
                 _remaining = _limits.MaxExecutionsPerPass;
                 _passPeakDepth = 0;
                 _budgetDenied = false;
                 _passStarted = Stopwatch.GetTimestamp();
             }
 
-            try
-            {
+            try {
                 return body();
             }
-            finally
-            {
-                if (--_passDepth == 0)
-                {
+            finally {
+                if (--_passDepth == 0) {
                     EndPass();
                 }
             }
@@ -691,8 +621,7 @@ internal sealed partial class WiredStackEngine
     {
         var executions = _limits.MaxExecutionsPerPass - Math.Max(0, _remaining);
 
-        if (_budgetDenied)
-        {
+        if (_budgetDenied) {
             LimitReached?.Invoke(WiredEngineLimit.ExecutionBudget,
                 $"One pass used all {_limits.MaxExecutionsPerPass} wired executions; the rest waits for the next pass or was dropped.");
         }
@@ -704,8 +633,7 @@ internal sealed partial class WiredStackEngine
     // budget exactly is not reported as capped.
     private bool OutOfBudget()
     {
-        if (_remaining > 0)
-        {
+        if (_remaining > 0) {
             return false;
         }
 
@@ -716,8 +644,7 @@ internal sealed partial class WiredStackEngine
 
     private bool TooDeep(int depth)
     {
-        if (depth <= _limits.MaxDepth)
-        {
+        if (depth <= _limits.MaxDepth) {
             return false;
         }
 
@@ -728,8 +655,7 @@ internal sealed partial class WiredStackEngine
 
     private bool QueueFull(int slots)
     {
-        if (PendingCount + slots <= _limits.MaxPendingStacks)
-        {
+        if (PendingCount + slots <= _limits.MaxPendingStacks) {
             return false;
         }
 
@@ -741,26 +667,23 @@ internal sealed partial class WiredStackEngine
 
     private void CancelAuxiliary(ScheduledAction action)
     {
-        if (action.Finished || action.OnCancelled == null)
-        {
+        if (action.Finished || action.OnCancelled == null) {
             return;
         }
 
         action.Finished = true;
 
-        try
-        {
+        try {
             action.OnCancelled();
         }
-        catch (Exception error) { _error(error); }
+        catch (Exception error) {
+            _error(error);
+        }
     }
 
     private sealed record ScheduledAction(ActionChain Chain, IWiredItem Box, Action? Callback = null, Action? OnCancelled = null)
     {
-        public bool Finished
-        {
-            get; set;
-        }
+        public bool Finished { get; set; }
     }
 
     private sealed class ActionChain(IWiredItem source, IWiredItem[] stack,

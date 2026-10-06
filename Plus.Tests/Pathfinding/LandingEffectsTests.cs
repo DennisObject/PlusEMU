@@ -74,8 +74,7 @@ public partial class PlacedFurniRoomTests
         var actor = LandingActor();
         var teams = freeze ? _room.GetTeamManagerForFreeze() : _room.GetTeamManagerForBanzai();
 
-        for (var id = 2; id <= 6; id++)
-        {
+        for (var id = 2; id <= 6; id++) {
             teams.BlueTeam.Add(new RoomUser(id, RoomId, id, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused));
         }
 
@@ -96,16 +95,14 @@ public partial class PlacedFurniRoomTests
         InitializeNativeState(target);
         var actor = LandingActor();
 
-        if (moving)
-        {
+        if (moving) {
             actor.Statusses.Add("mv", "1,1,0");
         }
 
         new LandingEffects(_room, _database).Apply(actor, false);
         Assert.Equal(moving ? (3, 1, 0.75) : (1, 1, 0d), (actor.X, actor.Y, actor.Z));
 
-        if (moving)
-        {
+        if (moving) {
             Assert.Equal("1", target.LegacyDataString);
         }
     }
@@ -177,10 +174,7 @@ public partial class PlacedFurniRoomTests
         actor.RotBody = 2;
         uint prepared = 0;
         new LandingEffects(_room, LandingDatabase(11, 99), (habbo, roomId) =>
-        {
-            prepared = roomId;
-            habbo.CurrentRoom = null!;
-        }).Apply(actor, false);
+        { prepared = roomId; habbo.CurrentRoom = null!; }).Apply(actor, false);
         Assert.Equal(99u, prepared);
         var habbo = _client.GetHabbo();
         Assert.True(habbo.IsTeleporting);
@@ -196,12 +190,10 @@ public partial class PlacedFurniRoomTests
     {
         var ball = Add(10, 1, 1);
 
-        if (banzai)
-        {
+        if (banzai) {
             _room.GetBanzai().AddPuck(ball);
         }
-        else
-        {
+        else {
             _room.GetSoccer().AddBall(ball);
         }
 
@@ -248,8 +240,7 @@ public partial class PlacedFurniRoomTests
         var action = LandingLayCounter();
         var actor = LandingActor();
 
-        if (laying)
-        {
+        if (laying) {
             actor.Statusses.Add("lay", "0.5 null");
         }
 
@@ -374,10 +365,7 @@ public partial class PlacedFurniRoomTests
         triggerItem.Definition.InteractionName = "wf_trg_user_performs_action";
         var wired = _room.GetWired();
         var trigger = wired.CreateConfiguredBox(triggerItem)!;
-        Assert.True(trigger.TryValidateConfiguration(new()
-        {
-            IntParams = [(int)WiredAvatarAction.Lay, 0, 0, 0, 1]
-        }, out var config, out var error), error);
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [(int)WiredAvatarAction.Lay, 0, 0, 0, 1] }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(wired.AddBox(trigger));
         var item = Add(901, 3, 3, type: InteractionType.WiredEffect);
@@ -394,10 +382,7 @@ public partial class PlacedFurniRoomTests
         public WiredBoxType Type => WiredBoxType.EffectShowMessage;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public int Calls;
         public WiredBoxDescriptor Descriptor { get; } = new("test", WiredBoxCategory.Action, 0, 0, "test") { Support = WiredBoxSupport.Implemented };

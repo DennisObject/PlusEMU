@@ -159,8 +159,7 @@ public class TelevisionPresentationTests
 
         Assert.Equal(2, sent.Count);
 
-        foreach (var response in sent)
-        {
+        foreach (var response in sent) {
             Assert.Equal(ServerPacketHeader.GetYouTubeVideoComposer, response.Header);
             var body = new FlashIncomingPacket { Buffer = response.Payload };
             Assert.Equal((42, "aaa", 0, 0, 0),
@@ -195,8 +194,7 @@ public class TelevisionPresentationTests
     {
         var televisions = new FakeTelevisions();
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             televisions.Televisions[item.Id] = item;
         }
 

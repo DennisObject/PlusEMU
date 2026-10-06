@@ -17,8 +17,7 @@ public class PopularRoomTagsResultComposer : IServerPacket
     {
         packet.WriteInteger(_tags.Count);
 
-        foreach (var tag in _tags)
-        {
+        foreach (var tag in _tags) {
             packet.WriteString(tag.Key);
             packet.WriteInteger(tag.Value);
         }

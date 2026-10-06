@@ -33,13 +33,11 @@ public sealed class GuestRoomInfoSnapshotTests
             true, 42u, "room", 7, "owner", 1, 3, 25, "description", 2, 91, 0, 12, 2, "one", "two", roomType
         };
 
-        if (hasGroup)
-        {
+        if (hasGroup) {
             expected.AddRange([9, "group", "badge"]);
         }
 
-        if (hasPromotion)
-        {
+        if (hasPromotion) {
             expected.AddRange(["promotion", "details", 2]);
         }
 
@@ -148,8 +146,7 @@ public sealed class GuestRoomInfoSnapshotTests
             ChatDistance = 8
         };
 
-        if (hasGroup)
-        {
+        if (hasGroup) {
             var group = (Group)RuntimeHelpers.GetUninitializedObject(typeof(Group));
             group.Id = 9;
             group.Name = "group";
@@ -157,8 +154,7 @@ public sealed class GuestRoomInfoSnapshotTests
             data.Group = group;
         }
 
-        if (hasPromotion)
-        {
+        if (hasPromotion) {
             data.Promotion = new("promotion", "details", Now, Now.AddSeconds(61), 1, TimeProvider.System);
         }
 
@@ -170,14 +166,8 @@ public sealed class GuestRoomInfoSnapshotTests
 
     private sealed class RecordingService : IGuestRoomInfoService
     {
-        public GuestRoomInfoSnapshot? Result
-        {
-            get; set;
-        }
-        public (uint RoomId, int UserId, bool IsLoading, bool CheckEntry) LastRequest
-        {
-            get; private set;
-        }
+        public GuestRoomInfoSnapshot? Result { get; set; }
+        public (uint RoomId, int UserId, bool IsLoading, bool CheckEntry) LastRequest { get; private set; }
 
         public GuestRoomInfoSnapshot? Capture(uint roomId, Habbo viewer, bool isLoading, bool checkEntry)
         {
@@ -189,10 +179,7 @@ public sealed class GuestRoomInfoSnapshotTests
 
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
 
         public override DateTimeOffset GetUtcNow()
         {
@@ -204,10 +191,7 @@ public sealed class GuestRoomInfoSnapshotTests
 
     private sealed class MissingRoomDataLoader : IRoomDataLoader
     {
-        public uint RequestedRoomId
-        {
-            get; private set;
-        }
+        public uint RequestedRoomId { get; private set; }
 
         public bool TryGetData(uint roomId, [NotNullWhen(true)] out RoomData? data)
         {

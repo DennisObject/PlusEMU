@@ -23,13 +23,11 @@ internal class SuperPullCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!RoomModerationPolicy.CanTarget(session.GetHabbo().Access, target.Access))
-        {
+        if (!RoomModerationPolicy.CanTarget(session.GetHabbo().Access, target.Access)) {
             return Task.CompletedTask;
         }
 
-        if (!room.SuperPullEnabled && !room.CheckRights(session, true) && !session.GetHabbo().Access.Can(PermissionKeys.RoomOverrideCustomConfig))
-        {
+        if (!room.SuperPullEnabled && !room.CheckRights(session, true) && !session.GetHabbo().Access.Can(PermissionKeys.RoomOverrideCustomConfig)) {
             session.SendWhisper("Oops, it appears that the room owner has disabled the ability to use the spull command in here.");
 
             return Task.CompletedTask;
@@ -37,22 +35,19 @@ internal class SuperPullCommand : ITargetChatCommand
 
         var targetUser = room.GetRoomUserManager().GetRoomUserByHabbo(target.Id);
 
-        if (targetUser == null)
-        {
+        if (targetUser == null) {
             session.SendWhisper("An error occoured whilst finding that user, maybe they're not online or in this room.");
 
             return Task.CompletedTask;
         }
 
-        if (target == session.GetHabbo())
-        {
+        if (target == session.GetHabbo()) {
             session.SendWhisper("You made the universe crash.");
 
             return Task.CompletedTask;
         }
 
-        if (targetUser.TeleportEnabled)
-        {
+        if (targetUser.TeleportEnabled) {
             session.SendWhisper("Oops, you cannot push a user whilst they have their teleport mode enabled.");
 
             return Task.CompletedTask;
@@ -60,37 +55,30 @@ internal class SuperPullCommand : ITargetChatCommand
 
         var thisUser = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (thisUser == null)
-        {
+        if (thisUser == null) {
             return Task.CompletedTask;
         }
 
-        if (thisUser.SetX - 1 == room.GetGameMap().Model.DoorX)
-        {
+        if (thisUser.SetX - 1 == room.GetGameMap().Model.DoorX) {
             session.SendWhisper("Please don't pull that user out of the room :(!");
 
             return Task.CompletedTask;
         }
 
-        if (thisUser.RotBody % 2 != 0)
-        {
+        if (thisUser.RotBody % 2 != 0) {
             thisUser.RotBody--;
         }
 
-        if (thisUser.RotBody == 0)
-        {
+        if (thisUser.RotBody == 0) {
             targetUser.MoveTo(thisUser.X, thisUser.Y - 1);
         }
-        else if (thisUser.RotBody == 2)
-        {
+        else if (thisUser.RotBody == 2) {
             targetUser.MoveTo(thisUser.X + 1, thisUser.Y);
         }
-        else if (thisUser.RotBody == 4)
-        {
+        else if (thisUser.RotBody == 4) {
             targetUser.MoveTo(thisUser.X, thisUser.Y + 1);
         }
-        else if (thisUser.RotBody == 6)
-        {
+        else if (thisUser.RotBody == 6) {
             targetUser.MoveTo(thisUser.X - 1, thisUser.Y);
         }
 

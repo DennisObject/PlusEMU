@@ -40,13 +40,11 @@ public class FigureDataManager : IFigureDataManager, IStartable
 
     public void Init()
     {
-        if (_palettes.Count > 0)
-        {
+        if (_palettes.Count > 0) {
             _palettes.Clear();
         }
 
-        if (_setTypes.Count > 0)
-        {
+        if (_setTypes.Count > 0) {
             _setTypes.Clear();
         }
 
@@ -55,14 +53,11 @@ public class FigureDataManager : IFigureDataManager, IStartable
         xDoc.Load($"{projectSolutionPath}//Config//figuredata.xml");
         var colors = xDoc.GetElementsByTagName("colors");
 
-        foreach (XmlNode node in colors)
-        {
-            foreach (XmlNode child in node.ChildNodes)
-            {
+        foreach (XmlNode node in colors) {
+            foreach (XmlNode child in node.ChildNodes) {
                 _palettes.Add(Convert.ToInt32(RequiredAttribute(child, "id")), new(Convert.ToInt32(RequiredAttribute(child, "id"))));
 
-                foreach (XmlNode sub in child.ChildNodes)
-                {
+                foreach (XmlNode sub in child.ChildNodes) {
                     _palettes[Convert.ToInt32(RequiredAttribute(child, "id"))].Colors.Add(Convert.ToInt32(RequiredAttribute(sub, "id")),
                         new(Convert.ToInt32(RequiredAttribute(sub, "id")), Convert.ToInt32(RequiredAttribute(sub, "index")), Convert.ToInt32(RequiredAttribute(sub, "club")),
                             Convert.ToInt32(RequiredAttribute(sub, "selectable")) == 1, Convert.ToString(sub.InnerText)));
@@ -72,23 +67,18 @@ public class FigureDataManager : IFigureDataManager, IStartable
 
         var sets = xDoc.GetElementsByTagName("sets");
 
-        foreach (XmlNode node in sets)
-        {
-            foreach (XmlNode child in node.ChildNodes)
-            {
+        foreach (XmlNode node in sets) {
+            foreach (XmlNode child in node.ChildNodes) {
                 _setTypes.Add(RequiredAttribute(child, "type"), new(SetTypeUtility.GetSetType(RequiredAttribute(child, "type")), Convert.ToInt32(RequiredAttribute(child, "paletteid"))));
 
-                foreach (XmlNode sub in child.ChildNodes)
-                {
+                foreach (XmlNode sub in child.ChildNodes) {
                     _setTypes[RequiredAttribute(child, "type")].Sets.Add(Convert.ToInt32(RequiredAttribute(sub, "id")),
                         new(Convert.ToInt32(RequiredAttribute(sub, "id")), Convert.ToString(RequiredAttribute(sub, "gender")), Convert.ToInt32(RequiredAttribute(sub, "club")),
                             Convert.ToInt32(RequiredAttribute(sub, "colorable")) == 1, Convert.ToInt32(RequiredAttribute(sub, "selectable")) == 1,
                             Convert.ToInt32(RequiredAttribute(sub, "preselectable")) == 1));
 
-                    foreach (XmlNode subb in sub.ChildNodes)
-                    {
-                        if (subb.Attributes?["type"] != null)
-                        {
+                    foreach (XmlNode subb in sub.ChildNodes) {
+                        if (subb.Attributes?["type"] != null) {
                             _setTypes[RequiredAttribute(child, "type")].Sets[Convert.ToInt32(RequiredAttribute(sub, "id"))].Parts.Add(
                                 $"{Convert.ToInt32(RequiredAttribute(subb, "id"))}-{RequiredAttribute(subb, "type")}",
                                 new(Convert.ToInt32(RequiredAttribute(subb, "id")), SetTypeUtility.GetSetType(RequiredAttribute(child, "type")),
@@ -116,30 +106,25 @@ public class FigureDataManager : IFigureDataManager, IStartable
         var purchased = owned == null ? new HashSet<int>() : _catalogManager.ClothingManager.GetClothingAllParts
             .SelectMany(part => part.PartIds).ToHashSet();
 
-        foreach (var part in figure.ToLowerInvariant().Split('.'))
-        {
+        foreach (var part in figure.ToLowerInvariant().Split('.')) {
             var pieces = part.Split('-');
 
-            if (pieces.Length < 2 || !int.TryParse(pieces[1], out var id) || !_setTypes.TryGetValue(pieces[0], out var type))
-            {
+            if (pieces.Length < 2 || !int.TryParse(pieces[1], out var id) || !_setTypes.TryGetValue(pieces[0], out var type)) {
                 continue;
             }
 
-            if (!type.Sets.TryGetValue(id, out var set))
-            {
+            if (!type.Sets.TryGetValue(id, out var set)) {
                 continue;
             }
 
             bool Allowed(Set candidate) => (candidate.Gender == gender || candidate.Gender == "U") && candidate.ClubLevel <= clubLevel &&
                 (!purchased.Contains(candidate.Id) || (owned?.Contains(candidate.Id) ?? false));
 
-            if (!Allowed(set))
-            {
+            if (!Allowed(set)) {
                 set = type.Sets.Values.FirstOrDefault(candidate => candidate.Selectable && Allowed(candidate));
             }
 
-            if (set == null)
-            {
+            if (set == null) {
                 continue;
             }
 
@@ -148,35 +133,29 @@ public class FigureDataManager : IFigureDataManager, IStartable
             int ValidateColor(int value) => _palettes.TryGetValue(type.PalletId, out var palette) &&
                 palette.Colors.TryGetValue(value, out var entry) && entry.ClubLevel <= clubLevel ? value : GetRandomColor(type.PalletId, clubLevel);
 
-            if (set.Colorable)
-            {
+            if (set.Colorable) {
                 color = ValidateColor(color);
 
-                if (pieces.Length > 3)
-                {
+                if (pieces.Length > 3) {
                     second = ValidateColor(second);
                 }
             }
-            else if (pieces[0] is not ("ca" or "wa"))
-            {
+            else if (pieces[0] is not ("ca" or "wa")) {
                 color = 0;
             }
 
             rebuilt[pieces[0]] = $"{pieces[0]}-{set.Id}-{color}" + (second != 0 ? $"-{second}" : "");
         }
 
-        foreach (var requirement in _requirements)
-        {
-            if (rebuilt.ContainsKey(requirement) || requirement == "ch" && gender == "M" || !_setTypes.TryGetValue(requirement, out var type))
-            {
+        foreach (var requirement in _requirements) {
+            if (rebuilt.ContainsKey(requirement) || requirement == "ch" && gender == "M" || !_setTypes.TryGetValue(requirement, out var type)) {
                 continue;
             }
 
             var set = type.Sets.Values.FirstOrDefault(candidate => candidate.Selectable && (candidate.Gender == gender || candidate.Gender == "U") &&
                 candidate.ClubLevel <= clubLevel && (!purchased.Contains(candidate.Id) || (owned?.Contains(candidate.Id) ?? false)));
 
-            if (set != null)
-            {
+            if (set != null) {
                 rebuilt[requirement] = $"{requirement}-{set.Id}-{GetRandomColor(type.PalletId, clubLevel)}";
             }
         }

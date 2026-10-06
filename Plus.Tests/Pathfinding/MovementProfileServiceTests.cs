@@ -18,13 +18,7 @@ public partial class PlacedFurniRoomTests
         var calls = 0;
         _client.GetHabbo().Id = 99;
         var service = new MovementProfileService(_room, grid, new(), (group, habbo) =>
-        {
-            Assert.Equal(7, group);
-            Assert.Equal(99, habbo);
-            calls++;
-
-            return allowed;
-        });
+        { Assert.Equal(7, group); Assert.Equal(99, habbo); calls++; return allowed; });
         var profile = service.Refresh(actor);
         Assert.Same(actor.Movement.Profile, profile);
         Assert.False(profile.IsMember(7));
@@ -51,12 +45,7 @@ public partial class PlacedFurniRoomTests
         var actor = Viewer();
         var calls = new List<int>();
         var service = new MovementProfileService(_room, grid, new(), (group, habbo) =>
-        {
-            Assert.Equal(7, habbo);
-            calls.Add(group);
-
-            return true;
-        });
+        { Assert.Equal(7, habbo); calls.Add(group); return true; });
         service.Refresh(actor);
         Assert.Equal(new[] { 7, 9 }, calls.Order().ToArray());
         Array.Fill(grid.GroupId, 11);
@@ -83,8 +72,7 @@ public partial class PlacedFurniRoomTests
         var calls = 0;
         var service = new MovementProfileService(_room, grid, new(), (_, _) => { calls++; return true; });
 
-        for (var i = 0; i < 1000; i++)
-        {
+        for (var i = 0; i < 1000; i++) {
             service.Refresh(actor);
         }
 
@@ -176,8 +164,6 @@ public partial class PlacedFurniRoomTests
 
         return new RoomBot(-1, RoomId, "generic", "freeroam", "Profile", "", "hd-180-1",
             1, 1, 0, 0, 0, 0, 0, 0, ref speeches, "M", 0, 7, false, 60, false, 0)
-        {
-            IsTemporary = temporary
-        };
+        { IsTemporary = temporary };
     }
 }

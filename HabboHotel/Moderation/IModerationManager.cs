@@ -3,22 +3,10 @@ namespace Plus.HabboHotel.Moderation;
 
 public interface IModerationManager
 {
-    ICollection<string> UserMessagePresets
-    {
-        get;
-    }
-    ICollection<string> RoomMessagePresets
-    {
-        get;
-    }
-    ICollection<ModerationTicket> GetTickets
-    {
-        get;
-    }
-    Dictionary<string, List<ModerationPresetActions>> UserActionPresets
-    {
-        get;
-    }
+    ICollection<string> UserMessagePresets { get; }
+    ICollection<string> RoomMessagePresets { get; }
+    ICollection<ModerationTicket> GetTickets { get; }
+    Dictionary<string, List<ModerationPresetActions>> UserActionPresets { get; }
     void Init();
     void ReCacheBans();
     /// <summary>

@@ -63,8 +63,7 @@ public sealed class RemovalAndRespectWireTests
         Assert.All(composer.GetType().GetFields(BindingFlags.Instance | BindingFlags.NonPublic),
             field => Assert.True(field.FieldType.IsPrimitive || field.FieldType == typeof(string)));
 
-        for (var index = 0; index < 2; index++)
-        {
+        for (var index = 0; index < 2; index++) {
             var output = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(output);
             Assert.Equal(expected, output.Writes);

@@ -27,8 +27,7 @@ public sealed class HabbiconPresentationServiceTests
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             options.Database = schema;
             // The real store's missing tables cause a MySqlException before any claim or charge can commit.
             var domain = new HabbiconService(new HabbiconDatabaseTests.TestDatabase(options.ConnectionString),
@@ -48,8 +47,7 @@ public sealed class HabbiconPresentationServiceTests
             Assert.Equal(100, habbo.Credits);
             Assert.Equal(3, logger.Errors);
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE `{schema}`");
         }
     }

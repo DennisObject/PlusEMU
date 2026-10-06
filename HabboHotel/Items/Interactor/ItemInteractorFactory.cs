@@ -18,8 +18,7 @@ public sealed class ItemInteractorFactory(
 {
     public IFurniInteractor Create(Item item, TimeProvider timeProvider)
     {
-        if (item.IsWired)
-        {
+        if (item.IsWired) {
             return new InteractorWired();
         }
 

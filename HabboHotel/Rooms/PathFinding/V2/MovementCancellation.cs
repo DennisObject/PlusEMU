@@ -36,15 +36,13 @@ internal sealed class MovementCancellation(MovementContext context)
     }
     private void StopHorse(RoomUser actor)
     {
-        if (actor.IsBot || !actor.RidingHorse)
-        {
+        if (actor.IsBot || !actor.RidingHorse) {
             return;
         }
 
         var horse = context.Room.GetRoomUserManager().GetRoomUserByVirtualId(actor.HorseId);
 
-        if (horse == null)
-        {
+        if (horse == null) {
             return;
         }
 

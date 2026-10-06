@@ -17,9 +17,7 @@ public class WiredPacketFreezeTests
         var connector = new Dictionary<int, string> { [1] = "one" };
         var variable = new WiredVariableDescription(new(10, 1, 5, "score", WiredVariableTarget.User,
             WiredVariableAvailability.Persistent, true), true, false)
-        {
-            TextConnector = connector
-        };
+        { TextConnector = connector };
         var definitions = new List<WiredVariableDescription> { variable };
         var removed = new List<string> { "user:9" };
         var holders = new List<WiredVariableStoredHolder> { new(new(10, WiredVariableTarget.User, 7), "Alice", new(25, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(2000))) };
@@ -42,8 +40,7 @@ public class WiredPacketFreezeTests
         definitions.Clear();
         holders.Clear();
 
-        for (var index = 0; index < composers.Length; index++)
-        {
+        for (var index = 0; index < composers.Length; index++) {
             Assert.Equal(expected[index], Write(composers[index]));
             Assert.Equal(expected[index], Write(composers[index]));
         }

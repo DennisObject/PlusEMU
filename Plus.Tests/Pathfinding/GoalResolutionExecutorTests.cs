@@ -11,16 +11,11 @@ public partial class PlacedFurniRoomTests
     [InlineData("nearest", 2)]
     public void GoalResolutionExecutorHonorsTheUnreachablePolicy(string policy, int expectedX)
     {
-        var actor = ExecutorConfiguredActor(new()
-        {
-            Engine = PathfindingEngine.V2,
-            UnreachablePolicy = policy
-        });
+        var actor = ExecutorConfiguredActor(new() { Engine = PathfindingEngine.V2, UnreachablePolicy = policy });
         _room.GetGameMap().SetFloorStatus(3, 1, 0);
         actor.MoveTo(3, 1);
 
-        for (var cycle = 0; cycle < 8; cycle++)
-        {
+        for (var cycle = 0; cycle < 8; cycle++) {
             ExecutorTick();
         }
 
@@ -40,8 +35,7 @@ public partial class PlacedFurniRoomTests
         });
         actor.MoveTo(3, 1);
 
-        for (var cycle = 0; cycle < 8; cycle++)
-        {
+        for (var cycle = 0; cycle < 8; cycle++) {
             ExecutorTick();
         }
 
@@ -66,11 +60,7 @@ public partial class PlacedFurniRoomTests
     {
         var bed = Add(10, 1, 1, height: .5, type: InteractionType.Bed, width: 2, length: 2);
         InitializeNativeState(bed);
-        var actor = ExecutorConfiguredActor(new()
-        {
-            Engine = PathfindingEngine.V2,
-            MaxExpansionsPerRoomTick = 0
-        });
+        var actor = ExecutorConfiguredActor(new() { Engine = PathfindingEngine.V2, MaxExpansionsPerRoomTick = 0 });
         actor.MoveTo(2, 2);
         ExecutorTick();
         Assert.Equal((1, 1), (actor.GoalX, actor.GoalY));

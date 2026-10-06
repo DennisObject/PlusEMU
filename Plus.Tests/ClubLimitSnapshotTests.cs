@@ -53,15 +53,9 @@ public class ClubLimitSnapshotTests
             [PermissionKeys.ClubAccess, PermissionKeys.CatalogEdit], new Dictionary<string, int>());
         var access = UserAccess.Create([new(role, clock.Expiry)], clock: clock);
         var model = new RoomModel("model_a", 0, 0, 0, 0, "0", 2, 0, false)
-        {
-            RequiredPermission = PermissionKeys.CatalogEdit
-        };
+        { RequiredPermission = PermissionKeys.CatalogEdit };
         var page = new CatalogPage
-        {
-            Enabled = true,
-            RequiredClubLevel = 2,
-            RequiredPermission = PermissionKeys.CatalogEdit
-        };
+        { Enabled = true, RequiredClubLevel = 2, RequiredPermission = PermissionKeys.CatalogEdit };
         var user = new Habbo { Access = access };
         Func<bool> eligible = roomModel ? () => model.CanCreate(access) : () => page.CanOpen(user);
         var before = clock.Reads;
@@ -76,10 +70,7 @@ public class ClubLimitSnapshotTests
     private sealed class ExpiringClock : TimeProvider
     {
         public DateTimeOffset Expiry { get; } = new(2026, 10, 5, 12, 0, 0, TimeSpan.FromHours(5));
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow() => ++Reads <= 2 ? Expiry.AddTicks(-1) : Expiry;
     }
 }

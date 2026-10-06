@@ -30,18 +30,12 @@ public sealed class ModeratorTicketStore(IDatabase database) : IModeratorTicketS
     public void RecordSubmission(int userId)
     {
         using var connection = database.Connection();
-        connection.Execute("UPDATE user_info SET cfhs=cfhs+1 WHERE user_id=@userId LIMIT 1", new
-        {
-            userId
-        });
+        connection.Execute("UPDATE user_info SET cfhs=cfhs+1 WHERE user_id=@userId LIMIT 1", new { userId });
     }
     public void RecordAbuse(int userId)
     {
         using var connection = database.Connection();
-        connection.Execute("UPDATE user_info SET cfhs_abusive=cfhs_abusive+1 WHERE user_id=@userId LIMIT 1", new
-        {
-            userId
-        });
+        connection.Execute("UPDATE user_info SET cfhs_abusive=cfhs_abusive+1 WHERE user_id=@userId LIMIT 1", new { userId });
     }
 }
 
@@ -79,14 +73,11 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
     {
         var sender = client.GetHabbo();
 
-        lock (_submissionLock)
-        {
-            if (moderation.UserHasTickets(sender.Id))
-            {
+        lock (_submissionLock) {
+            if (moderation.UserHasTickets(sender.Id)) {
                 var pending = moderation.GetTicketBySenderId(sender.Id);
 
-                if (pending != null)
-                {
+                if (pending != null) {
                     client.Send(new CallForHelpPendingCallsComposer(Capture(pending, sender.Id, clock.GetUtcNow())));
 
                     return;
@@ -95,8 +86,7 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
 
             var reported = users.GetById(request.ReportedUserId);
 
-            if (reported == null)
-            {
+            if (reported == null) {
                 return;
             }
 
@@ -104,8 +94,7 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
                 StringCharFilter.Escape(request.Message.Trim()), sender.CurrentRoom?.Data, request.Chats.ToList());
             store.RecordSubmission(sender.Id);
 
-            if (!moderation.TryAddTicket(ticket))
-            {
+            if (!moderation.TryAddTicket(ticket)) {
                 return;
             }
 
@@ -116,8 +105,7 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
 
     public void Pick(GameClient client, int ticketId)
     {
-        if (!moderation.TryGetTicket(ticketId, out var ticket))
-        {
+        if (!moderation.TryGetTicket(ticketId, out var ticket)) {
             return;
         }
 
@@ -127,10 +115,8 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
 
     public void Release(GameClient client, IReadOnlyList<int> ticketIds)
     {
-        foreach (var id in ticketIds)
-        {
-            if (!moderation.TryGetTicket(id, out var ticket))
-            {
+        foreach (var id in ticketIds) {
+            if (!moderation.TryGetTicket(id, out var ticket)) {
                 continue;
             }
 
@@ -141,13 +127,11 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
 
     public void Close(GameClient client, int ticketId, SupportTicketResult result)
     {
-        if (!moderation.TryGetTicket(ticketId, out var ticket) || ticket.Moderator?.Id != client.GetHabbo().Id)
-        {
+        if (!moderation.TryGetTicket(ticketId, out var ticket) || ticket.Moderator?.Id != client.GetHabbo().Id) {
             return;
         }
 
-        if (result == SupportTicketResult.Abusive)
-        {
+        if (result == SupportTicketResult.Abusive) {
             store.RecordAbuse(ticket.Sender.Id);
         }
 
@@ -158,15 +142,13 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
 
     public void DeletePending(GameClient client)
     {
-        if (!moderation.UserHasTickets(client.GetHabbo().Id))
-        {
+        if (!moderation.UserHasTickets(client.GetHabbo().Id)) {
             return;
         }
 
         var ticket = moderation.GetTicketBySenderId(client.GetHabbo().Id);
 
-        if (ticket == null)
-        {
+        if (ticket == null) {
             return;
         }
 
@@ -177,8 +159,7 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
     public void SendChatlogs(GameClient client, int ticketId)
     {
         if (!moderation.TryGetTicket(ticketId, out var ticket) || ticket.Room == null ||
-            !rooms.TryGetData(ticket.Room.Id, out var room))
-        {
+            !rooms.TryGetData(ticket.Room.Id, out var room)) {
             return;
         }
 

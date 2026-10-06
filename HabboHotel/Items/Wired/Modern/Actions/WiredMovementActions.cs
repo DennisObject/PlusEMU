@@ -25,8 +25,7 @@ public sealed class WiredMovementActions
         MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState,
         Func<Item, Func<string, string?>, bool>? toggleState = null)
     {
-        if (!WiredMovementConfiguration.TryValidate(name, configuration, out configuration, out _))
-        {
+        if (!WiredMovementConfiguration.TryValidate(name, configuration, out configuration, out _)) {
             return false;
         }
 
@@ -34,44 +33,33 @@ public sealed class WiredMovementActions
         int Param(int index, int fallback = 0) => index < p.Length ? p[index] : fallback;
         var affected = false;
 
-        switch (name.ToLowerInvariant())
-        {
+        switch (name.ToLowerInvariant()) {
             case "wf_act_rel_mov":
                 var dx = (Param(0, 1) == 0 ? -1 : 1) * Param(1);
                 var dy = (Param(2, 1) == 0 ? -1 : 1) * Param(3);
 
-                if (dx == 0 && dy == 0)
-                {
+                if (dx == 0 && dy == 0) {
                     return false;
                 }
 
-                foreach (var item in movers)
-                {
+                foreach (var item in movers) {
                     affected |= move(item, item.GetX + dx, item.GetY + dy, item.Rotation, null);
                 }
 
                 break;
             case "wf_act_set_altitude":
-                if (!WiredRoomOperations.TryAltitude(configuration.Text, out var altitude))
-                {
+                if (!WiredRoomOperations.TryAltitude(configuration.Text, out var altitude)) {
                     return false;
                 }
 
-                foreach (var item in movers)
-                {
-                    var z = Param(0, 2) switch
-                    {
-                        0 => item.GetZ + altitude,
-                        1 => item.GetZ - altitude,
-                        _ => altitude
-                    };
+                foreach (var item in movers) {
+                    var z = Param(0, 2) switch { 0 => item.GetZ + altitude, 1 => item.GetZ - altitude, _ => altitude };
                     affected |= move(item, item.GetX, item.GetY, item.Rotation, Math.Clamp(z, 0, 80));
                 }
 
                 break;
             case "wf_act_move_rotate":
-                foreach (var item in movers)
-                {
+                foreach (var item in movers) {
                     var direction = MovementDirection(Param(0));
                     var offset = WiredRoomOperations.Offset(direction);
                     var rotation = Param(1) switch
@@ -90,16 +78,14 @@ public sealed class WiredMovementActions
                 var groupOffset = WiredRoomOperations.Offset(Param(0));
 
                 // Octane/Polaris direction editor: leading edge first, blocked members skipped.
-                foreach (var item in movers.OrderByDescending(item => item.GetX * groupOffset.X + item.GetY * groupOffset.Y))
-                {
+                foreach (var item in movers.OrderByDescending(item => item.GetX * groupOffset.X + item.GetY * groupOffset.Y)) {
                     affected |= move(item, item.GetX + groupOffset.X, item.GetY + groupOffset.Y, item.Rotation, null);
                 }
 
                 break;
             case "wf_act_furni_to_furni":
             case "wf_act_move_furni_to":
-                if (targets.Count == 0)
-                {
+                if (targets.Count == 0) {
                     return false;
                 }
 
@@ -107,41 +93,34 @@ public sealed class WiredMovementActions
                 var spacing = name.Equals("wf_act_move_furni_to", StringComparison.OrdinalIgnoreCase)
                     ? WiredRoomOperations.Offset(Param(0)) : Point.Empty;
 
-                foreach (var item in movers)
-                {
+                foreach (var item in movers) {
                     affected |= move(item, target.GetX + spacing.X * Param(1, 1),
                         target.GetY + spacing.Y * Param(1, 1), item.Rotation, null);
                 }
 
                 break;
             case "wf_act_furni_to_user":
-                if (users.Count == 0)
-                {
+                if (users.Count == 0) {
                     return false;
                 }
 
-                foreach (var item in movers)
-                {
+                foreach (var item in movers) {
                     affected |= move(item, users[0].X, users[0].Y, item.Rotation, null);
                 }
 
                 break;
             case "wf_act_match_to_sshot":
-                foreach (var item in movers)
-                {
+                foreach (var item in movers) {
                     var snapshot = configuration.Snapshots.FirstOrDefault(entry => entry.ItemId == item.Id);
 
-                    if (snapshot == null)
-                    {
+                    if (snapshot == null) {
                         continue;
                     }
 
-                    if (Param(0) == 1 && toggleState != null)
-                    {
+                    if (Param(0) == 1 && toggleState != null) {
                         affected |= toggleState(item, current => string.Equals(current, snapshot.State, StringComparison.Ordinal) ? null : snapshot.State);
                     }
-                    else if (Param(0) == 1 && !string.Equals(item.LegacyDataString, snapshot.State, StringComparison.Ordinal))
-                    {
+                    else if (Param(0) == 1 && !string.Equals(item.LegacyDataString, snapshot.State, StringComparison.Ordinal)) {
                         setState(item, snapshot.State);
                         affected = true;
                     }
@@ -154,17 +133,14 @@ public sealed class WiredMovementActions
                 break;
             case "wf_act_toggle_state":
             case "wf_act_toggle_to_rnd":
-                foreach (var item in movers)
-                {
+                foreach (var item in movers) {
                     var states = item.Definition.Modes;
 
-                    if (states <= 1)
-                    {
+                    if (states <= 1) {
                         continue;
                     }
 
-                    if (toggleState != null)
-                    {
+                    if (toggleState != null) {
                         var random = name.Equals("wf_act_toggle_to_rnd", StringComparison.OrdinalIgnoreCase);
                         affected |= toggleState(item, current => NextToggleState(current, states, random, Param(0) == 1));
                         continue;
@@ -175,8 +151,7 @@ public sealed class WiredMovementActions
                         ? Random.Shared.Next(states)
                         : ((oldState + (Param(0) == 1 ? -1 : 1)) % states + states) % states;
 
-                    if (next == oldState)
-                    {
+                    if (next == oldState) {
                         continue;
                     }
 
@@ -187,13 +162,11 @@ public sealed class WiredMovementActions
                 break;
             case "wf_act_teleport_to":
             case "wf_act_user_to_furni":
-                if (targets.Count == 0)
-                {
+                if (targets.Count == 0) {
                     return false;
                 }
 
-                foreach (var user in users)
-                {
+                foreach (var user in users) {
                     var destination = targets[Random.Shared.Next(targets.Count)];
                     // These are distinct legacy editors: teleport's flag changes its animation
                     // delay; user-to-furni always slides and its third slot controls walk continuity.

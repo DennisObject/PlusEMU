@@ -22,11 +22,7 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
     public void UpdateUserCount(uint roomId, int count)
     {
         using var connection = database.Connection();
-        connection.Execute("UPDATE rooms SET users_now = @count WHERE id = @roomId LIMIT 1", new
-        {
-            count,
-            roomId
-        });
+        connection.Execute("UPDATE rooms SET users_now = @count WHERE id = @roomId LIMIT 1", new { count, roomId });
     }
 
     public void SavePet(RoomPetSave pet)
@@ -35,8 +31,7 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (pet.Insert)
-        {
+        if (pet.Insert) {
             connection.Execute("""
                 INSERT INTO bots (id, user_id, room_id, ai_type, name, motto, look, x, y, z, rotation, walk_mode,
                                   automatic_chat, speaking_interval, mix_sentences, chat_bubble)
@@ -84,17 +79,8 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
         connection.Execute("""
             UPDATE user_roomvisits SET exit_timestamp = @exitedAt
             WHERE room_id = @roomId AND user_id = @userId ORDER BY entry_timestamp DESC, id DESC LIMIT 1
-            """, new
-        {
-            exitedAt = exitedAt.UtcDateTime,
-            roomId,
-            userId
-        }, transaction);
-        connection.Execute("UPDATE rooms SET users_now = @usersNow WHERE id = @roomId LIMIT 1", new
-        {
-            usersNow,
-            roomId
-        }, transaction);
+            """, new { exitedAt = exitedAt.UtcDateTime, roomId, userId }, transaction);
+        connection.Execute("UPDATE rooms SET users_now = @usersNow WHERE id = @roomId LIMIT 1", new { usersNow, roomId }, transaction);
         transaction.Commit();
     }
 }

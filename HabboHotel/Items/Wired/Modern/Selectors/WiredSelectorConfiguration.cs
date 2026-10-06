@@ -9,8 +9,7 @@ public static class WiredSelectorConfiguration
 {
     public static WiredConfiguration Normalize(string name, WiredConfiguration c)
     {
-        if (!WiredSelectorModule.Names.Contains(name, StringComparer.Ordinal))
-        {
+        if (!WiredSelectorModule.Names.Contains(name, StringComparer.Ordinal)) {
             throw new ArgumentException("Not a supported selector", nameof(name));
         }
 
@@ -51,21 +50,15 @@ public static class WiredSelectorConfiguration
         fields[invert] = fields[invert] == 1 ? 1 : 0;
         var text = c.Text;
 
-        if (name == "wf_slc_furni_altitude")
-        {
-            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value))
-            {
+        if (name == "wf_slc_furni_altitude") {
+            if (!double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value) || !double.IsFinite(value)) {
                 value = 0;
             }
 
             text = Math.Max(0, value).ToString("R", CultureInfo.InvariantCulture);
         }
 
-        return c with
-        {
-            IntParams = fields.ToImmutableArray(),
-            Text = text
-        };
+        return c with { IntParams = fields.ToImmutableArray(), Text = text };
     }
 
     private static int[] Neighborhood(WiredConfiguration c)
@@ -73,15 +66,13 @@ public static class WiredSelectorConfiguration
         int P(int index) => WiredSelectorSources.Param(c, index);
         var count = P(5);
 
-        if (count < 0 || count > 64 || count > 0 && c.IntParams.Length < 6 + count * 2)
-        {
+        if (count < 0 || count > 64 || count > 0 && c.IntParams.Length < 6 + count * 2) {
             throw new ArgumentException("Neighborhood requires complete offsets, at most 64 tiles");
         }
 
         var fields = new int[6 + count * 2];
 
-        for (var i = 0; i < fields.Length; i++)
-        {
+        for (var i = 0; i < fields.Length; i++) {
             fields[i] = P(i);
         }
 

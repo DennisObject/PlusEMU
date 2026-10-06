@@ -12,8 +12,7 @@ public sealed class PetInventoryComposer(PetInventorySnapshot data) : IServerPac
         packet.WriteInteger(0);
         packet.WriteInteger(data.Pets.Length);
 
-        foreach (var pet in data.Pets)
-        {
+        foreach (var pet in data.Pets) {
             packet.WriteInteger(pet.Id);
             packet.WriteString(pet.Name);
             packet.WriteInteger(pet.Type);
@@ -21,8 +20,7 @@ public sealed class PetInventoryComposer(PetInventorySnapshot data) : IServerPac
             packet.WriteString(pet.Color);
             packet.WriteInteger(0);
 
-            foreach (var part in pet.CustomParts)
-            {
+            foreach (var part in pet.CustomParts) {
                 packet.WriteInteger(part);
             }
 

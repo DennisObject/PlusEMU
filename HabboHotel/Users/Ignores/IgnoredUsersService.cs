@@ -14,16 +14,12 @@ internal class IgnoredUsersService : IIgnoredUsersService
 
     public async Task<List<string>> GetIgnoredUsersByName(IReadOnlyCollection<int> userIds)
     {
-        if (!userIds.Any())
-        {
+        if (!userIds.Any()) {
             return new();
         }
 
         using var connection = _database.Connection();
 
-        return (await connection.QueryAsync<string>("SELECT username FROM users WHERE id in @userIds", new
-        {
-            userIds
-        })).ToList();
+        return (await connection.QueryAsync<string>("SELECT username FROM users WHERE id in @userIds", new { userIds })).ToList();
     }
 }

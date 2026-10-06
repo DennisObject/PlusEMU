@@ -4,8 +4,7 @@ internal static class WiredBoxTypeUtility
 {
     public static WiredBoxType FromWiredId(int id)
     {
-        switch (id)
-        {
+        switch (id) {
             default:
                 return WiredBoxType.None;
             case 1:
@@ -192,26 +191,20 @@ internal static class WiredBoxTypeUtility
         var blockedItems = new List<int>();
 
         if (box.Type != WiredBoxType.EffectShowMessage && box.Type != WiredBoxType.EffectMuteTriggerer && box.Type != WiredBoxType.EffectTeleportToFurni && box.Type != WiredBoxType.EffectKickUser &&
-            box.Type != WiredBoxType.ConditionTriggererOnFurni)
-        {
+            box.Type != WiredBoxType.ConditionTriggererOnFurni) {
             return blockedItems;
         }
 
-        foreach (var item in triggers)
-        {
-            if (item.Type == WiredBoxType.TriggerRepeat)
-            {
-                if (!blockedItems.Contains(item.Item.Definition.SpriteId))
-                {
+        foreach (var item in triggers) {
+            if (item.Type == WiredBoxType.TriggerRepeat) {
+                if (!blockedItems.Contains(item.Item.Definition.SpriteId)) {
                     blockedItems.Add(item.Item.Definition.SpriteId);
                 }
-                else
-                {
+                else {
                     continue;
                 }
             }
-            else
-            {
+            else {
                 continue;
             }
         }
@@ -223,36 +216,28 @@ internal static class WiredBoxTypeUtility
     {
         var blockedItems = new List<int>();
 
-        if (box.Type != WiredBoxType.TriggerRepeat)
-        {
+        if (box.Type != WiredBoxType.TriggerRepeat) {
             return blockedItems;
         }
 
         var hasMoveRotate = effects.Where(x => x.Type == WiredBoxType.EffectMoveAndRotate).ToList().Count > 0;
         var hasMoveNear = effects.Where(x => x.Type == WiredBoxType.EffectMoveFurniToNearestUser).ToList().Count > 0;
 
-        foreach (var item in effects)
-        {
+        foreach (var item in effects) {
             if (item.Type == WiredBoxType.EffectKickUser || item.Type == WiredBoxType.EffectMuteTriggerer || item.Type == WiredBoxType.EffectShowMessage ||
-                item.Type == WiredBoxType.EffectTeleportToFurni || item.Type == WiredBoxType.EffectBotFollowsUserBox)
-            {
-                if (!blockedItems.Contains(item.Item.Definition.SpriteId))
-                {
+                item.Type == WiredBoxType.EffectTeleportToFurni || item.Type == WiredBoxType.EffectBotFollowsUserBox) {
+                if (!blockedItems.Contains(item.Item.Definition.SpriteId)) {
                     blockedItems.Add(item.Item.Definition.SpriteId);
                 }
-                else
-                {
+                else {
                     continue;
                 }
             }
-            else if (item.Type == WiredBoxType.EffectMoveFurniToNearestUser && hasMoveRotate || item.Type == WiredBoxType.EffectMoveAndRotate && hasMoveNear)
-            {
-                if (!blockedItems.Contains(item.Item.Definition.SpriteId))
-                {
+            else if (item.Type == WiredBoxType.EffectMoveFurniToNearestUser && hasMoveRotate || item.Type == WiredBoxType.EffectMoveAndRotate && hasMoveNear) {
+                if (!blockedItems.Contains(item.Item.Definition.SpriteId)) {
                     blockedItems.Add(item.Item.Definition.SpriteId);
                 }
-                else
-                {
+                else {
                     continue;
                 }
             }

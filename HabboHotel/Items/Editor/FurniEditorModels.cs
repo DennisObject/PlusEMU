@@ -4,73 +4,28 @@ namespace Plus.HabboHotel.Items.Editor;
 // custom params, per-gender effects or walk clothing: those are reported as false/empty/the one effect id.
 public sealed class FurniEditorItem
 {
-    public uint Id
-    {
-        get; set;
-    }
-    public int SpriteId
-    {
-        get; set;
-    }
+    public uint Id { get; set; }
+    public int SpriteId { get; set; }
     public string ItemName { get; set; } = string.Empty;
     public string PublicName { get; set; } = string.Empty;
     public string Type { get; set; } = "s";
-    public int Width
-    {
-        get; set;
-    }
-    public int Length
-    {
-        get; set;
-    }
-    public double StackHeight
-    {
-        get; set;
-    }
-    public bool AllowStack
-    {
-        get; set;
-    }
-    public bool AllowWalk
-    {
-        get; set;
-    }
-    public bool AllowSit
-    {
-        get; set;
-    }
+    public int Width { get; set; }
+    public int Length { get; set; }
+    public double StackHeight { get; set; }
+    public bool AllowStack { get; set; }
+    public bool AllowWalk { get; set; }
+    public bool AllowSit { get; set; }
     public bool AllowLay => false;
     public string InteractionType { get; set; } = string.Empty;
-    public int InteractionModesCount
-    {
-        get; set;
-    }
-    public bool AllowGift
-    {
-        get; set;
-    }
-    public bool AllowTrade
-    {
-        get; set;
-    }
-    public bool AllowRecycle
-    {
-        get; set;
-    }
-    public bool AllowMarketplaceSell
-    {
-        get; set;
-    }
-    public bool AllowInventoryStack
-    {
-        get; set;
-    }
+    public int InteractionModesCount { get; set; }
+    public bool AllowGift { get; set; }
+    public bool AllowTrade { get; set; }
+    public bool AllowRecycle { get; set; }
+    public bool AllowMarketplaceSell { get; set; }
+    public bool AllowInventoryStack { get; set; }
     public string VendingIds { get; set; } = string.Empty;
     public string CustomParams => string.Empty;
-    public int EffectId
-    {
-        get; set;
-    }
+    public int EffectId { get; set; }
     public string ClothingOnWalk => string.Empty;
     public string Multiheight { get; set; } = string.Empty;
     public string Description => string.Empty;
@@ -78,27 +33,12 @@ public sealed class FurniEditorItem
 
 public sealed class FurniEditorCatalogRef
 {
-    public int Id
-    {
-        get; set;
-    }
+    public int Id { get; set; }
     public string CatalogName { get; set; } = string.Empty;
-    public int CostCredits
-    {
-        get; set;
-    }
-    public int CostPixels
-    {
-        get; set;
-    }
-    public int CostDiamonds
-    {
-        get; set;
-    }
-    public int PageId
-    {
-        get; set;
-    }
+    public int CostCredits { get; set; }
+    public int CostPixels { get; set; }
+    public int CostDiamonds { get; set; }
+    public int PageId { get; set; }
     public string PageName { get; set; } = string.Empty;
 }
 

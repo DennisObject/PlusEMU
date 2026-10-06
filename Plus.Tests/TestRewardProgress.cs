@@ -5,10 +5,7 @@ namespace Plus.Tests;
 
 internal sealed class TestRewardProgress(Action<GameClient, string, int>? beforeProgress = null) : IRewardTrackManager
 {
-    public static IRewardTrackManager Unused
-    {
-        get;
-    } = new TestRewardProgress((_, _, _) =>
+    public static IRewardTrackManager Unused { get; } = new TestRewardProgress((_, _, _) =>
         throw new InvalidOperationException("Unexpected reward progress."));
     public List<(GameClient Session, string Action, int Amount)> Calls { get; } = [];
     public void Progress(GameClient session, string actionType, int amount = 1)

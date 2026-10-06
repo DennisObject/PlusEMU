@@ -9,11 +9,12 @@ internal class RefreshCampaignEvent(ILandingViewPresentationService landingView)
     {
         string campaigns;
 
-        try
-        {
+        try {
             campaigns = packet.ReadString();
         }
-        catch { return Task.CompletedTask; }
+        catch {
+            return Task.CompletedTask;
+        }
 
         landingView.RefreshCampaign(session, campaigns);
 

@@ -32,15 +32,12 @@ public sealed class GroupAppearanceService(
         var name = wordFilter.CheckMessage(request.Name);
         var description = wordFilter.CheckMessage(request.Description);
 
-        if (!TryGetOwnedGroup(session, request.GroupId, out var group))
-        {
+        if (!TryGetOwnedGroup(session, request.GroupId, out var group)) {
             return Task.CompletedTask;
         }
 
-        lock (group)
-        {
-            if (!store.UpdateIdentity(group.Id, name, description))
-            {
+        lock (group) {
+            if (!store.UpdateIdentity(group.Id, name, description)) {
                 return Task.CompletedTask;
             }
 
@@ -54,15 +51,12 @@ public sealed class GroupAppearanceService(
 
     public Task UpdateBadge(GameClient session, int groupId, ImmutableArray<GroupBadgePartRequest> parts)
     {
-        if (!TryGetOwnedGroup(session, groupId, out var group) || !TryBuildBadge(parts, out var badge))
-        {
+        if (!TryGetOwnedGroup(session, groupId, out var group) || !TryBuildBadge(parts, out var badge)) {
             return Task.CompletedTask;
         }
 
-        lock (group)
-        {
-            if (!store.UpdateBadge(group.Id, badge))
-            {
+        lock (group) {
+            if (!store.UpdateBadge(group.Id, badge)) {
                 return Task.CompletedTask;
             }
 
@@ -75,15 +69,12 @@ public sealed class GroupAppearanceService(
 
     public Task UpdateColours(GameClient session, GroupColoursRequest request)
     {
-        if (!TryGetOwnedGroup(session, request.GroupId, out var group))
-        {
+        if (!TryGetOwnedGroup(session, request.GroupId, out var group)) {
             return Task.CompletedTask;
         }
 
-        lock (group)
-        {
-            if (!store.UpdateColours(group.Id, request.MainColour, request.SecondaryColour))
-            {
+        lock (group) {
+            if (!store.UpdateColours(group.Id, request.MainColour, request.SecondaryColour)) {
                 return Task.CompletedTask;
             }
 
@@ -98,8 +89,7 @@ public sealed class GroupAppearanceService(
 
     private bool TryGetOwnedGroup(GameClient session, int groupId, out Group group)
     {
-        if (!groups.TryGetGroup(groupId, out var found) || found.CreatorId != session.GetHabbo().Id)
-        {
+        if (!groups.TryGetGroup(groupId, out var found) || found.CreatorId != session.GetHabbo().Id) {
             group = null!;
 
             return false;
@@ -117,13 +107,11 @@ public sealed class GroupAppearanceService(
     {
         badge = string.Empty;
 
-        if (parts.IsDefaultOrEmpty || parts.Length > 5)
-        {
+        if (parts.IsDefaultOrEmpty || parts.Length > 5) {
             return false;
         }
 
-        for (var i = 0; i < parts.Length; i++)
-        {
+        for (var i = 0; i < parts.Length; i++) {
             var part = parts[i];
             badge += BadgePartUtility.WorkBadgeParts(i == 0,
                 part.Symbol.ToString(CultureInfo.InvariantCulture),
@@ -131,8 +119,7 @@ public sealed class GroupAppearanceService(
                 part.Position.ToString(CultureInfo.InvariantCulture));
         }
 
-        if (string.IsNullOrWhiteSpace(badge))
-        {
+        if (string.IsNullOrWhiteSpace(badge)) {
             badge = "b05114s06114";
         }
 
@@ -143,8 +130,7 @@ public sealed class GroupAppearanceService(
     {
         var room = session.GetHabbo().CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
@@ -154,8 +140,7 @@ public sealed class GroupAppearanceService(
             .Select(RoomItemSnapshot.Capture)
             .ToImmutableArray();
 
-        foreach (var snapshot in snapshots)
-        {
+        foreach (var snapshot in snapshots) {
             room.SendPacket(new ObjectUpdateComposer(snapshot));
         }
     }

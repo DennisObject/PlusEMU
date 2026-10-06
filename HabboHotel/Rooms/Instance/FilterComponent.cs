@@ -15,8 +15,7 @@ public class FilterComponent
 
     public bool AddFilter(string word)
     {
-        if (_instance.WordFilterList.Contains(word))
-        {
+        if (_instance.WordFilterList.Contains(word)) {
             return false;
         }
 
@@ -28,8 +27,7 @@ public class FilterComponent
 
     public bool RemoveFilter(string word)
     {
-        if (!_instance.WordFilterList.Contains(word))
-        {
+        if (!_instance.WordFilterList.Contains(word)) {
             return false;
         }
 
@@ -41,14 +39,11 @@ public class FilterComponent
 
     public string CheckMessage(string message)
     {
-        foreach (var filter in _instance.WordFilterList)
-        {
-            if (message.ToLower().Contains(filter) || message == filter)
-            {
+        foreach (var filter in _instance.WordFilterList) {
+            if (message.ToLower().Contains(filter) || message == filter) {
                 message = Regex.Replace(message, filter, "Bobba", RegexOptions.IgnoreCase);
             }
-            else
-            {
+            else {
                 continue;
             }
         }

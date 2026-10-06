@@ -11,18 +11,9 @@ namespace Plus.Communication.Nitro;
 
 public class NitroServerConfiguration : IGameServerOptions
 {
-    public string Name
-    {
-        get; set;
-    }
-    public int Port
-    {
-        get; set;
-    }
-    public string Hostname
-    {
-        get; set;
-    }
+    public string Name { get; set; }
+    public int Port { get; set; }
+    public string Hostname { get; set; }
 }
 
 public interface INitroServer : IGameServer
@@ -33,7 +24,9 @@ public class NitroServer : WebsocketGameServer<NitroServerConfiguration>, INitro
 {
     public NitroServer(IOptions<NitroServerConfiguration> options, NitroClientFactory clientFactory, IPacketManager packetManager,
         IEnumerable<IIncomingPacketInjector> incomingInjectors, IEnumerable<IOutgoingPacketInjector> outgoingInjectors, ILogger<NitroServer> logger)
-        : base(options, clientFactory, packetManager, incomingInjectors, outgoingInjectors, logger) { }
+        : base(options, clientFactory, packetManager, incomingInjectors, outgoingInjectors, logger)
+    {
+    }
 }
 
 
@@ -53,9 +46,7 @@ public class NitroClientFactory : IGameClientFactory<WsSessionProxy, WsServer>
     public WsSessionProxy Create(WsServer server)
     {
         var flashClient = new FlashGameClient((NitroServer)server, _packetFactory, _logger)
-        {
-            Revision = _revisionsCache.InternalRevision
-        };
+        { Revision = _revisionsCache.InternalRevision };
         var wsSession = new WsSessionProxy((NitroServer)server, flashClient);
 
         return wsSession;

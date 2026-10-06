@@ -23,8 +23,7 @@ internal static class FoundationRuntimeDatabase
         var schema = "foundation_runtime_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
@@ -33,7 +32,9 @@ internal static class FoundationRuntimeDatabase
             AssertShippedShapes(connection);
             await test(new HabbiconDatabaseTests.TestDatabase(options.ConnectionString), connection);
         }
-        finally { admin.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static async Task ImportPristine(MySqlConnectionStringBuilder options)
@@ -48,8 +49,7 @@ internal static class FoundationRuntimeDatabase
         };
 
         foreach (var argument in new[] { "--protocol=SOCKET", "--socket=" + options.Server, "--user=" + options.UserID,
-                     "--database=" + options.Database, "--default-character-set=utf8mb4" })
-        {
+                     "--database=" + options.Database, "--default-character-set=utf8mb4" }) {
             start.ArgumentList.Add(argument);
         }
 
@@ -58,10 +58,8 @@ internal static class FoundationRuntimeDatabase
         var stdout = import.StandardOutput.ReadToEndAsync();
         var stderr = import.StandardError.ReadToEndAsync();
 
-        try
-        {
-            await using (var pristine = File.OpenRead(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")))
-            {
+        try {
+            await using (var pristine = File.OpenRead(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"))) {
                 await pristine.CopyToAsync(import.StandardInput.BaseStream);
             }
 
@@ -71,10 +69,8 @@ internal static class FoundationRuntimeDatabase
             await stdout;
             Assert.True(import.ExitCode == 0, errors);
         }
-        finally
-        {
-            if (!import.HasExited)
-            {
+        finally {
+            if (!import.HasExited) {
                 import.Kill(entireProcessTree: true);
                 await import.WaitForExitAsync();
             }
@@ -101,9 +97,5 @@ internal static class FoundationRuntimeDatabase
 
     private static string? Column(MySqlConnection connection, string table, string column) => connection.QuerySingleOrDefault<string>(
         "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@table AND COLUMN_NAME=@column",
-        new
-        {
-            table,
-            column
-        });
+        new { table, column });
 }

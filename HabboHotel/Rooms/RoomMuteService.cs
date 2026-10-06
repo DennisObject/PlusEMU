@@ -14,15 +14,13 @@ public sealed class RoomMuteService(IAchievementManager achievements, TimeProvid
     {
         var habbo = session.GetHabbo();
 
-        if (!habbo.InRoom || habbo.CurrentRoom is not { } room)
-        {
+        if (!habbo.InRoom || habbo.CurrentRoom is not { } room) {
             return;
         }
 
         if (room.WhoCanMute == 0 && !room.CheckRights(session, true) && room.Group == null
             || room.WhoCanMute == 1 && !room.CheckRights(session) && room.Group == null
-            || room.Group != null && !room.CheckRights(session, false, true))
-        {
+            || room.Group != null && !room.CheckRights(session, false, true)) {
             return;
         }
 
@@ -31,20 +29,17 @@ public sealed class RoomMuteService(IAchievementManager achievements, TimeProvid
         var targetHabbo = targetClient?.GetHabbo();
 
         if (target == null || targetClient == null || targetHabbo == null
-            || !RoomModerationPolicy.CanTarget(habbo.Access, targetHabbo.Access))
-        {
+            || !RoomModerationPolicy.CanTarget(habbo.Access, targetHabbo.Access)) {
             return;
         }
 
         var now = clock.GetUtcNow();
 
-        if (!RoomMuteDeadline.TryCreate(now, durationMinutes, out var mutedUntil))
-        {
+        if (!RoomMuteDeadline.TryCreate(now, durationMinutes, out var mutedUntil)) {
             return;
         }
 
-        if (room.MutedUsers.TryGetValue(userId, out var currentUntil) && now < currentUntil)
-        {
+        if (room.MutedUsers.TryGetValue(userId, out var currentUntil) && now < currentUntil) {
             return;
         }
 
@@ -61,8 +56,7 @@ internal static class RoomMuteDeadline
         mutedUntil = default;
 
         if (durationMinutes <= 0 || durationMinutes > int.MaxValue / 60
-            || durationMinutes > (DateTimeOffset.MaxValue - now).TotalMinutes)
-        {
+            || durationMinutes > (DateTimeOffset.MaxValue - now).TotalMinutes) {
             return false;
         }
 

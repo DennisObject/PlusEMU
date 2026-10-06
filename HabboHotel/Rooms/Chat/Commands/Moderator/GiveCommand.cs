@@ -18,13 +18,11 @@ internal class GiveCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access))
-        {
+        if (target.Id != session.GetHabbo().Id && !session.GetHabbo().Access.Outranks(target.Access)) {
             return Task.CompletedTask;
         }
 
-        if (!parameters.Any())
-        {
+        if (!parameters.Any()) {
             session.SendWhisper("Please enter a currency type! (coins, duckets, diamonds, gotw)");
 
             return Task.CompletedTask;
@@ -32,23 +30,17 @@ internal class GiveCommand : ITargetChatCommand
 
         var updateVal = parameters[1];
 
-        switch (updateVal.ToLower())
-        {
+        switch (updateVal.ToLower()) {
             case "coins":
-            case "credits":
-                {
-                    if (!session.GetHabbo().Access.Can(PermissionKeys.CommandGiveCoins))
-                    {
+            case "credits": {
+                    if (!session.GetHabbo().Access.Can(PermissionKeys.CommandGiveCoins)) {
                         session.SendWhisper("Oops, it appears that you do not have the permissions to use this command!");
                         break;
                     }
 
-                    if (int.TryParse(parameters[2], out var amount))
-                    {
-                        lock (target.WalletSync)
-                        {
-                            if (target.WalletClosed)
-                            {
+                    if (int.TryParse(parameters[2], out var amount)) {
+                        lock (target.WalletSync) {
+                            if (target.WalletClosed) {
                                 break;
                             }
 
@@ -56,8 +48,7 @@ internal class GiveCommand : ITargetChatCommand
                             target.Client.Send(new CreditBalanceComposer(target.Credits));
                         }
 
-                        if (target.Id != session.GetHabbo().Id)
-                        {
+                        if (target.Id != session.GetHabbo().Id) {
                             target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Credit(s)!");
                         }
 
@@ -69,20 +60,15 @@ internal class GiveCommand : ITargetChatCommand
                     break;
                 }
             case "pixels":
-            case "duckets":
-                {
-                    if (!session.GetHabbo().Access.Can(PermissionKeys.CommandGivePixels))
-                    {
+            case "duckets": {
+                    if (!session.GetHabbo().Access.Can(PermissionKeys.CommandGivePixels)) {
                         session.SendWhisper("Oops, it appears that you do not have the permissions to use this command!");
                         break;
                     }
 
-                    if (int.TryParse(parameters[2], out var amount))
-                    {
-                        lock (target.WalletSync)
-                        {
-                            if (target.WalletClosed)
-                            {
+                    if (int.TryParse(parameters[2], out var amount)) {
+                        lock (target.WalletSync) {
+                            if (target.WalletClosed) {
                                 break;
                             }
 
@@ -90,8 +76,7 @@ internal class GiveCommand : ITargetChatCommand
                             target.Client.Send(new HabboActivityPointNotificationComposer(target.Duckets, amount));
                         }
 
-                        if (target.Id != session.GetHabbo().Id)
-                        {
+                        if (target.Id != session.GetHabbo().Id) {
                             target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Ducket(s)!");
                         }
 
@@ -102,20 +87,15 @@ internal class GiveCommand : ITargetChatCommand
                     session.SendWhisper("Oops, that appears to be an invalid amount!");
                     break;
                 }
-            case "diamonds":
-                {
-                    if (!session.GetHabbo().Access.Can(PermissionKeys.CommandGiveDiamonds))
-                    {
+            case "diamonds": {
+                    if (!session.GetHabbo().Access.Can(PermissionKeys.CommandGiveDiamonds)) {
                         session.SendWhisper("Oops, it appears that you do not have the permissions to use this command!");
                         break;
                     }
 
-                    if (int.TryParse(parameters[2], out var amount))
-                    {
-                        lock (target.WalletSync)
-                        {
-                            if (target.WalletClosed)
-                            {
+                    if (int.TryParse(parameters[2], out var amount)) {
+                        lock (target.WalletSync) {
+                            if (target.WalletClosed) {
                                 break;
                             }
 
@@ -123,8 +103,7 @@ internal class GiveCommand : ITargetChatCommand
                             target.Client.Send(new HabboActivityPointNotificationComposer(target.Diamonds, amount, 5));
                         }
 
-                        if (target.Id != session.GetHabbo().Id)
-                        {
+                        if (target.Id != session.GetHabbo().Id) {
                             target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Diamond(s)!");
                         }
 
@@ -136,21 +115,17 @@ internal class GiveCommand : ITargetChatCommand
                     break;
                 }
             case "gotw":
-            case "gotwpoints":
-                {
-                    if (!session.GetHabbo().Access.Can(PermissionKeys.CommandGiveGotw))
-                    {
+            case "gotwpoints": {
+                    if (!session.GetHabbo().Access.Can(PermissionKeys.CommandGiveGotw)) {
                         session.SendWhisper("Oops, it appears that you do not have the permissions to use this command!");
                         break;
                     }
 
-                    if (int.TryParse(parameters[2], out var amount))
-                    {
+                    if (int.TryParse(parameters[2], out var amount)) {
                         target.GotwPoints = target.GotwPoints + amount;
                         target.Client.Send(new HabboActivityPointNotificationComposer(target.GotwPoints, amount, 103));
 
-                        if (target.Id != session.GetHabbo().Id)
-                        {
+                        if (target.Id != session.GetHabbo().Id) {
                             target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} GOTW Point(s)!");
                         }
 

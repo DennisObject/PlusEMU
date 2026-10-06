@@ -24,8 +24,7 @@ public class ClientHelloEvent : IPacketEvent
         var clientPlatform = packet.ReadInt();
         var clientDeviceType = packet.ReadInt();
 
-        if (!_revisionsCache.Revisions.TryGetValue(build, out var revision))
-        {
+        if (!_revisionsCache.Revisions.TryGetValue(build, out var revision)) {
             _logger.LogWarning("Unknown revision connected {revision}.", build);
             session.Disconnect();
 

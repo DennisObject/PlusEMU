@@ -69,8 +69,7 @@ public sealed class RememberGraceDatabaseTests : IDisposable
         await Resume(first);
         var generation = await _generations.Current(userId);
 
-        for (var i = 0; i < RememberTokenStore.MaxGraceRetries; i++)
-        {
+        for (var i = 0; i < RememberTokenStore.MaxGraceRetries; i++) {
             Assert.Equal(ResumeStatus.Resumed, (await Resume(first)).Status);
         }
 
@@ -121,19 +120,13 @@ public sealed class RememberGraceDatabaseTests : IDisposable
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
 
-        return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new
-        {
-            id
-        });
+        return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new { id });
     }
 
     public void Dispose()
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids; DELETE FROM user_sessions WHERE user_id IN @ids", new
-        {
-            ids = _users.ToArray()
-        });
+        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids; DELETE FROM user_sessions WHERE user_id IN @ids", new { ids = _users.ToArray() });
         AuthTestDatabase.DeleteUsers(_users);
     }
 }

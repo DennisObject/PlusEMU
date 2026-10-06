@@ -20,8 +20,7 @@ public class WardrobeComposer : IServerPacket
         packet.WriteInteger(1);
         packet.WriteInteger(_slots.Length);
 
-        foreach (var slot in _slots)
-        {
+        foreach (var slot in _slots) {
             packet.WriteInteger(slot.SlotId);
             packet.WriteString(slot.Look);
             packet.WriteString(slot.Gender);

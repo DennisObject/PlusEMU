@@ -13,26 +13,20 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
         using var connection = database.Connection();
         var row = connection.QuerySingleOrDefault<StoredConfiguration>(
             "SELECT box_name AS BoxName, schema_version AS Version, configuration AS Json "
-            + "FROM wired_item_configurations WHERE item_id=@Id", new
-            {
-                Id = itemId
-            });
+            + "FROM wired_item_configurations WHERE item_id=@Id", new { Id = itemId });
 
-        if (row == null)
-        {
+        if (row == null) {
             return null;
         }
 
         if (!string.Equals(row.BoxName, descriptor.CanonicalName, StringComparison.Ordinal)
-            || row.Version != WiredConfiguration.CurrentVersion)
-        {
+            || row.Version != WiredConfiguration.CurrentVersion) {
             throw new InvalidDataException($"Unsupported Wired configuration for item {itemId}.");
         }
 
         var configuration = JsonSerializer.Deserialize<WiredConfiguration>(row.Json);
 
-        if (configuration == null || !WiredLegacyProtocol.IsWithinLimits(configuration))
-        {
+        if (configuration == null || !WiredLegacyProtocol.IsWithinLimits(configuration)) {
             throw new InvalidDataException($"Invalid Wired configuration for item {itemId}.");
         }
 
@@ -41,8 +35,7 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
 
     public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration)
     {
-        if (itemId == 0 || !WiredLegacyProtocol.IsWithinLimits(configuration))
-        {
+        if (itemId == 0 || !WiredLegacyProtocol.IsWithinLimits(configuration)) {
             throw new ArgumentException("Invalid Wired configuration.", nameof(configuration));
         }
 
@@ -60,15 +53,11 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
 
     public void Reset(IReadOnlyCollection<uint> itemIds)
     {
-        if (itemIds.Count == 0)
-        {
+        if (itemIds.Count == 0) {
             return;
         }
 
-        var ids = new
-        {
-            Ids = itemIds.Distinct().Order().ToArray()
-        };
+        var ids = new { Ids = itemIds.Distinct().Order().ToArray() };
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
@@ -87,10 +76,7 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
     private sealed class StoredConfiguration
     {
         public string BoxName { get; set; } = string.Empty;
-        public int Version
-        {
-            get; set;
-        }
+        public int Version { get; set; }
         public string Json { get; set; } = string.Empty;
     }
 }

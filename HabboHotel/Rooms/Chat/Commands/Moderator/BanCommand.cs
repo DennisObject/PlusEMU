@@ -29,8 +29,7 @@ internal class BanCommand : ITargetChatCommand
     {
         using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
 
-        if (!session.GetHabbo().Access.Outranks(target.Access))
-        {
+        if (!session.GetHabbo().Access.Outranks(target.Access)) {
             session.SendWhisper("Oops, you cannot ban that user.");
 
             return;
@@ -40,30 +39,24 @@ internal class BanCommand : ITargetChatCommand
         var hours = parameters[0];
         DateTimeOffset expiresAt;
 
-        if (string.IsNullOrEmpty(hours) || hours == "perm")
-        {
-            if (!ModerationBanDuration.TryGetExpiry(now, TimeSpan.FromSeconds(78892200), out expiresAt))
-            {
+        if (string.IsNullOrEmpty(hours) || hours == "perm") {
+            if (!ModerationBanDuration.TryGetExpiry(now, TimeSpan.FromSeconds(78892200), out expiresAt)) {
                 return;
             }
         }
-        else
-        {
+        else {
             if (!double.TryParse(hours, NumberStyles.Float, CultureInfo.CurrentCulture, out var duration) ||
-                !ModerationBanDuration.TryGetExpiry(now, duration, out expiresAt))
-            {
+                !ModerationBanDuration.TryGetExpiry(now, duration, out expiresAt)) {
                 return;
             }
         }
 
         string reason;
 
-        if (parameters.Length >= 2)
-        {
+        if (parameters.Length >= 2) {
             reason = CommandManager.MergeParams(parameters, 1);
         }
-        else
-        {
+        else {
             reason = "No reason specified.";
         }
 

@@ -40,17 +40,14 @@ public class FlashGameClient : GameClient
 
     internal override void OnReceived(byte[] buffer, long offset, long size)
     {
-        if (size == 0)
-        {
+        if (size == 0) {
             return;
         }
 
-        if (!_hasReceivedData)
-        {
+        if (!_hasReceivedData) {
             _hasReceivedData = true;
 
-            if (Rc4Client == null && buffer[offset] == (byte)'<')
-            {
+            if (Rc4Client == null && buffer[offset] == (byte)'<') {
                 SendPolicy();
                 Disconnect();
 
@@ -76,20 +73,17 @@ public class FlashGameClient : GameClient
 
     internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer)
     {
-        if (buffer.Length < 4)
-        {
+        if (buffer.Length < 4) {
             return default;
         }
 
         var declaredLength = DecodeInt32(buffer);
 
-        if (declaredLength < 2 || declaredLength > 500000)
-        {
+        if (declaredLength < 2 || declaredLength > 500000) {
             return (false, true, 0, 0, 0);
         }
 
-        if (buffer.Length < 4 + declaredLength)
-        {
+        if (buffer.Length < 4 + declaredLength) {
             return default;
         }
 

@@ -18,39 +18,29 @@ public static class WiredTemporaryFurnitureActions
         validated = proposed;
         error = "Invalid temporary furniture configuration.";
 
-        if (!WiredLegacyProtocol.IsWithinLimits(proposed))
-        {
+        if (!WiredLegacyProtocol.IsWithinLimits(proposed)) {
             return false;
         }
 
         var p = proposed.IntParams;
 
-        if (name == "wf_act_remove_furni")
-        {
-            if (p.Length != 2 || p[0] is < 0 or > 1 || !FurniSource(p[1]))
-            {
+        if (name == "wf_act_remove_furni") {
+            if (p.Length != 2 || p[0] is < 0 or > 1 || !FurniSource(p[1])) {
                 return false;
             }
 
-            validated = proposed with
-            {
-                FurniSources = proposed.FurniSources.SetItem("items", p[1])
-            };
+            validated = proposed with { FurniSources = proposed.FurniSources.SetItem("items", p[1]) };
         }
-        else
-        {
+        else {
             // The six active-editor fields retain their definition/quantity/absolute-location meanings.
             if (p.Length != 6 || p[0] < 0 || p[1] is < 1 or > 10 || p[2] is < 0 or > 1
-                || p[3] < 0 || p[4] < 0 || p[5] is < 0 or > 7)
-            {
+                || p[3] < 0 || p[4] < 0 || p[5] is < 0 or > 7) {
                 return false;
             }
 
-            if (proposed.TemporaryPlacement is { } placement)
-            {
+            if (proposed.TemporaryPlacement is { } placement) {
                 if (!placement.IsWithinLimits() || !FurniSource(proposed.FurniSources.GetValueOrDefault("target", 100))
-                    || proposed.UserSources.GetValueOrDefault("target", 0) is not (0 or 10 or 11 or 200 or 201))
-                {
+                    || proposed.UserSources.GetValueOrDefault("target", 0) is not (0 or 10 or 11 or 200 or 201)) {
                     return false;
                 }
             }
@@ -66,23 +56,19 @@ public static class WiredTemporaryFurnitureActions
     {
         var handler = context.Room.GetRoomItemHandler();
 
-        if (name == "wf_act_remove_furni")
-        {
+        if (name == "wf_act_remove_furni") {
             var changed = false;
 
             // Both editor modes remove temporary identities. They never return or destroy a permanent owned item.
-            foreach (var item in context.Targets.ResolveFurni(context, config.SelectedItems, config.FurniSources["items"]))
-            {
+            foreach (var item in context.Targets.ResolveFurni(context, config.SelectedItems, config.FurniSources["items"])) {
                 changed |= handler.RemoveTemporaryFloorItem(item);
             }
 
             return changed;
         }
 
-        if (config.TemporaryPlacement is not { } policy)
-        {
-            if (!definitions.Items.TryGetValue((uint)config.IntParams[0], out var definition))
-            {
+        if (config.TemporaryPlacement is not { } policy) {
+            if (!definitions.Items.TryGetValue((uint)config.IntParams[0], out var definition)) {
                 return false;
             }
 
@@ -90,40 +76,33 @@ public static class WiredTemporaryFurnitureActions
             var y = config.IntParams[2] == 0 ? box.GetY : config.IntParams[4];
             var placed = false;
 
-            for (var i = 0; i < config.IntParams[1]; i++)
-            {
+            for (var i = 0; i < config.IntParams[1]; i++) {
                 placed |= handler.PlaceTemporaryFloorItem(definition, box.OwnerId, x, y, config.IntParams[5]) != null;
             }
 
             return placed;
         }
 
-        if (config.Snapshots.IsEmpty)
-        {
+        if (config.Snapshots.IsEmpty) {
             return false;
         }
 
         var (targetX, targetY, targetZ) = (0, 0, 0d);
 
-        if (policy.Location == WiredPlaceLocationType.CustomLocation || policy.Altitude == WiredPlaceAltitudeType.CustomAltitude)
-        {
-            if (policy.TargetIsUser)
-            {
+        if (policy.Location == WiredPlaceLocationType.CustomLocation || policy.Altitude == WiredPlaceAltitudeType.CustomAltitude) {
+            if (policy.TargetIsUser) {
                 var user = context.Targets.ResolveUsers(context, [], config.UserSources.GetValueOrDefault("target", 0)).FirstOrDefault();
 
-                if (user == null)
-                {
+                if (user == null) {
                     return false;
                 }
 
                 (targetX, targetY, targetZ) = (user.X, user.Y, user.Z);
             }
-            else
-            {
+            else {
                 var target = context.Targets.ResolveFurni(context, config.SecondarySelectedItems, config.FurniSources.GetValueOrDefault("target", 100)).FirstOrDefault();
 
-                if (target == null)
-                {
+                if (target == null) {
                     return false;
                 }
 
@@ -134,16 +113,14 @@ public static class WiredTemporaryFurnitureActions
         var dx = policy.OffsetX;
         var dy = policy.OffsetY;
 
-        if (policy.Location == WiredPlaceLocationType.CustomLocation)
-        {
+        if (policy.Location == WiredPlaceLocationType.CustomLocation) {
             dx += targetX - config.Snapshots[0].X;
             dy += targetY - config.Snapshots[0].Y;
         }
 
         var spawnValue = policy.Value;
 
-        if (policy.SpawnWithVariable && policy.ValueIsVariable && context.VariableFrame is { } valueFrame)
-        {
+        if (policy.SpawnWithVariable && policy.ValueIsVariable && context.VariableFrame is { } valueFrame) {
             using var queries = new WiredVariableQueries(context.Room.GetWired().Variables.Module, valueFrame);
             spawnValue = config.VariableIds.Length > 1 ? (int)Math.Clamp(queries.ReadOperand((WiredVariableTarget)policy.ValueTarget,
                 config.VariableIds[1], config.UserSources.GetValueOrDefault("value", 0), config.FurniSources.GetValueOrDefault("value", 0), config) ?? 0, int.MinValue, int.MaxValue) : 0;
@@ -151,18 +128,15 @@ public static class WiredTemporaryFurnitureActions
 
         var placedAny = false;
 
-        foreach (var snapshot in config.Snapshots)
-        {
-            if (!definitions.Items.TryGetValue(snapshot.DefinitionId, out var definition))
-            {
+        foreach (var snapshot in config.Snapshots) {
+            if (!definitions.Items.TryGetValue(snapshot.DefinitionId, out var definition)) {
                 continue;
             }
 
             var x = snapshot.X + dx;
             var y = snapshot.Y + dy;
 
-            if (!context.Room.GetGameMap().ValidTile(x, y))
-            {
+            if (!context.Room.GetGameMap().ValidTile(x, y)) {
                 continue;
             }
 
@@ -175,16 +149,14 @@ public static class WiredTemporaryFurnitureActions
             var item = handler.PlaceTemporaryFloorItem(definition, box.OwnerId, x, y, snapshot.Rotation,
                 Math.Clamp(height + policy.OffsetAltitudeHundredths / 100d, 0, 80), snapshot.State);
 
-            if (item == null)
-            {
+            if (item == null) {
                 continue;
             }
 
             placedAny = true;
 
             // A newly attached item is explicitly added to the child variable frame, never the firing's captured target sets.
-            if (policy.SpawnWithVariable && config.VariableIds.Length != 0 && context.VariableFrame is { } parent)
-            {
+            if (policy.SpawnWithVariable && config.VariableIds.Length != 0 && context.VariableFrame is { } parent) {
                 var holder = WiredVariableRuntimeFrames.FurniHolder(item);
                 var frame = new WiredVariableFrame(parent.RoomId, parent.Holders.Append(holder).ToArray())
                 {

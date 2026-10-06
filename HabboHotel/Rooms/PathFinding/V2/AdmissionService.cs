@@ -6,8 +6,7 @@ internal sealed class AdmissionService(Room room, MovementContext context, Force
     {
         var state = actor.Movement;
 
-        if (state.State == NavState.Active)
-        {
+        if (state.State == NavState.Active) {
             return;
         }
 

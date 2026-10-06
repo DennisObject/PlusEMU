@@ -243,12 +243,10 @@ public partial class PlacedFurniRoomTests
         var target = ModerationTarget();
         var service = ModerationService(target, _ => throw new InvalidOperationException());
 
-        foreach (var muted in new[] { true, false })
-        {
+        foreach (var muted in new[] { true, false }) {
             _client.BeforeCapture = id =>
             {
-                if (id == ServerPacketHeader.RoomMuteSettingsComposer)
-                {
+                if (id == ServerPacketHeader.RoomMuteSettingsComposer) {
                     Assert.Equal(ServerPacketHeader.WhisperComposer, target.Sent[0]);
                 }
             };
@@ -327,8 +325,7 @@ public partial class PlacedFurniRoomTests
             BeforeSave?.Invoke();
             Saves.Add((roomId, userId, expiresAt));
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced ban failure");
             }
         }
@@ -336,8 +333,7 @@ public partial class PlacedFurniRoomTests
         {
             BeforeDelete?.Invoke();
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced ban failure");
             }
 

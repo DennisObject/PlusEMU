@@ -37,20 +37,14 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
 
     public HousekeepingOutcome SetState(Habbo actor, int roomId, bool open)
     {
-        if (Load(actor, roomId, out var room) is { } denied)
-        {
+        if (Load(actor, roomId, out var room) is { } denied) {
             return denied;
         }
 
         room.Access = open ? RoomAccess.Open : RoomAccess.Doorbell;
 
-        using (var connection = _database.Connection())
-        {
-            connection.Execute("UPDATE `rooms` SET `state` = @state WHERE `id` = @roomId LIMIT 1", new
-            {
-                state = open ? "open" : "locked",
-                roomId
-            });
+        using (var connection = _database.Connection()) {
+            connection.Execute("UPDATE `rooms` SET `state` = @state WHERE `id` = @roomId LIMIT 1", new { state = open ? "open" : "locked", roomId });
         }
 
         room.SendPacket(new RoomSettingsSavedComposer(room.RoomId));
@@ -62,13 +56,11 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
     /// <summary>Plus room mutes are an in-memory toggle without expiry: minutes above zero mute, zero unmutes.</summary>
     public HousekeepingOutcome Mute(Habbo actor, int roomId, int minutes)
     {
-        if (!HousekeepingLimits.InRange(minutes, 0, HousekeepingLimits.MaxRoomMuteMinutes))
-        {
+        if (!HousekeepingLimits.InRange(minutes, 0, HousekeepingLimits.MaxRoomMuteMinutes)) {
             return Invalid(roomId);
         }
 
-        if (Loaded(actor, roomId, out var room) is { } denied)
-        {
+        if (Loaded(actor, roomId, out var room) is { } denied) {
             return denied;
         }
 
@@ -80,19 +72,16 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
 
     public HousekeepingOutcome KickAll(Habbo actor, int roomId)
     {
-        if (Loaded(actor, roomId, out var room) is { } denied)
-        {
+        if (Loaded(actor, roomId, out var room) is { } denied) {
             return denied;
         }
 
         var kicked = 0;
 
-        foreach (var roomUser in room.GetRoomUserManager().GetUserList().ToList())
-        {
+        foreach (var roomUser in room.GetRoomUserManager().GetUserList().ToList()) {
             var habbo = roomUser?.GetClient()?.GetHabbo();
 
-            if (roomUser == null || roomUser.IsBot || habbo == null || habbo.Id == actor.Id || !actor.Access.Outranks(habbo.Access))
-            {
+            if (roomUser == null || roomUser.IsBot || habbo == null || habbo.Id == actor.Id || !actor.Access.Outranks(habbo.Access)) {
                 continue;
             }
 
@@ -105,41 +94,31 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
 
     public HousekeepingOutcome TransferOwnership(Habbo actor, int roomId, int newOwnerId)
     {
-        if (newOwnerId <= 0)
-        {
+        if (newOwnerId <= 0) {
             return Invalid(roomId);
         }
 
-        if (Load(actor, roomId, out var room) is { } denied)
-        {
+        if (Load(actor, roomId, out var room) is { } denied) {
             return denied;
         }
 
         var newOwner = _users.Find(newOwnerId);
 
-        if (newOwner == null)
-        {
+        if (newOwner == null) {
             return HousekeepingOutcome.Fail(NewOwnerNotFound, Label(room), $"newOwnerId={newOwnerId}");
         }
 
-        if (newOwner.Id == actor.Id || !_permissions.Outranks(actor.Id, newOwner.Id))
-        {
+        if (newOwner.Id == actor.Id || !_permissions.Outranks(actor.Id, newOwner.Id)) {
             return HousekeepingOutcome.Fail(RankTooHigh, Label(room), $"newOwnerId={newOwner.Id}");
         }
 
         // A group home room belongs to the group; moving it would split group and room ownership.
-        if (room.Group != null)
-        {
+        if (room.Group != null) {
             return HousekeepingOutcome.Fail(RoomActionFailed, Label(room), "group_room");
         }
 
-        using (var connection = _database.Connection())
-        {
-            connection.Execute("UPDATE `rooms` SET `owner` = @newOwnerId WHERE `id` = @roomId LIMIT 1", new
-            {
-                newOwnerId,
-                roomId
-            });
+        using (var connection = _database.Connection()) {
+            connection.Execute("UPDATE `rooms` SET `owner` = @newOwnerId WHERE `id` = @roomId LIMIT 1", new { newOwnerId, roomId });
         }
 
         var previousOwner = room.OwnerName;
@@ -152,8 +131,7 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
 
     public HousekeepingOutcome Delete(Habbo actor, int roomId)
     {
-        if (Load(actor, roomId, out var room) is { } denied)
-        {
+        if (Load(actor, roomId, out var room) is { } denied) {
             return denied;
         }
 
@@ -167,13 +145,11 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
     {
         room = null!;
 
-        if (roomId <= 0)
-        {
+        if (roomId <= 0) {
             return Invalid(roomId);
         }
 
-        if (!_roomManager.TryLoadRoom((uint)roomId, out var loaded))
-        {
+        if (!_roomManager.TryLoadRoom((uint)roomId, out var loaded)) {
             return HousekeepingOutcome.Fail(RoomNotFound, HousekeepingTarget.Room(roomId));
         }
 
@@ -184,13 +160,11 @@ public sealed class HousekeepingRoomActions : IHousekeepingRoomActions
     {
         room = null!;
 
-        if (roomId <= 0)
-        {
+        if (roomId <= 0) {
             return Invalid(roomId);
         }
 
-        if (!_roomManager.TryGetRoom((uint)roomId, out var loaded))
-        {
+        if (!_roomManager.TryGetRoom((uint)roomId, out var loaded)) {
             return HousekeepingOutcome.Fail(RoomNotLoaded, HousekeepingTarget.Room(roomId));
         }
 

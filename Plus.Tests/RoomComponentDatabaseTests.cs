@@ -11,8 +11,7 @@ public sealed class RoomComponentDatabaseFactAttribute : FactAttribute
 {
     public RoomComponentDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null)
-        {
+        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null) {
             Skip = "Opt-in isolated room component MariaDB probe.";
         }
     }
@@ -29,8 +28,7 @@ public sealed class RoomComponentDatabaseTests
         var schema = "room_component_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE bots (
@@ -133,9 +131,7 @@ public sealed class RoomComponentDatabaseTests
 
             var databaseConnection = new MySqlConnectionStringBuilder(
                 Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
-            {
-                Database = schema
-            }.ConnectionString;
+            { Database = schema }.ConnectionString;
             var productionDatabaseConnection = new MySqlConnectionStringBuilder(ProductionConnection()) { Database = schema }.ConnectionString;
             using var productionConnection = new MySqlConnection(productionDatabaseConnection);
             productionConnection.Open();
@@ -293,8 +289,7 @@ public sealed class RoomComponentDatabaseTests
                     loadedItem.Rotation, loadedItem.UniqueNumber, loadedItem.UniqueSeries));
             Assert.Equal("200;1", loadedItem.LegacyDataString);
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }

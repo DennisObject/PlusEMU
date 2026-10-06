@@ -21,15 +21,13 @@ public sealed class WiredAllVariablesDiffComposer(WiredVariableCatalogDiff diff)
         packet.WriteBoolean(_captured.LastChunk);
         packet.WriteInteger(_captured.Removed.Count);
 
-        foreach (var id in _captured.Removed)
-        {
+        foreach (var id in _captured.Removed) {
             packet.WriteString(id);
         }
 
         packet.WriteInteger(_captured.Changed.Count);
 
-        foreach (var variable in _captured.Changed)
-        {
+        foreach (var variable in _captured.Changed) {
             packet.WriteInteger(variable.Hash);
             WriteVariable(packet, variable);
         }
@@ -51,15 +49,13 @@ public sealed class WiredAllVariablesDiffComposer(WiredVariableCatalogDiff diff)
         packet.WriteBoolean(variable.CanReadTimestamps);
         packet.WriteBoolean(variable.TextConnector.Count > 0);
 
-        if (variable.TextConnector.Count == 0)
-        {
+        if (variable.TextConnector.Count == 0) {
             return;
         }
 
         packet.WriteInteger(variable.TextConnector.Count);
 
-        foreach (var (key, value) in variable.TextConnector.OrderBy(x => x.Key))
-        {
+        foreach (var (key, value) in variable.TextConnector.OrderBy(x => x.Key)) {
             packet.WriteInteger(key);
             packet.WriteString(value);
         }
@@ -78,8 +74,7 @@ public sealed class WiredVariableHoldersComposer(uint roomId, WiredVariableDescr
         WiredAllVariablesDiffComposer.WriteVariable(packet, _variable);
         packet.WriteInteger(_holders.Length);
 
-        foreach (var holder in _holders)
-        {
+        foreach (var holder in _holders) {
             packet.WriteInteger(checked((int)holder.Key.HolderId));
             packet.WriteInteger(holder.Value.Value);
         }
@@ -98,15 +93,8 @@ public sealed class WiredVariableHoldersPageComposer(string variableId, WiredVar
         packet.WriteInteger(_captured.PageSize);
         packet.WriteInteger(_captured.Holders.Count);
 
-        foreach (var holder in _captured.Holders)
-        {
-            packet.WriteInteger(holder.Key.Target switch
-            {
-                WiredVariableTarget.Global => 0,
-                WiredVariableTarget.User => 1,
-                WiredVariableTarget.Furni => 2,
-                _ => 3
-            });
+        foreach (var holder in _captured.Holders) {
+            packet.WriteInteger(holder.Key.Target switch { WiredVariableTarget.Global => 0, WiredVariableTarget.User => 1, WiredVariableTarget.Furni => 2, _ => 3 });
             packet.WriteInteger(checked((int)holder.Key.HolderId));
             packet.WriteString(holder.Name);
             packet.WriteInteger(holder.Value.Value);

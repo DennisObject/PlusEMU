@@ -30,15 +30,13 @@ public sealed class WiredMonitorDataComposer(WiredMonitorSnapshot snapshot) : IS
         packet.WriteInteger(0);
         packet.WriteInteger(engine.WindowMs);
 
-        for (var threshold = 0; threshold < 6; threshold++)
-        {
+        for (var threshold = 0; threshold < 6; threshold++) {
             packet.WriteInteger(0);
         }
 
         packet.WriteInteger(_captured.Logs.Tallies.Count);
 
-        foreach (var tally in _captured.Logs.Tallies)
-        {
+        foreach (var tally in _captured.Logs.Tallies) {
             var latest = tally.Latest;
             packet.WriteString(WiredRoomLogEntry.TypeName(tally.Source));
             packet.WriteString(WiredRoomLogEntry.LevelName(latest?.Level ?? (tally.Source == WiredLogSource.WiredLog ? 1 : WiredRoomLog.ErrorLevel)));
@@ -51,8 +49,7 @@ public sealed class WiredMonitorDataComposer(WiredMonitorSnapshot snapshot) : IS
 
         packet.WriteInteger(_captured.Logs.Recent.Count);
 
-        foreach (var entry in _captured.Logs.Recent)
-        {
+        foreach (var entry in _captured.Logs.Recent) {
             packet.WriteString(WiredRoomLogEntry.TypeName(entry.Source));
             packet.WriteString(WiredRoomLogEntry.LevelName(entry.Level));
             packet.WriteInteger(Seconds(entry));
@@ -76,8 +73,7 @@ public sealed class WiredRoomLogPageComposer(WiredRoomLogPage page, int levelFil
         packet.WriteInteger(_captured.Amount);
         packet.WriteInteger(_captured.Entries.Count);
 
-        foreach (var entry in _captured.Entries)
-        {
+        foreach (var entry in _captured.Entries) {
             packet.WriteInteger(unchecked((int)(entry.Id >> 32)));
             packet.WriteInteger(unchecked((int)entry.Id));
             packet.WriteByte((byte)entry.Level);
@@ -88,22 +84,19 @@ public sealed class WiredRoomLogPageComposer(WiredRoomLogPage page, int levelFil
 
         packet.WriteBoolean(levelFilter >= 0);
 
-        if (levelFilter >= 0)
-        {
+        if (levelFilter >= 0) {
             packet.WriteByte((byte)levelFilter);
         }
 
         packet.WriteBoolean(sourceFilter >= 0);
 
-        if (sourceFilter >= 0)
-        {
+        if (sourceFilter >= 0) {
             packet.WriteByte((byte)sourceFilter);
         }
 
         packet.WriteBoolean(query.Length > 0);
 
-        if (query.Length > 0)
-        {
+        if (query.Length > 0) {
             packet.WriteString(query);
         }
     }

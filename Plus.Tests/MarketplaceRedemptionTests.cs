@@ -96,8 +96,7 @@ public class MarketplaceRedemptionTests
         table.Columns.Add("OfferId", typeof(uint));
         table.Columns.Add("AskingPrice", typeof(int));
 
-        for (var i = 0; i < values.Length; i += 2)
-        {
+        for (var i = 0; i < values.Length; i += 2) {
             table.Rows.Add(values[i], values[i + 1]);
         }
 
@@ -114,8 +113,7 @@ public class MarketplaceRedemptionTests
         {
             var owed = Sold.Sum();
 
-            if (!accepts(owed))
-            {
+            if (!accepts(owed)) {
                 return null;
             }
 

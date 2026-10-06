@@ -60,8 +60,7 @@ public sealed class ServerUptimeTests
         var count = reader.ReadInt();
         var fields = new Dictionary<string, string>();
 
-        for (var index = 0; index < count; index++)
-        {
+        for (var index = 0; index < count; index++) {
             fields.Add(reader.ReadString(), reader.ReadString());
         }
 

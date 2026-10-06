@@ -46,19 +46,16 @@ internal readonly struct PathSearchRun
         var first = Seed(startSlot);
         var cap = _req.Complete ? _nodes + 1 : _settings.MaxExpansionsPerSearch ?? _nodes + 1;
 
-        while (_ws.Count > 0)
-        {
+        while (_ws.Count > 0) {
             var current = _ws.Pop();
 
-            if (_goal.Contains(current))
-            {
+            if (_goal.Contains(current)) {
                 Reconstruct(current, first, into);
 
                 return PathOutcome.Found;
             }
 
-            if (_ws.Expansions >= cap)
-            {
+            if (_ws.Expansions >= cap) {
                 return PathOutcome.BudgetCancelled;
             }
 
@@ -66,8 +63,7 @@ internal readonly struct PathSearchRun
             _stamps[current] = -_generation;
             var from = current == _address ? _req.Start : _grid.Position(current, _legacy);
 
-            if (current == _address && !_grid.InBounds(_req.Start.X, _req.Start.Y))
-            {
+            if (current == _address && !_grid.InBounds(_req.Start.X, _req.Start.Y)) {
                 continue;
             }
 
@@ -95,26 +91,22 @@ internal readonly struct PathSearchRun
     {
         var g = _costs[current] + 1;
 
-        foreach (var (dx, dy) in PathTieBreak.Neighbours)
-        {
-            if (!_diagonal && dx != 0 && dy != 0)
-            {
+        foreach (var (dx, dy) in PathTieBreak.Neighbours) {
+            if (!_diagonal && dx != 0 && dy != 0) {
                 continue;
             }
 
             var x = from.X + dx;
             var y = from.Y + dy;
 
-            if ((uint)x >= _grid.Width || (uint)y >= _grid.Height)
-            {
+            if ((uint)x >= _grid.Width || (uint)y >= _grid.Height) {
                 continue;
             }
 
             var tile = y * _grid.Width + x;
             var surfaces = _legacy ? 1 : _grid.SurfaceCount(tile);
 
-            for (var ordinal = 0; ordinal < surfaces; ordinal++)
-            {
+            for (var ordinal = 0; ordinal < surfaces; ordinal++) {
                 Relax(current, from, g, x, y, _legacy ? tile : _grid.SurfaceAt(tile, ordinal));
             }
         }
@@ -125,15 +117,13 @@ internal readonly struct PathSearchRun
     {
         var stamp = _stamps[next];
 
-        if (stamp == _closed)
-        {
+        if (stamp == _closed) {
             return;
         }
 
         var seen = stamp == _generation;
 
-        if (seen && g >= _costs[next] || !_legacy && (_flags[next] & ~NavFlags.FloorLocked) == 0)
-        {
+        if (seen && g >= _costs[next] || !_legacy && (_flags[next] & ~NavFlags.FloorLocked) == 0) {
             return;
         }
 
@@ -141,16 +131,14 @@ internal readonly struct PathSearchRun
         var to = new NavPosition(x, y, _heights[next], next);
         _ws.CanStepCalls++;
 
-        if (!_rules.CanStepKnownNeighbour(_req.Actor, from, to, next, purpose, OccupancyView.Planning, _req.Occupancy).Ok)
-        {
+        if (!_rules.CanStepKnownNeighbour(_req.Actor, from, to, next, purpose, OccupancyView.Planning, _req.Occupancy).Ok) {
             return;
         }
 
         _costs[next] = g;
         _parents[next] = current;
 
-        if (!seen)
-        {
+        if (!seen) {
             _stamps[next] = _generation;
             _sequences[next] = _ws.NextSequence++;
         }
@@ -158,12 +146,10 @@ internal readonly struct PathSearchRun
         var key = PathTieBreak.Key(g + PathTieBreak.Heuristic(x, y, _goal.X, _goal.Y), x, y,
             _goal.X, _goal.Y, _legacy ? (byte)0 : _grid.Ordinal[next], _sequences[next]);
 
-        if (seen)
-        {
+        if (seen) {
             _ws.Decrease(next, key);
         }
-        else
-        {
+        else {
             _ws.Insert(next, key);
         }
     }
@@ -172,8 +158,7 @@ internal readonly struct PathSearchRun
     {
         var count = 0;
 
-        for (var n = goal; n != start; n = _parents[n])
-        {
+        for (var n = goal; n != start; n = _parents[n]) {
             count++;
         }
 
@@ -181,8 +166,7 @@ internal readonly struct PathSearchRun
         into.Count = count;
         into.GridVersion = _grid.Version;
 
-        for (var n = goal; n != start; n = _parents[n])
-        {
+        for (var n = goal; n != start; n = _parents[n]) {
             into.Set(--count, _legacy ? new(n, 0, SurfaceKind.Floor) : _grid.Reference(n));
         }
 

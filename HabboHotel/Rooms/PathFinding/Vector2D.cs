@@ -14,15 +14,9 @@ public class Vector2D
         Y = y;
     }
 
-    public int X
-    {
-        get; set;
-    }
+    public int X { get; set; }
 
-    public int Y
-    {
-        get; set;
-    }
+    public int Y { get; set; }
 
     public int GetDistanceSquared(Vector2D point)
     {
@@ -34,8 +28,7 @@ public class Vector2D
 
     public override bool Equals(object? obj)
     {
-        if (obj is Vector2D)
-        {
+        if (obj is Vector2D) {
             var v2d = (Vector2D)obj;
 
             return v2d.X == X && v2d.Y == Y;

@@ -18,40 +18,19 @@ public sealed class AvatarEffect
 
     private readonly IAvatarEffectStore? _store;
 
-    public int Id
-    {
-        get; set;
-    }
+    public int Id { get; set; }
 
-    public int UserId
-    {
-        get; set;
-    }
+    public int UserId { get; set; }
 
-    public int SpriteId
-    {
-        get; set;
-    }
+    public int SpriteId { get; set; }
 
-    public double Duration
-    {
-        get; set;
-    }
+    public double Duration { get; set; }
 
-    public bool Activated
-    {
-        get; set;
-    }
+    public bool Activated { get; set; }
 
-    public DateTimeOffset? ActivatedAt
-    {
-        get; set;
-    }
+    public DateTimeOffset? ActivatedAt { get; set; }
 
-    public int Quantity
-    {
-        get; set;
-    }
+    public int Quantity { get; set; }
 
     // Remaining time is measured against an instant the caller captured, never the wall clock.
     public double TimeLeftAt(DateTimeOffset now)

@@ -3,14 +3,8 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 public sealed record WiredVariableDescription(WiredVariableDefinition Definition, bool HasValue, bool ReadOnly)
 {
     public IReadOnlyDictionary<int, string> TextConnector { get; init; } = new Dictionary<int, string>();
-    public bool IsBuiltin
-    {
-        get; init;
-    }
-    public bool IsDerived
-    {
-        get; init;
-    }
+    public bool IsBuiltin { get; init; }
+    public bool IsDerived { get; init; }
     public bool CanCreateAndDelete => !ReadOnly && !IsBuiltin && Definition.Target is WiredVariableTarget.User or WiredVariableTarget.Furni;
     public bool CanWriteValue => !ReadOnly && HasValue;
     public bool CanReadTimestamps => !IsBuiltin && !IsDerived;
@@ -36,13 +30,11 @@ public sealed record WiredVariableDescription(WiredVariableDefinition Definition
             var hash = StableHash(CatalogId);
 
             foreach (var value in new[] { StableHash(Definition.Name), CatalogTarget, (int)Definition.Availability, CatalogTarget,
-                HasValue ? 1 : 0, TextConnector.Count > 0 ? 2 : 0, ReadOnly ? 4 : 0, IsBuiltin ? 1 : 0, IsDerived ? 1 : 0 })
-            {
+                HasValue ? 1 : 0, TextConnector.Count > 0 ? 2 : 0, ReadOnly ? 4 : 0, IsBuiltin ? 1 : 0, IsDerived ? 1 : 0 }) {
                 hash = unchecked(hash * 31 + value);
             }
 
-            foreach (var (key, value) in TextConnector.OrderBy(x => x.Key))
-            {
+            foreach (var (key, value) in TextConnector.OrderBy(x => x.Key)) {
                 hash = unchecked(hash * 31 + key);
                 hash = unchecked(hash * 31 + StableHash(value));
             }
@@ -54,8 +46,7 @@ public sealed record WiredVariableDescription(WiredVariableDefinition Definition
     {
         var hash = 0;
 
-        foreach (var character in text)
-        {
+        foreach (var character in text) {
             hash = unchecked(hash * 31 + character);
         }
 

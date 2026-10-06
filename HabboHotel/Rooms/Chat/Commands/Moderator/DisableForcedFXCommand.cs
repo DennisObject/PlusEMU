@@ -25,12 +25,7 @@ internal class DisableForcedFxCommand : IChatCommand
         using var connection = _database.Connection();
 
         if (connection.Execute("UPDATE users_settings SET disable_forced_effects = @value WHERE user_id = @userId LIMIT 1",
-                new
-                {
-                    value,
-                    userId = habbo.Id
-                }) != 1)
-        {
+                new { value, userId = habbo.Id }) != 1) {
             throw new InvalidOperationException("User settings were not persisted.");
         }
 

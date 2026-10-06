@@ -15,40 +15,13 @@ public class ModerationPresetActionMessages
         Notice = notice;
     }
 
-    public int Id
-    {
-        get; set;
-    }
-    public int ParentId
-    {
-        get; set;
-    }
-    public string Caption
-    {
-        get; set;
-    }
-    public string MessageText
-    {
-        get; set;
-    }
-    public int MuteTime
-    {
-        get; set;
-    }
-    public int BanTime
-    {
-        get; set;
-    }
-    public int IpBanTime
-    {
-        get; set;
-    }
-    public int TradeLockTime
-    {
-        get; set;
-    }
-    public string Notice
-    {
-        get; set;
-    }
+    public int Id { get; set; }
+    public int ParentId { get; set; }
+    public string Caption { get; set; }
+    public string MessageText { get; set; }
+    public int MuteTime { get; set; }
+    public int BanTime { get; set; }
+    public int IpBanTime { get; set; }
+    public int TradeLockTime { get; set; }
+    public string Notice { get; set; }
 }

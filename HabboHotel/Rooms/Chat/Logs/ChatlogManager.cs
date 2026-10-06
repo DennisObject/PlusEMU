@@ -22,21 +22,18 @@ public sealed class ChatlogManager : IChatlogManager
     {
         _lock.EnterUpgradeableReadLock();
 
-        try
-        {
+        try {
             _chatlogs.Add(entry);
             OnChatlogStore();
         }
-        finally
-        {
+        finally {
             _lock.ExitUpgradeableReadLock();
         }
     }
 
     private void OnChatlogStore()
     {
-        if (_chatlogs.Count >= FlushOnCount)
-        {
+        if (_chatlogs.Count >= FlushOnCount) {
             FlushAndSave();
         }
     }
@@ -45,10 +42,8 @@ public sealed class ChatlogManager : IChatlogManager
     {
         _lock.EnterWriteLock();
 
-        try
-        {
-            if (_chatlogs.Count == 0)
-            {
+        try {
+            if (_chatlogs.Count == 0) {
                 return;
             }
 
@@ -56,8 +51,7 @@ public sealed class ChatlogManager : IChatlogManager
             connection.Open();
             using var transaction = connection.BeginTransaction();
 
-            foreach (var entry in _chatlogs)
-            {
+            foreach (var entry in _chatlogs) {
                 connection.Execute("""
                     INSERT INTO chatlogs (user_id, room_id, `timestamp`, message)
                     VALUES (@PlayerId, @RoomId, @CreatedAt, @Message)
@@ -73,8 +67,7 @@ public sealed class ChatlogManager : IChatlogManager
             transaction.Commit();
             _chatlogs.Clear();
         }
-        finally
-        {
+        finally {
             _lock.ExitWriteLock();
         }
     }

@@ -24,13 +24,11 @@ public sealed class GetGuestRoomResultComposer(GuestRoomInfoSnapshot snapshot) :
         packet.WriteInteger(snapshot.Category);
         packet.WriteInteger(snapshot.Tags.Length);
 
-        foreach (var tag in snapshot.Tags)
-        {
+        foreach (var tag in snapshot.Tags) {
             packet.WriteString(tag);
         }
 
-        if (snapshot.Group != null && snapshot.Promotion != null)
-        {
+        if (snapshot.Group != null && snapshot.Promotion != null) {
             packet.WriteInteger(62);
             packet.WriteInteger(snapshot.Group.Id);
             packet.WriteString(snapshot.Group.Name);
@@ -39,22 +37,19 @@ public sealed class GetGuestRoomResultComposer(GuestRoomInfoSnapshot snapshot) :
             packet.WriteString(snapshot.Promotion.Description);
             packet.WriteInteger(snapshot.Promotion.MinutesLeft);
         }
-        else if (snapshot.Group != null)
-        {
+        else if (snapshot.Group != null) {
             packet.WriteInteger(58);
             packet.WriteInteger(snapshot.Group.Id);
             packet.WriteString(snapshot.Group.Name);
             packet.WriteString(snapshot.Group.Badge);
         }
-        else if (snapshot.Promotion != null)
-        {
+        else if (snapshot.Promotion != null) {
             packet.WriteInteger(60);
             packet.WriteString(snapshot.Promotion.Name);
             packet.WriteString(snapshot.Promotion.Description);
             packet.WriteInteger(snapshot.Promotion.MinutesLeft);
         }
-        else
-        {
+        else {
             packet.WriteInteger(56);
         }
 

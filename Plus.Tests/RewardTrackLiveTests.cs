@@ -142,10 +142,8 @@ public class RewardTrackLiveTests
     {
         var directory = Directory.CreateTempSubdirectory("revisions-").FullName;
 
-        try
-        {
-            foreach (var file in Directory.GetFiles(Path.Join(AppContext.BaseDirectory, "revisions"), "*.json"))
-            {
+        try {
+            foreach (var file in Directory.GetFiles(Path.Join(AppContext.BaseDirectory, "revisions"), "*.json")) {
                 File.Copy(file, Path.Join(directory, Path.GetFileName(file)));
             }
 
@@ -155,8 +153,7 @@ public class RewardTrackLiveTests
 
             return cache.Revisions[name];
         }
-        finally
-        {
+        finally {
             Directory.Delete(directory, recursive: true);
         }
     }
@@ -203,8 +200,7 @@ public class RewardTrackLiveTests
     {
         var table = new DataTable();
 
-        foreach (var (column, value) in row)
-        {
+        foreach (var (column, value) in row) {
             table.Columns.Add(column, value is DBNull ? typeof(DateTimeOffset) : value.GetType());
         }
 
@@ -219,18 +215,13 @@ public class RewardTrackLiveTests
 
         public BadgeDefinitions(params string[] codes)
         {
-            foreach (var code in codes)
-            {
+            foreach (var code in codes) {
                 Add(code);
             }
         }
 
         public BadgeDefinitions((string Code, string Right) badge) =>
-            _badges[badge.Code.ToUpper()] = new()
-            {
-                Code = badge.Code,
-                RequiredRight = badge.Right
-            };
+            _badges[badge.Code.ToUpper()] = new() { Code = badge.Code, RequiredRight = badge.Right };
 
         public IReadOnlyDictionary<string, BadgeDefinition> Badges => _badges;
         public void Add(string code) => _badges[code.ToUpper()] = new() { Code = code };
@@ -243,10 +234,7 @@ public class RewardTrackLiveTests
     /// <summary>Serves canned SELECT results and records each committed transaction's statements.</summary>
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; set;
-        }
+        public int Reads { get; set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
@@ -259,14 +247,8 @@ public class RewardTrackLiveTests
     {
         public Dictionary<string, DataTable> Tables { get; } = new();
         public List<List<string>> Committed { get; } = new();
-        public int RolledBack
-        {
-            get; set;
-        }
-        public string? FailOn
-        {
-            get; set;
-        }
+        public int RolledBack { get; set; }
+        public string? FailOn { get; set; }
         public bool IsConnected() => true;
         public IDbConnection Connection() => new FakeConnection(this);
 
@@ -306,8 +288,7 @@ public class RewardTrackLiveTests
 
         public override void Rollback()
         {
-            if (_done)
-            {
+            if (_done) {
                 return;
             }
 
@@ -325,31 +306,13 @@ public class RewardTrackLiveTests
     private sealed class FakeCommand : DbCommand
     {
         [AllowNull] public override string CommandText { get; set; } = "";
-        public override int CommandTimeout
-        {
-            get; set;
-        }
-        public override CommandType CommandType
-        {
-            get; set;
-        }
-        public override bool DesignTimeVisible
-        {
-            get; set;
-        }
-        public override UpdateRowSource UpdatedRowSource
-        {
-            get; set;
-        }
-        protected override DbConnection? DbConnection
-        {
-            get; set;
-        }
+        public override int CommandTimeout { get; set; }
+        public override CommandType CommandType { get; set; }
+        public override bool DesignTimeVisible { get; set; }
+        public override UpdateRowSource UpdatedRowSource { get; set; }
+        protected override DbConnection? DbConnection { get; set; }
         protected override DbParameterCollection DbParameterCollection { get; } = new FakeParameters();
-        protected override DbTransaction? DbTransaction
-        {
-            get; set;
-        }
+        protected override DbTransaction? DbTransaction { get; set; }
         private FakeDatabase Owner => ((FakeConnection)DbConnection!).Store;
         public override void Cancel()
         {
@@ -362,17 +325,14 @@ public class RewardTrackLiveTests
 
         public override int ExecuteNonQuery()
         {
-            if (Owner.FailOn != null && CommandText.Contains(Owner.FailOn))
-            {
+            if (Owner.FailOn != null && CommandText.Contains(Owner.FailOn)) {
                 throw new InvalidOperationException("Injected write failure.");
             }
 
-            if (DbTransaction is FakeTransaction transaction)
-            {
+            if (DbTransaction is FakeTransaction transaction) {
                 transaction.Statements.Add(CommandText);
             }
-            else
-            {
+            else {
                 Owner.Committed.Add(new() { CommandText });
             }
 
@@ -384,32 +344,14 @@ public class RewardTrackLiveTests
 
     private sealed class FakeParameter : DbParameter
     {
-        public override DbType DbType
-        {
-            get; set;
-        }
-        public override ParameterDirection Direction
-        {
-            get; set;
-        }
-        public override bool IsNullable
-        {
-            get; set;
-        }
+        public override DbType DbType { get; set; }
+        public override ParameterDirection Direction { get; set; }
+        public override bool IsNullable { get; set; }
         [AllowNull] public override string ParameterName { get; set; } = "";
-        public override int Size
-        {
-            get; set;
-        }
+        public override int Size { get; set; }
         [AllowNull] public override string SourceColumn { get; set; } = "";
-        public override bool SourceColumnNullMapping
-        {
-            get; set;
-        }
-        public override object? Value
-        {
-            get; set;
-        }
+        public override bool SourceColumnNullMapping { get; set; }
+        public override object? Value { get; set; }
         public override void ResetDbType()
         {
         }
@@ -428,8 +370,7 @@ public class RewardTrackLiveTests
         }
         public override void AddRange(Array values)
         {
-            foreach (var value in values)
-            {
+            foreach (var value in values) {
                 Add(value);
             }
         }

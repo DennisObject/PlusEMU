@@ -7,10 +7,7 @@ namespace Plus.Communication.Packets;
 [Singleton]
 public interface IPacketInjector
 {
-    uint MessageId
-    {
-        get;
-    }
+    uint MessageId { get; }
 }
 
 public interface IIncomingPacketInjector : IPacketInjector

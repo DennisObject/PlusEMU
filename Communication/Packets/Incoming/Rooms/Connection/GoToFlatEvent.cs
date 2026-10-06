@@ -7,13 +7,11 @@ internal class GoToFlatEvent : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().InRoom)
-        {
+        if (!session.GetHabbo().InRoom) {
             return Task.CompletedTask;
         }
 
-        if (!session.GetHabbo().EnterRoom(session.GetHabbo().CurrentRoom))
-        {
+        if (!session.GetHabbo().EnterRoom(session.GetHabbo().CurrentRoom)) {
             session.Send(new CloseConnectionComposer());
         }
 

@@ -50,8 +50,7 @@ public sealed class WiredEditorSnapshotTests
         var composer = new WiredConditionConfigComposer(WiredEditorSnapshot.Condition(Box(type, text)));
         var expected = new List<object> { false, 5, 1, 8u, 91, 7u, text, count, first };
 
-        if (count == 2)
-        {
+        if (count == 2) {
             expected.Add(second);
         }
 
@@ -67,14 +66,7 @@ public sealed class WiredEditorSnapshotTests
         var trigger = new WiredTriggeRconfigComposer(WiredEditorSnapshot.Trigger(box, blocked));
         var configured = new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(box.Item,
             new("test", WiredBoxCategory.Action, 123, 0, "test"),
-            new()
-            {
-                Text = "configured",
-                IntParams = [4, 5],
-                SelectedItems = [8],
-                Delay = 3,
-                SelectionCode = 2
-            }, 20, blocked));
+            new() { Text = "configured", IntParams = [4, 5], SelectedItems = [8], Delay = 3, SelectionCode = 2 }, 20, blocked));
         Mutate(box, blocked);
         Recompose(trigger, [false, 5, 1, 8u, 91, 7u, "trigger", 1, 9, 0, 6, 1, 33]);
         Recompose(configured, [false, 20, 1, 8u, 91, 7u, "configured", 2, 4, 5, 2, 123, 3, 1, 33]);
@@ -82,14 +74,7 @@ public sealed class WiredEditorSnapshotTests
 
     private static CycleBox Box(WiredBoxType type, string text) => new(type)
     {
-        Item = new()
-        {
-            Id = 7,
-            Definition = new()
-            {
-                SpriteId = 91
-            }
-        },
+        Item = new() { Id = 7, Definition = new() { SpriteId = 91 } },
         StringData = text,
         Delay = 9,
         SetItems = new(new[] { new KeyValuePair<uint, Item>(8, new() { Id = 8 }) })
@@ -108,8 +93,7 @@ public sealed class WiredEditorSnapshotTests
 
     private static void Recompose(IServerPacket composer, IEnumerable<object> expected)
     {
-        for (var index = 0; index < 2; index++)
-        {
+        for (var index = 0; index < 2; index++) {
             var output = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(output);
             Assert.Equal(expected, output.Writes);
@@ -123,19 +107,10 @@ public sealed class WiredEditorSnapshotTests
         public WiredBoxType Type => type;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
-        public int Delay
-        {
-            get; set;
-        }
-        public int TickCount
-        {
-            get; set;
-        }
+        public int Delay { get; set; }
+        public int TickCount { get; set; }
         public bool OnCycle() => throw new NotSupportedException();
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
         public bool Execute(params object[] parameters) => throw new NotSupportedException();

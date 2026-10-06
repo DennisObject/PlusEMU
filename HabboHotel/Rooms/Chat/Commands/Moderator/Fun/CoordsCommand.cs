@@ -14,8 +14,7 @@ internal class CoordsCommand : IChatCommand
     {
         var thisUser = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (thisUser == null)
-        {
+        if (thisUser == null) {
             return;
         }
 

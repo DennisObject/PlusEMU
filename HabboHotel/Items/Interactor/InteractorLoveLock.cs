@@ -19,32 +19,26 @@ public class InteractorLoveLock : IFurniInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
-        if (session == null)
-        {
+        if (session == null) {
             return;
         }
 
         var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
-        if (Gamemap.TilesTouching(item.GetX, item.GetY, user.X, user.Y))
-        {
-            if (item.LegacyDataString == null || item.LegacyDataString.Length <= 1 || !item.LegacyDataString.Contains(Convert.ToChar(5).ToString()))
-            {
+        if (Gamemap.TilesTouching(item.GetX, item.GetY, user.X, user.Y)) {
+            if (item.LegacyDataString == null || item.LegacyDataString.Length <= 1 || !item.LegacyDataString.Contains(Convert.ToChar(5).ToString())) {
                 Point pointOne;
                 Point pointTwo;
 
-                switch (item.Rotation)
-                {
+                switch (item.Rotation) {
                     case 2:
                         pointOne = new(item.GetX, item.GetY + 1);
                         pointTwo = new(item.GetX, item.GetY - 1);
@@ -62,16 +56,13 @@ public class InteractorLoveLock : IFurniInteractor
                 var clientOne = userOne?.GetClient();
                 var clientTwo = userTwo?.GetClient();
 
-                if (userOne == null || userTwo == null || clientOne == null || clientTwo == null)
-                {
+                if (userOne == null || userTwo == null || clientOne == null || clientTwo == null) {
                     session.SendNotification("We couldn't find a valid user to lock this love lock with.");
                 }
-                else if (userOne.HabboId != item.UserId && userTwo.HabboId != item.UserId)
-                {
+                else if (userOne.HabboId != item.UserId && userTwo.HabboId != item.UserId) {
                     session.SendNotification("You can only use this item with the item owner.");
                 }
-                else
-                {
+                else {
                     userOne.CanWalk = false;
                     userTwo.CanWalk = false;
                     item.InteractingUser = clientOne.GetHabbo().Id;
@@ -80,13 +71,11 @@ public class InteractorLoveLock : IFurniInteractor
                     clientTwo.Send(new FriendFurniStartConfirmationComposer(item.Id));
                 }
             }
-            else
-            {
+            else {
                 return;
             }
         }
-        else
-        {
+        else {
             user.MoveTo(item.SquareInFront);
         }
     }

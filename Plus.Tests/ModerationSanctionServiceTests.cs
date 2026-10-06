@@ -201,14 +201,8 @@ public sealed class ModerationSanctionServiceTests
 
     private sealed class RecordingSanctions : IModerationSanctionService
     {
-        public GameClient? Actor
-        {
-            get; private set;
-        }
-        public ModerationBanRequest? Request
-        {
-            get; private set;
-        }
+        public GameClient? Actor { get; private set; }
+        public ModerationBanRequest? Request { get; private set; }
         public Task Ban(GameClient actor, ModerationBanRequest request)
         {
             Actor = actor;
@@ -220,10 +214,7 @@ public sealed class ModerationSanctionServiceTests
 
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
@@ -235,21 +226,14 @@ public sealed class ModerationSanctionServiceTests
     private sealed class RecordingModeration
     {
         public List<Call> Calls { get; } = [];
-        public Action? BeforeCall
-        {
-            get; init;
-        }
-        public IModerationManager Proxy
-        {
-            get;
-        }
+        public Action? BeforeCall { get; init; }
+        public IModerationManager Proxy { get; }
 
         public RecordingModeration()
         {
             Proxy = ModerationSanctionServiceTests.Proxy<IModerationManager>((method, args) =>
             {
-                if (method != nameof(IModerationManager.BanAccount))
-                {
+                if (method != nameof(IModerationManager.BanAccount)) {
                     throw new NotSupportedException(method);
                 }
 

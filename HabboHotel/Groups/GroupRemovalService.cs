@@ -28,15 +28,13 @@ public sealed class GroupRemovalService(
 {
     public Task Delete(GameClient session, int groupId)
     {
-        if (!_groupManager.TryGetGroup(groupId, out var group))
-        {
+        if (!_groupManager.TryGetGroup(groupId, out var group)) {
             session.SendNotification("Oops, we couldn't find that group!");
 
             return Task.CompletedTask;
         }
 
-        if (group.CreatorId != session.GetHabbo().Id && !session.GetHabbo().Access.Can(PermissionKeys.GroupDeleteOverride))
-        {
+        if (group.CreatorId != session.GetHabbo().Id && !session.GetHabbo().Access.Can(PermissionKeys.GroupDeleteOverride)) {
             session.SendNotification("Oops, only the group owner can delete a group!");
 
             return Task.CompletedTask;
@@ -44,16 +42,13 @@ public sealed class GroupRemovalService(
 
         List<int> memberIds;
 
-        lock (group)
-        {
-            if (!_groupManager.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
-            {
+        lock (group) {
+            if (!_groupManager.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group)) {
                 return Task.CompletedTask;
             }
 
             if (group.MemberCount >= Convert.ToInt32(_settingsManager.TryGetValue("group.delete.member.limit")) &&
-                !session.GetHabbo().Access.Can(PermissionKeys.GroupDeleteLimitOverride))
-            {
+                !session.GetHabbo().Access.Can(PermissionKeys.GroupDeleteLimitOverride)) {
                 session.SendNotification(
                     $"Oops, your group exceeds the maximum amount of members ({Convert.ToInt32(_settingsManager.TryGetValue("group.delete.member.limit"))}) a group can exceed before being eligible for deletion. Seek assistance from a staff member.");
 
@@ -62,40 +57,34 @@ public sealed class GroupRemovalService(
 
             memberIds = group.GetAllMembers.Append(session.GetHabbo().Id).Distinct().ToList();
 
-            if (!_store.Delete(group.Id))
-            {
+            if (!_store.Delete(group.Id)) {
                 return Task.CompletedTask;
             }
 
             _roomManager.TryGetRoom(group.RoomId, out var room);
 
-            if (room != null)
-            {
+            if (room != null) {
                 room.Group = null;
             }
 
             _groupManager.DeleteGroup(group.Id);
 
-            if (room != null)
-            {
+            if (room != null) {
                 _roomManager.UnloadRoom(room.Id);
             }
         }
 
-        foreach (var memberId in memberIds)
-        {
+        foreach (var memberId in memberIds) {
             using var lease = _sessions.Enter(memberId);
             var client = _clients.GetClientByUserId(memberId);
 
-            if (client == null)
-            {
+            if (client == null) {
                 continue;
             }
 
             var stats = client.GetHabbo().HabboStats;
 
-            if (stats != null && stats.FavouriteGroupId == group.Id)
-            {
+            if (stats != null && stats.FavouriteGroupId == group.Id) {
                 stats.FavouriteGroupId = 0;
             }
 
@@ -109,30 +98,25 @@ public sealed class GroupRemovalService(
 
     public Task ConfirmRemove(GameClient session, int groupId, int userId)
     {
-        if (!_groupManager.TryGetGroup(groupId, out var group))
-        {
+        if (!_groupManager.TryGetGroup(groupId, out var group)) {
             return Task.CompletedTask;
         }
 
-        if (userId == group.CreatorId)
-        {
+        if (userId == group.CreatorId) {
             return Task.CompletedTask;
         }
 
         var actorId = session.GetHabbo().Id;
 
-        if (actorId != group.CreatorId && !group.IsAdmin(actorId))
-        {
+        if (actorId != group.CreatorId && !group.IsAdmin(actorId)) {
             return Task.CompletedTask;
         }
 
-        if (group.IsAdmin(userId) && actorId != group.CreatorId)
-        {
+        if (group.IsAdmin(userId) && actorId != group.CreatorId) {
             return Task.CompletedTask;
         }
 
-        if (!group.IsMember(userId))
-        {
+        if (!group.IsMember(userId)) {
             return Task.CompletedTask;
         }
 
@@ -144,51 +128,41 @@ public sealed class GroupRemovalService(
 
     public Task Remove(GameClient session, int groupId, int userId)
     {
-        if (!_groupManager.TryGetGroup(groupId, out var group))
-        {
+        if (!_groupManager.TryGetGroup(groupId, out var group)) {
             return Task.CompletedTask;
         }
 
         using var lease = _sessions.Enter(userId);
 
-        lock (group)
-        {
-            if (!_groupManager.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
-            {
+        lock (group) {
+            if (!_groupManager.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group)) {
                 return Task.CompletedTask;
             }
 
-            if (userId == group.CreatorId)
-            {
+            if (userId == group.CreatorId) {
                 return Task.CompletedTask;
             }
 
-            if (userId == session.GetHabbo().Id)
-            {
+            if (userId == session.GetHabbo().Id) {
                 var wasAdmin = group.IsAdmin(userId);
 
                 if (!_store.RemoveMember(group.Id, userId, group.IsMember(userId),
-                        session.GetHabbo().HabboStats.FavouriteGroupId == groupId))
-                {
+                        session.GetHabbo().HabboStats.FavouriteGroupId == groupId)) {
                     return Task.CompletedTask;
                 }
 
-                if (group.IsMember(userId))
-                {
+                if (group.IsMember(userId)) {
                     group.DeleteMember(userId);
                 }
 
-                if (wasAdmin && _roomManager.TryGetRoom(group.RoomId, out var adminRoom))
-                {
+                if (wasAdmin && _roomManager.TryGetRoom(group.RoomId, out var adminRoom)) {
                     var user = adminRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-                    if (user != null)
-                    {
+                    if (user != null) {
                         user.RemoveStatus("flatctrl 1");
                         user.UpdateNeeded = true;
 
-                        if (user.GetClient() != null)
-                        {
+                        if (user.GetClient() != null) {
                             user.GetClient().Send(new YouAreControllerComposer(0));
                         }
                     }
@@ -196,33 +170,27 @@ public sealed class GroupRemovalService(
 
                 session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
 
-                if (session.GetHabbo().HabboStats.FavouriteGroupId == groupId)
-                {
+                if (session.GetHabbo().HabboStats.FavouriteGroupId == groupId) {
                     session.GetHabbo().HabboStats.FavouriteGroupId = 0;
 
-                    if (group.AdminOnlyDeco == 0 && _roomManager.TryGetRoom(group.RoomId, out var room))
-                    {
+                    if (group.AdminOnlyDeco == 0 && _roomManager.TryGetRoom(group.RoomId, out var room)) {
                         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-                        if (user != null)
-                        {
+                        if (user != null) {
                             user.RemoveStatus("flatctrl 1");
                             user.UpdateNeeded = true;
 
-                            if (user.GetClient() != null)
-                            {
+                            if (user.GetClient() != null) {
                                 user.GetClient().Send(new YouAreControllerComposer(0));
                             }
                         }
                     }
 
-                    if (session.GetHabbo().InRoom && session.GetHabbo().CurrentRoom != null)
-                    {
+                    if (session.GetHabbo().InRoom && session.GetHabbo().CurrentRoom != null) {
                         var user = session.GetHabbo().CurrentRoom.GetRoomUserManager()
                             .GetRoomUserByHabbo(session.GetHabbo().Id);
 
-                        if (user != null)
-                        {
+                        if (user != null) {
                             session.GetHabbo().CurrentRoom
                                 .SendPacket(new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(group, user.VirtualId)));
                         }
@@ -230,8 +198,7 @@ public sealed class GroupRemovalService(
                         session.GetHabbo().CurrentRoom
                             .SendPacket(new RefreshFavouriteGroupComposer(session.GetHabbo().Id));
                     }
-                    else
-                    {
+                    else {
                         session.Send(new RefreshFavouriteGroupComposer(session.GetHabbo().Id));
                     }
                 }
@@ -239,37 +206,30 @@ public sealed class GroupRemovalService(
                 return Task.CompletedTask;
             }
 
-            if (group.CreatorId == session.GetHabbo().Id || group.IsAdmin(session.GetHabbo().Id))
-            {
-                if (!group.IsMember(userId))
-                {
+            if (group.CreatorId == session.GetHabbo().Id || group.IsAdmin(session.GetHabbo().Id)) {
+                if (!group.IsMember(userId)) {
                     return Task.CompletedTask;
                 }
 
-                if (group.IsAdmin(userId) && group.CreatorId != session.GetHabbo().Id)
-                {
+                if (group.IsAdmin(userId) && group.CreatorId != session.GetHabbo().Id) {
                     session.SendNotification(
                         "Sorry, only group creators can remove other administrators from the group.");
 
                     return Task.CompletedTask;
                 }
 
-                if (!_store.RemoveMember(group.Id, userId, true, true))
-                {
+                if (!_store.RemoveMember(group.Id, userId, true, true)) {
                     return Task.CompletedTask;
                 }
 
-                if (group.IsMember(userId))
-                {
+                if (group.IsMember(userId)) {
                     group.DeleteMember(userId);
                 }
 
-                if (_roomManager.TryGetRoom(group.RoomId, out var room))
-                {
+                if (_roomManager.TryGetRoom(group.RoomId, out var room)) {
                     var user = room.GetRoomUserManager().GetRoomUserByHabbo(userId);
 
-                    if (user != null)
-                    {
+                    if (user != null) {
                         user.RemoveStatus("flatctrl 1");
                         user.RemoveStatus("flatctrl 3");
                         user.UpdateNeeded = true;
@@ -279,28 +239,23 @@ public sealed class GroupRemovalService(
 
                 var removedClient = _clients.GetClientByUserId(userId);
 
-                if (removedClient != null)
-                {
+                if (removedClient != null) {
                     var habbo = removedClient.GetHabbo();
                     var stats = habbo.HabboStats;
 
-                    if (stats != null && stats.FavouriteGroupId == groupId)
-                    {
+                    if (stats != null && stats.FavouriteGroupId == groupId) {
                         stats.FavouriteGroupId = 0;
 
-                        if (habbo.CurrentRoom != null)
-                        {
+                        if (habbo.CurrentRoom != null) {
                             var favouriteUser = habbo.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(userId);
 
-                            if (favouriteUser != null)
-                            {
+                            if (favouriteUser != null) {
                                 habbo.CurrentRoom.SendPacket(new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(null, favouriteUser.VirtualId)));
                             }
 
                             habbo.CurrentRoom.SendPacket(new RefreshFavouriteGroupComposer(userId));
                         }
-                        else
-                        {
+                        else {
                             removedClient.Send(new RefreshFavouriteGroupComposer(userId));
                         }
                     }

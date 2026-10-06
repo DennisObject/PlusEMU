@@ -13,8 +13,7 @@ public sealed class HabboUserBadgesComposer(int userId, ImmutableArray<BadgeSlot
         packet.WriteInteger(userId);
         packet.WriteInteger(equipped.Length);
 
-        foreach (var badge in equipped)
-        {
+        foreach (var badge in equipped) {
             packet.WriteInteger(badge.Slot);
             packet.WriteString(badge.Code);
         }

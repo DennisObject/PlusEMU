@@ -18,8 +18,7 @@ public class FavouritesComposer : IServerPacket
         packet.WriteInteger(50);
         packet.WriteInteger(_favouriteIds.Length);
 
-        foreach (var id in _favouriteIds)
-        {
+        foreach (var id in _favouriteIds) {
             packet.WriteInteger(id);
         }
     }

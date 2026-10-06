@@ -12,24 +12,20 @@ internal sealed class SaveBrandingItemEvent(IRoomItemMetadataService metadata) :
         // The map is optional: an id-only frame keeps the placement-only behaviour of non-background furniture.
         ImmutableArray<string>? values = null;
 
-        if (packet.HasDataRemaining())
-        {
+        if (packet.HasDataRemaining()) {
             var count = packet.ReadInt();
 
-            if (count < 0 || count > 128 || count % 2 != 0)
-            {
+            if (count < 0 || count > 128 || count % 2 != 0) {
                 return Task.CompletedTask;
             }
 
             var pairs = new string[count];
 
-            for (var index = 0; index < count; index++)
-            {
+            for (var index = 0; index < count; index++) {
                 pairs[index] = packet.ReadString();
             }
 
-            if (packet.HasDataRemaining())
-            {
+            if (packet.HasDataRemaining()) {
                 return Task.CompletedTask;
             }
 

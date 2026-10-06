@@ -48,8 +48,7 @@ public class LoginService : ILoginService
         var throttleKey = account != null ? LoginThrottle.AccountKey(account.Id) : LoginThrottle.UnknownNameKey(username);
         var blockedFor = _throttle.BlockedFor(throttleKey, address);
 
-        if (blockedFor > TimeSpan.Zero)
-        {
+        if (blockedFor > TimeSpan.Zero) {
             return new(LoginStatus.Throttled, RetryAfter: blockedFor);
         }
 
@@ -58,29 +57,25 @@ public class LoginService : ILoginService
         var stored = account?.Password ?? "";
 
         // Plaintext rows and missing accounts would answer faster than real hashes.
-        if (!stored.StartsWith("$argon2id$", StringComparison.Ordinal))
-        {
+        if (!stored.StartsWith("$argon2id$", StringComparison.Ordinal)) {
             await _hasher.Verify(password, await DecoyHash(cancellationToken), cancellationToken);
         }
 
         var verification = account == null ? PasswordVerificationResult.Failed : await _hasher.Verify(password, stored, cancellationToken);
 
-        if (verification == PasswordVerificationResult.Failed)
-        {
+        if (verification == PasswordVerificationResult.Failed) {
             _throttle.RecordFailure(throttleKey, address);
 
             return new(LoginStatus.InvalidCredentials);
         }
 
-        if (verification == PasswordVerificationResult.SuccessRehashNeeded)
-        {
+        if (verification == PasswordVerificationResult.SuccessRehashNeeded) {
             await _accounts.UpgradePassword(account!.Id, stored, await _hasher.Hash(password, cancellationToken));
         }
 
         _throttle.RecordSuccess(throttleKey);
 
-        if (await _bans.Find(account!.Username, address) is { } ban)
-        {
+        if (await _bans.Find(account!.Username, address) is { } ban) {
             await _sessions.RevokeAll(account.Id);
 
             return new(LoginStatus.Banned, Ban: ban);

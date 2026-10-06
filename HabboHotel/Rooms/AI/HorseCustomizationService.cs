@@ -31,27 +31,20 @@ public sealed class HorseCustomizationStore(IDatabase database) : IHorseCustomiz
 
     public void UpdatePet(int petId, string column, object value)
     {
-        if (!Columns.Contains(column))
-        {
+        if (!Columns.Contains(column)) {
             throw new ArgumentOutOfRangeException(nameof(column));
         }
 
         using var connection = database.Connection();
 
-        if (connection.Execute($"UPDATE bots_petdata SET `{column}`=@value WHERE id=@petId LIMIT 1", new
-        {
-            value,
-            petId
-        }) != 1)
-        {
+        if (connection.Execute($"UPDATE bots_petdata SET `{column}`=@value WHERE id=@petId LIMIT 1", new { value, petId }) != 1) {
             throw new InvalidOperationException("The horse customization was not persisted.");
         }
     }
 
     public void ConsumeItem(int petId, string column, object value, uint itemId, uint roomId, int ownerId)
     {
-        if (!Columns.Contains(column))
-        {
+        if (!Columns.Contains(column)) {
             throw new ArgumentOutOfRangeException(nameof(column));
         }
 
@@ -59,19 +52,9 @@ public sealed class HorseCustomizationStore(IDatabase database) : IHorseCustomiz
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (connection.Execute($"UPDATE bots_petdata SET `{column}`=@value WHERE id=@petId LIMIT 1", new
-        {
-            value,
-            petId
-        }, transaction) != 1 ||
+        if (connection.Execute($"UPDATE bots_petdata SET `{column}`=@value WHERE id=@petId LIMIT 1", new { value, petId }, transaction) != 1 ||
             connection.Execute("DELETE FROM items WHERE id=@itemId AND room_id=@roomId AND user_id=@ownerId LIMIT 1",
-                new
-                {
-                    itemId,
-                    roomId,
-                    ownerId
-                }, transaction) != 1)
-        {
+                new { itemId, roomId, ownerId }, transaction) != 1) {
             throw new InvalidOperationException("The horse customization was not persisted.");
         }
 
@@ -90,13 +73,11 @@ public sealed class HorseCustomizationService(
     {
         var habbo = session.GetHabbo();
 
-        if (!habbo.InRoom || habbo.CurrentRoom == null || !roomManager.TryGetRoom(habbo.CurrentRoom.Id, out var room))
-        {
+        if (!habbo.InRoom || habbo.CurrentRoom == null || !roomManager.TryGetRoom(habbo.CurrentRoom.Id, out var room)) {
             return;
         }
 
-        if (!room.GetRoomUserManager().TryGetPet(petId, out var petUser) || petUser.PetData?.OwnerId != habbo.Id)
-        {
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var petUser) || petUser.PetData?.OwnerId != habbo.Id) {
             return;
         }
 
@@ -104,12 +85,10 @@ public sealed class HorseCustomizationService(
         store.UpdatePet(petUser.PetData.PetId, "have_saddle", 0);
         petUser.PetData.Saddle = 0;
 
-        if (itemDataManager.Items.TryGetValue(saddleId, out var itemData))
-        {
+        if (itemDataManager.Items.TryGetValue(saddleId, out var itemData)) {
             var item = itemFactory.CreateSingleItemNullable(itemData, habbo, "", "")?.ToInventoryItem();
 
-            if (item != null)
-            {
+            if (item != null) {
                 habbo.Inventory.Furniture.AddItem(item);
                 session.Send(new FurniListNotificationComposer(item.Id, 1));
                 session.Send(new PurchaseOKComposer());
@@ -124,8 +103,7 @@ public sealed class HorseCustomizationService(
 
     public void ToggleRiding(Room room, GameClient session, int petId)
     {
-        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet) || pet.PetData?.OwnerId != session.GetHabbo().Id)
-        {
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet) || pet.PetData?.OwnerId != session.GetHabbo().Id) {
             return;
         }
 
@@ -139,20 +117,17 @@ public sealed class HorseCustomizationService(
     {
         var item = room.GetRoomItemHandler().GetItem(itemId);
 
-        if (item == null || item.IsTemporary || item.UserId != session.GetHabbo().Id)
-        {
+        if (item == null || item.IsTemporary || item.UserId != session.GetHabbo().Id) {
             return;
         }
 
-        if (!room.GetRoomUserManager().TryGetPet(petId, out var petUser) || petUser.PetData?.OwnerId != session.GetHabbo().Id)
-        {
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var petUser) || petUser.PetData?.OwnerId != session.GetHabbo().Id) {
             return;
         }
 
         var change = GetChange(item);
 
-        if (change != null)
-        {
+        if (change != null) {
             store.ConsumeItem(petUser.PetData.PetId, change.Value.Column, change.Value.Value, item.Id, room.Id, session.GetHabbo().Id);
             change.Value.Publish(petUser.PetData);
             room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
@@ -182,14 +157,7 @@ public sealed class HorseCustomizationService(
     private static HorseChange BodyDye(Item item)
     {
         var race = int.Parse(item.Definition.ItemName.Split('_')[2]);
-        var value = race switch
-        {
-            13 => 61,
-            14 => 65,
-            15 => 69,
-            16 => 73,
-            _ => 2 + race * 4 - 4
-        };
+        var value = race switch { 13 => 61, 14 => 65, 15 => 69, 16 => 73, _ => 2 + race * 4 - 4 };
 
         return new("race", value.ToString(), pet => pet.Race = value.ToString());
     }

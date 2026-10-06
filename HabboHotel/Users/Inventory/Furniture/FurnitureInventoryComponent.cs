@@ -50,18 +50,15 @@ public static class ItemTypeExtensions
 
     public static IFurniObjectData CreateData(this ItemDefinition definition)
     {
-        if (definition.InteractionType == InteractionType.Gift)
-        {
+        if (definition.InteractionType == InteractionType.Gift) {
             return new MapDataFormat();
         }
 
-        if (definition.InteractionType == InteractionType.CrackableEgg)
-        {
+        if (definition.InteractionType == InteractionType.CrackableEgg) {
             return new CrackableDataFormat { Target = (uint)Math.Max(definition.Modes, 1) };
         }
 
-        if (definition.InteractionType == InteractionType.Background)
-        {
+        if (definition.InteractionType == InteractionType.Background) {
             return new MapDataFormat(new Dictionary<string, string>
             {
                 ["state"] = "0",
@@ -79,14 +76,8 @@ public static class ItemTypeExtensions
 
 public class InventoryItem
 {
-    public uint Id
-    {
-        get; set;
-    }
-    public uint OwnerId
-    {
-        get; set;
-    }
+    public uint Id { get; set; }
+    public uint OwnerId { get; set; }
     public bool IsFloorItem => Definition.Type == ItemType.Floor;
     public bool IsWallItem => Definition.Type == ItemType.Wall;
     public ItemDefinition Definition { get; set; } = null!;
@@ -119,8 +110,7 @@ public class FurnitureInventoryComponent
         const int itemsPerPage = 700;
         var items = AllItems.Select(InventoryItemSnapshot.Capture).ToImmutableArray();
 
-        if (items.IsEmpty)
-        {
+        if (items.IsEmpty) {
             session.Send(new FurniListComposer(items, 1, 1));
 
             return;
@@ -129,8 +119,7 @@ public class FurnitureInventoryComponent
         var pages = (items.Length - 1) / itemsPerPage + 1;
         var page = 0;
 
-        foreach (var batch in items.Chunk(itemsPerPage))
-        {
+        foreach (var batch in items.Chunk(itemsPerPage)) {
             session.Send(new FurniListComposer(batch.ToImmutableArray(), pages, page++));
         }
     }
@@ -143,13 +132,11 @@ public class FurnitureInventoryComponent
 
     public InventoryItem? GetItem(uint itemId)
     {
-        if (_floorItems.TryGetValue(itemId, out var item))
-        {
+        if (_floorItems.TryGetValue(itemId, out var item)) {
             return item;
         }
 
-        if (_wallItems.TryGetValue(itemId, out item))
-        {
+        if (_wallItems.TryGetValue(itemId, out item)) {
             return item;
         }
 
@@ -158,16 +145,13 @@ public class FurnitureInventoryComponent
 
     public bool AddItem(InventoryItem item)
     {
-        if (item.IsFloorItem)
-        {
+        if (item.IsFloorItem) {
             return _floorItems.TryAdd(item.Id, item);
         }
-        else if (item.IsWallItem)
-        {
+        else if (item.IsWallItem) {
             return _wallItems.TryAdd(item.Id, item);
         }
-        else
-        {
+        else {
             throw new InvalidOperationException("Item did not match neither floor or wall item");
         }
     }

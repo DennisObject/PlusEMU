@@ -8,12 +8,6 @@ public class GroupColours
         Colour = colour;
     }
 
-    public int Id
-    {
-        get;
-    }
-    public string Colour
-    {
-        get;
-    }
+    public int Id { get; }
+    public string Colour { get; }
 }

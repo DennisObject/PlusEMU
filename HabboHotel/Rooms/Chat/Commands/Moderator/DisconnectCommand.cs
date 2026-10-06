@@ -15,8 +15,7 @@ internal class DisconnectCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!session.GetHabbo().Access.Outranks(target.Access))
-        {
+        if (!session.GetHabbo().Access.Outranks(target.Access)) {
             session.SendWhisper("You are not allowed to Disconnect that user.");
 
             return Task.CompletedTask;

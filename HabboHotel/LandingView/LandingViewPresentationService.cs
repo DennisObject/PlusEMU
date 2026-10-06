@@ -22,32 +22,27 @@ public sealed class LandingViewPresentationService(ILandingViewManager landingVi
 {
     public void RefreshCampaign(GameClient session, string campaigns)
     {
-        if (campaigns.Contains("gamesmaker"))
-        {
+        if (campaigns.Contains("gamesmaker")) {
             return;
         }
 
         var name = "";
 
-        foreach (var value in campaigns.Split(';'))
-        {
-            if (string.IsNullOrEmpty(value) || value.EndsWith(","))
-            {
+        foreach (var value in campaigns.Split(';')) {
+            if (string.IsNullOrEmpty(value) || value.EndsWith(",")) {
                 continue;
             }
 
             var fields = value.Split(',');
 
-            if (fields.Length < 2)
-            {
+            if (fields.Length < 2) {
                 return;
             }
 
             name = fields[1];
         }
 
-        try
-        {
+        try {
             session.Send(new CampaignComposer(campaigns, name));
         }
         catch { /* Campaign refresh has always ignored publication failures. */ }

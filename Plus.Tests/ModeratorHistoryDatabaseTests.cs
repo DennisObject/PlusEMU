@@ -19,8 +19,7 @@ public sealed class ModeratorHistoryDatabaseTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -31,8 +30,7 @@ public sealed class ModeratorHistoryDatabaseTests
             var messageTime = entered.AddSeconds(1);
             var clock = new Clock(entered.AddSeconds(2));
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 connection.Execute("""
                     CREATE TABLE rooms(id INT UNSIGNED PRIMARY KEY,caption VARCHAR(50));
                     CREATE TABLE user_roomvisits(id INT PRIMARY KEY,user_id INT,room_id INT UNSIGNED,
@@ -42,11 +40,7 @@ public sealed class ModeratorHistoryDatabaseTests
                     INSERT INTO rooms VALUES(42,'Room');
                     INSERT INTO user_roomvisits VALUES(1,7,42,@entered,NULL),(2,7,42,NULL,NULL);
                     INSERT INTO chatlogs VALUES(1,9,42,@messageTime,'message'),(2,9,42,NULL,'unknown');
-                    """, new
-                {
-                    entered = entered.UtcDateTime,
-                    messageTime = messageTime.UtcDateTime
-                });
+                    """, new { entered = entered.UtcDateTime, messageTime = messageTime.UtcDateTime });
             }
 
             var chatlogs = new Chatlogs();
@@ -63,8 +57,7 @@ public sealed class ModeratorHistoryDatabaseTests
             var visits = Assert.IsType<ModeratorUserRoomVisits>(service.GetUserRoomVisits(7));
             Assert.Equal(entered, Assert.Single(visits.Visits).EnteredAt);
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -75,19 +68,13 @@ public sealed class ModeratorHistoryDatabaseTests
     }
     private sealed class Chatlogs : IChatlogManager
     {
-        public int Flushes
-        {
-            get; private set;
-        }
+        public int Flushes { get; private set; }
         public void FlushAndSave() => Flushes++;
         public void StoreChatlog(ChatlogEntry entry) => throw new InvalidOperationException();
     }
     private sealed class Clock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

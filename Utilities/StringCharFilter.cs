@@ -35,13 +35,11 @@ internal static class StringCharFilter
     /// <returns></returns>
     public static string Escape(string str, bool allowBreaks = false)
     {
-        if (string.IsNullOrWhiteSpace(str))
-        {
+        if (string.IsNullOrWhiteSpace(str)) {
             return string.Empty;
         }
 
-        if (!allowBreaks)
-        {
+        if (!allowBreaks) {
             str = _breakLinesRegex.Replace(str, " ");
         }
 

@@ -139,8 +139,7 @@ public class FloorPlanSaveTests
         mapBytes.CopyTo(bytes.AsSpan(2));
         var offset = 2 + mapBytes.Length;
 
-        foreach (var field in fields)
-        {
+        foreach (var field in fields) {
             bytes[offset++] = (byte)(field >> 24);
             bytes[offset++] = (byte)(field >> 16);
             bytes[offset++] = (byte)(field >> 8);

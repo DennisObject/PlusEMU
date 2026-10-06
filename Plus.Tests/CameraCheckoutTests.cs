@@ -17,8 +17,7 @@ public sealed class CameraDatabaseFactAttribute : FactAttribute
 {
     public CameraDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_CAMERA_TEST_CONNECTION_STRING")))
-        {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_CAMERA_TEST_CONNECTION_STRING"))) {
             Skip = "Set PLUS_CAMERA_TEST_CONNECTION_STRING to a disposable task_camera_tests_ schema.";
         }
     }
@@ -39,28 +38,16 @@ public class CameraCheckoutTests
     {
         var value = Environment.GetEnvironmentVariable("PLUS_CAMERA_TEST_CONNECTION_STRING")!;
 
-        if (!new MySqlConnectionStringBuilder(value).Database.StartsWith("task_camera_tests_", StringComparison.Ordinal))
-        {
+        if (!new MySqlConnectionStringBuilder(value).Database.StartsWith("task_camera_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Camera database tests require a disposable schema.");
         }
 
         _database = new(new MySqlConnectionStringBuilder(value)
-        {
-            AllowZeroDateTime = true,
-            ConvertZeroDateTime = true
-        }.ConnectionString);
+        { AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
         _service = new(_database, _settings, _definitions, _clock);
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 42;
-        _habbo = new()
-        {
-            Id = UserId,
-            Username = "Camera transaction",
-            Credits = 100,
-            Duckets = 20,
-            Diamonds = 3,
-            CurrentRoom = room
-        };
+        _habbo = new() { Id = UserId, Username = "Camera transaction", Credits = 100, Duckets = 20, Diamonds = 3, CurrentRoom = room };
         _media = new(Guid.NewGuid(), 42, _clock.GetUtcNow());
         Execute("DROP TRIGGER IF EXISTS camera_test_failure; DELETE FROM camera_quota; DELETE FROM camera_purchases; DELETE FROM camera_publications; DELETE FROM camera_accounts; DELETE FROM camera_competition_entries; DELETE FROM camera_media; DELETE FROM items; DELETE FROM users");
         Execute("INSERT INTO users (id,username,auth_ticket,credits,activity_points,vip_points) VALUES (910001,'camera_tests','',100,20,3)");
@@ -113,8 +100,7 @@ public class CameraCheckoutTests
         Assert.Equal(new DateTimeOffset(clock.Now.UtcDateTime.Date, TimeSpan.Zero), connection.QuerySingle<DateTimeOffset>(
             "SELECT CAST(quota_date AS DATETIME) FROM camera_quota WHERE user_id=910001"));
 
-        foreach (var elapsed in new[] { TimeSpan.FromSeconds(5).Subtract(TimeSpan.FromTicks(10)), TimeSpan.FromSeconds(5) })
-        {
+        foreach (var elapsed in new[] { TimeSpan.FromSeconds(5).Subtract(TimeSpan.FromTicks(10)), TimeSpan.FromSeconds(5) }) {
             clock.Now = clock.Start.Add(elapsed);
             int reads = clock.Reads;
             Assert.Equal(elapsed == TimeSpan.FromSeconds(5), quota.Reserve(UserId, false, false));
@@ -141,10 +127,7 @@ public class CameraCheckoutTests
         Assert.Equal(96, Scalar("SELECT credits FROM users WHERE id=910001"));
         Assert.Equal(2, Scalar("SELECT COUNT(*) FROM camera_purchases"));
         using var connection = _database.Connection();
-        var metadata = connection.QuerySingle<string>("SELECT extra_data FROM items WHERE id=@id", new
-        {
-            id = first.Item.Id
-        });
+        var metadata = connection.QuerySingle<string>("SELECT extra_data FROM items WHERE id=@id", new { id = first.Item.Id });
         Assert.Contains($"/camera/{_media.Id:D}.png", metadata);
         Assert.DoesNotContain("http", metadata);
     }
@@ -152,14 +135,8 @@ public class CameraCheckoutTests
     [CameraDatabaseFact]
     public void ForgedOwnerRoomDefinitionAndInsufficientBalanceCreateNothing()
     {
-        Assert.False(_service.Purchase(_habbo, _media with
-        {
-            Id = Guid.NewGuid()
-        }).Ok);
-        Assert.False(_service.Purchase(_habbo, _media with
-        {
-            RoomId = 43
-        }).Ok);
+        Assert.False(_service.Purchase(_habbo, _media with { Id = Guid.NewGuid() }).Ok);
+        Assert.False(_service.Purchase(_habbo, _media with { RoomId = 43 }).Ok);
         Execute("UPDATE camera_media SET user_id=999");
         Assert.False(_service.Purchase(_habbo, _media).Ok);
         Execute("UPDATE camera_media SET user_id=910001");
@@ -177,11 +154,12 @@ public class CameraCheckoutTests
     {
         Execute("CREATE TRIGGER camera_test_failure BEFORE UPDATE ON users FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced rollback'");
 
-        try
-        {
+        try {
             Assert.Throws<MySqlException>(() => _service.Purchase(_habbo, _media));
         }
-        finally { Execute("DROP TRIGGER camera_test_failure"); }
+        finally {
+            Execute("DROP TRIGGER camera_test_failure");
+        }
 
         Assert.Equal(100, _habbo.Credits);
         Assert.Equal(100, Scalar("SELECT credits FROM users"));
@@ -195,10 +173,7 @@ public class CameraCheckoutTests
         Assert.True(_service.Publish(_habbo, _media).Changed);
         Assert.True(_service.Publish(_habbo, _media).Ok);
         Assert.Equal(19, _habbo.Duckets);
-        var next = _media with
-        {
-            Id = Guid.NewGuid()
-        };
+        var next = _media with { Id = Guid.NewGuid() };
         Mint(next);
         var recreated = new CameraCheckoutService(_database, _settings, _definitions, _clock);
         var blocked = recreated.Publish(_habbo, next);
@@ -218,10 +193,7 @@ public class CameraCheckoutTests
         _settings.Values["camera.competition.daily"] = "1";
         Assert.True(_service.EnterCompetition(_habbo, _media).Changed);
         Assert.True(_service.EnterCompetition(_habbo, _media).Ok);
-        var next = _media with
-        {
-            Id = Guid.NewGuid()
-        };
+        var next = _media with { Id = Guid.NewGuid() };
         Mint(next);
         Assert.Equal("limit", _service.EnterCompetition(_habbo, next).Error);
         _settings.Values["camera.competition.require_email"] = "1";
@@ -239,24 +211,15 @@ public class CameraCheckoutTests
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
         Directory.CreateDirectory(directory);
 
-        try
-        {
-            for (var index = 0; index < 105; index++)
-            {
-                var expired = _media with
-                {
-                    Id = Guid.NewGuid()
-                };
+        try {
+            for (var index = 0; index < 105; index++) {
+                var expired = _media with { Id = Guid.NewGuid() };
                 Mint(expired);
                 File.WriteAllText(Path.Combine(directory, expired.Id + ".png"), "expired");
                 File.WriteAllText(Path.Combine(directory, expired.Id + "_small.png"), "expired");
             }
 
-            var fresh = _media with
-            {
-                Id = Guid.NewGuid(),
-                CreatedAt = _clock.GetUtcNow()
-            };
+            var fresh = _media with { Id = Guid.NewGuid(), CreatedAt = _clock.GetUtcNow() };
             Mint(fresh);
             using var cleanup = new CameraMediaCleanup(_database,
                 Microsoft.Extensions.Options.Options.Create(new CameraConfiguration { OutputDirectory = directory }),
@@ -266,7 +229,9 @@ public class CameraCheckoutTests
             Assert.Empty(Directory.GetFiles(directory));
             Assert.Equal(1, Scalar("SELECT COUNT(*) FROM camera_purchases"));
         }
-        finally { Directory.Delete(directory, true); }
+        finally {
+            Directory.Delete(directory, true);
+        }
     }
 
     [CameraDatabaseFact]
@@ -280,8 +245,7 @@ public class CameraCheckoutTests
         File.WriteAllText(main, "expired");
         Directory.CreateDirectory(small); // File.Delete must fail after the main file was removed.
 
-        try
-        {
+        try {
             using var cleanup = new CameraMediaCleanup(_database,
                 Microsoft.Extensions.Options.Options.Create(new CameraConfiguration { OutputDirectory = directory }),
                 _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<CameraMediaCleanup>.Instance);
@@ -293,19 +257,16 @@ public class CameraCheckoutTests
             Assert.Equal(0, Scalar("SELECT COUNT(*) FROM camera_media"));
             Assert.Empty(Directory.GetFiles(directory));
         }
-        finally { Directory.Delete(directory, true); }
+        finally {
+            Directory.Delete(directory, true);
+        }
     }
 
     private void Mint(CameraCheckoutMedia media)
     {
         using var c = _database.Connection();
         c.Execute("INSERT INTO camera_media (id,user_id,room_id,created_at) VALUES (@id,910001,@roomId,@now)",
-            new
-            {
-                id = media.Id.ToString("D"),
-                roomId = media.RoomId,
-                now = media.CreatedAt.UtcDateTime
-            });
+            new { id = media.Id.ToString("D"), roomId = media.RoomId, now = media.CreatedAt.UtcDateTime });
     }
     private void Execute(string sql)
     {
@@ -361,10 +322,7 @@ public class CameraCheckoutTests
     {
         public DateTimeOffset Start { get; } = start;
         public DateTimeOffset Now { get; set; } = start;
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

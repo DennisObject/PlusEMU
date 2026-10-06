@@ -27,17 +27,14 @@ public sealed class WiredConfigurationService(
     {
         var habbo = session.GetHabbo();
 
-        if (!habbo.InRoom || habbo.CurrentRoom is not { } room || !room.GetWired().Settings.CanModify(session))
-        {
+        if (!habbo.InRoom || habbo.CurrentRoom is not { } room || !room.GetWired().Settings.CanModify(session)) {
             return;
         }
 
-        try
-        {
+        try {
             var selectedItem = room.GetRoomItemHandler().GetItem(request.ItemId);
 
-            if (selectedItem == null || selectedItem.IsTemporary || !room.GetWired().TryGet(request.ItemId, out var box))
-            {
+            if (selectedItem == null || selectedItem.IsTemporary || !room.GetWired().TryGet(request.ItemId, out var box)) {
                 return;
             }
 
@@ -46,15 +43,13 @@ public sealed class WiredConfigurationService(
                 : selectedItem.Definition.InteractionType == InteractionType.WiredCondition ? WiredBoxCategory.Condition
                 : WiredBoxCategory.Action;
 
-            if (actualEnvelope != request.Envelope)
-            {
+            if (actualEnvelope != request.Envelope) {
                 session.Send(new WiredValidationErrorComposer("The save packet does not match this Wired box."));
 
                 return;
             }
 
-            if (box.Type == WiredBoxType.EffectGiveUserBadge && !habbo.Access.Can(PermissionKeys.RoomItemWiredRewards))
-            {
+            if (box.Type == WiredBoxType.EffectGiveUserBadge && !habbo.Access.Can(PermissionKeys.RoomItemWiredRewards)) {
                 session.Send(new WiredValidationErrorComposer("You do not have permission to configure Wired rewards."));
 
                 return;
@@ -63,15 +58,13 @@ public sealed class WiredConfigurationService(
             var rewardName = box is IWiredConfiguredItem rewardBox ? rewardBox.Descriptor.CanonicalName
                 : WiredLegacyEditorProjection.TryGetDescriptor(box, out var rewardDescriptor) ? rewardDescriptor.CanonicalName : null;
 
-            if (rewardName == "wf_act_give_reward" && !habbo.Access.Can(PermissionKeys.ModerationTool))
-            {
+            if (rewardName == "wf_act_give_reward" && !habbo.Access.Can(PermissionKeys.ModerationTool)) {
                 session.Send(new WiredValidationErrorComposer("You do not have permission to configure Wired rewards."));
 
                 return;
             }
 
-            if (!TrySave(room.GetWired(), selectedItem, box, session, request.Envelope, request.Configuration, out var error))
-            {
+            if (!TrySave(room.GetWired(), selectedItem, box, session, request.Envelope, request.Configuration, out var error)) {
                 session.Send(new WiredValidationErrorComposer(error));
 
                 return;
@@ -80,8 +73,7 @@ public sealed class WiredConfigurationService(
             session.Send(new HideWiredConfigComposer());
         }
         catch (Exception error) when (error is ArgumentException or IOException or OverflowException
-            or InvalidOperationException or FormatException or DbException or JsonException)
-        {
+            or InvalidOperationException or FormatException or DbException or JsonException) {
             logger.LogWarning(error, "Failed to save Wired settings in room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
@@ -92,16 +84,11 @@ public sealed class WiredConfigurationService(
     {
         var room = box.Instance;
 
-        if (box is IWiredConfiguredItem configured)
-        {
+        if (box is IWiredConfiguredItem configured) {
             proposed = PreserveAdvancedConfiguration(configured, proposed);
 
-            if (configured.Descriptor.CanonicalName == "wf_act_bot_clothes")
-            {
-                proposed = proposed with
-                {
-                    Text = ValidateBotFigure(proposed.Text, session)
-                };
+            if (configured.Descriptor.CanonicalName == "wf_act_bot_clothes") {
+                proposed = proposed with { Text = ValidateBotFigure(proposed.Text, session) };
             }
 
             return WiredConfigurationSave.TrySave(configured, proposed, store, out error,
@@ -110,16 +97,13 @@ public sealed class WiredConfigurationService(
                 isTemporaryInRoom: id => room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true);
         }
 
-        if (WiredLegacyCustomEditor.IsCustom(box))
-        {
+        if (WiredLegacyCustomEditor.IsCustom(box)) {
             if (!WiredLegacyCustomEditor.TryPrepare(box, proposed, WiredLegacyCustomEditor.CreateCandidate,
-                out var candidate, out error))
-            {
+                out var candidate, out error)) {
                 return false;
             }
 
-            if (wired.PublishLegacy(box, candidate!, () => wired.SaveBox(candidate!)))
-            {
+            if (wired.PublishLegacy(box, candidate!, () => wired.SaveBox(candidate!))) {
                 return true;
             }
 
@@ -128,20 +112,14 @@ public sealed class WiredConfigurationService(
             return false;
         }
 
-        if (WiredLegacyEditorProjection.TryGetDescriptor(box, out var descriptor))
-        {
-            if (descriptor.CanonicalName == "wf_act_bot_clothes")
-            {
-                proposed = proposed with
-                {
-                    Text = ValidateBotFigure(proposed.Text, session)
-                };
+        if (WiredLegacyEditorProjection.TryGetDescriptor(box, out var descriptor)) {
+            if (descriptor.CanonicalName == "wf_act_bot_clothes") {
+                proposed = proposed with { Text = ValidateBotFigure(proposed.Text, session) };
             }
 
             var candidate = wired.CreateConfiguredBox(selectedItem, descriptor);
 
-            if (candidate == null)
-            {
+            if (candidate == null) {
                 error = "This Wired behavior cannot be configured yet.";
 
                 return false;
@@ -158,8 +136,7 @@ public sealed class WiredConfigurationService(
             original => wired.GenerateNewBox(original.Item),
             (original, candidate) =>
             {
-                if (candidate.Type == WiredBoxType.EffectBotChangesClothesBox)
-                {
+                if (candidate.Type == WiredBoxType.EffectBotChangesClothesBox) {
                     candidate.StringData = ValidateBotFigure(candidate.StringData, session);
                 }
 
@@ -171,13 +148,11 @@ public sealed class WiredConfigurationService(
     {
         var fields = data.Split('\t', 2);
 
-        if (fields.Length == 2)
-        {
+        if (fields.Length == 2) {
             fields[1] = fields[1].TrimEnd('.');
         }
 
-        if (fields.Length != 2 || !WiredBotActions.FigureWellFormed(fields[1]))
-        {
+        if (fields.Length != 2 || !WiredBotActions.FigureWellFormed(fields[1])) {
             throw new ArgumentException("Invalid bot figure.");
         }
 
@@ -190,13 +165,9 @@ public sealed class WiredConfigurationService(
     private static WiredConfiguration PreserveAdvancedConfiguration(IWiredConfiguredItem box, WiredConfiguration proposed)
     {
         var saved = box.Configuration;
-        proposed = proposed with
-        {
-            ScoreQuotaPerGame = saved.ScoreQuotaPerGame
-        };
+        proposed = proposed with { ScoreQuotaPerGame = saved.ScoreQuotaPerGame };
 
-        if (box.Descriptor.CanonicalName == "wf_act_place_furni" && saved.TemporaryPlacement != null)
-        {
+        if (box.Descriptor.CanonicalName == "wf_act_place_furni" && saved.TemporaryPlacement != null) {
             proposed = proposed with
             {
                 TemporaryPlacement = saved.TemporaryPlacement,

@@ -16,10 +16,7 @@ public sealed class WiredVariableTextInputBox(Room room, Item item, WiredBoxDesc
     public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
     public string StringData { get; set; } = "";
     public string ItemsData { get; set; } = "";
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed;
@@ -27,27 +24,21 @@ public sealed class WiredVariableTextInputBox(Room room, Item item, WiredBoxDesc
         var parts = proposed.Text.Split('\t');
 
         if (proposed.Version != 1 || proposed.IntParams.Length != 1 || proposed.IntParams[0] is not (1 or 2)
-            || parts.Length != 2 || !WiredVariableModule.TryDefinitionId(parts[0], out _))
-        {
+            || parts.Length != 2 || !WiredVariableModule.TryDefinitionId(parts[0], out _)) {
             return false;
         }
 
         var name = parts[1].Trim();
 
-        if (name.Length >= 2 && name.StartsWith('#') && name.EndsWith('#'))
-        {
+        if (name.Length >= 2 && name.StartsWith('#') && name.EndsWith('#')) {
             name = name[1..^1].Trim();
         }
 
-        if (name.Length is < 1 or > 32 || name.IndexOfAny(['\r', '\n', '#']) >= 0)
-        {
+        if (name.Length is < 1 or > 32 || name.IndexOfAny(['\r', '\n', '#']) >= 0) {
             return false;
         }
 
-        validated = proposed with
-        {
-            Text = parts[0] + "\t" + name
-        };
+        validated = proposed with { Text = parts[0] + "\t" + name };
         error = "";
 
         return true;

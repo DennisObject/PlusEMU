@@ -51,13 +51,11 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
         _searchResultLists.Clear();
         _featuredRooms.Clear();
 
-        foreach (var category in categories)
-        {
+        foreach (var category in categories) {
             _searchResultLists.TryAdd(category.Id, new(category.Id, category.Category, category.CategoryIdentifier, category.PublicName, true, -1, category.RequiredPermission, NavigatorViewModeUtility.GetViewModeByString(category.ViewMode), category.CategoryType, category.SearchAllowance, category.OrderId));
         }
 
-        foreach (var featured in publics)
-        {
+        foreach (var featured in publics) {
             _featuredRooms.TryAdd((uint)featured.RoomId, featured);
         }
 
@@ -66,10 +64,7 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
 
     private sealed class CategoryRow
     {
-        public int Id
-        {
-            get; set;
-        }
+        public int Id { get; set; }
         public string Category { get; set; } = string.Empty;
         public string CategoryIdentifier { get; set; } = string.Empty;
         public string PublicName { get; set; } = string.Empty;
@@ -77,10 +72,7 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
         public string ViewMode { get; set; } = string.Empty;
         public string CategoryType { get; set; } = string.Empty;
         public string SearchAllowance { get; set; } = string.Empty;
-        public int OrderId
-        {
-            get; set;
-        }
+        public int OrderId { get; set; }
     }
 
     public List<SearchResultList> GetCategoriessForSearch(string category) => _searchResultLists.Where(cat => cat.Value.Category == category).OrderBy(cat => cat.Value.OrderId).Select(cat => cat.Value).ToList();
@@ -107,10 +99,7 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
     {
         using var connection = _database.Connection();
 
-        return (await connection.QueryAsync<SavedSearch>("SELECT `id`,`filter`,`search_code` as search FROM `user_saved_searches` WHERE `user_id` = @userId", new
-        {
-            userId
-        })).ToDictionary(search => search.Id);
+        return (await connection.QueryAsync<SavedSearch>("SELECT `id`,`filter`,`search_code` as search FROM `user_saved_searches` WHERE `user_id` = @userId", new { userId })).ToDictionary(search => search.Id);
     }
 
     public Task SaveHomeRoom(GameClient session, uint roomId)
@@ -118,26 +107,18 @@ public sealed class NavigatorManager : INavigatorManager, IStartable
         var habbo = session.GetHabbo();
         var exists = _rooms.TryGetData(roomId, out _);
 
-        lock (habbo.WalletSync)
-        {
-            if (habbo.WalletClosed)
-            {
+        lock (habbo.WalletSync) {
+            if (habbo.WalletClosed) {
                 return Task.CompletedTask;
             }
 
-            if (exists)
-            {
+            if (exists) {
                 using var connection = _database.Connection();
                 var updated = connection.Execute(
                     "UPDATE users_settings SET home_room = @roomId WHERE user_id = @userId LIMIT 1",
-                    new
-                    {
-                        roomId,
-                        userId = habbo.Id
-                    });
+                    new { roomId, userId = habbo.Id });
 
-                if (updated != 1)
-                {
+                if (updated != 1) {
                     throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
                 }
 

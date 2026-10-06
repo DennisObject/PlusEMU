@@ -14,8 +14,7 @@ public sealed class PetHorseFigureInformationComposer(HorseAppearanceSnapshot da
         packet.WriteInteger(data.Race);
         packet.WriteString(data.Color);
 
-        if (data.Saddle > 0)
-        {
+        if (data.Saddle > 0) {
             packet.WriteInteger(4);
             packet.WriteInteger(3);
             packet.WriteInteger(3);
@@ -28,8 +27,7 @@ public sealed class PetHorseFigureInformationComposer(HorseAppearanceSnapshot da
             packet.WriteInteger(data.Saddle);
             packet.WriteInteger(0);
         }
-        else
-        {
+        else {
             packet.WriteInteger(1);
             packet.WriteInteger(2);
             packet.WriteInteger(2);

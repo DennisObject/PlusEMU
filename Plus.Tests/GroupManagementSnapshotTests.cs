@@ -94,8 +94,7 @@ public sealed class GroupManagementSnapshotTests
         group.Colour2 = 2;
         group.Type = GroupType.Open;
 
-        foreach (var field in new[] { "_members", "_administrators", "_requests" })
-        {
+        foreach (var field in new[] { "_members", "_administrators", "_requests" }) {
             typeof(Group).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(group, new List<int>());
         }
 
@@ -115,8 +114,7 @@ public sealed class GroupManagementSnapshotTests
         public Group Group { get; set; } = null!;
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method?.Name != nameof(IGroupManager.TryGetGroup))
-            {
+            if (method?.Name != nameof(IGroupManager.TryGetGroup)) {
                 throw new NotSupportedException(method?.Name);
             }
 

@@ -29,8 +29,7 @@ public class MapDataFormat : FurniObjectData
     {
         var stringBuilder = new StringBuilder();
 
-        foreach (var entry in Data)
-        {
+        foreach (var entry in Data) {
             stringBuilder.Append(Regex.Escape(entry.Key));
             stringBuilder.Append("\t");
             stringBuilder.Append(Regex.Escape(entry.Value));
@@ -46,14 +45,12 @@ public class MapDataFormat : FurniObjectData
     {
         Data.Clear();
 
-        foreach (var entry in data.Split("\n"))
-        {
+        foreach (var entry in data.Split("\n")) {
             var keyValue = entry.Split("\t");
             var key = Regex.Unescape(keyValue[0]);
             var value = string.Empty;
 
-            if (keyValue.Length == 2)
-            {
+            if (keyValue.Length == 2) {
                 value = Regex.Unescape(keyValue[1]);
             }
 

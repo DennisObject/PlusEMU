@@ -12,41 +12,34 @@ public static class ConsoleCommands
 
     public static void InvokeCommand(string inputData)
     {
-        if (string.IsNullOrEmpty(inputData))
-        {
+        if (string.IsNullOrEmpty(inputData)) {
             return;
         }
 
-        try
-        {
+        try {
             var parameters = inputData.Split(' ');
 
-            switch (parameters[0].ToLower())
-            {
+            switch (parameters[0].ToLower()) {
                 case "stop":
-                case "shutdown":
-                    {
+                case "shutdown": {
                         Logger.LogWarning("The server is saving users furniture, rooms, etc. WAIT FOR THE SERVER TO CLOSE, DO NOT EXIT THE PROCESS IN TASK MANAGER!!");
                         PlusEnvironment.PerformShutDown();
                         break;
                     }
-                case "alert":
-                    {
+                case "alert": {
                         var notice = inputData.Substring(6);
                         PlusEnvironment.Game.ClientManager
                             .SendPacket(new BroadcastMessageAlertComposer($"{PlusEnvironment.LanguageManager.TryGetValue("server.console.alert")}\n\n{notice}"));
                         Logger.LogInformation("Alert successfully sent.");
                         break;
                     }
-                default:
-                    {
+                default: {
                         Logger.LogError("{Command} is an unknown or unsupported command. Type help for more information", parameters[0].ToLower());
                         break;
                     }
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             Logger.LogError(e, "Error in command [{Input}]", inputData);
         }
     }

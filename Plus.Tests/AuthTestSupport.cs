@@ -25,8 +25,7 @@ public sealed class AuthDatabaseFactAttribute : FactAttribute
 
     public AuthDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
-        {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable))) {
             Skip = $"Set {Variable} to a disposable PlusEMU database to run.";
         }
     }
@@ -44,22 +43,14 @@ internal sealed class AuthTestDatabase : IDatabase
         using var connection = new MySqlConnection(ConnectionString);
 
         return connection.ExecuteScalar<int>("INSERT INTO users (username, password, mail, auth_ticket) VALUES (@username, @password, @mail, ''); SELECT LAST_INSERT_ID();",
-            new
-            {
-                username,
-                password,
-                mail
-            });
+            new { username, password, mail });
     }
 
     public static void DeleteUsers(IEnumerable<int> ids)
     {
         using var connection = new MySqlConnection(ConnectionString);
         connection.Execute("DELETE FROM user_access_tokens WHERE user_id IN @ids; DELETE FROM user_statistics WHERE id IN @ids; DELETE FROM users WHERE id IN @ids;",
-            new
-            {
-                ids = ids.ToArray()
-            });
+            new { ids = ids.ToArray() });
     }
 
     public static string UniqueName(string prefix) => prefix + Guid.NewGuid().ToString("N")[..(15 - prefix.Length)];
@@ -68,10 +59,7 @@ internal sealed class AuthTestDatabase : IDatabase
 internal sealed class ManualTime(DateTimeOffset start) : TimeProvider
 {
     public DateTimeOffset Now { get; set; } = start;
-    public int Reads
-    {
-        get; private set;
-    }
+    public int Reads { get; private set; }
     public override DateTimeOffset GetUtcNow()
     {
         Reads++;
@@ -115,13 +103,11 @@ internal sealed class FakeAccounts : IAccountStore
     {
         LookupStarted.TrySetResult();
 
-        if (HoldLookups != null)
-        {
+        if (HoldLookups != null) {
             await HoldLookups;
         }
 
-        if (FailLookupsWith != null)
-        {
+        if (FailLookupsWith != null) {
             throw FailLookupsWith;
         }
 
@@ -134,12 +120,8 @@ internal sealed class FakeAccounts : IAccountStore
     {
         var index = Rows.FindIndex(r => r.Id == userId && r.Password == current);
 
-        if (index >= 0)
-        {
-            Rows[index] = Rows[index] with
-            {
-                Password = replacement
-            };
+        if (index >= 0) {
+            Rows[index] = Rows[index] with { Password = replacement };
         }
 
         return Task.CompletedTask;
@@ -166,15 +148,13 @@ internal sealed class FakeAccounts : IAccountStore
 
     public async Task<bool> EmailExists(string email)
     {
-        if (Interlocked.Increment(ref _emailChecksArrived) >= ConcurrentEmailChecks)
-        {
+        if (Interlocked.Increment(ref _emailChecksArrived) >= ConcurrentEmailChecks) {
             _emailChecksGate.TrySetResult();
         }
 
         await Task.WhenAny(_emailChecksGate.Task, Task.Delay(100));
 
-        lock (Emails)
-        {
+        lock (Emails) {
             return Emails.Contains(email);
         }
     }
@@ -186,8 +166,7 @@ internal sealed class FakeAccounts : IAccountStore
     {
         var id = await CreateRow(account);
 
-        if (id != null && RevokeOnCreate != null)
-        {
+        if (id != null && RevokeOnCreate != null) {
             await RevokeOnCreate(id.Value);
         }
 
@@ -198,13 +177,11 @@ internal sealed class FakeAccounts : IAccountStore
     {
         await Task.Yield();
 
-        if (await UsernameExists(account.Username))
-        {
+        if (await UsernameExists(account.Username)) {
             return null;
         }
 
-        lock (Emails)
-        {
+        lock (Emails) {
             Created.Add(account);
             Emails.Add(account.Email);
 
@@ -221,8 +198,7 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 
     public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
     {
-        foreach (var old in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
-        {
+        foreach (var old in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList()) {
             Live.Remove(old);
         }
 
@@ -251,26 +227,21 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 
     public async Task<CredentialOwner?> Exchange(string ticket)
     {
-        if (await FindOwner(ticket) is not { } owner || !Exchanged.Add(ticket))
-        {
+        if (await FindOwner(ticket) is not { } owner || !Exchanged.Add(ticket)) {
             return null;
         }
 
         // Like the database store, a ticket without a session gets one when it is exchanged.
         var sessionId = _sessions[ticket] ??= "fake-" + Guid.NewGuid().ToString("N");
 
-        return owner with
-        {
-            SessionId = sessionId
-        };
+        return owner with { SessionId = sessionId };
     }
 
     public Task<CredentialOwner?> ExchangeAt(string ticket, CredentialInstant instant) => Exchange(ticket);
 
     public async Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope)
     {
-        if (await FindOwner(ticket) is not { } owner || owner.UserId != userId)
-        {
+        if (await FindOwner(ticket) is not { } owner || owner.UserId != userId) {
             return null;
         }
 
@@ -281,8 +252,7 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 
     public Task Revoke(int userId, CredentialScope? scope = null)
     {
-        foreach (var ticket in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
-        {
+        foreach (var ticket in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList()) {
             Live.Remove(ticket);
         }
 
@@ -291,8 +261,7 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 
     public Task RevokeSession(int userId, string sessionId, CredentialScope scope)
     {
-        foreach (var ticket in Live.Where(p => p.Value == userId && _sessions.GetValueOrDefault(p.Key) == sessionId).Select(p => p.Key).ToList())
-        {
+        foreach (var ticket in Live.Where(p => p.Value == userId && _sessions.GetValueOrDefault(p.Key) == sessionId).Select(p => p.Key).ToList()) {
             Live.Remove(ticket);
         }
 
@@ -337,8 +306,7 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
 
     private Task RemoveWhere(Func<KeyValuePair<string, int>, bool> match)
     {
-        foreach (var key in Live.Where(match).Select(p => p.Key).ToList())
-        {
+        foreach (var key in Live.Where(match).Select(p => p.Key).ToList()) {
             Live.Remove(key);
         }
 
@@ -380,14 +348,12 @@ internal sealed class CountingHasher(IPasswordHasher inner, TimeSpan delay) : IP
         var now = Interlocked.Increment(ref _current);
         InterlockedMax(ref MaxConcurrent, now);
 
-        try
-        {
+        try {
             Thread.Sleep(delay);
 
             return work();
         }
-        finally
-        {
+        finally {
             Interlocked.Decrement(ref _current);
         }
     }
@@ -396,9 +362,7 @@ internal sealed class CountingHasher(IPasswordHasher inner, TimeSpan delay) : IP
     {
         int seen;
 
-        while ((seen = Volatile.Read(ref target)) < value && Interlocked.CompareExchange(ref target, value, seen) != seen)
-        {
-        }
+        while ((seen = Volatile.Read(ref target)) < value && Interlocked.CompareExchange(ref target, value, seen) != seen) { }
     }
 }
 
@@ -419,27 +383,21 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
 
     public async Task<RememberRotation> Rotate(string token, Func<int, CredentialScope, Task>? onReuse = null)
     {
-        if (!_rows.TryGetValue(token, out var row) || row.Revoked)
-        {
+        if (!_rows.TryGetValue(token, out var row) || row.Revoked) {
             return new(RememberRotationStatus.Invalid);
         }
 
-        if (row.Used)
-        {
+        if (row.Used) {
             RevokeWhere(r => r.Family == row.Family);
 
-            if (onReuse != null)
-            {
+            if (onReuse != null) {
                 await onReuse(row.UserId, null!);
             }
 
             return new(RememberRotationStatus.Reused, row.UserId, row.Family);
         }
 
-        _rows[token] = row with
-        {
-            Used = true
-        };
+        _rows[token] = row with { Used = true };
 
         return new(RememberRotationStatus.Rotated, row.UserId, row.Family);
     }
@@ -476,12 +434,8 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
 
     private void RevokeWhere(Func<Row, bool> match)
     {
-        foreach (var (key, row) in _rows.Where(p => match(p.Value)).ToList())
-        {
-            _rows[key] = row with
-            {
-                Revoked = true
-            };
+        foreach (var (key, row) in _rows.Where(p => match(p.Value)).ToList()) {
+            _rows[key] = row with { Revoked = true };
         }
     }
 }
@@ -500,8 +454,7 @@ internal sealed class FakeGenerations : ICredentialGenerations
 
     public async Task<bool> WriteInSession(int userId, long generation, string sessionId, Func<CredentialScope, Task> writes)
     {
-        if (_generations.GetValueOrDefault(userId) != generation || sessionId != null && _revokedSessions.Contains(sessionId))
-        {
+        if (_generations.GetValueOrDefault(userId) != generation || sessionId != null && _revokedSessions.Contains(sessionId)) {
             return false;
         }
 

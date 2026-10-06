@@ -29,42 +29,26 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
         }
     }
 
-    public int TickCount
-    {
-        get; set;
-    }
+    public int TickCount { get; set; }
 
     // Scheduling belongs to the room engine; this contract is retained for saved delays.
     public bool OnCycle() => false;
 
-    public Room Instance
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
 
-    public Item Item
-    {
-        get; set;
-    }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.EffectMatchPosition;
 
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
 
     public string StringData { get; set; } = string.Empty;
 
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
     {
-        if (SetItems.Count > 0)
-        {
+        if (SetItems.Count > 0) {
             SetItems.Clear();
         }
 
@@ -75,12 +59,10 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
         var unknown2 = packet.ReadString();
         var furniCount = packet.ReadInt();
 
-        for (var i = 0; i < furniCount; i++)
-        {
+        for (var i = 0; i < furniCount; i++) {
             var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
 
-            if (selectedItem != null)
-            {
+            if (selectedItem != null) {
                 SetItems.TryAdd(selectedItem.Id, selectedItem);
             }
         }
@@ -92,95 +74,77 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
 
     public bool Execute(params object[] @params)
     {
-        if (string.IsNullOrEmpty(StringData) || StringData == "0;0;0" || SetItems.Count == 0)
-        {
+        if (string.IsNullOrEmpty(StringData) || StringData == "0;0;0" || SetItems.Count == 0) {
             return false;
         }
 
-        foreach (var item in SetItems.Values.ToList())
-        {
-            if (Instance.GetRoomItemHandler().GetFloor == null || !Instance.GetRoomItemHandler().GetFloor.Contains(item))
-            {
+        foreach (var item in SetItems.Values.ToList()) {
+            if (Instance.GetRoomItemHandler().GetFloor == null || !Instance.GetRoomItemHandler().GetFloor.Contains(item)) {
                 continue;
             }
 
-            foreach (var I in ItemsData.Split(';'))
-            {
-                if (string.IsNullOrEmpty(I))
-                {
+            foreach (var I in ItemsData.Split(';')) {
+                if (string.IsNullOrEmpty(I)) {
                     continue;
                 }
 
                 var itemId = Convert.ToInt32(I.Split(':')[0]);
 
-                if (itemId != item.Id)
-                {
+                if (itemId != item.Id) {
                     continue;
                 }
 
                 var ii = Instance.GetRoomItemHandler().GetItem(Convert.ToUInt32(itemId));
 
-                if (ii == null)
-                {
+                if (ii == null) {
                     continue;
                 }
 
                 var partsString = I.Split(':');
 
-                try
-                {
-                    if (string.IsNullOrEmpty(partsString[0]) || string.IsNullOrEmpty(partsString[1]))
-                    {
+                try {
+                    if (string.IsNullOrEmpty(partsString[0]) || string.IsNullOrEmpty(partsString[1])) {
                         continue;
                     }
                 }
-                catch
-                {
+                catch {
                     continue;
                 }
 
                 var part = partsString[1].Split(',');
 
-                try
-                {
+                try {
                     if (int.Parse(StringData.Split(';')[0]) == 1) //State
                     {
-                        if (part.Length >= 5)
-                        {
+                        if (part.Length >= 5) {
                             SetState(ii, part[4]);
                         }
-                        else
-                        {
+                        else {
                             SetState(ii, "1");
                         }
                     }
                 }
-                catch (Exception e)
-                {
+                catch (Exception e) {
                     ExceptionLogger.LogWiredException(e);
                 }
 
-                try
-                {
+                try {
                     if (int.Parse(StringData.Split(';')[1]) == 1) //Direction
-                    {
+{
                         SetRotation(ii, Convert.ToInt32(part[3]));
                     }
                 }
-                catch (Exception e)
-                {
+                catch (Exception e) {
                     ExceptionLogger.LogWiredException(e);
                 }
 
-                try
-                {
+                try {
                     if (int.Parse(StringData.Split(';')[2]) == 1) //Position
-                    {
+{
                         SetPosition(ii, Convert.ToInt32(part[0]), Convert.ToInt32(part[1]), Convert.ToDouble(part[2]));
                     }
                 }
-                catch (Exception e)
-                {
+                catch (Exception e) {
                     ExceptionLogger.LogWiredException(e);
                 }
             }
@@ -191,24 +155,20 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
 
     private void SetState(Item item, string extradata)
     {
-        if (GateTransitionService.For(item) != null)
-        {
+        if (GateTransitionService.For(item) != null) {
             // v2: equality is decided against the committed state when the write runs, not before it queues.
-            if (item.Definition.InteractionType != InteractionType.Dice)
-            {
+            if (item.Definition.InteractionType != InteractionType.Dice) {
                 GateTransitionService.ToggleState(item, current => current == extradata ? null : extradata, GateCloseReason.Wired, persist: false);
             }
 
             return;
         }
 
-        if (item.LegacyDataString == extradata)
-        {
+        if (item.LegacyDataString == extradata) {
             return;
         }
 
-        if (item.Definition.InteractionType == InteractionType.Dice)
-        {
+        if (item.Definition.InteractionType == InteractionType.Dice) {
             return;
         }
 
@@ -218,13 +178,11 @@ internal class MatchPositionBox : IWiredItem, IWiredCycle
 
     private void SetRotation(Item item, int rotation)
     {
-        if (item.Rotation == rotation)
-        {
+        if (item.Rotation == rotation) {
             return;
         }
 
-        if (Instance.GetRoomItemHandler().SetFloorItem(null!, item, item.GetX, item.GetY, rotation, false, false, false, height: item.GetZ))
-        {
+        if (Instance.GetRoomItemHandler().SetFloorItem(null!, item, item.GetX, item.GetY, rotation, false, false, false, height: item.GetZ)) {
             item.UpdateState(false, true);
         }
     }

@@ -17,30 +17,25 @@ public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMar
     public bool TryList(Habbo habbo, uint itemId, int sellingPrice)
     {
         // One listing at a time per account: the inventory check, the committed offer and the in-memory removal stay together.
-        lock (habbo.WalletSync)
-        {
-            if (habbo.WalletClosed)
-            {
+        lock (habbo.WalletSync) {
+            if (habbo.WalletClosed) {
                 return false;
             }
 
             var item = habbo.Inventory.Furniture.GetItem(itemId);
 
-            if (item == null || (long)item.OwnerId != habbo.Id || !item.Definition.AllowTrade || !item.Definition.AllowMarketplaceSell)
-            {
+            if (item == null || (long)item.OwnerId != habbo.Id || !item.Definition.AllowTrade || !item.Definition.AllowMarketplaceSell) {
                 return false;
             }
 
-            if (sellingPrice < 1 || sellingPrice > MaximumSellingPrice)
-            {
+            if (sellingPrice < 1 || sellingPrice > MaximumSellingPrice) {
                 return false;
             }
 
             var comission = marketplace.CalculateComissionPrice(sellingPrice);
             var totalPrice = (long)sellingPrice + comission;
 
-            if (totalPrice > int.MaxValue)
-            {
+            if (totalPrice > int.MaxValue) {
                 return false;
             }
 

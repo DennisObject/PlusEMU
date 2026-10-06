@@ -16,24 +16,12 @@ internal class UserSaysBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.TriggerUserSays;
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -49,27 +37,23 @@ internal class UserSaysBox : IWiredItem
     {
         var player = (Habbo)@params[0];
 
-        if (player == null || player.CurrentRoom == null || !player.InRoom)
-        {
+        if (player == null || player.CurrentRoom == null || !player.InRoom) {
             return false;
         }
 
         var user = player.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(player.Username);
 
-        if (user == null)
-        {
+        if (user == null) {
             return false;
         }
 
         var message = Convert.ToString(@params[1]);
 
-        if (BoolData && Instance.OwnerId != player.Id || player == null || string.IsNullOrWhiteSpace(message) || string.IsNullOrWhiteSpace(StringData))
-        {
+        if (BoolData && Instance.OwnerId != player.Id || player == null || string.IsNullOrWhiteSpace(message) || string.IsNullOrWhiteSpace(StringData)) {
             return false;
         }
 
-        if (message.Contains($" {StringData}") || message.Contains($"{StringData} ") || message == StringData)
-        {
+        if (message.Contains($" {StringData}") || message.Contains($"{StringData} ") || message == StringData) {
             return Instance.GetWired().RunStack(this, [player], () =>
             {
                 player.WiredInteraction = true;

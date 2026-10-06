@@ -8,12 +8,7 @@ namespace Plus.Tests;
 public sealed class WiredSelectorTests
 {
     internal static WiredConfiguration Config(int[]? fields = null, uint[]? picks = null, string text = "") =>
-        new()
-        {
-            IntParams = (fields ?? []).ToImmutableArray(),
-            SelectedItems = (picks ?? []).ToImmutableArray(),
-            Text = text
-        };
+        new() { IntParams = (fields ?? []).ToImmutableArray(), SelectedItems = (picks ?? []).ToImmutableArray(), Text = text };
     internal static WiredSelectorWorld World() => new(10, 10,
     [
         new(1, 100, "Chair", "0", 1, 1, 0, 1, [(1, 1), (2, 1)]),
@@ -79,10 +74,7 @@ public sealed class WiredSelectorTests
     [Fact]
     public void FilteringAnAlreadyEmptyKindDoesNotRestoreTriggerTargetsOrEraseOtherKind()
     {
-        var input = Inputs() with
-        {
-            FurniModified = true
-        };
+        var input = Inputs() with { FurniModified = true };
         input.SelectorPool.UserIds.Add(4);
         var raw = WiredSelectorModule.SelectRaw("wf_slc_furni_picks", Config([1, 0], [1]), World(), input);
         var composed = WiredSelectorModule.Compose(raw, World(), input);
@@ -109,10 +101,7 @@ public sealed class WiredSelectorTests
             [92] = new("wf_slc_furni_picks", Config([1, 0], [1])),
             [93] = new("wf_slc_remote", Config(picks: [93]))
         };
-        var world = World() with
-        {
-            RemoteSelectors = remotes
-        };
+        var world = World() with { RemoteSelectors = remotes };
         var result = WiredSelectorModule.SelectRaw("wf_slc_remote", Config(picks: [90, 91, 92, 93]), world, Inputs());
         Assert.Empty(result.Selection.FurniIds);
     }
@@ -120,18 +109,9 @@ public sealed class WiredSelectorTests
     [Fact]
     public void TransientActionsExpireButCurrentSignAndDanceUseParameterFilters()
     {
-        var world = World() with
-        {
-            Users = [World().Users[0] with { LastAction = 1, LastActionAtMs = 100 }]
-        };
-        Assert.Single(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([1]), world, Inputs() with
-        {
-            NowMs = 5100
-        }).Selection.UserIds);
-        Assert.Empty(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([1]), world, Inputs() with
-        {
-            NowMs = 5101
-        }).Selection.UserIds);
+        var world = World() with { Users = [World().Users[0] with { LastAction = 1, LastActionAtMs = 100 }] };
+        Assert.Single(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([1]), world, Inputs() with { NowMs = 5100 }).Selection.UserIds);
+        Assert.Empty(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([1]), world, Inputs() with { NowMs = 5101 }).Selection.UserIds);
         Assert.Empty(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([9, 1, 4]), world, Inputs()).Selection.UserIds);
         Assert.Single(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([10, 0, 0, 1, 2]), world, Inputs()).Selection.UserIds);
     }

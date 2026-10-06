@@ -35,20 +35,17 @@ public sealed class AchievementPersistenceTests
         var award = Task.Run(() => manager.ProgressAchievement(fixture.Client, Group, 1));
         Task? logout = null;
 
-        try
-        {
+        try {
             Assert.True(enteredBadge.Wait(TimeSpan.FromSeconds(5)));
             logout = Task.Run(fixture.Habbo.OnDisconnect);
             await logout.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.True(fixture.Habbo.WalletClosed);
         }
-        finally
-        {
+        finally {
             releaseBadge.TrySetResult();
             await award.WaitAsync(TimeSpan.FromSeconds(5));
 
-            if (logout != null)
-            {
+            if (logout != null) {
                 await logout.WaitAsync(TimeSpan.FromSeconds(5));
             }
         }
@@ -73,8 +70,7 @@ public sealed class AchievementPersistenceTests
         var connections = 0;
         fixture.Database.BeforeConnection = () =>
         {
-            if (Interlocked.Increment(ref connections) != 1)
-            {
+            if (Interlocked.Increment(ref connections) != 1) {
                 return;
             }
 
@@ -85,20 +81,17 @@ public sealed class AchievementPersistenceTests
         Task? save = null;
         bool savedWhileWritePaused;
 
-        try
-        {
+        try {
             Assert.True(enteredWrite.Wait(TimeSpan.FromSeconds(5)));
             save = Task.Run(() => { startedSave.Set(); fixture.Habbo.Save(); });
             Assert.True(startedSave.Wait(TimeSpan.FromSeconds(5)));
             savedWhileWritePaused = await Task.WhenAny(save, Task.Delay(100)) == save;
         }
-        finally
-        {
+        finally {
             releaseWrite.Set();
             await award.WaitAsync(TimeSpan.FromSeconds(5));
 
-            if (save != null)
-            {
+            if (save != null) {
                 await save.WaitAsync(TimeSpan.FromSeconds(5));
             }
         }
@@ -122,8 +115,7 @@ public sealed class AchievementPersistenceTests
             var result = send(args);
 
             if (BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2)) ==
-                ServerPacketHeader.HabboActivityPointNotificationComposer)
-            {
+                ServerPacketHeader.HabboActivityPointNotificationComposer) {
                 fixture.Habbo.OnDisconnect();
             }
 
@@ -151,8 +143,7 @@ public sealed class AchievementPersistenceTests
     {
         using var fixture = new Fixture();
 
-        using (var connection = fixture.Database.Connection())
-        {
+        using (var connection = fixture.Database.Connection()) {
             connection.Execute("DROP TABLE user_achievements");
         }
 
@@ -169,22 +160,10 @@ public sealed class AchievementPersistenceTests
         private readonly string _schema = "task_achievement_shutdown_" + Guid.NewGuid().ToString("N");
         private readonly FieldInfo _game = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
         private readonly object? _previousGame;
-        public HabbiconDatabaseTests.TestDatabase Database
-        {
-            get;
-        }
-        public Habbo Habbo
-        {
-            get;
-        }
-        public FlashGameClient Client
-        {
-            get;
-        }
-        public List<(uint Header, byte[] Payload)> Sent
-        {
-            get;
-        }
+        public HabbiconDatabaseTests.TestDatabase Database { get; }
+        public Habbo Habbo { get; }
+        public FlashGameClient Client { get; }
+        public List<(uint Header, byte[] Payload)> Sent { get; }
 
         public Fixture()
         {
@@ -193,8 +172,7 @@ public sealed class AchievementPersistenceTests
             _admin.Execute($"CREATE DATABASE `{_schema}`");
             _previousGame = _game.GetValue(null);
 
-            try
-            {
+            try {
                 Database = new(new MySqlConnectionStringBuilder(root)
                 {
                     Database = _schema,
@@ -204,8 +182,7 @@ public sealed class AchievementPersistenceTests
                 using var connection = Database.Connection();
                 var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
 
-                foreach (var table in new[] { "users", "users_settings", "user_stats", "user_achievements" })
-                {
+                foreach (var table in new[] { "users", "users_settings", "user_stats", "user_achievements" }) {
                     var definition = Regex.Match(pristine, $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
                     Assert.NotEmpty(definition);
                     connection.Execute(definition);
@@ -231,8 +208,7 @@ public sealed class AchievementPersistenceTests
                 _game.SetValue(null, CatalogSnapshotTestSupport.Proxy<IGame>((method, _) =>
                     method == "get_ClientManager" ? clients : throw new InvalidOperationException(method)));
             }
-            catch
-            {
+            catch {
                 Dispose();
                 throw;
             }
@@ -269,11 +245,12 @@ public sealed class AchievementPersistenceTests
         {
             _game.SetValue(null, _previousGame);
 
-            try
-            {
+            try {
                 _admin.Execute($"DROP DATABASE `{_schema}`");
             }
-            finally { _admin.Dispose(); }
+            finally {
+                _admin.Dispose();
+            }
         }
     }
 }

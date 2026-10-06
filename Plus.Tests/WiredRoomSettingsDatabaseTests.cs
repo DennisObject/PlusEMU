@@ -48,22 +48,11 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         uint roomId = 0, itemId = 0, variableId = 0, userVariableId = 0;
         var trigger = "wired_settings_probe_" + Guid.NewGuid().ToString("N")[..12];
 
-        try
-        {
+        try {
             var suffix = Guid.NewGuid().ToString("N")[..12];
-            var ownerId = Insert(connection, "users", new()
-            {
-                ["username"] = "ws_owner_" + suffix,
-                ["password"] = suffix,
-                ["mail"] = suffix + "@invalid"
-            });
+            var ownerId = Insert(connection, "users", new() { ["username"] = "ws_owner_" + suffix, ["password"] = suffix, ["mail"] = suffix + "@invalid" });
             users.Add(ownerId);
-            var guestId = Insert(connection, "users", new()
-            {
-                ["username"] = "ws_guest_" + suffix,
-                ["password"] = suffix,
-                ["mail"] = suffix + "g@invalid"
-            });
+            var guestId = Insert(connection, "users", new() { ["username"] = "ws_guest_" + suffix, ["password"] = suffix, ["mail"] = suffix + "g@invalid" });
             users.Add(guestId);
             roomId = Insert(connection, "rooms", new()
             {
@@ -159,10 +148,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             await new SaveWiredEffectConfigEvent(configurationService).Parse(guest.Client, ItemPacket(itemId, true));
             Assert.Empty(guest.Packets);
             Assert.Same(original, box.Configuration);
-            Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_item_configurations WHERE item_id=@Id", new
-            {
-                Id = itemId
-            }));
+            Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_item_configurations WHERE item_id=@Id", new { Id = itemId }));
             await new WiredRoomSettingsSaveEvent(settingsService).Parse(room, owner.Client, Packet(0, 2));
             variableId = Insert(connection, "items", new()
             {
@@ -174,11 +160,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             });
             var variableConfig = new WiredConfiguration { IntParams = [10, 7], Text = "settings_menu_probe" };
             connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@Id,'wf_var_room',1,@Json)",
-                new
-                {
-                    Id = variableId,
-                    Json = JsonSerializer.Serialize(variableConfig)
-                });
+                new { Id = variableId, Json = JsonSerializer.Serialize(variableConfig) });
             var variableItem = new Item
             {
                 Id = variableId,
@@ -203,17 +185,9 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             });
             var userVariableConfig = new WiredConfiguration { IntParams = [1, 10], Text = "settings_clear_probe" };
             connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@Id,'wf_var_user',1,@Json)",
-                new
-                {
-                    Id = userVariableId,
-                    Json = JsonSerializer.Serialize(userVariableConfig)
-                });
+                new { Id = userVariableId, Json = JsonSerializer.Serialize(userVariableConfig) });
             connection.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at,updated_at) VALUES (@Id,0,@Holder,12,'1970-01-01 00:00:01.234000','1970-01-01 00:00:01.234000')",
-                new
-                {
-                    Id = userVariableId,
-                    Holder = guestId
-                });
+                new { Id = userVariableId, Holder = guestId });
             await AssertVariableMenuSettingsGates(room, settings, variables, owner.Client, guest.Client, guest.Packets, connection, variableId, userVariableId);
             var accepted = settings.Snapshot;
             owner.Packets.Clear();
@@ -238,21 +212,13 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             connection.Execute($"DROP TRIGGER `{trigger}`");
 
             // Ownership changed in storage while the room still has its previous owner snapshot.
-            connection.Execute("UPDATE rooms SET owner=@Owner WHERE id=@Id", new
-            {
-                Owner = guestId.ToString(),
-                Id = roomId
-            });
+            connection.Execute("UPDATE rooms SET owner=@Owner WHERE id=@Id", new { Owner = guestId.ToString(), Id = roomId });
             owner.Packets.Clear();
             await new WiredMenuPermissionsSaveEvent(settingsService).Parse(room, owner.Client, Packet(0, 1, "UTC"));
             Assert.Same(accepted, settings.Snapshot);
             Assert.Equal(156u, owner.Packets[0].Id);
             Assert.Equal(5102u, owner.Packets[1].Id);
-            connection.Execute("UPDATE rooms SET owner=@Owner WHERE id=@Id", new
-            {
-                Owner = ownerId.ToString(),
-                Id = roomId
-            });
+            connection.Execute("UPDATE rooms SET owner=@Owner WHERE id=@Id", new { Owner = ownerId.ToString(), Id = roomId });
 
             var stale = new DatabaseWiredRoomSettingsStore(database).Load(roomId);
             var store = new DatabaseWiredRoomSettingsStore(database);
@@ -283,61 +249,29 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             Assert.Equal(5102u, Assert.Single(guest.Packets).Id);
             output.WriteLine("Actual 10022/10023/1936 routes, 5102 fields, guest denial, invalid input, reload, UPDATE rollback, owner-row authorization and expected-row concurrency passed.");
         }
-        finally
-        {
+        finally {
             connection.Execute($"DROP TRIGGER IF EXISTS `{trigger}`");
 
-            if (roomId != 0)
-            {
-                connection.Execute("DELETE FROM room_wired_settings WHERE room_id=@Id", new
-                {
-                    Id = roomId
-                });
+            if (roomId != 0) {
+                connection.Execute("DELETE FROM room_wired_settings WHERE room_id=@Id", new { Id = roomId });
 
-                if (itemId != 0)
-                {
-                    connection.Execute("DELETE FROM wired_item_configurations WHERE item_id=@Id", new
-                    {
-                        Id = itemId
-                    });
-                    connection.Execute("DELETE FROM items WHERE id=@Id", new
-                    {
-                        Id = itemId
-                    });
+                if (itemId != 0) {
+                    connection.Execute("DELETE FROM wired_item_configurations WHERE item_id=@Id", new { Id = itemId });
+                    connection.Execute("DELETE FROM items WHERE id=@Id", new { Id = itemId });
                 }
 
-                foreach (var definitionId in new[] { variableId, userVariableId }.Where(id => id != 0))
-                {
-                    connection.Execute("DELETE FROM wired_variable_values WHERE definition_id=@Id", new
-                    {
-                        Id = definitionId
-                    });
-                    connection.Execute("DELETE FROM wired_variable_locks WHERE definition_id=@Id", new
-                    {
-                        Id = definitionId
-                    });
-                    connection.Execute("DELETE FROM wired_item_configurations WHERE item_id=@Id", new
-                    {
-                        Id = definitionId
-                    });
-                    connection.Execute("DELETE FROM items WHERE id=@Id", new
-                    {
-                        Id = definitionId
-                    });
+                foreach (var definitionId in new[] { variableId, userVariableId }.Where(id => id != 0)) {
+                    connection.Execute("DELETE FROM wired_variable_values WHERE definition_id=@Id", new { Id = definitionId });
+                    connection.Execute("DELETE FROM wired_variable_locks WHERE definition_id=@Id", new { Id = definitionId });
+                    connection.Execute("DELETE FROM wired_item_configurations WHERE item_id=@Id", new { Id = definitionId });
+                    connection.Execute("DELETE FROM items WHERE id=@Id", new { Id = definitionId });
                 }
 
-                connection.Execute("DELETE FROM rooms WHERE id=@Id", new
-                {
-                    Id = roomId
-                });
+                connection.Execute("DELETE FROM rooms WHERE id=@Id", new { Id = roomId });
             }
 
-            foreach (var id in users)
-            {
-                connection.Execute("DELETE FROM users WHERE id=@Id", new
-                {
-                    Id = id
-                });
+            foreach (var id in users) {
+                connection.Execute("DELETE FROM users WHERE id=@Id", new { Id = id });
             }
         }
     }
@@ -387,8 +321,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             () => new WiredUserVariablesRequestEvent(new WiredVariableMenuService()).Parse(room, guest, Packet())];
         uint[] headers = [1646, 2498, 9462, 9461, 5103];
 
-        for (var index = 0; index < reads.Length; index++)
-        {
+        for (var index = 0; index < reads.Length; index++) {
             packets.Clear();
             await reads[index]();
             Assert.NotEmpty(packets);
@@ -419,18 +352,14 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         await new WiredUserVariableManageEvent(new WiredVariableMenuService()).Parse(room, guest, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
         Assert.Equal(10, Value());
         Assert.Equal(5103u, Assert.Single(packets).Id); // Editing never grants offline clear.
-        Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@Id", new
-        {
-            Id = clearDefinitionId
-        }));
+        Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@Id", new { Id = clearDefinitionId }));
 
         Assert.True(settings.TrySave(owner, 0, 0, "Europe/Berlin", out _));
         Assert.True(room.CheckRights(guest, false, true));
         Assert.False(settings.CanInspect(guest));
         Assert.False(settings.CanModify(guest));
 
-        foreach (var read in reads)
-        {
+        foreach (var read in reads) {
             packets.Clear();
             await read();
             Assert.Empty(packets);
@@ -443,38 +372,26 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         Assert.Equal(10, Value());
         Assert.True(settings.CanManage(owner));
         await new WiredUserVariableManageEvent(new WiredVariableMenuService()).Parse(room, owner, Packet(2, 0, guest.GetHabbo().Id, (int)clearDefinitionId, 0));
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@Id", new
-        {
-            Id = clearDefinitionId
-        }));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@Id", new { Id = clearDefinitionId }));
         Assert.True(settings.TrySave(owner, 2, 2, "Europe/Berlin", out _));
         room.UsersWithRights.Remove(guest.GetHabbo().Id);
-        int Value() => connection.ExecuteScalar<int>("SELECT value FROM wired_variable_values WHERE definition_id=@Id AND target_kind=3 AND holder_id=0", new
-        {
-            Id = definitionId
-        });
+        int Value() => connection.ExecuteScalar<int>("SELECT value FROM wired_variable_values WHERE definition_id=@Id AND target_kind=3 AND holder_id=0", new { Id = definitionId });
     }
     private static FlashIncomingPacket Packet(params object[] values)
     {
         using var stream = PlusMemoryStream.GetStream();
         var packet = new FlashOutgoingPacket(stream);
 
-        foreach (var value in values)
-        {
-            if (value is int number)
-            {
+        foreach (var value in values) {
+            if (value is int number) {
                 packet.WriteInteger(number);
             }
-            else
-            {
+            else {
                 packet.WriteString((string)value);
             }
         }
 
-        return new()
-        {
-            Buffer = stream.ToArray().AsMemory(6)
-        };
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
     private static FlashIncomingPacket ItemPacket(uint id, bool save)
     {
@@ -482,8 +399,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
         var packet = new FlashOutgoingPacket(stream);
         packet.WriteUInteger(id);
 
-        if (save)
-        {
+        if (save) {
             packet.WriteInteger(2);
             packet.WriteInteger(0);
             packet.WriteInteger(100);
@@ -493,10 +409,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             packet.WriteInteger(0);
         }
 
-        return new()
-        {
-            Buffer = stream.ToArray().AsMemory(6)
-        };
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
     private static void Set(object target, string field, object value) => target.GetType().GetField(field, BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(target, value);
     private static string GuardedConnectionString()
@@ -528,26 +441,16 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
     }
     private static uint Insert(MySqlConnection connection, string table, Dictionary<string, object> values)
     {
-        var columns = connection.Query<Column>("SELECT COLUMN_NAME AS Name,DATA_TYPE AS Type,COLUMN_TYPE AS FullType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@table AND IS_NULLABLE='NO' AND COLUMN_DEFAULT IS NULL AND EXTRA NOT LIKE '%auto_increment%'", new
-        {
-            table
-        });
+        var columns = connection.Query<Column>("SELECT COLUMN_NAME AS Name,DATA_TYPE AS Type,COLUMN_TYPE AS FullType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@table AND IS_NULLABLE='NO' AND COLUMN_DEFAULT IS NULL AND EXTRA NOT LIKE '%auto_increment%'", new { table });
 
-        foreach (var column in columns.Where(column => !values.ContainsKey(column.Name)))
-        {
+        foreach (var column in columns.Where(column => !values.ContainsKey(column.Name))) {
             values[column.Name] = column.Type switch
-            {
-                "enum" => column.FullType.Split('\'')[1],
-                "datetime" or "timestamp" or "date" => DateTime.UtcNow,
-                "varchar" or "char" or "text" or "mediumtext" or "longtext" => "",
-                _ => 0
-            };
+            { "enum" => column.FullType.Split('\'')[1], "datetime" or "timestamp" or "date" => DateTime.UtcNow, "varchar" or "char" or "text" or "mediumtext" or "longtext" => "", _ => 0 };
         }
 
         var parameters = new DynamicParameters();
 
-        foreach (var entry in values)
-        {
+        foreach (var entry in values) {
             parameters.Add(entry.Key, entry.Value);
         }
 

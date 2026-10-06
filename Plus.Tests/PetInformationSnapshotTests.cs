@@ -128,10 +128,7 @@ public sealed class PetInformationSnapshotTests
     }
     private sealed class RecordingService : IPetInformationService
     {
-        public (GameClient Session, int PetId)? Request
-        {
-            get; private set;
-        }
+        public (GameClient Session, int PetId)? Request { get; private set; }
         public void SendInformation(GameClient session, int petId) => Request = (session, petId);
         public void SendTrainingPanel(GameClient session, int petId) => throw new NotSupportedException();
         public PetInformationSnapshot Capture(Pet pet) => throw new NotSupportedException();

@@ -92,18 +92,15 @@ internal static class CameraRequestParser
         ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(catalogue);
 
-        if (payload.FrameError != CameraRejectReason.None)
-        {
+        if (payload.FrameError != CameraRejectReason.None) {
             return Malformed(payload.FrameError);
         }
 
-        if (payload.Json == null)
-        {
+        if (payload.Json == null) {
             return Malformed(CameraRejectReason.Schema);
         }
 
-        if (Encoding.UTF8.GetByteCount(payload.Json) > MaxJsonBytes)
-        {
+        if (Encoding.UTF8.GetByteCount(payload.Json) > MaxJsonBytes) {
             return Malformed(CameraRejectReason.Oversized);
         }
 
@@ -114,33 +111,28 @@ internal static class CameraRequestParser
     {
         JsonNode root;
 
-        try
-        {
+        try {
             var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json), new JsonReaderOptions
             {
                 CommentHandling = JsonCommentHandling.Disallow,
                 MaxDepth = 8
             });
 
-            if (!reader.Read())
-            {
+            if (!reader.Read()) {
                 return Malformed(CameraRejectReason.Schema);
             }
 
             root = ReadNode(ref reader);
 
-            if (reader.Read())
-            {
+            if (reader.Read()) {
                 return Malformed(CameraRejectReason.Schema);
             }
         }
-        catch (JsonException)
-        {
+        catch (JsonException) {
             return Malformed(CameraRejectReason.Schema);
         }
 
-        if (root is not JsonObject body)
-        {
+        if (root is not JsonObject body) {
             return Malformed(CameraRejectReason.Schema);
         }
 
@@ -156,40 +148,33 @@ internal static class CameraRequestParser
         var knownAction = action ?? "";
         var hazard = Hazard(root);
 
-        if (hazard != null)
-        {
+        if (hazard != null) {
             return Fail(hazard.Value, requestId, stage, trustworthy, knownAction);
         }
 
-        if (HasDuplicate(root))
-        {
+        if (HasDuplicate(root)) {
             return Fail(CameraRejectReason.Duplicate, requestId, stage, trustworthy, knownAction);
         }
 
-        if (action is not ("capture" or "render" or "delete"))
-        {
+        if (action is not ("capture" or "render" or "delete")) {
             return Malformed(CameraRejectReason.Schema);
         }
 
-        if (channel == CameraChannel.Thumbnail && action != "capture")
-        {
+        if (channel == CameraChannel.Thumbnail && action != "capture") {
             return Fail(CameraRejectReason.Schema, requestId, stage, trustworthy, knownAction);
         }
 
-        if (action != "delete" && !trustworthy)
-        {
+        if (action != "delete" && !trustworthy) {
             return Malformed(CameraRejectReason.Guid, knownAction);
         }
 
         var version = RequireInteger(body, "v", out var versionReason);
 
-        if (versionReason != null)
-        {
+        if (versionReason != null) {
             return Fail(versionReason.Value, requestId, stage, trustworthy, knownAction);
         }
 
-        if (version != 1)
-        {
+        if (version != 1) {
             return Fail(CameraRejectReason.Schema, requestId, stage, trustworthy, knownAction);
         }
 
@@ -205,105 +190,90 @@ internal static class CameraRequestParser
     {
         var unexpected = Unexpected(body, "v", "action", "requestId", "viewport");
 
-        if (unexpected != null)
-        {
+        if (unexpected != null) {
             return Fail(unexpected.Value, requestId, stage, true);
         }
 
-        if (body.Props["viewport"] is not JsonObject viewport)
-        {
+        if (body.Props["viewport"] is not JsonObject viewport) {
             return Fail(CameraRejectReason.Schema, requestId, stage, true);
         }
 
         unexpected = Unexpected(viewport, "width", "height", "offsetX", "offsetY", "x", "y", "cropWidth", "cropHeight", "scale", "locationX", "locationY", "locationZ");
 
-        if (unexpected != null)
-        {
+        if (unexpected != null) {
             return Fail(unexpected.Value, requestId, stage, true);
         }
 
         var width = ReadInt(viewport, "width", 320, 2048, CameraRejectReason.Schema, out var widthReason);
 
-        if (widthReason != null)
-        {
+        if (widthReason != null) {
             return Fail(widthReason.Value, requestId, stage, true);
         }
 
         var height = ReadInt(viewport, "height", 320, 2048, CameraRejectReason.Schema, out var heightReason);
 
-        if (heightReason != null)
-        {
+        if (heightReason != null) {
             return Fail(heightReason.Value, requestId, stage, true);
         }
 
         var offsetX = ReadFinite(viewport, "offsetX", -4096, 4096, out var offsetXReason);
 
-        if (offsetXReason != null)
-        {
+        if (offsetXReason != null) {
             return Fail(offsetXReason.Value, requestId, stage, true);
         }
 
         var offsetY = ReadFinite(viewport, "offsetY", -4096, 4096, out var offsetYReason);
 
-        if (offsetYReason != null)
-        {
+        if (offsetYReason != null) {
             return Fail(offsetYReason.Value, requestId, stage, true);
         }
 
         var x = ReadFinite(viewport, "x", -4096, 4096, out var xReason);
 
-        if (xReason != null)
-        {
+        if (xReason != null) {
             return Fail(xReason.Value, requestId, stage, true);
         }
 
         var y = ReadFinite(viewport, "y", -4096, 4096, out var yReason);
 
-        if (yReason != null)
-        {
+        if (yReason != null) {
             return Fail(yReason.Value, requestId, stage, true);
         }
 
         int crop = channel == CameraChannel.Photo ? PhotoCrop : ThumbnailCrop;
         var cropWidth = ReadInt(viewport, "cropWidth", crop, crop, CameraRejectReason.Crop, out var cropWidthReason);
 
-        if (cropWidthReason != null)
-        {
+        if (cropWidthReason != null) {
             return Fail(cropWidthReason.Value, requestId, stage, true);
         }
 
         var cropHeight = ReadInt(viewport, "cropHeight", crop, crop, CameraRejectReason.Crop, out var cropHeightReason);
 
-        if (cropHeightReason != null)
-        {
+        if (cropHeightReason != null) {
             return Fail(cropHeightReason.Value, requestId, stage, true);
         }
 
         var scale = ReadFinite(viewport, "scale", 1, 1, out var scaleReason);
 
-        if (scaleReason != null)
-        {
+        if (scaleReason != null) {
             return Fail(scaleReason.Value, requestId, stage, true);
         }
 
         var locationX = ReadFinite(viewport, "locationX", -256, 256, out var locationXReason);
 
-        if (locationXReason != null)
-        {
+        if (locationXReason != null) {
             return Fail(locationXReason.Value, requestId, stage, true);
         }
 
         var locationY = ReadFinite(viewport, "locationY", -256, 256, out var locationYReason);
 
-        if (locationYReason != null)
-        {
+        if (locationYReason != null) {
             return Fail(locationYReason.Value, requestId, stage, true);
         }
 
         var locationZ = ReadFinite(viewport, "locationZ", -256, 256, out var locationZReason);
 
-        if (locationZReason != null)
-        {
+        if (locationZReason != null) {
             return Fail(locationZReason.Value, requestId, stage, true);
         }
 
@@ -317,76 +287,63 @@ internal static class CameraRequestParser
     {
         var unexpected = Unexpected(body, "v", "action", "requestId", "draftId", "effects", "zoom");
 
-        if (unexpected != null)
-        {
+        if (unexpected != null) {
             return Fail(unexpected.Value, requestId, stage, true);
         }
 
         var draftId = StringValue(body, "draftId");
 
-        if (draftId == null || !GuidText.IsMatch(draftId))
-        {
+        if (draftId == null || !GuidText.IsMatch(draftId)) {
             return Fail(CameraRejectReason.Guid, requestId, stage, true);
         }
 
-        if (body.Props["zoom"] is not JsonBool zoom)
-        {
+        if (body.Props["zoom"] is not JsonBool zoom) {
             return Fail(CameraRejectReason.Schema, requestId, stage, true);
         }
 
-        if (body.Props["effects"] is not JsonArray effects)
-        {
+        if (body.Props["effects"] is not JsonArray effects) {
             return Fail(CameraRejectReason.Schema, requestId, stage, true);
         }
 
-        if (effects.Items.Count > 8)
-        {
+        if (effects.Items.Count > 8) {
             return Fail(CameraRejectReason.Effect, requestId, stage, true);
         }
 
         var selected = new List<CameraEffectSelection>(effects.Items.Count);
         var names = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var item in effects.Items)
-        {
-            if (item is not JsonObject effect)
-            {
+        foreach (var item in effects.Items) {
+            if (item is not JsonObject effect) {
                 return Fail(CameraRejectReason.Effect, requestId, stage, true);
             }
 
             unexpected = Unexpected(effect, "name", "strength");
 
-            if (unexpected != null)
-            {
+            if (unexpected != null) {
                 return Fail(unexpected.Value, requestId, stage, true);
             }
 
             var name = StringValue(effect, "name");
 
-            if (name == null || !catalogue.TryGetValue(name, out var minLevel))
-            {
+            if (name == null || !catalogue.TryGetValue(name, out var minLevel)) {
                 return Fail(CameraRejectReason.Effect, requestId, stage, true);
             }
 
-            if (!names.Add(name))
-            {
+            if (!names.Add(name)) {
                 return Fail(CameraRejectReason.Duplicate, requestId, stage, true);
             }
 
-            if (minLevel > photoLevel)
-            {
+            if (minLevel > photoLevel) {
                 return Fail(CameraRejectReason.Effect, requestId, stage, true);
             }
 
             var strength = ReadFinite(effect, "strength", 0, 1, out var strengthReason);
 
-            if (strengthReason == CameraRejectReason.NonFinite)
-            {
+            if (strengthReason == CameraRejectReason.NonFinite) {
                 return Fail(CameraRejectReason.NonFinite, requestId, stage, true);
             }
 
-            if (strengthReason != null)
-            {
+            if (strengthReason != null) {
                 return Fail(CameraRejectReason.Effect, requestId, stage, true);
             }
 
@@ -399,15 +356,13 @@ internal static class CameraRequestParser
 
     private static CameraParseResult ParseDelete(JsonObject body)
     {
-        if (Unexpected(body, "v", "action", "draftId") != null)
-        {
+        if (Unexpected(body, "v", "action", "draftId") != null) {
             return Malformed(CameraRejectReason.UnknownProperty, "delete");
         }
 
         var draftId = StringValue(body, "draftId");
 
-        if (draftId == null || !GuidText.IsMatch(draftId))
-        {
+        if (draftId == null || !GuidText.IsMatch(draftId)) {
             return Malformed(CameraRejectReason.Guid, "delete");
         }
 
@@ -416,8 +371,7 @@ internal static class CameraRequestParser
 
     private static CameraParseResult Fail(CameraRejectReason reason, string? requestId, string stage, bool trustworthy, string action = "")
     {
-        if (trustworthy)
-        {
+        if (trustworthy) {
             return new CameraParseResult(CameraParseStatus.Rejected, reason, requestId ?? "", stage, null, action);
         }
 
@@ -431,18 +385,14 @@ internal static class CameraRequestParser
     {
         var permit = new HashSet<string>(allowed, StringComparer.Ordinal);
 
-        foreach (var key in body.Props.Keys)
-        {
-            if (!permit.Contains(key))
-            {
+        foreach (var key in body.Props.Keys) {
+            if (!permit.Contains(key)) {
                 return PixelKeys.Contains(key) ? CameraRejectReason.Pixels : UrlKeys.Contains(key) ? CameraRejectReason.Url : CameraRejectReason.UnknownProperty;
             }
         }
 
-        foreach (var key in allowed)
-        {
-            if (!body.Props.ContainsKey(key))
-            {
+        foreach (var key in allowed) {
+            if (!body.Props.ContainsKey(key)) {
                 return CameraRejectReason.Schema;
             }
         }
@@ -454,36 +404,31 @@ internal static class CameraRequestParser
     {
         reason = null;
 
-        if (!body.Props.TryGetValue(name, out var node) || node is not JsonNumber number)
-        {
+        if (!body.Props.TryGetValue(name, out var node) || node is not JsonNumber number) {
             reason = CameraRejectReason.Schema;
 
             return 0;
         }
 
-        if (!double.TryParse(number.Raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
-        {
+        if (!double.TryParse(number.Raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)) {
             reason = CameraRejectReason.Schema;
 
             return 0;
         }
 
-        if (!double.IsFinite(parsed))
-        {
+        if (!double.IsFinite(parsed)) {
             reason = CameraRejectReason.NonFinite;
 
             return 0;
         }
 
-        if (!IsPlainInteger(number.Raw) || !int.TryParse(number.Raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
-        {
+        if (!IsPlainInteger(number.Raw) || !int.TryParse(number.Raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)) {
             reason = outOfRange;
 
             return 0;
         }
 
-        if (value < min || value > max)
-        {
+        if (value < min || value > max) {
             reason = outOfRange;
         }
 
@@ -501,29 +446,25 @@ internal static class CameraRequestParser
     {
         reason = null;
 
-        if (!body.Props.TryGetValue(name, out var node) || node is not JsonNumber number)
-        {
+        if (!body.Props.TryGetValue(name, out var node) || node is not JsonNumber number) {
             reason = CameraRejectReason.Schema;
 
             return 0;
         }
 
-        if (!double.TryParse(number.Raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
-        {
+        if (!double.TryParse(number.Raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)) {
             reason = CameraRejectReason.Schema;
 
             return 0;
         }
 
-        if (!double.IsFinite(parsed))
-        {
+        if (!double.IsFinite(parsed)) {
             reason = CameraRejectReason.NonFinite;
 
             return 0;
         }
 
-        if (parsed < min || parsed > max)
-        {
+        if (parsed < min || parsed > max) {
             reason = CameraRejectReason.Schema;
 
             return 0;
@@ -546,41 +487,34 @@ internal static class CameraRequestParser
 
     private static CameraRejectReason? Hazard(JsonNode node)
     {
-        switch (node)
-        {
+        switch (node) {
             case JsonString text when IsPixels(text.Value):
                 return CameraRejectReason.Pixels;
             case JsonString text when IsUrl(text.Value):
                 return CameraRejectReason.Url;
             case JsonObject obj:
-                foreach (var (key, value) in obj.Props)
-                {
-                    if (PixelKeys.Contains(key) || IsPixels(key))
-                    {
+                foreach (var (key, value) in obj.Props) {
+                    if (PixelKeys.Contains(key) || IsPixels(key)) {
                         return CameraRejectReason.Pixels;
                     }
 
-                    if (UrlKeys.Contains(key) || IsUrl(key))
-                    {
+                    if (UrlKeys.Contains(key) || IsUrl(key)) {
                         return CameraRejectReason.Url;
                     }
 
                     var child = Hazard(value);
 
-                    if (child != null)
-                    {
+                    if (child != null) {
                         return child;
                     }
                 }
 
                 break;
             case JsonArray array:
-                foreach (var item in array.Items)
-                {
+                foreach (var item in array.Items) {
                     var child = Hazard(item);
 
-                    if (child != null)
-                    {
+                    if (child != null) {
                         return child;
                     }
                 }
@@ -603,8 +537,7 @@ internal static class CameraRequestParser
 
     private static JsonNode ReadNode(ref Utf8JsonReader reader)
     {
-        switch (reader.TokenType)
-        {
+        switch (reader.TokenType) {
             case JsonTokenType.String:
                 return new JsonString(reader.GetString() ?? "");
             case JsonTokenType.Number:
@@ -618,27 +551,22 @@ internal static class CameraRequestParser
             case JsonTokenType.StartObject:
                 var obj = new JsonObject();
 
-                while (reader.Read())
-                {
-                    if (reader.TokenType == JsonTokenType.EndObject)
-                    {
+                while (reader.Read()) {
+                    if (reader.TokenType == JsonTokenType.EndObject) {
                         return obj;
                     }
 
-                    if (reader.TokenType != JsonTokenType.PropertyName)
-                    {
+                    if (reader.TokenType != JsonTokenType.PropertyName) {
                         throw new JsonException();
                     }
 
                     var name = reader.GetString() ?? "";
 
-                    if (!reader.Read())
-                    {
+                    if (!reader.Read()) {
                         throw new JsonException();
                     }
 
-                    if (!obj.Props.TryAdd(name, ReadNode(ref reader)))
-                    {
+                    if (!obj.Props.TryAdd(name, ReadNode(ref reader))) {
                         obj.Duplicate = true;
                     }
                 }
@@ -647,10 +575,8 @@ internal static class CameraRequestParser
             case JsonTokenType.StartArray:
                 var array = new JsonArray();
 
-                while (reader.Read())
-                {
-                    if (reader.TokenType == JsonTokenType.EndArray)
-                    {
+                while (reader.Read()) {
+                    if (reader.TokenType == JsonTokenType.EndArray) {
                         return array;
                     }
 
@@ -681,9 +607,6 @@ internal static class CameraRequestParser
     private sealed record JsonObject : JsonNode
     {
         public Dictionary<string, JsonNode> Props { get; } = new(StringComparer.Ordinal);
-        public bool Duplicate
-        {
-            get; set;
-        }
+        public bool Duplicate { get; set; }
     }
 }

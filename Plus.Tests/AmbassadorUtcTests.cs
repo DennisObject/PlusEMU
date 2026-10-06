@@ -48,12 +48,10 @@ public sealed class AmbassadorUtcTests
         using var server = new MySqlConnection(connectionString);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 connection.Execute("CREATE TABLE ambassador_logs(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT,target VARCHAR(50),sanctions_type TEXT,`timestamp` DECIMAL(20,6) NULL)");
                 connection.Execute("INSERT INTO ambassador_logs(`timestamp`) VALUES(NULL),(0),(-1),(2200000000.123456)");
                 connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/29_UseUtcAmbassadorLogTimes.sql")));
@@ -78,8 +76,7 @@ public sealed class AmbassadorUtcTests
             Assert.Empty(actorPackets); // An actor outside a room receives no whisper, as before.
             Assert.Single(targetPackets);
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -137,10 +134,7 @@ public sealed class AmbassadorUtcTests
     };
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

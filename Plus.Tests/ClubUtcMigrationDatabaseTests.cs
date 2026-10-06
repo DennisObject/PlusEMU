@@ -11,8 +11,7 @@ public sealed class ClubMigrationDatabaseFactAttribute : FactAttribute
     public const string Variable = "PLUS_CLUB_MIGRATION_SERVER_CONNECTION_STRING";
     public ClubMigrationDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable(Variable) == null)
-        {
+        if (Environment.GetEnvironmentVariable(Variable) == null) {
             Skip = $"Set {Variable} to a bare MariaDB server connection (no Database).";
         }
     }
@@ -22,8 +21,7 @@ public sealed class ClubMigrationDatabaseTheoryAttribute : TheoryAttribute
 {
     public ClubMigrationDatabaseTheoryAttribute()
     {
-        if (Environment.GetEnvironmentVariable(ClubMigrationDatabaseFactAttribute.Variable) == null)
-        {
+        if (Environment.GetEnvironmentVariable(ClubMigrationDatabaseFactAttribute.Variable) == null) {
             Skip = $"Set {ClubMigrationDatabaseFactAttribute.Variable} to a bare MariaDB server connection (no Database).";
         }
     }
@@ -34,17 +32,13 @@ internal sealed class ClubMigrationSchema : IDisposable
 {
     private readonly string _server;
     public string Name { get; } = "task_acl_tests_migration38_" + Guid.NewGuid().ToString("N")[..12];
-    public string ConnectionString
-    {
-        get;
-    }
+    public string ConnectionString { get; }
 
     public ClubMigrationSchema(string server)
     {
         _server = server;
 
-        using (var admin = new MySqlConnection(server))
-        {
+        using (var admin = new MySqlConnection(server)) {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{Name}` CHARACTER SET utf8mb4");
         }
@@ -260,8 +254,7 @@ public sealed class ClubUtcMigrationDatabaseTests
 
     private static void Legacy(MySqlConnection connection)
     {
-        foreach (var statement in LegacyDdl)
-        {
+        foreach (var statement in LegacyDdl) {
             connection.Execute(statement);
         }
 
@@ -273,32 +266,21 @@ public sealed class ClubUtcMigrationDatabaseTests
     {
         var builder = new StringBuilder();
 
-        foreach (var table in Tables)
-        {
+        foreach (var table in Tables) {
             builder.Append(table).Append('\n');
 
-            foreach (var column in connection.Query<string>("SELECT CONCAT(COLUMN_NAME, ' ', COLUMN_TYPE, ' ', IS_NULLABLE, ' ', COALESCE(COLUMN_DEFAULT, 'NULL'), ' ', EXTRA) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table ORDER BY ORDINAL_POSITION", new
-            {
-                table
-            }))
-            {
+            foreach (var column in connection.Query<string>("SELECT CONCAT(COLUMN_NAME, ' ', COLUMN_TYPE, ' ', IS_NULLABLE, ' ', COALESCE(COLUMN_DEFAULT, 'NULL'), ' ', EXTRA) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table ORDER BY ORDINAL_POSITION", new { table })) {
                 builder.Append(column).Append('\n');
             }
 
-            foreach (var index in connection.Query<string>("SELECT CONCAT(INDEX_NAME, ' ', NON_UNIQUE, ' ', COLUMN_NAME, ' ', SEQ_IN_INDEX) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table ORDER BY INDEX_NAME, SEQ_IN_INDEX", new
-            {
-                table
-            }))
-            {
+            foreach (var index in connection.Query<string>("SELECT CONCAT(INDEX_NAME, ' ', NON_UNIQUE, ' ', COLUMN_NAME, ' ', SEQ_IN_INDEX) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table ORDER BY INDEX_NAME, SEQ_IN_INDEX", new { table })) {
                 builder.Append(index).Append('\n');
             }
 
             using var reader = connection.ExecuteReader($"SELECT * FROM {table} ORDER BY 1, 2");
 
-            while (reader.Read())
-            {
-                for (var i = 0; i < reader.FieldCount; i++)
-                {
+            while (reader.Read()) {
+                for (var i = 0; i < reader.FieldCount; i++) {
                     builder.Append(reader.GetValue(i) is DBNull ? "NULL" : reader.GetValue(i)).Append('|');
                 }
 

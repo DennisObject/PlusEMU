@@ -20,8 +20,7 @@ public sealed record NavItemRecord(uint ItemId, long Version, double Z, double H
 
         if (definition.AdjustableHeights is { Count: > 1 } heights
             && int.TryParse(item.LegacyDataString, out var index) && index >= 0 && index < heights.Count
-            && item.GetZ + heights[index] > 0)
-        {
+            && item.GetZ + heights[index] > 0) {
             currentHeight = heights[index];
         }
 
@@ -34,8 +33,7 @@ public sealed record NavItemRecord(uint ItemId, long Version, double Z, double H
         if (sameFootprint && !previous!.Removed && previous.Z == item.GetZ && previous.Height == currentHeight
             && previous.Walkable == definition.Walkable && previous.Seat == definition.IsSeat
             && previous.Interaction == definition.InteractionType && previous.State == state && previous.GroupId == group
-            && previous.WiredType == definition.WiredType)
-        {
+            && previous.WiredType == definition.WiredType) {
             return previous;
         }
 

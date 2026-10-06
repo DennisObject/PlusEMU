@@ -17,13 +17,11 @@ public class InteractorAlert : IFurniInteractor
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (!hasRights)
-        {
+        if (!hasRights) {
             return;
         }
 
-        if (item.LegacyDataString == "0")
-        {
+        if (item.LegacyDataString == "0") {
             item.LegacyDataString = "1";
             item.UpdateState(false, true);
             item.RequestUpdate(4, true);
@@ -32,8 +30,7 @@ public class InteractorAlert : IFurniInteractor
 
     public void OnWiredTrigger(Item item)
     {
-        if (item.LegacyDataString == "0")
-        {
+        if (item.LegacyDataString == "0") {
             item.LegacyDataString = "1";
             item.UpdateState(false, true);
             item.RequestUpdate(4, true);

@@ -6,15 +6,13 @@ public static class RewardTrackRules
     {
         var before = state.ProgressOf(task.Id);
 
-        if (amount < 1 || (task.Premium && !state.Premium) || task.IsComplete(before))
-        {
+        if (amount < 1 || (task.Premium && !state.Premium) || task.IsComplete(before)) {
             return new RewardTrackStep(false, task.Id, before, state.PeakOf(task.Id), 0, state.Points);
         }
 
         var after = (int)Math.Min(task.Cap, Math.Min(int.MaxValue, (long)before + amount));
 
-        if (after == before)
-        {
+        if (after == before) {
             return new RewardTrackStep(false, task.Id, before, state.PeakOf(task.Id), 0, state.Points);
         }
 
@@ -29,8 +27,7 @@ public static class RewardTrackRules
     {
         var step = Plan(track, state, task, amount);
 
-        if (step.Changed)
-        {
+        if (step.Changed) {
             state.Apply(step);
         }
 
@@ -39,35 +36,29 @@ public static class RewardTrackRules
 
     public static RewardTrackResults PreviewClaim(RewardTrack? track, UserRewardTrackState? state, string? prizeId)
     {
-        if (track == null || state == null || string.IsNullOrEmpty(prizeId))
-        {
+        if (track == null || state == null || string.IsNullOrEmpty(prizeId)) {
             return RewardTrackResults.Unknown;
         }
 
         var prize = track.GetPrize(prizeId);
 
-        if (prize == null)
-        {
+        if (prize == null) {
             return RewardTrackResults.Unknown;
         }
 
-        if (state.IsClaimed(prizeId))
-        {
+        if (state.IsClaimed(prizeId)) {
             return RewardTrackResults.AlreadyClaimed;
         }
 
-        if (prize.Premium && !state.Premium)
-        {
+        if (prize.Premium && !state.Premium) {
             return RewardTrackResults.PremiumRequired;
         }
 
-        if (state.Points < prize.RequiredPoints)
-        {
+        if (state.Points < prize.RequiredPoints) {
             return RewardTrackResults.NotEnoughPoints;
         }
 
-        if (!IsKnownReward(prize))
-        {
+        if (!IsKnownReward(prize)) {
             return RewardTrackResults.Unknown;
         }
 
@@ -78,8 +69,7 @@ public static class RewardTrackRules
     {
         var type = prize.RewardType.Trim().ToLowerInvariant();
 
-        if (type is "credits" or "duckets" or "diamonds")
-        {
+        if (type is "credits" or "duckets" or "diamonds") {
             return prize.RewardAmount > 0;
         }
 
@@ -88,21 +78,18 @@ public static class RewardTrackRules
 
     public static PremiumQuote Quote(RewardTrack? track, UserRewardTrackState? state, int credits, int diamonds)
     {
-        if (track == null || state == null || !track.HasPremium)
-        {
+        if (track == null || state == null || !track.HasPremium) {
             return new PremiumQuote(RewardTrackResults.Unknown, credits, diamonds, state?.Points ?? 0);
         }
 
-        if (state.Premium)
-        {
+        if (state.Premium) {
             return new PremiumQuote(RewardTrackResults.AlreadyPremium, credits, diamonds, state.Points);
         }
 
         var costCredits = Math.Max(0, track.PremiumCostCredits);
         var costDiamonds = Math.Max(0, track.PremiumCostDiamonds);
 
-        if (credits < costCredits || diamonds < costDiamonds)
-        {
+        if (credits < costCredits || diamonds < costDiamonds) {
             return new PremiumQuote(RewardTrackResults.NotEnoughCurrency, credits, diamonds, state.Points);
         }
 

@@ -19,18 +19,15 @@ internal class DeleteRoomEvent : IPacketEvent
     {
         var roomId = packet.ReadUInt();
 
-        if (roomId == 0)
-        {
+        if (roomId == 0) {
             return Task.CompletedTask;
         }
 
-        if (!_roomManager.TryGetRoom(roomId, out var room))
-        {
+        if (!_roomManager.TryGetRoom(roomId, out var room)) {
             return Task.CompletedTask;
         }
 
-        if (room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Access.Can(PermissionKeys.RoomDeleteAny))
-        {
+        if (room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Access.Can(PermissionKeys.RoomDeleteAny)) {
             return Task.CompletedTask;
         }
 

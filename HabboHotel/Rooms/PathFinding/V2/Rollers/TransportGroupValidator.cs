@@ -15,13 +15,11 @@ internal sealed class TransportGroupValidator(Room room, RollerTransport transpo
         var snapshot = move.Snapshot;
 
         if (!InPlace(move.Roller, move) || move.Roller.Rotation != snapshot.RollerRotation
-            || move.Roller.GetZ != snapshot.RollerZ)
-        {
+            || move.Roller.GetZ != snapshot.RollerZ) {
             return false;
         }
 
-        if (move.Cargo is { } cargo)
-        {
+        if (move.Cargo is { } cargo) {
             return InPlace(cargo, move) && cargo.GetZ == snapshot.SourceZ
             && cargo.Rotation == snapshot.CargoRotation && CarriedZStillResolves(cargo, move);
         }

@@ -9,8 +9,7 @@ public sealed class WiredAllVariablesRequestEvent(IWiredVariableMenuService menu
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (packet.HasDataRemaining())
-        {
+        if (packet.HasDataRemaining()) {
             return Task.CompletedTask;
         }
 
@@ -24,8 +23,7 @@ public sealed class WiredVariableHashesEvent(IWiredVariableMenuService menus) : 
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!TryReadHashes(packet, out var hashes))
-        {
+        if (!TryReadHashes(packet, out var hashes)) {
             return Task.CompletedTask;
         }
 
@@ -38,29 +36,27 @@ public sealed class WiredVariableHashesEvent(IWiredVariableMenuService menus) : 
         var result = new Dictionary<string, int>(StringComparer.Ordinal);
         hashes = result;
 
-        try
-        {
+        try {
             var count = packet.ReadInt();
 
-            if (count is < 0 or > 4096)
-            {
+            if (count is < 0 or > 4096) {
                 return false;
             }
 
-            for (var i = 0; i < count; i++)
-            {
+            for (var i = 0; i < count; i++) {
                 var id = packet.ReadString();
                 var hash = packet.ReadInt();
 
-                if (id.Length is < 1 or > 64 || !result.TryAdd(id, hash))
-                {
+                if (id.Length is < 1 or > 64 || !result.TryAdd(id, hash)) {
                     return false;
                 }
             }
 
             return !packet.HasDataRemaining();
         }
-        catch (ArgumentException) { return false; }
+        catch (ArgumentException) {
+            return false;
+        }
     }
 }
 
@@ -70,14 +66,14 @@ public sealed class WiredVariableHoldersRequestEvent(IWiredVariableMenuService m
     {
         string id;
 
-        try
-        {
+        try {
             id = packet.ReadString();
         }
-        catch (ArgumentException) { return Task.CompletedTask; }
+        catch (ArgumentException) {
+            return Task.CompletedTask;
+        }
 
-        if (id.Length is < 1 or > 64 || packet.HasDataRemaining())
-        {
+        if (id.Length is < 1 or > 64 || packet.HasDataRemaining()) {
             return Task.CompletedTask;
         }
 
@@ -94,18 +90,18 @@ public sealed class WiredVariableHoldersPageEvent(IWiredVariableMenuService menu
         string id;
         int page, size, users, sort;
 
-        try
-        {
+        try {
             id = packet.ReadString();
             page = packet.ReadInt();
             size = packet.ReadInt();
             users = packet.ReadInt();
             sort = packet.ReadInt();
         }
-        catch (ArgumentException) { return Task.CompletedTask; }
+        catch (ArgumentException) {
+            return Task.CompletedTask;
+        }
 
-        if (id.Length is < 1 or > 64 || users is not (0 or 1) || sort is < -1 or > 2 || packet.HasDataRemaining())
-        {
+        if (id.Length is < 1 or > 64 || users is not (0 or 1) || sort is < -1 or > 2 || packet.HasDataRemaining()) {
             return Task.CompletedTask;
         }
 

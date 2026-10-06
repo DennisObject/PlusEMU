@@ -26,27 +26,16 @@ public class DiffieHellman
         Initialize(true);
     }
 
-    public BigInteger Prime
-    {
-        get; private set;
-    }
-    public BigInteger Generator
-    {
-        get; private set;
-    }
-    public BigInteger PublicKey
-    {
-        get; private set;
-    }
+    public BigInteger Prime { get; private set; }
+    public BigInteger Generator { get; private set; }
+    public BigInteger PublicKey { get; private set; }
 
     private void Initialize(bool ignoreBaseKeys = false)
     {
         PublicKey = 0;
 
-        while (PublicKey == 0)
-        {
-            if (!ignoreBaseKeys)
-            {
+        while (PublicKey == 0) {
+            if (!ignoreBaseKeys) {
                 Prime = BigInteger.genPseudoPrime(Bitlength, 10, Random.Shared);
                 Generator = BigInteger.genPseudoPrime(Bitlength, 10, Random.Shared);
             }
@@ -55,8 +44,7 @@ public class DiffieHellman
             Randomizer.NextBytes(bytes);
             _privateKey = new(bytes);
 
-            if (Generator > Prime)
-            {
+            if (Generator > Prime) {
                 var temp = Prime;
                 Prime = Generator;
                 Generator = temp;
@@ -64,8 +52,7 @@ public class DiffieHellman
 
             PublicKey = Generator.modPow(_privateKey, Prime);
 
-            if (!ignoreBaseKeys)
-            {
+            if (!ignoreBaseKeys) {
                 break;
             }
         }

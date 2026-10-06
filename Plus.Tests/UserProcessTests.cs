@@ -55,8 +55,7 @@ public class UserProcessTests
         var logger = new Logger<ProcessComponent>();
         using var process = Process(clock, new Store((_, _, _, _) =>
         {
-            if (fail)
-            {
+            if (fail) {
                 throw new InvalidOperationException("forced");
             }
         }), logger);
@@ -90,14 +89,12 @@ public class UserProcessTests
         Assert.False(process.Init(habbo));
         var first = Task.Run(clock.Fire);
 
-        try
-        {
+        try {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
             clock.Fire();
             Assert.Equal(1, Volatile.Read(ref writes));
         }
-        finally
-        {
+        finally {
             release.Set();
             await first;
         }
@@ -141,8 +138,7 @@ public class UserProcessTests
         using var disconnect = new DisconnectContext(habbo, process, Proxy<IUserPersistenceService>((_, _) => null));
         Task tick;
 
-        lock (habbo.WalletSync)
-        {
+        lock (habbo.WalletSync) {
             tick = Task.Run(clock.Fire);
             Assert.True(admitted.Wait(TimeSpan.FromSeconds(5)));
             habbo.OnDisconnect();
@@ -253,8 +249,7 @@ public class UserProcessTests
         using var admin = new MySqlConnection(root);
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new HabbiconDatabaseTests.TestDatabase(new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -264,8 +259,7 @@ public class UserProcessTests
             using var connection = database.Connection();
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
 
-            foreach (var table in new[] { "users", "users_settings", "user_stats" })
-            {
+            foreach (var table in new[] { "users", "users_settings", "user_stats" }) {
                 var definition = System.Text.RegularExpressions.Regex.Match(pristine,
                     $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
                 Assert.NotEmpty(definition);
@@ -296,8 +290,7 @@ public class UserProcessTests
             Task? logout = null;
             bool savedBeforeResetPublished;
 
-            try
-            {
+            try {
                 Assert.True(committed.Wait(TimeSpan.FromSeconds(5)));
                 Assert.Equal((10, 10, "01/02"), StoredRespects());
                 Assert.Equal(("old", 0, 0), (habbo.HabboStats.RespectsTimestamp,
@@ -307,13 +300,11 @@ public class UserProcessTests
                 savedBeforeResetPublished = await Task.WhenAny(logout, Task.Delay(100)) == logout;
                 Assert.Empty(sent);
             }
-            finally
-            {
+            finally {
                 release.Set();
                 await tick.WaitAsync(TimeSpan.FromSeconds(5));
 
-                if (logout != null)
-                {
+                if (logout != null) {
                     await logout.WaitAsync(TimeSpan.FromSeconds(5));
                 }
             }
@@ -336,7 +327,9 @@ public class UserProcessTests
                 habbo.OnDisconnect();
             }
         }
-        finally { admin.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     [Fact]
@@ -349,8 +342,7 @@ public class UserProcessTests
         var writes = 0;
         var statistics = Proxy<IHabboStatsService>((method, args) =>
         {
-            if (method == "LoadHabboStats")
-            {
+            if (method == "LoadHabboStats") {
                 return Task.FromResult(stats);
             }
 
@@ -379,8 +371,7 @@ public class UserProcessTests
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             options.Database = schema;
             options.AllowZeroDateTime = true;
             options.ConvertZeroDateTime = true;
@@ -391,7 +382,9 @@ public class UserProcessTests
             Assert.Equal((12, 8, "01/02"), connection.QuerySingle<(int, int, string)>(
                 "SELECT DailyRespectPoints,DailyPetRespectPoints,respectsTimestamp FROM user_statistics WHERE id=7"));
         }
-        finally { admin.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static (Habbo Habbo, List<(uint Header, byte[] Payload)> Sent) Player(TimeProvider clock)
@@ -429,10 +422,7 @@ public class UserProcessTests
         private readonly System.Reflection.FieldInfo _game = typeof(PlusEnvironment).GetField("_game",
             System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
         private readonly object? _previous;
-        public int Unregisters
-        {
-            get; private set;
-        }
+        public int Unregisters { get; private set; }
 
         public DisconnectContext(Habbo habbo, ProcessComponent process, IUserPersistenceService persistence)
         {
@@ -457,22 +447,10 @@ public class UserProcessTests
     {
         private TimerCallback? _callback;
         private object? _state;
-        public int Reads
-        {
-            get; private set;
-        }
-        public TimeSpan Period
-        {
-            get; private set;
-        }
-        public bool TimerDisposed
-        {
-            get; private set;
-        }
-        public Action? OnRead
-        {
-            get; set;
-        }
+        public int Reads { get; private set; }
+        public TimeSpan Period { get; private set; }
+        public bool TimerDisposed { get; private set; }
+        public Action? OnRead { get; set; }
         public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.CreateCustomTimeZone("plus-nine", TimeSpan.FromHours(9), "test", "test");
         public override DateTimeOffset GetUtcNow()
         {
@@ -505,16 +483,12 @@ public class UserProcessTests
     }
     private sealed class Logger<T> : ILogger<T>
     {
-        public int Errors
-        {
-            get; private set;
-        }
+        public int Errors { get; private set; }
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel level) => true;
         public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error, Func<TState, Exception?, string> format)
         {
-            if (level == LogLevel.Error)
-            {
+            if (level == LogLevel.Error) {
                 Errors++;
             }
         }

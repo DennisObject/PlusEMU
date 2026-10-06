@@ -16,18 +16,15 @@ public sealed class WiredTimedTriggers
     {
         var units = config.IntParams.IsDefaultOrEmpty ? 1 : config.IntParams[0];
 
-        if (units < 1)
-        {
+        if (units < 1) {
             return false;
         }
 
-        if (name is "wf_trg_at_given_time" or "wf_trg_at_time_long")
-        {
+        if (name is "wf_trg_at_given_time" or "wf_trg_at_time_long") {
             // Approved legacy contract: at-time-long is one-shot in five-second units.
             var targetMs = units * (name == "wf_trg_at_time_long" ? 5000L : 500L);
 
-            if (elapsedMs < targetMs || _firedEpoch.TryGetValue(boxId, out var fired) && fired == resetEpoch)
-            {
+            if (elapsedMs < targetMs || _firedEpoch.TryGetValue(boxId, out var fired) && fired == resetEpoch) {
                 return false;
             }
 
@@ -44,22 +41,19 @@ public sealed class WiredTimedTriggers
             _ => 0L
         };
 
-        if (stepMs == 0)
-        {
+        if (stepMs == 0) {
             return false;
         }
 
         var intervalMs = units * stepMs;
 
-        if (!_nextPeriodicAt.TryGetValue(boxId, out var next))
-        {
+        if (!_nextPeriodicAt.TryGetValue(boxId, out var next)) {
             _nextPeriodicAt[boxId] = nowMs + intervalMs;
 
             return false;
         }
 
-        if (nowMs < next)
-        {
+        if (nowMs < next) {
             return false;
         }
 

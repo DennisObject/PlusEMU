@@ -40,12 +40,10 @@ public sealed class MessengerPermissionLockDatabaseTests(MessengerFriendSchema s
 
             // On the broken path the accept owns the users rows and Refresh waits while holding _sync.
             // On the fixed path Refresh finishes because permission resolution precedes the transaction.
-            for (var attempt = 0; attempt < 25 && !refresh.IsCompleted; attempt++)
-            {
+            for (var attempt = 0; attempt < 25 && !refresh.IsCompleted; attempt++) {
                 Thread.Sleep(200); // INNODB_TRX / LOCK_WAITS snapshots are cached for 100ms.
 
-                if (observer.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS") > 0)
-                {
+                if (observer.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS") > 0) {
                     break;
                 }
             }
@@ -54,8 +52,7 @@ public sealed class MessengerPermissionLockDatabaseTests(MessengerFriendSchema s
         var loader = new MessengerDataLoader(database, clients, proxy, settings, TimeProvider.System);
         var accept = Task.Run(() => loader.AcceptFriendRequest(9981, 9982));
 
-        try
-        {
+        try {
             var result = await accept.WaitAsync(TimeSpan.FromSeconds(15));
             Assert.NotNull(refresh);
             await refresh.WaitAsync(TimeSpan.FromSeconds(15));
@@ -63,18 +60,14 @@ public sealed class MessengerPermissionLockDatabaseTests(MessengerFriendSchema s
             Assert.Equal(2, observer.ExecuteScalar<int>("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9981,9982)"));
             Assert.Equal(0, observer.ExecuteScalar<int>("SELECT COUNT(*) FROM messenger_requests WHERE from_id=9982 AND to_id=9981"));
         }
-        finally
-        {
-            try
-            {
+        finally {
+            try {
                 await accept.WaitAsync(TimeSpan.FromSeconds(15));
             }
             catch { }
 
-            if (refresh != null)
-            {
-                try
-                {
+            if (refresh != null) {
+                try {
                     await refresh.WaitAsync(TimeSpan.FromSeconds(15));
                 }
                 catch { }
@@ -91,18 +84,15 @@ public sealed class MessengerPermissionLockDatabaseTests(MessengerFriendSchema s
         private bool _entered;
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method!.Name == nameof(IAccessControl.Resolve) && !_entered)
-            {
+            if (method!.Name == nameof(IAccessControl.Resolve) && !_entered) {
                 _entered = true;
                 BeforeFirstResolve();
             }
 
-            try
-            {
+            try {
                 return method.Invoke(Access, args);
             }
-            catch (TargetInvocationException exception) when (exception.InnerException != null)
-            {
+            catch (TargetInvocationException exception) when (exception.InnerException != null) {
                 ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
                 throw;
             }

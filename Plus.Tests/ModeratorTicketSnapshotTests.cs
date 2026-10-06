@@ -19,9 +19,7 @@ public sealed class ModeratorTicketSnapshotTests
     private static readonly DateTimeOffset Now = new(2042, 2, 3, 12, 0, 4, TimeSpan.Zero);
     private static ModerationTicket Ticket() => new(10, 5, 6, Now.AddSeconds(-4), 4,
         new Habbo { Id = 1, Username = "Sender" }, new Habbo { Id = 2, Username = "Target" }, "help", null, ["chat"])
-    {
-        Moderator = new Habbo { Id = 3, Username = "Staff" }
-    };
+    { Moderator = new Habbo { Id = 3, Username = "Staff" } };
 
     [Fact]
     public void SupportAndInitializationKeepTheirDistinctFieldOrderingAndFreezeModels()
@@ -93,8 +91,7 @@ public sealed class ModeratorTicketSnapshotTests
 
         service.SendChatlogs(actor, ticket.Id);
 
-        if (!exists)
-        {
+        if (!exists) {
             Assert.Empty(sent);
 
             return;

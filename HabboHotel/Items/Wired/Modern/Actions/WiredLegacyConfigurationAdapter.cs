@@ -12,8 +12,7 @@ public static class WiredLegacyConfigurationAdapter
     {
         configuration = new();
 
-        if (original is IWiredConfiguredItem configured)
-        {
+        if (original is IWiredConfiguredItem configured) {
             configuration = configured.Configuration;
 
             return true;
@@ -28,8 +27,7 @@ public static class WiredLegacyConfigurationAdapter
         ImmutableArray<int> parameters;
         var snapshots = ImmutableArray<WiredFurniSnapshot>.Empty;
 
-        switch (descriptor.CanonicalName)
-        {
+        switch (descriptor.CanonicalName) {
             case "wf_act_kick_user":
                 parameters = [0];
                 break;
@@ -67,8 +65,7 @@ public static class WiredLegacyConfigurationAdapter
                 break;
             case "wf_act_give_reward":
                 // The old Plus reward box never stored rewards. A nonempty custom row has no known schema.
-                if (text.Length != 0)
-                {
+                if (text.Length != 0) {
                     return false;
                 }
 
@@ -128,8 +125,7 @@ public static class WiredLegacyConfigurationAdapter
                 parameters = [Field(0), Field(1), Field(2), Field(2), source];
                 text = "";
 
-                if (!TrySavedSnapshots(original, out snapshots))
-                {
+                if (!TrySavedSnapshots(original, out snapshots)) {
                     return false;
                 }
 
@@ -139,8 +135,7 @@ public static class WiredLegacyConfigurationAdapter
                 parameters = [Field(0), Field(1), Field(2), Field(2), source, 0];
                 text = "";
 
-                if (!TrySavedSnapshots(original, out snapshots))
-                {
+                if (!TrySavedSnapshots(original, out snapshots)) {
                     return false;
                 }
 
@@ -182,14 +177,7 @@ public static class WiredLegacyConfigurationAdapter
                 return false;
         }
 
-        configuration = new()
-        {
-            IntParams = parameters,
-            Text = text,
-            SelectedItems = picked,
-            Delay = delay,
-            Snapshots = snapshots
-        };
+        configuration = new() { IntParams = parameters, Text = text, SelectedItems = picked, Delay = delay, Snapshots = snapshots };
 
         return WiredLegacyProtocol.IsWithinLimits(configuration);
     }
@@ -199,12 +187,10 @@ public static class WiredLegacyConfigurationAdapter
         snapshots = [];
         var result = ImmutableArray.CreateBuilder<WiredFurniSnapshot>();
 
-        foreach (var entry in (original.ItemsData ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
-        {
+        foreach (var entry in (original.ItemsData ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries)) {
             var colon = entry.IndexOf(':');
 
-            if (colon < 1 || !uint.TryParse(entry[..colon], out var id))
-            {
+            if (colon < 1 || !uint.TryParse(entry[..colon], out var id)) {
                 return false;
             }
 
@@ -212,8 +198,7 @@ public static class WiredLegacyConfigurationAdapter
 
             if (data.Length != 5 || !int.TryParse(data[0], out var x) || !int.TryParse(data[1], out var y)
                 || !double.TryParse(data[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var z)
-                || !double.IsFinite(z) || !int.TryParse(data[3], out var rotation))
-            {
+                || !double.IsFinite(z) || !int.TryParse(data[3], out var rotation)) {
                 return false;
             }
 

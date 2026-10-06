@@ -23,8 +23,7 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
     private static string Name(Item item) => string.IsNullOrEmpty(item.Definition.InteractionName) ? item.Definition.ItemName : item.Definition.InteractionName;
     public bool Attach(Item item)
     {
-        if (!Recognizes(item))
-        {
+        if (!Recognizes(item)) {
             return false;
         }
 
@@ -38,8 +37,7 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
     public bool IsRunning(Item item) => Find(item)?.Running == true;
     public void Forget(Item item)
     {
-        if (Find(item) != null)
-        {
+        if (Find(item) != null) {
             _clocks.Remove(item.Id);
         }
     }
@@ -55,32 +53,27 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
     {
         var clock = Find(item);
 
-        if (clock == null || clock.Game || operation is < 0 or > 4)
-        {
+        if (clock == null || clock.Game || operation is < 0 or > 4) {
             return false;
         }
 
-        if (operation == 4)
-        {
+        if (operation == 4) {
             operation = clock.Running ? 1 : 0;
         }
 
-        if (operation is 2 or 3)
-        {
+        if (operation is 2 or 3) {
             var previous = clock.Value;
             clock.Value = 0;
             clock.Running = false;
             PublishClock(clock, previous);
         }
 
-        if (operation is 0 or 3 && !clock.Running)
-        {
+        if (operation is 0 or 3 && !clock.Running) {
             clock.Running = true;
             clock.NextTick = nowMilliseconds + 500;
         }
 
-        if (operation == 1)
-        {
+        if (operation == 1) {
             clock.Running = false;
         }
 
@@ -91,19 +84,13 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
     {
         var clock = Find(item);
 
-        if (clock == null || clock.Game || operation is < 0 or > 2 || minutes is < 0 or > 99 || halfSecondSteps is < 0 or > 119)
-        {
+        if (clock == null || clock.Game || operation is < 0 or > 2 || minutes is < 0 or > 99 || halfSecondSteps is < 0 or > 119) {
             return false;
         }
 
         var amount = minutes * 120L + halfSecondSteps;
         var previous = clock.Value;
-        clock.Value = (int)Math.Clamp(operation switch
-        {
-            0 => previous + amount,
-            1 => previous - amount,
-            _ => amount
-        }, 0, maxHalfSeconds);
+        clock.Value = (int)Math.Clamp(operation switch { 0 => previous + amount, 1 => previous - amount, _ => amount }, 0, maxHalfSeconds);
         PublishClock(clock, previous);
 
         return true;
@@ -112,37 +99,26 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
     {
         var clock = Find(item);
 
-        if (clock == null)
-        {
+        if (clock == null) {
             return false;
         }
 
-        if (!clock.Game)
-        {
+        if (!clock.Game) {
             return Control(item, parameter == 2 ? 2 : 4, nowMilliseconds);
         }
 
-        if (clock.Running)
-        {
+        if (clock.Running) {
             clock.Running = false;
-            _changes.Enqueue(new(item, new(WiredEventKind.GameEnd)
-            {
-                EventItem = item
-            }, false));
+            _changes.Enqueue(new(item, new(WiredEventKind.GameEnd) { EventItem = item }, false));
 
-            if (parameter != 2)
-            {
+            if (parameter != 2) {
                 return true;
             }
         }
 
-        if (parameter == 2)
-        {
+        if (parameter == 2) {
             clock.Value = defaultGameSeconds;
-            PublishDisplay(clock, new(WiredEventKind.StateChanged)
-            {
-                EventItem = item
-            });
+            PublishDisplay(clock, new(WiredEventKind.StateChanged) { EventItem = item });
 
             return true;
         }
@@ -150,24 +126,18 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
         clock.Value = int.TryParse(item.LegacyDataString, out var duration) && duration > 0 ? duration : defaultGameSeconds;
         clock.Running = true;
         clock.NextTick = nowMilliseconds + 1000;
-        _changes.Enqueue(new(item, new(WiredEventKind.GameStart)
-        {
-            EventItem = item
-        }, false));
+        _changes.Enqueue(new(item, new(WiredEventKind.GameStart) { EventItem = item }, false));
 
         return true;
     }
     public IReadOnlyList<WiredCounterChange> Poll(long nowMilliseconds)
     {
-        foreach (var clock in _clocks.Values)
-        {
-            if (!clock.Running || nowMilliseconds < clock.NextTick)
-            {
+        foreach (var clock in _clocks.Values) {
+            if (!clock.Running || nowMilliseconds < clock.NextTick) {
                 continue;
             }
 
-            if (!clock.Game && clock.Value >= maxHalfSeconds)
-            {
+            if (!clock.Game && clock.Value >= maxHalfSeconds) {
                 clock.Running = false;
                 continue;
             }
@@ -177,24 +147,15 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
             clock.Value = Math.Max(0, clock.Value);
             clock.NextTick = nowMilliseconds + (clock.Game ? 1000 : 500);
 
-            if (!clock.Game)
-            {
+            if (!clock.Game) {
                 PublishClock(clock, previous);
             }
-            else
-            {
-                PublishDisplay(clock, new(WiredEventKind.StateChanged)
-                {
-                    EventItem = clock.Item
-                });
+            else {
+                PublishDisplay(clock, new(WiredEventKind.StateChanged) { EventItem = clock.Item });
 
-                if (clock.Value == 0)
-                {
+                if (clock.Value == 0) {
                     clock.Running = false;
-                    _changes.Enqueue(new(clock.Item, new(WiredEventKind.GameEnd)
-                    {
-                        EventItem = clock.Item
-                    }, false));
+                    _changes.Enqueue(new(clock.Item, new(WiredEventKind.GameEnd) { EventItem = clock.Item }, false));
                 }
             }
         }
@@ -205,10 +166,8 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
     {
         var result = new List<WiredCounterChange>();
 
-        while (_changes.TryDequeue(out var change))
-        {
-            if (Find(change.Item) != null)
-            {
+        while (_changes.TryDequeue(out var change)) {
+            if (Find(change.Item) != null) {
                 result.Add(change);
             }
         }
@@ -216,19 +175,13 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
         return result;
     }
     private void PublishClock(Clock clock, int previous) => PublishDisplay(clock,
-        new(WiredEventKind.Counter)
-        {
-            EventItem = clock.Item,
-            PreviousValue = previous * 500L,
-            Value = clock.Value * 500L
-        });
+        new(WiredEventKind.Counter) { EventItem = clock.Item, PreviousValue = previous * 500L, Value = clock.Value * 500L });
     private void PublishDisplay(Clock clock, WiredRuntimeEvent @event)
     {
         var text = (clock.Game ? clock.Value : clock.Value / 2).ToString(CultureInfo.InvariantCulture);
         var changed = clock.Item.LegacyDataString != text;
 
-        if (changed)
-        {
+        if (changed) {
             clock.Item.LegacyDataString = text;
         }
 

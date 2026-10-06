@@ -17,8 +17,7 @@ public class BadgesInventoryComponent
 
     public Badge? GetBadge(string badge)
     {
-        if (_badges.TryGetValue(badge, out var b))
-        {
+        if (_badges.TryGetValue(badge, out var b)) {
             return b;
         }
 
@@ -35,8 +34,7 @@ public class BadgesInventoryComponent
 
     public void ClearWearingBadges()
     {
-        foreach (var (_, badge) in _badges)
-        {
+        foreach (var (_, badge) in _badges) {
             badge.Slot = 0;
         }
     }

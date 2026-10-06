@@ -152,10 +152,7 @@ public sealed class UserMaintenanceCommandTests
 
     private sealed class RecordingService : IUserMaintenanceService
     {
-        public bool Result
-        {
-            get; init;
-        }
+        public bool Result { get; init; }
         public List<string> Calls { get; } = [];
         public Task<bool> GiveCurrency(int userId, string currency, int amount)
         {

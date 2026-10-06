@@ -220,8 +220,7 @@ public class CatalogSnapshotTests
     {
         var page = new CatalogPage { Id = id, ParentId = parent, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3" };
 
-        foreach (var offerId in offerIds)
-        {
+        foreach (var offerId in offerIds) {
             page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id, Definition = Def(InteractionType.None, "i") };
         }
 
@@ -249,10 +248,7 @@ public class CatalogSnapshotTests
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

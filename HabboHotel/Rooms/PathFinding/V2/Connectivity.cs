@@ -17,10 +17,8 @@ public sealed class Connectivity(NavGrid grid)
 
     public bool SameComponent(int start, in AcceptedGoal goal)
     {
-        for (var index = 0; index < goal.Count; index++)
-        {
-            if (SameComponent(start, goal[index]))
-            {
+        for (var index = 0; index < goal.Count; index++) {
+            if (SameComponent(start, goal[index])) {
                 return true;
             }
         }
@@ -30,13 +28,11 @@ public sealed class Connectivity(NavGrid grid)
 
     public void EnsureCurrent()
     {
-        if (_version == grid.Version)
-        {
+        if (_version == grid.Version) {
             return;
         }
 
-        if (_components.Length < grid.SlotCapacity)
-        {
+        if (_components.Length < grid.SlotCapacity) {
             _components = new int[grid.SlotCapacity];
             _queue = new int[grid.SlotCapacity];
         }
@@ -44,10 +40,8 @@ public sealed class Connectivity(NavGrid grid)
         Array.Clear(_components);
         var component = 0;
 
-        for (var slot = 0; slot < grid.SlotCapacity; slot++)
-        {
-            if (_components[slot] != 0 || !grid.Active(slot))
-            {
+        for (var slot = 0; slot < grid.SlotCapacity; slot++) {
+            if (_components[slot] != 0 || !grid.Active(slot)) {
                 continue;
             }
 
@@ -64,27 +58,22 @@ public sealed class Connectivity(NavGrid grid)
         var tail = 0;
         _queue[tail++] = first;
 
-        while (head < tail)
-        {
+        while (head < tail) {
             var tile = grid.TileOf(_queue[head++]);
             var x = tile % grid.Width;
             var y = tile / grid.Width;
 
-            foreach (var (dx, dy) in PathTieBreak.Neighbours)
-            {
-                if (!grid.InBounds(x + dx, y + dy))
-                {
+            foreach (var (dx, dy) in PathTieBreak.Neighbours) {
+                if (!grid.InBounds(x + dx, y + dy)) {
                     continue;
                 }
 
                 var neighbour = grid.Tile(x + dx, y + dy);
 
-                for (var ordinal = 0; ordinal < grid.SurfaceCount(neighbour); ordinal++)
-                {
+                for (var ordinal = 0; ordinal < grid.SurfaceCount(neighbour); ordinal++) {
                     var next = grid.SurfaceAt(neighbour, ordinal);
 
-                    if (_components[next] != 0 || !grid.Active(next))
-                    {
+                    if (_components[next] != 0 || !grid.Active(next)) {
                         continue;
                     }
 

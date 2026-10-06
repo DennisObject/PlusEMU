@@ -19,17 +19,11 @@ namespace Plus.HabboHotel.Rooms;
 
 public class RoomUser
 {
-    internal ActorProfile? NavigationProfile
-    {
-        get; set;
-    }
+    internal ActorProfile? NavigationProfile { get; set; }
     private ActorMovementState? _movement;
     public ActorMovementState Movement => LazyInitializer.EnsureInitialized(ref _movement)!;
 
-    public WiredRoomEntrySnapshot WiredRoomEntry
-    {
-        get; internal set;
-    }
+    public WiredRoomEntrySnapshot WiredRoomEntry { get; internal set; }
     private GameClient? _mClient;
     private Room? _mRoom;
     private readonly IChatEmotionsManager _chatEmotions;
@@ -160,8 +154,7 @@ public class RoomUser
     {
         get
         {
-            if (DanceId >= 1)
-            {
+            if (DanceId >= 1) {
                 return true;
             }
 
@@ -169,54 +162,37 @@ public class RoomUser
         }
     }
 
-    public bool IsTrading
-    {
-        get; set;
-    }
+    public bool IsTrading { get; set; }
 
-    public int TradePartner
-    {
-        get; set;
-    }
+    public int TradePartner { get; set; }
 
-    public int TradeId
-    {
-        get; set;
-    }
+    public int TradeId { get; set; }
 
 
-    public Dictionary<string, string> Statusses
-    {
-        get;
-    }
+    public Dictionary<string, string> Statusses { get; }
     //set { this._statusses = value; }
 
     public bool NeedsAutokick
     {
         get
         {
-            if (IsBot)
-            {
+            if (IsBot) {
                 return false;
             }
 
-            if (GetClient() == null || GetClient().GetHabbo() == null)
-            {
+            if (GetClient() == null || GetClient().GetHabbo() == null) {
                 return true;
             }
 
-            if (GetClient().GetHabbo().Access.Can(PermissionKeys.ModerationTool) || GetRoom().OwnerId == HabboId)
-            {
+            if (GetClient().GetHabbo().Access.Can(PermissionKeys.ModerationTool) || GetRoom().OwnerId == HabboId) {
                 return false;
             }
 
-            if (GetRoom().Id == 1649919)
-            {
+            if (GetRoom().Id == 1649919) {
                 return false;
             }
 
-            if (IdleTime >= 7200)
-            {
+            if (IdleTime >= 7200) {
                 return true;
             }
 
@@ -228,8 +204,7 @@ public class RoomUser
     {
         get
         {
-            if (BotData != null)
-            {
+            if (BotData != null) {
                 return true;
             }
 
@@ -243,20 +218,16 @@ public class RoomUser
         {
             var sq = new Point(X, Y);
 
-            if (RotBody == 0)
-            {
+            if (RotBody == 0) {
                 sq.Y--;
             }
-            else if (RotBody == 2)
-            {
+            else if (RotBody == 2) {
                 sq.X++;
             }
-            else if (RotBody == 4)
-            {
+            else if (RotBody == 4) {
                 sq.Y++;
             }
-            else if (RotBody == 6)
-            {
+            else if (RotBody == 6) {
                 sq.X--;
             }
 
@@ -270,20 +241,16 @@ public class RoomUser
         {
             var sq = new Point(X, Y);
 
-            if (RotBody == 0)
-            {
+            if (RotBody == 0) {
                 sq.Y++;
             }
-            else if (RotBody == 2)
-            {
+            else if (RotBody == 2) {
                 sq.X--;
             }
-            else if (RotBody == 4)
-            {
+            else if (RotBody == 4) {
                 sq.Y--;
             }
-            else if (RotBody == 6)
-            {
+            else if (RotBody == 6) {
                 sq.X++;
             }
 
@@ -297,20 +264,16 @@ public class RoomUser
         {
             var sq = new Point(X, Y);
 
-            if (RotBody == 0)
-            {
+            if (RotBody == 0) {
                 sq.X++;
             }
-            else if (RotBody == 2)
-            {
+            else if (RotBody == 2) {
                 sq.Y--;
             }
-            else if (RotBody == 4)
-            {
+            else if (RotBody == 4) {
                 sq.X--;
             }
-            else if (RotBody == 6)
-            {
+            else if (RotBody == 6) {
                 sq.Y++;
             }
 
@@ -324,20 +287,16 @@ public class RoomUser
         {
             var sq = new Point(X, Y);
 
-            if (RotBody == 0)
-            {
+            if (RotBody == 0) {
                 sq.X--;
             }
-            else if (RotBody == 2)
-            {
+            else if (RotBody == 2) {
                 sq.Y++;
             }
-            else if (RotBody == 4)
-            {
+            else if (RotBody == 4) {
                 sq.X++;
             }
-            else if (RotBody == 6)
-            {
+            else if (RotBody == 6) {
                 sq.Y--;
             }
 
@@ -347,8 +306,7 @@ public class RoomUser
 
     public string GetUsername()
     {
-        if (IsBot)
-        {
+        if (IsBot) {
             return string.Empty;
         }
 
@@ -359,32 +317,24 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
-        if (!IsBot)
-        {
+        if (!IsBot) {
             var habbo = GetClient()?.GetHabbo();
 
-            if (habbo != null)
-            {
+            if (habbo != null) {
                 habbo.TimeAfk = 0;
             }
         }
 
         IdleTime = 0;
 
-        if (IsAsleep)
-        {
+        if (IsAsleep) {
             IsAsleep = false;
             room.SendPacket(new SleepComposer(VirtualId, false));
-            room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
-            {
-                Actor = this,
-                Action = (int)WiredAvatarAction.Awake
-            });
+            room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = this, Action = (int)WiredAvatarAction.Awake });
         }
     }
 
@@ -399,8 +349,7 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null || !IsBot)
-        {
+        if (room == null || !IsBot) {
             return;
         }
 
@@ -409,18 +358,15 @@ public class RoomUser
 
         IEnumerable<GameClient> GetRecipients()
         {
-            foreach (var user in room.GetRoomUserManager().GetRoomUsers())
-            {
+            foreach (var user in room.GetRoomUserManager().GetRoomUsers()) {
                 var client = user?.GetClient();
                 var habbo = client?.GetHabbo();
 
-                if (client == null || habbo == null)
-                {
+                if (client == null || habbo == null) {
                     yield break;
                 }
 
-                if (!(IsPet ? habbo.AllowPetSpeech : habbo.AllowBotSpeech))
-                {
+                if (!(IsPet ? habbo.AllowPetSpeech : habbo.AllowBotSpeech)) {
                     yield return client;
                 }
             }
@@ -429,12 +375,10 @@ public class RoomUser
 
     public void HandleSpamTicks()
     {
-        if (ChatSpamTicks >= 0)
-        {
+        if (ChatSpamTicks >= 0) {
             ChatSpamTicks--;
 
-            if (ChatSpamTicks == -1)
-            {
+            if (ChatSpamTicks == -1) {
                 ChatSpamCount = 0;
             }
         }
@@ -445,19 +389,16 @@ public class RoomUser
         muteTime = 0;
         var habbo = GetClient()?.GetHabbo();
 
-        if (habbo == null || !ReferenceEquals(habbo.CurrentRoom, GetRoom()))
-        {
+        if (habbo == null || !ReferenceEquals(habbo.CurrentRoom, GetRoom())) {
             return false;
         }
 
         ChatSpamCount++;
 
-        if (ChatSpamTicks == -1)
-        {
+        if (ChatSpamTicks == -1) {
             ChatSpamTicks = 8;
         }
-        else if (ChatSpamCount >= 6)
-        {
+        else if (ChatSpamCount >= 6) {
             muteTime = Math.Clamp(21 - habbo.Access.Limit("limit.flood_tolerance", 1), 1, 20);
             habbo.FloodUntil = now.AddSeconds(muteTime);
             ChatSpamCount = 0;
@@ -474,47 +415,38 @@ public class RoomUser
         var client = GetClient();
         var habbo = client?.GetHabbo();
 
-        if (room == null || client == null || habbo == null || !ReferenceEquals(habbo.CurrentRoom, room))
-        {
+        if (room == null || client == null || habbo == null || !ReferenceEquals(habbo.CurrentRoom, room)) {
             return;
         }
 
-        if (room.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, habbo, message))
-        {
+        if (room.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, habbo, message)) {
             return;
         }
 
         habbo.HasSpoken = true;
 
-        if (room.WordFilterList.Count > 0 && !habbo.Access.Can(PermissionKeys.ChatFilterBypass))
-        {
+        if (room.WordFilterList.Count > 0 && !habbo.Access.Can(PermissionKeys.ChatFilterBypass)) {
             message = room.GetFilter().CheckMessage(message);
         }
 
         IServerPacket? packet = null;
 
-        if (shout)
-        {
+        if (shout) {
             packet = new ShoutComposer(VirtualId, message, _chatEmotions.GetEmotionsForText(message), colour);
         }
-        else
-        {
+        else {
             packet = new ChatComposer(VirtualId, message, _chatEmotions.GetEmotionsForText(message), colour);
         }
 
-        if (habbo.TentId > 0)
-        {
+        if (habbo.TentId > 0) {
             room.SendToTent(habbo.Id, habbo.TentId, packet);
             packet = new WhisperComposer(VirtualId, $"[Tent Chat] {message}", 0, colour);
             var toNotify = room.GetRoomUserManager().GetRoomUsersWithPermission(PermissionKeys.StaffReceiveAlerts);
 
-            if (toNotify.Count > 0)
-            {
-                foreach (var user in toNotify)
-                {
+            if (toNotify.Count > 0) {
+                foreach (var user in toNotify) {
                     if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null ||
-                        user.GetClient().GetHabbo().TentId == habbo.TentId)
-                    {
+                        user.GetClient().GetHabbo().TentId == habbo.TentId) {
                         continue;
                     }
 
@@ -522,17 +454,13 @@ public class RoomUser
                 }
             }
         }
-        else
-        {
-            foreach (var user in room.GetRoomUserManager().GetRoomUsers().ToList())
-            {
-                if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null || user.GetClient().GetHabbo().IgnoresComponent.IsIgnored(habbo.Id))
-                {
+        else {
+            foreach (var user in room.GetRoomUserManager().GetRoomUsers().ToList()) {
+                if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null || user.GetClient().GetHabbo().IgnoresComponent.IsIgnored(habbo.Id)) {
                     continue;
                 }
 
-                if (room.ChatDistance > 0 && Gamemap.TileDistance(X, Y, user.X, user.Y) > room.ChatDistance)
-                {
+                if (room.ChatDistance > 0 && Gamemap.TileDistance(X, Y, user.X, user.Y) > room.ChatDistance) {
                     continue;
                 }
 
@@ -540,32 +468,24 @@ public class RoomUser
             }
         }
 
-        if (shout)
-        {
-            foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
-            {
-                if (!user.IsBot)
-                {
+        if (shout) {
+            foreach (var user in room.GetRoomUserManager().GetUserList().ToList()) {
+                if (!user.IsBot) {
                     continue;
                 }
 
-                if (user.IsBot)
-                {
+                if (user.IsBot) {
                     user.BotAi.OnUserShout(this, message);
                 }
             }
         }
-        else
-        {
-            foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
-            {
-                if (!user.IsBot)
-                {
+        else {
+            foreach (var user in room.GetRoomUserManager().GetUserList().ToList()) {
+                if (!user.IsBot) {
                     continue;
                 }
 
-                if (user.IsBot)
-                {
+                if (user.IsBot) {
                     user.BotAi.OnUserSay(this, message);
                 }
             }
@@ -576,13 +496,11 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
-        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
-        {
+        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation) {
             navigation.Cancel(this);
 
             return;
@@ -597,8 +515,7 @@ public class RoomUser
         SetY = 0;
         SetZ = 0;
 
-        if (update)
-        {
+        if (update) {
             UpdateNeeded = true;
         }
     }
@@ -612,26 +529,22 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
-        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
-        {
+        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation) {
             navigation.Move(this, pX, pY, IsBot ? MoveOrigin.Bot : MoveOrigin.User,
                 TeleportEnabled ? MoveFlags.Teleport : MoveFlags.None);
 
             return;
         }
 
-        if (TeleportEnabled)
-        {
+        if (TeleportEnabled) {
             UnIdle();
             room.SendPacket(room.GetRoomItemHandler().UpdateUserOnRoller(this, new(pX, pY), 0, room.GetGameMap().SqAbsoluteHeight(GoalX, GoalY)));
 
-            if (Statusses.ContainsKey("sit"))
-            {
+            if (Statusses.ContainsKey("sit")) {
                 Z -= 0.35;
             }
 
@@ -640,8 +553,7 @@ public class RoomUser
             return;
         }
 
-        if (room.GetGameMap().SquareHasUsers(pX, pY) && !pOverride || Frozen)
-        {
+        if (room.GetGameMap().SquareHasUsers(pX, pY) && !pOverride || Frozen) {
             return;
         }
 
@@ -662,20 +574,17 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
         var front = item.SquareInFront;
 
         if (!IsBot && !TeleportEnabled && room.GetGameMap()?.Navigation is { UsesExecutor: true, Settings.ApproachAutoInteract: true } navigation
-            && navigation.DescribeApproach(item, actionKind) is { } approach)
-        {
+            && navigation.DescribeApproach(item, actionKind) is { } approach) {
             navigation.Move(this, front.X, front.Y, MoveOrigin.User, MoveFlags.None, approach);
         }
-        else
-        {
+        else {
             MoveTo(front);
         }
     }
@@ -684,17 +593,14 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
-        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
-        {
+        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation) {
             navigation.Move(this, x, y, origin, flags);
         }
-        else
-        {
+        else {
             MoveTo(x, y);
         }
     }
@@ -717,13 +623,11 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
-        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
-        {
+        if (room.GetGameMap()?.Navigation is { UsesExecutor: true } navigation) {
             navigation.ForcePlace(this, pX, pY, pZ, ForceResolution.ExactZ);
 
             return;
@@ -738,28 +642,24 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
         var previous = CarryItemId;
         CarryItemId = item;
 
-        if (item > 0)
-        {
+        if (item > 0) {
             CarryTimer = 240;
         }
-        else
-        {
+        else {
             CarryTimer = 0;
         }
 
         room.SendPacket(new CarryObjectComposer(VirtualId, item));
         var client = GetClient();
 
-        if (item > 0 && item != previous && !IsBot && client != null)
-        {
+        if (item > 0 && item != previous && !IsBot && client != null) {
             _rewards.Progress(client, RewardTrackActions.FindHandItem);
         }
     }
@@ -767,46 +667,36 @@ public class RoomUser
 
     public void SetRot(int rotation, bool headOnly)
     {
-        if (Statusses.ContainsKey("lay") || IsWalking)
-        {
+        if (Statusses.ContainsKey("lay") || IsWalking) {
             return;
         }
 
         var diff = RotBody - rotation;
         RotHead = RotBody;
 
-        if (Statusses.ContainsKey("sit") || headOnly)
-        {
-            if (RotBody == 2 || RotBody == 4)
-            {
-                if (diff > 0)
-                {
+        if (Statusses.ContainsKey("sit") || headOnly) {
+            if (RotBody == 2 || RotBody == 4) {
+                if (diff > 0) {
                     RotHead = RotBody - 1;
                 }
-                else if (diff < 0)
-                {
+                else if (diff < 0) {
                     RotHead = RotBody + 1;
                 }
             }
-            else if (RotBody == 0 || RotBody == 6)
-            {
-                if (diff > 0)
-                {
+            else if (RotBody == 0 || RotBody == 6) {
+                if (diff > 0) {
                     RotHead = RotBody - 1;
                 }
-                else if (diff < 0)
-                {
+                else if (diff < 0) {
                     RotHead = RotBody + 1;
                 }
             }
         }
-        else if (diff <= -2 || diff >= 2)
-        {
+        else if (diff <= -2 || diff >= 2) {
             RotHead = rotation;
             RotBody = rotation;
         }
-        else
-        {
+        else {
             RotHead = rotation;
         }
 
@@ -818,20 +708,17 @@ public class RoomUser
 
     public void RemoveStatus(string key)
     {
-        if (HasStatus(key))
-        {
+        if (HasStatus(key)) {
             Statusses.Remove(key);
         }
     }
 
     public void SetStatus(string key, string value = "")
     {
-        if (Statusses.ContainsKey(key))
-        {
+        if (Statusses.ContainsKey(key)) {
             Statusses[key] = value;
         }
-        else
-        {
+        else {
             Statusses.Add(key, value);
         }
     }
@@ -841,13 +728,11 @@ public class RoomUser
     {
         var room = GetRoom();
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
-        if (IsBot)
-        {
+        if (IsBot) {
             room.SendPacket(new AvatarEffectComposer(VirtualId, effectId));
 
             return;
@@ -855,8 +740,7 @@ public class RoomUser
 
         var effects = GetClient()?.GetHabbo()?.Effects;
 
-        if (effects == null)
-        {
+        if (effects == null) {
             return;
         }
 

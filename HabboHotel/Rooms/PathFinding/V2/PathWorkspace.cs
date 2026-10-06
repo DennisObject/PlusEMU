@@ -5,26 +5,11 @@ public sealed class PathWorkspace
     internal readonly int[] G, Parent, Stamp, HeapPos, Sequence, HeapNode;
     internal readonly ulong[] HeapKey;
     internal int Generation, Count, NextSequence;
-    public int AddressRange
-    {
-        get;
-    }
-    public int NodeCapacity
-    {
-        get;
-    }
-    public int HeapOperations
-    {
-        get; internal set;
-    }
-    public int Expansions
-    {
-        get; internal set;
-    }
-    public int CanStepCalls
-    {
-        get; internal set;
-    }
+    public int AddressRange { get; }
+    public int NodeCapacity { get; }
+    public int HeapOperations { get; internal set; }
+    public int Expansions { get; internal set; }
+    public int CanStepCalls { get; internal set; }
     public long RetainedBytes => G.Length * 20L + HeapNode.Length * 12L;
     private long _leaseToken;
     private long _nextLeaseToken;
@@ -43,8 +28,7 @@ public sealed class PathWorkspace
     }
     internal void Begin()
     {
-        if (++Generation == int.MaxValue)
-        {
+        if (++Generation == int.MaxValue) {
             Array.Clear(Stamp);
             Generation = 1;
         }
@@ -55,8 +39,7 @@ public sealed class PathWorkspace
     {
         var token = Interlocked.Increment(ref _nextLeaseToken);
 
-        if (Interlocked.CompareExchange(ref _leaseToken, token, 0) != 0)
-        {
+        if (Interlocked.CompareExchange(ref _leaseToken, token, 0) != 0) {
             throw new InvalidOperationException("Workspace already leased.");
         }
 
@@ -85,12 +68,10 @@ public sealed class PathWorkspace
         var node = HeapNode[p];
         var key = HeapKey[p];
 
-        while (p > 0)
-        {
+        while (p > 0) {
             var parent = (p - 1) >> 1;
 
-            if (HeapKey[parent] <= key)
-            {
+            if (HeapKey[parent] <= key) {
                 break;
             }
 
@@ -108,18 +89,15 @@ public sealed class PathWorkspace
     {
         var result = HeapNode[0];
 
-        if (--Count > 0)
-        {
+        if (--Count > 0) {
             var node = HeapNode[Count];
             var key = HeapKey[Count];
             var p = 0;
 
-            while (p * 2 + 1 < Count)
-            {
+            while (p * 2 + 1 < Count) {
                 var child = p * 2 + 1;
 
-                if (child + 1 < Count && HeapKey[child + 1] < HeapKey[child])
-                {
+                if (child + 1 < Count && HeapKey[child + 1] < HeapKey[child]) {
                     child++;
                 }
 
@@ -155,8 +133,7 @@ public static class PathWorkspacePool
     {
         get
         {
-            lock (Sync)
-            {
+            lock (Sync) {
                 return _retainedBytes;
             }
         }
@@ -170,21 +147,17 @@ public static class PathWorkspacePool
 
     public static Lease Rent(int addressRange, int nodeCount)
     {
-        lock (Sync)
-        {
+        lock (Sync) {
             var key = (addressRange, nodeCount);
 
-            if (!Pools.TryGetValue(key, out var pool))
-            {
+            if (!Pools.TryGetValue(key, out var pool)) {
                 Pools[key] = pool = new();
             }
 
-            if (!pool.Available.TryPop(out var workspace))
-            {
+            if (!pool.Available.TryPop(out var workspace)) {
                 workspace = new(addressRange, nodeCount);
             }
-            else
-            {
+            else {
                 _retainedBytes -= workspace.RetainedBytes;
             }
 
@@ -199,10 +172,8 @@ public static class PathWorkspacePool
         public PathWorkspace Workspace => workspace;
         public void Dispose()
         {
-            lock (Sync)
-            {
-                if (!workspace.Release(token))
-                {
+            lock (Sync) {
+                if (!workspace.Release(token)) {
                     return;
                 }
 
@@ -211,13 +182,11 @@ public static class PathWorkspacePool
                 pool.Leases--;
 
                 if (_retainedBytes + workspace.RetainedBytes <= RetentionLimit
-                    && pool.Available.Count < Math.Max(1, Environment.ProcessorCount))
-                {
+                    && pool.Available.Count < Math.Max(1, Environment.ProcessorCount)) {
                     _retainedBytes += workspace.RetainedBytes;
                     pool.Available.Push(workspace);
                 }
-                else if (pool.Leases == 0 && pool.Available.Count == 0)
-                {
+                else if (pool.Leases == 0 && pool.Available.Count == 0) {
                     Pools.Remove(key);
                 }
             }

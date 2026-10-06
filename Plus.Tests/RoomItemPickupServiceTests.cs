@@ -161,8 +161,7 @@ public class RoomItemPickupStoreTests
         var schema = "task_refactor_tests_pickup_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var builder = new MySqlConnectionStringBuilder(root) { Database = schema };
             using var connection = new MySqlConnection(builder.ConnectionString);
             connection.Open();
@@ -181,21 +180,14 @@ public class RoomItemPickupStoreTests
             Assert.Equal((42, 99), connection.QuerySingle<(int, int)>("SELECT room_id,user_id FROM items"));
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM room_items_moodlight"));
             connection.Execute("DROP TRIGGER reject_cleanup");
-            Assert.False(store.PickUp(request with
-            {
-                RoomId = 43
-            }));
-            Assert.False(store.PickUp(request with
-            {
-                OwnerId = 98
-            }));
+            Assert.False(store.PickUp(request with { RoomId = 43 }));
+            Assert.False(store.PickUp(request with { OwnerId = 98 }));
             Assert.True(store.PickUp(request));
             Assert.False(store.PickUp(request));
             Assert.Equal((0, 7), connection.QuerySingle<(int, int)>("SELECT room_id,user_id FROM items"));
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM room_items_moodlight"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }

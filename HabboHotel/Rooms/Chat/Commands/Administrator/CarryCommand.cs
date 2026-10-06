@@ -14,8 +14,7 @@ internal class CarryCommand : IChatCommand
     {
         var itemId = 0;
 
-        if (!int.TryParse(Convert.ToString(parameters[0]), out itemId))
-        {
+        if (!int.TryParse(Convert.ToString(parameters[0]), out itemId)) {
             session.SendWhisper("Please enter a valid integer.");
 
             return;
@@ -23,8 +22,7 @@ internal class CarryCommand : IChatCommand
 
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 

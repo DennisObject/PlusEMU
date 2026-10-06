@@ -43,8 +43,7 @@ public class WiredClickPacketHookTests
         var service = new RecordingFurniture();
         var handler = new ClickFurniEvent(service);
 
-        foreach (var values in new[] { Array.Empty<int>(), new[] { 1 }, new[] { 0, 10 }, new[] { 1, 0 }, new[] { 1, 10, 9 } })
-        {
+        foreach (var values in new[] { Array.Empty<int>(), new[] { 1 }, new[] { 0, 10 }, new[] { 1, 0 }, new[] { 1, 10, 9 } }) {
             await handler.Parse(null!, null!, Packet(values));
         }
 
@@ -185,10 +184,7 @@ public class WiredClickPacketHookTests
     public async Task DelayedClickFiringCannotTransferToReplacementActorWithSameVirtualAndHabboIds()
     {
         var world = new World("wf_trg_click_user", [0, 0]);
-        world.Capture.ApplyConfiguration(new()
-        {
-            Delay = 1
-        });
+        world.Capture.ApplyConfiguration(new() { Delay = 1 });
         await new ClickUserEvent().Parse(world.Room, world.Client, Packet(world.Target.VirtualId));
         Assert.Empty(world.Capture.Events);
         var replacement = new RoomUser(world.Actor.HabboId, 1, world.Actor.VirtualId, world.Room, world.Client, TestChatEmotions.Unused, TestRewardProgress.Unused);
@@ -208,8 +204,7 @@ public class WiredClickPacketHookTests
         var registered = (Dictionary<uint, IPacketEvent>)Get(manager, "_incomingPackets");
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
 
-        foreach (var handler in handlers)
-        {
+        foreach (var handler in handlers) {
             var name = handler.GetType().Name;
             var id = (uint)typeof(ClientPacketHeader).GetField(name)!.GetRawConstantValue()!;
             Assert.Same(handler, registered[id]);
@@ -217,8 +212,7 @@ public class WiredClickPacketHookTests
             Assert.Single(revision.IncomingHeaders, pair => pair.Value == id);
         }
 
-        foreach (var name in new[] { nameof(ServerPacketHeader.WiredClickUserResponseComposer), nameof(ServerPacketHeader.InClientLinkComposer) })
-        {
+        foreach (var name in new[] { nameof(ServerPacketHeader.WiredClickUserResponseComposer), nameof(ServerPacketHeader.InClientLinkComposer) }) {
             var id = (uint)typeof(ServerPacketHeader).GetField(name)!.GetRawConstantValue()!;
             Assert.Equal(id, revision.OutgoingHeaders[name]);
             Assert.Single(revision.OutgoingHeaders, pair => pair.Value == id);
@@ -241,39 +235,20 @@ public class WiredClickPacketHookTests
         using var stream = PlusMemoryStream.GetStream();
         var packet = new FlashOutgoingPacket(stream);
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             packet.WriteInteger(value);
         }
 
-        return new()
-        {
-            Buffer = stream.ToArray().AsMemory(6)
-        };
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
 
     private sealed class World
     {
-        public Room Room
-        {
-            get;
-        }
-        public FlashGameClient Client
-        {
-            get;
-        }
-        public RoomUser Actor
-        {
-            get;
-        }
-        public RoomUser Target
-        {
-            get;
-        }
-        public CaptureAction Capture
-        {
-            get;
-        }
+        public Room Room { get; }
+        public FlashGameClient Client { get; }
+        public RoomUser Actor { get; }
+        public RoomUser Target { get; }
+        public CaptureAction Capture { get; }
         public List<(uint Id, FlashIncomingPacket Payload)> Packets { get; } = [];
         public long Clock;
         private readonly WiredComponent _wired;
@@ -309,10 +284,7 @@ public class WiredClickPacketHookTests
                 SendCallback = args =>
                 {
                     Packets.Add(((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2)),
-                    new()
-                    {
-                        Buffer = args.MemoryBuffer[6..].ToArray()
-                    }));
+                    new() { Buffer = args.MemoryBuffer[6..].ToArray() }));
 
                     return true;
                 }
@@ -335,11 +307,7 @@ public class WiredClickPacketHookTests
         public IWiredConfiguredItem AddBox(string name, int[] parameters, uint[]? selected = null)
         {
             var box = _wired.CreateConfiguredBox(Item(name))!;
-            Assert.True(box.TryValidateConfiguration(new()
-            {
-                IntParams = [.. parameters],
-                SelectedItems = selected == null ? [] : [.. selected]
-            }, out var config, out var error), error);
+            Assert.True(box.TryValidateConfiguration(new() { IntParams = [.. parameters], SelectedItems = selected == null ? [] : [.. selected] }, out var config, out var error), error);
             box.ApplyConfiguration(config);
             Assert.True(_wired.AddBox(box));
 

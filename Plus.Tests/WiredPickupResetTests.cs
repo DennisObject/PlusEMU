@@ -205,20 +205,13 @@ public partial class PlacedFurniRoomTests
     {
         public HashSet<uint> Saved { get; } = [];
         public List<uint[]> Resets { get; } = [];
-        public bool Fail
-        {
-            get; set;
-        }
-        public Action? DuringReset
-        {
-            get; set;
-        }
+        public bool Fail { get; set; }
+        public Action? DuringReset { get; set; }
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => Saved.Add(itemId);
         public void Reset(IReadOnlyCollection<uint> itemIds)
         {
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("The database is unavailable.");
             }
 

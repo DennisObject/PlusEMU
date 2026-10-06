@@ -171,10 +171,7 @@ public sealed class ClubStatusPresentationTests
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = new(2040, 10, 1, 0, 0, 0, TimeSpan.FromHours(5));
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
@@ -187,10 +184,7 @@ public sealed class ClubStatusPresentationTests
     {
         public TaskCompletionSource Pending { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public List<string> Types { get; } = [];
-        public int KickbackRequests
-        {
-            get; private set;
-        }
+        public int KickbackRequests { get; private set; }
         public Task ShowStatus(GameClient session, string type)
         {
             Types.Add(type);

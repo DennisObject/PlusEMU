@@ -12,8 +12,7 @@ public class UserFlatCatsComposer(ImmutableArray<NavigatorCategoryRow> categorie
     {
         packet.WriteInteger(categories.Length);
 
-        foreach (var category in categories)
-        {
+        foreach (var category in categories) {
             packet.WriteInteger(category.Id);
             packet.WriteString(category.PublicName);
             packet.WriteBoolean(category.CanSelect);

@@ -6,16 +6,14 @@ internal sealed class GuildGateExecution(Room room, NavGrid grid)
     internal void Accept(RoomUser actor, ActorProfile profile, int tile, StepPurpose purpose)
     {
         if ((grid.Flags[tile] & NavFlags.GuildGate) == 0 || profile.LegacyOverride
-            || profile.IgnoreUsers || purpose == StepPurpose.Interaction)
-        {
+            || profile.IgnoreUsers || purpose == StepPurpose.Interaction) {
             return;
         }
 
         var habbo = actor.GetClient()?.GetHabbo();
         var gate = room.GetRoomItemHandler().GetItem(grid.SupportItem[tile]);
 
-        if (habbo == null || gate == null)
-        {
+        if (habbo == null || gate == null) {
             return;
         }
 

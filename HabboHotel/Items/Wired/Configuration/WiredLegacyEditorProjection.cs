@@ -9,8 +9,7 @@ public static class WiredLegacyEditorProjection
     public static bool TryGetConfiguration(IWiredItem original, out WiredBoxDescriptor descriptor,
         out WiredConfiguration configuration)
     {
-        if (WiredLegacyCustomEditor.IsCustom(original))
-        {
+        if (WiredLegacyCustomEditor.IsCustom(original)) {
             return WiredLegacyCustomEditor.TryGetConfiguration(original, out descriptor, out configuration);
         }
 
@@ -25,13 +24,11 @@ public static class WiredLegacyEditorProjection
     {
         descriptor = null!;
 
-        if (WiredLegacyCustomEditor.IsCustom(original))
-        {
+        if (WiredLegacyCustomEditor.IsCustom(original)) {
             return false;
         }
 
-        if (original.Item.Definition.WiredDescriptor is { } named)
-        {
+        if (original.Item.Definition.WiredDescriptor is { } named) {
             descriptor = named;
 
             return true;

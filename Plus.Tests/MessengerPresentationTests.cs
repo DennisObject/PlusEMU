@@ -124,10 +124,7 @@ public class MessengerPresentationTests
     {
         var friends = Enumerable.Range(1, 501).ToDictionary(id => id, id => Buddy(id, $"u{id}", online: true, allowsFollowing: true, relationship: 0));
         var (client, sent) = HabbiconTestSupport.Client(HabboWith(friends, new Dictionary<int, MessengerRequest>()));
-        var service = Service(offline: new()
-        {
-            [2] = [("hi", 5)]
-        });
+        var service = Service(offline: new() { [2] = [("hi", 5)] });
 
         await service.ShowFriendList(client);
 
@@ -202,8 +199,7 @@ public class MessengerPresentationTests
     {
         var buddy = new MessengerBuddy { Id = id, Username = name, Relationship = relationship, Look = $"look-{name}", Motto = "motto" };
 
-        if (online)
-        {
+        if (online) {
             buddy.Habbo = new Habbo { Id = id, Username = name, Look = $"look-{name}", Motto = "motto", Gender = "M", AllowUserFollowing = allowsFollowing };
         }
 
@@ -211,12 +207,7 @@ public class MessengerPresentationTests
     }
 
     private static Habbo HabboWith(Dictionary<int, MessengerBuddy> friends, Dictionary<int, MessengerRequest> requests) =>
-        new()
-        {
-            Id = 1,
-            Username = "Owner",
-            Messenger = new HabboMessenger(friends, requests, new List<int>(), new FixedTimeProvider(FixedTimeProvider.Epoch))
-        };
+        new() { Id = 1, Username = "Owner", Messenger = new HabboMessenger(friends, requests, new List<int>(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
 
     private static MessengerPresentationService Service(Dictionary<int, List<(string, int)>> offline) =>
         new(new RecordingLoader(offline), CatalogSnapshotTestSupport.Proxy<ICacheManager>((_, _) => null), Settings);

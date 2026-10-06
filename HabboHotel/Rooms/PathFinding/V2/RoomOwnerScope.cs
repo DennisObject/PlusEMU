@@ -24,8 +24,7 @@ public static class RoomOwnerScope
 
         public void Dispose()
         {
-            if (_disposed)
-            {
+            if (_disposed) {
                 return;
             }
 

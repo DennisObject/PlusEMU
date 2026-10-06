@@ -19,22 +19,15 @@ public class HabboStatsService : IHabboStatsService
               quest_id AS QuestId, quest_progress AS QuestProgress, groupid AS FavouriteGroupId, 
               respectsTimestamp AS RespectsTimestamp, forum_posts AS ForumPosts 
               FROM `user_statistics` WHERE `id` = @id LIMIT 1",
-            new
-            {
-                id = userId
-            });
+            new { id = userId });
 
-        if (statRow != null)
-        {
+        if (statRow != null) {
             return HabboStatsMaterializer.ToHabboStats(statRow);
         }
 
         await connection.ExecuteAsync(
             "INSERT INTO `user_statistics` (`id`) VALUES (@id) ON DUPLICATE KEY UPDATE `id` = VALUES(`id`)",
-            new
-            {
-                id = userId
-            });
+            new { id = userId });
 
         return new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
 
@@ -45,11 +38,6 @@ public class HabboStatsService : IHabboStatsService
         using var connection = _database.Connection();
         await connection.ExecuteAsync(
             "UPDATE `user_statistics` SET `DailyRespectPoints` = @dailyRespects, `DailyPetRespectPoints` = @dailyRespects, `RespectsTimestamp` = @respectsTimestamp WHERE `id` = @userId",
-            new
-            {
-                dailyRespects,
-                respectsTimestamp,
-                userId
-            });
+            new { dailyRespects, respectsTimestamp, userId });
     }
 }

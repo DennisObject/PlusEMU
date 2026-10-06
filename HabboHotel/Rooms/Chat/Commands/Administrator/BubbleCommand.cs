@@ -21,27 +21,23 @@ internal class BubbleCommand : IChatCommand
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
-        if (parameters.Length == 0)
-        {
+        if (parameters.Length == 0) {
             session.SendWhisper("Oops, you forgot to enter a bubble ID!");
 
             return;
         }
 
-        if (!int.TryParse(parameters[0], out var bubble))
-        {
+        if (!int.TryParse(parameters[0], out var bubble)) {
             session.SendWhisper("Please enter a valid number.");
 
             return;
         }
 
-        if (!_chatStyleManager.TryGetStyle(bubble, out var style) || !style.CanUse(session.GetHabbo().Access))
-        {
+        if (!_chatStyleManager.TryGetStyle(bubble, out var style) || !style.CanUse(session.GetHabbo().Access)) {
             session.SendWhisper("Oops, you cannot use this bubble with your current permissions or membership.");
 
             return;

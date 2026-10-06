@@ -18,10 +18,7 @@ public class SearchResultFactory : ISearchResultFactory
 
         return connection.Query<SearchResultRow>(
                 "SELECT `id`, `username`, `motto`, `look`, `last_online` AS LastOnline FROM `users` WHERE `username` LIKE @query LIMIT 50",
-                new
-                {
-                    query = $"{query}%"
-                })
+                new { query = $"{query}%" })
             .Select(row => new SearchResult(row.Id, row.Username, row.Motto, row.Look, row.LastOnline))
             .ToList();
     }

@@ -66,8 +66,7 @@ public sealed class PlayerIgnoreServiceTests
     {
         var f = new Fixture();
 
-        if (!ignore)
-        {
+        if (!ignore) {
             f.Actor.IgnoresComponent.PublishIgnore(2);
         }
 
@@ -111,13 +110,11 @@ public sealed class PlayerIgnoreServiceTests
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         f.Store.BeforeWrite = async (_, _, ignored) =>
         {
-            if (ignored)
-            {
+            if (ignored) {
                 entered.SetResult();
                 await release.Task;
             }
-            else
-            {
+            else {
                 Assert.True(f.Actor.IgnoresComponent.IsIgnored(2));
             }
         };
@@ -125,16 +122,14 @@ public sealed class PlayerIgnoreServiceTests
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var second = f.Service.Unignore(f.Client, "target");
 
-        try
-        {
+        try {
             Assert.False(first.IsCompleted);
             Assert.False(second.IsCompleted);
             Assert.False(f.Actor.IgnoresComponent.IsIgnored(2));
             Assert.Empty(f.Sent);
             Assert.Equal(new[] { true }, f.Store.Writes);
         }
-        finally
-        {
+        finally {
             release.TrySetResult();
             await Task.WhenAll(first, second);
         }
@@ -153,14 +148,9 @@ public sealed class PlayerIgnoreServiceTests
         var schema = "task_refactor_tests_ignore_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
-            {
-                Database = schema,
-                AllowZeroDateTime = true,
-                ConvertZeroDateTime = true
-            }.ConnectionString;
+            { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString;
             var database = new ProbeDatabase(connectionString);
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
@@ -180,7 +170,9 @@ public sealed class PlayerIgnoreServiceTests
             await new IgnoresUserDataLoadingTask(database).Load(habbo);
             Assert.Empty(habbo.IgnoresComponent.IgnoredUsers);
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static void AssertStatus((uint Header, byte[] Payload) sent, IgnoreStatus status)

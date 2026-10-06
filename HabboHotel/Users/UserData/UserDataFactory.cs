@@ -37,8 +37,7 @@ public class UserDataFactory : IUserDataFactory
         cancellationToken.ThrowIfCancellationRequested();
         var habbo = await LoadHabboInfo(userId);
 
-        if (habbo == null)
-        {
+        if (habbo == null) {
             return null;
         }
 
@@ -48,8 +47,7 @@ public class UserDataFactory : IUserDataFactory
         habbo.Clothing = new(components.Clothing, habbo, _clothingStore);
         habbo.Effects = new(components.Effects, habbo, _time);
 
-        foreach (var task in _userDataLoadingTasks)
-        {
+        foreach (var task in _userDataLoadingTasks) {
             cancellationToken.ThrowIfCancellationRequested();
             await task.Load(habbo);
         }
@@ -61,30 +59,21 @@ public class UserDataFactory : IUserDataFactory
     {
         using var connection = _database.Connection();
 
-        return await connection.ExecuteScalarAsync<string>("SELECT username FROM users WHERE id = @userId", new
-        {
-            userId
-        });
+        return await connection.ExecuteScalarAsync<string>("SELECT username FROM users WHERE id = @userId", new { userId });
     }
 
     public async Task<bool> HabboExists(int userId)
     {
         using var connection = _database.Connection();
 
-        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `id` = @userId LIMIT 1", new
-        {
-            userId
-        }) != 0;
+        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `id` = @userId LIMIT 1", new { userId }) != 0;
     }
 
     public async Task<bool> HabboExists(string username)
     {
         using var connection = _database.Connection();
 
-        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `username` = @username LIMIT 1", new
-        {
-            username
-        }) != 0;
+        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `username` = @username LIMIT 1", new { username }) != 0;
     }
 
     public async Task<Habbo?> GetUserDataByIdAsync(int userId) => await LoadHabboInfo(userId);
@@ -105,10 +94,7 @@ public class UserDataFactory : IUserDataFactory
 
                 return user;
             },
-            new
-            {
-                userId
-            }, splitOn: "Volume");
+            new { userId }, splitOn: "Volume");
         var habbo = users.SingleOrDefault();
         habbo?.SetRoomVisitRecorder(_roomVisits, _achievements);
 

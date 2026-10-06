@@ -157,18 +157,9 @@ public sealed class UserSocialShowcaseTests
 
     private sealed class RecordingShowcase : IUserSocialShowcaseService
     {
-        public int UserId
-        {
-            get; private set;
-        }
-        public int IgnoredViews
-        {
-            get; private set;
-        }
-        public int GroupViews
-        {
-            get; private set;
-        }
+        public int UserId { get; private set; }
+        public int IgnoredViews { get; private set; }
+        public int GroupViews { get; private set; }
         public Task ShowRelationships(GameClient session, int userId)
         {
             UserId = userId;

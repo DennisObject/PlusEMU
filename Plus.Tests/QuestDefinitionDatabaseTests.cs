@@ -17,8 +17,7 @@ public sealed class QuestDefinitionDatabaseTests
         var schema = "quest_definition_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE quests (
@@ -37,11 +36,7 @@ public sealed class QuestDefinitionDatabaseTests
 
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(
                 Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
-            {
-                Database = schema,
-                AllowZeroDateTime = true,
-                ConvertZeroDateTime = true
-            }.ConnectionString);
+            { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
             var manager = new QuestManager(database, null!, TestLogging.For<QuestManager>(), null!);
             await manager.Start();
 
@@ -67,8 +62,7 @@ public sealed class QuestDefinitionDatabaseTests
             Assert.Contains("'2012-12-03 06:00:00'", pristineSchema);
             Assert.DoesNotContain("'1354514400'", pristineSchema);
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
@@ -84,8 +78,7 @@ public sealed class QuestDefinitionDatabaseTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj")))
-        {
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj"))) {
             directory = directory.Parent;
         }
 

@@ -21,8 +21,7 @@ internal class StaffAlertCommand : IChatCommand
     {
         var message = CommandManager.MergeParams(parameters);
 
-        if (string.IsNullOrWhiteSpace(message))
-        {
+        if (string.IsNullOrWhiteSpace(message)) {
             session.SendWhisper("Please enter a message to send.");
 
             return;

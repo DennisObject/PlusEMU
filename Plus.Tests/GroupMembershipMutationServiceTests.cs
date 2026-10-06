@@ -159,8 +159,7 @@ public sealed class GroupMembershipMutationServiceTests
         var writes = 0;
         var manager = Proxy<IGroupManager>((_, args) =>
         {
-            if (Volatile.Read(ref removed))
-            {
+            if (Volatile.Read(ref removed)) {
                 args[1] = null;
 
                 return false;
@@ -186,8 +185,7 @@ public sealed class GroupMembershipMutationServiceTests
 
         Task mutation;
 
-        lock (group)
-        {
+        lock (group) {
             mutation = Task.Run(() => operation switch
             {
                 "accept" => mutations.Accept(owner, group.Id, 8),
@@ -218,12 +216,10 @@ public sealed class GroupMembershipMutationServiceTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 connection.Execute("CREATE TABLE group_memberships(user_id INT NOT NULL,group_id INT NOT NULL,`rank` INT NOT NULL DEFAULT 0,PRIMARY KEY(user_id,group_id)); CREATE TABLE group_requests(user_id INT NOT NULL,group_id INT NOT NULL,PRIMARY KEY(user_id,group_id)); CREATE TABLE groups(id INT PRIMARY KEY,`state` ENUM('0','1','2') NOT NULL,admindeco BOOL NOT NULL,forum_enabled BOOL NOT NULL); INSERT INTO groups VALUES(9,'1',0,0); INSERT INTO group_requests VALUES(8,9),(11,9),(12,9),(13,9),(14,10)");
             }
 
@@ -231,8 +227,7 @@ public sealed class GroupMembershipMutationServiceTests
             Assert.True(store.Accept(9, 8));
             Assert.True(store.SetAdmin(9, 8, true));
 
-            using (var verify = database.Connection())
-            {
+            using (var verify = database.Connection()) {
                 Assert.Equal(1, verify.ExecuteScalar<int>("SELECT `rank` FROM group_memberships WHERE user_id=8 AND group_id=9"));
             }
 
@@ -240,8 +235,7 @@ public sealed class GroupMembershipMutationServiceTests
             Assert.True(store.Decline(9, 13));
             var settings = new GroupSettingsStore(database);
 
-            foreach (var type in new[] { GroupType.Open, GroupType.Locked, GroupType.Private })
-            {
+            foreach (var type in new[] { GroupType.Open, GroupType.Locked, GroupType.Private }) {
                 Assert.True(settings.Update(9, type, false, false, []));
                 using var state = database.Connection();
                 var persisted = state.QuerySingle<(string Text, int DomainValue)>(
@@ -258,8 +252,7 @@ public sealed class GroupMembershipMutationServiceTests
             Assert.Equal(1, rollback.ExecuteScalar<int>("SELECT COUNT(*) FROM group_requests WHERE group_id=10 AND user_id=14"));
             Assert.Equal((2, true, true), rollback.QuerySingle<(int, bool, bool)>("SELECT `state`,admindeco,forum_enabled FROM groups WHERE id=9"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -267,8 +260,7 @@ public sealed class GroupMembershipMutationServiceTests
     private static GroupMembershipMutationService Service(Group group, IGroupMembershipMutationStore store, GroupMemberIdentity? identity) => new(
         Proxy<IGroupManager>((method, args) =>
         {
-            if (method != nameof(IGroupManager.TryGetGroup))
-            {
+            if (method != nameof(IGroupManager.TryGetGroup)) {
                 throw new NotSupportedException(method);
             }
 
@@ -278,8 +270,7 @@ public sealed class GroupMembershipMutationServiceTests
         }),
         Proxy<IRoomManager>((method, args) =>
         {
-            if (method != nameof(IRoomManager.TryGetRoom))
-            {
+            if (method != nameof(IRoomManager.TryGetRoom)) {
                 throw new NotSupportedException(method);
             }
 
@@ -369,10 +360,7 @@ public sealed class GroupMembershipMutationServiceTests
 
     private sealed class RecordingSettingsService : IGroupSettingsService
     {
-        public GroupSettingsRequest? Request
-        {
-            get; private set;
-        }
+        public GroupSettingsRequest? Request { get; private set; }
         public Task Update(GameClient session, GroupSettingsRequest request)
         {
             Request = request;

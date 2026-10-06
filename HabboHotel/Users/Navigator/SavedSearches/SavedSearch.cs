@@ -9,18 +9,9 @@ public class SavedSearch
         Search = search;
     }
 
-    public int Id
-    {
-        get; set;
-    }
+    public int Id { get; set; }
 
-    public string Filter
-    {
-        get; set;
-    }
+    public string Filter { get; set; }
 
-    public string Search
-    {
-        get; set;
-    }
+    public string Search { get; set; }
 }

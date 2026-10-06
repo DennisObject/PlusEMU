@@ -28,13 +28,7 @@ public sealed class RoomSettingsStore(IDatabase database) : IRoomSettingsStore
     public void Save(RoomSettingsRequest values, int ownerId, RoomAccess access)
     {
         using var connection = database.Connection();
-        var state = access switch
-        {
-            RoomAccess.Password => "password",
-            RoomAccess.Doorbell => "locked",
-            RoomAccess.Invisible => "invisible",
-            _ => "open"
-        };
+        var state = access switch { RoomAccess.Password => "password", RoomAccess.Doorbell => "locked", RoomAccess.Invisible => "invisible", _ => "open" };
         var affected = connection.Execute("""
             UPDATE rooms SET caption=@Name, description=@Description, password=@Password, category=@CategoryId,
                 state=@state, tags=@tags, users_max=@MaxUsers, allow_pets=@AllowPets, allow_pets_eat=@AllowPetsEat,
@@ -71,8 +65,7 @@ public sealed class RoomSettingsStore(IDatabase database) : IRoomSettingsStore
             ownerId
         });
 
-        if (affected != 1)
-        {
+        if (affected != 1) {
             throw new InvalidOperationException("Room settings could not be saved for the expected owner.");
         }
     }
@@ -90,22 +83,19 @@ public sealed class RoomSettingsService(IRoomManager _roomManager, IWordFilterMa
 {
     public void Show(GameClient session, uint roomId)
     {
-        if (!_roomManager.TryLoadRoom(roomId, out var room))
-        {
+        if (!_roomManager.TryLoadRoom(roomId, out var room)) {
             return;
         }
 
         var habbo = session.GetHabbo();
 
-        if (habbo.Id != room.OwnerId && !habbo.Access.Can(PermissionKeys.RoomOwnerAny))
-        {
+        if (habbo.Id != room.OwnerId && !habbo.Access.Can(PermissionKeys.RoomOwnerAny)) {
             return;
         }
 
         RoomSettingsSnapshot snapshot;
 
-        lock (room.Data)
-        {
+        lock (room.Data) {
             snapshot = RoomSettingsSnapshot.Capture(room);
         }
 
@@ -114,20 +104,17 @@ public sealed class RoomSettingsService(IRoomManager _roomManager, IWordFilterMa
 
     public void Save(GameClient session, RoomSettingsRequest request)
     {
-        if (!_roomManager.TryLoadRoom(request.RoomId, out var room))
-        {
+        if (!_roomManager.TryLoadRoom(request.RoomId, out var room)) {
             return;
         }
 
         var habbo = session.GetHabbo();
 
-        if (habbo.Id != room.OwnerId && !habbo.Access.Can(PermissionKeys.RoomOwnerAny))
-        {
+        if (habbo.Id != room.OwnerId && !habbo.Access.Can(PermissionKeys.RoomOwnerAny)) {
             return;
         }
 
-        lock (room.Data)
-        {
+        lock (room.Data) {
             var name = _wordFilterManager.CheckMessage(request.Name);
             var description = _wordFilterManager.CheckMessage(request.Description);
             var access = RoomAccessUtility.ToRoomAccess(request.Access);
@@ -151,90 +138,73 @@ public sealed class RoomSettingsService(IRoomManager _roomManager, IWordFilterMa
             var chatDistance = request.ChatDistance;
             var extraFlood = request.ExtraFlood;
 
-            if (chatMode < 0 || chatMode > 1)
-            {
+            if (chatMode < 0 || chatMode > 1) {
                 chatMode = 0;
             }
 
-            if (chatSize < 0 || chatSize > 2)
-            {
+            if (chatSize < 0 || chatSize > 2) {
                 chatSize = 0;
             }
 
-            if (chatSpeed < 0 || chatSpeed > 2)
-            {
+            if (chatSpeed < 0 || chatSpeed > 2) {
                 chatSpeed = 0;
             }
 
-            if (chatDistance < 0)
-            {
+            if (chatDistance < 0) {
                 chatDistance = 1;
             }
 
-            if (chatDistance > 99)
-            {
+            if (chatDistance > 99) {
                 chatDistance = 100;
             }
 
-            if (extraFlood < 0 || extraFlood > 2)
-            {
+            if (extraFlood < 0 || extraFlood > 2) {
                 extraFlood = 0;
             }
 
-            if (tradeSettings < 0 || tradeSettings > 2)
-            {
+            if (tradeSettings < 0 || tradeSettings > 2) {
                 tradeSettings = 0;
             }
 
-            if (whoMute < 0 || whoMute > 1)
-            {
+            if (whoMute < 0 || whoMute > 1) {
                 whoMute = 0;
             }
 
-            if (whoKick < 0 || whoKick > 2)
-            {
+            if (whoKick < 0 || whoKick > 2) {
                 whoKick = 0;
             }
 
-            if (whoBan < 0 || whoBan > 1)
-            {
+            if (whoBan < 0 || whoBan > 1) {
                 whoBan = 0;
             }
 
-            if (wallThickness < -2 || wallThickness > 1)
-            {
+            if (wallThickness < -2 || wallThickness > 1) {
                 wallThickness = 0;
             }
 
-            if (floorThickness < -2 || floorThickness > 1)
-            {
+            if (floorThickness < -2 || floorThickness > 1) {
                 floorThickness = 0;
             }
 
-            if (name.Length < 1)
-            {
+            if (name.Length < 1) {
                 return;
             }
 
-            if (name.Length > 60)
-            {
+            if (name.Length > 60) {
                 name = name.Substring(0, 60);
             }
 
-            if (access == RoomAccess.Password && password.Length == 0)
-            {
+            if (access == RoomAccess.Password && password.Length == 0) {
                 access = RoomAccess.Open;
             }
 
-            if (maxUsers < 0)
-            {
+            if (maxUsers < 0) {
                 maxUsers = 10;
             }
 
             maxUsers = Math.Min(maxUsers, Plus.HabboHotel.Subscriptions.ClubLimits.For(session.GetHabbo().Access, "visitors", _settings));
 
-            if (Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0)
-            {
+            if (Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0) {
                 hidewall = false;
                 wallThickness = 0;
                 floorThickness = 0;
@@ -243,8 +213,7 @@ public sealed class RoomSettingsService(IRoomManager _roomManager, IWordFilterMa
             _navigationManager.TryGetSearchResultList(categoryId, out var searchResultList);
             categoryId = RoomCategoryChoice.Resolve(categoryId, searchResultList, session.GetHabbo().Access, session.GetHabbo().Id, room.OwnerId, applyOwnerRule: true);
 
-            if (tags.Count > 2)
-            {
+            if (tags.Count > 2) {
                 return;
             }
 
@@ -295,14 +264,12 @@ public sealed class RoomSettingsService(IRoomManager _roomManager, IWordFilterMa
             room.TradeSettings = tradeSettings;
             room.GetGameMap().GenerateMaps();
 
-            if (session.GetHabbo().CurrentRoom == null)
-            {
+            if (session.GetHabbo().CurrentRoom == null) {
                 session.Send(new RoomSettingsSavedComposer(room.RoomId));
                 session.Send(new RoomInfoUpdatedComposer(room.RoomId));
                 session.Send(new RoomVisualizationSettingsComposer(room.WallThickness, room.FloorThickness, Convert.ToBoolean(room.Hidewall)));
             }
-            else
-            {
+            else {
                 room.SendPacket(new RoomSettingsSavedComposer(room.RoomId));
                 room.SendPacket(new RoomInfoUpdatedComposer(room.RoomId));
                 room.SendPacket(new RoomVisualizationSettingsComposer(room.WallThickness, room.FloorThickness, Convert.ToBoolean(room.Hidewall)));

@@ -34,13 +34,11 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
 
     private void OnStatusUpdated(Habbo habbo)
     {
-        foreach (var friend in habbo.Messenger.Friends.Values)
-        {
+        foreach (var friend in habbo.Messenger.Friends.Values) {
             var friendHabbo = friend.Habbo;
             var me = friendHabbo?.Messenger.GetFriend(habbo.Id);
 
-            if (me == null)
-            {
+            if (me == null) {
                 continue;
             }
 
@@ -62,8 +60,7 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
 
     private async Task OnMessageSend(Habbo habbo, MessengerMessageEventArgs args)
     {
-        if (habbo.TimeMuted > 0)
-        {
+        if (habbo.TimeMuted > 0) {
             habbo.Client.Send(new InstantMessageErrorComposer(MessengerMessageErrors.YourMuted, args.Friend.Id));
 
             return;
@@ -72,22 +69,19 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
         await _messengerDataLoader.LogPrivateMessage(habbo.Id, args.Friend.Id, args.Message);
         var target = _gameClientManager.GetClientByUserId(args.Friend.Id);
 
-        if (target == null)
-        {
+        if (target == null) {
             await _messengerDataLoader.LogPrivateOfflineMessage(habbo.Id, args.Friend.Id, args.Message);
 
             return;
         }
 
-        if (target.GetHabbo().TimeMuted > 0)
-        {
+        if (target.GetHabbo().TimeMuted > 0) {
             habbo.Client.Send(new InstantMessageErrorComposer(MessengerMessageErrors.FriendMuted, args.Friend.Id));
 
             return;
         }
 
-        if (!target.GetHabbo().AllowConsoleMessages || target.GetHabbo().IgnoresComponent.IsIgnored(habbo.Id))
-        {
+        if (!target.GetHabbo().AllowConsoleMessages || target.GetHabbo().IgnoresComponent.IsIgnored(habbo.Id)) {
             habbo.Client.Send(new InstantMessageErrorComposer(MessengerMessageErrors.FriendBusy, args.Friend.Id));
 
             return;
@@ -96,8 +90,7 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
         var messenger = target.GetHabbo().Messenger;
         var friend = messenger.GetFriend(habbo.Id);
 
-        if (friend == null)
-        {
+        if (friend == null) {
             return;
         }
 
@@ -119,16 +112,13 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
     // Friend requests and removals are persisted by IMessengerFriendMutationService before memory changes; these handlers only present.
     private void OnFriendRequestUpdated(Habbo habbo, FriendRequestModifiedEventArgs args)
     {
-        if (args.FriendRequestModificationType == FriendRequestModificationType.Received)
-        {
+        if (args.FriendRequestModificationType == FriendRequestModificationType.Received) {
             habbo.Client.Send(new NewBuddyRequestComposer(args.Request.FromId, args.Request.Username, args.Request.Figure));
         }
-        else if (args.FriendRequestModificationType == FriendRequestModificationType.Sent)
-        {
+        else if (args.FriendRequestModificationType == FriendRequestModificationType.Sent) {
             var target = _gameClientManager.GetClientByUserId(args.Request.ToId);
 
-            if (target != null)
-            {
+            if (target != null) {
                 args.Request.FromId = habbo.Id;
                 args.Request.Username = habbo.Username;
                 args.Request.Figure = habbo.Look;
@@ -139,20 +129,17 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
 
     private void NotifyOnlineStatus(Habbo habbo)
     {
-        foreach (var friend in habbo.Messenger.Friends)
-        {
+        foreach (var friend in habbo.Messenger.Friends) {
             var friendHabbo = _gameClientManager.GetClientByUserId(friend.Key);
 
-            if (friendHabbo == null)
-            {
+            if (friendHabbo == null) {
                 continue;
             }
 
             friend.Value.Habbo = friendHabbo.GetHabbo();
             var me = friendHabbo.GetHabbo().Messenger.GetFriend(habbo.Id);
 
-            if (me == null)
-            {
+            if (me == null) {
                 continue;
             }
 
@@ -163,20 +150,17 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
 
     private void NotifyOfflineStatus(Habbo habbo)
     {
-        foreach (var friend in habbo.Messenger.Friends)
-        {
+        foreach (var friend in habbo.Messenger.Friends) {
             var friendHabbo = _gameClientManager.GetClientByUserId(friend.Key);
 
-            if (friendHabbo == null)
-            {
+            if (friendHabbo == null) {
                 continue;
             }
 
             friend.Value.Habbo = null;
             var me = friendHabbo.GetHabbo().Messenger.GetFriend(habbo.Id);
 
-            if (me == null)
-            {
+            if (me == null) {
                 continue;
             }
 

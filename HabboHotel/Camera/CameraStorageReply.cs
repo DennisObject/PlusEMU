@@ -15,11 +15,5 @@ internal static class CameraStorageReply
         });
 
     public static string Failure(string requestId, string stage) =>
-        JsonSerializer.Serialize(new
-        {
-            v = 1,
-            requestId,
-            stage,
-            url = ""
-        });
+        JsonSerializer.Serialize(new { v = 1, requestId, stage, url = "" });
 }

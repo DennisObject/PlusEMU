@@ -9,26 +9,11 @@ public interface IGameClient
 {
     event EventHandler<EventArgs>? ConnectionConnected;
     event EventHandler<EventArgs>? ConnectionDisconnected;
-    Arc4? Rc4Client
-    {
-        get; set;
-    }
-    bool IsAuthenticated
-    {
-        get; set;
-    }
-    string MachineId
-    {
-        get; set;
-    }
-    int PingCount
-    {
-        get; set;
-    }
-    Revision Revision
-    {
-        get; set;
-    }
+    Arc4? Rc4Client { get; set; }
+    bool IsAuthenticated { get; set; }
+    string MachineId { get; set; }
+    int PingCount { get; set; }
+    Revision Revision { get; set; }
     Habbo GetHabbo();
     void SetHabbo(Habbo habbo);
     void Send(IServerPacket composer);

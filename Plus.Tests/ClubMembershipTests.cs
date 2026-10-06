@@ -71,11 +71,7 @@ public class ClubMembershipTests
         Assert.Equal(0, ClubAccess.LevelFor(UserAccess.Create([new(staff)])));
         Assert.Equal(2, ClubAccess.LevelFor(UserAccess.Create([new(staff)], [new(PermissionKeys.ClubAccess, false)])));
         Assert.Equal(0, ClubAccess.LevelFor(UserAccess.Create([new(staff)], [new("*", false), new(PermissionKeys.ClubAccess, true)])));
-        var vip = staff with
-        {
-            Slug = "vip",
-            IsStaff = false
-        };
+        var vip = staff with { Slug = "vip", IsStaff = false };
         Assert.Equal(0, ClubAccess.LevelFor(UserAccess.Create([new(vip)])));
     }
     [Fact]
@@ -112,10 +108,7 @@ public class ClubMembershipTests
         Assert.Equal(1, membership.AvailableGifts(At(101)));
         Assert.Equal(1, membership.AvailableGifts(At(100 + ClubMembership.Period)));
         Assert.Equal(2, membership.AvailableGifts(At(101 + ClubMembership.Period)));
-        Assert.Equal(0, (membership with
-        {
-            GiftsClaimed = 1
-        }).AvailableGifts(At(101)));
+        Assert.Equal(0, (membership with { GiftsClaimed = 1 }).AvailableGifts(At(101)));
     }
     [Theory]
     [InlineData(6, 0)]

@@ -12,8 +12,7 @@ public class NavigatorMetaDataParserComposer(ImmutableArray<string> searchCodes)
     {
         packet.WriteInteger(searchCodes.Length); //Count
 
-        foreach (var searchCode in searchCodes)
-        {
+        foreach (var searchCode in searchCodes) {
             //TopLevelContext
             packet.WriteString(searchCode); //Search code
             packet.WriteInteger(0); //Count of saved searches?

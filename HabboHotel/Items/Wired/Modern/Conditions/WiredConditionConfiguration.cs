@@ -62,12 +62,7 @@ public static class WiredConditionConfiguration
             _ => throw new ArgumentException("Unknown condition.", nameof(name))
         };
 
-        if (!TryValidate(name, new()
-        {
-            IntParams = parameters,
-            Text = positive == "wf_cnd_has_altitude" ? "0" : ""
-        }, out var config, out var error))
-        {
+        if (!TryValidate(name, new() { IntParams = parameters, Text = positive == "wf_cnd_has_altitude" ? "0" : "" }, out var config, out var error)) {
             throw new InvalidOperationException(error);
         }
 
@@ -79,8 +74,7 @@ public static class WiredConditionConfiguration
         validated = proposed;
         error = "Invalid condition configuration.";
 
-        if (!Supports(name) || !WiredLegacyProtocol.IsWithinLimits(proposed))
-        {
+        if (!Supports(name) || !WiredLegacyProtocol.IsWithinLimits(proposed)) {
             return false;
         }
 
@@ -94,19 +88,16 @@ public static class WiredConditionConfiguration
         var users = ImmutableDictionary.CreateBuilder<string, int>();
         var secondary = proposed.SecondarySelectedItems;
 
-        switch (name)
-        {
+        switch (name) {
             case "wf_cnd_actor_dir":
-                if (p.Length != 3 || !Range(0, 0, 255) || !U(1) || !Q(2))
-                {
+                if (p.Length != 3 || !Range(0, 0, 255) || !U(1) || !Q(2)) {
                     return false;
                 }
 
                 users["users"] = p[1];
                 break;
             case "wf_cnd_actor_in_group":
-                if (p.Length != 4 || !U(0) || !Q(1) || p[2] < 0 || !Q(3))
-                {
+                if (p.Length != 4 || !U(0) || !Q(1) || p[2] < 0 || !Q(3)) {
                     return false;
                 }
 
@@ -115,16 +106,14 @@ public static class WiredConditionConfiguration
             case "wf_cnd_actor_in_team":
             case "wf_cnd_has_handitem":
             case "wf_cnd_wearing_effect":
-                if (p.Length != 3 || p[0] < 0 || name == "wf_cnd_actor_in_team" && p[0] > 4 || !U(1) || !Q(2))
-                {
+                if (p.Length != 3 || p[0] < 0 || name == "wf_cnd_actor_in_team" && p[0] > 4 || !U(1) || !Q(2)) {
                     return false;
                 }
 
                 users["users"] = p[1];
                 break;
             case "wf_cnd_wearing_badge":
-                if (p.Length != 2 || !U(0) || !Q(1) || proposed.Text.Length > 64)
-                {
+                if (p.Length != 2 || !U(0) || !Q(1) || proposed.Text.Length > 64) {
                     return false;
                 }
 
@@ -132,8 +121,7 @@ public static class WiredConditionConfiguration
                 break;
             case "wf_cnd_user_performs_action":
                 if (p.Length != 7 || !Range(0, 1, 11) || !Q(1) || !Range(2, 0, 17)
-                    || !Q(3) || !Range(4, 0, 4) || !U(5) || !Q(6))
-                {
+                    || !Q(3) || !Range(4, 0, 4) || !U(5) || !Q(6)) {
                     return false;
                 }
 
@@ -141,8 +129,7 @@ public static class WiredConditionConfiguration
                 break;
             case "wf_cnd_triggerer_match":
                 if (p.Length != 5 || !Range(0, 1, 7) || !Q(1) || !U(2)
-                    || !(U(3) || p[3] == 101) || !Q(4) || proposed.Text.Length > 64)
-                {
+                    || !(U(3) || p[3] == 101) || !Q(4) || proposed.Text.Length > 64) {
                     return false;
                 }
 
@@ -150,8 +137,7 @@ public static class WiredConditionConfiguration
                 users["comparison"] = p[3];
                 break;
             case "wf_cnd_trggrer_on_frn":
-                if (p.Length != 3 || !F(0) || !U(1) || !Q(2))
-                {
+                if (p.Length != 3 || !F(0) || !U(1) || !Q(2)) {
                     return false;
                 }
 
@@ -160,33 +146,28 @@ public static class WiredConditionConfiguration
                 break;
             case "wf_cnd_furnis_hv_avtrs":
             case "wf_cnd_has_furni_on":
-                if (p.Length != 2 || !Q(0) || !F(1))
-                {
+                if (p.Length != 2 || !Q(0) || !F(1)) {
                     return false;
                 }
 
                 furni["items"] = p[1];
                 break;
             case "wf_cnd_match_snapshot":
-                if (p.Length != 6 || Enumerable.Range(0, 4).Any(i => !Q(i)) || !F(4) || !Q(5))
-                {
+                if (p.Length != 6 || Enumerable.Range(0, 4).Any(i => !Q(i)) || !F(4) || !Q(5)) {
                     return false;
                 }
 
                 furni["items"] = p[4];
                 break;
             case "wf_cnd_stuff_is":
-                if (p.Length != 3 || !F(0) || !F(1) || !Q(2))
-                {
+                if (p.Length != 3 || !F(0) || !F(1) || !Q(2)) {
                     return false;
                 }
 
                 var ids = ImmutableArray.CreateBuilder<uint>();
 
-                foreach (var token in proposed.Text.Split([';', ',', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    if (ids.Count >= 100 || !uint.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id == 0)
-                    {
+                foreach (var token in proposed.Text.Split([';', ',', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+                    if (ids.Count >= 100 || !uint.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id == 0) {
                         return false;
                     }
 
@@ -199,64 +180,55 @@ public static class WiredConditionConfiguration
                 break;
             case "wf_cnd_has_altitude":
                 if (p.Length != 3 || !Range(0, 0, 2) || !F(1) || !Q(2)
-                    || !WiredRoomOperations.TryAltitude(proposed.Text, out _))
-                {
+                    || !WiredRoomOperations.TryAltitude(proposed.Text, out _)) {
                     return false;
                 }
 
                 furni["items"] = p[1];
                 break;
             case "wf_cnd_valid_moves":
-                if (p.Length != 0)
-                {
+                if (p.Length != 0) {
                     return false;
                 }
 
                 furni["items"] = proposed.SelectedItems.Length > 0 ? 100 : 0;
                 break;
             case "wf_cnd_slc_quantity":
-                if (p.Length != 4 || !Range(0, 0, 2) || p[1] < 0 || !Q(2) || (p[2] == 0 ? !U(3) : !F(3)))
-                {
+                if (p.Length != 4 || !Range(0, 0, 2) || p[1] < 0 || !Q(2) || (p[2] == 0 ? !U(3) : !F(3))) {
                     return false;
                 }
 
-                if (p[2] == 0)
-                {
+                if (p[2] == 0) {
                     users["users"] = p[3];
                 }
-                else
-                {
+                else {
                     furni["items"] = p[3];
                 }
 
                 break;
             case "wf_cnd_user_count_in":
-                if (p.Length != 3 || p[0] < 0 || p[1] < p[0] || !U(2))
-                {
+                if (p.Length != 3 || p[0] < 0 || p[1] < p[0] || !U(2)) {
                     return false;
                 }
 
                 users["users"] = p[2];
                 break;
             case "wf_cnd_team_has_rank":
-                if (p.Length != 4 || !Range(0, 0, 4) || !Range(1, 0, 3) || !U(2) || !Q(3))
-                {
+                if (p.Length != 4 || !Range(0, 0, 4) || !Range(1, 0, 3) || !U(2) || !Q(3)) {
                     return false;
                 }
 
                 users["users"] = p[2];
                 break;
             case "wf_cnd_team_has_score":
-                if (p.Length != 5 || !Range(0, 0, 4) || !Range(1, 0, 2) || p[2] < 0 || !U(3) || !Q(4))
-                {
+                if (p.Length != 5 || !Range(0, 0, 4) || !Range(1, 0, 2) || p[2] < 0 || !U(3) || !Q(4)) {
                     return false;
                 }
 
                 users["users"] = p[3];
                 break;
             case "wf_cnd_counter_time_matches":
-                if (p.Length != 5 || !Range(0, 0, 2) || !Range(1, 0, 59) || !Range(2, 0, 119) || !F(3) || !Q(4))
-                {
+                if (p.Length != 5 || !Range(0, 0, 2) || !Range(1, 0, 59) || !Range(2, 0, 119) || !F(3) || !Q(4)) {
                     return false;
                 }
 
@@ -264,15 +236,13 @@ public static class WiredConditionConfiguration
                 break;
             case "wf_cnd_time_less_than":
             case "wf_cnd_time_more_than":
-                if (p.Length != 1 || p[0] < 0)
-                {
+                if (p.Length != 1 || p[0] < 0) {
                     return false;
                 }
 
                 break;
             case "wf_cnd_date_rng_active":
-                if (p.Length != 2 || p[0] < 0 || p[1] < 0 || p[1] != 0 && p[1] < p[0])
-                {
+                if (p.Length != 2 || p[0] < 0 || p[1] < 0 || p[1] != 0 && p[1] < p[0]) {
                     return false;
                 }
 
@@ -280,16 +250,14 @@ public static class WiredConditionConfiguration
             case "wf_cnd_match_time":
                 if (p.Length != 9 || !Range(0, 0, 2) || !Range(3, 0, 2) || !Range(6, 0, 2)
                     || !Range(1, 0, 23) || !Range(2, 0, 23) || !Range(4, 0, 59) || !Range(5, 0, 59)
-                    || !Range(7, 0, 59) || !Range(8, 0, 59))
-                {
+                    || !Range(7, 0, 59) || !Range(8, 0, 59)) {
                     return false;
                 }
 
                 break;
             case "wf_cnd_match_date":
                 if (p.Length != 8 || !Range(0, 0, 127) || !Range(1, 0, 2) || !Range(2, 1, 31) || !Range(3, 1, 31)
-                    || !Range(4, 0, 4095) || !Range(5, 0, 2) || !Range(6, 0, 9999) || !Range(7, 0, 9999))
-                {
+                    || !Range(4, 0, 4095) || !Range(5, 0, 2) || !Range(6, 0, 9999) || !Range(7, 0, 9999)) {
                     return false;
                 }
 
@@ -298,12 +266,7 @@ public static class WiredConditionConfiguration
                 return false;
         }
 
-        validated = proposed with
-        {
-            FurniSources = furni.ToImmutable(),
-            UserSources = users.ToImmutable(),
-            SecondarySelectedItems = secondary
-        };
+        validated = proposed with { FurniSources = furni.ToImmutable(), UserSources = users.ToImmutable(), SecondarySelectedItems = secondary };
         error = "";
 
         return true;

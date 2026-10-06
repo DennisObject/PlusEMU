@@ -34,8 +34,7 @@ public class HabboMessenger
 
     public FriendRequestError? AddFriendRequest(MessengerRequest request)
     {
-        if (_requests.TryAdd(request.FromId, request))
-        {
+        if (_requests.TryAdd(request.FromId, request)) {
             FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Received, request));
         }
 
@@ -50,21 +49,16 @@ public class HabboMessenger
     // Called only after the outgoing request has been stored; refusals were decided before the store, so this only records and publishes.
     public void RecordOutgoingFriendRequest(int toId)
     {
-        if (!_outstandingFriendRequests.Contains(toId))
-        {
+        if (!_outstandingFriendRequests.Contains(toId)) {
             _outstandingFriendRequests.Add(toId);
         }
 
-        FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Sent, new()
-        {
-            ToId = toId
-        }));
+        FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Sent, new() { ToId = toId }));
     }
 
     public void ReceiveRoomInvite(MessengerBuddy friend, string message)
     {
-        if (string.IsNullOrWhiteSpace(message))
-        {
+        if (string.IsNullOrWhiteSpace(message)) {
             return;
         }
 
@@ -80,10 +74,8 @@ public class HabboMessenger
         var now = at.ToUniversalTime();
 
         // A pause cannot bypass an active cooldown, even after the burst counter resets.
-        if (_floodStartedAt is { } startedAt)
-        {
-            if (now - startedAt < TimeSpan.FromMinutes(1))
-            {
+        if (_floodStartedAt is { } startedAt) {
+            if (now - startedAt < TimeSpan.FromMinutes(1)) {
                 return true;
             }
 
@@ -93,18 +85,15 @@ public class HabboMessenger
 
         var timeSinceLastMessage = now - _lastMessageAt;
 
-        if (timeSinceLastMessage > TimeSpan.FromSeconds(20))
-        {
+        if (timeSinceLastMessage > TimeSpan.FromSeconds(20)) {
             _messengerSpamCount = 0;
         }
 
-        if (timeSinceLastMessage <= TimeSpan.FromSeconds(5))
-        {
+        if (timeSinceLastMessage <= TimeSpan.FromSeconds(5)) {
             _messengerSpamCount++;
         }
 
-        if (_messengerSpamCount >= 12)
-        {
+        if (_messengerSpamCount >= 12) {
             _floodStartedAt = now;
             _messengerSpamCount = 0;
 
@@ -117,8 +106,7 @@ public class HabboMessenger
     // The caller passes the operation's single captured time so the rate check never samples the clock again.
     internal bool TrySendHabbicon(DateTimeOffset now)
     {
-        if (IncrementFloodCounter(now))
-        {
+        if (IncrementFloodCounter(now)) {
             return false;
         }
 
@@ -129,15 +117,13 @@ public class HabboMessenger
 
     public MessageError? SendMessage(MessengerBuddy friend, string message)
     {
-        if (string.IsNullOrWhiteSpace(message))
-        {
+        if (string.IsNullOrWhiteSpace(message)) {
             return MessageError.EmptyMessage;
         }
 
         var sentAt = _timeProvider.GetUtcNow();
 
-        if (IncrementFloodCounter(sentAt))
-        {
+        if (IncrementFloodCounter(sentAt)) {
             return MessageError.Flooding;
         }
 
@@ -149,8 +135,7 @@ public class HabboMessenger
 
     public void ReceiveMessage(MessengerBuddy friend, string message)
     {
-        if (string.IsNullOrWhiteSpace(message))
-        {
+        if (string.IsNullOrWhiteSpace(message)) {
             return;
         }
 
@@ -168,8 +153,7 @@ public class HabboMessenger
 
     public void RemoveFriend(MessengerBuddy friend)
     {
-        if (_friends.TryRemove(friend.Id, out _))
-        {
+        if (_friends.TryRemove(friend.Id, out _)) {
             FriendUpdated?.Invoke(this, new(BuddyModificationType.Removed, friend));
         }
     }

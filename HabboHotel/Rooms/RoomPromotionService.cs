@@ -45,8 +45,7 @@ public sealed class RoomPromotionStore(IDatabase database) : IRoomPromotionStore
             promotion.CategoryId,
             startedAt = promotion.StartedAt?.UtcDateTime,
             expiresAt = promotion.ExpiresAt?.UtcDateTime
-        }) == 0)
-        {
+        }) == 0) {
             throw new InvalidOperationException("Room promotion was not persisted.");
         }
     }
@@ -59,14 +58,7 @@ public sealed class RoomPromotionStore(IDatabase database) : IRoomPromotionStore
             UPDATE room_promotions promotion JOIN rooms room ON room.id=promotion.room_id
             SET promotion.title=@name,promotion.description=@description
             WHERE promotion.room_id=@roomId AND room.owner=@ownerId
-            """, new
-        {
-            roomId,
-            ownerId,
-            name,
-            description
-        }) != 1)
-        {
+            """, new { roomId, ownerId, name, description }) != 1) {
             throw new InvalidOperationException("Room promotion was not updated.");
         }
     }
@@ -97,10 +89,8 @@ public sealed class RoomPromotionService(IRoomDataLoader dataLoader, IRoomManage
         RoomEventSnapshot snapshot;
         string name;
 
-        lock (_sync)
-        {
-            if (!dataLoader.TryGetData(request.RoomId, out var loaded) || loaded.OwnerId != habbo.Id)
-            {
+        lock (_sync) {
+            if (!dataLoader.TryGetData(request.RoomId, out var loaded) || loaded.OwnerId != habbo.Id) {
                 return;
             }
 
@@ -119,15 +109,13 @@ public sealed class RoomPromotionService(IRoomDataLoader dataLoader, IRoomManage
             snapshot = RoomEventSnapshot.Capture(data, promotion);
         }
 
-        if (!habbo.Inventory.Badges.HasBadge("RADZZ"))
-        {
+        if (!habbo.Inventory.Badges.HasBadge("RADZZ")) {
             await badges.GiveBadge(habbo, "RADZZ");
         }
 
         session.Send(new PurchaseOKComposer());
 
-        if (habbo.CurrentRoom is { } currentRoom && currentRoom.Id == data.Id)
-        {
+        if (habbo.CurrentRoom is { } currentRoom && currentRoom.Id == data.Id) {
             currentRoom.SendPacket(new RoomEventComposer(snapshot));
         }
 
@@ -138,15 +126,12 @@ public sealed class RoomPromotionService(IRoomDataLoader dataLoader, IRoomManage
     {
         var habbo = session.GetHabbo();
 
-        lock (_sync)
-        {
-            if (!dataLoader.TryGetData(request.RoomId, out var data) || data.OwnerId != habbo.Id)
-            {
+        lock (_sync) {
+            if (!dataLoader.TryGetData(request.RoomId, out var data) || data.OwnerId != habbo.Id) {
                 return;
             }
 
-            if (data.Promotion is not { } promotion)
-            {
+            if (data.Promotion is not { } promotion) {
                 session.SendNotification("Oops, it looks like there isn't a room promotion in this room?");
 
                 return;
@@ -158,8 +143,7 @@ public sealed class RoomPromotionService(IRoomDataLoader dataLoader, IRoomManage
             promotion.Name = name;
             promotion.Description = description;
 
-            if (rooms.TryGetRoom(data.Id, out var room))
-            {
+            if (rooms.TryGetRoom(data.Id, out var room)) {
                 room.SendPacket(new RoomEventComposer(RoomEventSnapshot.Capture(data, promotion)));
             }
         }

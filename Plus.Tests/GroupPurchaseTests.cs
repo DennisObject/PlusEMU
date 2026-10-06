@@ -57,8 +57,7 @@ public class GroupPurchaseTests
             Assert.Equal(1, args[6]);
             _createdBadge = (string)args[4]!;
 
-            if (_creationThrows)
-            {
+            if (_creationThrows) {
                 throw new InvalidOperationException("write failed");
             }
 
@@ -232,8 +231,7 @@ public class GroupPurchaseTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var text in new[] { "test", "description" })
-        {
+        foreach (var text in new[] { "test", "description" }) {
             var bytes = Encoding.UTF8.GetBytes(text);
             var length = new byte[2];
             BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)bytes.Length);
@@ -243,13 +241,11 @@ public class GroupPurchaseTests
 
         var values = new List<int> { 42, 1, 1, count };
 
-        for (var part = 0; part < parts; part++)
-        {
+        for (var part = 0; part < parts; part++) {
             values.AddRange(new[] { part == 0 ? 1 : 2, part == 0 ? 1 : 2, 4 });
         }
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             var bytes = new byte[4];
             BinaryPrimitives.WriteInt32BigEndian(bytes, value);
             stream.Write(bytes);

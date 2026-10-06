@@ -8,14 +8,8 @@ namespace Plus.Communication.Revisions;
 
 public class RevisionsCache : IRevisionsCache, IStartable
 {
-    public IReadOnlyDictionary<string, Revision> Revisions
-    {
-        get; set;
-    }
-    public Revision InternalRevision
-    {
-        get; private set;
-    }
+    public IReadOnlyDictionary<string, Revision> Revisions { get; set; }
+    public Revision InternalRevision { get; private set; }
 
     private string? _directory;
     public string Location => _directory ??= Path.Join(Directory.GetCurrentDirectory(), "revisions");
@@ -46,8 +40,7 @@ public class RevisionsCache : IRevisionsCache, IStartable
             InternalIdToOutgoingIdMapping = outgoingHeaders.Where(kvp => kvp.Value > 0).ToDictionary(kvp => kvp.Value, kvp => kvp.Value)
         };
 
-        if (!Directory.Exists(Location))
-        {
+        if (!Directory.Exists(Location)) {
             Directory.CreateDirectory(Location);
         }
 
@@ -58,12 +51,10 @@ public class RevisionsCache : IRevisionsCache, IStartable
     {
         var revisions = new Dictionary<string, Revision>();
 
-        foreach (var file in Directory.GetFiles(Location).Where(f => f.EndsWith(".json")))
-        {
+        foreach (var file in Directory.GetFiles(Location).Where(f => f.EndsWith(".json"))) {
             var revision = JsonSerializer.Deserialize<Revision>(await File.ReadAllTextAsync(file), SerializerOptions);
 
-            if (revision.Name.Equals(InternalRevision.Name))
-            {
+            if (revision.Name.Equals(InternalRevision.Name)) {
                 continue;
             }
 
@@ -76,27 +67,22 @@ public class RevisionsCache : IRevisionsCache, IStartable
 
     private void Validate()
     {
-        foreach (var revision in Revisions.Values)
-        {
+        foreach (var revision in Revisions.Values) {
             var undefinedIncoming = revision.IncomingHeaders.Keys.Where(key => !InternalRevision.IncomingHeaders.ContainsKey(key)).ToList();
             var undefinedOutgoing = revision.OutgoingHeaders.Keys.Where(key => !InternalRevision.OutgoingHeaders.ContainsKey(key)).ToList();
 
-            if (undefinedIncoming.Any())
-            {
+            if (undefinedIncoming.Any()) {
                 Console.WriteLine($"{revision.Name}: Missing Incoming Headers ({undefinedIncoming.Count}):");
 
-                foreach (var incoming in undefinedIncoming)
-                {
+                foreach (var incoming in undefinedIncoming) {
                     Console.WriteLine(incoming);
                 }
             }
 
-            if (undefinedOutgoing.Any())
-            {
+            if (undefinedOutgoing.Any()) {
                 Console.WriteLine($"{revision.Name}: Missing Outgoing Headers ({undefinedOutgoing.Count}):");
 
-                foreach (var outgoing in undefinedOutgoing)
-                {
+                foreach (var outgoing in undefinedOutgoing) {
                     Console.WriteLine(outgoing);
                 }
             }

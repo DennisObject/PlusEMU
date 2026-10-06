@@ -12,8 +12,7 @@ internal sealed class ApproachCompletion(Room room, RoomNavigation navigation, A
     // The intent is consumed before any recheck, so a re-entrant call can never start it twice.
     public bool Complete(RoomUser actor, long landingRevision)
     {
-        if (registry.Consume(actor) is not { } intent)
-        {
+        if (registry.Consume(actor) is not { } intent) {
             return false;
         }
 

@@ -16,13 +16,11 @@ public sealed class AdvertisingReportService(IGameClientManager clients, TimePro
     {
         var habbo = reporter.GetHabbo();
 
-        if (targetId == habbo.Id)
-        {
+        if (targetId == habbo.Id) {
             return;
         }
 
-        if (habbo.AdvertisingReportedBlocked)
-        {
+        if (habbo.AdvertisingReportedBlocked) {
             reporter.Send(new SubmitBullyReportComposer(BullyReportResult.Blocked));
 
             return;
@@ -30,8 +28,7 @@ public sealed class AdvertisingReportService(IGameClientManager clients, TimePro
 
         var target = clients.GetClientByUserId(targetId);
 
-        if (target == null)
-        {
+        if (target == null) {
             reporter.Send(new SubmitBullyReportComposer(BullyReportResult.Sent));
 
             return;
@@ -39,8 +36,7 @@ public sealed class AdvertisingReportService(IGameClientManager clients, TimePro
 
         var now = clock.GetUtcNow();
 
-        if (habbo.AdvertisingReportAvailableAt is { } deadline && deadline > now)
-        {
+        if (habbo.AdvertisingReportAvailableAt is { } deadline && deadline > now) {
             reporter.SendNotification("Reports can only be sent per 5 minutes!");
 
             return;
@@ -48,15 +44,13 @@ public sealed class AdvertisingReportService(IGameClientManager clients, TimePro
 
         var reported = target.GetHabbo();
 
-        if (reported.Access.Can(PermissionKeys.ModerationTool))
-        {
+        if (reported.Access.Can(PermissionKeys.ModerationTool)) {
             reporter.SendNotification("Sorry, you cannot report staff members via this tool.");
 
             return;
         }
 
-        if (!reported.HasSpoken)
-        {
+        if (!reported.HasSpoken) {
             reporter.Send(new SubmitBullyReportComposer(BullyReportResult.NoChat));
 
             return;
@@ -64,8 +58,7 @@ public sealed class AdvertisingReportService(IGameClientManager clients, TimePro
 
         var unlimited = habbo.Access.Can(PermissionKeys.ChatReportUnlimited);
 
-        if (reported.AdvertisingReported && !unlimited)
-        {
+        if (reported.AdvertisingReported && !unlimited) {
             reporter.Send(new SubmitBullyReportComposer(BullyReportResult.AlreadyReported));
 
             return;

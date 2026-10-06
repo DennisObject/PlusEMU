@@ -13,13 +13,11 @@ public class CompleteDiffieHandshakeEvent : IPacketEvent
         var cipherPublickey = packet.ReadString();
         var sharedKey = HabboEncryptionV2.CalculateDiffieHellmanSharedKey(cipherPublickey);
 
-        if (sharedKey != 0)
-        {
+        if (sharedKey != 0) {
             session.Send(new SecretKeyComposer(HabboEncryptionV2.GetRsaDiffieHellmanPublicKey()));
             session.ActivateLegacyCrypto(sharedKey.getBytes());
         }
-        else
-        {
+        else {
             session.SendNotification("There was an error logging you in, please try again!");
         }
 

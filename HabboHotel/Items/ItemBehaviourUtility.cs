@@ -7,8 +7,7 @@ internal static class ItemBehaviourUtility
 {
     public static bool ShouldStackInInventory(this InventoryItem item)
     {
-        if (item.IsLimited())
-        {
+        if (item.IsLimited()) {
             return false;
         }
 

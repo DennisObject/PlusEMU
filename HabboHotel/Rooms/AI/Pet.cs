@@ -75,8 +75,7 @@ public class Pet
 
     internal void Attach(Room room, IGameClientManager clients, IRewardTrackManager rewards)
     {
-        if (_room != null && !ReferenceEquals(_room, room))
-        {
+        if (_room != null && !ReferenceEquals(_room, room)) {
             throw new InvalidOperationException("Pet is already attached to another room.");
         }
 
@@ -87,8 +86,7 @@ public class Pet
 
     internal void Detach(Room room)
     {
-        if (!ReferenceEquals(_room, room))
-        {
+        if (!ReferenceEquals(_room, room)) {
             return;
         }
 
@@ -103,10 +101,8 @@ public class Pet
     {
         get
         {
-            for (var level = 0; level < ExperienceLevels.Length; ++level)
-            {
-                if (Experience < ExperienceLevels[level])
-                {
+            for (var level = 0; level < ExperienceLevels.Length; ++level) {
+                if (Experience < ExperienceLevels[level]) {
                     return level + 1;
                 }
             }
@@ -133,23 +129,18 @@ public class Pet
 
     public string Look => $"{Type} {Race} {Color} {CustomParts}";
 
-    public string OwnerName
-    {
-        get; set;
-    }
+    public string OwnerName { get; set; }
 
     public void OnRespect()
     {
         Respect++;
         Room.SendPacket(new RespectPetNotificationComposer(VirtualId, PetId, Name, Color));
 
-        if (DbState != PetDatabaseUpdateState.NeedsInsert)
-        {
+        if (DbState != PetDatabaseUpdateState.NeedsInsert) {
             DbState = PetDatabaseUpdateState.NeedsUpdate;
         }
 
-        if (Experience <= 150000)
-        {
+        if (Experience <= 150000) {
             Addexperience(10);
         }
     }
@@ -159,28 +150,22 @@ public class Pet
         var before = Level;
         Experience = Experience + amount;
 
-        if (Experience > 150000)
-        {
+        if (Experience > 150000) {
             Experience = 150000;
 
-            if (Room != null)
-            {
+            if (Room != null) {
                 Room.SendPacket(new AddExperiencePointsComposer(PetId, VirtualId, amount));
             }
         }
-        else
-        {
-            if (DbState != PetDatabaseUpdateState.NeedsInsert)
-            {
+        else {
+            if (DbState != PetDatabaseUpdateState.NeedsInsert) {
                 DbState = PetDatabaseUpdateState.NeedsUpdate;
             }
 
-            if (Room != null)
-            {
+            if (Room != null) {
                 Room.SendPacket(new AddExperiencePointsComposer(PetId, VirtualId, amount));
 
-                if (Experience >= ExperienceGoal)
-                {
+                if (Experience >= ExperienceGoal) {
                     Room.SendPacket(new ChatComposer(VirtualId, $"*leveled up to level {Level} *", 0, 0));
                 }
             }
@@ -188,15 +173,13 @@ public class Pet
 
         var gained = Level - before;
 
-        if (gained < 1 || OwnerId <= 0)
-        {
+        if (gained < 1 || OwnerId <= 0) {
             return;
         }
 
         var client = _clients?.GetClientByUserId(OwnerId);
 
-        if (client != null)
-        {
+        if (client != null) {
             _rewards!.Progress(client, RewardTrackActions.PetLevel, gained);
         }
     }
@@ -205,51 +188,42 @@ public class Pet
     {
         int maxE;
 
-        if (add)
-        {
+        if (add) {
             if (Energy == 100) // If Energy is 100, no point.
-            {
+{
                 return;
             }
 
-            if (Energy > 85)
-            {
+            if (Energy > 85) {
                 maxE = MaxEnergy - Energy;
             }
-            else
-            {
+            else {
                 maxE = 10;
             }
         }
-        else
-        {
+        else {
             maxE = 15; // Remove Max Energy as 15
         }
 
-        if (maxE <= 4)
-        {
+        if (maxE <= 4) {
             maxE = 15;
         }
 
         var r = Random.Shared.Next(4, maxE + 1);
 
-        if (!add)
-        {
+        if (!add) {
             Energy = Energy - r;
 
-            if (Energy < 0)
-            {
+            if (Energy < 0) {
                 Energy = 1;
                 r = 1;
             }
         }
-        else
-        {
+        else {
             Energy = Energy + r;
         }
 
-        if (DbState != PetDatabaseUpdateState.NeedsInsert)
-        {
+        if (DbState != PetDatabaseUpdateState.NeedsInsert) {
             DbState = PetDatabaseUpdateState.NeedsUpdate;
         }
     }

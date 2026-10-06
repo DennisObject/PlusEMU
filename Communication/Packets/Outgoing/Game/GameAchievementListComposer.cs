@@ -13,8 +13,7 @@ public class GameAchievementListComposer(int gameId, ImmutableArray<AchievementP
         packet.WriteInteger(gameId);
         packet.WriteInteger(achievements.Length);
 
-        foreach (var achievement in achievements)
-        {
+        foreach (var achievement in achievements) {
             packet.WriteInteger(achievement.Id); // ach id
             packet.WriteInteger(achievement.TargetLevel); // target level
             packet.WriteString(achievement.Badge); // badge

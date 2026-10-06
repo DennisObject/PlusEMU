@@ -205,8 +205,7 @@ public class AchievementSnapshotTests
     {
         var achievement = new Achievement { Id = 1, GroupName = group, Category = category, GameId = gameId };
 
-        foreach (var (level, requirement) in levels)
-        {
+        foreach (var (level, requirement) in levels) {
             achievement.AddLevel(new AchievementLevel(level, level * 10, level, requirement));
         }
 
@@ -233,8 +232,7 @@ public class AchievementSnapshotTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             var bytes = new byte[4];
             BinaryPrimitives.WriteInt32BigEndian(bytes, value);
             stream.Write(bytes);

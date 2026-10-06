@@ -48,8 +48,7 @@ public class Gamemap
         var items = GetCoordinatedItems(new(x, y)).Where(item => item.Id != excluding).ToArray();
         var helpers = items.Where(item => MagicTileHeight.IsMagicTile(item.Definition.InteractionType)).ToArray();
 
-        if (helpers.Length > 0)
-        {
+        if (helpers.Length > 0) {
             return new(helpers.Max(item => item.GetZ), true, true);
         }
 
@@ -65,14 +64,11 @@ public class Gamemap
 
     public short[,] PlacementHeightMap()
     {
-        lock (_placementLock)
-        {
+        lock (_placementLock) {
             var result = new short[Model.MapSizeX, Model.MapSizeY];
 
-            for (var y = 0; y < Model.MapSizeY; y++)
-            {
-                for (var x = 0; x < Model.MapSizeX; x++)
-                {
+            for (var y = 0; y < Model.MapSizeY; y++) {
+                for (var x = 0; x < Model.MapSizeX; x++) {
                     result[x, y] = EncodePlacement(ResolvePlacement(x, y));
                 }
             }
@@ -83,19 +79,15 @@ public class Gamemap
 
     internal IReadOnlyList<HeightMapUpdateComposer.Tile> RebuildPlacementUpdates()
     {
-        lock (_placementLock)
-        {
-            if (_placementClosed)
-            {
+        lock (_placementLock) {
+            if (_placementClosed) {
                 return Array.Empty<HeightMapUpdateComposer.Tile>();
             }
 
             var changed = new List<HeightMapUpdateComposer.Tile>();
 
-            foreach (var point in _placementDirty.OrderBy(tile => tile.Y).ThenBy(tile => tile.X))
-            {
-                if (!ValidTile(point.X, point.Y))
-                {
+            foreach (var point in _placementDirty.OrderBy(tile => tile.Y).ThenBy(tile => tile.X)) {
+                if (!ValidTile(point.X, point.Y)) {
                     continue;
                 }
 
@@ -105,8 +97,7 @@ public class Gamemap
                     : EncodePlacement(new(Model.SqFloorHeight[point.X, point.Y], point.X < StaticModel.MapSizeX && point.Y < StaticModel.MapSizeY && StaticModel.SqState[point.X, point.Y] != SquareState.Blocked, false));
                 _placementMap[point] = value;
 
-                if (value != previous)
-                {
+                if (value != previous) {
                     changed.Add(new(point.X, point.Y, value));
                 }
             }
@@ -119,15 +110,12 @@ public class Gamemap
 
     internal void NotifyPlacementState(Item item)
     {
-        lock (_placementLock)
-        {
-            if (_placementClosed)
-            {
+        lock (_placementLock) {
+            if (_placementClosed) {
                 return;
             }
 
-            foreach (var point in item.GetCoords)
-            {
+            foreach (var point in item.GetCoords) {
                 _placementDirty.Add(point);
             }
         }
@@ -137,10 +125,8 @@ public class Gamemap
 
     public void FlushPlacementUpdates()
     {
-        lock (_placementLock)
-        {
-            if (_placementClosed)
-            {
+        lock (_placementLock) {
+            if (_placementClosed) {
                 return;
             }
 
@@ -149,8 +135,7 @@ public class Gamemap
             _placementWidth = Model.MapSizeX;
             _placementHeight = Model.MapSizeY;
 
-            if (changed.Count != 0 || resized)
-            {
+            if (changed.Count != 0 || resized) {
                 // Byte-sized delta counts/coordinates cannot represent larger maps.
                 var full = resized || changed.Any(tile => tile.X > byte.MaxValue || tile.Y > byte.MaxValue);
                 _placementOutbound.Enqueue(new(++_placementVersion, PlacementHeightMap(), full ? null : changed.ToArray(), CapturePlacementVisits()));
@@ -162,10 +147,8 @@ public class Gamemap
 
     private void MarkPlacementDirty(Point point)
     {
-        lock (_placementLock)
-        {
-            if (!_placementClosed)
-            {
+        lock (_placementLock) {
+            if (!_placementClosed) {
                 _placementDirty.Add(point);
             }
         }
@@ -173,17 +156,14 @@ public class Gamemap
 
     internal void SendPlacementHeightMap(GameClient session)
     {
-        lock (_placementLock)
-        {
-            if (_placementClosed)
-            {
+        lock (_placementLock) {
+            if (_placementClosed) {
                 return;
             }
 
             var visits = CapturePlacementVisits();
 
-            if (visits.Length == 0)
-            {
+            if (visits.Length == 0) {
                 return;
             }
 
@@ -198,11 +178,9 @@ public class Gamemap
 
     private bool IsCurrentPlacementRecipient(PlacementRecipient recipient)
     {
-        lock (_placementLock)
-        {
+        lock (_placementLock) {
             if (_placementClosed || _placementRoom.MDisposed || !recipient.Session.IsAuthenticated
-                || !ReferenceEquals(recipient.Session.GetHabbo()?.CurrentRoom, _placementRoom))
-            {
+                || !ReferenceEquals(recipient.Session.GetHabbo()?.CurrentRoom, _placementRoom)) {
                 return false;
             }
 
@@ -212,8 +190,7 @@ public class Gamemap
 
     internal void ClosePlacementUpdates()
     {
-        lock (_placementLock)
-        {
+        lock (_placementLock) {
             _placementClosed = true;
             _placementOutbound.Clear();
             _placementDirty.Clear();
@@ -223,30 +200,24 @@ public class Gamemap
     private void DrainPlacementUpdates()
     {
         // A recursive caller must leave delivery to a later flush after its mutation completes.
-        if (Monitor.IsEntered(_placementLock))
-        {
+        if (Monitor.IsEntered(_placementLock)) {
             return;
         }
 
-        lock (_placementLock)
-        {
+        lock (_placementLock) {
             // Never wait for a sender: synchronous disconnect can be waiting for the caller's Wired lock.
-            if (_placementClosed || _placementSending)
-            {
+            if (_placementClosed || _placementSending) {
                 return;
             }
 
             _placementSending = true;
         }
 
-        while (true)
-        {
+        while (true) {
             PlacementDelivery delivery;
 
-            lock (_placementLock)
-            {
-                if (_placementClosed || !_placementOutbound.TryDequeue(out delivery!))
-                {
+            lock (_placementLock) {
+                if (_placementClosed || !_placementOutbound.TryDequeue(out delivery!)) {
                     _placementSending = false;
 
                     return;
@@ -255,24 +226,18 @@ public class Gamemap
                 // A full latest snapshot replaces consecutive superseded broadcasts, including their deltas.
                 // Entry snapshots keep their place in the queue and are never discarded.
                 while (!delivery.Entry && _placementOutbound.TryPeek(out var next)
-                    && !next.Entry && next.Version > delivery.Version)
-                {
-                    delivery = _placementOutbound.Dequeue() with
-                    {
-                        Changes = null
-                    };
+                    && !next.Entry && next.Version > delivery.Version) {
+                    delivery = _placementOutbound.Dequeue() with { Changes = null };
                 }
 
-                if (delivery.Version <= _placementDeliveredVersion)
-                {
+                if (delivery.Version <= _placementDeliveredVersion) {
                     continue;
                 }
 
                 _placementDeliveredVersion = delivery.Version;
             }
 
-            try
-            {
+            try {
                 // Enumerate eligibility immediately before each client's send, including every delta chunk.
                 // A client can leave while an earlier recipient's synchronous send callback is still running.
                 var recipients = delivery.Visits.Select(visit => (Session: visit.GetClient(), Visit: visit))
@@ -284,10 +249,8 @@ public class Gamemap
                 bool SupportsDelta(GameClient client) => client.Revision.InternalIdToOutgoingIdMapping
                     .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer);
 
-                if (delivery.Changes != null)
-                {
-                    foreach (var chunk in delivery.Changes.Chunk(byte.MaxValue))
-                    {
+                if (delivery.Changes != null) {
+                    foreach (var chunk in delivery.Changes.Chunk(byte.MaxValue)) {
                         GameClient.SendBroadcast(new HeightMapUpdateComposer(chunk), currentClients.Where(SupportsDelta), CanSend);
                     }
                 }
@@ -297,8 +260,7 @@ public class Gamemap
                     && (delivery.Changes == null || !SupportsDelta(client)));
                 GameClient.SendBroadcast(new HeightMapComposer(delivery.Heights), needsFull, CanSend);
             }
-            catch (Exception error)
-            {
+            catch (Exception error) {
                 // Send failures cannot roll back a completed mutation or stop later queued snapshots.
                 ExceptionLogger.LogException(error);
             }
@@ -332,8 +294,7 @@ public class Gamemap
         var pathfindingSettings = PathfindingSettings.Load(settings);
 
         if (pathfindingSettings.Engine is PathfindingEngine.Shadow or PathfindingEngine.V2
-            && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256)
-        {
+            && model.MapSizeX is > 0 and <= 256 && model.MapSizeY is > 0 and <= 256) {
             Navigation = new(room, model, pathfindingSettings, navigationLogger, groups, database, rewards);
         }
 
@@ -352,59 +313,34 @@ public class Gamemap
         _structuralMap = (byte[,])GameMap.Clone();
     }
 
-    public RoomNavigation? Navigation
-    {
-        get;
-    }
+    public RoomNavigation? Navigation { get; }
 
-    public GateTransitionService Gates
-    {
-        get;
-    }
+    public GateTransitionService Gates { get; }
 
-    public bool DiagonalEnabled
-    {
-        get; set;
-    }
+    public bool DiagonalEnabled { get; set; }
 
-    public DynamicRoomModel Model
-    {
-        get; private set;
-    }
+    public DynamicRoomModel Model { get; private set; }
 
-    public RoomModel StaticModel
-    {
-        get; private set;
-    }
+    public RoomModel StaticModel { get; private set; }
 
-    public byte[,] EffectMap
-    {
-        get; private set;
-    }
+    public byte[,] EffectMap { get; private set; }
 
-    public byte[,] GameMap
-    {
-        get; private set;
-    }
+    public byte[,] GameMap { get; private set; }
 
     public void AddUserToMap(RoomUser user, Point coord)
     {
-        if (Navigation?.UsesExecutor == true)
-        {
-            if (user.Movement.RegisteredMapCoordinate is { } previous)
-            {
+        if (Navigation?.UsesExecutor == true) {
+            if (user.Movement.RegisteredMapCoordinate is { } previous) {
                 RemoveUserFromMap(user, previous);
             }
 
             user.Movement.RegisteredMapCoordinate = coord;
         }
 
-        if (_userMap.ContainsKey(coord))
-        {
+        if (_userMap.ContainsKey(coord)) {
             _userMap[coord].Add(user);
         }
-        else
-        {
+        else {
             var users = new List<RoomUser>
             {
                 user
@@ -415,13 +351,11 @@ public class Gamemap
 
     public void TeleportToItem(RoomUser user, Item item)
     {
-        if (item == null || user == null)
-        {
+        if (item == null || user == null) {
             return;
         }
 
-        if (Navigation is { UsesExecutor: true } navigation)
-        {
+        if (Navigation is { UsesExecutor: true } navigation) {
             navigation.ForcePlace(user, item.GetX, item.GetY, item.GetZ, ForceResolution.ExactZ);
 
             return;
@@ -451,22 +385,19 @@ public class Gamemap
 
     public void RemoveUserFromMap(RoomUser user, Point coord)
     {
-        if (Navigation?.UsesExecutor == true)
-        {
+        if (Navigation?.UsesExecutor == true) {
             // Walk-off callbacks run after map movement but before physical X/Y changes.
             coord = user.Movement.RegisteredMapCoordinate ?? coord;
             user.Movement.RegisteredMapCoordinate = null;
 
-            if (_userMap.TryGetValue(coord, out var registered))
-            {
+            if (_userMap.TryGetValue(coord, out var registered)) {
                 registered.RemoveAll(other => ReferenceEquals(other, user));
             }
 
             return;
         }
 
-        if (_userMap.ContainsKey(coord))
-        {
+        if (_userMap.ContainsKey(coord)) {
             _userMap[coord].RemoveAll(x => x != null && x.VirtualId == user.VirtualId);
         }
     }
@@ -475,8 +406,7 @@ public class Gamemap
 
     public List<RoomUser> GetRoomUsers(Point coord)
     {
-        if (_userMap.ContainsKey(coord))
-        {
+        if (_userMap.ContainsKey(coord)) {
             return _userMap[coord];
         }
 
@@ -489,8 +419,7 @@ public class Gamemap
     {
         var targets = ignoreOccupancy ? RoamTargets() : LiveOpenTiles();
 
-        if (targets.Length == 0)
-        {
+        if (targets.Length == 0) {
             square = default;
 
             return false;
@@ -503,8 +432,7 @@ public class Gamemap
 
     public Point GetRandomWalkableSquare()
     {
-        if (TryGetRandomWalkableSquare(out var square))
-        {
+        if (TryGetRandomWalkableSquare(out var square)) {
             return square;
         }
 
@@ -516,8 +444,7 @@ public class Gamemap
 
     private Point[] LiveOpenTiles()
     {
-        if (GameMap == null || Model == null)
-        {
+        if (GameMap == null || Model == null) {
             return Array.Empty<Point>();
         }
 
@@ -525,17 +452,13 @@ public class Gamemap
         var height = GameMap.GetLength(1);
         var targets = new List<Point>();
 
-        for (var y = 0; y < height; y++)
-        {
-            for (var x = 0; x < width; x++)
-            {
-                if (x == Model.DoorX && y == Model.DoorY)
-                {
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                if (x == Model.DoorX && y == Model.DoorY) {
                     continue;
                 }
 
-                if (GameMap[x, y] == 1)
-                {
+                if (GameMap[x, y] == 1) {
                     targets.Add(new(x, y));
                 }
             }
@@ -548,15 +471,13 @@ public class Gamemap
     {
         var cached = _roamTargets;
 
-        if (cached != null)
-        {
+        if (cached != null) {
             return cached;
         }
 
         var map = _structuralMap ?? GameMap;
 
-        if (map == null || Model == null)
-        {
+        if (map == null || Model == null) {
             return _roamTargets = Array.Empty<Point>();
         }
 
@@ -564,18 +485,14 @@ public class Gamemap
         var height = map.GetLength(1);
         var targets = new List<Point>();
 
-        for (var y = 0; y < height; y++)
-        {
-            for (var x = 0; x < width; x++)
-            {
-                if (x == Model.DoorX && y == Model.DoorY)
-                {
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                if (x == Model.DoorX && y == Model.DoorY) {
                     continue;
                 }
 
                 // Freeroam historically picked open floor only, not seats or beds.
-                if (map[x, y] == 1)
-                {
+                if (map[x, y] == 1) {
                     targets.Add(new(x, y));
                 }
             }
@@ -589,24 +506,18 @@ public class Gamemap
         var width = map.GetLength(0);
         var height = map.GetLength(1);
 
-        for (var y = 0; y < height; y++)
-        {
-            for (var x = 0; x < width; x++)
-            {
-                if (x == Model.DoorX && y == Model.DoorY)
-                {
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
+                if (x == Model.DoorX && y == Model.DoorY) {
                     map[x, y] = 3;
                 }
-                else if (Model.SqState != null && x < Model.SqState.GetLength(0) && y < Model.SqState.GetLength(1) && Model.SqState[x, y] == SquareState.Open)
-                {
+                else if (Model.SqState != null && x < Model.SqState.GetLength(0) && y < Model.SqState.GetLength(1) && Model.SqState[x, y] == SquareState.Open) {
                     map[x, y] = 1;
                 }
-                else if (Model.SqState != null && x < Model.SqState.GetLength(0) && y < Model.SqState.GetLength(1) && Model.SqState[x, y] == SquareState.Seat)
-                {
+                else if (Model.SqState != null && x < Model.SqState.GetLength(0) && y < Model.SqState.GetLength(1) && Model.SqState[x, y] == SquareState.Seat) {
                     map[x, y] = 2;
                 }
-                else
-                {
+                else {
                     map[x, y] = 0;
                 }
             }
@@ -615,8 +526,7 @@ public class Gamemap
 
     private void CopyStructural()
     {
-        if (GameMap == null)
-        {
+        if (GameMap == null) {
             return;
         }
 
@@ -628,13 +538,11 @@ public class Gamemap
     {
         var map = _structuralMap;
 
-        if (map == null || (uint)x >= (uint)map.GetLength(0) || (uint)y >= (uint)map.GetLength(1))
-        {
+        if (map == null || (uint)x >= (uint)map.GetLength(0) || (uint)y >= (uint)map.GetLength(1)) {
             return;
         }
 
-        if (map[x, y] == state)
-        {
+        if (map[x, y] == state) {
             return;
         }
 
@@ -646,14 +554,12 @@ public class Gamemap
     // (1 walkable or an open floor gate, 3 seat/bed/small tent, otherwise 0). Mirrors that legacy rule.
     internal byte ItemWalkState(Item item)
     {
-        if (item.Definition.Walkable)
-        {
+        if (item.Definition.Walkable) {
             return 1;
         }
 
         if (item.GetZ <= Model.SqFloorHeight[item.GetX, item.GetY] + 0.1 && item.Definition.InteractionType == InteractionType.Gate
-            && item.LegacyDataString == "1")
-        {
+            && item.LegacyDataString == "1") {
             return 1;
         }
 
@@ -665,8 +571,7 @@ public class Gamemap
     {
         var map = _structuralMap ?? GameMap;
 
-        if (map == null || (uint)x >= (uint)map.GetLength(0) || (uint)y >= (uint)map.GetLength(1))
-        {
+        if (map == null || (uint)x >= (uint)map.GetLength(0) || (uint)y >= (uint)map.GetLength(1)) {
             return 0;
         }
 
@@ -675,22 +580,19 @@ public class Gamemap
 
     public bool IsValidBotStep(Vector2D from, Vector2D to, bool endOfPath)
     {
-        if (!ValidTile(to.X, to.Y))
-        {
+        if (!ValidTile(to.X, to.Y)) {
             return false;
         }
 
         var state = StructuralTile(to.X, to.Y);
 
-        if (state != 1 && !(endOfPath && state is 2 or 3))
-        {
+        if (state != 1 && !(endOfPath && state is 2 or 3)) {
             return false;
         }
 
         var heightDiff = SqAbsoluteHeight(to.X, to.Y) - SqAbsoluteHeight(from.X, from.Y);
 
-        if (heightDiff > 1.5)
-        {
+        if (heightDiff > 1.5) {
             return false;
         }
 
@@ -702,19 +604,15 @@ public class Gamemap
     {
         var walkableSquares = new List<Point>();
 
-        for (var dY = 0; dY < GameMap.GetUpperBound(1); dY++)
-        {
-            for (var dX = 0; dX < GameMap.GetUpperBound(0); dX++)
-            {
-                if (StaticModel.DoorX != dX && StaticModel.DoorY != dY && GameMap[dX, dY] == 1)
-                {
+        for (var dY = 0; dY < GameMap.GetUpperBound(1); dY++) {
+            for (var dX = 0; dX < GameMap.GetUpperBound(0); dX++) {
+                if (StaticModel.DoorX != dX && StaticModel.DoorY != dY && GameMap[dX, dY] == 1) {
                     walkableSquares.Add(new(dX, dY));
                 }
             }
         }
 
-        if (walkableSquares.Contains(new(x, y)))
-        {
+        if (walkableSquares.Contains(new(x, y))) {
             return true;
         }
 
@@ -733,16 +631,13 @@ public class Gamemap
         EffectMap[x, y] = 0;
         _itemHeightMap[x, y] = 0.0;
 
-        if (x == Model.DoorX && y == Model.DoorY)
-        {
+        if (x == Model.DoorX && y == Model.DoorY) {
             GameMap[x, y] = 3;
         }
-        else if (Model.SqState[x, y] == SquareState.Open)
-        {
+        else if (Model.SqState[x, y] == SquareState.Open) {
             GameMap[x, y] = 1;
         }
-        else if (Model.SqState[x, y] == SquareState.Seat)
-        {
+        else if (Model.SqState[x, y] == SquareState.Seat) {
             GameMap[x, y] = 2;
         }
 
@@ -751,8 +646,7 @@ public class Gamemap
 
     public void UpdateMapForItem(Item item)
     {
-        lock (_placementLock)
-        {
+        lock (_placementLock) {
             RemoveFromMapCore(item);
             AddItemToMapCore(item);
         }
@@ -766,14 +660,12 @@ public class Gamemap
     {
         Item[] items;
 
-        lock (_placementLock)
-        {
+        lock (_placementLock) {
             GenerateMapsCore(checkLines);
             items = _room.GetRoomItemHandler().GetFloor.ToArray();
         }
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             AddItemEffects(item);
         }
     }
@@ -786,32 +678,25 @@ public class Gamemap
         var maxY = 0;
         _coordinatedItems = new();
 
-        for (var y = 0; y < Model.MapSizeY; y++)
-        {
-            for (var x = 0; x < Model.MapSizeX; x++)
-            {
+        for (var y = 0; y < Model.MapSizeY; y++) {
+            for (var x = 0; x < Model.MapSizeX; x++) {
                 MarkPlacementDirty(new(x, y));
             }
         }
 
-        if (checkLines)
-        {
+        if (checkLines) {
             var items = _room.GetRoomItemHandler().GetFloor.ToArray();
 
-            foreach (var item in items.ToList())
-            {
-                if (item == null)
-                {
+            foreach (var item in items.ToList()) {
+                if (item == null) {
                     continue;
                 }
 
-                if (item.GetX > Model.MapSizeX && item.GetX > maxX)
-                {
+                if (item.GetX > Model.MapSizeX && item.GetX > maxX) {
                     maxX = item.GetX;
                 }
 
-                if (item.GetY > Model.MapSizeY && item.GetY > maxY)
-                {
+                if (item.GetY > Model.MapSizeY && item.GetY > maxY) {
                     maxY = item.GetY;
                 }
             }
@@ -820,15 +705,12 @@ public class Gamemap
             items = null;
         }
 
-        if (maxY > Model.MapSizeY - 1 || maxX > Model.MapSizeX - 1)
-        {
-            if (maxX < Model.MapSizeX)
-            {
+        if (maxY > Model.MapSizeY - 1 || maxX > Model.MapSizeX - 1) {
+            if (maxX < Model.MapSizeX) {
                 maxX = Model.MapSizeX;
             }
 
-            if (maxY < Model.MapSizeY)
-            {
+            if (maxY < Model.MapSizeY) {
                 maxY = Model.MapSizeY;
             }
 
@@ -838,67 +720,53 @@ public class Gamemap
             return;
         }
 
-        if (maxX != StaticModel.MapSizeX || maxY != StaticModel.MapSizeY)
-        {
+        if (maxX != StaticModel.MapSizeX || maxY != StaticModel.MapSizeY) {
             EffectMap = new byte[Model.MapSizeX, Model.MapSizeY];
             GameMap = new byte[Model.MapSizeX, Model.MapSizeY];
             _itemHeightMap = new double[Model.MapSizeX, Model.MapSizeY];
 
             //if (modelRemap)
             //    Model.Generate(); //Clears model
-            for (var line = 0; line < Model.MapSizeY; line++)
-            {
-                for (var chr = 0; chr < Model.MapSizeX; chr++)
-                {
+            for (var line = 0; line < Model.MapSizeY; line++) {
+                for (var chr = 0; chr < Model.MapSizeX; chr++) {
                     GameMap[chr, line] = 0;
                     EffectMap[chr, line] = 0;
 
-                    if (chr == Model.DoorX && line == Model.DoorY)
-                    {
+                    if (chr == Model.DoorX && line == Model.DoorY) {
                         GameMap[chr, line] = 3;
                     }
-                    else if (Model.SqState[chr, line] == SquareState.Open)
-                    {
+                    else if (Model.SqState[chr, line] == SquareState.Open) {
                         GameMap[chr, line] = 1;
                     }
-                    else if (Model.SqState[chr, line] == SquareState.Seat)
-                    {
+                    else if (Model.SqState[chr, line] == SquareState.Seat) {
                         GameMap[chr, line] = 2;
                     }
-                    else if (Model.SqState[chr, line] == SquareState.Pool)
-                    {
+                    else if (Model.SqState[chr, line] == SquareState.Pool) {
                         EffectMap[chr, line] = 6;
                     }
                 }
             }
         }
-        else
-        {
+        else {
             EffectMap = new byte[Model.MapSizeX, Model.MapSizeY];
             GameMap = new byte[Model.MapSizeX, Model.MapSizeY];
             _itemHeightMap = new double[Model.MapSizeX, Model.MapSizeY];
 
-            for (var line = 0; line < Model.MapSizeY; line++)
-            {
-                for (var chr = 0; chr < Model.MapSizeX; chr++)
-                {
+            for (var line = 0; line < Model.MapSizeY; line++) {
+                for (var chr = 0; chr < Model.MapSizeX; chr++) {
                     GameMap[chr, line] = 0;
                     EffectMap[chr, line] = 0;
 
-                    if (chr == Model.DoorX && line == Model.DoorY)
-                    {
+                    if (chr == Model.DoorX && line == Model.DoorY) {
                         GameMap[chr, line] = 3;
                     }
-                    else if (Model.SqState[chr, line] == SquareState.Open)
-                    {
+                    else if (Model.SqState[chr, line] == SquareState.Open) {
                         GameMap[chr, line] = 1;
                     }
-                    else if (Model.SqState[chr, line] == SquareState.Seat)
-                    {
+                    else if (Model.SqState[chr, line] == SquareState.Seat) {
                         GameMap[chr, line] = 2;
                     }
-                    else if (Model.SqState[chr, line] == SquareState.Pool)
-                    {
+                    else if (Model.SqState[chr, line] == SquareState.Pool) {
                         EffectMap[chr, line] = 6;
                     }
                 }
@@ -907,23 +775,18 @@ public class Gamemap
 
         var tmpItems = _room.GetRoomItemHandler().GetFloor.ToArray();
 
-        foreach (var item in tmpItems)
-        {
-            foreach (var coord in item.GetCoords)
-            {
+        foreach (var item in tmpItems) {
+            foreach (var coord in item.GetCoords) {
                 AddCoordinatedItem(item, coord);
             }
         }
 
-        foreach (var item in tmpItems.ToList())
-        {
-            if (item == null)
-            {
+        foreach (var item in tmpItems.ToList()) {
+            if (item == null) {
                 continue;
             }
 
-            if (!AddItemToMapCore(item))
-            {
+            if (!AddItemToMapCore(item)) {
                 continue;
             }
         }
@@ -933,18 +796,14 @@ public class Gamemap
         // Snapshot before standing users zero their tiles. Later steps must not rebuild roam targets.
         CopyStructural();
 
-        if (!_room.RoomBlockingEnabled)
-        {
-            foreach (var user in _room.GetRoomUserManager().GetUserList().ToList())
-            {
-                if (user == null)
-                {
+        if (!_room.RoomBlockingEnabled) {
+            foreach (var user in _room.GetRoomUserManager().GetUserList().ToList()) {
+                if (user == null) {
                     continue;
                 }
 
                 // Temporary bots never restore a walkability reservation, so a regen must not freeze their tile.
-                if (user.BotData?.IsTemporary == true)
-                {
+                if (user.BotData?.IsTemporary == true) {
                     continue;
                 }
 
@@ -953,8 +812,7 @@ public class Gamemap
             }
         }
 
-        try
-        {
+        try {
             GameMap[Model.DoorX, Model.DoorY] = 3;
             WriteStructural(Model.DoorX, Model.DoorY, 3);
         }
@@ -963,18 +821,15 @@ public class Gamemap
 
     private bool ConstructMapForItem(Item item, Point coord)
     {
-        try
-        {
-            if (coord.X > Model.MapSizeX - 1)
-            {
+        try {
+            if (coord.X > Model.MapSizeX - 1) {
                 Model.AddX();
                 GenerateMapsCore(true);
 
                 return false;
             }
 
-            if (coord.Y > Model.MapSizeY - 1)
-            {
+            if (coord.Y > Model.MapSizeY - 1) {
                 Model.AddY();
                 GenerateMapsCore(true);
 
@@ -986,15 +841,13 @@ public class Gamemap
             // Ordinary furniture keeps the legacy bridge support over model void.
             // Helpers override walking without changing the underlying floor geometry.
             if (!MagicTileHeight.IsMagicTile(item.Definition.InteractionType)
-                && Model.SqState[coord.X, coord.Y] == SquareState.Blocked)
-            {
+                && Model.SqState[coord.X, coord.Y] == SquareState.Blocked) {
                 Model.OpenSquare(coord.X, coord.Y, item.GetZ);
             }
 
             var walkMagic = WalkMagicAt(coord.X, coord.Y);
 
-            if (walkMagic != null)
-            {
+            if (walkMagic != null) {
                 Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 1;
                 _itemHeightMap[coord.X, coord.Y] = walkMagic.GetZ - Model.SqFloorHeight[coord.X, coord.Y];
@@ -1004,18 +857,15 @@ public class Gamemap
                 return true;
             }
 
-            if (IgnoreStacktool(item))
-            {
+            if (IgnoreStacktool(item)) {
                 return true;
             }
 
-            if (_itemHeightMap[coord.X, coord.Y] <= item.TotalHeight)
-            {
+            if (_itemHeightMap[coord.X, coord.Y] <= item.TotalHeight) {
                 _itemHeightMap[coord.X, coord.Y] = item.TotalHeight - Model.SqFloorHeight[item.GetX, item.GetY];
                 EffectMap[coord.X, coord.Y] = 0;
 
-                switch (item.Definition.InteractionType)
-                {
+                switch (item.Definition.InteractionType) {
                     case InteractionType.Pool:
                         EffectMap[coord.X, coord.Y] = 1;
                         break;
@@ -1038,43 +888,37 @@ public class Gamemap
 
                 if (item.Definition.Walkable) // If this item is walkable and on the floor, allow users to walk here.
                 {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                    {
+                    if (GameMap[coord.X, coord.Y] != 3) {
                         GameMap[coord.X, coord.Y] = 1;
                     }
                 }
                 else if (item.GetZ <= Model.SqFloorHeight[item.GetX, item.GetY] + 0.1 && item.Definition.InteractionType == InteractionType.Gate &&
                          item.LegacyDataString == "1") // If this item is a gate, open, and on the floor, allow users to walk here.
                 {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                    {
+                    if (GameMap[coord.X, coord.Y] != 3) {
                         GameMap[coord.X, coord.Y] = 1;
                     }
                 }
-                else if (item.Definition.IsSeat || item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
-                {
+                else if (item.Definition.IsSeat || item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall) {
                     GameMap[coord.X, coord.Y] = 3;
                 }
                 else // Finally, if it's none of those, block the square.
                 {
-                    if (GameMap[coord.X, coord.Y] != 3)
-                    {
+                    if (GameMap[coord.X, coord.Y] != 3) {
                         GameMap[coord.X, coord.Y] = 0;
                     }
                 }
             }
 
             // Set bad maps
-            if (item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
-            {
+            if (item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall) {
                 Navigation?.ReleaseFloorStatus(coord.X, coord.Y);
                 GameMap[coord.X, coord.Y] = 3;
             }
 
             WriteStructural(coord.X, coord.Y, GameMap[coord.X, coord.Y]);
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             ExceptionLogger.LogException(e);
         }
 
@@ -1085,24 +929,19 @@ public class Gamemap
     {
         var items = new List<uint>(); //mCoordinatedItems[CoordForItem];
 
-        if (!_coordinatedItems.TryGetValue(coord, out items))
-        {
+        if (!_coordinatedItems.TryGetValue(coord, out items)) {
             items = new();
 
-            if (!items.Contains(item.Id))
-            {
+            if (!items.Contains(item.Id)) {
                 items.Add(item.Id);
             }
 
-            if (!_coordinatedItems.ContainsKey(coord))
-            {
+            if (!_coordinatedItems.ContainsKey(coord)) {
                 _coordinatedItems.TryAdd(coord, items);
             }
         }
-        else
-        {
-            if (!items.Contains(item.Id))
-            {
+        else {
+            if (!items.Contains(item.Id)) {
                 items.Add(item.Id);
                 _coordinatedItems[coord] = items;
             }
@@ -1114,8 +953,7 @@ public class Gamemap
         var point = new Point(coord.X, coord.Y);
         var items = new List<Item>();
 
-        if (_coordinatedItems.ContainsKey(point))
-        {
+        if (_coordinatedItems.ContainsKey(point)) {
             var ids = _coordinatedItems[point];
             items = GetItemsFromIds(ids);
 
@@ -1129,8 +967,7 @@ public class Gamemap
     {
         var point = new Point(coord.X, coord.Y);
 
-        if (_coordinatedItems != null && _coordinatedItems.ContainsKey(point))
-        {
+        if (_coordinatedItems != null && _coordinatedItems.ContainsKey(point)) {
             _coordinatedItems[point].RemoveAll(x => x == item.Id);
 
             return true;
@@ -1141,19 +978,16 @@ public class Gamemap
 
     private void AddSpecialItems(Item item)
     {
-        switch (item.Definition.InteractionType)
-        {
+        switch (item.Definition.InteractionType) {
             case InteractionType.FootballGate:
                 //IsTrans = true;
                 _room.GetSoccer().RegisterGate(item);
                 var splittedExtraData = item.LegacyDataString.Split(':');
 
-                if (string.IsNullOrEmpty(item.LegacyDataString) || splittedExtraData.Length <= 1)
-                {
+                if (string.IsNullOrEmpty(item.LegacyDataString) || splittedExtraData.Length <= 1) {
                     item.Gender = "M";
 
-                    switch (item.Team)
-                    {
+                    switch (item.Team) {
                         case Team.Yellow:
                             item.Figure = "lg-275-93.hr-115-61.hd-207-14.ch-265-93.sh-305-62";
                             break;
@@ -1168,51 +1002,42 @@ public class Gamemap
                             break;
                     }
                 }
-                else
-                {
+                else {
                     item.Gender = splittedExtraData[0];
                     item.Figure = splittedExtraData[1];
                 }
 
                 break;
-            case InteractionType.Banzaifloor:
-                {
+            case InteractionType.Banzaifloor: {
                     _room.GetBanzai().AddTile(item, item.Id);
                     break;
                 }
-            case InteractionType.Banzaipyramid:
-                {
+            case InteractionType.Banzaipyramid: {
                     _room.GetGameItemHandler().AddPyramid(item, item.Id);
                     break;
                 }
-            case InteractionType.Banzaitele:
-                {
+            case InteractionType.Banzaitele: {
                     _room.GetGameItemHandler().AddTeleport(item, item.Id);
                     item.LegacyDataString = "";
                     break;
                 }
-            case InteractionType.Banzaipuck:
-                {
+            case InteractionType.Banzaipuck: {
                     _room.GetBanzai().AddPuck(item);
                     break;
                 }
-            case InteractionType.Football:
-                {
+            case InteractionType.Football: {
                     _room.GetSoccer().AddBall(item);
                     break;
                 }
-            case InteractionType.FreezeTileBlock:
-                {
+            case InteractionType.FreezeTileBlock: {
                     _room.GetFreeze().AddFreezeBlock(item);
                     break;
                 }
-            case InteractionType.FreezeTile:
-                {
+            case InteractionType.FreezeTile: {
                     _room.GetFreeze().AddFreezeTile(item);
                     break;
                 }
-            case InteractionType.Freezeexit:
-                {
+            case InteractionType.Freezeexit: {
                     _room.GetFreeze().AddExitTile(item);
                     break;
                 }
@@ -1221,8 +1046,7 @@ public class Gamemap
 
     private void RemoveSpecialItem(Item item)
     {
-        switch (item.Definition.InteractionType)
-        {
+        switch (item.Definition.InteractionType) {
             case InteractionType.FootballGate:
                 _room.GetSoccer().UnRegisterGate(item);
                 break;
@@ -1257,13 +1081,11 @@ public class Gamemap
     {
         bool removed;
 
-        lock (_placementLock)
-        {
+        lock (_placementLock) {
             removed = RemoveFromMapCore(item);
         }
 
-        if (handleGameItem)
-        {
+        if (handleGameItem) {
             RemoveItemEffects(item);
         }
 
@@ -1274,8 +1096,7 @@ public class Gamemap
     {
         RemoveSpecialItem(item);
 
-        if (_room.GotSoccer())
-        {
+        if (_room.GotSoccer()) {
             _room.GetSoccer().OnGateRemove(item);
         }
     }
@@ -1284,27 +1105,22 @@ public class Gamemap
     {
         var isRemoved = false;
 
-        foreach (var coord in item.GetCoords.ToList())
-        {
-            if (RemoveCoordinatedItem(item, coord))
-            {
+        foreach (var coord in item.GetCoords.ToList()) {
+            if (RemoveCoordinatedItem(item, coord)) {
                 isRemoved = true;
             }
         }
 
         var conflictedName = new ConcurrentDictionary<Point, List<Item>>();
 
-        foreach (var tile in item.GetCoords.ToList())
-        {
+        foreach (var tile in item.GetCoords.ToList()) {
             var point = new Point(tile.X, tile.Y);
 
-            if (_coordinatedItems.ContainsKey(point))
-            {
+            if (_coordinatedItems.ContainsKey(point)) {
                 var ids = _coordinatedItems[point];
                 var items = GetItemsFromIds(ids);
 
-                if (!conflictedName.ContainsKey(tile))
-                {
+                if (!conflictedName.ContainsKey(tile)) {
                     conflictedName.TryAdd(tile, items);
                 }
             }
@@ -1313,17 +1129,14 @@ public class Gamemap
             SetDefaultValue(tile.X, tile.Y);
         }
 
-        foreach (var coord in conflictedName.Keys.ToList())
-        {
-            if (!conflictedName.ContainsKey(coord))
-            {
+        foreach (var coord in conflictedName.Keys.ToList()) {
+            if (!conflictedName.ContainsKey(coord)) {
                 continue;
             }
 
             var subItems = conflictedName[coord];
 
-            foreach (var subItem in subItems.ToList())
-            {
+            foreach (var subItem in subItems.ToList()) {
                 ConstructMapForItem(subItem, coord);
             }
         }
@@ -1340,13 +1153,11 @@ public class Gamemap
     {
         bool added;
 
-        lock (_placementLock)
-        {
+        lock (_placementLock) {
             added = AddItemToMapCore(item);
         }
 
-        if (handleGameItem)
-        {
+        if (handleGameItem) {
             AddItemEffects(item);
         }
 
@@ -1357,17 +1168,14 @@ public class Gamemap
     {
         AddSpecialItems(item);
 
-        switch (item.Definition.InteractionType)
-        {
+        switch (item.Definition.InteractionType) {
             case InteractionType.FootballGoalRed:
             case InteractionType.Footballcounterred:
             case InteractionType.Banzaiscorered:
             case InteractionType.Banzaigatered:
             case InteractionType.Freezeredcounter:
-            case InteractionType.FreezeRedGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                    {
+            case InteractionType.FreezeRedGate: {
+                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item)) {
                         _room.GetGameManager().AddFurnitureToTeam(item, Team.Red);
                     }
 
@@ -1378,10 +1186,8 @@ public class Gamemap
             case InteractionType.Banzaiscoregreen:
             case InteractionType.Banzaigategreen:
             case InteractionType.Freezegreencounter:
-            case InteractionType.FreezeGreenGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                    {
+            case InteractionType.FreezeGreenGate: {
+                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item)) {
                         _room.GetGameManager().AddFurnitureToTeam(item, Team.Green);
                     }
 
@@ -1392,10 +1198,8 @@ public class Gamemap
             case InteractionType.Banzaiscoreblue:
             case InteractionType.Banzaigateblue:
             case InteractionType.Freezebluecounter:
-            case InteractionType.FreezeBlueGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                    {
+            case InteractionType.FreezeBlueGate: {
+                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item)) {
                         _room.GetGameManager().AddFurnitureToTeam(item, Team.Blue);
                     }
 
@@ -1406,24 +1210,19 @@ public class Gamemap
             case InteractionType.Banzaiscoreyellow:
             case InteractionType.Banzaigateyellow:
             case InteractionType.Freezeyellowcounter:
-            case InteractionType.FreezeYellowGate:
-                {
-                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item))
-                    {
+            case InteractionType.FreezeYellowGate: {
+                    if (!_room.GetRoomItemHandler().GetFloor.Contains(item)) {
                         _room.GetGameManager().AddFurnitureToTeam(item, Team.Yellow);
                     }
 
                     break;
                 }
-            case InteractionType.Freezeexit:
-                {
+            case InteractionType.Freezeexit: {
                     _room.GetFreeze().AddExitTile(item);
                     break;
                 }
-            case InteractionType.Roller:
-                {
-                    if (!_room.GetRoomItemHandler().GetRollers().Contains(item))
-                    {
+            case InteractionType.Roller: {
+                    if (!_room.GetRoomItemHandler().GetRollers().Contains(item)) {
                         _room.GetRoomItemHandler().TryAddRoller(item.Id, item);
                     }
 
@@ -1434,26 +1233,22 @@ public class Gamemap
 
     private bool AddItemToMapCore(Item item)
     {
-        if (item.Definition.Type != ItemType.Floor)
-        {
+        if (item.Definition.Type != ItemType.Floor) {
             return true;
         }
 
-        foreach (var coord in item.GetCoords.ToList())
-        {
+        foreach (var coord in item.GetCoords.ToList()) {
             AddCoordinatedItem(item, new(coord.X, coord.Y));
         }
 
-        if (item.GetX > Model.MapSizeX - 1)
-        {
+        if (item.GetX > Model.MapSizeX - 1) {
             Model.AddX();
             GenerateMapsCore(true);
 
             return false;
         }
 
-        if (item.GetY > Model.MapSizeY - 1)
-        {
+        if (item.GetY > Model.MapSizeY - 1) {
             Model.AddY();
             GenerateMapsCore(true);
 
@@ -1462,14 +1257,11 @@ public class Gamemap
 
         var @return = true;
 
-        foreach (var coord in item.GetCoords)
-        {
-            if (!ConstructMapForItem(item, coord))
-            {
+        foreach (var coord in item.GetCoords) {
+            if (!ConstructMapForItem(item, coord)) {
                 @return = false;
             }
-            else
-            {
+            else {
                 @return = true;
             }
         }
@@ -1480,13 +1272,11 @@ public class Gamemap
 
     public bool CanWalk(int x, int y, bool @override)
     {
-        if (@override)
-        {
+        if (@override) {
             return true;
         }
 
-        if (_room.GetRoomUserManager().GetUserForSquare(x, y) != null && !_room.RoomBlockingEnabled)
-        {
+        if (_room.GetRoomUserManager().GetUserForSquare(x, y) != null && !_room.RoomBlockingEnabled) {
             return false;
         }
 
@@ -1499,20 +1289,16 @@ public class Gamemap
     {
         var points = GetAffectedTiles(item.Definition.Length, item.Definition.Width, moveTo.X, moveTo.Y, item.Rotation).Values.ToList();
 
-        if (points == null || points.Count == 0)
-        {
+        if (points == null || points.Count == 0) {
             return true;
         }
 
-        foreach (var coord in points)
-        {
-            if (coord.X >= Model.MapSizeX || coord.Y >= Model.MapSizeY)
-            {
+        foreach (var coord in points) {
+            if (coord.X >= Model.MapSizeX || coord.Y >= Model.MapSizeY) {
                 return false;
             }
 
-            if (!SquareIsOpen(coord.X, coord.Y, false))
-            {
+            if (!SquareIsOpen(coord.X, coord.Y, false)) {
                 return false;
             }
         }
@@ -1522,8 +1308,7 @@ public class Gamemap
 
     public byte GetFloorStatus(Point coord)
     {
-        if (coord.X > GameMap.GetUpperBound(0) || coord.Y > GameMap.GetUpperBound(1))
-        {
+        if (coord.X > GameMap.GetUpperBound(0) || coord.Y > GameMap.GetUpperBound(1)) {
             return 1;
         }
 
@@ -1540,8 +1325,7 @@ public class Gamemap
     public double GetHeightForSquareFromData(Point coord)
     {
         if (coord.X > Model.SqFloorHeight.GetUpperBound(0) ||
-            coord.Y > Model.SqFloorHeight.GetUpperBound(1))
-        {
+            coord.Y > Model.SqFloorHeight.GetUpperBound(1)) {
             return 1;
         }
 
@@ -1550,13 +1334,11 @@ public class Gamemap
 
     public bool CanRollItemHere(int x, int y)
     {
-        if (!ValidTile(x, y))
-        {
+        if (!ValidTile(x, y)) {
             return false;
         }
 
-        if (Model.SqState[x, y] == SquareState.Blocked)
-        {
+        if (Model.SqState[x, y] == SquareState.Blocked) {
             return false;
         }
 
@@ -1565,8 +1347,7 @@ public class Gamemap
 
     public bool SquareIsOpen(int x, int y, bool pOverride)
     {
-        if (Model.MapSizeX - 1 < x || Model.MapSizeY - 1 < y)
-        {
+        if (Model.MapSizeX - 1 < x || Model.MapSizeY - 1 < y) {
             return false;
         }
 
@@ -1579,24 +1360,19 @@ public class Gamemap
         item = null;
         double highestZ = -1;
 
-        if (items != null && items.Count > 0)
-        {
-            foreach (var uItem in items.ToList())
-            {
-                if (uItem == null)
-                {
+        if (items != null && items.Count > 0) {
+            foreach (var uItem in items.ToList()) {
+                if (uItem == null) {
                     continue;
                 }
 
-                if (uItem.TotalHeight > highestZ)
-                {
+                if (uItem.TotalHeight > highestZ) {
                     highestZ = uItem.TotalHeight;
                     item = uItem;
                 }
             }
         }
-        else
-        {
+        else {
             return false;
         }
 
@@ -1605,10 +1381,8 @@ public class Gamemap
 
     public double GetHeightForSquare(Point coord)
     {
-        if (GetHighestItemForSquare(coord, out var rItem))
-        {
-            if (rItem != null)
-            {
+        if (GetHighestItemForSquare(coord, out var rItem)) {
+            if (rItem != null) {
                 return rItem.TotalHeight;
             }
         }
@@ -1624,56 +1398,44 @@ public class Gamemap
         var iY = item.GetY;
         var x = false;
 
-        foreach (var user in _room.GetRoomUserManager().GetRoomUsers())
-        {
-            if (user.X == item.GetX || item.GetY == user.Y)
-            {
-                if (user.X == item.GetX)
-                {
+        foreach (var user in _room.GetRoomUserManager().GetRoomUsers()) {
+            if (user.X == item.GetX || item.GetY == user.Y) {
+                if (user.X == item.GetX) {
                     var difference = Math.Abs(user.Y - item.GetY);
 
-                    if (difference < distance)
-                    {
+                    if (difference < distance) {
                         distance = difference;
                         coord = user.Coordinate;
                         x = false;
                     }
-                    else
-                    {
+                    else {
                         continue;
                     }
                 }
-                else if (user.Y == item.GetY)
-                {
+                else if (user.Y == item.GetY) {
                     var difference = Math.Abs(user.X - item.GetX);
 
-                    if (difference < distance)
-                    {
+                    if (difference < distance) {
                         distance = difference;
                         coord = user.Coordinate;
                         x = true;
                     }
-                    else
-                    {
+                    else {
                         continue;
                     }
                 }
-                else
-                {
+                else {
                     continue;
                 }
             }
         }
 
-        if (distance > 5)
-        {
+        if (distance > 5) {
             return item.GetSides().OrderBy(_ => Guid.NewGuid()).FirstOrDefault();
         }
 
-        if (x && distance < 99)
-        {
-            if (iX > coord.X)
-            {
+        if (x && distance < 99) {
+            if (iX > coord.X) {
                 iX--;
 
                 return new(iX, iY);
@@ -1684,10 +1446,8 @@ public class Gamemap
             return new(iX, iY);
         }
 
-        if (!x && distance < 99)
-        {
-            if (iY > coord.Y)
-            {
+        if (!x && distance < 99) {
+            if (iY > coord.Y) {
                 iY--;
 
                 return new(iX, iY);
@@ -1703,25 +1463,21 @@ public class Gamemap
 
     public bool IsValidStep2(RoomUser user, Vector2D from, Vector2D to, bool endOfPath, bool @override)
     {
-        if (user == null)
-        {
+        if (user == null) {
             return false;
         }
 
-        if (!ValidTile(to.X, to.Y))
-        {
+        if (!ValidTile(to.X, to.Y)) {
             return false;
         }
 
         // Execution, not only path search. Temporary stress bots keep AllowOverride so
         // crowded tiles stay usable. Walls and height still apply; only occupancy is ignored.
-        if (@override && user.BotData?.IsTemporary == true)
-        {
+        if (@override && user.BotData?.IsTemporary == true) {
             return IsValidBotStep(from, to, endOfPath);
         }
 
-        if (@override)
-        {
+        if (@override) {
             return true;
         }
 
@@ -1733,28 +1489,22 @@ public class Gamemap
 * */
         var items = _room.GetGameMap().GetAllRoomItemForSquare(to.X, to.Y);
 
-        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null)
-        {
+        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null) {
             var hasGroupGate = items.ToList().Count(x => x.Definition.InteractionType == InteractionType.GuildGate) > 0;
 
-            if (hasGroupGate)
-            {
+            if (hasGroupGate) {
                 var I = items.FirstOrDefault(x => x.Definition.InteractionType == InteractionType.GuildGate);
 
-                if (I != null)
-                {
-                    if (!_groups.TryGetGroup(I.GroupId, out var group))
-                    {
+                if (I != null) {
+                    if (!_groups.TryGetGroup(I.GroupId, out var group)) {
                         return false;
                     }
 
-                    if (user.GetClient() == null || user.GetClient().GetHabbo() == null)
-                    {
+                    if (user.GetClient() == null || user.GetClient().GetHabbo() == null) {
                         return false;
                     }
 
-                    if (group.IsMember(user.GetClient().GetHabbo().Id))
-                    {
+                    if (group.IsMember(user.GetClient().GetHabbo().Id)) {
                         I.InteractingUser = user.GetClient().GetHabbo().Id;
                         I.LegacyDataString = "1";
                         I.UpdateState(false, true);
@@ -1763,8 +1513,7 @@ public class Gamemap
                         return true;
                     }
 
-                    if (user.Path.Count > 0)
-                    {
+                    if (user.Path.Count > 0) {
                         user.Path.Clear();
                     }
 
@@ -1778,31 +1527,25 @@ public class Gamemap
         var chair = false;
         double highestZ = -1;
 
-        foreach (var item in items.ToList())
-        {
-            if (item == null)
-            {
+        foreach (var item in items.ToList()) {
+            if (item == null) {
                 continue;
             }
 
-            if (item.GetZ < highestZ)
-            {
+            if (item.GetZ < highestZ) {
                 chair = false;
                 continue;
             }
 
             highestZ = item.GetZ;
 
-            if (item.Definition.IsSeat)
-            {
+            if (item.Definition.IsSeat) {
                 chair = true;
             }
         }
 
-        if (GameMap[to.X, to.Y] == 3 && !endOfPath && !chair || GameMap[to.X, to.Y] == 0 || GameMap[to.X, to.Y] == 2 && !endOfPath)
-        {
-            if (user.Path.Count > 0)
-            {
+        if (GameMap[to.X, to.Y] == 3 && !endOfPath && !chair || GameMap[to.X, to.Y] == 0 || GameMap[to.X, to.Y] == 2 && !endOfPath) {
+            if (user.Path.Count > 0) {
                 user.Path.Clear();
             }
 
@@ -1811,18 +1554,15 @@ public class Gamemap
 
         var heightDiff = SqAbsoluteHeight(to.X, to.Y) - SqAbsoluteHeight(from.X, from.Y);
 
-        if (heightDiff > 1.5 && !user.RidingHorse)
-        {
+        if (heightDiff > 1.5 && !user.RidingHorse) {
             return false;
         }
 
         //Check this last, because ya.
         var userx = _room.GetRoomUserManager().GetUserForSquare(to.X, to.Y);
 
-        if (userx != null)
-        {
-            if (!userx.IsWalking && endOfPath)
-            {
+        if (userx != null) {
+            if (!userx.IsWalking && endOfPath) {
                 return false;
             }
         }
@@ -1832,15 +1572,12 @@ public class Gamemap
 
     public bool IsValidStep(Vector2D from, Vector2D to, bool endOfPath, bool overriding, bool roller = false, RoomUser? user = null)
     {
-        if (!ValidTile(to.X, to.Y))
-        {
+        if (!ValidTile(to.X, to.Y)) {
             return false;
         }
 
-        if (overriding)
-        {
-            if (user?.BotData?.IsTemporary == true)
-            {
+        if (overriding) {
+            if (user?.BotData?.IsTemporary == true) {
                 return IsValidBotStep(from, to, endOfPath);
             }
 
@@ -1853,34 +1590,28 @@ public class Gamemap
          * 2 = last step
          * 3 = door
          * */
-        if (!_room.RoomBlockingEnabled && SquareHasUsers(to.X, to.Y))
-        {
+        if (!_room.RoomBlockingEnabled && SquareHasUsers(to.X, to.Y)) {
             return false;
         }
 
         var items = _room.GetGameMap().GetAllRoomItemForSquare(to.X, to.Y);
 
-        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null)
-        {
+        if (items.Count > 0 && WalkMagicAt(to.X, to.Y) == null) {
             var hasGroupGate = items.ToList().Count(x => x != null && x.Definition.InteractionType == InteractionType.GuildGate) > 0;
 
-            if (hasGroupGate)
-            {
+            if (hasGroupGate) {
                 return true;
             }
         }
 
-        if (GameMap[to.X, to.Y] == 3 && !endOfPath || GameMap[to.X, to.Y] == 0 || GameMap[to.X, to.Y] == 2 && !endOfPath)
-        {
+        if (GameMap[to.X, to.Y] == 3 && !endOfPath || GameMap[to.X, to.Y] == 0 || GameMap[to.X, to.Y] == 2 && !endOfPath) {
             return false;
         }
 
-        if (!roller)
-        {
+        if (!roller) {
             var heightDiff = SqAbsoluteHeight(to.X, to.Y) - SqAbsoluteHeight(from.X, from.Y);
 
-            if (heightDiff > 1.5)
-            {
+            if (heightDiff > 1.5) {
                 return false;
             }
         }
@@ -1890,15 +1621,12 @@ public class Gamemap
 
     public static bool CanWalk(byte state, bool overriding)
     {
-        if (!overriding)
-        {
-            if (state == 3)
-            {
+        if (!overriding) {
+            if (state == 3) {
                 return true;
             }
 
-            if (state == 1)
-            {
+            if (state == 1) {
                 return true;
             }
 
@@ -1911,8 +1639,7 @@ public class Gamemap
     public bool ItemCanBePlaced(int x, int y)
     {
         if (Model.MapSizeX - 1 < x || Model.MapSizeY - 1 < y ||
-            x == Model.DoorX && y == Model.DoorY)
-        {
+            x == Model.DoorX && y == Model.DoorY) {
             return false;
         }
 
@@ -1923,8 +1650,7 @@ public class Gamemap
     {
         var points = new Point(x, y);
 
-        if (_coordinatedItems.TryGetValue(points, out var ids))
-        {
+        if (_coordinatedItems.TryGetValue(points, out var ids)) {
             var items = GetItemsFromIds(ids);
 
             return SqAbsoluteHeight(x, y, items);
@@ -1946,10 +1672,8 @@ public class Gamemap
 
     public double SqAbsoluteHeight(int x, int y, List<Item> itemsOnSquare)
     {
-        try
-        {
-            if (WalkMagicAt(x, y) is { } walkMagic)
-            {
+        try {
+            if (WalkMagicAt(x, y) is { } walkMagic) {
                 return walkMagic.GetZ;
             }
 
@@ -1957,24 +1681,18 @@ public class Gamemap
             double highestStack = 0;
             var deductable = 0.0;
 
-            if (itemsOnSquare != null && itemsOnSquare.Count > 0)
-            {
-                foreach (var item in itemsOnSquare.ToList())
-                {
-                    if (item == null || IgnoreStacktool(item))
-                    {
+            if (itemsOnSquare != null && itemsOnSquare.Count > 0) {
+                foreach (var item in itemsOnSquare.ToList()) {
+                    if (item == null || IgnoreStacktool(item)) {
                         continue;
                     }
 
-                    if (item.TotalHeight > highestStack)
-                    {
-                        if (item.Definition.IsSeat || item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall)
-                        {
+                    if (item.TotalHeight > highestStack) {
+                        if (item.Definition.IsSeat || item.Definition.InteractionType == InteractionType.Bed || item.Definition.InteractionType == InteractionType.TentSmall) {
                             deduct = true;
                             deductable = item.Definition.Height;
                         }
-                        else
-                        {
+                        else {
                             deduct = false;
                         }
 
@@ -1986,20 +1704,17 @@ public class Gamemap
             double floorHeight = Model.SqFloorHeight[x, y];
             var stackHeight = highestStack - Model.SqFloorHeight[x, y];
 
-            if (deduct)
-            {
+            if (deduct) {
                 stackHeight -= deductable;
             }
 
-            if (stackHeight < 0)
-            {
+            if (stackHeight < 0) {
                 stackHeight = 0;
             }
 
             return floorHeight + stackHeight;
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             ExceptionLogger.LogException(e);
 
             return 0;
@@ -2008,8 +1723,7 @@ public class Gamemap
 
     public bool ValidTile(int x, int y)
     {
-        if (x < 0 || y < 0 || x >= Model.MapSizeX || y >= Model.MapSizeY)
-        {
+        if (x < 0 || y < 0 || x >= Model.MapSizeX || y >= Model.MapSizeY) {
             return false;
         }
 
@@ -2021,56 +1735,42 @@ public class Gamemap
         var x = 0;
         var pointList = new Dictionary<int, ThreeDCoord>();
 
-        if (length > 1)
-        {
-            if (rotation == 0 || rotation == 4)
-            {
-                for (var i = 1; i < length; i++)
-                {
+        if (length > 1) {
+            if (rotation == 0 || rotation == 4) {
+                for (var i = 1; i < length; i++) {
                     pointList.Add(x++, new(posX, posY + i, i));
 
-                    for (var j = 1; j < width; j++)
-                    {
+                    for (var j = 1; j < width; j++) {
                         pointList.Add(x++, new(posX + j, posY + i, i < j ? j : i));
                     }
                 }
             }
-            else if (rotation == 2 || rotation == 6)
-            {
-                for (var i = 1; i < length; i++)
-                {
+            else if (rotation == 2 || rotation == 6) {
+                for (var i = 1; i < length; i++) {
                     pointList.Add(x++, new(posX + i, posY, i));
 
-                    for (var j = 1; j < width; j++)
-                    {
+                    for (var j = 1; j < width; j++) {
                         pointList.Add(x++, new(posX + i, posY + j, i < j ? j : i));
                     }
                 }
             }
         }
 
-        if (width > 1)
-        {
-            if (rotation == 0 || rotation == 4)
-            {
-                for (var i = 1; i < width; i++)
-                {
+        if (width > 1) {
+            if (rotation == 0 || rotation == 4) {
+                for (var i = 1; i < width; i++) {
                     pointList.Add(x++, new(posX + i, posY, i));
 
-                    for (var j = 1; j < length; j++)
-                    {
+                    for (var j = 1; j < length; j++) {
                         pointList.Add(x++, new(posX + i, posY + j, i < j ? j : i));
                     }
                 }
             }
-            else if (rotation == 2 || rotation == 6)
-            {
-                for (var i = 1; i < width; i++)
-                {
+            else if (rotation == 2 || rotation == 6) {
+                for (var i = 1; i < width; i++) {
                     pointList.Add(x++, new(posX, posY + i, i));
 
-                    for (var j = 1; j < length; j++)
-                    {
+                    for (var j = 1; j < length; j++) {
                         pointList.Add(x++, new(posX + j, posY + i, i < j ? j : i));
                     }
                 }
@@ -2082,21 +1782,17 @@ public class Gamemap
 
     public List<Item> GetItemsFromIds(List<uint> input)
     {
-        if (input == null || input.Count == 0)
-        {
+        if (input == null || input.Count == 0) {
             return new();
         }
 
         var items = new List<Item>();
 
-        lock (input)
-        {
-            foreach (var id in input.ToList())
-            {
+        lock (input) {
+            foreach (var id in input.ToList()) {
                 var itm = _room.GetRoomItemHandler().GetItem(id);
 
-                if (itm != null && !items.Contains(itm))
-                {
+                if (itm != null && !items.Contains(itm)) {
                     items.Add(itm);
                 }
             }
@@ -2110,16 +1806,12 @@ public class Gamemap
         var itemsToReturn = new List<Item>();
         var coord = new Point(pX, pY);
 
-        if (_coordinatedItems.ContainsKey(coord))
-        {
+        if (_coordinatedItems.ContainsKey(coord)) {
             var itemsFromSquare = GetItemsFromIds(_coordinatedItems[coord]);
 
-            foreach (var item in itemsFromSquare)
-            {
-                if (item.GetZ > minZ)
-                {
-                    if (item.GetX == pX && item.GetY == pY)
-                    {
+            foreach (var item in itemsFromSquare) {
+                if (item.GetZ > minZ) {
+                    if (item.GetX == pX && item.GetY == pY) {
                         itemsToReturn.Add(item);
                     }
                 }
@@ -2135,14 +1827,11 @@ public class Gamemap
         //List<RoomItem> itemsFromSquare = new List<RoomItem>();
         var itemsToReturn = new List<Item>();
 
-        if (_coordinatedItems.ContainsKey(coord))
-        {
+        if (_coordinatedItems.ContainsKey(coord)) {
             var itemsFromSquare = GetItemsFromIds(_coordinatedItems[coord]);
 
-            foreach (var item in itemsFromSquare)
-            {
-                if (item.Coordinate.X == coord.X && item.Coordinate.Y == coord.Y)
-                {
+            foreach (var item in itemsFromSquare) {
+                if (item.Coordinate.X == coord.X && item.Coordinate.Y == coord.Y) {
                     itemsToReturn.Add(item);
                 }
             }
@@ -2156,12 +1845,10 @@ public class Gamemap
         var coord = new Point(x, y);
         var items = new List<Item>();
 
-        if (_coordinatedItems.TryGetValue(coord, out var ids))
-        {
+        if (_coordinatedItems.TryGetValue(coord, out var ids)) {
             items = GetItemsFromIds(ids);
         }
-        else
-        {
+        else {
             items = new();
         }
 
@@ -2173,13 +1860,11 @@ public class Gamemap
 
     public static bool TilesTouching(int x1, int y1, int x2, int y2)
     {
-        if (!(Math.Abs(x1 - x2) > 1 || Math.Abs(y1 - y2) > 1))
-        {
+        if (!(Math.Abs(x1 - x2) > 1 || Math.Abs(y1 - y2) > 1)) {
             return true;
         }
 
-        if (x1 == x2 && y1 == y2)
-        {
+        if (x1 == x2 && y1 == y2) {
             return true;
         }
 
@@ -2190,10 +1875,8 @@ public class Gamemap
 
     public void Dispose()
     {
-        lock (_placementLock)
-        {
-            if (Model == null)
-            {
+        lock (_placementLock) {
+            if (Model == null) {
                 return;
             }
 

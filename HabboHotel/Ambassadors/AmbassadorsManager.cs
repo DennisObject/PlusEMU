@@ -23,16 +23,14 @@ public class AmbassadorsManager : IAmbassadorsManager
     {
         var ambassador = session.GetHabbo();
 
-        if (!ambassador.IsAmbassador)
-        {
+        if (!ambassador.IsAmbassador) {
             return;
         }
 
         var targetClient = _clients.GetClientByUserId(targetId);
         var target = targetClient?.GetHabbo();
 
-        if (targetClient == null || target == null)
-        {
+        if (targetClient == null || target == null) {
             return;
         }
 

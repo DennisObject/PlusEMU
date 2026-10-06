@@ -21,8 +21,7 @@ public class ProfileInformationComposer(PlayerProfileSnapshot profile) : IServer
         packet.WriteBoolean(profile.Online);
         packet.WriteInteger(profile.Groups.Length);
 
-        foreach (var group in profile.Groups)
-        {
+        foreach (var group in profile.Groups) {
             packet.WriteInteger(group.Id);
             packet.WriteString(group.Name);
             packet.WriteString(group.Badge);

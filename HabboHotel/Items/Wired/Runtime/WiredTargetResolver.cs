@@ -25,17 +25,14 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
         };
 
         // Static editor picks never acquire ownership of transient furniture, including after ID reuse.
-        if (source is WiredSources.Selected or WiredSources.Snapshot)
-        {
+        if (source is WiredSources.Selected or WiredSources.Snapshot) {
             ids = ids.Where(id => context.FurniIdentity.TryGetValue(id, out var picked) && !picked.IsTemporary);
         }
 
-        if (!raw && source != WiredSources.Selector && context.Policy.Addons.FurniLimit is > 0 and var limit)
-        {
+        if (!raw && source != WiredSources.Selector && context.Policy.Addons.FurniLimit is > 0 and var limit) {
             var key = (source, string.Join(',', savedIds), limit);
 
-            if (!context.FurniSubsets.TryGetValue(key, out var subset))
-            {
+            if (!context.FurniSubsets.TryGetValue(key, out var subset)) {
                 subset = ids.Distinct().ToArray();
                 Random.Shared.Shuffle(subset);
                 subset = subset.Take(limit).ToArray();
@@ -78,13 +75,11 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown avatar source")
         };
 
-        if (!raw && source != WiredSources.Selector && context.Policy.Addons.UserLimit is > 0 and var limit)
-        {
+        if (!raw && source != WiredSources.Selector && context.Policy.Addons.UserLimit is > 0 and var limit) {
             var key = (source, string.Join(',', savedIds), name, limit,
                 source == WiredSources.Trigger ? string.Join(',', ids.Order()) : "");
 
-            if (!context.UserSubsets.TryGetValue(key, out var subset))
-            {
+            if (!context.UserSubsets.TryGetValue(key, out var subset)) {
                 subset = ids.Distinct().ToArray();
                 Random.Shared.Shuffle(subset);
                 subset = subset.Take(limit).ToArray();

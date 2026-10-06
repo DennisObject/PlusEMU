@@ -89,8 +89,7 @@ public class GroupParticipationTests
             {
                 storeEntries.Add((groupId, habbo.HabboStats.FavouriteGroupId));
 
-                if (groupId == first.Id)
-                {
+                if (groupId == first.Id) {
                     entered.Set();
                     Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
                 }
@@ -102,8 +101,7 @@ public class GroupParticipationTests
         var gateCalls = 0;
         var accounts = CatalogSnapshotTestSupport.Proxy<IAccountSessionGate>((_, args) =>
         {
-            if (Interlocked.Increment(ref gateCalls) == 2)
-            {
+            if (Interlocked.Increment(ref gateCalls) == 2) {
                 secondEnteredGate.Set();
             }
 
@@ -114,21 +112,18 @@ public class GroupParticipationTests
         var firstRequest = Task.Run(() => service.SetFavourite(clientA, first.Id));
         Task? secondRequest = null;
 
-        try
-        {
+        try {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
             secondRequest = Task.Run(() => service.SetFavourite(clientB, second.Id));
             Assert.True(secondEnteredGate.Wait(TimeSpan.FromSeconds(5)));
             Assert.False(secondRequest.IsCompleted);
             Assert.Single(store.Favourites);
         }
-        finally
-        {
+        finally {
             release.Set();
             await firstRequest.WaitAsync(TimeSpan.FromSeconds(5));
 
-            if (secondRequest != null)
-            {
+            if (secondRequest != null) {
                 await secondRequest.WaitAsync(TimeSpan.FromSeconds(5));
             }
         }
@@ -151,8 +146,7 @@ public class GroupParticipationTests
         var captures = 0;
         var snapshots = CatalogSnapshotTestSupport.Proxy<IGroupInfoSnapshotService>((_, args) =>
         {
-            if (Interlocked.Increment(ref captures) == 1)
-            {
+            if (Interlocked.Increment(ref captures) == 1) {
                 capturing.Set();
                 Assert.True(releaseCapture.Wait(TimeSpan.FromSeconds(5)));
             }
@@ -182,20 +176,17 @@ public class GroupParticipationTests
         var join = Task.Run(() => participation.Join(member, group.Id));
         Task? update = null;
 
-        try
-        {
+        try {
             Assert.True(capturing.Wait(TimeSpan.FromSeconds(5)));
             update = Task.Run(() => settings.Update(owner, new(group.Id, 0, 0, false)));
             Assert.True(settingsResolved.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(0, Volatile.Read(ref settingsWrites));
         }
-        finally
-        {
+        finally {
             releaseCapture.Set();
             await join.WaitAsync(TimeSpan.FromSeconds(5));
 
-            if (update != null)
-            {
+            if (update != null) {
                 await update.WaitAsync(TimeSpan.FromSeconds(5));
             }
         }
@@ -220,8 +211,7 @@ public class GroupParticipationTests
         // The deletion holds the group lock while it removes the group, as the removal path does.
         Task join;
 
-        lock (group)
-        {
+        lock (group) {
             join = Task.Run(() => service.Join(client, group.Id));
             Assert.True(firstLookup.Wait(TimeSpan.FromSeconds(10)));
             directory.Remove(group.Id);
@@ -489,8 +479,7 @@ public class GroupParticipationTests
         var change = Task.Run(Change);
         Task? save = null;
 
-        try
-        {
+        try {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(original, habbo.HabboStats.FavouriteGroupId);
             Assert.Empty(sent);
@@ -498,20 +487,16 @@ public class GroupParticipationTests
             Assert.True(saving.Wait(TimeSpan.FromSeconds(5)));
             Assert.NotSame(save, await Task.WhenAny(save, Task.Delay(150)));
         }
-        finally
-        {
+        finally {
             release.Set();
 
-            try
-            {
+            try {
                 await change.WaitAsync(TimeSpan.FromSeconds(10));
             }
             catch { }
 
-            if (save != null)
-            {
-                try
-                {
+            if (save != null) {
+                try {
                     await save.WaitAsync(TimeSpan.FromSeconds(10));
                 }
                 catch { }
@@ -591,10 +576,7 @@ public class GroupParticipationTests
     {
         public List<object[]> Joins { get; } = new();
         public List<object[]> Favourites { get; } = new();
-        public int RemoveCount
-        {
-            get; private set;
-        }
+        public int RemoveCount { get; private set; }
         public Task Join(GameClient session, int groupId)
         {
             Joins.Add(new object[] { groupId });

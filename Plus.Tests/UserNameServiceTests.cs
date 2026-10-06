@@ -100,8 +100,7 @@ public sealed class UserNameServiceTests
         visits[4] = observerVisit;
         map.AddUserToMap(observerVisit, new(1, 0));
 
-        foreach (var recipient in new[] { (Plus.Communication.Flash.FlashGameClient)context.Client, observer })
-        {
+        foreach (var recipient in new[] { (Plus.Communication.Flash.FlashGameClient)context.Client, observer }) {
             var capture = recipient.SendCallback;
             recipient.SendCallback = args =>
             {
@@ -226,12 +225,10 @@ public sealed class UserNameServiceTests
         using var server = new MySqlConnection(connectionString);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema }.ConnectionString);
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 connection.Execute("CREATE TABLE users(id INT PRIMARY KEY,username VARCHAR(50) NOT NULL UNIQUE,last_change DATETIME(6) NULL)");
                 connection.Execute("CREATE TABLE logs_client_namechange(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,new_name VARCHAR(50) NOT NULL,old_name VARCHAR(50) NOT NULL,`timestamp` DECIMAL(20,6) NULL)");
                 connection.Execute("INSERT INTO users VALUES(42,'Dennis',NULL)");
@@ -244,8 +241,7 @@ public sealed class UserNameServiceTests
             var changedAt = new DateTimeOffset(2041, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)).AddTicks(1234560);
             Assert.True(new NameChangeStore(database).Change(42, "Dennis", "Renamed", changedAt, true));
 
-            using (var verify = database.Connection())
-            {
+            using (var verify = database.Connection()) {
                 Assert.Equal("Renamed", verify.ExecuteScalar<string>("SELECT username FROM users WHERE id=42"));
                 Assert.Equal(changedAt.UtcDateTime, verify.ExecuteScalar<DateTime>("SELECT last_change FROM users WHERE id=42"));
                 Assert.Equal(changedAt.UtcDateTime, verify.ExecuteScalar<DateTime>("SELECT `timestamp` FROM logs_client_namechange WHERE user_id=42"));
@@ -256,8 +252,7 @@ public sealed class UserNameServiceTests
             using var rollback = database.Connection();
             Assert.Equal("Renamed", rollback.ExecuteScalar<string>("SELECT username FROM users WHERE id=42"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -341,14 +336,8 @@ public sealed class UserNameServiceTests
 
     private sealed class RecordingNameService : IUserNameService
     {
-        public string? Checked
-        {
-            get; private set;
-        }
-        public string? Changed
-        {
-            get; private set;
-        }
+        public string? Checked { get; private set; }
+        public string? Changed { get; private set; }
         public Task Check(GameClient session, string name)
         {
             Checked = name;
@@ -409,10 +398,7 @@ public sealed class UserNameServiceTests
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset Now { get; } = now;
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

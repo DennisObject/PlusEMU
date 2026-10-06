@@ -54,11 +54,7 @@ public sealed class ScalarCollectionFreezeTests
         var expected = new HabbiconTestSupport.RecordingPacket();
         expected.WriteInteger(1);
         HousekeepingRoomDetailComposer.WriteRoom(expected, room);
-        values[0] = room with
-        {
-            Name = "changed",
-            UserCount = 0
-        };
+        values[0] = room with { Name = "changed", UserCount = 0 };
         values.Clear();
         Recompose(composer, expected.Writes);
     }
@@ -72,8 +68,7 @@ public sealed class ScalarCollectionFreezeTests
 
     private static void Recompose(IServerPacket composer, IEnumerable<object> expected)
     {
-        for (var index = 0; index < 2; index++)
-        {
+        for (var index = 0; index < 2; index++) {
             var packet = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(packet);
             Assert.Equal(expected, packet.Writes);

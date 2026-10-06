@@ -33,30 +33,25 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
         var habbo = session.GetHabbo();
         MarketplacePurchaseOutcome outcome;
 
-        lock (habbo.WalletSync)
-        {
-            if (habbo.WalletClosed)
-            {
+        lock (habbo.WalletSync) {
+            if (habbo.WalletClosed) {
                 return MarketplacePurchaseOutcome.WalletClosed;
             }
 
             var listedBefore = time.GetUtcNow().AddSeconds(-OfferLifetimeSeconds);
             MarketplacePurchaseResult result;
 
-            lock (Sales)
-            {
+            lock (Sales) {
                 result = store.Claim(new MarketplacePurchaseRequest(offerId, habbo.Id, habbo.Credits, listedBefore,
                     itemId => items.Items.TryGetValue(itemId, out var definition) ? definition : null,
                     delivery => PrepareDelivery(habbo, delivery)));
 
-                if (result.Offer is { } sale)
-                {
+                if (result.Offer is { } sale) {
                     RecordAverage(sale.SpriteId, sale.TotalPrice);
                 }
             }
 
-            if (result.Refusal is { } refusal)
-            {
+            if (result.Refusal is { } refusal) {
                 outcome = Outcome(refusal);
                 Publish(session, outcome);
 
@@ -99,8 +94,7 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
 
     private void RecordAverage(int spriteId, int totalPrice)
     {
-        if (marketplace.MarketAverages.ContainsKey(spriteId) && marketplace.MarketCounts.ContainsKey(spriteId))
-        {
+        if (marketplace.MarketAverages.ContainsKey(spriteId) && marketplace.MarketCounts.ContainsKey(spriteId)) {
             var count = marketplace.MarketCounts[spriteId];
             var average = marketplace.MarketAverages[spriteId] += totalPrice;
             marketplace.MarketAverages.Remove(spriteId);
@@ -111,13 +105,11 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
             return;
         }
 
-        if (!marketplace.MarketAverages.ContainsKey(spriteId))
-        {
+        if (!marketplace.MarketAverages.ContainsKey(spriteId)) {
             marketplace.MarketAverages.Add(spriteId, totalPrice);
         }
 
-        if (!marketplace.MarketCounts.ContainsKey(spriteId))
-        {
+        if (!marketplace.MarketCounts.ContainsKey(spriteId)) {
             marketplace.MarketCounts.Add(spriteId, 1);
         }
     }
@@ -125,8 +117,7 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
     // Notices and the refreshed list the buyer sees, per outcome.
     private void Publish(GameClient session, MarketplacePurchaseOutcome outcome)
     {
-        switch (outcome)
-        {
+        switch (outcome) {
             case MarketplacePurchaseOutcome.WalletClosed:
                 return;
             case MarketplacePurchaseOutcome.OwnOffer:

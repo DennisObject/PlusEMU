@@ -26,8 +26,7 @@ public class SoundSettingsComposer : IServerPacket
         // UserSettingsParser reads three volumes, three preference bytes, two ints
         // and three bools before its optional tail. One leftover byte makes that
         // tail throw, and the client drops the whole packet.
-        for (var index = 0; index < 3; index++)
-        {
+        for (var index = 0; index < 3; index++) {
             packet.WriteInteger(index < _volumes.Length ? _volumes[index] : 0);
         }
 

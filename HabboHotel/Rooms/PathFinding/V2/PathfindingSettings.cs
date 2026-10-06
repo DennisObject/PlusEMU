@@ -15,25 +15,13 @@ public sealed record PathfindingSettings
 {
     public PathfindingEngine Engine { get; init; } = PathfindingEngine.Legacy;
     public string Profile { get; init; } = "plus";
-    public double? MaxStepUp
-    {
-        get; init;
-    }
-    public double? MaxStepDown
-    {
-        get; init;
-    }
-    public bool UnlimitedDown
-    {
-        get; init;
-    }
+    public double? MaxStepUp { get; init; }
+    public double? MaxStepDown { get; init; }
+    public bool UnlimitedDown { get; init; }
     public double EffectiveMaxUp => MaxStepUp ?? (Profile == "habbo2013" ? 1.25 : 1.5);
     public double? EffectiveMaxDown => UnlimitedDown ? null : MaxStepDown ?? (Profile == "habbo2013" ? 4.0 : null);
     public CornerRule CornerRule { get; init; } = CornerRule.Official;
-    public bool LayeringEnabled
-    {
-        get; init;
-    }
+    public bool LayeringEnabled { get; init; }
     public bool StacktoolLegacyCollision { get; init; } = true;
     public double AvatarClearance { get; init; } = 1.5;
     public int MaxSurfacesPerTile { get; init; } = 2;
@@ -41,15 +29,9 @@ public sealed record PathfindingSettings
     public int BlockWaitTicks { get; init; } = 1;
     public int MaxBlockReplans { get; init; } = 3;
     public int MaxWalkStallTicks { get; init; } = 10;
-    public bool FastwalkIntermediateHooks
-    {
-        get; init;
-    }
+    public bool FastwalkIntermediateHooks { get; init; }
     public bool RidersIgnoreHeight { get; init; } = true;
-    public int? MaxExpansionsPerSearch
-    {
-        get; init;
-    }
+    public int? MaxExpansionsPerSearch { get; init; }
     public int MaxExpansionsPerRoomTick { get; init; } = 200000;
     public double ShadowLogSample { get; init; } = 0.05;
     public bool ApproachAutoInteract { get; init; } = true;
@@ -64,22 +46,12 @@ public sealed record PathfindingSettings
 
         return new()
         {
-            Engine = Read("engine") switch
-            {
-                "shadow" => PathfindingEngine.Shadow,
-                "v2" => PathfindingEngine.V2,
-                _ => PathfindingEngine.Legacy
-            },
+            Engine = Read("engine") switch { "shadow" => PathfindingEngine.Shadow, "v2" => PathfindingEngine.V2, _ => PathfindingEngine.Legacy },
             Profile = Read("profile") == "habbo2013" ? "habbo2013" : "plus",
             MaxStepUp = Number("max_step_up"),
             MaxStepDown = Number("max_step_down"),
             UnlimitedDown = Read("max_step_down") == "none",
-            CornerRule = Read("corner_rule") switch
-            {
-                "none" => CornerRule.None,
-                "strict" => CornerRule.Strict,
-                _ => CornerRule.Official
-            },
+            CornerRule = Read("corner_rule") switch { "none" => CornerRule.None, "strict" => CornerRule.Strict, _ => CornerRule.Official },
             LayeringEnabled = Boolean("layering_enabled"),
             StacktoolLegacyCollision = Boolean("stacktool_legacy_collision", true),
             AvatarClearance = Number("avatar_clearance") ?? 1.5,

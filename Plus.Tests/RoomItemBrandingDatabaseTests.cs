@@ -13,18 +13,13 @@ public sealed class RoomItemBrandingDatabaseTests
     public void BrandingStoreWritesOnlyTheExactRoomRowAndAcceptsAnUnchangedValue()
     {
         var serverOptions = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
-        {
-            Pooling = false,
-            AllowZeroDateTime = true,
-            ConvertZeroDateTime = true
-        };
+        { Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true };
         using var connection = new MySqlConnection(serverOptions.ConnectionString);
         connection.Open();
         var schema = "room_branding_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("CREATE TABLE items (id INT UNSIGNED PRIMARY KEY, room_id INT UNSIGNED, extra_data TEXT); INSERT INTO items VALUES (92,42,'original'),(93,43,'other'),(2147483648,42,'unsigned');");
             var options = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema, Pooling = false };
@@ -44,8 +39,7 @@ public sealed class RoomItemBrandingDatabaseTests
             Assert.Equal("state\t0\na\t1", connection.QuerySingle<string>("SELECT extra_data FROM items WHERE id=92"));
             Assert.Equal("other", connection.QuerySingle<string>("SELECT extra_data FROM items WHERE id=93"));
         }
-        finally
-        {
+        finally {
             connection.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }

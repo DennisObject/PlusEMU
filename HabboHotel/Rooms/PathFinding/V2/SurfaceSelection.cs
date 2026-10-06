@@ -9,12 +9,10 @@ internal static class SurfaceSelection
     // Highest matching surface, or -1. K=1 considers only the tile's own slot.
     internal static int Select(NavGrid grid, int tile, double z, ForceResolution resolution)
     {
-        for (var ordinal = grid.SurfaceCount(tile) - 1; ordinal >= 0; ordinal--)
-        {
+        for (var ordinal = grid.SurfaceCount(tile) - 1; ordinal >= 0; ordinal--) {
             var slot = grid.SurfaceAt(tile, ordinal);
 
-            if (!grid.Active(slot))
-            {
+            if (!grid.Active(slot)) {
                 continue;
             }
 
@@ -25,8 +23,7 @@ internal static class SurfaceSelection
                 _ => true
             };
 
-            if (matches)
-            {
+            if (matches) {
                 return slot;
             }
         }

@@ -13,8 +13,7 @@ internal class GetModeratorUserChatlogEvent(IModeratorHistoryService history) : 
     {
         var result = history.GetUserChatlog(packet.ReadInt());
 
-        if (result == null)
-        {
+        if (result == null) {
             session.SendNotification("Unable to load info for user.");
 
             return Task.CompletedTask;

@@ -113,34 +113,13 @@ public sealed class UserProfileEventTests
 
     private sealed class RecordingProfiles : IUserProfileService
     {
-        public FigureUpdateRequest? Figure
-        {
-            get; private set;
-        }
-        public string? Motto
-        {
-            get; private set;
-        }
-        public bool Focus
-        {
-            get; private set;
-        }
-        public int Bubble
-        {
-            get; private set;
-        }
-        public int FriendBar
-        {
-            get; private set;
-        }
-        public bool Invites
-        {
-            get; private set;
-        }
-        public SoundVolumeRequest? Volumes
-        {
-            get; private set;
-        }
+        public FigureUpdateRequest? Figure { get; private set; }
+        public string? Motto { get; private set; }
+        public bool Focus { get; private set; }
+        public int Bubble { get; private set; }
+        public int FriendBar { get; private set; }
+        public bool Invites { get; private set; }
+        public SoundVolumeRequest? Volumes { get; private set; }
         public void ShowUserObject(GameClient session)
         {
         }

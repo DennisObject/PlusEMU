@@ -29,8 +29,7 @@ public sealed class HabboClubOffersComposer(ClubOffersSnapshot data) : IServerPa
     {
         packet.WriteInteger(data.Offers.Length);
 
-        foreach (var offer in data.Offers)
-        {
+        foreach (var offer in data.Offers) {
             WriteOffer(packet, offer);
         }
 

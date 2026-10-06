@@ -18,8 +18,7 @@ public sealed class WiredVariableQueryTests
         var main = new WiredVariableReference(first.Target, "custom:10");
         var reference = new WiredVariableReference(first.Target, "custom:11");
 
-        foreach (var holder in frame.Holders)
-        {
+        foreach (var holder in frame.Holders) {
             module.Mutate(main, holder, WiredVariableMutation.Give, holder == second ? 20 : 10, frame);
         }
 
@@ -27,8 +26,7 @@ public sealed class WiredVariableQueryTests
         module.Mutate(reference, second, WiredVariableMutation.Give, 20, frame);
         var config = new WiredConfiguration { IntParams = [1, 2, 1, 0, 0, 200, 0, 0, 0], Text = "custom:10\tcustom:11" };
 
-        using (var queries = new WiredVariableQueries(module, frame))
-        {
+        using (var queries = new WiredVariableQueries(module, frame)) {
             Assert.True(queries.MatchSelector("wf_slc_users_with_var", config, first));
             module.Mutate(reference, second, WiredVariableMutation.Set, 99, frame);
             Assert.True(queries.MatchSelector("wf_slc_users_with_var", config, second));
@@ -47,18 +45,9 @@ public sealed class WiredVariableQueryTests
         var frame = new WiredVariableFrame(1, [holder]);
         module.Mutate(new(holder.Target, "custom:12"), holder, WiredVariableMutation.Give, 42, frame);
         using var queries = new WiredVariableQueries(module, frame);
-        Assert.Equal(42L, queries.ReadOperand(holder.Target, "custom:12", 0, 101, new()
-        {
-            SelectedItems = [300]
-        }));
-        Assert.Null(queries.ReadOperand(holder.Target, "custom:12", 0, 101, new()
-        {
-            SelectedItems = [301]
-        }));
-        Assert.Null(queries.ReadOperand(holder.Target, "custom:99", 0, 101, new()
-        {
-            SelectedItems = [300]
-        }));
+        Assert.Equal(42L, queries.ReadOperand(holder.Target, "custom:12", 0, 101, new() { SelectedItems = [300] }));
+        Assert.Null(queries.ReadOperand(holder.Target, "custom:12", 0, 101, new() { SelectedItems = [301] }));
+        Assert.Null(queries.ReadOperand(holder.Target, "custom:99", 0, 101, new() { SelectedItems = [300] }));
     }
 
     private sealed class Directory : IWiredVariableDirectory

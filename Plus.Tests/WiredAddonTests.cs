@@ -140,10 +140,7 @@ public sealed class WiredAddonTests
     [Fact]
     public void JumpAndProjectileVariableAbsenceHaveDifferentFallbacksAndClampValues()
     {
-        var input = Input() with
-        {
-            ReadVariable = _ => null
-        };
+        var input = Input() with { ReadVariable = _ => null };
         var policy = new WiredAddonPolicy { Curve = new(7, 100, 15) };
         new WiredAddonModule("wf_xtra_mov_curve", Config([7, 100, 80, 1], text: "custom:2")).Apply(input, policy);
         Assert.Equal(15, policy.Curve.Strength);
@@ -153,10 +150,7 @@ public sealed class WiredAddonTests
         new WiredAddonModule("wf_xtra_rotate_to_dir", Config(projectile, [1], "\tcustom:2")).Apply(input, policy);
         Assert.Equal(WiredProjectileDistance.Normal, policy.Projectile!.Distance);
         new WiredAddonModule("wf_xtra_mov_curve", Config([7, 100, 80, 1], text: "custom:2"))
-            .Apply(input with
-            {
-                ReadVariable = _ => 999999
-            }, policy);
+            .Apply(input with { ReadVariable = _ => 999999 }, policy);
         Assert.Equal(1000, policy.Curve.Strength);
     }
 

@@ -6,8 +6,7 @@ internal sealed class RebindService(Room room, NavGrid Grid)
     {
         var state = actor.Movement;
 
-        if (state.BoundVersion == Grid.Version)
-        {
+        if (state.BoundVersion == Grid.Version) {
             return;
         }
 
@@ -22,8 +21,7 @@ internal sealed class RebindService(Room room, NavGrid Grid)
         var state = actor.Movement;
         state.BoundVersion = version;
 
-        if (state.CurrentRef is not { } current)
-        {
+        if (state.CurrentRef is not { } current) {
             return;
         }
 
@@ -33,13 +31,11 @@ internal sealed class RebindService(Room room, NavGrid Grid)
         var rotation = (actor.RotHead, actor.RotBody);
         var slot = SupportAfterPublish(current, state.SupportZ);
 
-        if (slot >= 0)
-        {
+        if (slot >= 0) {
             state.CurrentRef = Grid.Reference(slot);
             state.SupportZ = Grid.WalkZ[slot];
         }
-        else
-        {
+        else {
             state.CurrentRef = null;
             state.SupportZ = oldZ;
         }
@@ -47,8 +43,7 @@ internal sealed class RebindService(Room room, NavGrid Grid)
         PostureService.Apply(room, Grid, actor);
 
         if (correction || actor.Z != oldZ || sit != actor.Statusses.GetValueOrDefault("sit")
-            || lay != actor.Statusses.GetValueOrDefault("lay") || rotation != (actor.RotHead, actor.RotBody))
-        {
+            || lay != actor.Statusses.GetValueOrDefault("lay") || rotation != (actor.RotHead, actor.RotBody)) {
             actor.UpdateNeeded = true;
         }
     }
@@ -57,20 +52,17 @@ internal sealed class RebindService(Room room, NavGrid Grid)
     // below the old Z, else the highest. Surfaces dropped by the pinned overflow cap go off-graph.
     private int SupportAfterPublish(SurfaceRef current, double supportZ)
     {
-        if (!Grid.Layered)
-        {
+        if (!Grid.Layered) {
             return Grid.Active(current.Tile) ? current.Tile : -1;
         }
 
-        if (Grid.ForcedOffGraph.Contains(current))
-        {
+        if (Grid.ForcedOffGraph.Contains(current)) {
             return -1;
         }
 
         var slot = Grid.SlotOf(current);
 
-        if (slot >= 0 && Grid.Active(slot))
-        {
+        if (slot >= 0 && Grid.Active(slot)) {
             return slot;
         }
 

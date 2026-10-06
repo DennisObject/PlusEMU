@@ -19,8 +19,5 @@ public sealed class CameraEffectOption
 {
     public string Name { get; set; } = "";
 
-    public int MinLevel
-    {
-        get; set;
-    }
+    public int MinLevel { get; set; }
 }

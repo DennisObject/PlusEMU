@@ -132,8 +132,7 @@ public sealed class FurnitureInventoryPersistenceTests
         var held = gate.Enter(context.Habbo.Id);
         Task<bool>? worker = null;
 
-        try
-        {
+        try {
             worker = Task.Run(() =>
             {
                 started.TrySetResult();
@@ -146,14 +145,11 @@ public sealed class FurnitureInventoryPersistenceTests
             Assert.NotNull(context.Habbo.Inventory.Furniture.GetItem(7));
             Assert.Empty(context.Sent);
         }
-        finally
-        {
+        finally {
             held.Dispose();
 
-            if (worker != null)
-            {
-                try
-                {
+            if (worker != null) {
+                try {
                     await worker.WaitAsync(TimeSpan.FromSeconds(2));
                 }
                 catch { /* Preserve an assertion already escaping the try; the success path observes below. */ }
@@ -182,8 +178,7 @@ public sealed class FurnitureInventoryPersistenceTests
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4");
 
-        try
-        {
+        try {
             builder.Database = schema;
             await using var connection = new MySqlConnection(builder.ConnectionString);
             await connection.OpenAsync();
@@ -242,8 +237,7 @@ public sealed class FurnitureInventoryPersistenceTests
             Assert.NotNull(missingOwner.Habbo.Inventory.Furniture.GetItem(14));
             Assert.Empty(missingOwner.Sent);
         }
-        finally
-        {
+        finally {
             await server.ExecuteAsync($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -282,22 +276,15 @@ public sealed class FurnitureInventoryPersistenceTests
 
     private sealed class RecordingStore(Action? before = null) : IInventoryClearStore
     {
-        public int Calls
-        {
-            get; private set;
-        }
-        public Exception? Failure
-        {
-            get; init;
-        }
+        public int Calls { get; private set; }
+        public Exception? Failure { get; init; }
 
         public void DeleteAll(int userId)
         {
             Calls++;
             before?.Invoke();
 
-            if (Failure != null)
-            {
+            if (Failure != null) {
                 throw Failure;
             }
         }
@@ -305,10 +292,7 @@ public sealed class FurnitureInventoryPersistenceTests
 
     private sealed class RecordingClearService : IInventoryClearService
     {
-        public int Calls
-        {
-            get; private set;
-        }
+        public int Calls { get; private set; }
         public bool TryClear(GameClient session, Room room)
         {
             Calls++;

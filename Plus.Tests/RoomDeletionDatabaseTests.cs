@@ -21,8 +21,7 @@ public sealed class RoomDeletionDatabaseTests : IDisposable
     {
         var connectionString = Environment.GetEnvironmentVariable("PLUS_REFACTOR_TEST_CONNECTION_STRING")!;
 
-        if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_refactor_tests_", StringComparison.Ordinal))
-        {
+        if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_refactor_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Room deletion tests require a disposable task_refactor_tests_ schema.");
         }
 
@@ -97,14 +96,10 @@ public sealed class RoomDeletionDatabaseTests : IDisposable
 
     private class ManagerProxy : DispatchProxy
     {
-        public int Unloads
-        {
-            get; private set;
-        }
+        public int Unloads { get; private set; }
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method?.Name != "UnloadRoom")
-            {
+            if (method?.Name != "UnloadRoom") {
                 throw new NotSupportedException(method?.Name);
             }
 

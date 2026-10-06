@@ -45,10 +45,7 @@ internal static class TestItemRuntime
     internal static IRewardTrackManager Rewards { get; } = Empty<IRewardTrackManager>();
     internal static IAchievementManager Achievements { get; } = Empty<IAchievementManager>();
     internal static IUserProfileService Profiles { get; } = Empty<IUserProfileService>();
-    internal static IItemInteractorFactory Interactors
-    {
-        get;
-    } =
+    internal static IItemInteractorFactory Interactors { get; } =
         new ItemInteractorFactory(Travel, Profiles, Quests, Rewards, Achievements);
 
     private static T Empty<T>() where T : class => DispatchProxy.Create<T, EmptyProxy>();
@@ -59,18 +56,15 @@ internal static class TestItemRuntime
         {
             var type = targetMethod?.ReturnType;
 
-            if (type == null || type == typeof(void))
-            {
+            if (type == null || type == typeof(void)) {
                 return null;
             }
 
-            if (type == typeof(Task))
-            {
+            if (type == typeof(Task)) {
                 return Task.CompletedTask;
             }
 
-            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))
-            {
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>)) {
                 return typeof(Task).GetMethod(nameof(Task.FromResult))!
                     .MakeGenericMethod(type.GenericTypeArguments[0])
                     .Invoke(null, [type.GenericTypeArguments[0].IsValueType ? Activator.CreateInstance(type.GenericTypeArguments[0]) : null]);
@@ -128,10 +122,7 @@ internal sealed class TestGameClientManager(Func<int, GameClient?> lookup) : IGa
 
 internal sealed class TestLanguageManager(IReadOnlyDictionary<string, string> values) : ILanguageManager
 {
-    internal static TestLanguageManager RoomItems
-    {
-        get;
-    } = new(new Dictionary<string, string>
+    internal static TestLanguageManager RoomItems { get; } = new(new Dictionary<string, string>
     {
         ["room.item.already_placed"] = "room.item.already_placed"
     });

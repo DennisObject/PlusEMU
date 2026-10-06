@@ -31,25 +31,19 @@ public sealed class WordFilterManager : IWordFilterManager, IStartable
 
     public string CheckMessage(string message)
     {
-        foreach (var filter in _filteredWords.ToList())
-        {
-            if (message.ToLower().Contains(filter.Word) && filter.IsStrict || message == filter.Word)
-            {
+        foreach (var filter in _filteredWords.ToList()) {
+            if (message.ToLower().Contains(filter.Word) && filter.IsStrict || message == filter.Word) {
                 message = Regex.Replace(message, filter.Word, filter.Replacement, RegexOptions.IgnoreCase);
             }
-            else if (message.ToLower().Contains(filter.Word) && !filter.IsStrict || message == filter.Word)
-            {
+            else if (message.ToLower().Contains(filter.Word) && !filter.IsStrict || message == filter.Word) {
                 var words = message.Split(' ');
                 message = "";
 
-                foreach (var word in words.ToList())
-                {
-                    if (word.ToLower() == filter.Word)
-                    {
+                foreach (var word in words.ToList()) {
+                    if (word.ToLower() == filter.Word) {
                         message += $"{filter.Replacement} ";
                     }
-                    else
-                    {
+                    else {
                         message += $"{word} ";
                     }
                 }
@@ -63,15 +57,12 @@ public sealed class WordFilterManager : IWordFilterManager, IStartable
     {
         message = message.Replace(" ", "").Replace(".", "").Replace("_", "").ToLower();
 
-        foreach (var filter in _filteredWords.ToList())
-        {
-            if (!filter.IsBannable)
-            {
+        foreach (var filter in _filteredWords.ToList()) {
+            if (!filter.IsBannable) {
                 continue;
             }
 
-            if (message.Contains(filter.Word))
-            {
+            if (message.Contains(filter.Word)) {
                 return true;
             }
         }
@@ -81,10 +72,8 @@ public sealed class WordFilterManager : IWordFilterManager, IStartable
 
     public bool IsFiltered(string message)
     {
-        foreach (var filter in _filteredWords.ToList())
-        {
-            if (message.Contains(filter.Word))
-            {
+        foreach (var filter in _filteredWords.ToList()) {
+            if (message.Contains(filter.Word)) {
                 return true;
             }
         }

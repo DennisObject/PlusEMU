@@ -34,54 +34,33 @@ internal sealed class CatalogAdminStore
         _connection.Query<CatalogPageRow>($"SELECT {PageColumns} FROM catalog_pages ORDER BY order_num, id", transaction: _transaction).ToList();
 
     public CatalogPageRow? Page(int id) =>
-        _connection.QuerySingleOrDefault<CatalogPageRow>($"SELECT {PageColumns} FROM catalog_pages WHERE id = @id", new
-        {
-            id
-        }, _transaction);
+        _connection.QuerySingleOrDefault<CatalogPageRow>($"SELECT {PageColumns} FROM catalog_pages WHERE id = @id", new { id }, _transaction);
 
     public List<CatalogPageRow> Children(int parentId) =>
         _connection.Query<CatalogPageRow>($"SELECT {PageColumns} FROM catalog_pages WHERE parent_id = @parentId ORDER BY order_num, id",
-            new
-            {
-                parentId
-            }, _transaction).ToList();
+            new { parentId }, _transaction).ToList();
 
     public CatalogOfferRow? Offer(int id) =>
-        _connection.QuerySingleOrDefault<CatalogOfferRow>($"SELECT {OfferColumns} FROM catalog_items WHERE id = @id", new
-        {
-            id
-        }, _transaction);
+        _connection.QuerySingleOrDefault<CatalogOfferRow>($"SELECT {OfferColumns} FROM catalog_items WHERE id = @id", new { id }, _transaction);
 
     // Read under a shared lock: a furniture delete takes the row's write lock, so it cannot slip in before this commits.
     public bool FurnitureExists(uint id) =>
-        _connection.QuerySingle<int>("SELECT COUNT(*) FROM furniture WHERE id = @id LOCK IN SHARE MODE", new
-        {
-            id
-        }, _transaction) > 0;
+        _connection.QuerySingle<int>("SELECT COUNT(*) FROM furniture WHERE id = @id LOCK IN SHARE MODE", new { id }, _transaction) > 0;
 
     // Offers of a page in catalog order, for working out the id the page will give a new offer.
     public List<(int Id, int OfferId)> OfferIdsOnPage(int pageId) =>
-        _connection.Query<(int, int)>("SELECT id, offer_id FROM catalog_items WHERE page_id = @pageId ORDER BY order_num, id", new
-        {
-            pageId
-        }, _transaction).ToList();
+        _connection.Query<(int, int)>("SELECT id, offer_id FROM catalog_items WHERE page_id = @pageId ORDER BY order_num, id", new { pageId }, _transaction).ToList();
 
     public int CountChildren(int pageId) => _connection.QuerySingle<int>("SELECT COUNT(*) FROM catalog_pages WHERE parent_id = @pageId", new { pageId }, _transaction);
 
     public int CountOffers(int pageId) => _connection.QuerySingle<int>("SELECT COUNT(*) FROM catalog_items WHERE page_id = @pageId", new { pageId }, _transaction);
 
     public int NextOfferOrder(int pageId) =>
-        _connection.QuerySingle<int>("SELECT CAST(COALESCE(MAX(order_num) + 1, 0) AS SIGNED) FROM catalog_items WHERE page_id = @pageId", new
-        {
-            pageId
-        }, _transaction);
+        _connection.QuerySingle<int>("SELECT CAST(COALESCE(MAX(order_num) + 1, 0) AS SIGNED) FROM catalog_items WHERE page_id = @pageId", new { pageId }, _transaction);
 
     public int NextPageOrder(int parentId) =>
         _connection.QuerySingle<int>("SELECT CAST(COALESCE(MAX(order_num) + 1, 0) AS SIGNED) FROM catalog_pages WHERE parent_id = @parentId",
-            new
-            {
-                parentId
-            }, _transaction);
+            new { parentId }, _transaction);
 
     public int InsertPage(CatalogPageRow row) => _connection.QuerySingle<int>("""
         INSERT INTO catalog_pages (parent_id, caption, page_link, icon_image, visible, enabled, required_permission, required_club_level, order_num, page_layout, page_strings_1, page_strings_2)
@@ -96,11 +75,7 @@ internal sealed class CatalogAdminStore
         """, row, _transaction);
 
     public void SetPageOrder(int id, int orderNum) =>
-        _connection.Execute("UPDATE catalog_pages SET order_num = @orderNum WHERE id = @id", new
-        {
-            id,
-            orderNum
-        }, _transaction);
+        _connection.Execute("UPDATE catalog_pages SET order_num = @orderNum WHERE id = @id", new { id, orderNum }, _transaction);
 
     public void DeletePage(int id) => _connection.Execute("DELETE FROM catalog_pages WHERE id = @id", new { id }, _transaction);
 
@@ -118,11 +93,7 @@ internal sealed class CatalogAdminStore
         """, row, _transaction);
 
     public void SetOfferOrder(int id, int orderNum) =>
-        _connection.Execute("UPDATE catalog_items SET order_num = @orderNum WHERE id = @id", new
-        {
-            id,
-            orderNum
-        }, _transaction);
+        _connection.Execute("UPDATE catalog_items SET order_num = @orderNum WHERE id = @id", new { id, orderNum }, _transaction);
 
     public void DeleteOffer(int id) => _connection.Execute("DELETE FROM catalog_items WHERE id = @id", new { id }, _transaction);
 
@@ -146,27 +117,17 @@ internal sealed class CatalogAdminStore
             after = change.After == null ? null : System.Text.Json.JsonSerializer.Serialize(change.After, CatalogAdminTypes.Json)
         }, _transaction);
 
-        return _connection.QuerySingle<CatalogAdminLogEntry>($"{HistorySelect} WHERE id = @id", new
-        {
-            id
-        }, _transaction);
+        return _connection.QuerySingle<CatalogAdminLogEntry>($"{HistorySelect} WHERE id = @id", new { id }, _transaction);
     }
 
     public CatalogAdminUndoRow? UndoRow(int id) => _connection.QuerySingleOrDefault<CatalogAdminUndoRow>(
         "SELECT id AS Id, entity_type AS EntityType, entity_id AS EntityId, operation AS Operation, before_json AS BeforeJson, after_json AS AfterJson FROM catalog_admin_log WHERE id = @id",
-        new
-        {
-            id
-        }, _transaction);
+        new { id }, _transaction);
 
     public int HistoryCount() => _connection.QuerySingle<int>("SELECT COUNT(*) FROM catalog_admin_log", transaction: _transaction);
 
     public List<CatalogAdminLogEntry> History(int offset, int limit) =>
-        _connection.Query<CatalogAdminLogEntry>($"{HistorySelect} ORDER BY id DESC LIMIT @limit OFFSET @offset", new
-        {
-            offset,
-            limit
-        }, _transaction).ToList();
+        _connection.Query<CatalogAdminLogEntry>($"{HistorySelect} ORDER BY id DESC LIMIT @limit OFFSET @offset", new { offset, limit }, _transaction).ToList();
 }
 
 // What a mutation changed, for the audit row and the editor's history.
@@ -174,22 +135,10 @@ public sealed record CatalogAdminChange(string EntityType, string CatalogType, i
 
 public sealed class CatalogAdminUndoRow
 {
-    public int Id
-    {
-        get; set;
-    }
+    public int Id { get; set; }
     public string EntityType { get; set; } = string.Empty;
-    public int EntityId
-    {
-        get; set;
-    }
+    public int EntityId { get; set; }
     public string Operation { get; set; } = string.Empty;
-    public string? BeforeJson
-    {
-        get; set;
-    }
-    public string? AfterJson
-    {
-        get; set;
-    }
+    public string? BeforeJson { get; set; }
+    public string? AfterJson { get; set; }
 }

@@ -33,8 +33,7 @@ public class TalentTrackManager : ITalentTrackManager, IStartable
         var byLevel = subLevels.ToLookup(row => row.TalentLevel);
         _citizenshipLevels.Clear();
 
-        foreach (var level in levels)
-        {
+        foreach (var level in levels) {
             _citizenshipLevels.Add(level.Level, new(level.Type, level.Level, level.Actions, level.Gifts,
                 byLevel[level.Level].Select(row => new TalentTrackSubLevel(row.Level, row.Badge, row.Progress))));
         }

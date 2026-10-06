@@ -17,13 +17,11 @@ public class InteractorHabboWheel : IFurniInteractor
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (!hasRights)
-        {
+        if (!hasRights) {
             return;
         }
 
-        if (item.LegacyDataString != "-1")
-        {
+        if (item.LegacyDataString != "-1") {
             item.LegacyDataString = "-1";
             item.UpdateState();
             item.RequestUpdate(10, true);
@@ -32,8 +30,7 @@ public class InteractorHabboWheel : IFurniInteractor
 
     public void OnWiredTrigger(Item item)
     {
-        if (item.LegacyDataString != "-1")
-        {
+        if (item.LegacyDataString != "-1") {
             item.LegacyDataString = "-1";
             item.UpdateState();
             item.RequestUpdate(10, true);

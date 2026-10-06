@@ -79,10 +79,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
     }
 
     // Test seam: runs after the session's revision is read and before its pages are.
-    internal Action? BetweenSessionReads
-    {
-        get; set;
-    }
+    internal Action? BetweenSessionReads { get; set; }
 
     public CatalogAdminHistory History(Habbo actor, int offset, int limit)
     {
@@ -103,8 +100,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     public bool Publish(Habbo actor)
     {
-        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
-        {
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true) {
             return false;
         }
 
@@ -116,8 +112,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     public void RecordViewedPage(Habbo habbo, int pageId)
     {
-        if (habbo?.Access?.Can(PermissionKeys.CatalogEdit) == true)
-        {
+        if (habbo?.Access?.Can(PermissionKeys.CatalogEdit) == true) {
             _viewedPages[habbo.Id] = pageId;
         }
     }
@@ -125,15 +120,11 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
     public CatalogAdminOutcome CreatePage(Habbo actor, CatalogAdminEnvelope envelope, CatalogAdminPage page) =>
         Mutate(actor, envelope, "createPage", PageEntity, 0, store =>
         {
-            var draft = page with
-            {
-                PageId = 0
-            };
+            var draft = page with { PageId = 0 };
             Reject(CatalogAdminValidation.Page(draft, null, actor.Access, store.Page));
             var row = CatalogAdminMapping.Apply(draft, null);
 
-            if (draft.OrderNum < 0)
-            {
+            if (draft.OrderNum < 0) {
                 row.OrderNum = store.NextPageOrder(row.ParentId);
             }
 
@@ -159,13 +150,11 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         {
             var existing = RequirePage(store, pageId, actor);
 
-            if (store.CountChildren(pageId) > 0)
-            {
+            if (store.CountChildren(pageId) > 0) {
                 throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, "Move or delete the child pages first.");
             }
 
-            if (store.CountOffers(pageId) > 0)
-            {
+            if (store.CountOffers(pageId) > 0) {
                 throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, "Move or delete the offers on this page first.");
             }
 
@@ -188,15 +177,13 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
             var renumbered = siblings.Select((page, order) => (Page: page, Order: order))
                 .Where(entry => entry.Page.Id != pageId && entry.Page.OrderNum != entry.Order).ToList();
 
-            if (renumbered.Any(entry => !CatalogAdminValidation.Available(entry.Page.RequiredPermission, actor.Access)))
-            {
+            if (renumbered.Any(entry => !CatalogAdminValidation.Available(entry.Page.RequiredPermission, actor.Access))) {
                 throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move would reorder pages requiring a permission you do not have.");
             }
 
             store.UpdatePage(moved);
 
-            foreach (var (page, order) in renumbered)
-            {
+            foreach (var (page, order) in renumbered) {
                 store.SetPageOrder(page.Id, order);
             }
 
@@ -227,8 +214,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     public CatalogAdminOutcome SavePageIcon(Habbo actor, CatalogAdminEnvelope envelope, int pageId, int iconId)
     {
-        if (iconId is < 0 or > 1_000_000)
-        {
+        if (iconId is < 0 or > 1_000_000) {
             return Failure(CatalogAdminCodes.ValidationFailed, "Icon must be between 0 and 1000000.", envelope.ExpectedRevision, PageEntity, envelope.CatalogType, pageId);
         }
 
@@ -256,37 +242,31 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
     private CatalogAdminOutcome Mutate(Habbo actor, CatalogAdminEnvelope envelope, string action, string entityType, int entityId,
         Func<CatalogAdminStore, CatalogAdminMutation> apply)
     {
-        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
-        {
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true) {
             return Failure(CatalogAdminCodes.Forbidden, "No permission.", envelope.ExpectedRevision, entityType, envelope.CatalogType, entityId);
         }
 
-        if (envelope.OperationId.Length > CatalogAdminEnvelope.MaxOperationIdLength)
-        {
+        if (envelope.OperationId.Length > CatalogAdminEnvelope.MaxOperationIdLength) {
             return Failure(CatalogAdminCodes.ValidationFailed, "Operation id is too long.", envelope.ExpectedRevision, entityType, envelope.CatalogType, entityId);
         }
 
-        lock (_sync)
-        {
+        lock (_sync) {
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
             var store = new CatalogAdminStore(connection, transaction);
             int revision = store.Revision();
 
-            if (envelope.DraftVersionId != CatalogAdminEnvelope.LiveVersionId || envelope.ExpectedRevision != revision)
-            {
+            if (envelope.DraftVersionId != CatalogAdminEnvelope.LiveVersionId || envelope.ExpectedRevision != revision) {
                 return Failure(CatalogAdminCodes.StaleRevision, "The catalog changed since you opened it. Reload and try again.", revision, entityType, envelope.CatalogType, entityId);
             }
 
             CatalogAdminMutation mutation;
 
-            try
-            {
+            try {
                 mutation = apply(store);
             }
-            catch (CatalogAdminRejected rejected)
-            {
+            catch (CatalogAdminRejected rejected) {
                 return Failure(rejected.Code, rejected.Message, revision, entityType, envelope.CatalogType, entityId, rejected.FieldErrors);
             }
 
@@ -316,8 +296,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     private static void RequireEditor(Habbo actor)
     {
-        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
-        {
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true) {
             throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "No permission.");
         }
     }
@@ -326,8 +305,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
     {
         var page = store.Page(pageId) ?? throw NotFound("Page");
 
-        if (!CatalogAdminValidation.Available(page.RequiredPermission, actor.Access))
-        {
+        if (!CatalogAdminValidation.Available(page.RequiredPermission, actor.Access)) {
             throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "You cannot edit a page requiring a permission you do not have.");
         }
 
@@ -338,8 +316,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
 
     private static void Reject(Dictionary<string, string> errors)
     {
-        if (CatalogAdminValidation.Summary(errors) is { } message)
-        {
+        if (CatalogAdminValidation.Summary(errors) is { } message) {
             throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, message, errors);
         }
     }

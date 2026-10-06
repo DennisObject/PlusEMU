@@ -34,8 +34,7 @@ public static class CatalogAdminMapping
         row.PageStrings1 = SetStrings(row.PageStrings1, page.PageHeadline, page.PageTeaser, page.PageSpecial);
         row.PageStrings2 = SetStrings(row.PageStrings2, page.PageText1, page.PageText2, page.PageTextDetails, page.PageTextTeaser);
 
-        if (page.OrderNum >= 0)
-        {
+        if (page.OrderNum >= 0) {
             row.OrderNum = page.OrderNum;
         }
 
@@ -79,8 +78,7 @@ public static class CatalogAdminMapping
         row.OfferId = offer.OfferIdClient > 0 ? offer.OfferIdClient : -1;
         row.ClubLevel = offer.ClubOnly ? Math.Max(row.ClubLevel, 1) : 0;
 
-        if (offer.OrderNumber >= 0)
-        {
+        if (offer.OrderNumber >= 0) {
             row.OrderNum = offer.OrderNumber;
         }
 
@@ -97,18 +95,15 @@ public static class CatalogAdminMapping
         var list = Split(original);
         int originalCount = list.Count;
 
-        for (int i = 0; i < values.Length; i++)
-        {
-            while (list.Count <= i)
-            {
+        for (int i = 0; i < values.Length; i++) {
+            while (list.Count <= i) {
                 list.Add(string.Empty);
             }
 
             list[i] = values[i];
         }
 
-        while (list.Count > originalCount && list[^1].Length == 0)
-        {
+        while (list.Count > originalCount && list[^1].Length == 0) {
             list.RemoveAt(list.Count - 1);
         }
 

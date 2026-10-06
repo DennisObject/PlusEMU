@@ -6,13 +6,12 @@ namespace Plus.Communication.Flash;
 
 public class FlashIncomingPacket : IIncomingPacket
 {
-    public FlashIncomingPacket() : this(PlusMemoryStream.GetStream()) { }
+    public FlashIncomingPacket() : this(PlusMemoryStream.GetStream())
+    {
+    }
     public FlashIncomingPacket(RecyclableMemoryStream stream) => Stream = stream;
 
-    public RecyclableMemoryStream Stream
-    {
-        get;
-    }
+    public RecyclableMemoryStream Stream { get; }
     public Memory<byte> Buffer
     {
         get => Stream.GetBuffer().AsMemory((int)Stream.Position, (int)(Stream.Length - Stream.Position));
@@ -23,10 +22,7 @@ public class FlashIncomingPacket : IIncomingPacket
             Stream.Position = 0;
         }
     }
-    public uint MessageId
-    {
-        get; set;
-    }
+    public uint MessageId { get; set; }
 
     public byte ReadByte()
     {
@@ -90,8 +86,7 @@ public class FlashIncomingPacket : IIncomingPacket
 
     public void ReadBytes(Span<byte> destination)
     {
-        if (Stream.Read(destination) != destination.Length)
-        {
+        if (Stream.Read(destination) != destination.Length) {
             throw new EndOfStreamException();
         }
     }

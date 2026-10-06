@@ -7,20 +7,17 @@ internal sealed class CommandIntake(MovementContext context, ForcePlacementServi
         var state = actor.Movement;
         var command = state.Commands.Read();
 
-        if (command == null || command.Sequence <= state.ConsumedSequence)
-        {
+        if (command == null || command.Sequence <= state.ConsumedSequence) {
             return;
         }
 
         state.ConsumedSequence = command.Sequence;
 
-        if (actor.Frozen || !actor.CanWalk && command.Origin == MoveOrigin.User)
-        {
+        if (actor.Frozen || !actor.CanWalk && command.Origin == MoveOrigin.User) {
             return;
         }
 
-        if ((command.Flags & MoveFlags.Teleport) != 0)
-        {
+        if ((command.Flags & MoveFlags.Teleport) != 0) {
             placement.Teleport(actor, command);
 
             return;

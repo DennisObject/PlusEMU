@@ -76,15 +76,11 @@ public sealed class HorseCustomizationServiceTests
 
     private sealed class RecordingStore : IHorseCustomizationStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
+        public bool Fail { get; init; }
         public List<(int PetId, string Column, object Value)> Updates { get; } = [];
         public void UpdatePet(int petId, string column, object value)
         {
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
 
@@ -92,8 +88,7 @@ public sealed class HorseCustomizationServiceTests
         }
         public void ConsumeItem(int petId, string column, object value, uint itemId, uint roomId, int ownerId)
         {
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
         }

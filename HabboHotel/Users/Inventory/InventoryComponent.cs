@@ -7,20 +7,8 @@ namespace Plus.HabboHotel.Users.Inventory;
 
 public class InventoryComponent
 {
-    public BadgesInventoryComponent Badges
-    {
-        get; init;
-    }
-    public FurnitureInventoryComponent Furniture
-    {
-        get; init;
-    }
-    public PetsInventoryComponent Pets
-    {
-        get; init;
-    }
-    public BotInventoryComponent Bots
-    {
-        get; init;
-    }
+    public BadgesInventoryComponent Badges { get; init; }
+    public FurnitureInventoryComponent Furniture { get; init; }
+    public PetsInventoryComponent Pets { get; init; }
+    public BotInventoryComponent Bots { get; init; }
 }

@@ -20,12 +20,10 @@ public sealed class ValidPrefixFinder
         var previous = new Layer([start], [-1]);
         var reached = 0;
 
-        while (reached < steps.Count)
-        {
+        while (reached < steps.Count) {
             var layer = Expand(previous, steps[reached], graph);
 
-            if (layer.Candidates.Length == 0)
-            {
+            if (layer.Candidates.Length == 0) {
                 break;
             }
 
@@ -41,12 +39,10 @@ public sealed class ValidPrefixFinder
         var count = Math.Min(graph.Candidates(step.X, step.Y, buffer), MaxCandidates);
         var kept = new List<(PrefixCandidate Candidate, int Parent)>(count);
 
-        for (var i = 0; i < count; i++)
-        {
+        for (var i = 0; i < count; i++) {
             var parent = FirstPredecessor(previous, buffer[i], step.Purpose, graph);
 
-            if (parent >= 0)
-            {
+            if (parent >= 0) {
                 kept.Add((buffer[i], parent));
             }
         }
@@ -60,10 +56,8 @@ public sealed class ValidPrefixFinder
     // Layers are ranked, so the first reachable predecessor is the closest to its own advisory data.
     private static int FirstPredecessor(Layer previous, in PrefixCandidate to, StepPurpose purpose, IPrefixGraph graph)
     {
-        for (var p = 0; p < previous.Candidates.Length; p++)
-        {
-            if (graph.CanStep(previous.Candidates[p], to, purpose))
-            {
+        for (var p = 0; p < previous.Candidates.Length; p++) {
+            if (graph.CanStep(previous.Candidates[p], to, purpose)) {
                 return p;
             }
         }
@@ -80,8 +74,7 @@ public sealed class ValidPrefixFinder
         var prefix = new PrefixCandidate[reached];
         var index = 0;
 
-        for (var i = reached - 1; i >= 0; i--)
-        {
+        for (var i = reached - 1; i >= 0; i--) {
             prefix[i] = layers[i].Candidates[index];
             index = layers[i].Parents[index];
         }

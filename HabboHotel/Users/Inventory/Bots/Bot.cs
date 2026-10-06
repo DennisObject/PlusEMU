@@ -12,33 +12,15 @@ public class Bot
         Gender = gender;
     }
 
-    public int Id
-    {
-        get; set;
-    }
+    public int Id { get; set; }
 
-    public int OwnerId
-    {
-        get; set;
-    }
+    public int OwnerId { get; set; }
 
-    public string Name
-    {
-        get; set;
-    }
+    public string Name { get; set; }
 
-    public string Motto
-    {
-        get; set;
-    }
+    public string Motto { get; set; }
 
-    public string Figure
-    {
-        get; set;
-    }
+    public string Figure { get; set; }
 
-    public string Gender
-    {
-        get; set;
-    }
+    public string Gender { get; set; }
 }

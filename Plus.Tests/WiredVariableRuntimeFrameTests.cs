@@ -46,19 +46,12 @@ public sealed class WiredVariableRuntimeFrameTests
         var floor = new Item { Id = 1, OwnerId = 5, Definition = new() { Type = ItemType.Floor } };
         var wall = new Item { Id = 2, OwnerId = 5, Definition = new() { Type = ItemType.Wall } };
         var live = new Dictionary<uint, Item> { [floor.Id] = floor, [wall.Id] = wall };
-        var parent = new WiredRuntimeContext(room, new(WiredEventKind.ClickFurni)
-        {
-            EventItem = wall
-        },
+        var parent = new WiredRuntimeContext(room, new(WiredEventKind.ClickFurni) { EventItem = wall },
             new(() => [floor], () => [], id => live.GetValueOrDefault(id)), new UnusedOperations());
         parent.Triggering.FurniIds.UnionWith([floor.Id, wall.Id]);
-        var context = signal ? parent.Fork(new(WiredEventKind.Signal)
-        {
-            EventItem = floor
-        }, 1) : parent;
+        var context = signal ? parent.Fork(new(WiredEventKind.Signal) { EventItem = floor }, 1) : parent;
 
-        if (signal)
-        {
+        if (signal) {
             context.Signal = new(new([wall.Id]), new Dictionary<string, long>());
         }
 

@@ -43,13 +43,11 @@ public class RewardTrackWireSnapshotTests
         var track = Track();
         var state = new UserRewardTrackState("track", 300, premium);
 
-        if (p1Claimed)
-        {
+        if (p1Claimed) {
             state.MarkClaimed("p1");
         }
 
-        if (p2Claimed)
-        {
+        if (p2Claimed) {
             state.MarkClaimed("p2");
         }
 

@@ -37,10 +37,8 @@ public sealed record WiredEditorSnapshot(
 
     public static WiredEditorSnapshot Effect(IWiredItem box, IReadOnlyList<int> blockedItems)
     {
-        if (WiredLegacyCustomEditor.IsCustom(box))
-        {
-            if (!WiredLegacyCustomEditor.TryGetConfiguration(box, out var descriptor, out var configuration))
-            {
+        if (WiredLegacyCustomEditor.IsCustom(box)) {
+            if (!WiredLegacyCustomEditor.TryGetConfiguration(box, out var descriptor, out var configuration)) {
                 throw new InvalidDataException("Invalid stored custom Wired settings.");
             }
 
@@ -50,8 +48,7 @@ public sealed record WiredEditorSnapshot(
         var text = box.StringData ?? string.Empty;
         ImmutableArray<int> parameters;
 
-        switch (box.Type)
-        {
+        switch (box.Type) {
             case WiredBoxType.EffectBotGivesHanditemBox:
                 var handItem = Parts(text, "Bot name;0");
                 text = handItem[0];

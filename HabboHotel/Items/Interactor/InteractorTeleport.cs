@@ -12,19 +12,16 @@ public class InteractorTeleport(TimeProvider clock) : IFurniInteractor, IApproac
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
         item.LegacyDataString = "0";
 
-        if (item.InteractingUser != 0)
-        {
+        if (item.InteractingUser != 0) {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
 
-            if (user != null)
-            {
+            if (user != null) {
                 user.ClearMovement(true);
                 user.AllowOverride = false;
                 user.CanWalk = true;
@@ -33,12 +30,10 @@ public class InteractorTeleport(TimeProvider clock) : IFurniInteractor, IApproac
             item.InteractingUser = 0;
         }
 
-        if (item.InteractingUser2 != 0)
-        {
+        if (item.InteractingUser2 != 0) {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser2);
 
-            if (user != null)
-            {
+            if (user != null) {
                 user.ClearMovement(true);
                 user.AllowOverride = false;
                 user.CanWalk = true;
@@ -52,31 +47,26 @@ public class InteractorTeleport(TimeProvider clock) : IFurniInteractor, IApproac
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
         item.LegacyDataString = "0";
 
-        if (item.InteractingUser != 0)
-        {
+        if (item.InteractingUser != 0) {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
 
-            if (user != null)
-            {
+            if (user != null) {
                 user.UnlockWalking();
             }
 
             item.InteractingUser = 0;
         }
 
-        if (item.InteractingUser2 != 0)
-        {
+        if (item.InteractingUser2 != 0) {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser2);
 
-            if (user != null)
-            {
+            if (user != null) {
                 user.UnlockWalking();
             }
 
@@ -88,20 +78,17 @@ public class InteractorTeleport(TimeProvider clock) : IFurniInteractor, IApproac
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
-        if (item == null || itemRoom == null || session == null || session.GetHabbo() == null)
-        {
+        if (item == null || itemRoom == null || session == null || session.GetHabbo() == null) {
             return;
         }
 
         var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
@@ -109,20 +96,17 @@ public class InteractorTeleport(TimeProvider clock) : IFurniInteractor, IApproac
         user.LastInteractionAt = now;
 
         // Alright. But is this user in the right position?
-        if (AtEntry(user, item))
-        {
+        if (AtEntry(user, item)) {
             TryEnter(item, user, session.GetHabbo(), now);
         }
-        else if (user.CanWalk)
-        {
+        else if (user.CanWalk) {
             user.ApproachItem(item, ActionKind);
         }
     }
 
     public bool StartFromApproach(Item item, RoomUser user)
     {
-        if (user.GetClient()?.GetHabbo() is not { } habbo)
-        {
+        if (user.GetClient()?.GetHabbo() is not { } habbo) {
             return false;
         }
 
@@ -138,14 +122,12 @@ public class InteractorTeleport(TimeProvider clock) : IFurniInteractor, IApproac
     // Fine. But is this tele even free?
     private static bool TryEnter(Item item, RoomUser user, Plus.HabboHotel.Users.Habbo habbo, DateTimeOffset now)
     {
-        if (item.InteractingUser != 0)
-        {
+        if (item.InteractingUser != 0) {
             return false;
         }
 
         if (!user.CanWalk || habbo.IsTeleporting || habbo.TeleporterId != 0 ||
-            !IsInteractionCurrent(user.LastInteractionAt, now))
-        {
+            !IsInteractionCurrent(user.LastInteractionAt, now)) {
             return false;
         }
 

@@ -39,8 +39,7 @@ public sealed class HousekeepingActionRunner : IHousekeepingActionRunner
 
     public async Task RunAsync(GameClient session, string actionKey, string right, Func<Habbo, Task<HousekeepingOutcome>> action)
     {
-        if (!HasAccess(session))
-        {
+        if (!HasAccess(session)) {
             return;
         }
 
@@ -52,12 +51,10 @@ public sealed class HousekeepingActionRunner : IHousekeepingActionRunner
 
     private async Task<HousekeepingOutcome> Execute(Habbo actor, string actionKey, Func<Habbo, Task<HousekeepingOutcome>> action)
     {
-        try
-        {
+        try {
             return await action(actor);
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             _logger.LogError(e, "Housekeeping action {Action} by {ActorId} failed", actionKey, actor.Id);
 
             return HousekeepingOutcome.Fail(Failed, HousekeepingTarget.Hotel);

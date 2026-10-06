@@ -9,13 +9,11 @@ public class InteractorBanzaiScoreCounter : IFurniInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
-        if (item.Team == Team.None)
-        {
+        if (item.Team == Team.None) {
             return;
         }
 
@@ -31,13 +29,11 @@ public class InteractorBanzaiScoreCounter : IFurniInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
-        if (hasRights)
-        {
+        if (hasRights) {
             itemRoom.GetGameManager().Points[Convert.ToInt32(item.Team)] = 0;
             item.LegacyDataString = "0";
             item.UpdateState();

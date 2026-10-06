@@ -16,12 +16,10 @@ internal sealed class WiredEngineStats(int windowMs = 1000)
 
     public void Record(long now, double elapsedMs, int executions, int depth)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             Roll(now);
 
-            if (executions <= 0)
-            {
+            if (executions <= 0) {
                 return;
             }
 
@@ -35,8 +33,7 @@ internal sealed class WiredEngineStats(int windowMs = 1000)
 
     public WiredEngineWindow Read(long now, int pending)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             Roll(now);
             var window = _previous;
 
@@ -47,8 +44,7 @@ internal sealed class WiredEngineStats(int windowMs = 1000)
 
     private void Roll(long now)
     {
-        if (_windowStart == long.MinValue)
-        {
+        if (_windowStart == long.MinValue) {
             _windowStart = now;
 
             return;
@@ -56,8 +52,7 @@ internal sealed class WiredEngineStats(int windowMs = 1000)
 
         var elapsed = (now - _windowStart) / windowMs;
 
-        if (elapsed <= 0)
-        {
+        if (elapsed <= 0) {
             return;
         }
 

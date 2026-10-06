@@ -51,12 +51,10 @@ public sealed class ClientIdentityServiceTests
         Assert.Equal(banned, disconnected);
         Assert.Equal(banned, client.Closed.IsCancellationRequested);
 
-        if (banned)
-        {
+        if (banned) {
             Assert.Empty(sent);
         }
-        else
-        {
+        else {
             var response = Assert.Single(sent);
             Assert.Equal(ServerPacketHeader.SetUniqueIdComposer, response.Header);
             var body = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = response.Payload };

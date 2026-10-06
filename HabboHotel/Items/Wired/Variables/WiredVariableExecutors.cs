@@ -12,8 +12,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
     {
         error = "Invalid scalar variable settings.";
 
-        if (!Supports(name) || configuration.Version != 1 || configuration.Text.Length > 5000)
-        {
+        if (!Supports(name) || configuration.Version != 1 || configuration.Text.Length > 5000) {
             return false;
         }
 
@@ -28,61 +27,49 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             _ => 8
         };
 
-        if (p.Length != count || !Enum.IsDefined((WiredVariableTarget)p[0]))
-        {
+        if (p.Length != count || !Enum.IsDefined((WiredVariableTarget)p[0])) {
             return false;
         }
 
         var tokens = configuration.Text.Split('\t');
 
-        if (!ValidToken(tokens[0]))
-        {
+        if (!ValidToken(tokens[0])) {
             return false;
         }
 
-        if (name is "wf_act_give_var" or "wf_act_remove_var")
-        {
-            if (!WiredVariableModule.TryDefinitionId(tokens[0], out _) || p[0] == 3)
-            {
+        if (name is "wf_act_give_var" or "wf_act_remove_var") {
+            if (!WiredVariableModule.TryDefinitionId(tokens[0], out _) || p[0] == 3) {
                 return false;
             }
 
-            if (name == "wf_act_give_var" && p[1] is not (0 or 1))
-            {
+            if (name == "wf_act_give_var" && p[1] is not (0 or 1)) {
                 return false;
             }
         }
 
-        if (name is "wf_act_change_var_val" or "wf_cnd_var_val_match")
-        {
-            if (name == "wf_act_change_var_val" ? !WiredVariableArithmetic.IsSupported(p[1]) : p[1] is < 0 or > 5)
-            {
+        if (name is "wf_act_change_var_val" or "wf_cnd_var_val_match") {
+            if (name == "wf_act_change_var_val" ? !WiredVariableArithmetic.IsSupported(p[1]) : p[1] is < 0 or > 5) {
                 return false;
             }
 
-            if (p[2] is not (0 or 1) || !Enum.IsDefined((WiredVariableTarget)p[4]))
-            {
+            if (p[2] is not (0 or 1) || !Enum.IsDefined((WiredVariableTarget)p[4])) {
                 return false;
             }
 
-            if (p[2] == 1 && (tokens.Length < 2 || !ValidToken(tokens[1])))
-            {
+            if (p[2] == 1 && (tokens.Length < 2 || !ValidToken(tokens[1]))) {
                 return false;
             }
 
-            if (tokens.Length > 2 && tokens[2].Split(';', StringSplitOptions.RemoveEmptyEntries).Any(x => !uint.TryParse(x, out var id) || id == 0))
-            {
+            if (tokens.Length > 2 && tokens[2].Split(';', StringSplitOptions.RemoveEmptyEntries).Any(x => !uint.TryParse(x, out var id) || id == 0)) {
                 return false;
             }
         }
 
-        if (name == "wf_cnd_var_age_match" && (p[1] is not (0 or 1) || p[2] is not (0 or 2) || p[3] is < 0 or > 1000000 || p[4] is < 0 or > 7))
-        {
+        if (name == "wf_cnd_var_age_match" && (p[1] is not (0 or 1) || p[2] is not (0 or 2) || p[3] is < 0 or > 1000000 || p[4] is < 0 or > 7)) {
             return false;
         }
 
-        if (name.StartsWith("wf_cnd_", StringComparison.Ordinal) && p[^1] is not (0 or 1))
-        {
+        if (name.StartsWith("wf_cnd_", StringComparison.Ordinal) && p[^1] is not (0 or 1)) {
             return false;
         }
 
@@ -95,8 +82,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             _ => [1, 2]
         };
 
-        if (sourceIndices.Any(i => p[i] is not (0 or 11 or 100 or 101 or 200 or 201)))
-        {
+        if (sourceIndices.Any(i => p[i] is not (0 or 11 or 100 or 101 or 200 or 201))) {
             return false;
         }
 
@@ -107,8 +93,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
 
     public bool Execute(string name, WiredConfiguration configuration, WiredVariableFrame frame)
     {
-        if (!TryValidate(name, configuration, out _))
-        {
+        if (!TryValidate(name, configuration, out _)) {
             return false;
         }
 
@@ -124,25 +109,21 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
         };
         var targets = Select(frame, reference.Target, p[sourceStart], p[sourceStart + 1], configuration.SelectedItems).ToArray();
 
-        if (name is "wf_act_give_var" or "wf_act_remove_var")
-        {
+        if (name is "wf_act_give_var" or "wf_act_remove_var") {
             var mutation = name == "wf_act_remove_var" ? WiredVariableMutation.Remove : p[1] == 1 ? WiredVariableMutation.Replace : WiredVariableMutation.Give;
             var changed = false;
 
-            foreach (var target in targets)
-            {
+            foreach (var target in targets) {
                 changed |= variables.Mutate(reference, target, mutation, name == "wf_act_remove_var" ? 0 : p[2], frame);
             }
 
             return changed;
         }
 
-        if (name is "wf_cnd_has_var" or "wf_cnd_neg_has_var")
-        {
+        if (name is "wf_cnd_has_var" or "wf_cnd_neg_has_var") {
             var outcomes = targets.Select(target => variables.Read(reference, target, frame) is not null).ToArray();
 
-            if (outcomes.Length == 0)
-            {
+            if (outcomes.Length == 0) {
                 return false;
             }
 
@@ -151,8 +132,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             return name == "wf_cnd_neg_has_var" ? !matches : matches;
         }
 
-        if (name == "wf_cnd_var_age_match")
-        {
+        if (name == "wf_cnd_var_age_match") {
             // Octane duration units: milliseconds, seconds, minutes, hours, days, weeks, months, years.
             long[] units = [1, 1000, 60000, 3600000, 86400000, 604800000, 2592000000, 31536000000];
             var durationTicks = (decimal)p[3] * units[p[4]] * TimeSpan.TicksPerMillisecond;
@@ -162,15 +142,13 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             {
                 var current = variables.Read(reference, target, frame);
 
-                if (current is null)
-                {
+                if (current is null) {
                     return false;
                 }
 
                 var timestamp = p[1] == 1 ? current.UpdatedAt : current.CreatedAt;
 
-                if (timestamp is null)
-                {
+                if (timestamp is null) {
                     return false;
                 }
 
@@ -182,37 +160,30 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
 
         var operands = new List<(WiredVariableHolder Holder, int Value)>();
 
-        if (p[2] == 1 && !(name == "wf_act_change_var_val" && WiredVariableArithmetic.IsUnary(p[1])))
-        {
+        if (p[2] == 1 && !(name == "wf_act_change_var_val" && WiredVariableArithmetic.IsUnary(p[1]))) {
             var operandReference = new WiredVariableReference((WiredVariableTarget)p[4], tokens[1]);
             var picked = tokens.Length > 2 ? tokens[2].Split(';', StringSplitOptions.RemoveEmptyEntries).Select(uint.Parse) : configuration.SecondarySelectedItems;
             using var reads = variables.CaptureReads([operandReference], frame);
 
-            foreach (var source in Select(frame, operandReference.Target, p[7], p[8], picked))
-            {
-                if (reads.Read(operandReference, source, frame) is { } value)
-                {
+            foreach (var source in Select(frame, operandReference.Target, p[7], p[8], picked)) {
+                if (reads.Read(operandReference, source, frame) is { } value) {
                     operands.Add((source, value.Value));
                 }
             }
 
-            if (operands.Count == 0)
-            {
+            if (operands.Count == 0) {
                 return false;
             }
         }
 
         int Operand(WiredVariableHolder target, int index)
         {
-            if (operands.Count == 0)
-            {
+            if (operands.Count == 0) {
                 return p[3];
             }
 
-            foreach (var source in operands)
-            {
-                if (source.Holder == target)
-                {
+            foreach (var source in operands) {
+                if (source.Holder == target) {
                     return source.Value;
                 }
             }
@@ -220,16 +191,14 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             return operands[index < operands.Count ? index : 0].Value;
         }
 
-        if (name == "wf_cnd_var_val_match")
-        {
+        if (name == "wf_cnd_var_val_match") {
             return Quantify(targets.Select((target, index) => variables.Read(reference, target, frame) is { } value
                 && WiredVariablePredicates.Compare(p[1], value.Value, Operand(target, index))), p[^1]);
         }
 
         var any = false;
 
-        for (var index = 0; index < targets.Length; index++)
-        {
+        for (var index = 0; index < targets.Length; index++) {
             var operand = Operand(targets[index], index);
             any |= variables.Change(reference, targets[index], WiredVariableMutation.Set, current => WiredVariableArithmetic.Apply(p[1], current, operand), frame);
         }
@@ -240,15 +209,13 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
     public static IEnumerable<WiredVariableHolder> Select(WiredVariableFrame frame, WiredVariableTarget target,
         int userSource, int furniSource, IEnumerable<uint> picked)
     {
-        if (target is WiredVariableTarget.Context or WiredVariableTarget.Global)
-        {
+        if (target is WiredVariableTarget.Context or WiredVariableTarget.Global) {
             return [new(target, 0, 0)];
         }
 
         var source = target == WiredVariableTarget.User ? userSource : furniSource;
 
-        if (frame.ResolveSource is { } resolve)
-        {
+        if (frame.ResolveSource is { } resolve) {
             return resolve(target, source, picked).Where(frame.Contains).Distinct();
         }
 

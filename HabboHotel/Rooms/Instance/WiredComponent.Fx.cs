@@ -20,27 +20,23 @@ public partial class WiredComponent
     {
         var viewer = _room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (viewer == null || viewer.IsBot || !ReferenceEquals(viewer.GetClient(), session))
-        {
+        if (viewer == null || viewer.IsBot || !ReferenceEquals(viewer.GetClient(), session)) {
             return false;
         }
 
         var ready = new ViewerObjects();
 
-        foreach (var item in furniture)
-        {
+        foreach (var item in furniture) {
             ready.Furni[item.Id] = item;
         }
 
-        foreach (var user in users)
-        {
+        foreach (var user in users) {
             ready.Users[user.VirtualId] = user;
         }
 
         _fxViewers[viewer] = ready;
 
-        if (_variables?.IsValueCreated == true)
-        {
+        if (_variables?.IsValueCreated == true) {
             _variables.Value.InvalidateFx();
         }
 
@@ -50,23 +46,19 @@ public partial class WiredComponent
     internal void ObjectEnqueued(RoomUser viewer, Item? item, RoomUser? user) => _engine.Mutate(() =>
     {
         // Incremental objects cannot make a joining viewer ready before the full room snapshot.
-        if (!_fxViewers.TryGetValue(viewer, out var ready))
-        {
+        if (!_fxViewers.TryGetValue(viewer, out var ready)) {
             return false;
         }
 
-        if (item != null)
-        {
+        if (item != null) {
             ready.Furni[item.Id] = item;
         }
 
-        if (user != null)
-        {
+        if (user != null) {
             ready.Users[user.VirtualId] = user;
         }
 
-        if (_variables?.IsValueCreated == true)
-        {
+        if (_variables?.IsValueCreated == true) {
             _variables.Value.InvalidateFx();
         }
 
@@ -75,10 +67,8 @@ public partial class WiredComponent
 
     private void ForgetFxItem(Item item)
     {
-        foreach (var ready in _fxViewers.Values)
-        {
-            if (ready.Furni.TryGetValue(item.Id, out var captured) && ReferenceEquals(captured, item))
-            {
+        foreach (var ready in _fxViewers.Values) {
+            if (ready.Furni.TryGetValue(item.Id, out var captured) && ReferenceEquals(captured, item)) {
                 ready.Furni.Remove(item.Id);
             }
         }
@@ -88,10 +78,8 @@ public partial class WiredComponent
     {
         _fxViewers.Remove(user);
 
-        foreach (var ready in _fxViewers.Values)
-        {
-            if (ready.Users.TryGetValue(user.VirtualId, out var captured) && ReferenceEquals(captured, user))
-            {
+        foreach (var ready in _fxViewers.Values) {
+            if (ready.Users.TryGetValue(user.VirtualId, out var captured) && ReferenceEquals(captured, user)) {
                 ready.Users.Remove(user.VirtualId);
             }
         }
@@ -102,35 +90,27 @@ public partial class WiredComponent
         var users = _targets.AllUsers().ToHashSet();
         var viewers = new List<WiredVariableFxViewer>();
 
-        foreach (var (viewer, ready) in _fxViewers.ToArray())
-        {
-            if (!users.Contains(viewer))
-            {
+        foreach (var (viewer, ready) in _fxViewers.ToArray()) {
+            if (!users.Contains(viewer)) {
                 _fxViewers.Remove(viewer);
                 continue;
             }
 
-            foreach (var item in ready.Furni.Values.ToArray())
-            {
-                if (!_targets.IsAttached(item))
-                {
+            foreach (var item in ready.Furni.Values.ToArray()) {
+                if (!_targets.IsAttached(item)) {
                     ready.Furni.Remove(item.Id);
                 }
             }
 
-            foreach (var user in ready.Users.Values.ToArray())
-            {
-                if (!users.Contains(user))
-                {
+            foreach (var user in ready.Users.Values.ToArray()) {
+                if (!users.Contains(user)) {
                     ready.Users.Remove(user.VirtualId);
                 }
             }
 
             // Capture only successfully enqueued, still-attached identities; selectors remain floor-only.
-            if (context != null)
-            {
-                foreach (var item in ready.Furni.Values)
-                {
+            if (context != null) {
+                foreach (var item in ready.Furni.Values) {
                     context.FurniIdentity[item.Id] = item;
                 }
             }
@@ -144,17 +124,13 @@ public partial class WiredComponent
 
     private void FlushVariableFx() => _engine.Mutate(() =>
     {
-        if (_variables?.IsValueCreated != true || _fxViewers.Count == 0)
-        {
+        if (_variables?.IsValueCreated != true || _fxViewers.Count == 0) {
             return false;
         }
 
-        try
-        {
+        try {
             var context = new WiredRuntimeContext(_room, new(WiredEventKind.Periodic), _targets, this)
-            {
-                NowMilliseconds = _engine.NowMilliseconds
-            };
+            { NowMilliseconds = _engine.NowMilliseconds };
             var frame = WiredVariableRuntimeFrames.Create(context);
             var viewers = CaptureFxViewers(context);
             // Walls have their own client snapshot; FX may read them without expanding floor selectors.
@@ -163,8 +139,7 @@ public partial class WiredComponent
 
             return _variables.Value.FlushFx(fxFrame, viewers, (client, packet) => client.Send(packet), ExceptionLogger.LogException);
         }
-        catch (Exception exception)
-        {
+        catch (Exception exception) {
             _variables.Value.InvalidateFx();
             ExceptionLogger.LogException(exception);
 

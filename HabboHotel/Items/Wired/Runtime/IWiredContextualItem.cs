@@ -9,19 +9,13 @@ public interface IWiredContextualItem : IWiredConfiguredItem
 
 public interface IWiredContextualAction : IWiredContextualItem
 {
-    bool IsNegative
-    {
-        get;
-    }
+    bool IsNegative { get; }
 }
 
 // Trigger Execute is a predicate; the engine alone evaluates and schedules its stack.
 public interface IWiredContextualTrigger : IWiredContextualItem
 {
-    IReadOnlyCollection<WiredEventKind> Events
-    {
-        get;
-    }
+    IReadOnlyCollection<WiredEventKind> Events { get; }
     bool HidesChat(WiredRuntimeContext context);
 }
 
@@ -38,10 +32,7 @@ public interface IWiredContextualSelector : IWiredConfiguredItem
 public interface IWiredContextualAddon : IWiredConfiguredItem
 {
     // Quota acquisition runs after conditions, so a rejected condition spends no quota.
-    bool AfterConditions
-    {
-        get;
-    }
+    bool AfterConditions { get; }
     bool Apply(WiredRuntimeContext context);
     void Reset();
 }

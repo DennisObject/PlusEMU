@@ -11,34 +11,29 @@ public static class PostureService
         actor.Statusses.Remove("lay");
         actor.IsSitting = actor.IsLying = false;
 
-        if (state.CurrentRef is not { } surface)
-        {
+        if (state.CurrentRef is not { } surface) {
             return;
         }
 
         actor.Z = state.SupportZ + RiderOffset(actor, surface);
         var slot = grid.Layered ? grid.SlotOf(surface) : surface.Tile;
 
-        if (slot < 0)
-        {
+        if (slot < 0) {
             return;
         }
 
         var flags = grid.Flags[slot];
 
-        if ((flags & (NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed)) == 0)
-        {
+        if ((flags & (NavFlags.GoalOnlySeat | NavFlags.GoalOnlyBed)) == 0) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(surface.SupportItemId);
 
-        if (item != null)
-        {
+        if (item != null) {
             ItemPosture(actor, item, flags);
         }
-        else if ((flags & NavFlags.ModelSeat) != 0)
-        {
+        else if ((flags & NavFlags.ModelSeat) != 0) {
             ModelPosture(room, actor);
         }
     }

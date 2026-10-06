@@ -18,8 +18,7 @@ public sealed class RoomSettingsDatabaseTests
         var schema = "room_settings_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE rooms (id INT PRIMARY KEY, owner VARCHAR(75), caption VARCHAR(100), description VARCHAR(255), password VARCHAR(30),
@@ -85,7 +84,9 @@ public sealed class RoomSettingsDatabaseTests
             Assert.Throws<InvalidOperationException>(() => gifts.Open(94, 8, 42, 100, new(200, "blue")));
 
         }
-        finally { connection.Execute($"DROP DATABASE IF EXISTS `{schema}`"); }
+        finally {
+            connection.Execute($"DROP DATABASE IF EXISTS `{schema}`");
+        }
     }
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {

@@ -75,8 +75,7 @@ public partial class PlacedFurniRoomTests
         var ownerUpdates = 0;
         _client.BeforeCapture = header =>
         {
-            if (header == ServerPacketHeader.ObjectUpdateComposer)
-            {
+            if (header == ServerPacketHeader.ObjectUpdateComposer) {
                 Assert.True(RoomOwnerScope.IsOwner(_room));
                 ownerUpdates++;
             }
@@ -273,8 +272,7 @@ public partial class PlacedFurniRoomTests
         var item = Add(id, x, y, type: kind);
         InitializeNativeState(item);
 
-        if (kind is InteractionType.Teleport or InteractionType.Hopper)
-        {
+        if (kind is InteractionType.Teleport or InteractionType.Hopper) {
             item.RequestUpdate(1, true);
         }
 

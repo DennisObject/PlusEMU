@@ -45,8 +45,7 @@ public sealed class WiredAddonBox : WiredConfiguredBehaviorBox, IWiredContextual
         var passed = _module.Apply(input.ForAddons(context.NowMilliseconds), context.Policy.Addons, configuration);
 
         // The shared ordered list also contains formatters owned by the variable module.
-        foreach (var formatter in context.Policy.Addons.TextFormatters.Skip(before))
-        {
+        foreach (var formatter in context.Policy.Addons.TextFormatters.Skip(before)) {
             context.Policy.TextFormatters.Add((current, text) => formatter(
                 WiredSelectorRuntimeInput.Capture(current, _state, _groups, readWorld: _readWorld).ForAddons(current.NowMilliseconds), text));
         }
@@ -67,8 +66,7 @@ public static class WiredAddonFactory
     {
         var descriptor = item.Definition.WiredDescriptor;
 
-        if (descriptor?.Category != WiredBoxCategory.Addon || !WiredAddonModule.Names.Contains(descriptor.CanonicalName))
-        {
+        if (descriptor?.Category != WiredBoxCategory.Addon || !WiredAddonModule.Names.Contains(descriptor.CanonicalName)) {
             return null;
         }
 

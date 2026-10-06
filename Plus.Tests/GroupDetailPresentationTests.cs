@@ -75,12 +75,10 @@ public sealed class GroupDetailPresentationTests
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7, CurrentRoom = room });
         Service(Group()).ShowFurnitureSettings(client, item.Id, 9);
 
-        if (allowed)
-        {
+        if (allowed) {
             Assert.Equal(new[] { ServerPacketHeader.GroupFurniSettingsComposer, ServerPacketHeader.GroupInfoComposer }, sent.Select(p => p.Header));
         }
-        else
-        {
+        else {
             Assert.Empty(sent);
         }
 

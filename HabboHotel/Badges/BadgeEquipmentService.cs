@@ -23,24 +23,20 @@ public sealed class BadgeEquipmentService(BadgeManager badges, IRewardTrackManag
             .Select(badge => (slot: badge.Slot, badge: badge.Code)).ToList();
         var change = await badges.UpdateUserBadges(habbo, updates);
 
-        if (change == null)
-        {
+        if (change == null) {
             return;
         }
 
-        if (change.Added > 0)
-        {
+        if (change.Added > 0) {
             rewards.Progress(session, RewardTrackActions.WearBadge, change.Added);
         }
 
         var packet = new HabboUserBadgesComposer(habbo.Id, change.Equipped);
 
-        if (habbo.InRoom)
-        {
+        if (habbo.InRoom) {
             habbo.CurrentRoom?.SendPacket(packet);
         }
-        else
-        {
+        else {
             session.Send(packet);
         }
     }

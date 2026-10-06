@@ -16,8 +16,7 @@ public sealed class WiredAvatarState
         : Rooms.GetValue(room, _ => new());
     public bool FreezeUser(RoomUser user, int effect, bool cancelOnTeleport)
     {
-        if (_executorRoom?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation)
-        {
+        if (_executorRoom?.GetGameMap()?.Navigation is { UsesExecutor: true } navigation) {
             navigation.RunOwner(user, (actor, sequence) =>
             {
                 navigation.CancelThrough(actor, sequence);
@@ -39,8 +38,7 @@ public sealed class WiredAvatarState
         user.UpdateNeeded = true;
 
         // Plus bots have no stored effect/version to restore safely. Their actual movement freeze still applies.
-        if (!user.IsBot && effect > 0)
-        {
+        if (!user.IsBot && effect > 0) {
             user.ApplyEffect(effect);
         }
 
@@ -60,16 +58,14 @@ public sealed class WiredAvatarState
         user.UpdateNeeded = true;
 
         // Plus bots have no stored effect/version to restore safely. Their actual movement freeze still applies.
-        if (!user.IsBot && effect > 0)
-        {
+        if (!user.IsBot && effect > 0) {
             user.ApplyEffect(effect);
         }
     }
 
     public bool Thaw(RoomUser user, bool teleport = false)
     {
-        if (!_frozen.TryGetValue(user, out var state) || teleport && !state.CancelOnTeleport)
-        {
+        if (!_frozen.TryGetValue(user, out var state) || teleport && !state.CancelOnTeleport) {
             return false;
         }
 
@@ -78,8 +74,7 @@ public sealed class WiredAvatarState
         user.CanWalk = state.CanWalk;
         user.UpdateNeeded = true;
 
-        if (!user.IsBot && state.Effect > 0 && user.GetClient()?.GetHabbo()?.Effects.CurrentEffect == state.Effect)
-        {
+        if (!user.IsBot && state.Effect > 0 && user.GetClient()?.GetHabbo()?.Effects.CurrentEffect == state.Effect) {
             user.ApplyEffect(0);
         }
 

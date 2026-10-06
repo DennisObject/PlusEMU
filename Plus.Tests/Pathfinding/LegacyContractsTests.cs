@@ -56,8 +56,7 @@ public class LegacyContractsTests
         Assert.Equal(legacySteps, path.Count - 1); // Legacy includes the origin.
         Assert.Equal(v2Steps, outcome == PathOutcome.Found ? route.Count : -1);
 
-        foreach (var (from, to) in path.Zip(path.Skip(1)))
-        {
+        foreach (var (from, to) in path.Zip(path.Skip(1))) {
             Assert.True(map.IsValidStep(to, from, from.X == gx && from.Y == gy, false, false, legacyActor));
         }
 

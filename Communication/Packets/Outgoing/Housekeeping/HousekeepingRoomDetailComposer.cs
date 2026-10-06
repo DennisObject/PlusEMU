@@ -14,8 +14,7 @@ public class HousekeepingRoomDetailComposer : IServerPacket
     {
         packet.WriteBoolean(_room != null);
 
-        if (_room != null)
-        {
+        if (_room != null) {
             WriteRoom(packet, _room);
         }
     }

@@ -23,8 +23,7 @@ public sealed class WiredVariableBuiltinDerivedTests
         Assert.Equal(150, fixture.Read(new(WiredVariableTarget.User, "custom:20"))!.Value);
         Assert.Equal(2, fixture.Read(derived)!.Value);
 
-        using (var reads = fixture.Module.CaptureReads([derived], fixture.Frame))
-        {
+        using (var reads = fixture.Module.CaptureReads([derived], fixture.Frame)) {
             Assert.Equal(2, reads.Read(derived, fixture.Holder, fixture.Frame)!.Value);
         }
 
@@ -32,8 +31,7 @@ public sealed class WiredVariableBuiltinDerivedTests
         fixture.Builtin.Value = null;
         Assert.Null(fixture.Read(derived));
 
-        using (var reads = fixture.Module.CaptureReads([derived], fixture.Frame))
-        {
+        using (var reads = fixture.Module.CaptureReads([derived], fixture.Frame)) {
             Assert.Null(reads.Read(derived, fixture.Holder, fixture.Frame));
         }
 
@@ -53,10 +51,7 @@ public sealed class WiredVariableBuiltinDerivedTests
         fixture.Builtin.Value = new(1, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(2000));
         fixture.AddMetadata("wf_xtra_var_lvlup_system");
         var time = fixture.AddMetadata("wf_xtra_var_time_util");
-        time.ApplyConfiguration(new()
-        {
-            IntParams = [1 << 21, 1]
-        });
+        time.ApplyConfiguration(new() { IntParams = [1 << 21, 1] });
         var catalog = fixture.Variables.Catalog();
         var alias = Assert.Single(catalog.Variables);
         Assert.False(alias.HasValue);
@@ -64,8 +59,7 @@ public sealed class WiredVariableBuiltinDerivedTests
         Assert.NotNull(fixture.Read(new(WiredVariableTarget.User, "custom:20")));
 
         foreach (var id in new[] { WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 20, 0, false)!.Value,
-            WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 20, 21, true)!.Value })
-        {
+            WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 20, 21, true)!.Value }) {
             var reference = new WiredVariableReference(WiredVariableTarget.User, $"custom:{id}");
             Assert.Null(fixture.Read(reference));
             using var reads = fixture.Module.CaptureReads([reference], fixture.Frame);
@@ -87,25 +81,17 @@ public sealed class WiredVariableBuiltinDerivedTests
         var fixture = new Fixture("@achievement_score");
         fixture.Builtin.Value = new(150, DateTimeOffset.FromUnixTimeMilliseconds(12000), DateTimeOffset.FromUnixTimeMilliseconds(24000));
         var time = fixture.AddMetadata("wf_xtra_var_time_util");
-        time.ApplyConfiguration(new()
-        {
-            IntParams = [1 << 22, 0]
-        });
+        time.ApplyConfiguration(new() { IntParams = [1 << 22, 0] });
         var id = WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 20, 22, true)!.Value;
         var reference = new WiredVariableReference(WiredVariableTarget.User, $"custom:{id}");
         Assert.Equal(2, fixture.Read(reference)!.Value);
 
-        using (var reads = fixture.Module.CaptureReads([reference], fixture.Frame))
-        {
+        using (var reads = fixture.Module.CaptureReads([reference], fixture.Frame)) {
             Assert.Equal(2, reads.Read(reference, fixture.Holder, fixture.Frame)!.Value);
         }
 
-        foreach (var mode in new[] { 1, 2 })
-        {
-            time.ApplyConfiguration(new()
-            {
-                IntParams = [1 << 22, mode]
-            });
+        foreach (var mode in new[] { 1, 2 }) {
+            time.ApplyConfiguration(new() { IntParams = [1 << 22, mode] });
             Assert.DoesNotContain(fixture.Variables.Catalog().Variables, variable => variable.Definition.ItemId == id);
             Assert.Null(fixture.Read(reference));
             using var reads = fixture.Module.CaptureReads([reference], fixture.Frame);
@@ -118,24 +104,12 @@ public sealed class WiredVariableBuiltinDerivedTests
         private const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
         private readonly ConcurrentDictionary<uint, Item> _floor;
         private uint _nextMetadata = 1000;
-        public Authority Directory
-        {
-            get;
-        }
+        public Authority Directory { get; }
         public BuiltinValues Builtin { get; } = new();
-        public WiredRoomVariables Variables
-        {
-            get;
-        }
-        public WiredVariableModule Module
-        {
-            get;
-        }
+        public WiredRoomVariables Variables { get; }
+        public WiredVariableModule Module { get; }
         public WiredVariableHolder Holder { get; } = new(WiredVariableTarget.User, 7, 1);
-        public WiredVariableFrame Frame
-        {
-            get;
-        }
+        public WiredVariableFrame Frame { get; }
         public Fixture(string key)
         {
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
@@ -155,10 +129,7 @@ public sealed class WiredVariableBuiltinDerivedTests
             var item = new Item { Id = 20, OwnerId = 5, Definition = new() { InteractionName = "wf_var_echo" } };
             _floor[item.Id] = item;
             var box = Variables.CreateBox(item)!;
-            Assert.True(box.TryValidateConfiguration(new()
-            {
-                Text = "{\"variableName\":\"points\",\"sourceTargetType\":0,\"sourceVariableToken\":\"internal:" + key + "\"}"
-            }, out var config, out _));
+            Assert.True(box.TryValidateConfiguration(new() { Text = "{\"variableName\":\"points\",\"sourceTargetType\":0,\"sourceVariableToken\":\"internal:" + key + "\"}" }, out var config, out _));
             box.ApplyConfiguration(config);
             Variables.ConfigurationLoaded(box);
         }

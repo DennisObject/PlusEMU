@@ -83,8 +83,7 @@ public class FlashFramingTests
 
         var deadline = DateTime.UtcNow.AddSeconds(2);
 
-        while (server.Count < 2 && DateTime.UtcNow < deadline)
-        {
+        while (server.Count < 2 && DateTime.UtcNow < deadline) {
             await Task.Delay(10);
         }
 
@@ -119,8 +118,7 @@ public class FlashFramingTests
         client.DisconnectRequested = () => disconnected++;
         client.SendCallback = _ => { sends++; return false; };
 
-        if (afterHandshake)
-        {
+        if (afterHandshake) {
             client.OnReceived(new byte[] { 0, 0, 0, 2, 0, 1 }, 0, 6);
         }
 
@@ -233,8 +231,7 @@ public class FlashFramingTests
         var client = Client(server, 1u, 2u);
         server.Receive = (messageId, _) =>
         {
-            if (messageId == 1)
-            {
+            if (messageId == 1) {
                 client.ActivateLegacyCrypto(key);
             }
         };
@@ -315,24 +312,12 @@ public class FlashFramingTests
 
     private sealed class FakeServer : IGameServer
     {
-        public Task? Hold
-        {
-            get; init;
-        }
+        public Task? Hold { get; init; }
         public int Count => MessageIds.Count;
         public List<uint> MessageIds { get; } = new();
-        public Action<IOutgoingPacket>? Modify
-        {
-            get; init;
-        }
-        public Action<uint, IIncomingPacket>? Receive
-        {
-            get; set;
-        }
-        public bool RejectModification
-        {
-            get; init;
-        }
+        public Action<IOutgoingPacket>? Modify { get; init; }
+        public Action<uint, IIncomingPacket>? Receive { get; set; }
+        public bool RejectModification { get; init; }
 
         public bool Start() => true;
         public bool Stop() => true;

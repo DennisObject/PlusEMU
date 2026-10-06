@@ -8,8 +8,7 @@ internal static class RouteRetention
         var route = state.Route;
         var steps = new RetainedStep[Math.Max(0, route.Count - state.Cursor)];
 
-        for (var i = state.Cursor; i < route.Count; i++)
-        {
+        for (var i = state.Cursor; i < route.Count; i++) {
             var surface = route.Steps[i];
             steps[i - state.Cursor] = new(surface.Tile % grid.Width, surface.Tile / grid.Width,
                 route.PurposeAt(i, state.Origin), surface.SupportItemId, route.AdvisoryZ(i));
@@ -28,8 +27,7 @@ internal static class RouteRetention
         route.GridVersion = grid.Version;
         route.View = state.Profile.LegacyOverride ? GraphView.LegacyTile : GraphView.Surface;
 
-        for (var i = 0; i < prefix.Length; i++)
-        {
+        for (var i = 0; i < prefix.Length; i++) {
             route.Set(i, grid.Reference(prefix[i].Slot));
             route.SetAdvisoryZ(i, retained[i].Z);
         }

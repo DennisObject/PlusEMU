@@ -184,14 +184,8 @@ public sealed class ClubCatalogServiceTests
 
     private sealed class RecordingClubCatalogService : IClubCatalogService
     {
-        public int GiftViews
-        {
-            get; private set;
-        }
-        public string? ProductCode
-        {
-            get; private set;
-        }
+        public int GiftViews { get; private set; }
+        public string? ProductCode { get; private set; }
         public List<int> OfferIds { get; } = [];
 
         public Task ShowStatus(GameClient session, string type) => Task.CompletedTask;
@@ -222,14 +216,8 @@ public sealed class ClubCatalogServiceTests
     private sealed class RecordingRewards(bool claimSucceeds) : IClubRewards
     {
         private readonly CatalogItem _item = Item(Definition());
-        public int Claims
-        {
-            get; private set;
-        }
-        public int GiftReads
-        {
-            get; private set;
-        }
+        public int Claims { get; private set; }
+        public int GiftReads { get; private set; }
 
         public ClubGiftInfo Gifts(Habbo habbo)
         {
@@ -257,18 +245,14 @@ public sealed class ClubCatalogServiceTests
 
     private sealed class RecordingMembership(bool succeeds) : IClubMembershipService
     {
-        public int Purchases
-        {
-            get; private set;
-        }
+        public int Purchases { get; private set; }
         public DateTimeOffset? GetExpiry(int userId) => null;
 
         public DateTimeOffset? Purchase(Habbo habbo, ClubOffer offer, int? recipientId = null)
         {
             Purchases++;
 
-            if (!succeeds)
-            {
+            if (!succeeds) {
                 return null;
             }
 
@@ -283,22 +267,17 @@ public sealed class ClubCatalogServiceTests
 
     public class CatalogProxy : DispatchProxy
     {
-        public bool HasOffer
-        {
-            get; set;
-        }
+        public bool HasOffer { get; set; }
         public ClubOffer Offer { get; set; } = null!;
         public ICollection<CatalogPage> Pages { get; set; } = [];
 
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == "get_Pages")
-            {
+            if (targetMethod?.Name == "get_Pages") {
                 return Pages;
             }
 
-            if (targetMethod?.Name == nameof(ICatalogManager.TryGetClubOffer))
-            {
+            if (targetMethod?.Name == nameof(ICatalogManager.TryGetClubOffer)) {
                 args![1] = HasOffer ? Offer : null;
 
                 return HasOffer && (int)args[0]! == Offer.Id;

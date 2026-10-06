@@ -30,8 +30,7 @@ public sealed class ChatStyleManager : IChatStyleManager, IStartable
         var styles = await connection.QueryAsync<ChatStyle>("SELECT id, name, COALESCE(required_permission, '') AS RequiredPermission, requires_hc AS RequiresHc, enabled FROM room_chat_styles");
         _styles.Clear();
 
-        foreach (var style in styles)
-        {
+        foreach (var style in styles) {
             _styles.TryAdd(style.Id, style);
         }
 

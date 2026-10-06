@@ -65,30 +65,15 @@ public class WiredLegacyCustomEditorTests
     public void UnsupportedCustomSourceSpeedAndChangedRegenerateTextAreRejectedWithoutMutation()
     {
         var badge = Create(0);
-        Assert.False(WiredLegacyCustomEditor.TryPrepare(badge, Proposal(0) with
-        {
-            IntParams = [200, 0, 34]
-        },
+        Assert.False(WiredLegacyCustomEditor.TryPrepare(badge, Proposal(0) with { IntParams = [200, 0, 34] },
             _ => throw new Exception("Factory must not run."), out _, out _));
-        Assert.False(WiredLegacyCustomEditor.TryPrepare(badge, Proposal(0) with
-        {
-            Text = new string('B', 51)
-        },
+        Assert.False(WiredLegacyCustomEditor.TryPrepare(badge, Proposal(0) with { Text = new string('B', 51) },
             _ => throw new Exception("Factory must not run."), out _, out _));
-        Assert.False(WiredLegacyCustomEditor.TryPrepare(Create(1), Proposal(1) with
-        {
-            IntParams = [11]
-        },
+        Assert.False(WiredLegacyCustomEditor.TryPrepare(Create(1), Proposal(1) with { IntParams = [11] },
             _ => throw new Exception("Factory must not run."), out _, out _));
-        Assert.False(WiredLegacyCustomEditor.TryPrepare(Create(2), Proposal(2) with
-        {
-            Text = "ignored setting"
-        },
+        Assert.False(WiredLegacyCustomEditor.TryPrepare(Create(2), Proposal(2) with { Text = "ignored setting" },
             _ => throw new Exception("Factory must not run."), out _, out _));
-        Assert.False(WiredLegacyCustomEditor.TryPrepare(badge, Proposal(0) with
-        {
-            SelectedItems = [8]
-        },
+        Assert.False(WiredLegacyCustomEditor.TryPrepare(badge, Proposal(0) with { SelectedItems = [8] },
             _ => throw new Exception("Factory must not run."), out _, out _));
         Assert.Equal("OLD_BADGE", badge.StringData);
     }
@@ -111,12 +96,7 @@ public class WiredLegacyCustomEditorTests
             2 => new RegenerateMapsBox(null!, item),
             _ => throw new ArgumentOutOfRangeException(nameof(kind))
         };
-        box.StringData = kind switch
-        {
-            0 => "OLD_BADGE",
-            1 => "2",
-            _ => ""
-        };
+        box.StringData = kind switch { 0 => "OLD_BADGE", 1 => "2", _ => "" };
         box.ItemsData = "8;";
         box.BoolData = true;
 
@@ -134,10 +114,7 @@ public class WiredLegacyCustomEditorTests
     private sealed class RecordingPacket : IOutgoingPacket
     {
         public List<object> Writes { get; } = [];
-        public int MessageId
-        {
-            get; set;
-        }
+        public int MessageId { get; set; }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

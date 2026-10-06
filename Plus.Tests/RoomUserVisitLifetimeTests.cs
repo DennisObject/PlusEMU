@@ -254,23 +254,13 @@ public partial class PlacedFurniRoomTests
         public RoomUser User { get; set; } = null!;
         public Room Room { get; set; } = null!;
         public GameClient Client { get; set; } = null!;
-        public bool RecordExitCalled
-        {
-            get; private set;
-        }
-        public bool SawCapturedVisit
-        {
-            get; private set;
-        }
-        public bool ThrowOnUserCount
-        {
-            get; init;
-        }
+        public bool RecordExitCalled { get; private set; }
+        public bool SawCapturedVisit { get; private set; }
+        public bool ThrowOnUserCount { get; init; }
 
         public void UpdateUserCount(uint roomId, int count)
         {
-            if (!ThrowOnUserCount)
-            {
+            if (!ThrowOnUserCount) {
                 return;
             }
 

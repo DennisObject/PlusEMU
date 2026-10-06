@@ -28,16 +28,12 @@ public sealed class RoomFurnitureLoader(IDatabase database, IItemDataManager def
             LEFT JOIN items_groups ON items_groups.id = items.id
             LEFT JOIN users ON users.id = items.user_id
             WHERE items.room_id = @roomId
-            """, new
-        {
-            roomId
-        }).Select(row => Materialize(row, roomId)).Where(item => item != null).Select(item => item!).ToArray();
+            """, new { roomId }).Select(row => Materialize(row, roomId)).Where(item => item != null).Select(item => item!).ToArray();
     }
 
     private Item? Materialize(ItemRow row, uint roomId)
     {
-        if (!definitions.Items.TryGetValue(row.BaseItem, out var definition))
-        {
+        if (!definitions.Items.TryGetValue(row.BaseItem, out var definition)) {
             return null;
         }
 
@@ -66,57 +62,18 @@ public sealed class RoomFurnitureLoader(IDatabase database, IItemDataManager def
 
     private sealed class ItemRow
     {
-        public uint Id
-        {
-            get; set;
-        }
-        public uint UserId
-        {
-            get; set;
-        }
-        public uint BaseItem
-        {
-            get; set;
-        }
-        public int GroupId
-        {
-            get; set;
-        }
-        public string? Username
-        {
-            get; set;
-        }
-        public string? ExtraData
-        {
-            get; set;
-        }
-        public int X
-        {
-            get; set;
-        }
-        public int Y
-        {
-            get; set;
-        }
-        public double Z
-        {
-            get; set;
-        }
-        public int Rotation
-        {
-            get; set;
-        }
-        public uint LimitedNumber
-        {
-            get; set;
-        }
-        public uint LimitedStack
-        {
-            get; set;
-        }
-        public string? WallPosition
-        {
-            get; set;
-        }
+        public uint Id { get; set; }
+        public uint UserId { get; set; }
+        public uint BaseItem { get; set; }
+        public int GroupId { get; set; }
+        public string? Username { get; set; }
+        public string? ExtraData { get; set; }
+        public int X { get; set; }
+        public int Y { get; set; }
+        public double Z { get; set; }
+        public int Rotation { get; set; }
+        public uint LimitedNumber { get; set; }
+        public uint LimitedStack { get; set; }
+        public string? WallPosition { get; set; }
     }
 }

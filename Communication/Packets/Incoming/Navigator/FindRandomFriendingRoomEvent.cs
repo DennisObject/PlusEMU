@@ -17,8 +17,7 @@ internal class FindRandomFriendingRoomEvent : IPacketEvent
     {
         var instance = _roomManager.TryGetRandomLoadedRoom();
 
-        if (instance != null)
-        {
+        if (instance != null) {
             session.Send(new RoomForwardComposer(instance.Id));
         }
 

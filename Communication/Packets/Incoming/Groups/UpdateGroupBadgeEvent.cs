@@ -11,15 +11,13 @@ internal sealed class UpdateGroupBadgeEvent(IGroupAppearanceService appearance) 
         var groupId = packet.ReadInt();
         var count = packet.ReadInt();
 
-        if (count < 3 || count > 15 || count % 3 != 0 || packet.Buffer.Length != count * sizeof(int))
-        {
+        if (count < 3 || count > 15 || count % 3 != 0 || packet.Buffer.Length != count * sizeof(int)) {
             return Task.CompletedTask;
         }
 
         var parts = ImmutableArray.CreateBuilder<GroupBadgePartRequest>(count / 3);
 
-        for (var i = 0; i < count / 3; i++)
-        {
+        for (var i = 0; i < count / 3; i++) {
             parts.Add(new(packet.ReadInt(), packet.ReadInt(), packet.ReadInt()));
         }
 

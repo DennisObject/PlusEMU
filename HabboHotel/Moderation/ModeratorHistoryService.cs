@@ -32,18 +32,14 @@ public sealed class ModeratorHistoryService(
 {
     public ModeratorRoomChatlog? GetRoomChatlog(uint roomId)
     {
-        if (!roomManager.TryGetRoom(roomId, out var room))
-        {
+        if (!roomManager.TryGetRoom(roomId, out var room)) {
             return null;
         }
 
         chatlogManager.FlushAndSave();
         using var connection = database.Connection();
         var entries = ResolveEntries(connection.Query<ChatlogRow>(
-            "SELECT user_id AS UserId, `timestamp` AS Timestamp, message FROM chatlogs WHERE room_id=@roomId ORDER BY id DESC LIMIT 100", new
-            {
-                roomId
-            }));
+            "SELECT user_id AS UserId, `timestamp` AS Timestamp, message FROM chatlogs WHERE room_id=@roomId ORDER BY id DESC LIMIT 100", new { roomId }));
 
         return new(new(room.Id, room.Name), entries);
     }
@@ -52,8 +48,7 @@ public sealed class ModeratorHistoryService(
     {
         var user = GetUser(userId);
 
-        if (user == null)
-        {
+        if (user == null) {
             return null;
         }
 
@@ -69,17 +64,12 @@ public sealed class ModeratorHistoryService(
             ) AS visits
             LEFT JOIN rooms ON rooms.id=visits.room_id
             ORDER BY visits.entry_timestamp DESC
-            """, new
-            {
-                userId
-            });
+            """, new { userId });
         var rooms = new List<ModeratorRoomChatlog>();
         var now = timeProvider.GetUtcNow();
 
-        foreach (var visit in visits)
-        {
-            if (visit.RoomName == null || visit.EntryTimestamp is not { } enteredAt)
-            {
+        foreach (var visit in visits) {
+            if (visit.RoomName == null || visit.EntryTimestamp is not { } enteredAt) {
                 continue;
             }
 
@@ -105,8 +95,7 @@ public sealed class ModeratorHistoryService(
     {
         var user = GetUser(userId);
 
-        if (user == null)
-        {
+        if (user == null) {
             return null;
         }
 
@@ -120,17 +109,12 @@ public sealed class ModeratorHistoryService(
             ) AS visits
             LEFT JOIN rooms ON rooms.id=visits.room_id
             ORDER BY visits.entry_timestamp DESC
-            """, new
-            {
-                userId
-            });
+            """, new { userId });
         var timestamps = new HashSet<DateTimeOffset>();
         var visits = new List<ModeratorRoomVisit>();
 
-        foreach (var row in rows)
-        {
-            if (row.RoomName != null && row.EntryTimestamp is { } enteredAt && timestamps.Add(enteredAt))
-            {
+        foreach (var row in rows) {
+            if (row.RoomName != null && row.EntryTimestamp is { } enteredAt && timestamps.Add(enteredAt)) {
                 visits.Add(new(new(row.RoomId, row.RoomName), enteredAt));
             }
         }
@@ -142,12 +126,10 @@ public sealed class ModeratorHistoryService(
     {
         var entries = new List<ModeratorChatEntry>();
 
-        foreach (var row in rows)
-        {
+        foreach (var row in rows) {
             var user = GetUser(checked((int)row.UserId));
 
-            if (user != null && row.Timestamp is { } createdAt)
-            {
+            if (user != null && row.Timestamp is { } createdAt) {
                 entries.Add(new(checked((int)row.UserId), user.Username, row.Message, createdAt));
             }
         }
@@ -158,51 +140,24 @@ public sealed class ModeratorHistoryService(
     private Users.Habbo? GetUser(int userId) => userLookup.GetById(userId);
     private sealed class ChatlogRow
     {
-        public uint UserId
-        {
-            get; set;
-        }
-        public DateTimeOffset? Timestamp
-        {
-            get; set;
-        }
+        public uint UserId { get; set; }
+        public DateTimeOffset? Timestamp { get; set; }
         public string Message { get; set; } = string.Empty;
     }
 
     private sealed class RoomVisitRow
     {
-        public uint RoomId
-        {
-            get; set;
-        }
-        public string? RoomName
-        {
-            get; set;
-        }
-        public DateTimeOffset? EntryTimestamp
-        {
-            get; set;
-        }
-        public DateTimeOffset? ExitTimestamp
-        {
-            get; set;
-        }
+        public uint RoomId { get; set; }
+        public string? RoomName { get; set; }
+        public DateTimeOffset? EntryTimestamp { get; set; }
+        public DateTimeOffset? ExitTimestamp { get; set; }
     }
 
     private sealed class RoomVisitSummaryRow
     {
-        public uint RoomId
-        {
-            get; set;
-        }
-        public string? RoomName
-        {
-            get; set;
-        }
-        public DateTimeOffset? EntryTimestamp
-        {
-            get; set;
-        }
+        public uint RoomId { get; set; }
+        public string? RoomName { get; set; }
+        public DateTimeOffset? EntryTimestamp { get; set; }
     }
 
 }

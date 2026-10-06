@@ -32,8 +32,7 @@ public class NullableLookupTests
     {
         var heap = new MinHeap<int>(2);
 
-        foreach (var value in new[] { 7, 2, 6, 1, 4 })
-        {
+        foreach (var value in new[] { 7, 2, 6, 1, 4 }) {
             heap.Add(value);
         }
 

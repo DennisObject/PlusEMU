@@ -30,13 +30,11 @@ public sealed class ItemTravelStoreDatabaseTests
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             options.Database = schema;
             var database = new ProbeDatabase(options.ConnectionString);
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 connection.Execute("""
                     CREATE TABLE items_hopper (hopper_id INT UNSIGNED NOT NULL, room_id INT UNSIGNED NOT NULL);
                     CREATE TABLE room_items_tele_links (tele_one_id INT UNSIGNED NOT NULL, tele_two_id INT UNSIGNED NOT NULL);
@@ -76,8 +74,7 @@ public sealed class ItemTravelStoreDatabaseTests
             Assert.Equal([(9999u, 9999u)], probe.Query<(uint, uint)>(
                 "SELECT hopper_id,room_id FROM items_hopper").ToArray());
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -97,13 +94,11 @@ public sealed class ItemTravelStoreDatabaseTests
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             options.Database = schema;
             var database = new ProbeDatabase(options.ConnectionString);
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 connection.Execute("""
                     CREATE TABLE users (id INT PRIMARY KEY, look VARCHAR(200), gender VARCHAR(10));
                     INSERT INTO users VALUES (7,'old-look','M');
@@ -125,8 +120,7 @@ public sealed class ItemTravelStoreDatabaseTests
             using var probe = database.Connection();
             Assert.Equal(("old-look", "M"), probe.QuerySingle<(string, string)>("SELECT look,gender FROM users WHERE id=7"));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }

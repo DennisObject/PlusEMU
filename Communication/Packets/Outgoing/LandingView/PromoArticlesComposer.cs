@@ -18,8 +18,7 @@ public class PromoArticlesComposer : IServerPacket
     {
         packet.WriteInteger(_landingPromotions.Length); //Count
 
-        foreach (var promotion in _landingPromotions)
-        {
+        foreach (var promotion in _landingPromotions) {
             packet.WriteInteger(promotion.Id); //ID
             packet.WriteString(promotion.Title); //Title
             packet.WriteString(promotion.Text); //Text

@@ -35,8 +35,7 @@ public sealed class CatalogStudioSessionComposer : IServerPacket
         var chunks = Chunks(_session.Pages);
         packet.WriteInteger(chunks.Count);
 
-        foreach (var chunk in chunks)
-        {
+        foreach (var chunk in chunks) {
             packet.WriteString(chunk);
         }
     }
@@ -45,16 +44,14 @@ public sealed class CatalogStudioSessionComposer : IServerPacket
     {
         using var buffer = new MemoryStream();
 
-        using (var gzip = new GZipStream(buffer, CompressionLevel.Optimal, leaveOpen: true))
-        {
+        using (var gzip = new GZipStream(buffer, CompressionLevel.Optimal, leaveOpen: true)) {
             JsonSerializer.Serialize(gzip, pages, CatalogAdminResultComposer.WireJson);
         }
 
         var encoded = Convert.ToBase64String(buffer.ToArray());
         var chunks = new List<string>();
 
-        for (int start = 0; start < encoded.Length; start += ChunkLength)
-        {
+        for (int start = 0; start < encoded.Length; start += ChunkLength) {
             chunks.Add(encoded.Substring(start, Math.Min(ChunkLength, encoded.Length - start)));
         }
 

@@ -22,8 +22,7 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     {
         var grid = Navigation.Grid;
 
-        if (!grid.InBounds(actor.X, actor.Y))
-        {
+        if (!grid.InBounds(actor.X, actor.Y)) {
             Claims.Remove(actor);
 
             return;
@@ -37,13 +36,11 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     // K=1 keeps the tile slot; a layered reference without a live surface is off-graph.
     private int? MembershipSlot(SurfaceRef? current)
     {
-        if (current is not { } surface)
-        {
+        if (current is not { } surface) {
             return null;
         }
 
-        if (!Grid.Layered)
-        {
+        if (!Grid.Layered) {
             return surface.Tile;
         }
 
@@ -53,12 +50,10 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     }
     private bool IsWalking(RoomUser actor)
     {
-        if (actor.IsBot && actor.RidingHorse)
-        {
+        if (actor.IsBot && actor.RidingHorse) {
             var rider = Room.GetRoomUserManager().GetRoomUserByVirtualId(actor.HorseId);
 
-            if (rider is { RidingHorse: true })
-            {
+            if (rider is { RidingHorse: true }) {
                 return rider.Movement.HasIntent;
             }
         }
@@ -67,12 +62,10 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     }
     internal long Group(RoomUser actor)
     {
-        if (actor.RidingHorse && actor.IsBot)
-        {
+        if (actor.RidingHorse && actor.IsBot) {
             var rider = Room.GetRoomUserManager().GetUserList().FirstOrDefault(a => !a.IsBot && a.RidingHorse && a.HorseId == actor.VirtualId);
 
-            if (rider != null)
-            {
+            if (rider != null) {
                 return rider.Movement.LifetimeId;
             }
         }
@@ -83,8 +76,7 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     {
         var state = actor.Movement;
 
-        if (state.HasIntent)
-        {
+        if (state.HasIntent) {
             Scheduler.Enqueue(actor, state.LifetimeId, state.GoalRevision);
         }
     }
@@ -98,8 +90,7 @@ internal sealed class MovementContext(Room room, RoomNavigation navigation, Land
     {
         Claims.EnsureCapacity(Grid.SlotCapacity);
 
-        if (_executionOccupancy.Targets.Length < Grid.SlotCapacity)
-        {
+        if (_executionOccupancy.Targets.Length < Grid.SlotCapacity) {
             _executionOccupancy = new(Grid.SlotCapacity);
         }
 

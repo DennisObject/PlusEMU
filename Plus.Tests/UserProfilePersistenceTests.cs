@@ -31,12 +31,10 @@ public sealed class UserProfilePersistenceTests
         var (session, _) = HabbiconTestSupport.Client(habbo);
         var service = Service(new FailingDatabase(), clock);
 
-        if (admitted)
-        {
+        if (admitted) {
             Assert.Throws<InvalidOperationException>(() => service.ChangeMotto(session, "new"));
         }
-        else
-        {
+        else {
             service.ChangeMotto(session, "new");
         }
 
@@ -67,12 +65,10 @@ public sealed class UserProfilePersistenceTests
         var (session, _) = HabbiconTestSupport.Client(habbo);
         var service = Service(new FailingDatabase(), clock);
 
-        if (admitted)
-        {
+        if (admitted) {
             Assert.Throws<InvalidOperationException>(() => service.UpdateFigure(session, new("m", "new")));
         }
-        else
-        {
+        else {
             service.UpdateFigure(session, new("m", "new"));
         }
 
@@ -119,14 +115,12 @@ public sealed class UserProfilePersistenceTests
         });
         Exception? outcome = null;
 
-        try
-        {
+        try {
             await attempted.Task;
             await Task.Delay(50);
             Assert.False(write.IsCompleted);
         }
-        finally
-        {
+        finally {
             held.Dispose();
             outcome = await write;
         }
@@ -143,8 +137,7 @@ public sealed class UserProfilePersistenceTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -161,13 +154,11 @@ public sealed class UserProfilePersistenceTests
             {
                 using var verify = database.Connection();
 
-                if (name == "look quest")
-                {
+                if (name == "look quest") {
                     Assert.Equal(("processed", "M"), verify.QuerySingle<(string, string)>("SELECT look,gender FROM users WHERE id=7"));
                 }
 
-                if (name == "motto reward")
-                {
+                if (name == "motto reward") {
                     Assert.Equal("new motto", verify.QuerySingle<string>("SELECT motto FROM users WHERE id=7"));
                 }
             });
@@ -203,8 +194,7 @@ public sealed class UserProfilePersistenceTests
             Assert.Equal(beforeCalls, calls.Count);
             Assert.Empty(sent);
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -224,8 +214,7 @@ public sealed class UserProfilePersistenceTests
             }),
             Proxy<IAchievementManager>((method, _) =>
             {
-                if (method == nameof(IAchievementManager.ProgressAchievement))
-                {
+                if (method == nameof(IAchievementManager.ProgressAchievement)) {
                     var name = calls.Count < 3 ? "look achievement" : "motto achievement";
                     callback(name);
                     calls.Add(name);
@@ -237,8 +226,7 @@ public sealed class UserProfilePersistenceTests
             }),
             Proxy<IQuestManager>((method, args) =>
             {
-                if (method == nameof(IQuestManager.ProgressUserQuest))
-                {
+                if (method == nameof(IQuestManager.ProgressUserQuest)) {
                     var name = (QuestType)args[1] == QuestType.ProfileChangeLook ? "look quest" : "motto quest";
                     callback(name);
                     calls.Add(name);
@@ -250,8 +238,7 @@ public sealed class UserProfilePersistenceTests
             database, clock, null!,
             Proxy<IRewardTrackManager>((method, args) =>
             {
-                if (method == nameof(IRewardTrackManager.Progress))
-                {
+                if (method == nameof(IRewardTrackManager.Progress)) {
                     var name = (string)args[1] == RewardTrackActions.ChangeFigure ? "look reward" : "motto reward";
                     callback(name);
                     calls.Add(name);
@@ -282,10 +269,7 @@ public sealed class UserProfilePersistenceTests
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset Now => now;
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

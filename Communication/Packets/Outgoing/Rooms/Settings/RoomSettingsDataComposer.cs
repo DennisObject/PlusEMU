@@ -18,8 +18,7 @@ public sealed class RoomSettingsDataComposer(RoomSettingsSnapshot data) : IServe
         packet.WriteInteger(data.CapacityLimit);
         packet.WriteInteger(data.Tags.Length);
 
-        foreach (var tag in data.Tags.ToArray())
-        {
+        foreach (var tag in data.Tags.ToArray()) {
             packet.WriteString(tag);
         }
 

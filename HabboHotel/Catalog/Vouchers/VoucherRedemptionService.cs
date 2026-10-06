@@ -26,21 +26,12 @@ public sealed class VoucherClaimStore(IDatabase database) : IVoucherClaimStore
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (connection.Execute("INSERT IGNORE INTO user_vouchers (user_id,voucher) VALUES (@userId,@code)", new
-        {
-            userId,
-            code
-        }, transaction) != 1)
-        {
+        if (connection.Execute("INSERT IGNORE INTO user_vouchers (user_id,voucher) VALUES (@userId,@code)", new { userId, code }, transaction) != 1) {
             return VoucherClaimResult.AlreadyUsed;
         }
 
         if (connection.Execute("UPDATE catalog_vouchers SET current_uses=current_uses+1 WHERE voucher=@code AND enabled=1 AND current_uses<max_uses LIMIT 1",
-                new
-                {
-                    code
-                }, transaction) != 1)
-        {
+                new { code }, transaction) != 1) {
             return VoucherClaimResult.Exhausted;
         }
 
@@ -62,24 +53,19 @@ public sealed class VoucherRedemptionService(IVoucherManager vouchers, IVoucherC
         var habbo = session.GetHabbo();
         code = code.Replace("\r", "");
 
-        if (!vouchers.TryGetVoucher(code, out var voucher))
-        {
+        if (!vouchers.TryGetVoucher(code, out var voucher)) {
             session.Send(new VoucherRedeemErrorComposer(VoucherRedeemError.InvalidCode));
 
             return;
         }
 
-        lock (habbo.WalletSync)
-        {
-            if (habbo.WalletClosed)
-            {
+        lock (habbo.WalletSync) {
+            if (habbo.WalletClosed) {
                 return;
             }
 
-            lock (voucher)
-            {
-                switch (claims.Claim(habbo.Id, code))
-                {
+            lock (voucher) {
+                switch (claims.Claim(habbo.Id, code)) {
                     case VoucherClaimResult.AlreadyUsed:
                         session.SendNotification("You've already used this voucher code, one per each user, sorry!");
 
@@ -93,13 +79,11 @@ public sealed class VoucherRedemptionService(IVoucherManager vouchers, IVoucherC
                 voucher.MarkUsed();
             }
 
-            if (voucher.Type == VoucherType.Credit)
-            {
+            if (voucher.Type == VoucherType.Credit) {
                 habbo.Credits += voucher.Value;
                 session.Send(new CreditBalanceComposer(habbo.Credits));
             }
-            else if (voucher.Type == VoucherType.Ducket)
-            {
+            else if (voucher.Type == VoucherType.Ducket) {
                 habbo.Duckets += voucher.Value;
                 session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, voucher.Value));
             }

@@ -13,8 +13,7 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
     {
         var state = actor.Movement;
 
-        if (!state.HasIntent)
-        {
+        if (!state.HasIntent) {
             return;
         }
 
@@ -46,8 +45,7 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
             ? InteractionRoute(actor, start, goal, into)
             : _search.Find(new(profile, start, goal.X, goal.Y, occupancy, goal, complete), lease.Workspace, into);
 
-        if (complete)
-        {
+        if (complete) {
             return new(outcome, lease.Workspace.Expansions);
         }
 
@@ -59,13 +57,11 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
         var state = actor.Movement;
         var expansions = workspace.Expansions;
 
-        if (navigation.Settings.UnreachablePolicy == "nearest" && outcome is PathOutcome.InvalidGoal or PathOutcome.Unreachable)
-        {
+        if (navigation.Settings.UnreachablePolicy == "nearest" && outcome is PathOutcome.InvalidGoal or PathOutcome.Unreachable) {
             outcome = _nearest.Find(new(profile, start, actor.GoalX, actor.GoalY, occupancy), workspace, state.Route);
             expansions += workspace.Expansions;
 
-            if (state.Route.GoalSurface is { } target)
-            {
+            if (state.Route.GoalSurface is { } target) {
                 actor.GoalX = target.Tile % navigation.Grid.Width;
                 actor.GoalY = target.Tile / navigation.Grid.Width;
             }
@@ -75,8 +71,7 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
     }
     private AcceptedGoal? InteractionGoal(RoomUser actor, NavPosition start)
     {
-        if (actor.Movement.Origin != MoveOrigin.Interaction || !navigation.Grid.InBounds(actor.GoalX, actor.GoalY))
-        {
+        if (actor.Movement.Origin != MoveOrigin.Interaction || !navigation.Grid.InBounds(actor.GoalX, actor.GoalY)) {
             return null;
         }
 
@@ -87,8 +82,7 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
         var target = navigation.Grid.Position(goal.Slot);
 
         if (!new MovementRules(navigation.Grid, navigation.Settings).CanStep(actor.Movement.Profile,
-            start, target, StepPurpose.Interaction, OccupancyView.Execution).Ok)
-        {
+            start, target, StepPurpose.Interaction, OccupancyView.Execution).Ok) {
             return PathOutcome.InvalidGoal;
         }
 
@@ -104,22 +98,19 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
     {
         var actor = job.Actor;
 
-        if (result.Outcome == PathOutcome.Found)
-        {
+        if (result.Outcome == PathOutcome.Found) {
             Install(actor);
 
             return;
         }
 
-        if (result.Outcome == PathOutcome.AlreadyThere)
-        {
+        if (result.Outcome == PathOutcome.AlreadyThere) {
             Arrive(actor);
 
             return;
         }
 
-        if (fallback.OwnsSearch(actor))
-        {
+        if (fallback.OwnsSearch(actor)) {
             fallback.Truncate(actor);
 
             return;
@@ -135,12 +126,10 @@ internal sealed class MovementSearch(Room room, RoomNavigation navigation, Movem
     }
     private void Install(RoomUser actor)
     {
-        if (fallback.OwnsSearch(actor))
-        {
+        if (fallback.OwnsSearch(actor)) {
             fallback.Reroute(actor, _fallbackRoute);
         }
-        else
-        {
+        else {
             actor.Movement.Route.CaptureAdvisory(navigation.Grid);
         }
 

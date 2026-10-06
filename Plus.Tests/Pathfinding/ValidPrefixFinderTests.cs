@@ -113,8 +113,7 @@ public class ValidPrefixFinderTests
 
         public LayeredGraph Surface(int x, int y, double z, uint support)
         {
-            if (!_tiles.TryGetValue((x, y), out var list))
-            {
+            if (!_tiles.TryGetValue((x, y), out var list)) {
                 _tiles[(x, y)] = list = new();
             }
 
@@ -125,13 +124,11 @@ public class ValidPrefixFinderTests
 
         public int Candidates(int x, int y, Span<PrefixCandidate> into)
         {
-            if (!_tiles.TryGetValue((x, y), out var list))
-            {
+            if (!_tiles.TryGetValue((x, y), out var list)) {
                 return 0;
             }
 
-            for (var i = 0; i < list.Count; i++)
-            {
+            for (var i = 0; i < list.Count; i++) {
                 into[i] = list[i];
             }
 

@@ -65,8 +65,7 @@ public sealed class MessengerCommunicationServiceTests
         using var f = new MessengerFixture();
         var messenger = f.Messenger(friend: 2);
 
-        for (var i = 0; i < 10; i++)
-        {
+        for (var i = 0; i < 10; i++) {
             Assert.True(messenger.TrySendHabbicon(f.Clock.GetUtcNow()));
         }
 
@@ -214,16 +213,13 @@ public sealed class MessengerCommunicationServiceTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
-            if (value is int number)
-            {
+        foreach (var value in values) {
+            if (value is int number) {
                 var bytes = new byte[4];
                 System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes, number);
                 stream.Write(bytes);
             }
-            else
-            {
+            else {
                 var bytes = System.Text.Encoding.UTF8.GetBytes((string)value);
                 var length = new byte[2];
                 System.Buffers.Binary.BinaryPrimitives.WriteUInt16BigEndian(length, checked((ushort)bytes.Length));
@@ -291,22 +287,19 @@ public sealed class MessengerCommunicationServiceTests
         {
             var friends = new Dictionary<int, MessengerBuddy>();
 
-            if (friend is { } friendId)
-            {
+            if (friend is { } friendId) {
                 friends[friendId] = new MessengerBuddy { Id = friendId };
             }
 
             var requests = new Dictionary<int, MessengerRequest>();
 
-            if (requestFrom is { } from)
-            {
+            if (requestFrom is { } from) {
                 requests[from] = new MessengerRequest { FromId = from, ToId = 1 };
             }
 
             var pending = new List<int>();
 
-            if (outstanding is { } pendingId)
-            {
+            if (outstanding is { } pendingId) {
                 pending.Add(pendingId);
             }
 
@@ -367,13 +360,11 @@ public sealed class MessengerCommunicationServiceTests
             public Task DeclineAllRequestsAsync(Habbo habbo) => throw new NotSupportedException();
             public async Task<FriendRequestOutcome> SendRequestAsync(Habbo habbo, int toId)
             {
-                if (habbo.Messenger.Requests.ContainsKey(toId))
-                {
+                if (habbo.Messenger.Requests.ContainsKey(toId)) {
                     return new(await AcceptRequestAsync(habbo, toId), Accepted: true);
                 }
 
-                if (habbo.Messenger.OutstandingFriendRequests.Contains(toId))
-                {
+                if (habbo.Messenger.OutstandingFriendRequests.Contains(toId)) {
                     return new(FriendRequestError.AlreadyOutstandingFriendRequest);
                 }
 
@@ -414,10 +405,7 @@ public sealed class MessengerCommunicationServiceTests
     private sealed class FilterStub : IWordFilterManager
     {
         public string Output { get; set; } = "";
-        public Action? OnCheck
-        {
-            get; set;
-        }
+        public Action? OnCheck { get; set; }
         public List<string> Checked { get; } = [];
         public void Init()
         {
@@ -436,10 +424,7 @@ public sealed class MessengerCommunicationServiceTests
     private sealed class RecordingRewards : IRewardTrackManager
     {
         public List<string> Progressed { get; } = [];
-        public List<string>? Order
-        {
-            get; set;
-        }
+        public List<string>? Order { get; set; }
         public void Progress(GameClient session, string actionType, int amount = 1)
         {
             Progressed.Add(actionType);
@@ -453,10 +438,7 @@ public sealed class MessengerCommunicationServiceTests
     private sealed class RecordingQuests : IQuestManager
     {
         public List<string> Calls { get; } = [];
-        public List<string>? Order
-        {
-            get; set;
-        }
+        public List<string>? Order { get; set; }
         public void ProgressUserQuest(GameClient session, QuestType type, int data = 0)
         {
             Calls.Add("quest " + type);

@@ -39,8 +39,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2)]
     public void StationaryElevatedCargoHoldsEveryUpstreamLoad(PathfindingEngine engine)
     {
-        foreach (var x in new[] { 1, 2, 3 })
-        {
+        foreach (var x in new[] { 1, 2, 3 }) {
             PlannerRoller((uint)(10 + x), x, 1, 2);
         }
 
@@ -89,8 +88,7 @@ public partial class PlacedFurniRoomTests
         var loop = PlannerFullLoop(engine, reverseIds);
         StartPlannerRollers();
 
-        for (var cycle = 1; cycle <= 4; cycle++)
-        {
+        for (var cycle = 1; cycle <= 4; cycle++) {
             ExecutorTick();
             Assert.Equal(loop.Expected(cycle), loop.Positions());
             Assert.Equal(4, PlannerSlides());
@@ -178,8 +176,7 @@ public partial class PlacedFurniRoomTests
         var feeder = PlannerActor(3, 0, 1, .5);
         StartPlannerRollers();
 
-        for (var cycle = 1; cycle <= 2; cycle++)
-        {
+        for (var cycle = 1; cycle <= 2; cycle++) {
             ExecutorTick();
             Assert.Equal(loop.Expected(cycle), loop.Positions());
             Assert.Equal((0, 1, .5), (feeder.X, feeder.Y, feeder.Z));
@@ -221,8 +218,7 @@ public partial class PlacedFurniRoomTests
     {
         var rotations = new[] { 2, 4, 6, 0 };
 
-        for (var index = 0; index < 4; index++)
-        {
+        for (var index = 0; index < 4; index++) {
             PlannerRoller((uint)(reverseIds ? 13 - index : 10 + index), PlannerLoopTiles[index].X, PlannerLoopTiles[index].Y, rotations[index]);
         }
     }
@@ -245,8 +241,7 @@ public partial class PlacedFurniRoomTests
     {
         var client = id == 1 ? _client : new TestClient();
 
-        if (id != 1)
-        {
+        if (id != 1) {
             client.SetHabbo(new Habbo
             {
                 Id = id + 6,
@@ -264,12 +259,10 @@ public partial class PlacedFurniRoomTests
             .GetValue(_room.GetRoomUserManager())!;
         Assert.True(roster.TryAdd(id, actor));
 
-        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation)
-        {
+        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) {
             navigation.Admit(actor);
         }
-        else
-        {
+        else {
             _room.GetGameMap().AddUserToMap(actor, new(x, y));
         }
 
@@ -300,10 +293,7 @@ public partial class PlacedFurniRoomTests
         public WiredBoxType Type => WiredBoxType.TriggerWalkOnFurni;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
         public bool Execute(params object[] arguments)

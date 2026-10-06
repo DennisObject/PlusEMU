@@ -14,8 +14,7 @@ public class LayeredPathSearchTests
         var (grid, inputs, compiler) = NavTest.Create(5, 3, new PathfindingSettings { LayeringEnabled = layered });
         uint id = 10;
 
-        foreach (var t in new[] { 0, 1, 3, 4, 10, 11, 13, 14 })
-        {
+        foreach (var t in new[] { 0, 1, 3, 4, 10, 11, 13, 14 }) {
             inputs.Publish(NavTest.Record(id, id++, [t], h: 1, walkable: false));
         }
 
@@ -30,14 +29,12 @@ public class LayeredPathSearchTests
     [Fact]
     public void FloorRouteWalksUnderTheBridgeOnlyWithLayering()
     {
-        foreach (var layered in new[] { true, false })
-        {
+        foreach (var layered in new[] { true, false }) {
             var (grid, _, _) = Crossing(layered);
             var route = new Route();
             var outcome = Find(grid, new(new(), grid.Position(2), 2, 2), route);
 
-            if (!layered)
-            {
+            if (!layered) {
                 Assert.Equal(PathOutcome.Unreachable, outcome);
                 continue;
             }
@@ -118,8 +115,7 @@ public class LayeredPathSearchTests
     [Fact]
     public void ADiagonalFlankIsOpenWhenAnyOfItsSurfacesIsOpen()
     {
-        foreach (var layered in new[] { true, false })
-        {
+        foreach (var layered in new[] { true, false }) {
             // The tile's own slot keeps the closed deck; the open floor reappears in an overflow slot.
             var (grid, inputs, compiler) = NavTest.Create(2, 2, new PathfindingSettings { LayeringEnabled = layered });
             inputs.Publish(NavTest.Record(10, 1, [1], z: 2));
@@ -129,8 +125,7 @@ public class LayeredPathSearchTests
             inputs.Publish(NavTest.Record(12, 4, [1], h: 1, walkable: false, removed: true));
             compiler.ApplyNow();
 
-            if (layered)
-            {
+            if (layered) {
                 Assert.Equal((4, 1), (grid.SurfaceAt(1, 0), grid.SurfaceAt(1, 1)));
             }
 
@@ -145,12 +140,10 @@ public class LayeredPathSearchTests
     {
         var random = new Random(20261004);
 
-        for (var iteration = 0; iteration < 1500; iteration++)
-        {
+        for (var iteration = 0; iteration < 1500; iteration++) {
             var (grid, settings) = SeededLayeredGrid(random, iteration);
 
-            if (SeededRequest(random, grid, iteration) is not { } request)
-            {
+            if (SeededRequest(random, grid, iteration) is not { } request) {
                 continue;
             }
 
@@ -178,10 +171,8 @@ public class LayeredPathSearchTests
         var (grid, inputs, compiler) = NavTest.Create(w, h, settings, states: states);
         uint id = 1;
 
-        for (var t = 0; t < w * h; t++)
-        {
-            for (var layer = random.Next(4); layer > 0; layer--)
-            {
+        for (var t = 0; t < w * h; t++) {
+            for (var layer = random.Next(4); layer > 0; layer--) {
                 inputs.Publish(SeededRecord(random, id++, t));
             }
         }
@@ -202,21 +193,14 @@ public class LayeredPathSearchTests
     {
         var slots = Enumerable.Range(0, grid.SlotCapacity).Where(grid.Active).ToArray();
 
-        if (slots.Length == 0)
-        {
+        if (slots.Length == 0) {
             return null;
         }
 
         var occupancy = new PlanningOccupancy(grid.SlotCapacity);
 
-        foreach (var slot in slots)
-        {
-            occupancy.Targets[slot] = random.Next(10) switch
-            {
-                0 => TargetOccupancy.Stationary,
-                1 => TargetOccupancy.Walking,
-                _ => TargetOccupancy.None
-            };
+        foreach (var slot in slots) {
+            occupancy.Targets[slot] = random.Next(10) switch { 0 => TargetOccupancy.Stationary, 1 => TargetOccupancy.Walking, _ => TargetOccupancy.None };
         }
 
         var start = slots[random.Next(slots.Length)];
@@ -238,15 +222,13 @@ public class LayeredPathSearchTests
         using var lease = PathWorkspacePool.Rent(grid.SlotCapacity, grid.ActiveNodeCount);
         var route = new Route();
 
-        for (var i = 0; i < 50; i++)
-        {
+        for (var i = 0; i < 50; i++) {
             Assert.Equal(PathOutcome.Found, search.Find(request, lease.Workspace, route));
         }
 
         var before = GC.GetAllocatedBytesForCurrentThread();
 
-        for (var i = 0; i < 100; i++)
-        {
+        for (var i = 0; i < 100; i++) {
             search.Find(request, lease.Workspace, route);
         }
 
@@ -266,13 +248,11 @@ public class LayeredPathSearchTests
         var goal = GoalResolver.Resolve(grid, request.Actor, request.GoalX, request.GoalY, request.Occupancy);
         var startSlot = request.Start.Slot;
 
-        if (goal.Contains(startSlot))
-        {
+        if (goal.Contains(startSlot)) {
             return (PathOutcome.AlreadyThere, 0);
         }
 
-        if (goal.Slot < 0)
-        {
+        if (goal.Slot < 0) {
             return (PathOutcome.InvalidGoal, 0);
         }
 
@@ -281,42 +261,34 @@ public class LayeredPathSearchTests
         var visited = new HashSet<int> { startSlot };
         queue.Enqueue((request.Start, 0));
 
-        while (queue.TryDequeue(out var current))
-        {
-            foreach (var (dx, dy) in PathTieBreak.Neighbours)
-            {
-                if (!request.Actor.DiagonalEnabled && dx != 0 && dy != 0)
-                {
+        while (queue.TryDequeue(out var current)) {
+            foreach (var (dx, dy) in PathTieBreak.Neighbours) {
+                if (!request.Actor.DiagonalEnabled && dx != 0 && dy != 0) {
                     continue;
                 }
 
                 var x = current.Position.X + dx;
                 var y = current.Position.Y + dy;
 
-                if (!grid.InBounds(x, y))
-                {
+                if (!grid.InBounds(x, y)) {
                     continue;
                 }
 
-                for (var ordinal = 0; ordinal < grid.SurfaceCount(grid.Tile(x, y)); ordinal++)
-                {
+                for (var ordinal = 0; ordinal < grid.SurfaceCount(grid.Tile(x, y)); ordinal++) {
                     var slot = grid.SurfaceAt(grid.Tile(x, y), ordinal);
 
-                    if (visited.Contains(slot))
-                    {
+                    if (visited.Contains(slot)) {
                         continue;
                     }
 
                     var next = grid.Position(slot);
 
                     if (!rules.CanStep(request.Actor, current.Position, next, goal.Contains(slot) ? StepPurpose.Goal : StepPurpose.Transit,
-                        OccupancyView.Planning, request.Occupancy).Ok)
-                    {
+                        OccupancyView.Planning, request.Occupancy).Ok) {
                         continue;
                     }
 
-                    if (goal.Contains(slot))
-                    {
+                    if (goal.Contains(slot)) {
                         return (PathOutcome.Found, current.Distance + 1);
                     }
 
@@ -334,8 +306,7 @@ public class LayeredPathSearchTests
         var rules = new MovementRules(grid, settings);
         var from = request.Start;
 
-        for (var i = 0; i < route.Count; i++)
-        {
+        for (var i = 0; i < route.Count; i++) {
             var slot = grid.SlotOf(route.Steps[i]);
             Assert.True(slot >= 0);
             var next = grid.Position(slot);

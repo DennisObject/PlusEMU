@@ -17,15 +17,13 @@ public class FigureSetIdsComposer : IServerPacket
     {
         packet.WriteInteger(_clothingParts.Length);
 
-        foreach (var part in _clothingParts)
-        {
+        foreach (var part in _clothingParts) {
             packet.WriteInteger(part.PartId);
         }
 
         packet.WriteInteger(_clothingParts.Length);
 
-        foreach (var part in _clothingParts)
-        {
+        foreach (var part in _clothingParts) {
             packet.WriteString(part.Part);
         }
     }

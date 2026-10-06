@@ -39,15 +39,13 @@ public sealed class RoomSettingsServiceTests
             Proxy<IAchievementManager>((method, _) => method == "ProgressAchievement" ? true : throw new NotSupportedException(method)),
             store, Proxy<ISettingsManager>((_, _) => null));
 
-        if (fail)
-        {
+        if (fail) {
             Assert.Throws<InvalidOperationException>(() => service.Save(client, Request()));
             Assert.Equal("Original", room.Name);
             Assert.Equal(0, room.WhoCanKick);
             Assert.Empty(sent);
         }
-        else
-        {
+        else {
             service.Save(client, Request());
             Assert.Equal("Updated", room.Name);
             Assert.Equal(2, room.WhoCanKick);
@@ -130,21 +128,14 @@ public sealed class RoomSettingsServiceTests
     }
     private sealed class Store : IRoomSettingsStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
-        public Action? Before
-        {
-            get; init;
-        }
+        public bool Fail { get; init; }
+        public Action? Before { get; init; }
         public RoomSettingsRequest? Saved;
         public void Save(RoomSettingsRequest values, int ownerId, RoomAccess access)
         {
             Before?.Invoke();
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
 

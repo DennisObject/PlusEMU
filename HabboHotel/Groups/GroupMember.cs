@@ -9,16 +9,7 @@ public class GroupMember
         Look = look;
     }
 
-    public int Id
-    {
-        get; set;
-    }
-    public string Username
-    {
-        get; set;
-    }
-    public string Look
-    {
-        get; set;
-    }
+    public int Id { get; set; }
+    public string Username { get; set; }
+    public string Look { get; set; }
 }

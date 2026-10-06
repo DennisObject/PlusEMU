@@ -19,15 +19,15 @@ public partial class PlacedFurniRoomTests
         bool result = false;
         var placement = new Thread(() =>
         {
-            try
-            {
+            try {
                 result = handler.SetFloorItem(null!, item, 2, 2, 0, true, false, false, height: 1.25);
             }
-            catch (Exception e) { error = e; }
+            catch (Exception e) {
+                error = e;
+            }
         });
 
-        lock (item.NavSync)
-        {
+        lock (item.NavSync) {
             placement.Start();
             Assert.True(SpinWait.SpinUntil(() => (placement.ThreadState & ThreadState.WaitSleepJoin) != 0, 5000));
             // Placement holds PlacementSync and waits to write geometry. Neither room

@@ -11,8 +11,7 @@ public class WsSessionProxy : WsSession
         _client.Id = Id;
         _client.SendCallback = args =>
         {
-            if (!Socket.Connected)
-            {
+            if (!Socket.Connected) {
                 return false;
             }
 

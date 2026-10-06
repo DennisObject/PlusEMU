@@ -85,8 +85,7 @@ public partial class PlacedFurniRoomTests
             Assert.Empty(_client.Sent);
             writes++;
 
-            if (fail)
-            {
+            if (fail) {
                 throw new InvalidOperationException("wall persistence failed");
             }
 
@@ -98,14 +97,12 @@ public partial class PlacedFurniRoomTests
             .PlaceSticky(_room, _client, 30, ":w=1,1 l=0,0 l");
         Assert.Equal(1, writes);
 
-        if (fail)
-        {
+        if (fail) {
             Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
             Assert.Null(_room.GetRoomItemHandler().GetItem(30));
             Assert.Empty(_client.Sent);
         }
-        else
-        {
+        else {
             Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
             Assert.NotNull(_room.GetRoomItemHandler().GetItem(30));
             Assert.Equal(ServerPacketHeader.FurniListRemoveComposer, Assert.Single(_client.Sent));
@@ -221,8 +218,7 @@ public partial class PlacedFurniRoomTests
         {
             var kind = (QuestType)args[1]!;
 
-            if (kind == QuestType.FurniMove || kind == QuestType.FurniRotate)
-            {
+            if (kind == QuestType.FurniMove || kind == QuestType.FurniRotate) {
                 Assert.Equal((1, 1, 0), (item.GetX, item.GetY, item.Rotation));
             }
 

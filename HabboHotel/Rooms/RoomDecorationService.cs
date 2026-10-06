@@ -36,18 +36,9 @@ public sealed class RoomDecorationStore(IDatabase database) : IRoomDecorationSto
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (connection.Execute($"UPDATE rooms SET `{column}`=@data WHERE id=@roomId LIMIT 1", new
-        {
-            roomId,
-            data
-        }, transaction) != 1 ||
+        if (connection.Execute($"UPDATE rooms SET `{column}`=@data WHERE id=@roomId LIMIT 1", new { roomId, data }, transaction) != 1 ||
             connection.Execute("DELETE FROM items WHERE id=@itemId AND user_id=@userId AND room_id=0 LIMIT 1",
-                new
-                {
-                    itemId,
-                    userId
-                }, transaction) != 1)
-        {
+                new { itemId, userId }, transaction) != 1) {
             throw new InvalidOperationException("Room decoration was not persisted.");
         }
 
@@ -66,17 +57,14 @@ public sealed class RoomDecorationService(IRoomDecorationStore store, IAchieveme
     {
         var habbo = session.GetHabbo();
 
-        if (habbo.CurrentRoom != room || !room.CheckRights(session, true))
-        {
+        if (habbo.CurrentRoom != room || !room.CheckRights(session, true)) {
             return;
         }
 
-        lock (habbo.Inventory.Furniture)
-        {
+        lock (habbo.Inventory.Furniture) {
             var item = habbo.Inventory.Furniture.GetItem(request.ItemId);
 
-            if (item?.Definition == null || item.OwnerId != habbo.Id)
-            {
+            if (item?.Definition == null || item.OwnerId != habbo.Id) {
                 return;
             }
 
@@ -89,15 +77,13 @@ public sealed class RoomDecorationService(IRoomDecorationStore store, IAchieveme
             };
             var data = item.ExtraData is LegacyDataFormat legacy ? legacy.Data : string.Empty;
 
-            if (kind == null || string.IsNullOrWhiteSpace(data))
-            {
+            if (kind == null || string.IsNullOrWhiteSpace(data)) {
                 return;
             }
 
             store.Apply(room.RoomId, item.Id, habbo.Id, kind.Value, data);
 
-            switch (kind.Value)
-            {
+            switch (kind.Value) {
                 case RoomDecorationKind.Floor:
                     room.Floor = data;
                     quests.ProgressUserQuest(session, QuestType.FurniDecoFloor);

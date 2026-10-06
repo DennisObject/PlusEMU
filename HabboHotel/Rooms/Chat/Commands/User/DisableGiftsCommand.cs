@@ -23,11 +23,7 @@ internal class DisableGiftsCommand : IChatCommand
         var allowGifts = !session.GetHabbo().AllowGifts;
         using var connection = _database.Connection();
         connection.Execute("UPDATE users_settings SET allow_gifts=@allowGifts WHERE user_id=@userId",
-            new
-            {
-                allowGifts,
-                userId = session.GetHabbo().Id
-            });
+            new { allowGifts, userId = session.GetHabbo().Id });
         session.GetHabbo().AllowGifts = allowGifts;
         session.SendWhisper($"You're {(allowGifts ? "now" : "no longer")} accepting gifts.");
     }

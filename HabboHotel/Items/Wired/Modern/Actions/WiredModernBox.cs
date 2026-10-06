@@ -14,31 +14,16 @@ public abstract class WiredModernBox : IWiredContextualItem
     {
         Instance = room;
         Item = item;
-        Descriptor = descriptor with
-        {
-            Support = WiredBoxSupport.Implemented
-        };
+        Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
     }
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.None;
     public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
     public string StringData { get; set; } = "";
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = "";
-    public WiredBoxDescriptor Descriptor
-    {
-        get;
-    }
+    public WiredBoxDescriptor Descriptor { get; }
     public WiredConfiguration Configuration => Volatile.Read(ref _configuration);
     public abstract bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error);
     public void ApplyConfiguration(WiredConfiguration validated) => Interlocked.Exchange(ref _configuration, validated);

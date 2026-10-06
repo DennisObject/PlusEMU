@@ -17,8 +17,7 @@ public class IgnoredUsersComposer : IServerPacket
     {
         packet.WriteInteger(_ignoredUsers.Count);
 
-        foreach (var username in _ignoredUsers)
-        {
+        foreach (var username in _ignoredUsers) {
             packet.WriteString(username);
         }
     }

@@ -16,8 +16,7 @@ public class FurnitureUpdateBenchmarks
     {
         var output = Environment.GetEnvironmentVariable("PLUSEMU_FURNITURE_BENCHMARK");
 
-        if (string.IsNullOrEmpty(output))
-        {
+        if (string.IsNullOrEmpty(output)) {
             return;
         }
 
@@ -49,8 +48,7 @@ public class FurnitureUpdateBenchmarks
                 ExtraData = new LegacyDataFormat { Data = "0" }
             }).ToArray();
 
-            foreach (var item in items)
-            {
+            foreach (var item in items) {
                 item.Attach(fixture.Room, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
                 item.GetX = item.GetY = 2;
                 floor[item.Id] = item;
@@ -58,8 +56,7 @@ public class FurnitureUpdateBenchmarks
 
             fixture.Map.GenerateMaps();
 
-            for (var warmup = 0; warmup < 100; warmup++)
-            {
+            for (var warmup = 0; warmup < 100; warmup++) {
                 Cycle();
             }
 
@@ -68,8 +65,7 @@ public class FurnitureUpdateBenchmarks
             var cpuStart = process.TotalProcessorTime;
             var bytes = GC.GetAllocatedBytesForCurrentThread();
 
-            for (var i = 0; i < samples.Length; i++)
-            {
+            for (var i = 0; i < samples.Length; i++) {
                 var start = Stopwatch.GetTimestamp();
                 Cycle();
                 samples[i] = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
@@ -82,8 +78,7 @@ public class FurnitureUpdateBenchmarks
 
             void Cycle()
             {
-                foreach (var item in items)
-                {
+                foreach (var item in items) {
                     item.LegacyDataString = item.LegacyDataString == "0" ? "1" : "0";
                     item.UpdateState(false, false);
                     item.RequestUpdate(1, true);

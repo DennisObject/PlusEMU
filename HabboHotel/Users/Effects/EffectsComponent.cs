@@ -21,8 +21,7 @@ public sealed class EffectsComponent
     {
         _time = time;
 
-        foreach (var effect in effects)
-        {
+        foreach (var effect in effects) {
             _effects.TryAdd(effect.Id, effect);
         }
 
@@ -31,18 +30,14 @@ public sealed class EffectsComponent
 
     public ICollection<AvatarEffect> GetAllEffects => _effects.Values;
 
-    public int CurrentEffect
-    {
-        get; set;
-    }
+    public int CurrentEffect { get; set; }
 
     /// <summary>
     /// Initializes the EffectsComponent.
     /// </summary>
     public bool Init(Habbo habbo)
     {
-        if (_effects.Count > 0)
-        {
+        if (_effects.Count > 0) {
             return false;
         }
 
@@ -80,10 +75,8 @@ public sealed class EffectsComponent
 
     public AvatarEffect? GetEffectNullableAt(int spriteId, DateTimeOffset now, bool activatedOnly = false, bool unactivatedOnly = false)
     {
-        foreach (var effect in _effects.Values.ToList())
-        {
-            if (effect.Quantity > 0 && !effect.HasExpiredAt(now) && effect.SpriteId == spriteId && (!activatedOnly || effect.Activated) && (!unactivatedOnly || !effect.Activated))
-            {
+        foreach (var effect in _effects.Values.ToList()) {
+            if (effect.Quantity > 0 && !effect.HasExpiredAt(now) && effect.SpriteId == spriteId && (!activatedOnly || effect.Activated) && (!unactivatedOnly || !effect.Activated)) {
                 return effect;
             }
         }
@@ -99,18 +92,15 @@ public sealed class EffectsComponent
 
     public void CheckEffectExpiryAt(Habbo habbo, DateTimeOffset now)
     {
-        foreach (var effect in _effects.Values.ToList())
-        {
-            if (!effect.HasExpiredAt(now))
-            {
+        foreach (var effect in _effects.Values.ToList()) {
+            if (!effect.HasExpiredAt(now)) {
                 continue;
             }
 
             effect.HandleExpiration(habbo);
 
             // A consumed last quantity is gone from the store, so it leaves the component too; a failed expiry keeps it.
-            if (effect.Quantity <= 0)
-            {
+            if (effect.Quantity <= 0) {
                 _effects.TryRemove(effect.Id, out _);
             }
         }
@@ -118,22 +108,19 @@ public sealed class EffectsComponent
 
     public void ApplyEffect(int effectId)
     {
-        if (_habbo == null || _habbo.CurrentRoom == null)
-        {
+        if (_habbo == null || _habbo.CurrentRoom == null) {
             return;
         }
 
         var user = _habbo.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(_habbo.Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
         CurrentEffect = effectId;
 
-        if (user.IsDancing)
-        {
+        if (user.IsDancing) {
             _habbo.CurrentRoom.SendPacket(new DanceComposer(user.VirtualId, 0));
         }
 

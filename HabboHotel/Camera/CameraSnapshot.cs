@@ -123,8 +123,7 @@ public static class CameraSnapshotBuilder
 
     internal static CameraScene Compose(CameraRoomShell shell, IReadOnlyList<Item> items, IReadOnlyList<RoomUser> users)
     {
-        if (items.Count > MaxItems || users.Count > MaxUsers)
-        {
+        if (items.Count > MaxItems || users.Count > MaxUsers) {
             throw new InvalidOperationException("Room exceeds camera object limits");
         }
 
@@ -132,30 +131,24 @@ public static class CameraSnapshotBuilder
         var userCopy = users.ToArray();
         var sceneItems = new List<CameraSceneItem>(Math.Min(itemCopy.Length, MaxItems));
 
-        foreach (var item in itemCopy)
-        {
-            if (sceneItems.Count >= MaxItems)
-            {
+        foreach (var item in itemCopy) {
+            if (sceneItems.Count >= MaxItems) {
                 break;
             }
 
-            if (TryReadItem(item, out var sceneItem))
-            {
+            if (TryReadItem(item, out var sceneItem)) {
                 sceneItems.Add(sceneItem);
             }
         }
 
         var sceneUsers = new List<CameraSceneUser>(Math.Min(userCopy.Length, MaxUsers));
 
-        foreach (var user in userCopy)
-        {
-            if (sceneUsers.Count >= MaxUsers)
-            {
+        foreach (var user in userCopy) {
+            if (sceneUsers.Count >= MaxUsers) {
                 break;
             }
 
-            if (TryReadUser(user, out var sceneUser))
-            {
+            if (TryReadUser(user, out var sceneUser)) {
                 sceneUsers.Add(sceneUser);
             }
         }
@@ -180,37 +173,31 @@ public static class CameraSnapshotBuilder
     {
         sceneItem = null!;
 
-        if (item?.Definition == null || item.Id < 1 || !double.IsFinite(item.GetZ) || item.Rotation is < 0 or > 7)
-        {
+        if (item?.Definition == null || item.Id < 1 || !double.IsFinite(item.GetZ) || item.Rotation is < 0 or > 7) {
             return false;
         }
 
-        if (item.Definition.InteractionType is InteractionType.Background)
-        {
+        if (item.Definition.InteractionType is InteractionType.Background) {
             return false;
         }
 
         string extra;
 
-        try
-        {
+        try {
             extra = item.ExtraData?.Serialize() ?? "";
         }
-        catch (Exception)
-        {
+        catch (Exception) {
             return false;
         }
 
-        if (ExternalAddress.IsMatch(extra) || ExternalAddress.IsMatch(item.WallCoordinates ?? ""))
-        {
+        if (ExternalAddress.IsMatch(extra) || ExternalAddress.IsMatch(item.WallCoordinates ?? "")) {
             return false;
         }
 
         var type = item.Definition.Type == ItemType.Wall ? "i" : "s";
         var wallPosition = item.WallCoordinates ?? "";
 
-        if (type == "i" && !WallPosition.IsMatch(wallPosition))
-        {
+        if (type == "i" && !WallPosition.IsMatch(wallPosition)) {
             return false;
         }
 
@@ -234,8 +221,7 @@ public static class CameraSnapshotBuilder
     {
         sceneUser = null!;
 
-        if (user == null || user.VirtualId < 0 || !double.IsFinite(user.Z) || user.RotBody is < 0 or > 7 || user.RotHead is < 0 or > 7)
-        {
+        if (user == null || user.VirtualId < 0 || !double.IsFinite(user.Z) || user.RotBody is < 0 or > 7 || user.RotHead is < 0 or > 7) {
             return false;
         }
 
@@ -244,19 +230,15 @@ public static class CameraSnapshotBuilder
             : new Dictionary<string, string>(user.Statusses, StringComparer.Ordinal);
         var (posture, parameter, gesture) = Motions(statuses, user.IsWalking);
 
-        if (ExternalAddress.IsMatch(parameter) || ExternalAddress.IsMatch(gesture))
-        {
+        if (ExternalAddress.IsMatch(parameter) || ExternalAddress.IsMatch(gesture)) {
             return false;
         }
 
-        try
-        {
-            if (user.IsPet)
-            {
+        try {
+            if (user.IsPet) {
                 var petLook = user.PetData?.Look ?? "";
 
-                if (user.PetData == null || ExternalAddress.IsMatch(petLook))
-                {
+                if (user.PetData == null || ExternalAddress.IsMatch(petLook)) {
                     return false;
                 }
 
@@ -267,18 +249,15 @@ public static class CameraSnapshotBuilder
                 return true;
             }
 
-            if (user.IsBot)
-            {
-                if (user.BotData == null)
-                {
+            if (user.IsBot) {
+                if (user.BotData == null) {
                     return false;
                 }
 
                 var figure = user.BotData.Look ?? "";
                 var gender = (user.BotData.Gender ?? "").ToLowerInvariant();
 
-                if (ExternalAddress.IsMatch(figure) || ExternalAddress.IsMatch(gender))
-                {
+                if (ExternalAddress.IsMatch(figure) || ExternalAddress.IsMatch(gender)) {
                     return false;
                 }
 
@@ -291,16 +270,14 @@ public static class CameraSnapshotBuilder
 
             var habbo = user.GetClient()?.GetHabbo();
 
-            if (habbo == null)
-            {
+            if (habbo == null) {
                 return false;
             }
 
             var look = habbo.Look ?? "";
             var userGender = (habbo.Gender ?? "").ToLowerInvariant();
 
-            if (ExternalAddress.IsMatch(look) || ExternalAddress.IsMatch(userGender))
-            {
+            if (ExternalAddress.IsMatch(look) || ExternalAddress.IsMatch(userGender)) {
                 return false;
             }
 
@@ -309,8 +286,7 @@ public static class CameraSnapshotBuilder
 
             return true;
         }
-        catch (Exception)
-        {
+        catch (Exception) {
             return false;
         }
     }
@@ -320,23 +296,19 @@ public static class CameraSnapshotBuilder
         string posture;
         string parameter;
 
-        if (statuses.TryGetValue("lay", out var lay))
-        {
+        if (statuses.TryGetValue("lay", out var lay)) {
             posture = "lay";
             parameter = lay ?? "";
         }
-        else if (statuses.TryGetValue("sit", out var sit))
-        {
+        else if (statuses.TryGetValue("sit", out var sit)) {
             posture = "sit";
             parameter = sit ?? "";
         }
-        else if (walking || statuses.ContainsKey("mv"))
-        {
+        else if (walking || statuses.ContainsKey("mv")) {
             posture = "mv";
             parameter = statuses.TryGetValue("mv", out var move) ? move ?? "" : "";
         }
-        else
-        {
+        else {
             posture = "std";
             parameter = "";
         }
@@ -356,15 +328,13 @@ public static class CameraSnapshotBuilder
 
     internal static string NormalizeHeightmap(string? heightmap)
     {
-        if (string.IsNullOrEmpty(heightmap))
-        {
+        if (string.IsNullOrEmpty(heightmap)) {
             return "";
         }
 
         var normalized = heightmap.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\n', '\r');
 
-        if (normalized.Length > MaxHeightmapChars)
-        {
+        if (normalized.Length > MaxHeightmapChars) {
             throw new InvalidOperationException("Room exceeds camera map limit");
         }
 
@@ -373,8 +343,7 @@ public static class CameraSnapshotBuilder
 
     private static string Paint(string? value)
     {
-        if (string.IsNullOrEmpty(value) || ExternalAddress.IsMatch(value))
-        {
+        if (string.IsNullOrEmpty(value) || ExternalAddress.IsMatch(value)) {
             return "";
         }
 

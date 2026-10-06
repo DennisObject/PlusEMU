@@ -28,10 +28,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
 
         Assert.Equal(_time.Now.AddDays(30), token.ExpiresAt);
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        Assert.Equal(SecureToken.Hash(token.Value), connection.QuerySingle<string>("SELECT token_hash FROM user_remember_tokens WHERE user_id = @userId", new
-        {
-            userId
-        }));
+        Assert.Equal(SecureToken.Hash(token.Value), connection.QuerySingle<string>("SELECT token_hash FROM user_remember_tokens WHERE user_id = @userId", new { userId }));
     }
 
     [AuthDatabaseFact]
@@ -134,12 +131,8 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         var userId = User();
         var token = await _store.Issue(userId);
 
-        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
-        {
-            connection.Execute("UPDATE users SET credential_generation = 7 WHERE id = @userId", new
-            {
-                userId
-            });
+        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString)) {
+            connection.Execute("UPDATE users SET credential_generation = 7 WHERE id = @userId", new { userId });
         }
 
         Assert.Equal(7, (await _store.Rotate(token.Value)).Generation);
@@ -148,8 +141,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     [AuthDatabaseFact]
     public async Task ReuseAtAndAfterGraceUsesOneCapturedUtcInstant()
     {
-        foreach (var elapsed in new[] { 30, 31 })
-        {
+        foreach (var elapsed in new[] { 30, 31 }) {
             var store = new RememberTokenStore(new AuthTestDatabase(), _time,
                 AuthTestConfig.Options(c => c.RememberReuseGraceSeconds = 30));
             var userId = User();
@@ -164,10 +156,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
             using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
             var persistedNow = new DateTimeOffset(_time.Now.UtcTicks - _time.Now.UtcTicks % 10, TimeSpan.Zero);
             Assert.Equal(persistedNow, connection.QuerySingle<DateTimeOffset>(
-                "SELECT revoked_at FROM user_remember_tokens WHERE token_hash=@hash", new
-                {
-                    hash = SecureToken.Hash(token.Value)
-                }));
+                "SELECT revoked_at FROM user_remember_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(token.Value) }));
         }
     }
 
@@ -177,17 +166,11 @@ public sealed class RememberTokenDatabaseTests : IDisposable
         var userId = User();
         var token = await _store.Issue(userId);
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("UPDATE user_remember_tokens SET expires_at=NULL WHERE token_hash=@hash", new
-        {
-            hash = SecureToken.Hash(token.Value)
-        });
+        connection.Execute("UPDATE user_remember_tokens SET expires_at=NULL WHERE token_hash=@hash", new { hash = SecureToken.Hash(token.Value) });
 
         Assert.Equal(RememberRotationStatus.Invalid, (await _store.Rotate(token.Value)).Status);
         Assert.Null(connection.QuerySingle<DateTimeOffset?>(
-            "SELECT used_at FROM user_remember_tokens WHERE token_hash=@hash", new
-            {
-                hash = SecureToken.Hash(token.Value)
-            }));
+            "SELECT used_at FROM user_remember_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(token.Value) }));
     }
 
     private async Task RevokeFamily(string token)
@@ -219,10 +202,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     public void Dispose()
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids", new
-        {
-            ids = _users.ToArray()
-        });
+        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids", new { ids = _users.ToArray() });
         AuthTestDatabase.DeleteUsers(_users);
     }
 }

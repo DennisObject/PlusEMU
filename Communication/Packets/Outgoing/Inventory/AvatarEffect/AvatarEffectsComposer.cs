@@ -12,8 +12,7 @@ public class AvatarEffectsComposer(ImmutableArray<AvatarEffectEntry> effects) : 
     {
         packet.WriteInteger(effects.Length);
 
-        foreach (var effect in effects)
-        {
+        foreach (var effect in effects) {
             packet.WriteInteger(effect.SpriteId); //Effect Id
             packet.WriteInteger(0); //Type, 0 = Hand, 1 = Full
             packet.WriteInteger(effect.Duration);

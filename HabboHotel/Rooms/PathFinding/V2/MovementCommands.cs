@@ -32,17 +32,14 @@ public sealed class MoveCommandSlot
 
     public bool Publish(MoveCommand command)
     {
-        while (true)
-        {
+        while (true) {
             var previous = Read();
 
-            if (previous != null && previous.Sequence >= command.Sequence)
-            {
+            if (previous != null && previous.Sequence >= command.Sequence) {
                 return false;
             }
 
-            if (ReferenceEquals(Interlocked.CompareExchange(ref _latest, command, previous), previous))
-            {
+            if (ReferenceEquals(Interlocked.CompareExchange(ref _latest, command, previous), previous)) {
                 return true;
             }
         }
@@ -74,8 +71,7 @@ public sealed class RoomCommandQueue
     // Lifetime validation belongs to the owner handler; ended lifetimes still need Remove.
     public void Drain(Action<RoomCommand> handle)
     {
-        while (_commands.TryDequeue(out var command))
-        {
+        while (_commands.TryDequeue(out var command)) {
             handle(command);
         }
     }

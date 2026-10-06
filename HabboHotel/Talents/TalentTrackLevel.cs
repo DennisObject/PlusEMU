@@ -9,20 +9,16 @@ public class TalentTrackLevel
         Type = type;
         Level = level;
 
-        foreach (var str in dataActions.Split('|'))
-        {
-            if (Actions == null)
-            {
+        foreach (var str in dataActions.Split('|')) {
+            if (Actions == null) {
                 Actions = new();
             }
 
             Actions.Add(str);
         }
 
-        foreach (var str in dataGifts.Split('|'))
-        {
-            if (Gifts == null)
-            {
+        foreach (var str in dataGifts.Split('|')) {
+            if (Gifts == null) {
                 Gifts = new();
             }
 
@@ -32,24 +28,12 @@ public class TalentTrackLevel
         _subLevels = subLevels.ToDictionary(subLevel => subLevel.Level);
     }
 
-    public string Type
-    {
-        get; set;
-    }
-    public int Level
-    {
-        get; set;
-    }
+    public string Type { get; set; }
+    public int Level { get; set; }
 
-    public List<string> Actions
-    {
-        get;
-    }
+    public List<string> Actions { get; }
 
-    public List<string> Gifts
-    {
-        get;
-    }
+    public List<string> Gifts { get; }
 
 
     public ICollection<TalentTrackSubLevel> GetSubLevels() => _subLevels.Values;

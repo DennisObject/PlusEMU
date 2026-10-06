@@ -28,8 +28,7 @@ public sealed class PetRoomStore(IDatabase database, ILogger<PetRoomStore> logge
 {
     public bool TryMove(PetRoomMove move)
     {
-        try
-        {
+        try {
             using var connection = database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
@@ -39,8 +38,7 @@ public sealed class PetRoomStore(IDatabase database, ILogger<PetRoomStore> logge
                     SET room_id = @RoomId, x = @X, y = @Y, z = @Z
                     WHERE id = @PetId AND ai_type = 'pet' AND user_id = @OwnerId AND room_id = @PreviousRoomId
                     LIMIT 1
-                    """, move, transaction) != 1)
-            {
+                    """, move, transaction) != 1) {
                 return false;
             }
 
@@ -49,8 +47,7 @@ public sealed class PetRoomStore(IDatabase database, ILogger<PetRoomStore> logge
                     SET experience = @Experience, energy = @Energy, nutrition = @Nutrition, respect = @Respect
                     WHERE id = @PetId
                     LIMIT 1
-                    """, move, transaction) != 1)
-            {
+                    """, move, transaction) != 1) {
                 return false;
             }
 
@@ -58,8 +55,7 @@ public sealed class PetRoomStore(IDatabase database, ILogger<PetRoomStore> logge
 
             return true;
         }
-        catch (Exception exception)
-        {
+        catch (Exception exception) {
             logger.LogError(exception, "Could not move pet {PetId} from room {PreviousRoomId} to room {RoomId}",
                 move.PetId, move.PreviousRoomId, move.RoomId);
 

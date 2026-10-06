@@ -19,8 +19,7 @@ public sealed class GroupConstructionDatabaseTests
         var schema = "group_construction_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE `groups` (
@@ -96,18 +95,11 @@ public sealed class GroupConstructionDatabaseTests
             Assert.Equal(now, created.CreatedAt);
             Assert.Equal(now.UtcDateTime,
                 DateTime.SpecifyKind(connection.QuerySingle<DateTime>(
-                    "SELECT created FROM `groups` WHERE id = @id", new
-                    {
-                        created.Id
-                    }), DateTimeKind.Utc));
+                    "SELECT created FROM `groups` WHERE id = @id", new { created.Id }), DateTimeKind.Utc));
             Assert.Equal(1, connection.QuerySingle<int>("""
                 SELECT COUNT(*) FROM group_memberships
                 WHERE group_id = @groupId AND user_id = @ownerId AND `rank` = TRUE
-                """, new
-            {
-                groupId = created.Id,
-                ownerId = owner.Id
-            }));
+                """, new { groupId = created.Id, ownerId = owner.Id }));
             Assert.Equal(created.Id, connection.QuerySingle<int>("SELECT group_id FROM rooms WHERE id = 42"));
             Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM room_rights WHERE room_id = 42"));
             Assert.False(groups.TryCreateGroup(owner, "duplicate", "description", 42, "badge", 3, 4, out _));
@@ -131,8 +123,7 @@ public sealed class GroupConstructionDatabaseTests
             Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM `groups` WHERE room_id = 45"));
             Assert.NotEqual(0, connection.QuerySingle<int>("SELECT group_id FROM rooms WHERE id = 45"));
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
@@ -160,8 +151,7 @@ public sealed class GroupConstructionDatabaseTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
 
-        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj")))
-        {
+        while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj"))) {
             directory = directory.Parent;
         }
 

@@ -60,10 +60,7 @@ public sealed class WiredVariableCatalogWireTests
     private sealed class Packet : IOutgoingPacket
     {
         public List<object> Values { get; } = [];
-        public int MessageId
-        {
-            get; set;
-        }
+        public int MessageId { get; set; }
         public ReadOnlyMemory<byte> Buffer => default;
         public void WriteByte(byte value) => Values.Add(value);
         public void WriteShort(short value) => Values.Add(value);

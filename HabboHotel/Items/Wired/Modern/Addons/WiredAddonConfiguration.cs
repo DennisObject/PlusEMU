@@ -9,8 +9,7 @@ public static class WiredAddonConfiguration
 {
     public static WiredConfiguration Normalize(string name, WiredConfiguration c)
     {
-        if (!WiredAddonModule.Names.Contains(name, StringComparer.Ordinal))
-        {
+        if (!WiredAddonModule.Names.Contains(name, StringComparer.Ordinal)) {
             throw new ArgumentException("Not a supported non-variable addon", nameof(name));
         }
 
@@ -30,8 +29,7 @@ public static class WiredAddonConfiguration
         var text = c.Text;
         int[] fields;
 
-        switch (name)
-        {
+        switch (name) {
             case "wf_xtra_anim_time":
                 fields = [Math.Clamp(TextFallback(500), 50, 2000)];
                 break;
@@ -51,21 +49,18 @@ public static class WiredAddonConfiguration
             case "wf_xtra_mov_physics":
                 fields = [B(0), B(1), B(2), B(3), Source(4, all: true), Source(5, all: true), Source(6, true, true)];
                 break;
-            case "wf_xtra_or_eval":
-                {
+            case "wf_xtra_or_eval": {
                     var mode = P(0) is >= 0 and <= 6 ? P(0) : 0;
                     fields = [mode, Source(1), Range(2, mode == 4 ? 1 : 0, 100, 1)];
                     break;
                 }
             case "wf_xtra_text_output_furni_name":
-            case "wf_xtra_text_output_username":
-                {
+            case "wf_xtra_text_output_username": {
                     fields = [P(0, 1) == 2 ? 2 : 1, Source(1, name.EndsWith("username", StringComparison.Ordinal))];
                     var parts = text.Split('\t', 2);
                     var token = parts[0].Trim();
 
-                    if (token.StartsWith("$(", StringComparison.Ordinal) && token.EndsWith(')'))
-                    {
+                    if (token.StartsWith("$(", StringComparison.Ordinal) && token.EndsWith(')')) {
                         token = token[2..^1].Trim();
                     }
 
@@ -89,10 +84,6 @@ public static class WiredAddonConfiguration
                 break;
         }
 
-        return c with
-        {
-            IntParams = fields.ToImmutableArray(),
-            Text = text
-        };
+        return c with { IntParams = fields.ToImmutableArray(), Text = text };
     }
 }

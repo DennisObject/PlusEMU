@@ -12,8 +12,7 @@ public sealed class StagedLoaderDatabaseFactAttribute : FactAttribute
 {
     public StagedLoaderDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("STAGED_LOADER_DATABASE") is null)
-        {
+        if (Environment.GetEnvironmentVariable("STAGED_LOADER_DATABASE") is null) {
             Skip = "Opt-in isolated pristine loader MariaDB probe.";
         }
     }
@@ -62,24 +61,14 @@ public sealed class PristinePetLoaderDatabaseTests
             connection.Execute("DELETE FROM users WHERE id=7");
             Assert.All(loader.GetPetsForUser(7), item => Assert.Equal("", item.OwnerName));
 
-            connection.Execute("UPDATE bots_petdata SET type = @type WHERE id = 10", new
-            {
-                type = 2147483648u
-            });
+            connection.Execute("UPDATE bots_petdata SET type = @type WHERE id = 10", new { type = 2147483648u });
             Assert.Throws<OverflowException>(() => loader.GetPetsForUser(7));
             connection.Execute("UPDATE bots_petdata SET type = 2 WHERE id = 10");
-            connection.Execute("UPDATE bots SET id = @id, user_id = @id WHERE id = 10; UPDATE bots_petdata SET id = @id WHERE id = 10", new
-            {
-                id = int.MaxValue
-            });
+            connection.Execute("UPDATE bots SET id = @id, user_id = @id WHERE id = 10; UPDATE bots_petdata SET id = @id WHERE id = 10", new { id = int.MaxValue });
             var largest = Assert.Single(loader.GetPetsForUser(int.MaxValue));
             Assert.Equal((int.MaxValue, int.MaxValue), (largest.PetId, largest.OwnerId));
             connection.Execute("UPDATE bots SET id = @overflow WHERE id = @id; UPDATE bots_petdata SET id = @overflow WHERE id = @id",
-                new
-                {
-                    overflow = 2147483648u,
-                    id = int.MaxValue
-                });
+                new { overflow = 2147483648u, id = int.MaxValue });
             Assert.Throws<OverflowException>(() => loader.GetPetsForUser(int.MaxValue));
         });
     }
@@ -101,13 +90,11 @@ internal static class PristineStagedDatabase
         var schema = "staged_loaders_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             connection.Execute($"USE `{schema}`");
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
 
-            foreach (var table in tables)
-            {
+            foreach (var table in tables) {
                 var start = pristine.IndexOf($"CREATE TABLE `{table}` (", StringComparison.Ordinal);
                 Assert.True(start >= 0, $"Missing pristine CREATE TABLE for {table}.");
                 var end = pristine.IndexOf(';', start);
@@ -118,8 +105,7 @@ internal static class PristineStagedDatabase
             options.Database = schema;
             test(new ProbeDatabase(options.ConnectionString), connection);
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }

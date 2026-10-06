@@ -11,27 +11,23 @@ public static class HabbiconMessages
     {
         session.Send(new UserHabbiconsComposer(snapshot));
 
-        if (snapshot.Unseen.Count > 0)
-        {
+        if (snapshot.Unseen.Count > 0) {
             session.Send(new HabbiconUnseenComposer(snapshot.Unseen));
         }
     }
 
     public static void Publish(GameClient session, HabbiconChange change)
     {
-        foreach (var item in change.Changed)
-        {
+        foreach (var item in change.Changed) {
             session.Send(new UserHabbiconStatusChangedComposer(item.Id, item.State));
         }
 
         SendSnapshot(session, change.Snapshot);
 
-        if (change.Balances != null)
-        {
+        if (change.Balances != null) {
             var habbo = session.GetHabbo();
 
-            lock (habbo.WalletSync)
-            {
+            lock (habbo.WalletSync) {
                 session.Send(new CreditBalanceComposer(habbo.Credits));
                 session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, 0));
                 session.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, 0, 5));

@@ -43,13 +43,11 @@ public sealed class WiredRoomLog(int capacity = 500)
 
     public void Append(int level, WiredLogSource source, uint boxId, string label, string reason, DateTimeOffset timestamp)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var entry = new WiredRoomLogEntry(++_nextId, level, source, boxId, label, reason, timestamp);
             _entries.Enqueue(entry);
 
-            while (_entries.Count > Math.Max(1, capacity))
-            {
+            while (_entries.Count > Math.Max(1, capacity)) {
                 _entries.Dequeue();
             }
 
@@ -62,8 +60,7 @@ public sealed class WiredRoomLog(int capacity = 500)
         page = Math.Max(0, page);
         amount = Math.Clamp(amount, 1, 100);
 
-        lock (_gate)
-        {
+        lock (_gate) {
             var matching = _entries.Reverse().Where(entry => (level < 0 || entry.Level == level)
                 && (source < 0 || (int)entry.Source == source)
                 && (query.Length == 0 || entry.Message.Contains(query, StringComparison.OrdinalIgnoreCase))).ToArray();
@@ -76,8 +73,7 @@ public sealed class WiredRoomLog(int capacity = 500)
 
     public WiredRoomLogSummary Summarize(int recent)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             return new(Sources.Select(source => _tallies.TryGetValue(source, out var tally)
                     ? new WiredRoomLogTally(source, tally.Count, tally.Latest) : new(source, 0, null)).ToArray(),
                 _entries.Reverse().Take(Math.Max(0, recent)).ToArray());
@@ -86,8 +82,7 @@ public sealed class WiredRoomLog(int capacity = 500)
 
     public void Clear()
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             _entries.Clear();
             _tallies.Clear();
         }

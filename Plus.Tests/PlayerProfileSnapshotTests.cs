@@ -19,23 +19,21 @@ public sealed class PlayerProfileSnapshotTests
         var composer = new ProfileInformationComposer(profile);
         var oldCulture = CultureInfo.CurrentCulture;
 
-        try
-        {
+        try {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("ar-SA");
             var packet = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(packet);
             Assert.Equal(new object[] { 7, "Alice", "hd-1", "hello", "03/02/2020", 12, 3, false, true, false, 1,
                 42, "Group", "badge", "red", "blue", true, 0, true, 90, true }, packet.Writes);
-            var changed = profile with
-            {
-                Groups = profile.Groups.Add(new(99, "New", "", "", "", false, false))
-            };
+            var changed = profile with { Groups = profile.Groups.Add(new(99, "New", "", "", "", false, false)) };
             Assert.Equal(2, changed.Groups.Length);
             var repeated = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(repeated);
             Assert.Equal(packet.Writes, repeated.Writes);
         }
-        finally { CultureInfo.CurrentCulture = oldCulture; }
+        finally {
+            CultureInfo.CurrentCulture = oldCulture;
+        }
     }
 
     [Theory]

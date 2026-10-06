@@ -7,8 +7,7 @@ public class InteractorDice : IFurniInteractor
 {
     public void OnPlace(GameClient? session, Item item)
     {
-        if (item.LegacyDataString == "-1")
-        {
+        if (item.LegacyDataString == "-1") {
             item.LegacyDataString = "0";
             item.UpdateNeeded = true;
         }
@@ -16,8 +15,7 @@ public class InteractorDice : IFurniInteractor
 
     public void OnRemove(GameClient? session, Item item)
     {
-        if (item.LegacyDataString == "-1")
-        {
+        if (item.LegacyDataString == "-1") {
             item.LegacyDataString = "0";
         }
     }
@@ -26,42 +24,34 @@ public class InteractorDice : IFurniInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
         RoomUser? user = null;
 
-        if (session != null)
-        {
+        if (session != null) {
             user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         }
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
-        if (Gamemap.TilesTouching(item.GetX, item.GetY, user.X, user.Y))
-        {
-            if (item.LegacyDataString != "-1")
-            {
-                if (request == -1)
-                {
+        if (Gamemap.TilesTouching(item.GetX, item.GetY, user.X, user.Y)) {
+            if (item.LegacyDataString != "-1") {
+                if (request == -1) {
                     item.LegacyDataString = "0";
                     item.UpdateState();
                 }
-                else
-                {
+                else {
                     item.LegacyDataString = "-1";
                     item.UpdateState(false, true);
                     item.RequestUpdate(3, true);
                 }
             }
         }
-        else
-        {
+        else {
             user.MoveTo(item.SquareInFront);
         }
     }

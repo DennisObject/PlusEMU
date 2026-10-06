@@ -18,8 +18,7 @@ internal sealed class SaveRoomSettingsEvent(IRoomSettingsService settings) : IPa
         var tagCount = packet.ReadInt();
         var tags = ImmutableArray.CreateBuilder<string>();
 
-        for (var index = 0; index < tagCount; index++)
-        {
+        for (var index = 0; index < tagCount; index++) {
             tags.Add(packet.ReadString());
         }
 

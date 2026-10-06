@@ -20,10 +20,7 @@ public sealed class WiredVariableAddonTests
         box.ApplyConfiguration(valid);
         Assert.True(box.Apply(context));
         Assert.Equal(new[] { 2, 3 }, context.Selected.UserIds.Order().ToArray());
-        var empty = config with
-        {
-            IntParams = [0, 0, 0, 0, 0, 0]
-        };
+        var empty = config with { IntParams = [0, 0, 0, 0, 0, 0] };
         box.ApplyConfiguration(empty);
         Assert.True(box.Apply(context));
         Assert.Empty(context.Selected.UserIds);
@@ -39,10 +36,7 @@ public sealed class WiredVariableAddonTests
         box.ApplyConfiguration(valid);
         Assert.True(box.Apply(context));
         Assert.Equal("scores=ten|twenty|30", context.Policy.FormatText(context, "scores=$(points)"));
-        box.ApplyConfiguration(config with
-        {
-            Text = "custom:11\tpoints\t,"
-        });
+        box.ApplyConfiguration(config with { Text = "custom:11\tpoints\t," });
         module.Mutate(new(WiredVariableTarget.User, "custom:10"), holders[0], WiredVariableMutation.Set, 40, context.VariableFrame!);
         Assert.Equal("scores=40|twenty|30", context.Policy.FormatText(context, "scores=$(points)"));
     }
@@ -65,8 +59,7 @@ public sealed class WiredVariableAddonTests
         var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holders = frame.Holders.ToArray();
 
-        for (var i = 0; i < holders.Length; i++)
-        {
+        for (var i = 0; i < holders.Length; i++) {
             module.Mutate(new(WiredVariableTarget.User, "custom:10"), holders[i], WiredVariableMutation.Give, (i + 1) * 10, frame);
             module.Mutate(new(WiredVariableTarget.User, "custom:11"), holders[i], WiredVariableMutation.Give, 2, frame);
         }

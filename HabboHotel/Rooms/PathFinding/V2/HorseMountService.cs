@@ -14,17 +14,14 @@ internal sealed class HorseMountService(Room room, RoomNavigation navigation, Mo
         var sequence = horse.Movement.Commands.Read()?.Sequence ?? 0;
         navigation.RunOwner(rider, (actor, discardThrough) =>
         {
-            if (!Attached(horse, lifetime))
-            {
+            if (!Attached(horse, lifetime)) {
                 return;
             }
 
-            if (mount)
-            {
+            if (mount) {
                 TryMount(actor, horse, discardThrough, sequence, locale);
             }
-            else
-            {
+            else {
                 TryDismount(actor, horse, discardThrough, sequence);
             }
 
@@ -36,16 +33,14 @@ internal sealed class HorseMountService(Room room, RoomNavigation navigation, Mo
     {
         var rider = room.GetRoomUserManager().GetRoomUserByVirtualId(horse.HorseId);
 
-        if (rider == null)
-        {
+        if (rider == null) {
             return;
         }
 
         var lifetime = horse.Movement.LifetimeId;
         navigation.RunOwner(rider, (actor, discardThrough) =>
         {
-            if (horse.Movement.LifetimeId != lifetime || actor.HorseId != horse.VirtualId)
-            {
+            if (horse.Movement.LifetimeId != lifetime || actor.HorseId != horse.VirtualId) {
                 return;
             }
 
@@ -64,17 +59,14 @@ internal sealed class HorseMountService(Room room, RoomNavigation navigation, Mo
 
     private void TryMount(RoomUser rider, RoomUser horse, long riderSequence, long horseSequence, IPetLocale locale)
     {
-        if (horse.RidingHorse)
-        {
+        if (horse.RidingHorse) {
             var speech = locale.GetValue("pet.alreadymounted");
             horse.Chat(speech[Random.Shared.Next(speech.Length)]);
         }
-        else if (rider.RidingHorse)
-        {
+        else if (rider.RidingHorse) {
             rider.GetClient()?.SendNotification("You are already riding a horse!");
         }
-        else
-        {
+        else {
             Mount(rider, horse, riderSequence, horseSequence);
         }
     }
@@ -102,8 +94,7 @@ internal sealed class HorseMountService(Room room, RoomNavigation navigation, Mo
 
     private void TryDismount(RoomUser rider, RoomUser horse, long riderSequence, long horseSequence)
     {
-        if (horse.HorseId != rider.VirtualId)
-        {
+        if (horse.HorseId != rider.VirtualId) {
             rider.GetClient()?.SendNotification("Could not dismount this horse - You are not riding it!");
 
             return;
@@ -112,8 +103,7 @@ internal sealed class HorseMountService(Room room, RoomNavigation navigation, Mo
         navigation.CancelThrough(rider, riderSequence);
         navigation.CancelThrough(horse, horseSequence);
 
-        foreach (var status in new[] { "sit", "lay", "snf", "eat", "ded", "jmp" })
-        {
+        foreach (var status in new[] { "sit", "lay", "snf", "eat", "ded", "jmp" }) {
             horse.Statusses.Remove(status);
         }
 
@@ -134,8 +124,7 @@ internal sealed class HorseMountService(Room room, RoomNavigation navigation, Mo
 
     private static void ResumeDismounted(RoomUser rider, int offset, long discardThrough)
     {
-        if ((rider.Movement.Commands.Read()?.Sequence ?? 0) <= discardThrough)
-        {
+        if ((rider.Movement.Commands.Read()?.Sequence ?? 0) <= discardThrough) {
             rider.MoveTo(rider.X + offset, rider.Y + offset);
         }
     }

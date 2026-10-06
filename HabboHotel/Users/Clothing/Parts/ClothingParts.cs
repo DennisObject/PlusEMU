@@ -9,18 +9,9 @@ public sealed class ClothingParts
         Part = part;
     }
 
-    public int Id
-    {
-        get; set;
-    }
+    public int Id { get; set; }
 
-    public int PartId
-    {
-        get; set;
-    }
+    public int PartId { get; set; }
 
-    public string Part
-    {
-        get; set;
-    }
+    public string Part { get; set; }
 }

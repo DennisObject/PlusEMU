@@ -95,15 +95,13 @@ internal static class CatalogAdminPacketReader
     {
         int count = packet.ReadInt();
 
-        if (count is < 1 or > MaxReorderCount)
-        {
+        if (count is < 1 or > MaxReorderCount) {
             return null;
         }
 
         var orders = new List<(int, int)>(count);
 
-        for (int i = 0; i < count; i++)
-        {
+        for (int i = 0; i < count; i++) {
             orders.Add((packet.ReadInt(), packet.ReadInt()));
         }
 

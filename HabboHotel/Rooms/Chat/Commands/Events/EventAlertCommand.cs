@@ -24,17 +24,14 @@ internal class EventAlertCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        lock (EventSync)
-        {
+        lock (EventSync) {
             var now = _clock.GetUtcNow();
 
-            if (_lastEvent == null || now - _lastEvent > TimeSpan.FromHours(1))
-            {
+            if (_lastEvent == null || now - _lastEvent > TimeSpan.FromHours(1)) {
                 _gameClientManager.SendPacket(new BroadcastMessageAlertComposer($":follow {session.GetHabbo().Username} for events! win prizes!\r\n- {session.GetHabbo().Username}"));
                 _lastEvent = now;
             }
-            else
-            {
+            else {
                 session.SendWhisper($"Event Cooldown! {(now - _lastEvent).Value.Minutes} minutes left until another event can be hosted.");
             }
         }

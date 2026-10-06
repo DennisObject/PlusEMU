@@ -53,8 +53,7 @@ public class FurnitureWireTests
     {
         var table = new DataTable();
 
-        foreach (var column in new[] { "id", "user_id", "x", "y", "rot", "limited_number", "limited_stack" })
-        {
+        foreach (var column in new[] { "id", "user_id", "x", "y", "rot", "limited_number", "limited_stack" }) {
             table.Columns.Add(column, typeof(int));
         }
 
@@ -135,8 +134,7 @@ public class FurnitureWireTests
             }
         };
 
-        if (legacy != null)
-        {
+        if (legacy != null) {
             item.ExtraData = new LegacyDataFormat { Data = legacy };
         }
 
@@ -146,10 +144,7 @@ public class FurnitureWireTests
     private sealed class RecordingPacket : IOutgoingPacket
     {
         public List<object> Writes { get; } = new();
-        public int MessageId
-        {
-            get; set;
-        }
+        public int MessageId { get; set; }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

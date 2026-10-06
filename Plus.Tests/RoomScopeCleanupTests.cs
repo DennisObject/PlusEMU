@@ -24,12 +24,10 @@ public sealed class RoomScopeCleanupTests
         using var fixture = new Fixture();
         var room = fixture.Create(1);
 
-        if (failBeforeDispose)
-        {
+        if (failBeforeDispose) {
             Set(room, "_wiredComponent", null);
         }
-        else
-        {
+        else {
             room.MutedUsers = null!;
         }
 
@@ -49,8 +47,7 @@ public sealed class RoomScopeCleanupTests
         fixture.Create(1);
         var unloading = Task.Run(() => fixture.Manager.UnloadRoom(1));
 
-        try
-        {
+        try {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(10)));
             Assert.False(fixture.Manager.TryLoadRoom(1, out var during));
             Assert.Null(during);
@@ -59,7 +56,10 @@ public sealed class RoomScopeCleanupTests
             // A different room can complete its admission while this scope is disposing.
             Assert.Equal(2u, fixture.Create(2).Id);
         }
-        finally { release.Set(); await unloading.WaitAsync(TimeSpan.FromSeconds(10)); }
+        finally {
+            release.Set();
+            await unloading.WaitAsync(TimeSpan.FromSeconds(10));
+        }
 
         Assert.Equal(1, fixture.Disposed);
         Assert.Equal(1u, fixture.Create(1).Id);
@@ -98,13 +98,9 @@ public sealed class RoomScopeCleanupTests
             Set(room, "_roomUserManager", new RoomUserManager(room, users, TimeProvider.System, TestRewardProgress.Unused, TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
             TestRoomUserSnapshots.Install(room);
 
-            if (v2)
-            {
+            if (v2) {
                 typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
-                    .SetValue(map, new RoomNavigation(room, map.StaticModel, new()
-                    {
-                        Engine = PathfindingEngine.V2
-                    }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
+                    .SetValue(map, new RoomNavigation(room, map.StaticModel, new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
             }
 
             map.GenerateMaps();
@@ -167,8 +163,7 @@ public sealed class RoomScopeCleanupTests
         {
             calls.Add(method);
 
-            if (method == failingWrite)
-            {
+            if (method == failingWrite) {
                 throw new InvalidOperationException("teardown " + method);
             }
         }
@@ -196,10 +191,7 @@ public sealed class RoomScopeCleanupTests
         private readonly ServiceProvider _provider;
         private readonly ScopedRoomFactory _factory;
         public int Disposed;
-        public RoomManager Manager
-        {
-            get;
-        }
+        public RoomManager Manager { get; }
         public Fixture(Action? dispose = null, Action<Room>? initialize = null)
         {
             var services = new ServiceCollection();
@@ -222,8 +214,7 @@ public sealed class RoomScopeCleanupTests
         public void Dispose()
         {
             // Scope failures are deliberately exercised; each lease was already removed.
-            try
-            {
+            try {
                 _factory.Dispose();
             }
             catch (InvalidOperationException) { }

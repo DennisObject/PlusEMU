@@ -16,13 +16,11 @@ internal readonly record struct GoalIdentity(int X, int Y, int Count, SurfaceRef
     {
         var goal = new AcceptedGoal(X, Y, -1);
 
-        for (var index = 0; index < Count; index++)
-        {
+        for (var index = 0; index < Count; index++) {
             var surface = this[index];
             var slot = grid.Layered ? grid.SlotOf(surface) : surface.Tile;
 
-            if (slot >= 0)
-            {
+            if (slot >= 0) {
                 goal = goal.With(slot);
             }
         }

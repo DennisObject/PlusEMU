@@ -15,15 +15,13 @@ public static class QuestWireDataFactory
         var progress = session.GetHabbo().GetQuestProgress(quest.Id);
         var categoryProgress = kind == QuestWireKind.Completed ? quest.Number : quest.Number - 1;
 
-        if (kind == QuestWireKind.Started && quest.IsCompleted(progress))
-        {
+        if (kind == QuestWireKind.Started && quest.IsCompleted(progress)) {
             categoryProgress++;
         }
 
         var total = kind == QuestWireKind.Completed && quest.Name.Contains("xmas2012") ? 1 : categoryTotal;
 
-        if (kind == QuestWireKind.Started && quest.Category.Contains("xmas2012"))
-        {
+        if (kind == QuestWireKind.Started && quest.Category.Contains("xmas2012")) {
             categoryProgress = 0;
             total = 0;
         }

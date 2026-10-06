@@ -67,8 +67,7 @@ public class LoginServiceTests
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
         var service = Service();
 
-        for (var i = 0; i < 3; i++)
-        {
+        for (var i = 0; i < 3; i++) {
             await service.Login("Dennis", "guess" + i, "10.0.0." + i);
         }
 
@@ -105,8 +104,7 @@ public class LoginServiceTests
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
         var service = Service();
 
-        foreach (var variant in new[] { "Dénnis", "Dènnis", "Dênnis" })
-        {
+        foreach (var variant in new[] { "Dénnis", "Dènnis", "Dênnis" }) {
             Assert.Equal(LoginStatus.InvalidCredentials, (await service.Login(variant, "guess", "10.0.0." + variant.Length)).Status);
         }
 
@@ -118,8 +116,7 @@ public class LoginServiceTests
     {
         var service = Service();
 
-        for (var i = 0; i < 3; i++)
-        {
+        for (var i = 0; i < 3; i++) {
             await service.Login("Ghost", "guess" + i, "10.0.0." + i);
         }
 

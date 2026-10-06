@@ -40,8 +40,7 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
 
     public HousekeepingUserDetail? User(Habbo actor, HousekeepingUserRecord? record)
     {
-        if (record == null)
-        {
+        if (record == null) {
             return null;
         }
 
@@ -70,10 +69,7 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
             "(SELECT COALESCE(MAX(`peak`), 0) FROM `housekeeping_online_peaks`) AS PeakAllTime, " +
             "(SELECT COUNT(*) FROM `bans` WHERE `added_date` > @sinceUtc) + " +
             "(SELECT COUNT(*) FROM `housekeeping_log` WHERE `timestamp` > @sinceUtc AND `success` = 1 AND `action` IN ('user.mute', 'user.trade_lock')) AS Sanctions",
-            new
-            {
-                sinceUtc
-            });
+            new { sinceUtc });
         var online = _clients.Count;
 
         return new(online, counts.TotalUsers, _rooms.GetRooms().Count(room => room.UsersNow > 0), counts.TotalRooms,
@@ -84,25 +80,10 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
 
     private sealed class DashboardCounts
     {
-        public int TotalUsers
-        {
-            get; set;
-        }
-        public int TotalRooms
-        {
-            get; set;
-        }
-        public int PeakToday
-        {
-            get; set;
-        }
-        public int PeakAllTime
-        {
-            get; set;
-        }
-        public int Sanctions
-        {
-            get; set;
-        }
+        public int TotalUsers { get; set; }
+        public int TotalRooms { get; set; }
+        public int PeakToday { get; set; }
+        public int PeakAllTime { get; set; }
+        public int Sanctions { get; set; }
     }
 }

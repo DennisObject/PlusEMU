@@ -18,13 +18,11 @@ internal class BanLoginCheckTask : IAuthenticationTask
     {
         var username = await _userDataFactory.GetUsernameForHabboById(userId);
 
-        if (string.IsNullOrWhiteSpace(username))
-        {
+        if (string.IsNullOrWhiteSpace(username)) {
             return false;
         }
 
-        if (_moderationManager.UsernameBanCheck(username))
-        {
+        if (_moderationManager.UsernameBanCheck(username)) {
             return false;
         }
 

@@ -48,8 +48,7 @@ public partial class PlacedFurniRoomTests
         var previous = current.GetValue(null);
         current.SetValue(null, null);
 
-        try
-        {
+        try {
             var actor = ExecutorActor(0, 1, rewards: rewards);
             InitializeClientEffects();
             var effects = _room.GetGameMap().EffectMap;
@@ -75,7 +74,9 @@ public partial class PlacedFurniRoomTests
             ExecutorTick();
             Assert.Equal([(_client, RewardTrackActions.Swim, 1), (_client, RewardTrackActions.Swim, 1)], rewards.Calls);
         }
-        finally { current.SetValue(null, previous); }
+        finally {
+            current.SetValue(null, previous);
+        }
     }
 
     [Fact]
@@ -87,15 +88,16 @@ public partial class PlacedFurniRoomTests
         var previous = _databaseField.GetValue(null);
         _databaseField.SetValue(null, TestNavigationDatabase.Instance);
 
-        try
-        {
+        try {
             var actor = ExecutorActor(0, 1, database: LandingDatabase(11, RoomId));
             actor.MoveTo(1, 1);
             ExecutorTick();
             ExecutorTick();
             Assert.Equal((3, 2, 0.75), (actor.X, actor.Y, actor.Z));
         }
-        finally { _databaseField.SetValue(null, previous); }
+        finally {
+            _databaseField.SetValue(null, previous);
+        }
     }
     private void InitializeClientEffects()
     {

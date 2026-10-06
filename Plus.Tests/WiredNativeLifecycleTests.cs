@@ -127,11 +127,7 @@ public sealed class WiredNativeLifecycleTests
         var triggerItem = f.Item(1);
         triggerItem.Definition.InteractionName = "wf_trg_recv_signal";
         var trigger = f.Wired.CreateConfiguredBox(triggerItem)!;
-        Assert.True(trigger.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 100],
-            SelectedItems = [antenna.Id]
-        }, out var config, out var error), error);
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [antenna.Id] }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(f.Wired.AddBox(trigger));
         var effect = f.Effect();
@@ -152,11 +148,7 @@ public sealed class WiredNativeLifecycleTests
         var item = f.Item(1);
         item.Definition.InteractionName = "wf_trg_var_changed";
         var trigger = f.Wired.CreateConfiguredBox(item)!;
-        Assert.True(trigger.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 0, 1, 1, 1, 1, 0, -1],
-            Text = "internal:@handitem"
-        }, out var config, out var error), error);
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 0, 1, 1, 1, 1, 0, -1], Text = "internal:@handitem" }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(f.Wired.AddBox(trigger));
         var effect = f.Effect();
@@ -188,8 +180,7 @@ public sealed class WiredNativeLifecycleTests
         var wallHolder = WiredVariableRuntimeFrames.FurniHolder(wall);
         Assert.Equal(10, f.Wired.Variables.Module.Read(wallReference, wallHolder, fxFrame)!.Value);
 
-        using (var reads = f.Wired.Variables.Module.CaptureReads([wallReference], fxFrame))
-        {
+        using (var reads = f.Wired.Variables.Module.CaptureReads([wallReference], fxFrame)) {
             Assert.Equal(10, reads.Read(wallReference, wallHolder, fxFrame)!.Value);
         }
 
@@ -204,8 +195,7 @@ public sealed class WiredNativeLifecycleTests
         var replacedWall = f.Wall(wall.Id);
         Assert.Null(f.Wired.Variables.Module.Read(wallReference, wallHolder, fxFrame));
 
-        using (var reads = f.Wired.Variables.Module.CaptureReads([wallReference], fxFrame))
-        {
+        using (var reads = f.Wired.Variables.Module.CaptureReads([wallReference], fxFrame)) {
             Assert.Null(reads.Read(wallReference, wallHolder, fxFrame));
         }
 
@@ -293,11 +283,7 @@ public sealed class WiredNativeLifecycleTests
         var triggerItem = f.Item(1);
         triggerItem.Definition.InteractionName = "wf_trg_state_changed";
         var trigger = f.Wired.CreateConfiguredBox(triggerItem)!;
-        Assert.True(trigger.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 100],
-            SelectedItems = [item.Id]
-        }, out var config, out var error), error);
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [item.Id] }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(f.Wired.AddBox(trigger));
         var effect = f.Effect();
@@ -332,14 +318,12 @@ public sealed class WiredNativeLifecycleTests
         var player = client.GetHabbo();
         var destination = f.Item(7);
 
-        if (method == 2)
-        {
+        if (method == 2) {
             player.IsTeleporting = true;
             player.TeleporterId = destination.Id;
         }
 
-        if (method == 3)
-        {
+        if (method == 3) {
             f.Wired.RecordRoomNetworkForward(prior, f.Room.Id);
         }
 
@@ -347,8 +331,7 @@ public sealed class WiredNativeLifecycleTests
         var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
         var previousGame = gameField.GetValue(null);
 
-        try
-        {
+        try {
             var game = (Game)RuntimeHelpers.GetUninitializedObject(typeof(Game));
             Set(game, "_clientManager", WiredEditorPromotionTests.Proxy.Create<IGameClientManager>((method, _) =>
                 method.Name == "GetClientByUserId" ? client : null));
@@ -366,7 +349,9 @@ public sealed class WiredNativeLifecycleTests
             Assert.Equal(teleporterId, f.Wired.ReadBuiltin(new(WiredVariableTarget.User, "internal:@room_entry.teleport_id"), holder, frame));
             Assert.Equal(0u, player.WiredRoomNetworkDestination);
         }
-        finally { gameField.SetValue(null, previousGame); }
+        finally {
+            gameField.SetValue(null, previousGame);
+        }
     }
 
     [Fact]
@@ -393,10 +378,7 @@ public sealed class WiredNativeLifecycleTests
         var f = new World();
         var viewer = f.Human();
         var wall = f.Wall(4);
-        var context = f.Context(new(WiredEventKind.ClickFurni)
-        {
-            EventItem = wall
-        });
+        var context = f.Context(new(WiredEventKind.ClickFurni) { EventItem = wall });
         context.Triggering.FurniIds.Add(wall.Id);
         var frame = WiredVariableRuntimeFrames.Create(context);
         var holder = WiredVariableRuntimeFrames.FurniHolder(wall);
@@ -446,10 +428,7 @@ public sealed class WiredNativeLifecycleTests
         item.Definition.InteractionName = "wf_cnd_match_time";
         var box = f.Wired.CreateConfiguredBox(item)!;
         var hour = f.Wired.CalendarTime.Hour;
-        Assert.True(box.TryValidateConfiguration(new()
-        {
-            IntParams = [1, hour, hour, 0, 0, 0, 0, 0, 0]
-        }, out var config, out error), error);
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [1, hour, hour, 0, 0, 0, 0, 0, 0] }, out var config, out error), error);
         box.ApplyConfiguration(config);
         Assert.True(((IWiredContextualItem)box).Execute(f.Context()));
         Assert.True(f.Wired.Settings.TrySave(owner, 0, 0, "", out error), error);
@@ -467,14 +446,8 @@ public sealed class WiredNativeLifecycleTests
     private sealed class World
     {
         public Room Room { get; } = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        public Gamemap Map
-        {
-            get;
-        }
-        public WiredComponent Wired
-        {
-            get;
-        }
+        public Gamemap Map { get; }
+        public WiredComponent Wired { get; }
         private readonly ConcurrentDictionary<uint, Item> _items;
         private readonly ConcurrentDictionary<int, RoomUser> _users;
         public World()
@@ -595,10 +568,7 @@ public sealed class WiredNativeLifecycleTests
             var triggerItem = Item(1);
             triggerItem.Definition.InteractionName = "wf_trg_user_performs_action";
             var trigger = Wired.CreateConfiguredBox(triggerItem)!;
-            Assert.True(trigger.TryValidateConfiguration(new()
-            {
-                IntParams = [(int)kind, 0, 0, 0, 1]
-            }, out var config, out var error), error);
+            Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [(int)kind, 0, 0, 0, 1] }, out var config, out var error), error);
             trigger.ApplyConfiguration(config);
             Assert.True(Wired.AddBox(trigger));
             var item = Item(2);
@@ -623,10 +593,7 @@ public sealed class WiredNativeLifecycleTests
         public WiredBoxType Type => WiredBoxType.EffectShowMessage;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public int Calls;
         public WiredBoxDescriptor Descriptor { get; } = new("test", WiredBoxCategory.Action, 0, 0, "test") { Support = WiredBoxSupport.Implemented };

@@ -13,8 +13,7 @@ internal class MakeOfferEvent(IMarketplaceListingService listings) : IPacketEven
         packet.ReadInt(); //comission
         var itemId = packet.ReadUInt();
 
-        if (!listings.TryList(session.GetHabbo(), itemId, sellingPrice))
-        {
+        if (!listings.TryList(session.GetHabbo(), itemId, sellingPrice)) {
             session.Send(new MarketplaceMakeOfferResultComposer(MarketplaceOfferResult.Rejected));
 
             return Task.CompletedTask;

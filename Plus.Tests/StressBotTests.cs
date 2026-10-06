@@ -101,8 +101,7 @@ public class StressBotTests
         var regular = manager.DeployBot(new(42, 0, "generic", "stand", "Regular", "", regularData.Look,
             1, 1, 0, 0, 0, 0, 0, 0, ref speeches, "M", 0, 1, false, 60, false, 0), null!);
 
-        foreach (var bot in manager.GetUserList())
-        {
+        foreach (var bot in manager.GetUserList()) {
             map.AddUserToMap(bot, bot.Coordinate);
         }
 
@@ -120,16 +119,14 @@ public class StressBotTests
         var accepted = 0;
         Parallel.For(0, 40, _ =>
         {
-            if (manager.QueueStressBots(500, 7, _ => { }))
-            {
+            if (manager.QueueStressBots(500, 7, _ => { })) {
                 Interlocked.Increment(ref accepted);
             }
         });
         Assert.Equal(8, accepted);
         Assert.Empty(manager.GetUserList());
 
-        for (var i = 0; i < accepted; i++)
-        {
+        for (var i = 0; i < accepted; i++) {
             manager.ProcessStressBots();
         }
 
@@ -144,8 +141,7 @@ public class StressBotTests
         manager.ProcessStressBots();
         var bots = manager.GetUserList().ToList();
 
-        foreach (var bot in bots.Skip(1))
-        {
+        foreach (var bot in bots.Skip(1)) {
             map.AddUserToMap(bot, new(2, 2));
         }
 
@@ -200,10 +196,8 @@ public class StressBotTests
         var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         var gameMap = new byte[4, 4];
 
-        for (var x = 0; x < 4; x++)
-        {
-            for (var y = 0; y < 4; y++)
-            {
+        for (var x = 0; x < 4; x++) {
+            for (var y = 0; y < 4; y++) {
                 gameMap[x, y] = 1;
             }
         }

@@ -7,40 +7,34 @@ public sealed class FloorEffectService(Room room, Action<GameClient> progressSwi
 {
     public void Apply(RoomUser actor, int x, int y, SurfaceRef? surface = null)
     {
-        if (actor.IsBot)
-        {
+        if (actor.IsBot) {
             return;
         }
 
         var client = actor.GetClient();
         var habbo = client?.GetHabbo();
 
-        if (habbo?.Effects == null)
-        {
+        if (habbo?.Effects == null) {
             return;
         }
 
-        try
-        {
+        try {
             var value = EffectValue(x, y, surface, actor.Movement.SupportZ);
 
-            if (value > 0 && habbo.Effects.CurrentEffect == 0)
-            {
+            if (value > 0 && habbo.Effects.CurrentEffect == 0) {
                 actor.CurrentItemEffect = ItemEffectType.None;
             }
 
             var kind = ByteToItemEffectEnum.Parse(value);
 
-            if (kind == actor.CurrentItemEffect)
-            {
+            if (kind == actor.CurrentItemEffect) {
                 return;
             }
 
             habbo.Effects.ApplyEffect(EffectId(kind, habbo.Gender));
             actor.CurrentItemEffect = kind;
 
-            if (kind == ItemEffectType.Swim)
-            {
+            if (kind == ItemEffectType.Swim) {
                 progressSwim(client!);
             }
         }
@@ -55,13 +49,11 @@ public sealed class FloorEffectService(Room room, Action<GameClient> progressSwi
         var grid = map.Navigation?.Grid;
         var slot = SurfaceContacts.ContactSlot(grid, x, y, surface, z);
 
-        if (slot < 0)
-        {
+        if (slot < 0) {
             return map.EffectMap[x, y];
         }
 
-        if (grid!.Kind[slot] == SurfaceKind.WalkMagic)
-        {
+        if (grid!.Kind[slot] == SurfaceKind.WalkMagic) {
             return 0;
         }
 

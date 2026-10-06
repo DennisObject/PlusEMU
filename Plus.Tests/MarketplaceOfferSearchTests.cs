@@ -25,8 +25,7 @@ public class MarketplaceOfferSearchTests
     {
         var lines = new List<string>();
 
-        foreach (var scenario in Scenarios())
-        {
+        foreach (var scenario in Scenarios()) {
             var (database, manager) = Fixture(scenario.Rows);
             var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "u" });
             await new GetOffersEvent(new MarketplaceOfferSearchService(database, manager, new FixedClock(Now))).Parse(client, Packet(scenario.Min, scenario.Max, scenario.Query, scenario.Mode));
@@ -110,8 +109,7 @@ public class MarketplaceOfferSearchTests
         table.Columns.Add("LimitedNumber", typeof(int));
         table.Columns.Add("LimitedStack", typeof(int));
 
-        foreach (var row in rows ?? [])
-        {
+        foreach (var row in rows ?? []) {
             table.Rows.Add(row);
         }
 
@@ -130,16 +128,13 @@ public class MarketplaceOfferSearchTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
-            if (value is int number)
-            {
+        foreach (var value in values) {
+            if (value is int number) {
                 var bytes = new byte[4];
                 BinaryPrimitives.WriteInt32BigEndian(bytes, number);
                 stream.Write(bytes);
             }
-            else if (value is string text)
-            {
+            else if (value is string text) {
                 var raw = Encoding.UTF8.GetBytes(text);
                 var length = new byte[2];
                 BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)raw.Length);

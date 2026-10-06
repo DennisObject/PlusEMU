@@ -14,24 +14,12 @@ internal class RoomEnterBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.TriggerRoomEnter;
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -45,8 +33,7 @@ internal class RoomEnterBox : IWiredItem
     {
         var player = (Habbo)@params[0];
 
-        if (!string.IsNullOrWhiteSpace(StringData) && player.Username != StringData)
-        {
+        if (!string.IsNullOrWhiteSpace(StringData) && player.Username != StringData) {
             return false;
         }
 

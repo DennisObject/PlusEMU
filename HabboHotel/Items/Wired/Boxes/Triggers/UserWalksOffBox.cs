@@ -15,24 +15,12 @@ internal class UserWalksOffBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.TriggerWalkOffFurni;
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -40,19 +28,16 @@ internal class UserWalksOffBox : IWiredItem
         var unknown = packet.ReadInt();
         var unknown2 = packet.ReadString();
 
-        if (SetItems.Count > 0)
-        {
+        if (SetItems.Count > 0) {
             SetItems.Clear();
         }
 
         var furniCount = packet.ReadInt();
 
-        for (var i = 0; i < furniCount; i++)
-        {
+        for (var i = 0; i < furniCount; i++) {
             var selectedItem = Instance.GetRoomItemHandler().GetItem(Convert.ToUInt32(packet.ReadInt()));
 
-            if (selectedItem != null)
-            {
+            if (selectedItem != null) {
                 SetItems.TryAdd(selectedItem.Id, selectedItem);
             }
         }
@@ -62,20 +47,17 @@ internal class UserWalksOffBox : IWiredItem
     {
         var player = (Habbo)@params[0];
 
-        if (player == null)
-        {
+        if (player == null) {
             return false;
         }
 
         var item = (Item)@params[1];
 
-        if (item == null)
-        {
+        if (item == null) {
             return false;
         }
 
-        if (!SetItems.ContainsKey(item.Id))
-        {
+        if (!SetItems.ContainsKey(item.Id)) {
             return false;
         }
 

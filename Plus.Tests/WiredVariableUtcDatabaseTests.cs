@@ -19,8 +19,7 @@ public sealed class WiredVariableUtcDatabaseTests
     {
         var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
 
-        foreach (var sqlMode in new[] { "", "STRICT_ALL_TABLES" })
-        {
+        foreach (var sqlMode in new[] { "", "STRICT_ALL_TABLES" }) {
             RunMigrationProbe(root, sqlMode);
         }
     }
@@ -34,8 +33,7 @@ public sealed class WiredVariableUtcDatabaseTests
         var schema = "task_wired_reward_pristine_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             using var connection = new MySqlConnection(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
             connection.Open();
             var pristine = File.ReadAllText(Path.GetFullPath(Path.Join(AppContext.BaseDirectory,
@@ -61,7 +59,9 @@ public sealed class WiredVariableUtcDatabaseTests
                 WHERE table_schema=DATABASE() AND table_name='wired_reward_state' AND index_name='PRIMARY'
                 """));
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     [RoomComponentDatabaseFact]
@@ -73,8 +73,7 @@ public sealed class WiredVariableUtcDatabaseTests
         var schema = "task_wired_variable_config_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -98,10 +97,7 @@ public sealed class WiredVariableUtcDatabaseTests
                 INSERT INTO items VALUES (10,1);
                 INSERT INTO wired_item_configurations VALUES (10,'wf_var_room',1,@configuration);
                 INSERT INTO wired_variable_values VALUES (10,3,0,5,NULL,'1970-01-01 00:00:01.000000');
-                """, new
-            {
-                configuration = JsonSerializer.Serialize(current)
-            });
+                """, new { configuration = JsonSerializer.Serialize(current) });
             var database = new ProbeDatabase(connectionString);
             var clock = new CountingTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(3000));
             var module = new WiredVariableModule(1, new DatabaseWiredVariableDirectory(database),
@@ -113,10 +109,7 @@ public sealed class WiredVariableUtcDatabaseTests
             var box = new WiredVariableDefinitionBox(room, new Item { Id = 10 }, descriptor,
                 new WiredVariableConfigurationPersistence(database, module, clock), new(module));
             box.ApplyConfiguration(current);
-            var changed = current with
-            {
-                IntParams = [10, 6]
-            };
+            var changed = current with { IntParams = [10, 6] };
 
             Assert.True(WiredConfigurationSave.TrySave(box, changed, new RejectConfigurationStore(), out var error), error);
             var value = new DatabaseWiredVariableStore(database).Read(new(10, WiredVariableTarget.Global, 0))!;
@@ -128,7 +121,9 @@ public sealed class WiredVariableUtcDatabaseTests
             Assert.Equal(1, clock.Reads);
             Assert.Empty(module.DrainChanges());
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static void RunMigrationProbe(string root, string sqlMode)
@@ -138,8 +133,7 @@ public sealed class WiredVariableUtcDatabaseTests
         var schema = "task_wired_variable_utc_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -148,10 +142,7 @@ public sealed class WiredVariableUtcDatabaseTests
             }.ConnectionString;
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
-            connection.Execute("SET SESSION sql_mode=@sqlMode", new
-            {
-                sqlMode
-            });
+            connection.Execute("SET SESSION sql_mode=@sqlMode", new { sqlMode });
             connection.Execute("""
                 CREATE TABLE wired_variable_values (
                     definition_id INT UNSIGNED NOT NULL,target_kind TINYINT UNSIGNED NOT NULL,holder_id BIGINT NOT NULL,
@@ -204,7 +195,9 @@ public sealed class WiredVariableUtcDatabaseTests
                 created => AssertTimestampColumn(created, "created_at", 5),
                 updated => AssertTimestampColumn(updated, "updated_at", 6));
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static void AssertTimestampColumn(ColumnMetadata column, string name, int ordinal)
@@ -221,14 +214,8 @@ public sealed class WiredVariableUtcDatabaseTests
         public string Name { get; set; } = "";
         public string DataType { get; set; } = "";
         public string IsNullable { get; set; } = "";
-        public int? DateTimePrecision
-        {
-            get; set;
-        }
-        public int Ordinal
-        {
-            get; set;
-        }
+        public int? DateTimePrecision { get; set; }
+        public int Ordinal { get; set; }
     }
 
     private sealed class ProbeDatabase(string connectionString) : IDatabase
@@ -240,10 +227,7 @@ public sealed class WiredVariableUtcDatabaseTests
     private sealed class CountingTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset Now { get; } = now;
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

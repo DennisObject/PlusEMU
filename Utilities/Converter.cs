@@ -9,8 +9,7 @@ public static class Converter
         var length = characters.Length;
         var bytes = new byte[length / 2];
 
-        for (var i = 0; i < length; i += 2)
-        {
+        for (var i = 0; i < length; i += 2) {
             bytes[i / 2] = Convert.ToByte(characters.Substring(i, 2), 16);
         }
 

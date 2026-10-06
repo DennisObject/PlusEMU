@@ -115,10 +115,7 @@ public sealed class RoomGameTimeTests
     private sealed class CountingClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {
         private DateTimeOffset _now = now;
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override TimeZoneInfo LocalTimeZone => zone;
         public override DateTimeOffset GetUtcNow()
         {

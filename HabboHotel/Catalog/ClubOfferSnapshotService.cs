@@ -48,15 +48,13 @@ public sealed class ClubOfferSnapshotService(ICatalogManager catalog, TimeProvid
 
     public void ShowExtension(GameClient session)
     {
-        if (!catalog.Pages.Any(page => page.CanOpen(session.GetHabbo()) && page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy"))
-        {
+        if (!catalog.Pages.Any(page => page.CanOpen(session.GetHabbo()) && page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy")) {
             return;
         }
 
         var offer = catalog.ClubOffers.Where(offer => offer.Days > 0 && offer.Days <= 36500).OrderBy(offer => offer.Days).FirstOrDefault();
 
-        if (offer == null)
-        {
+        if (offer == null) {
             return;
         }
 

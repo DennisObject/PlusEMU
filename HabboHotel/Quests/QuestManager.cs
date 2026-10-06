@@ -45,8 +45,7 @@ public class QuestManager : IQuestManager, IStartable
         _quests.Clear();
         _questCount.Clear();
 
-        foreach (var quest in quests)
-        {
+        foreach (var quest in quests) {
             _quests.Add(quest.Id, new(quest.Id, quest.Category, quest.Number, (QuestType)quest.GoalType,
                 quest.GoalData, quest.Name, quest.Reward, quest.DataBit, quest.RewardType,
                 quest.UnlocksAt, quest.LocksAt));
@@ -58,41 +57,17 @@ public class QuestManager : IQuestManager, IStartable
 
     private sealed class QuestRow
     {
-        public int Id
-        {
-            get; set;
-        }
+        public int Id { get; set; }
         public string Category { get; set; } = string.Empty;
-        public int Number
-        {
-            get; set;
-        }
-        public int GoalType
-        {
-            get; set;
-        }
-        public int GoalData
-        {
-            get; set;
-        }
+        public int Number { get; set; }
+        public int GoalType { get; set; }
+        public int GoalData { get; set; }
         public string Name { get; set; } = string.Empty;
-        public int Reward
-        {
-            get; set;
-        }
+        public int Reward { get; set; }
         public string DataBit { get; set; } = string.Empty;
-        public int RewardType
-        {
-            get; set;
-        }
-        public DateTimeOffset? UnlocksAt
-        {
-            get; set;
-        }
-        public DateTimeOffset? LocksAt
-        {
-            get; set;
-        }
+        public int RewardType { get; set; }
+        public DateTimeOffset? UnlocksAt { get; set; }
+        public DateTimeOffset? LocksAt { get; set; }
     }
 
 
@@ -100,12 +75,10 @@ public class QuestManager : IQuestManager, IStartable
     {
         var count = 0;
 
-        if (_questCount.TryGetValue(category, out count))
-        {
+        if (_questCount.TryGetValue(category, out count)) {
             _questCount[category] = count + 1;
         }
-        else
-        {
+        else {
             _questCount.Add(category, 1);
         }
     }
@@ -126,15 +99,13 @@ public class QuestManager : IQuestManager, IStartable
 
     public void ProgressUserQuest(GameClient session, QuestType type, int data = 0)
     {
-        if (session == null || session.GetHabbo() == null || session.GetHabbo().HabboStats.QuestId <= 0)
-        {
+        if (session == null || session.GetHabbo() == null || session.GetHabbo().HabboStats.QuestId <= 0) {
             return;
         }
 
         var quest = GetQuest(session.GetHabbo().HabboStats.QuestId);
 
-        if (quest == null || quest.GoalType != type)
-        {
+        if (quest == null || quest.GoalType != type) {
             return;
         }
 
@@ -142,20 +113,17 @@ public class QuestManager : IQuestManager, IStartable
         var totalProgress = currentProgress;
         var completeQuest = false;
 
-        switch (type)
-        {
+        switch (type) {
             default:
                 totalProgress++;
 
-                if (totalProgress >= quest.GoalData)
-                {
+                if (totalProgress >= quest.GoalData) {
                     completeQuest = true;
                 }
 
                 break;
             case QuestType.ExploreFindItem:
-                if (data != quest.GoalData)
-                {
+                if (data != quest.GoalData) {
                     return;
                 }
 
@@ -163,8 +131,7 @@ public class QuestManager : IQuestManager, IStartable
                 completeQuest = true;
                 break;
             case QuestType.StandOn:
-                if (data != quest.GoalData)
-                {
+                if (data != quest.GoalData) {
                     return;
                 }
 
@@ -174,15 +141,13 @@ public class QuestManager : IQuestManager, IStartable
             case QuestType.XmasParty:
                 totalProgress++;
 
-                if (totalProgress == quest.GoalData)
-                {
+                if (totalProgress == quest.GoalData) {
                     completeQuest = true;
                 }
 
                 break;
             case QuestType.GiveItem:
-                if (data != quest.GoalData)
-                {
+                if (data != quest.GoalData) {
                     return;
                 }
 
@@ -195,17 +160,14 @@ public class QuestManager : IQuestManager, IStartable
         session.GetHabbo().Quests[session.GetHabbo().HabboStats.QuestId] = totalProgress;
         session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category))));
 
-        if (completeQuest)
-        {
+        if (completeQuest) {
             _messengerDataLoader.BroadcastStatusUpdate(session.GetHabbo(), MessengerEventTypes.QuestCompleted, $"{quest.Category}.{quest.Name}");
             session.GetHabbo().HabboStats.QuestId = 0;
             session.GetHabbo().QuestLastCompleted = quest.Id;
             session.Send(new QuestCompletedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category), QuestWireKind.Completed)));
 
-            lock (session.GetHabbo().WalletSync)
-            {
-                if (!session.GetHabbo().WalletClosed)
-                {
+            lock (session.GetHabbo().WalletSync) {
+                if (!session.GetHabbo().WalletClosed) {
                     session.GetHabbo().Duckets += quest.Reward;
                     session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, quest.Reward));
                 }
@@ -217,10 +179,8 @@ public class QuestManager : IQuestManager, IStartable
 
     public Quest? GetNextQuestInSeries(string category, int number)
     {
-        foreach (var quest in _quests.Values)
-        {
-            if (quest.Category == category && quest.Number == number)
-            {
+        foreach (var quest in _quests.Values) {
+            if (quest.Category == category && quest.Number == number) {
                 return quest;
             }
         }
@@ -233,41 +193,32 @@ public class QuestManager : IQuestManager, IStartable
         var userQuestGoals = new Dictionary<string, int>();
         var userQuests = new Dictionary<string, Quest>();
 
-        foreach (var quest in _quests.Values.ToList())
-        {
-            if (quest.Category.Contains("xmas2012"))
-            {
+        foreach (var quest in _quests.Values.ToList()) {
+            if (quest.Category.Contains("xmas2012")) {
                 continue;
             }
 
-            if (!userQuestGoals.ContainsKey(quest.Category))
-            {
+            if (!userQuestGoals.ContainsKey(quest.Category)) {
                 userQuestGoals.Add(quest.Category, 1);
                 userQuests.Add(quest.Category, null);
             }
 
-            if (quest.Number >= userQuestGoals[quest.Category])
-            {
+            if (quest.Number >= userQuestGoals[quest.Category]) {
                 var userProgress = session.GetHabbo().GetQuestProgress(quest.Id);
 
-                if (session.GetHabbo().HabboStats.QuestId != quest.Id && userProgress >= quest.GoalData)
-                {
+                if (session.GetHabbo().HabboStats.QuestId != quest.Id && userProgress >= quest.GoalData) {
                     userQuestGoals[quest.Category] = quest.Number + 1;
                 }
             }
         }
 
-        foreach (var quest in _quests.Values.ToList())
-        {
-            foreach (var goal in userQuestGoals)
-            {
-                if (quest.Category.Contains("xmas2012"))
-                {
+        foreach (var quest in _quests.Values.ToList()) {
+            foreach (var goal in userQuestGoals) {
+                if (quest.Category.Contains("xmas2012")) {
                     continue;
                 }
 
-                if (quest.Category == goal.Key && quest.Number == goal.Value)
-                {
+                if (quest.Category == goal.Key && quest.Number == goal.Value) {
                     userQuests[goal.Key] = quest;
                     break;
                 }
@@ -285,8 +236,7 @@ public class QuestManager : IQuestManager, IStartable
     {
         var quest = GetQuest(questId);
 
-        if (quest == null)
-        {
+        if (quest == null) {
             return;
         }
 

@@ -24,27 +24,22 @@ public sealed class MessengerPresentationService(IMessengerDataLoader messengerD
         var friends = habbo.Messenger.Friends.Values.Select(MessengerBuddySnapshot.Capture).ToImmutableArray();
         session.Send(new MessengerInitComposer(ClubLimits.For(habbo.Access, "friends", settings)));
 
-        if (friends.IsEmpty)
-        {
+        if (friends.IsEmpty) {
             session.Send(new BuddyListComposer(ImmutableArray<MessengerBuddySnapshot>.Empty, 1, 0));
         }
-        else
-        {
+        else {
             var pages = (friends.Length - 1) / FriendPageSize + 1;
             var page = 0;
 
-            foreach (var batch in friends.Chunk(FriendPageSize))
-            {
+            foreach (var batch in friends.Chunk(FriendPageSize)) {
                 session.Send(new BuddyListComposer(ImmutableArray.Create(batch), pages, page++));
             }
         }
 
         var messages = await messengerDataLoader.GetAndDeleteOfflineMessages(habbo.Id);
 
-        foreach (var (userId, report) in messages)
-        {
-            foreach (var (message, secondsAgo) in report)
-            {
+        foreach (var (userId, report) in messages) {
+            foreach (var (message, secondsAgo) in report) {
                 session.Send(new NewConsoleMessageComposer(userId, message, secondsAgo));
             }
         }

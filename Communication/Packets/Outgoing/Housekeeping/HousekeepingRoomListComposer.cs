@@ -14,8 +14,7 @@ public class HousekeepingRoomListComposer : IServerPacket
     {
         packet.WriteInteger(_rooms.Count);
 
-        foreach (var room in _rooms)
-        {
+        foreach (var room in _rooms) {
             HousekeepingRoomDetailComposer.WriteRoom(packet, room);
         }
     }

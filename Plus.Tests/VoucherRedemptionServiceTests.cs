@@ -86,29 +86,21 @@ public sealed class VoucherRedemptionServiceTests
 
     private sealed class RecordingStore(Action? beforeClaim = null) : IVoucherClaimStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
-        public bool DuplicateAfterFirst
-        {
-            get; init;
-        }
+        public bool Fail { get; init; }
+        public bool DuplicateAfterFirst { get; init; }
         public VoucherClaimResult Result { get; init; } = VoucherClaimResult.Claimed;
         public List<(int UserId, string Code)> Claims { get; } = [];
         public VoucherClaimResult Claim(int userId, string code)
         {
             beforeClaim?.Invoke();
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
 
             Claims.Add((userId, code));
 
-            if (DuplicateAfterFirst && Claims.Count > 1)
-            {
+            if (DuplicateAfterFirst && Claims.Count > 1) {
                 return VoucherClaimResult.AlreadyUsed;
             }
 

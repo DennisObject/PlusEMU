@@ -12,8 +12,7 @@ public sealed class WiredCatalogDatabaseFactAttribute : FactAttribute
 
     public WiredCatalogDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
-        {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable))) {
             Skip = $"Set {Variable} to a disposable task_wired_catalog_tests_ database.";
         }
     }
@@ -30,17 +29,10 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
         using var connection = Open();
         var entries = Offers();
 
-        for (var i = 0; i < entries.Length; i++)
-        {
+        for (var i = 0; i < entries.Length; i++) {
             var entry = entries[i];
             connection.Execute("INSERT INTO furniture VALUES (@id, @Name, @Sprite); INSERT INTO catalog_items VALUES (@id, 912363, @item, -1, 3, 1, 0)",
-                new
-                {
-                    id = i + 1,
-                    entry.Name,
-                    entry.Sprite,
-                    item = (i + 1).ToString()
-                });
+                new { id = i + 1, entry.Name, entry.Sprite, item = (i + 1).ToString() });
         }
 
         var before = connection.Query<Row>("SELECT * FROM catalog_items ORDER BY id").ToArray();
@@ -54,19 +46,14 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
         var after = connection.Query<Row>("SELECT * FROM catalog_items ORDER BY id").ToArray();
         Assert.Equal(before.Length, after.Length);
 
-        for (var i = 0; i < entries.Length; i++)
-        {
+        for (var i = 0; i < entries.Length; i++) {
             Assert.Equal(entries[i].Offer, after[i].offer_id);
-            Assert.Equal(before[i], after[i] with
-            {
-                offer_id = before[i].offer_id
-            });
+            Assert.Equal(before[i], after[i] with { offer_id = before[i].offer_id });
         }
 
         index.Build([Page(connection)]);
 
-        for (var i = 0; i < entries.Length; i++)
-        {
+        for (var i = 0; i < entries.Length; i++) {
             Assert.True(index.TryGet(entries[i].Offer, EditorTestSupport.Player(), out _, out var item));
             Assert.Equal(i + 1, item.Id);
             Assert.Equal(3, item.CostCredits);
@@ -95,10 +82,7 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
         Assert.Equal(before[..5], after[..5]);
         // A duplicate page for the same product can share its official offer, without stealing another product's ID.
         Assert.Equal(9106, after[5].offer_id);
-        Assert.Equal(before[5], after[5] with
-        {
-            offer_id = -1
-        });
+        Assert.Equal(before[5], after[5] with { offer_id = -1 });
     }
 
     [Fact]
@@ -124,13 +108,11 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
     {
         var builder = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable(WiredCatalogDatabaseFactAttribute.Variable));
 
-        if (!builder.Database.StartsWith("task_wired_catalog_tests_", StringComparison.Ordinal))
-        {
+        if (!builder.Database.StartsWith("task_wired_catalog_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("A disposable Wired catalogue database is required.");
         }
 
-        using (var admin = new MySqlConnection(builder.ConnectionString))
-        {
+        using (var admin = new MySqlConnection(builder.ConnectionString)) {
             admin.Open();
             _schema = "task_wired_catalog_tests_" + Guid.NewGuid().ToString("N");
             admin.Execute($"CREATE DATABASE `{_schema}`");
@@ -150,8 +132,7 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
 
     public void Dispose()
     {
-        if (_schema == null)
-        {
+        if (_schema == null) {
             return;
         }
 
@@ -164,8 +145,7 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
     {
         var page = new CatalogPage { Id = 912363, ParentId = -1, Enabled = true, Visible = true };
 
-        foreach (var row in connection.Query<Row>("SELECT * FROM catalog_items ORDER BY id"))
-        {
+        foreach (var row in connection.Query<Row>("SELECT * FROM catalog_items ORDER BY id")) {
             page.Items[row.id] = new CatalogItem
             {
                 Id = row.id,

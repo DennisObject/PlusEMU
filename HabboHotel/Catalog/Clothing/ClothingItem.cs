@@ -9,16 +9,7 @@ public class ClothingItem
         PartIds = partIds.Split(",").Select(int.Parse).ToList();
     }
 
-    public int Id
-    {
-        get;
-    }
-    public string ClothingName
-    {
-        get;
-    }
-    public List<int> PartIds
-    {
-        get;
-    }
+    public int Id { get; }
+    public string ClothingName { get; }
+    public List<int> PartIds { get; }
 }

@@ -23,15 +23,13 @@ internal class RoomCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!parameters.Any())
-        {
+        if (!parameters.Any()) {
             session.SendWhisper("Oops, you must choose a room option to disable.");
 
             return;
         }
 
-        if (!room.CheckRights(session, true))
-        {
+        if (!room.CheckRights(session, true)) {
             session.SendWhisper("Oops, only the room owner or staff can use this command.");
 
             return;
@@ -41,17 +39,11 @@ internal class RoomCommand : IChatCommand
         void Persist(string column, bool value)
         {
             using var connection = _database.Connection();
-            connection.Execute($"UPDATE rooms SET `{column}`=@value WHERE id=@roomId LIMIT 1", new
-            {
-                value,
-                roomId = room.Id
-            });
+            connection.Execute($"UPDATE rooms SET `{column}`=@value WHERE id=@roomId LIMIT 1", new { value, roomId = room.Id });
         }
 
-        switch (option)
-        {
-            case "list":
-                {
+        switch (option) {
+            case "list": {
                     var list = new StringBuilder("");
                     list.AppendLine("Room Command List");
                     list.AppendLine("-------------------------");
@@ -65,69 +57,58 @@ internal class RoomCommand : IChatCommand
                     session.SendNotification(list.ToString());
                     break;
                 }
-            case "push":
-                {
+            case "push": {
                     room.PushEnabled = !room.PushEnabled;
                     Persist("push_enabled", room.PushEnabled);
                     session.SendWhisper($"Push mode is now {(room.PushEnabled ? "enabled!" : "disabled!")}");
                     break;
                 }
-            case "spush":
-                {
+            case "spush": {
                     room.SuperPushEnabled = !room.SuperPushEnabled;
                     Persist("spush_enabled", room.SuperPushEnabled);
                     session.SendWhisper($"Super Push mode is now {(room.SuperPushEnabled ? "enabled!" : "disabled!")}");
                     break;
                 }
-            case "spull":
-                {
+            case "spull": {
                     room.SuperPullEnabled = !room.SuperPullEnabled;
                     Persist("spull_enabled", room.SuperPullEnabled);
                     session.SendWhisper($"Super Pull mode is now {(room.SuperPullEnabled ? "enabled!" : "disabled!")}");
                     break;
                 }
-            case "pull":
-                {
+            case "pull": {
                     room.PullEnabled = !room.PullEnabled;
                     Persist("pull_enabled", room.PullEnabled);
                     session.SendWhisper($"Pull mode is now {(room.PullEnabled ? "enabled!" : "disabled!")}");
                     break;
                 }
             case "enable":
-            case "enables":
-                {
+            case "enables": {
                     room.EnablesEnabled = !room.EnablesEnabled;
                     Persist("enables_enabled", room.EnablesEnabled);
                     session.SendWhisper($"Enables mode set to {(room.EnablesEnabled ? "enabled!" : "disabled!")}");
                     break;
                 }
-            case "respect":
-                {
+            case "respect": {
                     room.RespectNotificationsEnabled = !room.RespectNotificationsEnabled;
                     Persist("respect_notifications_enabled", room.RespectNotificationsEnabled);
                     session.SendWhisper($"Respect notifications mode set to {(room.RespectNotificationsEnabled ? "enabled!" : "disabled!")}");
                     break;
                 }
             case "pets":
-            case "morphs":
-                {
+            case "morphs": {
                     room.PetMorphsAllowed = !room.PetMorphsAllowed;
                     Persist("pet_morphs_allowed", room.PetMorphsAllowed);
                     session.SendWhisper($"Human pet morphs notifications mode set to {(room.PetMorphsAllowed ? "enabled!" : "disabled!")}");
 
-                    if (!room.PetMorphsAllowed)
-                    {
-                        foreach (var user in room.GetRoomUserManager().GetRoomUsers())
-                        {
-                            if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null)
-                            {
+                    if (!room.PetMorphsAllowed) {
+                        foreach (var user in room.GetRoomUserManager().GetRoomUsers()) {
+                            if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null) {
                                 continue;
                             }
 
                             user.GetClient().SendWhisper("The room owner has disabled the ability to use a pet morph in this room.");
 
-                            if (user.GetClient().GetHabbo().PetId > 0)
-                            {
+                            if (user.GetClient().GetHabbo().PetId > 0) {
                                 //Tell the user what is going on.
                                 user.GetClient().SendWhisper("Oops, the room owner has just disabled pet-morphs, un-morphing you.");
 

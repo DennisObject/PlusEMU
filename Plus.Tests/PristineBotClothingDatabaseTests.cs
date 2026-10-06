@@ -21,17 +21,12 @@ public sealed class PristineBotClothingDatabaseTests
             connection.Execute("INSERT INTO bots (id,user_id,room_id,name,motto,look) VALUES (10,7,42,'guide','hello','hd-180-1')");
             var store = new BotManagementStore(database);
 
-            foreach (var mode in new[] { "", "STRICT_ALL_TABLES" })
-            {
-                connection.Execute("SET SESSION sql_mode=@mode", new
-                {
-                    mode
-                });
+            foreach (var mode in new[] { "", "STRICT_ALL_TABLES" }) {
+                connection.Execute("SET SESSION sql_mode=@mode", new { mode });
                 // Each store call opens its own connection. Set its session mode explicitly.
                 database.SqlMode = mode;
 
-                foreach (var automatic in new[] { true, false })
-                {
+                foreach (var automatic in new[] { true, false }) {
                     Assert.Equal(["hello", "world"], store.SaveSpeech(10, 42, ["hello", "world"], automatic, 12, true));
                     Assert.Equal(automatic ? "true" : "false", connection.QuerySingle<string>("SELECT automatic_chat FROM bots WHERE id=10"));
                     connection.Execute("UPDATE bots SET room_id=0 WHERE id=10");
@@ -98,14 +93,15 @@ public sealed class PristineBotClothingDatabaseTests
         var schema = "task_bot_clothing_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
             run(connection, new ProbeDatabase(options.ConnectionString));
         }
-        finally { admin.Execute($"DROP DATABASE IF EXISTS `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
+        }
     }
 
     private sealed class ProbeDatabase(string connectionString) : IDatabase
@@ -121,10 +117,7 @@ public sealed class PristineBotClothingDatabaseTests
     private sealed class ModeConnection(string connectionString, string mode) : IDbConnection
     {
         private readonly MySqlConnection _connection = new(connectionString);
-        public string ConnectionString
-        {
-            get => _connection.ConnectionString; set => _connection.ConnectionString = value;
-        }
+        public string ConnectionString { get => _connection.ConnectionString; set => _connection.ConnectionString = value; }
         public int ConnectionTimeout => _connection.ConnectionTimeout;
         public string Database => _connection.Database;
         public ConnectionState State => _connection.State;
@@ -136,10 +129,7 @@ public sealed class PristineBotClothingDatabaseTests
         public void Open()
         {
             _connection.Open();
-            _connection.Execute("SET SESSION sql_mode=@mode", new
-            {
-                mode
-            });
+            _connection.Execute("SET SESSION sql_mode=@mode", new { mode });
         }
         public void Dispose() => _connection.Dispose();
     }

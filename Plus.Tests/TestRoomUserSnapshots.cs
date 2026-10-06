@@ -26,10 +26,7 @@ internal sealed class TestRoomUserSnapshots : IRoomUserSnapshotService
 
     public class Lookup : DispatchProxy
     {
-        public GameClient? Client
-        {
-            get; set;
-        }
+        public GameClient? Client { get; set; }
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name == "GetClientByUserId"
             ? Client : throw new NotSupportedException(method.Name);
     }

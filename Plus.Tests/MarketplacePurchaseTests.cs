@@ -134,8 +134,7 @@ public class MarketplacePurchaseTests
 
         public ClaimStore(params object[] results)
         {
-            foreach (var result in results)
-            {
+            foreach (var result in results) {
                 _results.Enqueue(result);
             }
         }

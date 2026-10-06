@@ -23,28 +23,20 @@ public class Freeze
         _freezeBlocks = new();
     }
 
-    public bool GameIsStarted
-    {
-        get; private set;
-    }
+    public bool GameIsStarted { get; private set; }
 
-    public ConcurrentDictionary<uint, Item> ExitTeleports
-    {
-        get;
-    }
+    public ConcurrentDictionary<uint, Item> ExitTeleports { get; }
 
     public void AddExitTile(Item item)
     {
-        if (!ExitTeleports.ContainsKey(item.Id))
-        {
+        if (!ExitTeleports.ContainsKey(item.Id)) {
             ExitTeleports.TryAdd(item.Id, item);
         }
     }
 
     public void RemoveExitTile(uint id)
     {
-        if (ExitTeleports.ContainsKey(id))
-        {
+        if (ExitTeleports.ContainsKey(id)) {
             ExitTeleports.TryRemove(id, out var temp);
         }
     }
@@ -57,12 +49,9 @@ public class Freeze
         CountTeamPoints();
         ResetGame();
 
-        if (ExitTeleports.Count > 0)
-        {
-            foreach (var exitTile in ExitTeleports.Values.ToList())
-            {
-                if (exitTile.LegacyDataString == "0" || string.IsNullOrEmpty(exitTile.LegacyDataString))
-                {
+        if (ExitTeleports.Count > 0) {
+            foreach (var exitTile in ExitTeleports.Values.ToList()) {
+                if (exitTile.LegacyDataString == "0" || string.IsNullOrEmpty(exitTile.LegacyDataString)) {
                     exitTile.LegacyDataString = "1";
                 }
 
@@ -80,12 +69,9 @@ public class Freeze
         _room.GetGameManager().StopGame();
         ResetGame();
 
-        if (ExitTeleports.Count > 0)
-        {
-            foreach (var exitTile in ExitTeleports.Values.ToList())
-            {
-                if (exitTile.LegacyDataString == "1" || string.IsNullOrEmpty(exitTile.LegacyDataString))
-                {
+        if (ExitTeleports.Count > 0) {
+            foreach (var exitTile in ExitTeleports.Values.ToList()) {
+                if (exitTile.LegacyDataString == "1" || string.IsNullOrEmpty(exitTile.LegacyDataString)) {
                     exitTile.LegacyDataString = "0";
                 }
 
@@ -95,33 +81,27 @@ public class Freeze
 
         var winners = _room.GetGameManager().GetWinningTeam();
 
-        foreach (var user in _room.GetRoomUserManager().GetUserList().ToList())
-        {
+        foreach (var user in _room.GetRoomUserManager().GetUserList().ToList()) {
             user.FreezeLives = 0;
 
-            if (user.Team == winners)
-            {
+            if (user.Team == winners) {
                 user.UnIdle();
                 user.DanceId = 0;
                 _room.SendPacket(new ActionComposer(user.VirtualId, 1));
             }
 
-            if (ExitTeleports.Count > 0)
-            {
+            if (ExitTeleports.Count > 0) {
                 var tile = _freezeTiles.Values.Where(x => x.GetX == user.X && x.GetY == user.Y).FirstOrDefault();
 
-                if (tile != null)
-                {
+                if (tile != null) {
                     var exitTle = GetRandomExitTile();
 
-                    if (exitTle != null)
-                    {
+                    if (exitTle != null) {
                         _room.GetGameMap().UpdateUserMovement(user.Coordinate, exitTle.Coordinate, user);
                         user.SetPos(exitTle.GetX, exitTle.GetY, exitTle.GetZ);
                         user.UpdateNeeded = true;
 
-                        if (user.IsAsleep)
-                        {
+                        if (user.IsAsleep) {
                             user.UnIdle();
                         }
                     }
@@ -129,32 +109,27 @@ public class Freeze
             }
         }
 
-        if (!userTriggered)
-        {
+        if (!userTriggered) {
             _room.GetWired().TriggerEvent(WiredBoxType.TriggerGameEnds, null);
         }
     }
 
     public void CycleUser(RoomUser user)
     {
-        if (user.Freezed)
-        {
+        if (user.Freezed) {
             user.FreezeCounter++;
 
-            if (user.FreezeCounter > 10)
-            {
+            if (user.FreezeCounter > 10) {
                 user.Freezed = false;
                 user.FreezeCounter = 0;
                 ActivateShield(user);
             }
         }
 
-        if (user.ShieldActive)
-        {
+        if (user.ShieldActive) {
             user.ShieldCounter++;
 
-            if (user.ShieldCounter > 10)
-            {
+            if (user.ShieldCounter > 10) {
                 user.ShieldActive = false;
                 user.ShieldCounter = 10;
                 user.ApplyEffect(Convert.ToInt32(user.Team) + 39);
@@ -164,10 +139,8 @@ public class Freeze
 
     public void ResetGame()
     {
-        foreach (var item in _freezeTiles.Values.ToList())
-        {
-            if (!string.IsNullOrEmpty(item.LegacyDataString))
-            {
+        foreach (var item in _freezeTiles.Values.ToList()) {
+            if (!string.IsNullOrEmpty(item.LegacyDataString)) {
                 item.InteractionCountHelper = 0;
                 item.LegacyDataString = "";
                 item.UpdateState(false, true);
@@ -175,10 +148,8 @@ public class Freeze
             }
         }
 
-        foreach (var item in _freezeBlocks.Values)
-        {
-            if (!string.IsNullOrEmpty(item.LegacyDataString))
-            {
+        foreach (var item in _freezeBlocks.Values) {
+            if (!string.IsNullOrEmpty(item.LegacyDataString)) {
                 item.LegacyDataString = "";
                 item.UpdateState(false, true);
                 _room.GetGameMap().AddItemToMap(item, false);
@@ -188,17 +159,13 @@ public class Freeze
 
     public void OnUserWalk(RoomUser user)
     {
-        if (!GameIsStarted || user.Team == Team.None)
-        {
+        if (!GameIsStarted || user.Team == Team.None) {
             return;
         }
 
-        foreach (var item in _freezeTiles.Values.ToList())
-        {
-            if (user.GoalX == item.GetX && user.GoalY == item.GetY && user.FreezeInteracting)
-            {
-                if (item.InteractionCountHelper == 0)
-                {
+        foreach (var item in _freezeTiles.Values.ToList()) {
+            if (user.GoalX == item.GetX && user.GoalY == item.GetY && user.FreezeInteracting) {
+                if (item.InteractionCountHelper == 0) {
                     item.InteractionCountHelper = 1;
                     item.LegacyDataString = "1000";
                     item.UpdateState();
@@ -206,11 +173,9 @@ public class Freeze
                     item.FreezePowerUp = user.BanzaiPowerUp;
                     item.RequestUpdate(4, true);
 
-                    switch (user.BanzaiPowerUp)
-                    {
+                    switch (user.BanzaiPowerUp) {
                         case FreezePowerUp.GreenArrow:
-                        case FreezePowerUp.OrangeSnowball:
-                            {
+                        case FreezePowerUp.OrangeSnowball: {
                                 user.BanzaiPowerUp = FreezePowerUp.None;
                                 break;
                             }
@@ -221,12 +186,9 @@ public class Freeze
             }
         }
 
-        foreach (var item in _freezeBlocks.Values.ToList())
-        {
-            if (user.GoalX == item.GetX && user.GoalY == item.GetY)
-            {
-                if (item.FreezePowerUp != FreezePowerUp.None)
-                {
+        foreach (var item in _freezeBlocks.Values.ToList()) {
+            if (user.GoalX == item.GetX && user.GoalY == item.GetY) {
+                if (item.FreezePowerUp != FreezePowerUp.None) {
                     PickUpPowerUp(item, user);
                 }
             }
@@ -237,10 +199,8 @@ public class Freeze
     {
         _room.GetGameManager().Reset();
 
-        foreach (var user in _room.GetRoomUserManager().GetUserList().ToList())
-        {
-            if (user.IsBot || user.Team == Team.None || user.GetClient() == null)
-            {
+        foreach (var user in _room.GetRoomUserManager().GetUserList().ToList()) {
+            if (user.IsBot || user.Team == Team.None || user.GetClient() == null) {
                 continue;
             }
 
@@ -257,26 +217,21 @@ public class Freeze
     {
         List<Item> items;
 
-        switch (powerUp)
-        {
-            case FreezePowerUp.BlueArrow:
-                {
+        switch (powerUp) {
+            case FreezePowerUp.BlueArrow: {
                     items = GetVerticalItems(item.GetX, item.GetY, 5);
                     break;
                 }
-            case FreezePowerUp.GreenArrow:
-                {
+            case FreezePowerUp.GreenArrow: {
                     items = GetDiagonalItems(item.GetX, item.GetY, 5);
                     break;
                 }
-            case FreezePowerUp.OrangeSnowball:
-                {
+            case FreezePowerUp.OrangeSnowball: {
                     items = GetVerticalItems(item.GetX, item.GetY, 5);
                     items.AddRange(GetDiagonalItems(item.GetX, item.GetY, 5));
                     break;
                 }
-            default:
-                {
+            default: {
                     items = GetVerticalItems(item.GetX, item.GetY, 3);
                     break;
                 }
@@ -294,24 +249,19 @@ public class Freeze
 
     private void HandleBanzaiFreezeItems(List<Item> items)
     {
-        foreach (var item in items.ToList())
-        {
-            switch (item.Definition.InteractionType)
-            {
-                case InteractionType.FreezeTile:
-                    {
+        foreach (var item in items.ToList()) {
+            switch (item.Definition.InteractionType) {
+                case InteractionType.FreezeTile: {
                         item.LegacyDataString = "11000";
                         item.UpdateState(false, true);
                         continue;
                     }
-                case InteractionType.FreezeTileBlock:
-                    {
+                case InteractionType.FreezeTileBlock: {
                         SetRandomPowerUp(item);
                         item.UpdateState(false, true);
                         continue;
                     }
-                default:
-                    {
+                default: {
                         continue;
                     }
             }
@@ -320,53 +270,44 @@ public class Freeze
 
     private void SetRandomPowerUp(Item item)
     {
-        if (!string.IsNullOrEmpty(item.LegacyDataString))
-        {
+        if (!string.IsNullOrEmpty(item.LegacyDataString)) {
             return;
         }
 
         var next = Random.Shared.Next(1, 14);
 
-        switch (next)
-        {
-            case 2:
-                {
+        switch (next) {
+            case 2: {
                     item.LegacyDataString = "2000";
                     item.FreezePowerUp = FreezePowerUp.BlueArrow;
                     break;
                 }
-            case 3:
-                {
+            case 3: {
                     item.LegacyDataString = "3000";
                     item.FreezePowerUp = FreezePowerUp.Snowballs;
                     break;
                 }
-            case 4:
-                {
+            case 4: {
                     item.LegacyDataString = "4000";
                     item.FreezePowerUp = FreezePowerUp.GreenArrow;
                     break;
                 }
-            case 5:
-                {
+            case 5: {
                     item.LegacyDataString = "5000";
                     item.FreezePowerUp = FreezePowerUp.OrangeSnowball;
                     break;
                 }
-            case 6:
-                {
+            case 6: {
                     item.LegacyDataString = "6000";
                     item.FreezePowerUp = FreezePowerUp.Heart;
                     break;
                 }
-            case 7:
-                {
+            case 7: {
                     item.LegacyDataString = "7000";
                     item.FreezePowerUp = FreezePowerUp.Shield;
                     break;
                 }
-            default:
-                {
+            default: {
                     item.LegacyDataString = "1000";
                     item.FreezePowerUp = FreezePowerUp.None;
                     break;
@@ -379,12 +320,9 @@ public class Freeze
 
     private void PickUpPowerUp(Item item, RoomUser user)
     {
-        switch (item.FreezePowerUp)
-        {
-            case FreezePowerUp.Heart:
-                {
-                    if (user.FreezeLives < 5)
-                    {
+        switch (item.FreezePowerUp) {
+            case FreezePowerUp.Heart: {
+                    if (user.FreezeLives < 5) {
                         user.FreezeLives++;
                         _room.GetGameManager().AddPointToTeam(user.Team, 10);
                     }
@@ -392,15 +330,13 @@ public class Freeze
                     user.GetClient().Send(new UpdateFreezeLivesComposer(user.InternalRoomId, user.FreezeLives));
                     break;
                 }
-            case FreezePowerUp.Shield:
-                {
+            case FreezePowerUp.Shield: {
                     ActivateShield(user);
                     break;
                 }
             case FreezePowerUp.BlueArrow:
             case FreezePowerUp.GreenArrow:
-            case FreezePowerUp.OrangeSnowball:
-                {
+            case FreezePowerUp.OrangeSnowball: {
                     user.BanzaiPowerUp = item.FreezePowerUp;
                     break;
                 }
@@ -413,8 +349,7 @@ public class Freeze
 
     public void AddFreezeTile(Item item)
     {
-        if (!_freezeTiles.ContainsKey(item.Id))
-        {
+        if (!_freezeTiles.ContainsKey(item.Id)) {
             _freezeTiles.TryAdd(item.Id, item);
         }
     }
@@ -423,16 +358,14 @@ public class Freeze
     {
         Item? item = null;
 
-        if (_freezeTiles.ContainsKey(itemId))
-        {
+        if (_freezeTiles.ContainsKey(itemId)) {
             _freezeTiles.TryRemove(itemId, out item);
         }
     }
 
     public void AddFreezeBlock(Item item)
     {
-        if (!_freezeBlocks.ContainsKey(item.Id))
-        {
+        if (!_freezeBlocks.ContainsKey(item.Id)) {
             _freezeBlocks.TryAdd(item.Id, item);
         }
     }
@@ -445,17 +378,14 @@ public class Freeze
 
     private void HandleUserFreeze(Point point)
     {
-        if (_room == null)
-        {
+        if (_room == null) {
             return;
         }
 
         var user = _room.GetGameMap().GetRoomUsers(point).FirstOrDefault();
 
-        if (user != null)
-        {
-            if (user.IsWalking && user.SetX != point.X && user.SetY != point.Y)
-            {
+        if (user != null) {
+            if (user.IsWalking && user.SetX != point.X && user.SetY != point.Y) {
                 return;
             }
 
@@ -465,8 +395,7 @@ public class Freeze
 
     private void FreezeUser(RoomUser user)
     {
-        if (user.IsBot || user.ShieldActive || user.Team == Team.None || user.Freezed)
-        {
+        if (user.IsBot || user.ShieldActive || user.Team == Team.None || user.Freezed) {
             return;
         }
 
@@ -474,8 +403,7 @@ public class Freeze
         user.FreezeCounter = 0;
         user.FreezeLives--;
 
-        if (user.FreezeLives <= 0)
-        {
+        if (user.FreezeLives <= 0) {
             user.GetClient().Send(new UpdateFreezeLivesComposer(user.InternalRoomId, user.FreezeLives));
             user.ApplyEffect(-1);
             _room.GetGameManager().AddPointToTeam(user.Team, -10);
@@ -483,8 +411,7 @@ public class Freeze
             t.OnUserLeave(user);
             user.Team = Team.None;
 
-            if (ExitTeleports.Count > 0)
-            {
+            if (ExitTeleports.Count > 0) {
                 _room.GetGameMap().TeleportToItem(user, GetRandomExitTile());
             }
 
@@ -493,23 +420,19 @@ public class Freeze
             user.IsWalking = false;
             user.UpdateNeeded = true;
 
-            if (t.BlueTeam.Count <= 0 && t.RedTeam.Count <= 0 && t.GreenTeam.Count <= 0 && t.YellowTeam.Count > 0)
-            {
+            if (t.BlueTeam.Count <= 0 && t.RedTeam.Count <= 0 && t.GreenTeam.Count <= 0 && t.YellowTeam.Count > 0) {
                 StopGame(); // yellow team win
             }
             else if (t.BlueTeam.Count > 0 && t.RedTeam.Count <= 0 && t.GreenTeam.Count <= 0 &&
-                     t.YellowTeam.Count <= 0)
-            {
+                     t.YellowTeam.Count <= 0) {
                 StopGame(); // blue team win
             }
             else if (t.BlueTeam.Count <= 0 && t.RedTeam.Count > 0 && t.GreenTeam.Count <= 0 &&
-                     t.YellowTeam.Count <= 0)
-            {
+                     t.YellowTeam.Count <= 0) {
                 StopGame(); // red team win
             }
             else if (t.BlueTeam.Count <= 0 && t.RedTeam.Count <= 0 && t.GreenTeam.Count > 0 &&
-                     t.YellowTeam.Count <= 0)
-            {
+                     t.YellowTeam.Count <= 0) {
                 StopGame(); // green team win
             }
 
@@ -525,78 +448,66 @@ public class Freeze
     {
         var totalItems = new List<Item>();
 
-        for (var i = 0; i < length; i++)
-        {
+        for (var i = 0; i < length; i++) {
             var point = new Point(x + i, y);
             var items = GetItemsForSquare(point);
 
-            if (!SquareGotFreezeTile(items))
-            {
+            if (!SquareGotFreezeTile(items)) {
                 break;
             }
 
             HandleUserFreeze(point);
             totalItems.AddRange(items);
 
-            if (SquareGotFreezeBlock(items))
-            {
+            if (SquareGotFreezeBlock(items)) {
                 break;
             }
         }
 
-        for (var i = 1; i < length; i++)
-        {
+        for (var i = 1; i < length; i++) {
             var point = new Point(x, y + i);
             var items = GetItemsForSquare(point);
 
-            if (!SquareGotFreezeTile(items))
-            {
+            if (!SquareGotFreezeTile(items)) {
                 break;
             }
 
             HandleUserFreeze(point);
             totalItems.AddRange(items);
 
-            if (SquareGotFreezeBlock(items))
-            {
+            if (SquareGotFreezeBlock(items)) {
                 break;
             }
         }
 
-        for (var i = 1; i < length; i++)
-        {
+        for (var i = 1; i < length; i++) {
             var point = new Point(x - i, y);
             var items = GetItemsForSquare(point);
 
-            if (!SquareGotFreezeTile(items))
-            {
+            if (!SquareGotFreezeTile(items)) {
                 break;
             }
 
             HandleUserFreeze(point);
             totalItems.AddRange(items);
 
-            if (SquareGotFreezeBlock(items))
-            {
+            if (SquareGotFreezeBlock(items)) {
                 break;
             }
         }
 
-        for (var i = 1; i < length; i++)
-        {
+        for (var i = 1; i < length; i++) {
             var point = new Point(x, y - i);
             var items = GetItemsForSquare(point);
 
-            if (!SquareGotFreezeTile(items))
-            {
+            if (!SquareGotFreezeTile(items)) {
                 break;
             }
 
             HandleUserFreeze(point);
             totalItems.AddRange(items);
 
-            if (SquareGotFreezeBlock(items))
-            {
+            if (SquareGotFreezeBlock(items)) {
                 break;
             }
         }
@@ -608,78 +519,66 @@ public class Freeze
     {
         var totalItems = new List<Item>();
 
-        for (var i = 0; i < length; i++)
-        {
+        for (var i = 0; i < length; i++) {
             var point = new Point(x + i, y + i);
             var items = GetItemsForSquare(point);
 
-            if (!SquareGotFreezeTile(items))
-            {
+            if (!SquareGotFreezeTile(items)) {
                 break;
             }
 
             HandleUserFreeze(point);
             totalItems.AddRange(items);
 
-            if (SquareGotFreezeBlock(items))
-            {
+            if (SquareGotFreezeBlock(items)) {
                 break;
             }
         }
 
-        for (var i = 0; i < length; i++)
-        {
+        for (var i = 0; i < length; i++) {
             var point = new Point(x - i, y - i);
             var items = GetItemsForSquare(point);
 
-            if (!SquareGotFreezeTile(items))
-            {
+            if (!SquareGotFreezeTile(items)) {
                 break;
             }
 
             HandleUserFreeze(point);
             totalItems.AddRange(items);
 
-            if (SquareGotFreezeBlock(items))
-            {
+            if (SquareGotFreezeBlock(items)) {
                 break;
             }
         }
 
-        for (var i = 0; i < length; i++)
-        {
+        for (var i = 0; i < length; i++) {
             var point = new Point(x - i, y + i);
             var items = GetItemsForSquare(point);
 
-            if (!SquareGotFreezeTile(items))
-            {
+            if (!SquareGotFreezeTile(items)) {
                 break;
             }
 
             HandleUserFreeze(point);
             totalItems.AddRange(items);
 
-            if (SquareGotFreezeBlock(items))
-            {
+            if (SquareGotFreezeBlock(items)) {
                 break;
             }
         }
 
-        for (var i = 0; i < length; i++)
-        {
+        for (var i = 0; i < length; i++) {
             var point = new Point(x + i, y - i);
             var items = GetItemsForSquare(point);
 
-            if (!SquareGotFreezeTile(items))
-            {
+            if (!SquareGotFreezeTile(items)) {
                 break;
             }
 
             HandleUserFreeze(point);
             totalItems.AddRange(items);
 
-            if (SquareGotFreezeBlock(items))
-            {
+            if (SquareGotFreezeBlock(items)) {
                 break;
             }
         }
@@ -691,10 +590,8 @@ public class Freeze
 
     private static bool SquareGotFreezeTile(List<Item> items)
     {
-        foreach (var item in items)
-        {
-            if (item.Definition.InteractionType == InteractionType.FreezeTile)
-            {
+        foreach (var item in items) {
+            if (item.Definition.InteractionType == InteractionType.FreezeTile) {
                 return true;
             }
         }
@@ -704,10 +601,8 @@ public class Freeze
 
     private static bool SquareGotFreezeBlock(List<Item> items)
     {
-        foreach (var item in items)
-        {
-            if (item.Definition.InteractionType == InteractionType.FreezeTileBlock)
-            {
+        foreach (var item in items) {
+            if (item.Definition.InteractionType == InteractionType.FreezeTileBlock) {
                 return true;
             }
         }

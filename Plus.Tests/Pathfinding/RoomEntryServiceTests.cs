@@ -70,15 +70,13 @@ public partial class PlacedFurniRoomTests
             ServerPacketHeader.RoomEventComposer
         };
 
-        if (activeFlood)
-        {
+        if (activeFlood) {
             expected.Add(ServerPacketHeader.FloodControlComposer);
         }
 
         Assert.Equal(expected, tail);
 
-        if (activeFlood)
-        {
+        if (activeFlood) {
             var packet = new FlashIncomingPacket { Buffer = _client.Packets.Last().Body };
             Assert.Equal(2, packet.ReadInt());
             Assert.False(packet.HasDataRemaining());

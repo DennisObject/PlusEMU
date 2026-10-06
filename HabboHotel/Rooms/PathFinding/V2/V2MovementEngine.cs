@@ -11,14 +11,8 @@ internal sealed class V2MovementEngine : IMovementEngine
     private readonly AdmissionService _admission;
     private readonly RebindService _rebind;
     internal ClaimLedger Claims => Context.Claims;
-    internal MovementContext Context
-    {
-        get;
-    }
-    internal RollerCycle Rollers
-    {
-        get;
-    }
+    internal MovementContext Context { get; }
+    internal RollerCycle Rollers { get; }
     internal V2MovementEngine(Room room, RoomNavigation navigation, IDatabase database,
         IRewardTrackManager rewards, ActorAccessResolver access)
     {
@@ -43,10 +37,8 @@ internal sealed class V2MovementEngine : IMovementEngine
     }
     internal void RefreshPostures()
     {
-        foreach (var actor in Context.Room.GetRoomUserManager().GetUserList())
-        {
-            if (actor.Movement.State != NavState.Active)
-            {
+        foreach (var actor in Context.Room.GetRoomUserManager().GetUserList()) {
+            if (actor.Movement.State != NavState.Active) {
                 continue;
             }
 
@@ -59,25 +51,21 @@ internal sealed class V2MovementEngine : IMovementEngine
     {
         var actor = command.Actor;
 
-        if (command.LifetimeId != actor.Movement.LifetimeId)
-        {
+        if (command.LifetimeId != actor.Movement.LifetimeId) {
             return;
         }
 
-        if (command.Kind == RoomCommandKind.Remove)
-        {
+        if (command.Kind == RoomCommandKind.Remove) {
             _cancellation.Remove(actor);
 
             return;
         }
 
-        if (actor.Movement.State == NavState.Removing)
-        {
+        if (actor.Movement.State == NavState.Removing) {
             return;
         }
 
-        switch (command.Kind)
-        {
+        switch (command.Kind) {
             case RoomCommandKind.ActorAction:
                 command.Action?.Invoke(actor, command.CommandSequence);
                 break;

@@ -16,15 +16,13 @@ public class VoteResultDataFormat : FurniObjectData
 
     public override void Store(string data)
     {
-        if (string.IsNullOrWhiteSpace(data))
-        {
+        if (string.IsNullOrWhiteSpace(data)) {
             return;
         }
 
         var d = data.Split("\n");
 
-        if (d.Length != 2)
-        {
+        if (d.Length != 2) {
             return;
         }
 

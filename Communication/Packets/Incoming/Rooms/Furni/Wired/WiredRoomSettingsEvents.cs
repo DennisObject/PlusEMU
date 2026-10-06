@@ -8,8 +8,7 @@ public sealed class WiredRoomSettingsRequestEvent(IWiredRoomSettingsService sett
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!packet.HasDataRemaining())
-        {
+        if (!packet.HasDataRemaining()) {
             settings.Reload(room, session);
         }
 
@@ -23,15 +22,15 @@ public sealed class WiredRoomSettingsSaveEvent(IWiredRoomSettingsService setting
     {
         int inspect, modify;
 
-        try
-        {
+        try {
             inspect = packet.ReadInt();
             modify = packet.ReadInt();
         }
-        catch (ArgumentException) { return Task.CompletedTask; }
+        catch (ArgumentException) {
+            return Task.CompletedTask;
+        }
 
-        if (packet.HasDataRemaining())
-        {
+        if (packet.HasDataRemaining()) {
             return Task.CompletedTask;
         }
 
@@ -48,16 +47,16 @@ public sealed class WiredMenuPermissionsSaveEvent(IWiredRoomSettingsService sett
         int modify, inspect;
         string timezone;
 
-        try
-        {
+        try {
             modify = packet.ReadInt();
             inspect = packet.ReadInt();
             timezone = packet.ReadString();
         }
-        catch (ArgumentException) { return Task.CompletedTask; }
+        catch (ArgumentException) {
+            return Task.CompletedTask;
+        }
 
-        if (packet.HasDataRemaining())
-        {
+        if (packet.HasDataRemaining()) {
             return Task.CompletedTask;
         }
 

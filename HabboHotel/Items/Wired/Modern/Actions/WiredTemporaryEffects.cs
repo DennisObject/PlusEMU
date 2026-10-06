@@ -22,8 +22,7 @@ public sealed class WiredTemporaryEffects
 
         return () =>
         {
-            if (!_leases.TryGetValue(user, out var live) || live.Generation != lease.Generation)
-            {
+            if (!_leases.TryGetValue(user, out var live) || live.Generation != lease.Generation) {
                 return;
             }
 
@@ -33,21 +32,18 @@ public sealed class WiredTemporaryEffects
 
     public void Forget(RoomUser user)
     {
-        if (!_leases.Remove(user, out var lease))
-        {
+        if (!_leases.Remove(user, out var lease)) {
             return;
         }
 
-        if (lease.StillAttached() && lease.Read() == 4)
-        {
+        if (lease.StillAttached() && lease.Read() == 4) {
             lease.Write(lease.Original);
         }
     }
 
     public void Clear()
     {
-        foreach (var user in _leases.Keys.ToArray())
-        {
+        foreach (var user in _leases.Keys.ToArray()) {
             Forget(user);
         }
     }

@@ -26,8 +26,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((2, 0, .5), (actor.X, actor.Y, actor.Z));
         Assert.Equal(0, PlannerSlides());
 
-        if (engine == PathfindingEngine.V2)
-        {
+        if (engine == PathfindingEngine.V2) {
             Assert.Equal(TargetOccupancy.None, PlannerOccupancy(1, 0));
         }
     }
@@ -44,8 +43,7 @@ public partial class PlacedFurniRoomTests
         StartPlannerRollers();
         var published = new List<string>();
 
-        if (engine == PathfindingEngine.V2)
-        {
+        if (engine == PathfindingEngine.V2) {
             var compiler = _room.GetGameMap().Navigation!.Compiler;
             var inner = compiler.BeforePublish;
             compiler.BeforePublish = tiles => { published.Add($"{actor.X},{magic.GetX}"); inner?.Invoke(tiles); };
@@ -56,8 +54,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((2, 1, 0d), (magic.GetX, magic.GetY, magic.GetZ));
         Assert.Equal(2, PlannerSlides());
 
-        if (engine == PathfindingEngine.V2)
-        {
+        if (engine == PathfindingEngine.V2) {
             Assert.Equal(new[] { "1,2" }, published);
         }
     }
@@ -157,8 +154,7 @@ public partial class PlacedFurniRoomTests
         _room.GetGameMap().SetFloorStatus(1, 1, 0);
         StartPlannerRollers();
 
-        for (var cycle = 1; cycle <= 2; cycle++)
-        {
+        for (var cycle = 1; cycle <= 2; cycle++) {
             ExecutorTick();
             Assert.Equal((0, 1, .5), (tail.X, tail.Y, tail.Z));
             Assert.Equal((1 + cycle, 1), (middle.X, middle.Y));
@@ -192,19 +188,16 @@ public partial class PlacedFurniRoomTests
         var fired = false;
         PlannerObserveWalkOn(() =>
         {
-            if (fired)
-            {
+            if (fired) {
                 return;
             }
 
             fired = true;
 
-            if (rotate)
-            {
+            if (rotate) {
                 later.SetPlacementState(later.GetX, later.GetY, later.GetZ, later.GetAffectedTiles, 0);
             }
-            else
-            {
+            else {
                 second.SetPos(0, 3, 1.5);
             }
         });

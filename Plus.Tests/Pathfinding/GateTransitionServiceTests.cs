@@ -81,8 +81,7 @@ public partial class PlacedFurniRoomTests
         var observed = new List<(string Item, string Record)>();
         _client.BeforeCapture = header =>
         {
-            if (header == ServerPacketHeader.ObjectUpdateComposer)
-            {
+            if (header == ServerPacketHeader.ObjectUpdateComposer) {
                 observed.Add((gate.LegacyDataString, navigation.Inputs.Read(gate.Id)!.State));
             }
         };
@@ -178,8 +177,7 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate(width: 2);
         ActorOn(NonAnchor(gate));
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             new InteractorGate().OnTrigger(_client, gate, 0, true);
         }
 
@@ -193,8 +191,7 @@ public partial class PlacedFurniRoomTests
         ActorOn(new Point(0, 2));
         WatchState(gate);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             new InteractorGate().OnTrigger(_client, gate, 0, true);
         }
 
@@ -227,8 +224,7 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate(width: 2);
         ActorOn(occupied ? NonAnchor(gate) : new Point(0, 2));
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             new InteractorGenericSwitch(TestItemRuntime.Quests, TestItemRuntime.Rewards).OnTrigger(_client, gate, 0, true);
         }
 
@@ -242,8 +238,7 @@ public partial class PlacedFurniRoomTests
         var lamp = ClosableGate(InteractionType.None);
         ActorOn(lamp.Coordinate);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             new InteractorGenericSwitch(TestItemRuntime.Quests, TestItemRuntime.Rewards).OnTrigger(_client, lamp, 0, true);
         }
 
@@ -258,14 +253,10 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate(width: 2);
         ActorOn(occupied ? NonAnchor(gate) : new Point(0, 2));
         var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-        {
-            StringData = "1;0;0",
-            ItemsData = $"{gate.Id}:1,1,0,0,0"
-        };
+        { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,0" };
         box.SetItems.TryAdd(gate.Id, gate);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Assert.True(box.Execute());
         }
 
@@ -337,8 +328,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(GateTransition.Queued, result);
         Assert.Empty(applied);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Gates.Drain();
         }
 
@@ -352,8 +342,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(GateTransition.Queued, Task.Run(() => Gates.TryClose(gate, GateCloseReason.Automatic, "0", persist: false)).Result);
         _room.GetRoomItemHandler().RemoveFurniture(_client, gate.Id);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Gates.Drain();
         }
 
@@ -387,8 +376,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         ExecutorTick();
 
-        for (var cycle = 0; cycle < 10; cycle++)
-        {
+        for (var cycle = 0; cycle < 10; cycle++) {
             ExecutorTick();
         }
 
@@ -397,8 +385,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(gate.UpdateCounter > 0);
         actor.MoveTo(2, 1);
 
-        for (var cycle = 0; cycle < 10; cycle++)
-        {
+        for (var cycle = 0; cycle < 10; cycle++) {
             ExecutorTick();
         }
 
@@ -444,14 +431,12 @@ public partial class PlacedFurniRoomTests
         var observed = new List<(string Where, bool Placement, bool Nav)>();
         _client.BeforeCapture = header =>
         {
-            if (header == ServerPacketHeader.ObjectUpdateComposer)
-            {
+            if (header == ServerPacketHeader.ObjectUpdateComposer) {
                 observed.Add(("broadcast", Monitor.IsEntered(map.PlacementSync), Monitor.IsEntered(gate.NavSync)));
             }
         };
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false,
                 afterClose: _ => observed.Add(("after", Monitor.IsEntered(map.PlacementSync), Monitor.IsEntered(gate.NavSync))));
         }
@@ -602,8 +587,7 @@ public partial class PlacedFurniRoomTests
         ClickFromPacketThread(gate);
         Assert.Equal(1, Gates.PendingCount);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             new InteractorGate().OnWiredTrigger(gate);
         }
 
@@ -650,15 +634,11 @@ public partial class PlacedFurniRoomTests
         using var release = new ManualResetEventSlim();
         using var reached = new ManualResetEventSlim();
         var service = new GateTransitionService(_room, () => new ProbeOccupancy(_ =>
-        {
-            inCommit.Set();
-            Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
-        }));
+        { inCommit.Set(); Assert.True(release.Wait(TimeSpan.FromSeconds(5))); }));
         Assert.Equal(GateTransition.Queued, Task.Run(() => service.Toggle(gate, Flip, GateCloseReason.Click, persist: false)).Result);
         var drain = Task.Run(() => { using var owner = RoomOwnerScope.Enter(_room); service.Drain(); });
 
-        try
-        {
+        try {
             Assert.True(inCommit.Wait(TimeSpan.FromSeconds(5)));
             Thread? contender = null;
             service.DecisionHook = () => { contender = Thread.CurrentThread; reached.Set(); };
@@ -674,10 +654,11 @@ public partial class PlacedFurniRoomTests
             // It decides only after the commit: appended behind the still-busy close, or applied once that close has ended.
             Assert.True(click.Result is GateTransition.Queued or GateTransition.Applied);
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             service.Drain();
         }
 
@@ -698,11 +679,7 @@ public partial class PlacedFurniRoomTests
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_toggle_state"),
             new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
-        Assert.True(action.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 100],
-            SelectedItems = [gate.Id]
-        }, out var config, out var error), error);
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [gate.Id] }, out var config, out var error), error);
         action.ApplyConfiguration(config);
         var items = _room.GetRoomItemHandler().GetFloor.ToArray();
         var users = _room.GetRoomUserManager().GetUserList().ToArray();
@@ -800,8 +777,7 @@ public partial class PlacedFurniRoomTests
         // The interactor's own "free tile" rule blocks 2 -> 0, so cycle the states with the modern Wired arithmetic.
         Func<string, string?> cycle = current => ((int.Parse(current) + 1) % 3).ToString();
 
-        for (var toggle = 0; toggle < 2; toggle++)
-        {
+        for (var toggle = 0; toggle < 2; toggle++) {
             Task.Run(() => GateTransitionService.ToggleState(gate, cycle, GateCloseReason.Wired, persist: false)).Wait();
         }
 
@@ -838,8 +814,7 @@ public partial class PlacedFurniRoomTests
         var fired = false;
         _client.BeforeCapture = header =>
         {
-            if (header != ServerPacketHeader.ObjectUpdateComposer || fired)
-            {
+            if (header != ServerPacketHeader.ObjectUpdateComposer || fired) {
                 return;
             }
 
@@ -864,8 +839,7 @@ public partial class PlacedFurniRoomTests
         ActorOn(new Point(0, 2));
         GateTransition? reentrant = null;
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Assert.Equal(GateTransition.Applied, Gates.TryClose(gate, GateCloseReason.Click, "0", persist: false,
                 afterClose: changed => reentrant = Gates.Toggle(changed, Flip, GateCloseReason.Wired, persist: false)));
             Assert.Equal(GateTransition.Queued, reentrant);
@@ -899,16 +873,14 @@ public partial class PlacedFurniRoomTests
         Task.Run(() => service.TryClose(gate, GateCloseReason.Automatic, "0", persist: false)).Wait();
         Task.Run(() => service.TryClose(gate, GateCloseReason.Automatic, "0", persist: false)).Wait();
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             service.Drain();
         }
 
         Assert.Equal(2, attempts);
         Assert.Equal(1, service.PendingCount);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             service.Drain();
         }
 
@@ -927,15 +899,13 @@ public partial class PlacedFurniRoomTests
         var broadcasts = new List<string>();
         _client.BeforeCapture = header =>
         {
-            if (header != ServerPacketHeader.ObjectUpdateComposer)
-            {
+            if (header != ServerPacketHeader.ObjectUpdateComposer) {
                 return;
             }
 
             broadcasts.Add(gate.LegacyDataString);
 
-            if (held)
-            {
+            if (held) {
                 return;
             }
 
@@ -944,8 +914,7 @@ public partial class PlacedFurniRoomTests
             release.Wait(TimeSpan.FromSeconds(5));
         };
 
-        try
-        {
+        try {
             var opening = Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false));
             Assert.True(published.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "0", GateCloseReason.Wired, persist: false)).Result);
@@ -955,7 +924,9 @@ public partial class PlacedFurniRoomTests
             release.Set();
             Assert.Equal(GateTransition.Applied, opening.Result);
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
 
         DrainOnOwner();
         Assert.Equal("0", gate.LegacyDataString);
@@ -993,12 +964,13 @@ public partial class PlacedFurniRoomTests
         Func<string, string?> slowClose = _ => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return "0"; };
         var first = Task.Run(() => Gates.Toggle(gate, slowClose, GateCloseReason.Click, persist: false));
 
-        try
-        {
+        try {
             Assert.True(evaluating.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false)).Result);
         }
-        finally { proceed.Set(); }
+        finally {
+            proceed.Set();
+        }
 
         Assert.Equal(GateTransition.Queued, first.Result);
         DrainOnOwner();
@@ -1033,14 +1005,10 @@ public partial class PlacedFurniRoomTests
         ActorOn(new Point(0, 2));
         ClickFromPacketThread(gate);
         var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-        {
-            StringData = "1;0;0",
-            ItemsData = $"{gate.Id}:1,1,0,0,1"
-        };
+        { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,1" };
         box.SetItems.TryAdd(gate.Id, gate);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Assert.True(box.Execute());
         }
 
@@ -1057,26 +1025,25 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate(state: "0");
         ActorOn(new Point(0, 2));
         var updates = 0;
-        _client.BeforeCapture = header => { if (header == ServerPacketHeader.ObjectUpdateComposer) { updates++; } };
-
-        foreach (var restored in new[] { "0", "1" })
+        _client.BeforeCapture = header =>
         {
+            if (header == ServerPacketHeader.ObjectUpdateComposer) {
+                updates++;
+            }
+        };
+
+        foreach (var restored in new[] { "0", "1" }) {
             var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-            {
-                StringData = "1;0;0",
-                ItemsData = $"{gate.Id}:1,1,0,0,{restored}"
-            };
+            { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,{restored}" };
             box.SetItems.TryAdd(gate.Id, gate);
 
-            using (RoomOwnerScope.Enter(_room))
-            {
+            using (RoomOwnerScope.Enter(_room)) {
                 box.Execute();
             }
 
             Assert.Equal(restored, gate.LegacyDataString);
 
-            if (restored == "0")
-            {
+            if (restored == "0") {
                 Assert.Equal(0, updates);
             }
         }

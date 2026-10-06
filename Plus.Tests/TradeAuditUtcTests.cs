@@ -13,15 +13,11 @@ public sealed class TradeAuditUtcTests
     [RoomComponentDatabaseFact]
     public void MigrationAndRuntimeWritePreserveUnknownFractionalAndFutureInstants()
     {
-        foreach (var mode in new[] { "", "STRICT_TRANS_TABLES" })
-        {
+        foreach (var mode in new[] { "", "STRICT_TRANS_TABLES" }) {
             InSchema((connection, database) =>
             {
                 connection.Execute(PristineTable().Replace("`timestamp` datetime(6) DEFAULT NULL", "`timestamp` char(20) DEFAULT ''"));
-                connection.Execute("SET SESSION sql_mode=@mode; SET time_zone='+05:30'", new
-                {
-                    mode
-                });
+                connection.Execute("SET SESSION sql_mode=@mode; SET time_zone='+05:30'", new { mode });
                 connection.Execute("""
                     INSERT INTO logs_client_trade (id, `timestamp`) VALUES
                         (1,NULL), (2,''), (3,'0'), (4,'-1'), (5,'not-a-date'),
@@ -77,42 +73,31 @@ public sealed class TradeAuditUtcTests
     private static void InSchema(Action<MySqlConnection, IDatabase> run)
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
-        {
-            AllowZeroDateTime = true,
-            ConvertZeroDateTime = true
-        };
+        { AllowZeroDateTime = true, ConvertZeroDateTime = true };
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         var schema = "task_trade_audit_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
             run(connection, new ProbeDatabase(options.ConnectionString));
         }
-        finally { admin.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private sealed class AuditTimeRow
     {
-        public int Id
-        {
-            get; set;
-        }
-        public DateTimeOffset? CreatedAt
-        {
-            get; set;
-        }
+        public int Id { get; set; }
+        public DateTimeOffset? CreatedAt { get; set; }
     }
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

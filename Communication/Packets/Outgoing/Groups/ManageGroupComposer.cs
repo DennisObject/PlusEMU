@@ -9,15 +9,13 @@ public sealed class ManageGroupComposer(GroupManagementSnapshot data) : IServerP
 
     public void Compose(IOutgoingPacket packet)
     {
-        if (data.HasRoom)
-        {
+        if (data.HasRoom) {
             packet.WriteInteger(1);
             packet.WriteInteger((int)data.RoomId);
             packet.WriteString(data.RoomName);
             packet.WriteBoolean(false);
         }
-        else
-        {
+        else {
             packet.WriteInteger(0);
         }
 
@@ -34,8 +32,7 @@ public sealed class ManageGroupComposer(GroupManagementSnapshot data) : IServerP
         packet.WriteString(string.Empty);
         packet.WriteInteger(5);
 
-        foreach (var piece in data.BadgePieces)
-        {
+        foreach (var piece in data.BadgePieces) {
             packet.WriteInteger(piece.Symbol);
             packet.WriteInteger(piece.Colour);
             packet.WriteInteger(piece.Position);

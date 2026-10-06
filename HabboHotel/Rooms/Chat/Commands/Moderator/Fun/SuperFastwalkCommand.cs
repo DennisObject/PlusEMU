@@ -14,15 +14,13 @@ internal class SuperFastwalkCommand : IChatCommand
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
         user.SuperFastWalking = !user.SuperFastWalking;
 
-        if (user.FastWalking)
-        {
+        if (user.FastWalking) {
             user.FastWalking = false;
         }
 

@@ -32,8 +32,7 @@ public static class WiredMovementPolicy
 
     public static int? Direction(int system, long dx, long dy)
     {
-        if (dx == 0 && dy == 0)
-        {
+        if (dx == 0 && dy == 0) {
             return null;
         }
 
@@ -47,8 +46,7 @@ public static class WiredMovementPolicy
             _ => throw new ArgumentOutOfRangeException(nameof(system))
         };
 
-        if (diagonal)
-        {
+        if (diagonal) {
             return dx > 0 ? dy > 0 ? 3 : 1 : dy > 0 ? 5 : 7;
         }
 
@@ -62,8 +60,7 @@ public static class WiredMovementPolicy
     {
         var items = collidingFurni.ToArray();
 
-        if (items.Any(x => physics?.BlockingFurni.Contains(x) == true))
-        {
+        if (items.Any(x => physics?.BlockingFurni.Contains(x) == true)) {
             return true;
         }
 
@@ -74,8 +71,7 @@ public static class WiredMovementPolicy
     public static IReadOnlyList<WiredSelectorAvatar> CarriedUsers(WiredCarryPolicy? carry,
         WiredSelectorFurniture mover, WiredSelectorWorld world, Func<int, uint, bool> isStandingOn)
     {
-        if (carry is null)
-        {
+        if (carry is null) {
             return [];
         }
 

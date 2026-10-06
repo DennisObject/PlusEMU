@@ -74,10 +74,8 @@ public class Game : IGame
 
     public void StartGameLoop()
     {
-        lock (_cycleSync)
-        {
-            if (_gameCycle != null)
-            {
+        lock (_cycleSync) {
+            if (_gameCycle != null) {
                 throw new InvalidOperationException("The game loop has already been started.");
             }
 
@@ -88,8 +86,7 @@ public class Game : IGame
 
     private void GameCycle()
     {
-        while (_cycleActive)
-        {
+        while (_cycleActive) {
             _roomManager.OnCycle();
             _clientManager.OnCycle();
             Thread.Sleep(_cycleSleepTime);
@@ -98,16 +95,13 @@ public class Game : IGame
 
     public void StopGameLoop()
     {
-        lock (_cycleSync)
-        {
+        lock (_cycleSync) {
             _cycleActive = false;
 
-            try
-            {
+            try {
                 _gameCycle?.GetAwaiter().GetResult();
             }
-            finally
-            {
+            finally {
                 _gameCycle = null;
             }
         }

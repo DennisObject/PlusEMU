@@ -122,11 +122,7 @@ public sealed class RoomDecorationServiceTests
     {
         Id = id,
         OwnerId = owner,
-        Definition = new()
-        {
-            Type = ItemType.Floor,
-            InteractionType = type
-        },
+        Definition = new() { Type = ItemType.Floor, InteractionType = type },
         ExtraData = new LegacyDataFormat { Data = data }
     };
 
@@ -142,17 +138,14 @@ public sealed class RoomDecorationServiceTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
-            if (value is string text)
-            {
+        foreach (var value in values) {
+            if (value is string text) {
                 var bytes = Encoding.UTF8.GetBytes(text);
                 stream.WriteByte((byte)(bytes.Length >> 8));
                 stream.WriteByte((byte)bytes.Length);
                 stream.Write(bytes);
             }
-            else
-            {
+            else {
                 Span<byte> bytes = stackalloc byte[4];
                 System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes, (int)value);
                 stream.Write(bytes);
@@ -170,8 +163,7 @@ public sealed class RoomDecorationServiceTests
             before?.Invoke();
             Writes++;
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced");
             }
         }

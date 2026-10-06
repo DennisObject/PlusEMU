@@ -37,11 +37,6 @@ public class BanLookup : IBanLookup
             "SELECT `reason` AS Reason, `expire` AS ExpiresAt FROM `bans` " +
             "WHERE ((`bantype` = 'user' AND `value` = @username) OR (`bantype` = 'ip' AND `value` = @address)) AND `expire` > @now " +
             "ORDER BY `expire` DESC LIMIT 1",
-            new
-            {
-                username,
-                address,
-                now = now.UtcDateTime
-            });
+            new { username, address, now = now.UtcDateTime });
     }
 }

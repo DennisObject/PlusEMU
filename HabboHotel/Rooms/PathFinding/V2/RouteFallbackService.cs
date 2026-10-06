@@ -23,13 +23,11 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     {
         var state = actor.Movement;
 
-        if (state.Fallback.State != RouteState.Normal)
-        {
+        if (state.Fallback.State != RouteState.Normal) {
             return;
         }
 
-        if (state.Cursor < state.Route.Count)
-        {
+        if (state.Cursor < state.Route.Count) {
             Suspect(actor);
 
             return;
@@ -46,8 +44,7 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
         var state = actor.Movement;
         var machine = state.Fallback;
 
-        if (machine.State == RouteState.Normal)
-        {
+        if (machine.State == RouteState.Normal) {
             return;
         }
 
@@ -57,8 +54,7 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
         RouteRetention.Install(state, prefix, machine.Retained, Grid);
         machine.Rebind();
 
-        if (machine.State == RouteState.Truncated && prefix.Length == 0)
-        {
+        if (machine.State == RouteState.Truncated && prefix.Length == 0) {
             cancellation.Cancel(actor);
         }
     }
@@ -100,8 +96,7 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     {
         var state = actor.Movement;
 
-        if (!state.Fallback.Suspect(RouteRetention.Capture(state, Grid), state.Cursor))
-        {
+        if (!state.Fallback.Suspect(RouteRetention.Capture(state, Grid), state.Cursor)) {
             return;
         }
 
@@ -122,8 +117,7 @@ internal sealed class RouteFallbackService(RoomNavigation navigation, MovementCo
     {
         var occupancy = context.Occupancy(actor);
 
-        for (var slot = 0; slot < occupancy.Targets.Length; slot++)
-        {
+        for (var slot = 0; slot < occupancy.Targets.Length; slot++) {
             occupancy.Targets[slot] &= NavPrefixGraph.Kept;
         }
 

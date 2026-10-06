@@ -23,72 +23,61 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 {
     public void Start(GameClient session, int userId)
     {
-        if (!session.GetHabbo().InRoom)
-        {
+        if (!session.GetHabbo().InRoom) {
             return;
         }
 
         var room = session.GetHabbo().CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
         var roomUser = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (roomUser == null)
-        {
+        if (roomUser == null) {
             return;
         }
 
         var targetUser = room.GetRoomUserManager().GetRoomUserByVirtualId(userId);
 
-        if (targetUser == null)
-        {
+        if (targetUser == null) {
             return;
         }
 
         var hadLock = session.GetHabbo().TradingLockExpiresAt != null;
 
-        if (tradingLocks.IsLocked(session.GetHabbo()))
-        {
+        if (tradingLocks.IsLocked(session.GetHabbo())) {
             session.SendNotification("You're currently banned from trading.");
 
             return;
         }
 
-        if (hadLock)
-        {
+        if (hadLock) {
             session.SendNotification("Your trading ban has now expired.");
         }
 
-        if (!session.GetHabbo().Access.Can(PermissionKeys.RoomTradeOverride))
-        {
-            if (room.TradeSettings == 0)
-            {
+        if (!session.GetHabbo().Access.Can(PermissionKeys.RoomTradeOverride)) {
+            if (room.TradeSettings == 0) {
                 session.Send(new TradingErrorComposer(TradingError.RoomDisallowsTrading, targetUser.GetUsername()));
 
                 return;
             }
 
-            if (room.TradeSettings == 1 && room.OwnerId != session.GetHabbo().Id)
-            {
+            if (room.TradeSettings == 1 && room.OwnerId != session.GetHabbo().Id) {
                 session.Send(new TradingErrorComposer(TradingError.RoomDisallowsTrading, targetUser.GetUsername()));
 
                 return;
             }
         }
 
-        if (roomUser.IsTrading && roomUser.TradePartner != targetUser.UserId)
-        {
+        if (roomUser.IsTrading && roomUser.TradePartner != targetUser.UserId) {
             session.Send(new TradingErrorComposer(TradingError.AlreadyTrading, targetUser.GetUsername()));
 
             return;
         }
 
-        if (targetUser.IsTrading && targetUser.TradePartner != roomUser.UserId)
-        {
+        if (targetUser.IsTrading && targetUser.TradePartner != roomUser.UserId) {
             session.Send(new TradingErrorComposer(TradingError.PartnerAlreadyTrading, targetUser.GetUsername()));
 
             return;
@@ -96,34 +85,29 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
         var target = targetUser.GetClient()?.GetHabbo();
 
-        if (target == null || !target.AllowTradingRequests)
-        {
+        if (target == null || !target.AllowTradingRequests) {
             session.Send(new TradingErrorComposer(TradingError.PartnerUnavailable, targetUser.GetUsername()));
 
             return;
         }
 
-        if (tradingLocks.IsLocked(target))
-        {
+        if (tradingLocks.IsLocked(target)) {
             session.Send(new TradingErrorComposer(TradingError.PartnerUnavailable, targetUser.GetUsername()));
 
             return;
         }
 
-        if (!room.GetTrading().StartTrade(roomUser, targetUser, out var trade))
-        {
+        if (!room.GetTrading().StartTrade(roomUser, targetUser, out var trade)) {
             session.SendNotification("An error occured trying to start this trade");
 
             return;
         }
 
-        if (targetUser.HasStatus("trd"))
-        {
+        if (targetUser.HasStatus("trd")) {
             targetUser.RemoveStatus("trd");
         }
 
-        if (roomUser.HasStatus("trd"))
-        {
+        if (roomUser.HasStatus("trd")) {
             roomUser.RemoveStatus("trd");
         }
 
@@ -136,28 +120,24 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
     public void Accept(GameClient session)
     {
-        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo))
-        {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) {
             return;
         }
 
-        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
-        {
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
         }
 
-        if (!TryGetTradeUser(trade, roomUser, out var tradeUser))
-        {
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) {
             return;
         }
 
         tradeUser.HasAccepted = true;
         trade.SendPacket(new TradingAcceptComposer(habbo.Id, true));
 
-        if (trade.AllAccepted)
-        {
+        if (trade.AllAccepted) {
             trade.SendPacket(new TradingCompleteComposer());
             trade.CanChange = false;
             trade.RemoveAccepted();
@@ -166,58 +146,49 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
     public void Confirm(GameClient session)
     {
-        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo))
-        {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) {
             return;
         }
 
-        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
-        {
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
         }
 
-        if (!TryGetTradeUser(trade, roomUser, out var tradeUser))
-        {
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) {
             return;
         }
 
-        if (trade.CanChange)
-        {
+        if (trade.CanChange) {
             return;
         }
 
         tradeUser.HasAccepted = true;
         trade.SendPacket(new TradingAcceptComposer(habbo.Id, true));
 
-        if (trade.AllAccepted)
-        {
+        if (trade.AllAccepted) {
             trade.Finish();
         }
     }
 
     public void Modify(GameClient session)
     {
-        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo))
-        {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) {
             return;
         }
 
-        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
-        {
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
         }
 
-        if (!TryGetTradeUser(trade, roomUser, out var tradeUser))
-        {
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) {
             return;
         }
 
-        if (!trade.CanChange)
-        {
+        if (!trade.CanChange) {
             return;
         }
 
@@ -227,20 +198,17 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
     public void Cancel(GameClient session)
     {
-        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo))
-        {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) {
             return;
         }
 
-        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
-        {
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
         }
 
-        if (!TryGetTradeUser(trade, roomUser, out _))
-        {
+        if (!TryGetTradeUser(trade, roomUser, out _)) {
             return;
         }
 
@@ -249,18 +217,15 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
     public void CancelConfirmation(GameClient session)
     {
-        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo))
-        {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) {
             return;
         }
 
-        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
-        {
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) {
             return;
         }
 
-        if (!TryGetTradeUser(trade, roomUser, out _))
-        {
+        if (!TryGetTradeUser(trade, roomUser, out _)) {
             return;
         }
 
@@ -269,20 +234,17 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
     public void OfferItem(GameClient session, uint itemId)
     {
-        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo))
-        {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) {
             return;
         }
 
-        if (!roomUser.IsTrading)
-        {
+        if (!roomUser.IsTrading) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
         }
 
-        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
-        {
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
@@ -290,34 +252,28 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
         var item = habbo.Inventory.Furniture.GetItem(itemId);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
-        if (!trade.CanChange)
-        {
+        if (!trade.CanChange) {
             return;
         }
 
-        if (!TryGetTradeUser(trade, roomUser, out var tradeUser))
-        {
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) {
             return;
         }
 
-        if (tradeUser.OfferedItems.ContainsKey(item.Id))
-        {
+        if (tradeUser.OfferedItems.ContainsKey(item.Id)) {
             return;
         }
 
         trade.RemoveAccepted();
 
-        if (tradeUser.OfferedItems.Count <= 499)
-        {
+        if (tradeUser.OfferedItems.Count <= 499) {
             var totalLtDs = tradeUser.OfferedItems.Count(x => x.Value.UniqueNumber > 0);
 
-            if (totalLtDs < 9)
-            {
+            if (totalLtDs < 9) {
                 tradeUser.OfferedItems.Add(item.Id, item);
             }
         }
@@ -327,20 +283,17 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
     public void OfferItems(GameClient session, int amount, uint itemId)
     {
-        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo))
-        {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) {
             return;
         }
 
-        if (!roomUser.IsTrading)
-        {
+        if (!roomUser.IsTrading) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
         }
 
-        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
-        {
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
@@ -348,28 +301,23 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
         var item = habbo.Inventory.Furniture.GetItem(itemId);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
-        if (!trade.CanChange)
-        {
+        if (!trade.CanChange) {
             return;
         }
 
-        if (!TryGetTradeUser(trade, roomUser, out var tradeUser))
-        {
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) {
             return;
         }
 
         var allItems = habbo.Inventory.Furniture.AllItems.Where(x => x.Definition.Id == item.Definition.Id).Take(amount).ToList();
 
-        foreach (var offered in allItems)
-        {
+        foreach (var offered in allItems) {
             // A duplicate stops the batch without a packet, after earlier items in the batch were already added.
-            if (tradeUser.OfferedItems.ContainsKey(offered.Id))
-            {
+            if (tradeUser.OfferedItems.ContainsKey(offered.Id)) {
                 return;
             }
 
@@ -382,13 +330,11 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
     public void RemoveItem(GameClient session, uint itemId)
     {
-        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo))
-        {
+        if (!TryGetRoomUser(session, out var room, out var roomUser, out var habbo)) {
             return;
         }
 
-        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade))
-        {
+        if (!room.GetTrading().TryGetTrade(roomUser.TradeId, out var trade)) {
             session.Send(new TradingClosedComposer(habbo.Id));
 
             return;
@@ -396,23 +342,19 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
 
         var item = habbo.Inventory.Furniture.GetItem(itemId);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
-        if (!trade.CanChange)
-        {
+        if (!trade.CanChange) {
             return;
         }
 
-        if (!TryGetTradeUser(trade, roomUser, out var tradeUser))
-        {
+        if (!TryGetTradeUser(trade, roomUser, out var tradeUser)) {
             return;
         }
 
-        if (!tradeUser.OfferedItems.ContainsKey(item.Id))
-        {
+        if (!tradeUser.OfferedItems.ContainsKey(item.Id)) {
             return;
         }
 
@@ -427,15 +369,13 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
         room = null!;
         roomUser = null!;
 
-        if (!habbo.InRoom || habbo.CurrentRoom is not { } currentRoom)
-        {
+        if (!habbo.InRoom || habbo.CurrentRoom is not { } currentRoom) {
             return false;
         }
 
         var user = currentRoom.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return false;
         }
 
@@ -448,10 +388,8 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
     // A stale or foreign actor is refused; it must never act on the other trader's slot.
     private static bool TryGetTradeUser(Trade trade, RoomUser roomUser, out TradeUser tradeUser)
     {
-        foreach (var user in trade.Users)
-        {
-            if (user?.RoomUser != roomUser)
-            {
+        foreach (var user in trade.Users) {
+            if (user?.RoomUser != roomUser) {
                 continue;
             }
 

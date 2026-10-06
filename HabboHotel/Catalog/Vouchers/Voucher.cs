@@ -11,30 +11,15 @@ public class Voucher
         MaxUses = maxUses;
     }
 
-    public string Code
-    {
-        get; set;
-    }
+    public string Code { get; set; }
 
-    public VoucherType Type
-    {
-        get; set;
-    }
+    public VoucherType Type { get; set; }
 
-    public int Value
-    {
-        get; set;
-    }
+    public int Value { get; set; }
 
-    public int CurrentUses
-    {
-        get; set;
-    }
+    public int CurrentUses { get; set; }
 
-    public int MaxUses
-    {
-        get; set;
-    }
+    public int MaxUses { get; set; }
 
     public void MarkUsed() => CurrentUses++;
 }

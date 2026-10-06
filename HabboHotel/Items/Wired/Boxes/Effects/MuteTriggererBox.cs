@@ -18,36 +18,22 @@ internal class MuteTriggererBox : IWiredItem
         _clock = clock;
         SetItems = new();
 
-        if (SetItems.Count > 0)
-        {
+        if (SetItems.Count > 0) {
             SetItems.Clear();
         }
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.EffectMuteTriggerer;
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
     {
-        if (SetItems.Count > 0)
-        {
+        if (SetItems.Count > 0) {
             SetItems.Clear();
         }
 
@@ -59,27 +45,23 @@ internal class MuteTriggererBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length != 1)
-        {
+        if (@params.Length != 1) {
             return false;
         }
 
         var player = (Habbo)@params[0];
 
-        if (player == null)
-        {
+        if (player == null) {
             return false;
         }
 
         var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return false;
         }
 
-        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id)
-        {
+        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id) {
             player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Mute Exception: Unmutable Player", 0, 0));
 
             return false;
@@ -88,12 +70,10 @@ internal class MuteTriggererBox : IWiredItem
         var time = StringData != null ? int.Parse(StringData.Split(';')[0]) : 0;
         var message = StringData != null ? StringData.Split(';')[1] : "No message!";
 
-        if (time > 0)
-        {
+        if (time > 0) {
             var now = _clock.GetUtcNow();
 
-            if (!RoomMuteDeadline.TryCreate(now, time, out var mutedUntil))
-            {
+            if (!RoomMuteDeadline.TryCreate(now, time, out var mutedUntil)) {
                 return false;
             }
 

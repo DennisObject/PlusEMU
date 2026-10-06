@@ -61,10 +61,7 @@ public sealed class WiredVariableDefinitionBoxTests
         Assert.Equal(proposed, box.Configuration);
         Assert.False(box.Execute());
         Assert.True(box.HasPersistedConfiguration);
-        Assert.False(box.TryValidateConfiguration(proposed with
-        {
-            Text = "invalid name with spaces"
-        }, out _, out _));
+        Assert.False(box.TryValidateConfiguration(proposed with { Text = "invalid name with spaces" }, out _, out _));
         Assert.Equal(proposed, box.Configuration);
     }
 }

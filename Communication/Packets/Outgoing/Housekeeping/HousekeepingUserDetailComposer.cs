@@ -14,8 +14,7 @@ public class HousekeepingUserDetailComposer : IServerPacket
     {
         packet.WriteBoolean(_user != null);
 
-        if (_user == null)
-        {
+        if (_user == null) {
             return;
         }
 

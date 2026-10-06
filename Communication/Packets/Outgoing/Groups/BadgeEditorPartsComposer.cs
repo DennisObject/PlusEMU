@@ -11,8 +11,7 @@ public class BadgeEditorPartsComposer(BadgeEditorPresentation presentation) : IS
     {
         packet.WriteInteger(presentation.Bases.Length);
 
-        foreach (var part in presentation.Bases)
-        {
+        foreach (var part in presentation.Bases) {
             packet.WriteInteger(part.Id);
             packet.WriteString(part.AssetOne);
             packet.WriteString(part.AssetTwo);
@@ -20,8 +19,7 @@ public class BadgeEditorPartsComposer(BadgeEditorPresentation presentation) : IS
 
         packet.WriteInteger(presentation.Symbols.Length);
 
-        foreach (var part in presentation.Symbols)
-        {
+        foreach (var part in presentation.Symbols) {
             packet.WriteInteger(part.Id);
             packet.WriteString(part.AssetOne);
             packet.WriteString(part.AssetTwo);
@@ -29,24 +27,21 @@ public class BadgeEditorPartsComposer(BadgeEditorPresentation presentation) : IS
 
         packet.WriteInteger(presentation.BaseColours.Length);
 
-        foreach (var color in presentation.BaseColours)
-        {
+        foreach (var color in presentation.BaseColours) {
             packet.WriteInteger(color.Id);
             packet.WriteString(color.Colour);
         }
 
         packet.WriteInteger(presentation.SymbolColours.Length);
 
-        foreach (var color in presentation.SymbolColours)
-        {
+        foreach (var color in presentation.SymbolColours) {
             packet.WriteInteger(color.Id);
             packet.WriteString(color.Colour);
         }
 
         packet.WriteInteger(presentation.BackgroundColours.Length);
 
-        foreach (var color in presentation.BackgroundColours)
-        {
+        foreach (var color in presentation.BackgroundColours) {
             packet.WriteInteger(color.Id);
             packet.WriteString(color.Colour);
         }

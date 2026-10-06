@@ -11,8 +11,7 @@ public class PathSearchTests
     {
         var random = new Random(20261003);
 
-        for (var iteration = 0; iteration < 10000; iteration++)
-        {
+        for (var iteration = 0; iteration < 10000; iteration++) {
             var w = random.Next(2, 11);
             var h = random.Next(2, 11);
             var size = w * h;
@@ -22,45 +21,30 @@ public class PathSearchTests
             var (grid, _, _) = NavTest.Create(w, h, settings, heights, states);
             var occupancy = new PlanningOccupancy(size);
 
-            for (var t = 0; t < size; t++)
-            {
-                if (random.Next(12) == 0)
-                {
+            for (var t = 0; t < size; t++) {
+                if (random.Next(12) == 0) {
                     grid.Flags[t] |= NavFlags.GuildGate;
                     grid.GroupId[t] = 7;
                 }
 
-                if (random.Next(12) == 0)
-                {
+                if (random.Next(12) == 0) {
                     grid.Flags[t] |= NavFlags.FloorLocked;
                 }
 
-                occupancy.Targets[t] = random.Next(10) switch
-                {
-                    0 => TargetOccupancy.Stationary,
-                    1 => TargetOccupancy.Walking,
-                    2 => TargetOccupancy.OffGraph,
-                    _ => TargetOccupancy.None
-                };
+                occupancy.Targets[t] = random.Next(10) switch { 0 => TargetOccupancy.Stationary, 1 => TargetOccupancy.Walking, 2 => TargetOccupancy.OffGraph, _ => TargetOccupancy.None };
             }
 
             var startTile = random.Next(size);
             var goalTile = random.Next(size);
             var start = grid.Position(startTile);
 
-            if (iteration % 7 == 0)
-            {
-                start = start with
-                {
-                    Z = start.Z + 0.0004,
-                    Slot = -1
-                };
+            if (iteration % 7 == 0) {
+                start = start with { Z = start.Z + 0.0004, Slot = -1 };
             }
 
             occupancy.Targets[startTile] = TargetOccupancy.None;
 
-            foreach (var profile in Enumerable.Range(0, 6))
-            {
+            foreach (var profile in Enumerable.Range(0, 6)) {
                 var actor = new ActorProfile
                 {
                     LegacyOverride = profile == 1,
@@ -70,8 +54,7 @@ public class PathSearchTests
                     DiagonalEnabled = profile != 5
                 };
 
-                if (iteration % 2 == 0)
-                {
+                if (iteration % 2 == 0) {
                     actor.SetMembership(7, true);
                 }
 
@@ -89,8 +72,7 @@ public class PathSearchTests
 
     internal static (PathOutcome Outcome, int Length) Bfs(NavGrid grid, PathfindingSettings settings, SearchRequest request)
     {
-        if (!grid.InBounds(request.GoalX, request.GoalY))
-        {
+        if (!grid.InBounds(request.GoalX, request.GoalY)) {
             return (PathOutcome.InvalidGoal, 0);
         }
 
@@ -98,13 +80,11 @@ public class PathSearchTests
         var startTile = grid.Tile(request.Start.X, request.Start.Y);
         var virtualStart = !request.Actor.LegacyOverride && (!grid.Active(startTile) || grid.WalkZ[startTile] != request.Start.Z);
 
-        if (!virtualStart && goal.Contains(startTile))
-        {
+        if (!virtualStart && goal.Contains(startTile)) {
             return (PathOutcome.AlreadyThere, 0);
         }
 
-        if (goal.Slot < 0)
-        {
+        if (goal.Slot < 0) {
             return (PathOutcome.InvalidGoal, 0);
         }
 
@@ -113,45 +93,37 @@ public class PathSearchTests
         var visited = new HashSet<int>();
         queue.Enqueue((request.Start, 0));
 
-        if (!virtualStart)
-        {
+        if (!virtualStart) {
             visited.Add(startTile);
         }
 
-        while (queue.TryDequeue(out var current))
-        {
-            foreach (var (dx, dy) in PathTieBreak.Neighbours)
-            {
-                if (!request.Actor.DiagonalEnabled && dx != 0 && dy != 0)
-                {
+        while (queue.TryDequeue(out var current)) {
+            foreach (var (dx, dy) in PathTieBreak.Neighbours) {
+                if (!request.Actor.DiagonalEnabled && dx != 0 && dy != 0) {
                     continue;
                 }
 
                 var x = current.Position.X + dx;
                 var y = current.Position.Y + dy;
 
-                if (!grid.InBounds(x, y))
-                {
+                if (!grid.InBounds(x, y)) {
                     continue;
                 }
 
                 var tile = grid.Tile(x, y);
 
-                if (visited.Contains(tile) || !request.Actor.LegacyOverride && !grid.Active(tile))
-                {
+                if (visited.Contains(tile) || !request.Actor.LegacyOverride && !grid.Active(tile)) {
                     continue;
                 }
 
                 var next = grid.Position(tile, request.Actor.LegacyOverride);
 
                 if (!rules.CanStep(request.Actor, current.Position, next, goal.Contains(tile) ? StepPurpose.Goal : StepPurpose.Transit,
-                    OccupancyView.Planning, request.Occupancy).Ok)
-                {
+                    OccupancyView.Planning, request.Occupancy).Ok) {
                     continue;
                 }
 
-                if (goal.Contains(tile))
-                {
+                if (goal.Contains(tile)) {
                     return (PathOutcome.Found, current.Distance + 1);
                 }
 
@@ -168,8 +140,7 @@ public class PathSearchTests
         var rules = new MovementRules(grid, settings);
         var from = request.Start;
 
-        for (var i = 0; i < route.Count; i++)
-        {
+        for (var i = 0; i < route.Count; i++) {
             var next = grid.Position(route.Steps[i].Tile, request.Actor.LegacyOverride);
             Assert.True(rules.CanStep(request.Actor, from, next, i == route.Count - 1 ? StepPurpose.Goal : StepPurpose.Transit, OccupancyView.Planning, request.Occupancy).Ok);
             from = next;
@@ -184,17 +155,13 @@ public class PathSearchTests
         var actor = new ActorProfile();
         using var lease = PathWorkspacePool.Rent(grid.SlotCapacity, grid.ActiveNodeCount);
 
-        foreach (var (x, y) in new[] { (5, 2), (2, 5), (5, 0), (5, 5) })
-        {
-            foreach (var sx in new[] { -1, 1 })
-            {
-                foreach (var sy in new[] { -1, 1 })
-                {
+        foreach (var (x, y) in new[] { (5, 2), (2, 5), (5, 0), (5, 5) }) {
+            foreach (var sx in new[] { -1, 1 }) {
+                foreach (var sy in new[] { -1, 1 }) {
                     var request = new SearchRequest(actor, grid.Position(grid.Tile(7, 7)), 7 + sx * x, 7 + sy * y);
                     var expected = Enumerable.Range(1, Math.Max(x, y)).Select(i => grid.Tile(7 + sx * Math.Min(i, x), 7 + sy * Math.Min(i, y))).ToArray();
 
-                    for (var repeat = 0; repeat < 100; repeat++)
-                    {
+                    for (var repeat = 0; repeat < 100; repeat++) {
                         var route = new Route();
                         Assert.Equal(PathOutcome.Found, search.Find(request, lease.Workspace, route));
                         Assert.Equal(expected, route.Steps.ToArray().Select(s => s.Tile));
@@ -239,17 +206,11 @@ public class PathSearchTests
         Assert.Equal(PathOutcome.InvalidGoal, search.Find(new(new(), grid.Position(0), 0, 0, Goals: new(0, 0, -1)), ws, route));
         Assert.Equal(PathOutcome.Found, search.Find(new(new(), new(0, 0, 1), 1, 0), ws, route));
         Assert.Equal(1, route.Count);
-        Assert.Equal(PathOutcome.BudgetCancelled, new PathSearch(grid, new()
-        {
-            MaxExpansionsPerSearch = 1
-        }).Find(new(new(), grid.Position(0), 2, 0), ws, route));
+        Assert.Equal(PathOutcome.BudgetCancelled, new PathSearch(grid, new() { MaxExpansionsPerSearch = 1 }).Find(new(new(), grid.Position(0), 2, 0), ws, route));
         var (isolated, _, _) = NavTest.Create(3, 1, states: [SquareState.Open, SquareState.Blocked, SquareState.Open]);
         Assert.Equal(PathOutcome.Unreachable, new PathSearch(isolated, new()).Find(new(new(), isolated.Position(0), 2, 0), ws, route));
         Assert.Equal(0, ws.Expansions);
-        Assert.Equal(PathOutcome.Found, new PathSearch(isolated, new()).Find(new(new()
-        {
-            LegacyOverride = true
-        }, isolated.Position(0), 2, 0), ws, route));
+        Assert.Equal(PathOutcome.Found, new PathSearch(isolated, new()).Find(new(new() { LegacyOverride = true }, isolated.Position(0), 2, 0), ws, route));
         var (height, _, _) = NavTest.Create(2, 1, z: [0, 1.5004]);
         Assert.Equal(PathOutcome.Unreachable, new PathSearch(height, new()).Find(new(new(), height.Position(0), 1, 0), ws, route));
         Assert.Equal(0, ws.Expansions); // HasWayIn.
@@ -267,10 +228,7 @@ public class PathSearchTests
         using var second = PathWorkspacePool.Rent(grid.SlotCapacity, grid.ActiveNodeCount);
         Assert.NotSame(first.Workspace, second.Workspace);
         var route = new Route();
-        Assert.Equal(PathOutcome.Found, new PathSearch(grid, new()
-        {
-            CornerRule = CornerRule.None
-        }).Find(new(new(), new(62, 63, 0), 63, 63), first.Workspace, route));
+        Assert.Equal(PathOutcome.Found, new PathSearch(grid, new() { CornerRule = CornerRule.None }).Find(new(new(), new(62, 63, 0), 63, 63), first.Workspace, route));
         Assert.Equal(4095, route.Steps[0].Tile);
         first.Workspace.Generation = int.MaxValue - 1;
         Assert.Equal(PathOutcome.Found, new PathSearch(grid, new()).Find(new(new(), new(62, 63, 0), 63, 63), first.Workspace, route));

@@ -29,74 +29,26 @@ internal sealed class PetLoader(IDatabase database) : IPetLoader
 
     internal sealed class PetRow
     {
-        public uint Id
-        {
-            get; set;
-        }
-        public uint UserId
-        {
-            get; set;
-        }
+        public uint Id { get; set; }
+        public uint UserId { get; set; }
         public string OwnerName { get; set; } = "";
-        public uint RoomId
-        {
-            get; set;
-        }
+        public uint RoomId { get; set; }
         public string Name { get; set; } = "";
-        public int X
-        {
-            get; set;
-        }
-        public int Y
-        {
-            get; set;
-        }
-        public double Z
-        {
-            get; set;
-        }
-        public uint Type
-        {
-            get; set;
-        }
+        public int X { get; set; }
+        public int Y { get; set; }
+        public double Z { get; set; }
+        public uint Type { get; set; }
         public string Race { get; set; } = "";
         public string Color { get; set; } = "";
-        public int Experience
-        {
-            get; set;
-        }
-        public int Energy
-        {
-            get; set;
-        }
-        public int Nutrition
-        {
-            get; set;
-        }
-        public int Respect
-        {
-            get; set;
-        }
-        public DateTimeOffset? CreatedAt
-        {
-            get; set;
-        }
-        public int HaveSaddle
-        {
-            get; set;
-        }
-        public int AnyoneRide
-        {
-            get; set;
-        }
-        public int Hairdye
-        {
-            get; set;
-        }
-        public int Pethair
-        {
-            get; set;
-        }
+        public int Experience { get; set; }
+        public int Energy { get; set; }
+        public int Nutrition { get; set; }
+        public int Respect { get; set; }
+        public DateTimeOffset? CreatedAt { get; set; }
+        public int HaveSaddle { get; set; }
+        public int AnyoneRide { get; set; }
+        public int Hairdye { get; set; }
+        public int Pethair { get; set; }
         public string GnomeClothing { get; set; } = "";
     }
 }

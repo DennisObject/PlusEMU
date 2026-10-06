@@ -13,8 +13,7 @@ public class StringArrayDataFormat : FurniObjectData
     {
         var stringBuilder = new StringBuilder();
 
-        foreach (var entry in Data)
-        {
+        foreach (var entry in Data) {
             stringBuilder.Append(Regex.Escape(entry));
             stringBuilder.Append("\n");
         }

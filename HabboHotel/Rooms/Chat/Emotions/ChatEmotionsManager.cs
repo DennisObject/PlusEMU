@@ -50,10 +50,8 @@ public sealed class ChatEmotionsManager : IChatEmotionsManager
     /// <returns></returns>
     public int GetEmotionsForText(string text)
     {
-        foreach (var kvp in _emotions)
-        {
-            if (text.ToLower().Contains(kvp.Key.ToLower()))
-            {
+        foreach (var kvp in _emotions) {
+            if (text.ToLower().Contains(kvp.Key.ToLower())) {
                 return GetEmoticonPacketNum(kvp.Value);
             }
         }
@@ -68,8 +66,7 @@ public sealed class ChatEmotionsManager : IChatEmotionsManager
     /// <returns></returns>
     private static int GetEmoticonPacketNum(ChatEmotions e)
     {
-        switch (e)
-        {
+        switch (e) {
             case ChatEmotions.Smile:
                 return 1;
             case ChatEmotions.Angry:

@@ -24,8 +24,7 @@ public sealed class GroupMemberIdentityLookup(IGameClientManager clients, ICache
     {
         var online = clients.GetClientByUserId(userId)?.GetHabbo();
 
-        if (online != null)
-        {
+        if (online != null) {
             return new(online.Id, online.Username, online.Look);
         }
 
@@ -52,30 +51,25 @@ public sealed class GroupMembershipMutationService(
 {
     public Task Accept(GameClient session, int groupId, int userId)
     {
-        if (!groups.TryGetGroup(groupId, out var group))
-        {
+        if (!groups.TryGetGroup(groupId, out var group)) {
             return Task.CompletedTask;
         }
 
-        lock (group)
-        {
-            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
-            {
+        lock (group) {
+            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group)) {
                 return Task.CompletedTask;
             }
 
             var actor = session.GetHabbo();
 
             if ((actor.Id != group.CreatorId && !group.IsAdmin(actor.Id) && !actor.Access.Can(PermissionKeys.GroupAcceptAny)) ||
-                !group.HasRequest(userId))
-            {
+                !group.HasRequest(userId)) {
                 return Task.CompletedTask;
             }
 
             var identity = identities.Find(userId);
 
-            if (!store.Accept(group.Id, userId))
-            {
+            if (!store.Accept(group.Id, userId)) {
                 return Task.CompletedTask;
             }
 
@@ -91,23 +85,19 @@ public sealed class GroupMembershipMutationService(
 
     public Task Decline(GameClient session, int groupId, int userId)
     {
-        if (!groups.TryGetGroup(groupId, out var group))
-        {
+        if (!groups.TryGetGroup(groupId, out var group)) {
             return Task.CompletedTask;
         }
 
-        lock (group)
-        {
-            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
-            {
+        lock (group) {
+            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group)) {
                 return Task.CompletedTask;
             }
 
             var actor = session.GetHabbo();
 
             if ((actor.Id != group.CreatorId && !group.IsAdmin(actor.Id)) ||
-                !group.HasRequest(userId) || !store.Decline(group.Id, userId))
-            {
+                !group.HasRequest(userId) || !store.Decline(group.Id, userId)) {
                 return Task.CompletedTask;
             }
 
@@ -123,38 +113,31 @@ public sealed class GroupMembershipMutationService(
 
     private Task SetAdmin(GameClient session, int groupId, int userId, bool isAdmin)
     {
-        if (!groups.TryGetGroup(groupId, out var group))
-        {
+        if (!groups.TryGetGroup(groupId, out var group)) {
             return Task.CompletedTask;
         }
 
-        lock (group)
-        {
-            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group))
-            {
+        lock (group) {
+            if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group)) {
                 return Task.CompletedTask;
             }
 
             var actor = session.GetHabbo();
 
-            if (actor.Id != group.CreatorId || userId == group.CreatorId || !group.IsMember(userId))
-            {
+            if (actor.Id != group.CreatorId || userId == group.CreatorId || !group.IsMember(userId)) {
                 return Task.CompletedTask;
             }
 
             var identity = identities.Find(userId);
 
-            if (!store.SetAdmin(group.Id, userId, isAdmin))
-            {
+            if (!store.SetAdmin(group.Id, userId, isAdmin)) {
                 return Task.CompletedTask;
             }
 
-            if (isAdmin)
-            {
+            if (isAdmin) {
                 group.MakeAdmin(userId);
             }
-            else
-            {
+            else {
                 group.TakeAdmin(userId);
             }
 
@@ -167,27 +150,22 @@ public sealed class GroupMembershipMutationService(
 
     private void PublishController(Group group, int userId, bool isAdmin)
     {
-        if (!rooms.TryGetRoom(group.RoomId, out var room))
-        {
+        if (!rooms.TryGetRoom(group.RoomId, out var room)) {
             return;
         }
 
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(userId);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
-        if (isAdmin)
-        {
-            if (!user.Statusses.ContainsKey("flatctrl 3"))
-            {
+        if (isAdmin) {
+            if (!user.Statusses.ContainsKey("flatctrl 3")) {
                 user.SetStatus("flatctrl 3");
             }
         }
-        else if (user.Statusses.ContainsKey("flatctrl 3"))
-        {
+        else if (user.Statusses.ContainsKey("flatctrl 3")) {
             user.RemoveStatus("flatctrl 3");
         }
 
@@ -202,8 +180,7 @@ public sealed class GroupMembershipMutationService(
         int role,
         GroupMemberIdentity? identity)
     {
-        if (identity == null)
-        {
+        if (identity == null) {
             session.Send(new UnknownGroupComposer(group.Id, userId));
 
             return;

@@ -15,8 +15,7 @@ public class GroupFurniConfigComposer : IServerPacket
     {
         packet.WriteInteger(_groups.Count);
 
-        foreach (var group in _groups)
-        {
+        foreach (var group in _groups) {
             packet.WriteInteger(group.Id);
             packet.WriteString(group.Name);
             packet.WriteString(group.Badge);

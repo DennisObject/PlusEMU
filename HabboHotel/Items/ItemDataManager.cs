@@ -34,20 +34,16 @@ public class ItemDataManager : IItemDataManager, IStartable
         var rows = await connection.QueryAsync("SELECT * FROM `furniture`");
         var table = new DataTable();
 
-        foreach (var values in rows.Cast<IDictionary<string, object?>>())
-        {
-            if (table.Columns.Count == 0)
-            {
-                foreach (var name in values.Keys)
-                {
+        foreach (var values in rows.Cast<IDictionary<string, object?>>()) {
+            if (table.Columns.Count == 0) {
+                foreach (var name in values.Keys) {
                     table.Columns.Add(name, typeof(object));
                 }
             }
 
             var row = table.NewRow();
 
-            foreach (var value in values)
-            {
+            foreach (var value in values) {
                 row[value.Key] = value.Value ?? DBNull.Value;
             }
 
@@ -63,12 +59,9 @@ public class ItemDataManager : IItemDataManager, IStartable
         var gifts = new Dictionary<int, uint>();
         var items = new Dictionary<uint, ItemDefinition>();
 
-        if (itemData != null)
-        {
-            foreach (DataRow row in itemData.Rows)
-            {
-                try
-                {
+        if (itemData != null) {
+            foreach (DataRow row in itemData.Rows) {
+                try {
                     var productType = Convert.ToString(row["type"])?.ToLowerInvariant() ?? "s";
                     var definition = new ItemDefinition
                     {
@@ -109,8 +102,7 @@ public class ItemDataManager : IItemDataManager, IStartable
                     items.Add(definition.Id, definition);
                 }
                 // A bad row is skipped: reloads also run in the background, where waiting for a key would hang them.
-                catch (Exception e)
-                {
+                catch (Exception e) {
                     _logger.LogError(e, "Skipped furniture #{Id}: the row has invalid data", row["id"]);
                 }
             }
@@ -123,12 +115,10 @@ public class ItemDataManager : IItemDataManager, IStartable
 
     public ItemDefinition? GetItemByName(string name)
     {
-        foreach (var entry in Items)
-        {
+        foreach (var entry in Items) {
             var item = entry.Value;
 
-            if (item.ItemName == name)
-            {
+            if (item.ItemName == name) {
                 return item;
             }
         }
@@ -138,20 +128,17 @@ public class ItemDataManager : IItemDataManager, IStartable
 
     internal static InteractionType ReadInteractionType(string itemName, string interactionType, WiredBoxType wiredType = WiredBoxType.None)
     {
-        if (itemName is "sb_rail" or "sb_ramp" or "sb_block")
-        {
+        if (itemName is "sb_rail" or "sb_ramp" or "sb_block") {
             return InteractionType.Skateboard;
         }
 
         // Explicit generic legacy rows keep their category; a canonical descriptor still guides modern factories.
         if (WiredBoxTypeUtility.IsLegacyConstructible(wiredType)
-            && interactionType.ToLowerInvariant() is "wired_effect" or "wired_trigger" or "wired_condition")
-        {
+            && interactionType.ToLowerInvariant() is "wired_effect" or "wired_trigger" or "wired_condition") {
             return InteractionTypes.GetTypeFromString(interactionType);
         }
 
-        if (WiredBoxRegistry.TryGet(interactionType, out _) || WiredBoxRegistry.TryGet(itemName, out _))
-        {
+        if (WiredBoxRegistry.TryGet(interactionType, out _) || WiredBoxRegistry.TryGet(itemName, out _)) {
             return InteractionTypes.GetTypeFromString(WiredBoxRegistry.TryGet(interactionType, out _) ? interactionType : itemName);
         }
 
@@ -160,8 +147,7 @@ public class ItemDataManager : IItemDataManager, IStartable
 
     internal static WiredBoxType ReadWiredType(object cell)
     {
-        if (cell is null or DBNull)
-        {
+        if (cell is null or DBNull) {
             return WiredBoxType.None;
         }
 

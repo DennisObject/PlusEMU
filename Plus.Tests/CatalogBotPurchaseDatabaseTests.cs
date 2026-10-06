@@ -29,8 +29,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
         var schema = "task_catalog_bot_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var options = new MySqlConnectionStringBuilder(root.ConnectionString) { Database = schema };
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
@@ -87,8 +86,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM club_credit_spending"));
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT limited_sells FROM catalog_items WHERE id=50"));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -110,10 +108,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
 
     private sealed class BotRow
     {
-        public int UserId
-        {
-            get; set;
-        }
+        public int UserId { get; set; }
         public string Name { get; set; } = "";
         public string Motto { get; set; } = "";
         public string Look { get; set; } = "";
@@ -123,14 +118,8 @@ public sealed class CatalogBotPurchaseDatabaseTests
 
     private sealed class SpendingRow
     {
-        public int Credits
-        {
-            get; set;
-        }
-        public DateTime SpentAt
-        {
-            get; set;
-        }
+        public int Credits { get; set; }
+        public DateTime SpentAt { get; set; }
     }
 
     private sealed class Settings : ISettingsManager

@@ -18,28 +18,22 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     // The database callback commits before any active value or change event becomes visible.
     internal void PersistDefinitionConfiguration(uint definitionId, Func<WiredVariableValue?, WiredVariableDefinitionCommit> persist)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var key = new WiredVariableKey(definitionId, WiredVariableTarget.Global, 0);
             var committed = persist(_active.Read(key));
 
-            if (committed.ValueWrite is not { } write)
-            {
+            if (committed.ValueWrite is not { } write) {
                 return;
             }
 
-            if (!committed.Definition.IsDurable)
-            {
+            if (!committed.Definition.IsDurable) {
                 _active.Mutate(key, _ => write.After);
             }
 
-            if (write.Changed)
-            {
+            if (write.Changed) {
                 _changes.Enqueue(new(committed.Definition.RoomId, key,
                 write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated, write.Before, write.After, 0, 1)
-                {
-                    Origin = 2
-                });
+                { Origin = 2 });
             }
         }
     }
@@ -47,10 +41,8 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     /// <summary>Capture once per FX/menu flush, share across viewers, then dispose. Never retain across room changes.</summary>
     public WiredVariableReadSnapshot CaptureReads(IEnumerable<WiredVariableReference> references, WiredVariableFrame frame)
     {
-        lock (_gate)
-        {
-            if (frame.RoomId != roomId)
-            {
+        lock (_gate) {
+            if (frame.RoomId != roomId) {
                 throw new ArgumentException("The frame belongs to another room.", nameof(frame));
             }
 
@@ -59,14 +51,10 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             var holders = frame.Holders.Concat([new(WiredVariableTarget.Global, 0, 0), new(WiredVariableTarget.Context, 0, 0)]).Distinct().ToArray();
             var requests = new List<(WiredVariableReference Reference, WiredVariableHolder Holder, Resolved Resolved)>();
 
-            foreach (var (reference, resolution) in resolved)
-            {
-                if (resolution is not null)
-                {
-                    foreach (var holder in holders)
-                    {
-                        if (ValidateHolder(reference, holder, frame) && (resolution.Definition?.IsDurable != true || holder.CanPersist))
-                        {
+            foreach (var (reference, resolution) in resolved) {
+                if (resolution is not null) {
+                    foreach (var holder in holders) {
+                        if (ValidateHolder(reference, holder, frame) && (resolution.Definition?.IsDurable != true || holder.CanPersist)) {
                             requests.Add((reference, holder, resolution));
                         }
                     }
@@ -75,30 +63,25 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
             var values = new Dictionary<WiredVariableKey, WiredVariableValue>();
 
-            foreach (var group in requests.Where(x => x.Resolved.Definition is not null).GroupBy(x => Store(x.Resolved.Definition!, frame)))
-            {
-                foreach (var value in group.Key.ReadMany(group.Select(x => Key(x.Resolved.Definition!, x.Holder)).Distinct().ToArray()))
-                {
+            foreach (var group in requests.Where(x => x.Resolved.Definition is not null).GroupBy(x => Store(x.Resolved.Definition!, frame))) {
+                foreach (var value in group.Key.ReadMany(group.Select(x => Key(x.Resolved.Definition!, x.Holder)).Distinct().ToArray())) {
                     values[value.Key] = value.Value;
                 }
             }
 
             var captured = new Dictionary<(WiredVariableReference, WiredVariableHolder), WiredVariableValue>();
 
-            foreach (var (reference, holder, resolution) in requests)
-            {
+            foreach (var (reference, holder, resolution) in requests) {
                 var definition = resolution.Definition;
                 var value = resolution.Builtin is { } builtin ? builtins?.Read(builtin, holder, frame)
                     : values.GetValueOrDefault(Key(definition!, holder))
                         ?? (definition!.Target == WiredVariableTarget.Global ? new(definition.InitialValue, null, null) : null);
 
-                if (value is not null && resolution.Convert is { } convert)
-                {
+                if (value is not null && resolution.Convert is { } convert) {
                     value = convert(value);
                 }
 
-                if (value is not null)
-                {
+                if (value is not null) {
                     captured[(reference, holder)] = value;
                 }
             }
@@ -109,32 +92,26 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
     {
-        lock (_gate)
-        {
-            if (!ValidateHolder(reference, holder, frame))
-            {
+        lock (_gate) {
+            if (!ValidateHolder(reference, holder, frame)) {
                 return null;
             }
 
             var resolved = Resolve(reference, false);
 
-            if (resolved is null)
-            {
+            if (resolved is null) {
                 return null;
             }
 
             WiredVariableValue? value;
 
-            if (resolved.Builtin is { } builtin)
-            {
+            if (resolved.Builtin is { } builtin) {
                 value = builtins?.Read(builtin, holder, frame);
             }
-            else
-            {
+            else {
                 var definition = resolved.Definition!;
 
-                if (definition.IsDurable && !holder.CanPersist)
-                {
+                if (definition.IsDurable && !holder.CanPersist) {
                     return null;
                 }
 
@@ -151,10 +128,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     /// <summary>Arithmetic reads and writes the same locked value, including through references in another room.</summary>
     // Test seam: runs between target resolution and admission, with the attempt number.
-    internal Action<int>? ResolutionHook
-    {
-        get; set;
-    }
+    internal Action<int>? ResolutionHook { get; set; }
 
     private const int AdmissionAttempts = 3;
 
@@ -162,21 +136,18 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         Func<int, int> transform, WiredVariableFrame frame, int origin = 0)
     {
         // v2 gate writes are admitted to the per-gate sequencer; everything else runs the original path.
-        if (builtins?.SequencesGateWrites == true)
-        {
+        if (builtins?.SequencesGateWrites == true) {
             return ChangeAdmitted(reference, holder, mutation, transform, frame, origin, admittedTarget: null);
         }
 
         Action? completed;
         bool changed;
 
-        lock (_gate)
-        {
+        lock (_gate) {
             changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
         }
 
-        if (changed)
-        {
+        if (changed) {
             completed?.Invoke();
         }
 
@@ -189,31 +160,26 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     private bool ChangeAdmitted(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation,
         Func<int, int> transform, WiredVariableFrame frame, int origin, WiredVariableReference? admittedTarget)
     {
-        for (var attempt = 1; attempt <= (admittedTarget is null ? AdmissionAttempts : 1); attempt++)
-        {
+        for (var attempt = 1; attempt <= (admittedTarget is null ? AdmissionAttempts : 1); attempt++) {
             var target = admittedTarget ?? WriteTarget(reference);
             ResolutionHook?.Invoke(attempt);
             var effective = transform;
             var admission = WiredAdmission.Proceed;
             IDisposable? scope = null;
 
-            if (builtins != null)
-            {
+            if (builtins != null) {
                 scope = builtins.Admit(target, holder, ref effective,
                     replayed => () => ChangeAdmitted(reference, holder, mutation, replayed, frame, origin, target),
                     () => admittedTarget is not null || WriteTarget(reference) == target, out admission);
             }
 
             // The admission, if any, is held until the completion callback has run.
-            using (scope)
-            {
-                if (admission == WiredAdmission.Deferred)
-                {
+            using (scope) {
+                if (admission == WiredAdmission.Deferred) {
                     return true;
                 }
 
-                if (admission == WiredAdmission.Stale)
-                {
+                if (admission == WiredAdmission.Stale) {
                     continue;
                 }
 
@@ -222,8 +188,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                 var changed = ChangeIfTargetHolds(reference, holder, mutation, effective, frame, origin, target,
                     retryable: admittedTarget is null && !evaluated);
 
-                if (changed is { } result)
-                {
+                if (changed is { } result) {
                     return result;
                 }
             }
@@ -239,18 +204,15 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         Action? completed;
         bool changed;
 
-        lock (_gate)
-        {
-            if (WriteTargetLocked(reference) != target)
-            {
+        lock (_gate) {
+            if (WriteTargetLocked(reference) != target) {
                 return retryable ? null : false;
             }
 
             changed = ChangeLocked(reference, holder, mutation, transform, frame, origin, out completed);
         }
 
-        if (changed)
-        {
+        if (changed) {
             completed?.Invoke();
         }
 
@@ -262,49 +224,39 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     {
         completed = null;
 
-        if (frame.Depth >= 32 || !ValidateHolder(reference, holder, frame))
-        {
+        if (frame.Depth >= 32 || !ValidateHolder(reference, holder, frame)) {
             return false;
         }
 
         var resolved = Resolve(reference, true);
 
-        if (resolved is null)
-        {
+        if (resolved is null) {
             return false;
         }
 
-        if (resolved.Builtin is { } builtin)
-        {
-            if (mutation != WiredVariableMutation.Set)
-            {
+        if (resolved.Builtin is { } builtin) {
+            if (mutation != WiredVariableMutation.Set) {
                 return false;
             }
 
             var current = builtins?.Read(builtin, holder, frame);
 
-            if (current is null)
-            {
+            if (current is null) {
                 return false;
             }
 
             var next = transform(current.Value);
 
-            if (next == current.Value || !builtins!.Write(builtin, holder, next, frame, out completed))
-            {
+            if (next == current.Value || !builtins!.Write(builtin, holder, next, frame, out completed)) {
                 return false;
             }
 
             var after = builtins.Read(builtin, holder, frame);
 
-            if (after is not null && after.Value != current.Value)
-            {
+            if (after is not null && after.Value != current.Value) {
                 _changes.Enqueue(new(roomId, new(0, holder.Target, holder.StorageId), WiredVariableChangeKind.Updated,
                     current, after, holder.EntityId, frame.Depth + 1)
-                {
-                    Origin = origin,
-                    InternalKey = RoomWiredBuiltinVariables.Normalize(builtin.Token)
-                });
+                { Origin = origin, InternalKey = RoomWiredBuiltinVariables.Normalize(builtin.Token) });
             }
 
             return true;
@@ -312,18 +264,15 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
         var definition = resolved.Definition!;
 
-        if (definition.IsDurable && (!holder.CanPersist || holder.Target == WiredVariableTarget.User && holder.StableId <= 0))
-        {
+        if (definition.IsDurable && (!holder.CanPersist || holder.Target == WiredVariableTarget.User && holder.StableId <= 0)) {
             return false;
         }
 
-        if (mutation == WiredVariableMutation.Set && !definition.HasValue)
-        {
+        if (mutation == WiredVariableMutation.Set && !definition.HasValue) {
             return false;
         }
 
-        if (definition.Target == WiredVariableTarget.Global && mutation != WiredVariableMutation.Set)
-        {
+        if (definition.Target == WiredVariableTarget.Global && mutation != WiredVariableMutation.Set) {
             return false;
         }
 
@@ -332,25 +281,21 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         {
             var current = previous ?? (definition.Target == WiredVariableTarget.Global ? new(definition.InitialValue, null, null) : null);
 
-            if (mutation == WiredVariableMutation.Give && current is not null)
-            {
+            if (mutation == WiredVariableMutation.Give && current is not null) {
                 return previous;
             }
 
-            if (mutation is WiredVariableMutation.Set or WiredVariableMutation.Remove && current is null)
-            {
+            if (mutation is WiredVariableMutation.Set or WiredVariableMutation.Remove && current is null) {
                 return previous;
             }
 
-            if (mutation == WiredVariableMutation.Remove)
-            {
+            if (mutation == WiredVariableMutation.Remove) {
                 return null;
             }
 
             var next = definition.HasValue ? transform(current?.Value ?? 0) : 1;
 
-            if (mutation == WiredVariableMutation.Set && previous is not null && previous.Value == next)
-            {
+            if (mutation == WiredVariableMutation.Set && previous is not null && previous.Value == next) {
                 return previous;
             }
 
@@ -359,17 +304,14 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             return new(next, previous is null ? now : previous.CreatedAt, now);
         }, definition.IsDurable ? resolved.Authorization : null);
 
-        if (!write.Changed)
-        {
+        if (!write.Changed) {
             return false;
         }
 
         _changes.Enqueue(new(definition.RoomId, key, write.After is null ? WiredVariableChangeKind.Removed :
             write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
             write.Before, write.After, holder.EntityId, frame.Depth + 1)
-        {
-            Origin = origin
-        });
+        { Origin = origin });
 
         return true;
     }
@@ -377,21 +319,17 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     /// <summary>Publish a complete speech match into one firing only after every destination is authorized.</summary>
     public bool CaptureContextValues(IReadOnlyDictionary<uint, int> values, WiredVariableFrame frame)
     {
-        lock (_gate)
-        {
-            if (frame.RoomId != roomId || frame.Depth >= 32 || values.Count > 8)
-            {
+        lock (_gate) {
+            if (frame.RoomId != roomId || frame.Depth >= 32 || values.Count > 8) {
                 return false;
             }
 
             var destinations = new List<(WiredVariableDefinition Definition, int Value)>();
 
-            foreach (var (id, value) in values)
-            {
+            foreach (var (id, value) in values) {
                 var resolved = Resolve(new(WiredVariableTarget.Context, $"custom:{id}"), true);
 
-                if (resolved?.Definition is not { Target: WiredVariableTarget.Context, HasValue: true } definition)
-                {
+                if (resolved?.Definition is not { Target: WiredVariableTarget.Context, HasValue: true } definition) {
                     return false;
                 }
 
@@ -401,14 +339,12 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             DateTimeOffset? capturedAt = null;
             DateTimeOffset CaptureNow() => capturedAt ??= clock.GetUtcNow();
 
-            foreach (var (definition, value) in destinations)
-            {
+            foreach (var (definition, value) in destinations) {
                 var key = new WiredVariableKey(definition.ItemId, WiredVariableTarget.Context, 0);
                 var write = frame.Context.Mutate(key, before => before?.Value == value ? before
                     : new(value, before is null ? CaptureNow() : before.CreatedAt, CaptureNow()));
 
-                if (write.Changed)
-                {
+                if (write.Changed) {
                     _changes.Enqueue(new(roomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
                     write.Before, write.After, 0, frame.Depth + 1));
                 }
@@ -421,12 +357,10 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     /// <summary>Seed a room variable once after loading its saved definition; never overwrite a durable current value.</summary>
     public bool InitializeGlobal(uint definitionId)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var resolved = Resolve(new(WiredVariableTarget.Global, $"custom:{definitionId}"), true);
 
-            if (resolved?.Definition is not { Target: WiredVariableTarget.Global, Link: null } definition || definition.ItemId != definitionId)
-            {
+            if (resolved?.Definition is not { Target: WiredVariableTarget.Global, Link: null } definition || definition.ItemId != definitionId) {
                 return false;
             }
 
@@ -443,12 +377,10 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     /// <summary>Editor assignment reports acceptance, including an unchanged value; rejected authorization returns false.</summary>
     public bool SaveGlobalValue(uint definitionId, int value)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var resolved = Resolve(new(WiredVariableTarget.Global, $"custom:{definitionId}"), true);
 
-            if (resolved?.Definition is not { Target: WiredVariableTarget.Global, Link: null } definition || definition.ItemId != definitionId)
-            {
+            if (resolved?.Definition is not { Target: WiredVariableTarget.Global, Link: null } definition || definition.ItemId != definitionId) {
                 return false;
             }
 
@@ -459,18 +391,14 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
                     capturedAt ??= clock.GetUtcNow()),
                 definition.IsDurable ? resolved.Authorization : null);
 
-            if (write.After is null)
-            {
+            if (write.After is null) {
                 return false;
             }
 
-            if (write.Changed)
-            {
+            if (write.Changed) {
                 _changes.Enqueue(new(definition.RoomId, key, write.Before is null ? WiredVariableChangeKind.Created : WiredVariableChangeKind.Updated,
                 write.Before, write.After, 0, 1)
-                {
-                    Origin = 2
-                });
+                { Origin = 2 });
             }
 
             return true;
@@ -479,8 +407,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     public IReadOnlyList<WiredVariableChange> DrainChanges()
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var result = _changes.ToArray();
             _changes.Clear();
 
@@ -495,8 +422,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     /// <summary>Call only after the owning definition item is actually deleted; deletion failure propagates.</summary>
     public int DeleteDefinition(uint definitionId)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var removed = durable.DeleteDefinition(definitionId);
 
             return removed + _active.DeleteDefinition(definitionId);
@@ -506,29 +432,22 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     /// <summary>Owner-only menu operation. Clears values, retaining the definition and allowing future assignments.</summary>
     public int ClearValues(uint definitionId, WiredVariableTarget target, WiredVariableFrame frame)
     {
-        lock (_gate)
-        {
-            if (frame.RoomId != roomId || frame.Depth >= 32 || target is not (WiredVariableTarget.User or WiredVariableTarget.Furni))
-            {
+        lock (_gate) {
+            if (frame.RoomId != roomId || frame.Depth >= 32 || target is not (WiredVariableTarget.User or WiredVariableTarget.Furni)) {
                 return 0;
             }
 
             var resolved = Resolve(new(target, $"custom:{definitionId}"), true);
 
-            if (resolved?.Definition is not { } definition || resolved.Authorization is not { } authorization)
-            {
+            if (resolved?.Definition is not { } definition || resolved.Authorization is not { } authorization) {
                 return 0;
             }
 
             var removed = Store(definition, frame).ClearValues(definition.ItemId, authorization);
 
-            foreach (var (key, value) in removed)
-            {
+            foreach (var (key, value) in removed) {
                 var entityId = frame.Holders.FirstOrDefault(x => x.Target == key.Target && x.StorageId == key.HolderId).EntityId;
-                _changes.Enqueue(new(definition.RoomId, key, WiredVariableChangeKind.Removed, value, null, entityId, frame.Depth + 1)
-                {
-                    Origin = 2
-                });
+                _changes.Enqueue(new(definition.RoomId, key, WiredVariableChangeKind.Removed, value, null, entityId, frame.Depth + 1) { Origin = 2 });
             }
 
             return removed.Count;
@@ -537,13 +456,11 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     public IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> GetStoredHolders(uint definitionId)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var local = directory.Find(definitionId);
             var resolved = local?.RoomId == roomId ? Resolve(new(local.Target, local.Token), false) : null;
 
-            if (resolved?.Definition is not { } definition || definition.Target == WiredVariableTarget.Context)
-            {
+            if (resolved?.Definition is not { } definition || definition.Target == WiredVariableTarget.Context) {
                 return new Dictionary<WiredVariableKey, WiredVariableValue>();
             }
 
@@ -555,32 +472,25 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     public IReadOnlyList<WiredVariableDescription> DescribeDefinitions(IEnumerable<uint> definitionIds)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var authority = new ReadDirectory(directory);
             var result = new List<WiredVariableDescription>();
 
-            foreach (var id in definitionIds.Distinct().Take(4096))
-            {
+            foreach (var id in definitionIds.Distinct().Take(4096)) {
                 var local = authority.Find(id);
 
-                if (local?.RoomId != roomId)
-                {
+                if (local?.RoomId != roomId) {
                     continue;
                 }
 
                 var resolved = Resolve(new(local.Target, local.Token), false, authority);
 
-                if (resolved is null)
-                {
+                if (resolved is null) {
                     continue;
                 }
 
                 var readOnly = local.Target == WiredVariableTarget.Context || resolved.Authorization?.Lineage.Any(x => x.Link?.ReadOnly == true) == true;
-                result.Add(new(local, HasValue(resolved), readOnly)
-                {
-                    IsBuiltin = resolved.Builtin is not null
-                });
+                result.Add(new(local, HasValue(resolved), readOnly) { IsBuiltin = resolved.Builtin is not null });
             }
 
             return result.OrderBy(x => x.CatalogTarget).ThenBy(x => x.Definition.Name, StringComparer.OrdinalIgnoreCase).ThenBy(x => x.Definition.ItemId).ToArray();
@@ -590,23 +500,18 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     public WiredVariableHolderPage ReadHolderPage(uint definitionId, int page, int size, int sort,
         IReadOnlyCollection<long>? holderFilter = null, IReadOnlyDictionary<long, string>? names = null)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             var local = directory.Find(definitionId);
             var resolved = local?.RoomId == roomId ? Resolve(new(local.Target, local.Token), false) : null;
 
-            if (resolved?.Definition is not { } definition || definition.Target == WiredVariableTarget.Context)
-            {
+            if (resolved?.Definition is not { } definition || definition.Target == WiredVariableTarget.Context) {
                 return new(0, Math.Max(1, page), Math.Clamp(size, 1, 200), []);
             }
 
             var store = definition.IsDurable ? durable : (IWiredVariableStore)_active;
             var result = store.ReadPage(definition.ItemId, definition.Target, page, size, sort, holderFilter, names);
 
-            return result with
-            {
-                Holders = result.Holders.Select(x => x with { Key = x.Key with { DefinitionId = definitionId } }).ToArray()
-            };
+            return result with { Holders = result.Holders.Select(x => x with { Key = x.Key with { DefinitionId = definitionId } }).ToArray() };
         }
     }
 
@@ -624,8 +529,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
     private WiredVariableReference WriteTarget(WiredVariableReference reference)
     {
-        lock (_gate)
-        {
+        lock (_gate) {
             return WriteTargetLocked(reference);
         }
     }
@@ -640,20 +544,15 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     {
         var authority = readDirectory ?? directory;
 
-        if (derive?.Invoke(reference) is { } derived)
-        {
-            if (writing || derived.Source == reference)
-            {
+        if (derive?.Invoke(reference) is { } derived) {
+            if (writing || derived.Source == reference) {
                 return null;
             }
 
             var source = Resolve(derived.Source, false, authority);
 
             return source is null || derived.RequiresValue && !HasValue(source)
-                || derived.RequiresTimestamps && source.Definition is null ? null : source with
-                {
-                    Convert = derived.Convert
-                };
+                || derived.RequiresTimestamps && source.Definition is null ? null : source with { Convert = derived.Convert };
         }
 
         var visited = new HashSet<uint>();
@@ -661,60 +560,49 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         var expectedRoom = roomId;
         var owner = authority.GetRoomOwner(roomId);
 
-        if (owner is null or 0)
-        {
+        if (owner is null or 0) {
             return null;
         }
 
-        while (true)
-        {
-            if (reference.Token.StartsWith("internal:", StringComparison.Ordinal))
-            {
+        while (true) {
+            if (reference.Token.StartsWith("internal:", StringComparison.Ordinal)) {
                 return expectedRoom == roomId ? new(null, reference, new(roomId, owner.Value, lineage.ToImmutable())) : null;
             }
 
-            if (!TryDefinitionId(reference.Token, out var id) || !visited.Add(id) || visited.Count > 32)
-            {
+            if (!TryDefinitionId(reference.Token, out var id) || !visited.Add(id) || visited.Count > 32) {
                 return null;
             }
 
             var definition = authority.Find(id);
 
             if (definition is null || definition.RoomId != expectedRoom || definition.Target != reference.Target
-                || definition.OwnerId != owner || authority.GetRoomOwner(expectedRoom) != owner)
-            {
+                || definition.OwnerId != owner || authority.GetRoomOwner(expectedRoom) != owner) {
                 return null;
             }
 
             lineage.Add(definition);
 
-            if (definition.Link is not { } link)
-            {
+            if (definition.Link is not { } link) {
                 return new(definition, null, new(roomId, owner.Value, lineage.ToImmutable()));
             }
 
-            if (writing && link.ReadOnly)
-            {
+            if (writing && link.ReadOnly) {
                 return null;
             }
 
-            if (link.Source.Target != reference.Target)
-            {
+            if (link.Source.Target != reference.Target) {
                 return null;
             }
 
-            if (link.SourceRoomId != definition.RoomId)
-            {
+            if (link.SourceRoomId != definition.RoomId) {
                 if (reference.Target is not (WiredVariableTarget.User or WiredVariableTarget.Global)
-                    || !TryDefinitionId(link.Source.Token, out var sourceId))
-                {
+                    || !TryDefinitionId(link.Source.Token, out var sourceId)) {
                     return null;
                 }
 
                 var source = authority.Find(sourceId);
 
-                if (source is null || source.Availability != WiredVariableAvailability.Shared || source.Link is not null)
-                {
+                if (source is null || source.Availability != WiredVariableAvailability.Shared || source.Link is not null) {
                     return null;
                 }
             }
@@ -736,8 +624,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         private readonly Dictionary<uint, uint?> _owners = [];
         public WiredVariableDefinition? Find(uint itemId)
         {
-            if (!_definitions.TryGetValue(itemId, out var value))
-            {
+            if (!_definitions.TryGetValue(itemId, out var value)) {
                 _definitions[itemId] = value = source.Find(itemId);
             }
 
@@ -745,8 +632,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         }
         public uint? GetRoomOwner(uint roomId)
         {
-            if (!_owners.TryGetValue(roomId, out var value))
-            {
+            if (!_owners.TryGetValue(roomId, out var value)) {
                 _owners[roomId] = value = source.GetRoomOwner(roomId);
             }
 

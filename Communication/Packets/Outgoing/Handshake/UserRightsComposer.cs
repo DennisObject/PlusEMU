@@ -17,8 +17,7 @@ public sealed class UserRightsComposer(UserRightsSnapshot snapshot) : IServerPac
         packet.WriteString(snapshot.PrimaryRoleBadge);
         packet.WriteInteger(snapshot.Keys.Length);
 
-        foreach (var key in snapshot.Keys)
-        {
+        foreach (var key in snapshot.Keys) {
             packet.WriteString(key);
             packet.WriteInteger(1);
         }

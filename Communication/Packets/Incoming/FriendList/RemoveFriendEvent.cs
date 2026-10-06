@@ -9,19 +9,16 @@ internal class RemoveFriendEvent(IMessengerFriendMutationService friends) : IPac
     {
         var amount = packet.ReadInt();
 
-        if (amount > 100)
-        {
+        if (amount > 100) {
             amount = 100;
         }
-        else if (amount < 0)
-        {
+        else if (amount < 0) {
             return;
         }
 
         var friendIds = new int[amount];
 
-        for (var i = 0; i < amount; i++)
-        {
+        for (var i = 0; i < amount; i++) {
             friendIds[i] = packet.ReadInt();
         }
 

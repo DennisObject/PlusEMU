@@ -19,29 +19,24 @@ public class InteractorPuzzleBox : IFurniInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
-        if (session == null)
-        {
+        if (session == null) {
             return;
         }
 
         var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
-        if (!(Math.Abs(user.X - item.GetX) >= 2 || Math.Abs(user.Y - item.GetY) >= 2))
-        {
+        if (!(Math.Abs(user.X - item.GetX) >= 2 || Math.Abs(user.Y - item.GetY) >= 2)) {
             user.SetRot(Rotation.Calculate(user.X, user.Y, item.GetX, item.GetY), false);
 
-            if (user.RotBody % 2 != 0)
-            {
+            if (user.RotBody % 2 != 0) {
                 user.MoveTo(item.GetX + 1, item.GetY);
 
                 return;
@@ -50,30 +45,25 @@ public class InteractorPuzzleBox : IFurniInteractor
             var room = itemRoom;
             var newPoint = new Point(0, 0);
 
-            if (user.RotBody == 4)
-            {
+            if (user.RotBody == 4) {
                 newPoint = new(item.GetX, item.GetY + 1);
             }
 
-            if (user.RotBody == 0)
-            {
+            if (user.RotBody == 0) {
                 newPoint = new(item.GetX, item.GetY - 1);
             }
 
-            if (user.RotBody == 6)
-            {
+            if (user.RotBody == 6) {
                 newPoint = new(item.GetX - 1, item.GetY);
             }
 
-            if (user.RotBody == 2)
-            {
+            if (user.RotBody == 2) {
                 newPoint = new(item.GetX + 1, item.GetY);
             }
 
             if (room.GetGameMap().ValidTile(newPoint.X, newPoint.Y) &&
                 room.GetGameMap().ItemCanBePlaced(newPoint.X, newPoint.Y) &&
-                room.GetGameMap().CanRollItemHere(newPoint.X, newPoint.Y))
-            {
+                room.GetGameMap().CanRollItemHere(newPoint.X, newPoint.Y)) {
                 var newZ = itemRoom.GetGameMap().SqAbsoluteHeight(newPoint.X, newPoint.Y);
                 /*var mMessage = new ServerMessage();
                 mMessage.Init(Outgoing.ObjectOnRoller); // Cf
@@ -91,8 +81,7 @@ public class InteractorPuzzleBox : IFurniInteractor
                 itemRoom.GetRoomItemHandler().SetFloorItem(user.GetClient(), item, newPoint.X, newPoint.Y, item.Rotation, false, false, false);
             }
         }
-        else
-        {
+        else {
             user.MoveTo(item.GetX + 1, item.GetY);
         }
     }

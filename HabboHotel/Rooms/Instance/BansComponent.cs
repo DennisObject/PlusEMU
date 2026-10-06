@@ -23,8 +23,7 @@ public class BansComponent
     {
         _ = RequireRoom();
 
-        foreach (var ban in bans)
-        {
+        foreach (var ban in bans) {
             _bans[ban.UserId] = ban.ExpiresAt;
         }
     }
@@ -33,8 +32,7 @@ public class BansComponent
     {
         var room = RequireRoom();
 
-        if (avatar == null || room.CheckRights(avatar.GetClient(), true) || IsBanned(avatar.UserId))
-        {
+        if (avatar == null || room.CheckRights(avatar.GetClient(), true) || IsBanned(avatar.UserId)) {
             return;
         }
 
@@ -48,15 +46,13 @@ public class BansComponent
     {
         var room = RequireRoom();
 
-        if (!_bans.TryGetValue(userId, out var expiresAt))
-        {
+        if (!_bans.TryGetValue(userId, out var expiresAt)) {
             return false;
         }
 
         var now = _clock.GetUtcNow();
 
-        if (expiresAt > now)
-        {
+        if (expiresAt > now) {
             return true;
         }
 
@@ -70,8 +66,7 @@ public class BansComponent
     {
         var room = RequireRoom();
 
-        if (!_bans.ContainsKey(userId))
-        {
+        if (!_bans.ContainsKey(userId)) {
             return false;
         }
 

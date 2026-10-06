@@ -20,13 +20,11 @@ internal class RoomUnmuteCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (room.OwnerId != session.GetHabbo().Id && !_access.Outranks(session.GetHabbo().Id, room.OwnerId))
-        {
+        if (room.OwnerId != session.GetHabbo().Id && !_access.Outranks(session.GetHabbo().Id, room.OwnerId)) {
             return;
         }
 
-        if (!room.RoomMuted)
-        {
+        if (!room.RoomMuted) {
             session.SendWhisper("This room isn't muted.");
 
             return;
@@ -35,12 +33,9 @@ internal class RoomUnmuteCommand : IChatCommand
         room.RoomMuted = false;
         var roomUsers = room.GetRoomUserManager().GetRoomUsers();
 
-        if (roomUsers.Count > 0)
-        {
-            foreach (var user in roomUsers)
-            {
-                if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null || user.GetClient().GetHabbo().Username == session.GetHabbo().Username)
-                {
+        if (roomUsers.Count > 0) {
+            foreach (var user in roomUsers) {
+                if (user == null || user.GetClient() == null || user.GetClient().GetHabbo() == null || user.GetClient().GetHabbo().Username == session.GetHabbo().Username) {
                     continue;
                 }
 

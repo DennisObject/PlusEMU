@@ -22,32 +22,25 @@ internal class KickBotsCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!room.CheckRights(session, true))
-        {
+        if (!room.CheckRights(session, true)) {
             session.SendWhisper("Oops, only the room owner can run this command!");
 
             return;
         }
 
-        foreach (var user in room.GetRoomUserManager().GetUserList().ToList())
-        {
-            if (user == null || user.IsPet || !user.IsBot || user.BotData.IsTemporary)
-            {
+        foreach (var user in room.GetRoomUserManager().GetUserList().ToList()) {
+            if (user == null || user.IsPet || !user.IsBot || user.BotData.IsTemporary) {
                 continue;
             }
 
             RoomUser? botUser = null;
 
-            if (!room.GetRoomUserManager().TryGetBot(user.BotData.Id, out botUser))
-            {
+            if (!room.GetRoomUserManager().TryGetBot(user.BotData.Id, out botUser)) {
                 return;
             }
 
             using var connection = _database.Connection();
-            connection.Execute("UPDATE bots SET room_id=0 WHERE id=@id LIMIT 1", new
-            {
-                user.BotData.Id
-            });
+            connection.Execute("UPDATE bots SET room_id=0 WHERE id=@id LIMIT 1", new { user.BotData.Id });
             session.GetHabbo().Inventory.Bots.AddBot(new(Convert.ToInt32(botUser.BotData.Id), Convert.ToInt32(botUser.BotData.OwnerId), botUser.BotData.Name, botUser.BotData.Motto,
                 botUser.BotData.Look, botUser.BotData.Gender));
             session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));

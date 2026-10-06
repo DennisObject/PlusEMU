@@ -37,24 +37,20 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y));
 
-        if (gate != null)
-        {
+        if (gate != null) {
             FallbackSetGate(gate, open: false);
         }
-        else
-        {
+        else {
             Add(21, 3, 1, height: 1, stackable: false);
         }
 
         var trail = FallbackRun(actor, 30);
         Assert.DoesNotContain((3, 1), trail.Select(p => (p.X, p.Y)));
 
-        if (alternative)
-        {
+        if (alternative) {
             FallbackAssertStopped(actor, 6, 1);
         }
-        else
-        {
+        else {
             FallbackAssertStopped(actor, 2, 1);
         }
     }
@@ -86,8 +82,7 @@ public partial class PlacedFurniRoomTests
         walker.MoveTo(3, 2);
         var states = new List<RouteState>();
 
-        for (var tick = 0; tick < 30; tick++)
-        {
+        for (var tick = 0; tick < 30; tick++) {
             ExecutorTick();
             states.Add(actor.Movement.Fallback.State);
         }
@@ -188,11 +183,7 @@ public partial class PlacedFurniRoomTests
     public void ReachableDetourAboveASmallOperatorExpansionCapStillReroutes()
     {
         FallbackModel(FallbackAlternative);
-        var actor = FallbackActor(0, 1, new()
-        {
-            Engine = PathfindingEngine.V2,
-            MaxExpansionsPerSearch = 8
-        });
+        var actor = FallbackActor(0, 1, new() { Engine = PathfindingEngine.V2, MaxExpansionsPerSearch = 8 });
         actor.MoveTo(6, 1);
         ExecutorTick();
         ExecutorTick();
@@ -224,12 +215,10 @@ public partial class PlacedFurniRoomTests
         var trail = FallbackRun(actor, 30);
         Assert.DoesNotContain((blocked, 1), trail.Select(p => (p.X, p.Y)));
 
-        if (alternative)
-        {
+        if (alternative) {
             FallbackAssertStopped(actor, 6, 1);
         }
-        else
-        {
+        else {
             FallbackAssertStopped(actor, blocked - 1, 1);
         }
     }
@@ -239,8 +228,7 @@ public partial class PlacedFurniRoomTests
     {
         FallbackModel(FallbackLongDeadEnd);
 
-        for (var x = 0; x < 5; x++)
-        {
+        for (var x = 0; x < 5; x++) {
             ExecutorFloor((uint)(10 + x), x, 1);
         }
 
@@ -311,11 +299,7 @@ public partial class PlacedFurniRoomTests
     public void ExecutorRepeatedFailuresWhileTheFallbackSearchIsQueuedKeepOneJobInPlace()
     {
         FallbackModel("xxxxxxxx\r00000000\rxxxxxxxx\r00000000\r00000000");
-        var actor = FallbackActor(0, 1, new()
-        {
-            Engine = PathfindingEngine.V2,
-            MaxExpansionsPerRoomTick = 1
-        });
+        var actor = FallbackActor(0, 1, new() { Engine = PathfindingEngine.V2, MaxExpansionsPerRoomTick = 1 });
         var bots = Enumerable.Range(0, 3).Select(i => FallbackBot(i, 4, 2 + i)).ToArray();
         var owner = FallbackBot(7, 4, 9);
         ExecutorTick();
@@ -345,17 +329,11 @@ public partial class PlacedFurniRoomTests
     {
         FallbackModel("xxxxxxxx\r00000000\r0xxxxxx0\r00000000\rxxxxxxxx\r00000000\r00000000");
         var actor = FallbackActor(0, 1,
-            new()
-            {
-                Engine = PathfindingEngine.V2,
-                MaxExpansionsPerRoomTick = 1,
-                MaxWalkStallTicks = 3
-            });
+            new() { Engine = PathfindingEngine.V2, MaxExpansionsPerRoomTick = 1, MaxWalkStallTicks = 3 });
         var bots = Enumerable.Range(0, 5).Select(i => FallbackBot(i + 2, 5, 2 + i)).ToArray();
 
         // Held bots never stall out, so their queued searches keep the actor's job unstarted.
-        foreach (var bot in bots)
-        {
+        foreach (var bot in bots) {
             bot.CanWalk = false;
         }
 
@@ -364,8 +342,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         FallbackBot(2, 1, 10);
 
-        foreach (var bot in bots)
-        {
+        foreach (var bot in bots) {
             bot.MoveTo(bot.X, 6);
         }
 
@@ -373,8 +350,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((1, 1), (actor.X, actor.Y));
         Assert.Equal(RouteState.Suspect, actor.Movement.Fallback.State);
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
             Assert.True(actor.Movement.HasIntent);
             Assert.Equal(0, actor.Movement.StallTicks);
@@ -403,8 +379,7 @@ public partial class PlacedFurniRoomTests
         // A persistent claim ignored by the prefix view keeps the next announce failing.
         Assert.True(_room.GetGameMap().Navigation!.Executor.Claims.TryClaim(owner, 1 * 8 + 2, ClaimKind.Exclusive, TargetOccupancy.None));
 
-        for (var tick = 0; tick < 5; tick++)
-        {
+        for (var tick = 0; tick < 5; tick++) {
             ExecutorTick();
             Assert.Equal(1, actor.Movement.BlockReplans);
             Assert.DoesNotContain(actor, scheduler.Queued);
@@ -426,15 +401,11 @@ public partial class PlacedFurniRoomTests
         actor.InternalRoomId = actor.VirtualId;
         actor.UserId = 7;
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new()
-        {
-            Engine = PathfindingEngine.V2
-        }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
+        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
 
-        foreach (var item in _room.GetRoomItemHandler().GetFloor)
-        {
+        foreach (var item in _room.GetRoomItemHandler().GetFloor) {
             navigation.Inputs.Attach(item);
         }
 
@@ -477,8 +448,7 @@ public partial class PlacedFurniRoomTests
     {
         var trail = new List<(int X, int Y, double Z)>();
 
-        for (var tick = 0; tick < ticks; tick++)
-        {
+        for (var tick = 0; tick < ticks; tick++) {
             ExecutorTick();
             trail.Add((actor.X, actor.Y, actor.Z));
         }

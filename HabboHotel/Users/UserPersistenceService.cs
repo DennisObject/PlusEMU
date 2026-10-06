@@ -53,13 +53,9 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
                 now = now.UtcDateTime
             }, transaction);
 
-        if (reopenModerationTickets)
-        {
+        if (reopenModerationTickets) {
             connection.Execute("UPDATE `moderation_tickets` SET `status` = 'open', `moderator_id` = 0 WHERE `status` = 'picked' AND `moderator_id` = @id",
-                new
-                {
-                    id = habbo.Id
-                }, transaction);
+                new { id = habbo.Id }, transaction);
         }
 
         transaction.Commit();
@@ -67,16 +63,11 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
 
     public void SetProfileValue(int userId, string column, object? value)
     {
-        if (column is not ("username" or "last_change" or "bubble_id"))
-        {
+        if (column is not ("username" or "last_change" or "bubble_id")) {
             throw new ArgumentOutOfRangeException(nameof(column));
         }
 
         using var connection = database.Connection();
-        connection.Execute($"UPDATE `users` SET `{column}` = @value WHERE `id` = @userId", new
-        {
-            value,
-            userId
-        });
+        connection.Execute($"UPDATE `users` SET `{column}` = @value WHERE `id` = @userId", new { value, userId });
     }
 }

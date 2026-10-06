@@ -10,8 +10,7 @@ public sealed class ModeratorInitComposer(ModeratorInitSnapshot data) : IServerP
     {
         packet.WriteInteger(data.Tickets.Length);
 
-        foreach (var ticket in data.Tickets)
-        {
+        foreach (var ticket in data.Tickets) {
             packet.WriteInteger(ticket.Id);
             packet.WriteInteger((int)ticket.Status);
             packet.WriteInteger(ticket.Type);
@@ -32,22 +31,19 @@ public sealed class ModeratorInitComposer(ModeratorInitSnapshot data) : IServerP
 
         packet.WriteInteger(data.UserPresets.Length);
 
-        foreach (var preset in data.UserPresets)
-        {
+        foreach (var preset in data.UserPresets) {
             packet.WriteString(preset);
         }
 
         packet.WriteInteger(0);
 
-        for (var index = 0; index < 7; index++)
-        {
+        for (var index = 0; index < 7; index++) {
             packet.WriteBoolean(true);
         }
 
         packet.WriteInteger(data.RoomPresets.Length);
 
-        foreach (var preset in data.RoomPresets)
-        {
+        foreach (var preset in data.RoomPresets) {
             packet.WriteString(preset);
         }
     }

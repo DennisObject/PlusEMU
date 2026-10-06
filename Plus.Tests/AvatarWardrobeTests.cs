@@ -159,8 +159,7 @@ public class AvatarWardrobeTests
             Assert.Equal((1, 2), (reader.ReadInt(), reader.ReadInt()));
             var loaded = new Dictionary<int, (string Look, string Gender)>();
 
-            for (int i = 0; i < 2; i++)
-            {
+            for (int i = 0; i < 2; i++) {
                 var slot = reader.ReadInt();
                 loaded[slot] = (reader.ReadString(), reader.ReadString());
             }
@@ -225,8 +224,7 @@ public class AvatarWardrobeTests
     {
         await WithSchema(async connectionString =>
         {
-            using (var connection = new MySqlConnection(connectionString))
-            {
+            using (var connection = new MySqlConnection(connectionString)) {
                 connection.Open();
                 connection.Execute("INSERT INTO user_wardrobe (user_id, slot_id, look, gender) VALUES (7, 6, 'old-a', 'M'), (7, 6, 'old-b', 'M')");
             }
@@ -251,16 +249,13 @@ public class AvatarWardrobeTests
         var schema = "task_wardrobe_tests_" + Guid.NewGuid().ToString("N")[..12];
         var options = new MySqlConnectionStringBuilder(server) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true };
 
-        using (var admin = new MySqlConnection(server))
-        {
+        using (var admin = new MySqlConnection(server)) {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{schema}`");
         }
 
-        try
-        {
-            using (var connection = new MySqlConnection(options.ConnectionString))
-            {
+        try {
+            using (var connection = new MySqlConnection(options.ConnectionString)) {
                 connection.Open();
                 connection.Execute("CREATE TABLE users (id INT UNSIGNED PRIMARY KEY, username VARCHAR(32) NOT NULL DEFAULT '') ENGINE=InnoDB");
                 connection.Execute("INSERT INTO users (id, username) VALUES (7, 'wardrobe_tests')");
@@ -269,8 +264,7 @@ public class AvatarWardrobeTests
 
             await body(options.ConnectionString);
         }
-        finally
-        {
+        finally {
             using var admin = new MySqlConnection(server);
             admin.Open();
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
@@ -290,10 +284,7 @@ public class AvatarWardrobeTests
     private sealed class RecordingWardrobe : IAvatarWardrobeService
     {
         public List<object[]> Saves { get; } = new();
-        public int ShowCount
-        {
-            get; private set;
-        }
+        public int ShowCount { get; private set; }
         public Task ShowWardrobe(GameClient session)
         {
             ShowCount++;
@@ -306,15 +297,9 @@ public class AvatarWardrobeTests
     private sealed class RecordingFigures : IFigureDataManager
     {
         public List<object[]> Calls { get; } = new();
-        public Exception? Failure
-        {
-            get; init;
-        }
+        public Exception? Failure { get; init; }
         // Database tests need the figure to pass through unchanged so stored rows can be checked against the input.
-        public bool Echo
-        {
-            get; init;
-        }
+        public bool Echo { get; init; }
         public void Init()
         {
         }
@@ -322,8 +307,7 @@ public class AvatarWardrobeTests
         {
             Calls.Add(new object[] { figure, gender, clubLevel });
 
-            if (Failure != null)
-            {
+            if (Failure != null) {
                 throw Failure;
             }
 
@@ -344,14 +328,8 @@ public class AvatarWardrobeTests
     {
         public List<object[]> Saves { get; } = new();
         public ImmutableArray<WardrobeSlot> Slots { get; init; } = ImmutableArray<WardrobeSlot>.Empty;
-        public Exception? Failure
-        {
-            get; init;
-        }
-        public int LoadCount
-        {
-            get; private set;
-        }
+        public Exception? Failure { get; init; }
+        public int LoadCount { get; private set; }
         public Task<ImmutableArray<WardrobeSlot>> LoadSlots(int userId)
         {
             LoadCount++;
@@ -360,8 +338,7 @@ public class AvatarWardrobeTests
         }
         public void SaveSlot(int userId, int slotId, string look, string gender)
         {
-            if (Failure != null)
-            {
+            if (Failure != null) {
                 throw Failure;
             }
 
@@ -374,8 +351,7 @@ public sealed class WardrobeDatabaseFactAttribute : Xunit.FactAttribute
 {
     public WardrobeDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_WARDROBE_TEST_CONNECTION_STRING")))
-        {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_WARDROBE_TEST_CONNECTION_STRING"))) {
             Skip = "Set PLUS_WARDROBE_TEST_CONNECTION_STRING to a server that can create and drop disposable task_wardrobe_tests_ schemas.";
         }
     }

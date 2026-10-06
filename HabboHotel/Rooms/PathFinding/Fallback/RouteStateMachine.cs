@@ -14,14 +14,8 @@ public sealed class RouteStateMachine
     private readonly List<RetainedStep> _retained = new();
     private int _routeIndex;
 
-    public RouteState State
-    {
-        get; private set;
-    }
-    public long CommandSequence
-    {
-        get; private set;
-    }
+    public RouteState State { get; private set; }
+    public long CommandSequence { get; private set; }
     public IReadOnlyList<RetainedStep> Retained => _retained;
 
     public void Begin(long commandSequence)
@@ -37,8 +31,7 @@ public sealed class RouteStateMachine
     // Returns true only for the failure that must request the single fallback search.
     public bool Suspect(IReadOnlyList<RetainedStep> remaining, int routeIndex)
     {
-        if (State != RouteState.Normal)
-        {
+        if (State != RouteState.Normal) {
             return false;
         }
 
@@ -62,8 +55,7 @@ public sealed class RouteStateMachine
 
     public void Found()
     {
-        if (State != RouteState.Suspect)
-        {
+        if (State != RouteState.Suspect) {
             return;
         }
 
@@ -74,8 +66,7 @@ public sealed class RouteStateMachine
 
     public void Truncate(int prefixLength)
     {
-        if (State != RouteState.Suspect)
-        {
+        if (State != RouteState.Suspect) {
             return;
         }
 
@@ -85,16 +76,14 @@ public sealed class RouteStateMachine
 
     public void Shorten(int prefixLength)
     {
-        if (State == RouteState.Truncated)
-        {
+        if (State == RouteState.Truncated) {
             Cut(prefixLength);
         }
     }
 
     private void Cut(int length)
     {
-        if (length < _retained.Count)
-        {
+        if (length < _retained.Count) {
             _retained.RemoveRange(length, _retained.Count - length);
         }
     }

@@ -12,16 +12,13 @@ public abstract class HabbiconRequest(IHabbiconPresentationService presentation)
     {
         var id = Action != null || Info ? packet.ReadInt() : 0;
 
-        if (Action is { } action)
-        {
+        if (Action is { } action) {
             presentation.Change(session, action, id);
         }
-        else if (Info)
-        {
+        else if (Info) {
             presentation.ShowInfo(session, id);
         }
-        else
-        {
+        else {
             presentation.ShowShop(session);
         }
 

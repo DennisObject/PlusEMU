@@ -14,8 +14,7 @@ internal class OverrideCommand : IChatCommand
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 

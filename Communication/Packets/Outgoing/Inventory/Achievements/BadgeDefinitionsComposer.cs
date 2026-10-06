@@ -18,13 +18,11 @@ public class BadgeDefinitionsComposer : IServerPacket
     {
         packet.WriteInteger(_achievements.Length);
 
-        foreach (var achievement in _achievements)
-        {
+        foreach (var achievement in _achievements) {
             packet.WriteString(achievement.Name);
             packet.WriteInteger(achievement.Levels.Length);
 
-            foreach (var level in achievement.Levels)
-            {
+            foreach (var level in achievement.Levels) {
                 packet.WriteInteger(level.Level);
                 packet.WriteInteger(level.Requirement);
             }

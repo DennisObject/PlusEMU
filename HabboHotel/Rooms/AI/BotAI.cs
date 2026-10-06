@@ -27,8 +27,7 @@ public abstract class BotAi
 
     public void Detach(Room room, RoomUser user)
     {
-        if (!ReferenceEquals(_room, room) || !ReferenceEquals(_roomUser, user))
-        {
+        if (!ReferenceEquals(_room, room) || !ReferenceEquals(_roomUser, user)) {
             return;
         }
 

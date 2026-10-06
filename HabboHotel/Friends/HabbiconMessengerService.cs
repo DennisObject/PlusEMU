@@ -21,36 +21,30 @@ public sealed class HabbiconMessengerService(IHabbiconService habbicons, IGameCl
         var sender = session.GetHabbo();
         var capturedAt = clock.GetUtcNow();
 
-        try
-        {
+        try {
             if (conversationId != 0 || recipientId <= 0 || recipientId == sender.Id || type != 4 ||
-                !int.TryParse(message, out int id) || id <= 0 || id > 1000000)
-            {
+                !int.TryParse(message, out int id) || id <= 0 || id > 1000000) {
                 throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
             }
 
-            if (sender.Messenger.GetFriend(recipientId) == null || metadata.Length != 0)
-            {
+            if (sender.Messenger.GetFriend(recipientId) == null || metadata.Length != 0) {
                 throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             }
 
             var item = habbicons.Load(sender.Id).RequireItem(id);
 
-            if (!item.Owned)
-            {
+            if (!item.Owned) {
                 throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             }
 
-            if (sender.TimeMuted > 0 || (sender.FloodUntil is { } floodUntil && capturedAt < floodUntil) || !sender.Messenger.TrySendHabbicon(capturedAt))
-            {
+            if (sender.TimeMuted > 0 || (sender.FloodUntil is { } floodUntil && capturedAt < floodUntil) || !sender.Messenger.TrySendHabbicon(capturedAt)) {
                 throw new HabbiconRejected(HabbiconActionError.MessageRateLimited);
             }
 
             var target = clients.GetClientByUserId(recipientId);
 
             if (target != null && (target.GetHabbo().TimeMuted > 0 || !target.GetHabbo().AllowConsoleMessages ||
-                target.GetHabbo().IgnoresComponent.IsIgnored(sender.Id) || target.GetHabbo().Messenger.GetFriend(sender.Id) == null))
-            {
+                target.GetHabbo().IgnoresComponent.IsIgnored(sender.Id) || target.GetHabbo().Messenger.GetFriend(sender.Id) == null)) {
                 throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             }
 
@@ -61,24 +55,19 @@ public sealed class HabbiconMessengerService(IHabbiconService habbicons, IGameCl
             session.Send(new MessengerMessageAckComposer(confirmationId, messageId, createdAt));
             target?.Send(new MessengerMessageComposer(messageId, sender.Id, id, createdAt));
 
-            try
-            {
-                if (habbicons.Use(sender.Id, id))
-                {
+            try {
+                if (habbicons.Use(sender.Id, id)) {
                     session.Send(new UserHabbiconsComposer(habbicons.Load(sender.Id)));
                 }
             }
-            catch (MySqlException exception)
-            {
+            catch (MySqlException exception) {
                 logger.LogWarning(exception, "Unable to update recent Habicons for {UserId}", sender.Id);
             }
         }
-        catch (HabbiconRejected rejected)
-        {
+        catch (HabbiconRejected rejected) {
             session.Send(new MessengerMessageFailedComposer(confirmationId, rejected.Code));
         }
-        catch (MySqlException exception)
-        {
+        catch (MySqlException exception) {
             logger.LogError(exception, "Unable to send Habicon for {UserId}", sender.Id);
             session.Send(new MessengerMessageFailedComposer(confirmationId, 7));
         }

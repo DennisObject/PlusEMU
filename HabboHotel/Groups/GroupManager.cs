@@ -69,10 +69,8 @@ public class GroupManager : IGroupManager, IStartable
         _symbolColours.Clear();
         _backgroundColours.Clear();
 
-        foreach (var item in items)
-        {
-            switch (item.Type)
-            {
+        foreach (var item in items) {
+            switch (item.Type) {
                 case "base":
                     _bases.Add(new(item.Id, item.FirstValue, item.SecondValue));
                     break;
@@ -96,26 +94,19 @@ public class GroupManager : IGroupManager, IStartable
     {
         group = null;
 
-        if (_groups.ContainsKey(id))
-        {
+        if (_groups.ContainsKey(id)) {
             return _groups.TryGetValue(id, out group);
         }
 
-        lock (_groupLoadingSync)
-        {
-            if (_groups.ContainsKey(id))
-            {
+        lock (_groupLoadingSync) {
+            if (_groups.ContainsKey(id)) {
                 return _groups.TryGetValue(id, out group);
             }
 
             using var connection = _database.Connection();
-            var row = connection.QuerySingleOrDefault<GroupRow>("SELECT id,name,`desc` AS Description,badge,room_id AS RoomId,owner_id AS OwnerId,created AS CreatedAt,CAST(CAST(state AS CHAR) AS UNSIGNED) AS State,colour1,colour2,admindeco AS AdminDeco,forum_enabled AS ForumEnabled FROM `groups` WHERE id=@id LIMIT 1", new
-            {
-                id
-            });
+            var row = connection.QuerySingleOrDefault<GroupRow>("SELECT id,name,`desc` AS Description,badge,room_id AS RoomId,owner_id AS OwnerId,created AS CreatedAt,CAST(CAST(state AS CHAR) AS UNSIGNED) AS State,colour1,colour2,admindeco AS AdminDeco,forum_enabled AS ForumEnabled FROM `groups` WHERE id=@id LIMIT 1", new { id });
 
-            if (row != null)
-            {
+            if (row != null) {
                 group = new(row.Id, row.Name, row.Description, row.Badge, row.RoomId, row.OwnerId,
                     row.CreatedAt, row.State, row.Colour1, row.Colour2, row.AdminDeco, row.ForumEnabled,
                     _memberships.Load(row.Id));
@@ -132,8 +123,7 @@ public class GroupManager : IGroupManager, IStartable
     {
         group = null;
 
-        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(badge))
-        {
+        if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(badge)) {
             return false;
         }
 
@@ -142,63 +132,34 @@ public class GroupManager : IGroupManager, IStartable
         using var transaction = connection.BeginTransaction();
         var ownsAvailableRoom = connection.QuerySingleOrDefault<int?>(
             "SELECT id FROM rooms WHERE id=@roomId AND owner=@ownerId AND group_id=0 FOR UPDATE",
-            new
-            {
-                roomId,
-                ownerId = player.Id
-            }, transaction);
+            new { roomId, ownerId = player.Id }, transaction);
 
-        if (ownsAvailableRoom == null)
-        {
+        if (ownsAvailableRoom == null) {
             transaction.Rollback();
 
             return false;
         }
 
         var createdAt = _clock.GetUtcNow();
-        connection.Execute("INSERT INTO `groups` (`name`,`desc`,badge,owner_id,created,room_id,state,colour1,colour2,admindeco) VALUES (@name,@description,@badge,@ownerId,@createdAt,@roomId,'0',@colour1,@colour2,0)", new
-        {
-            name,
-            description,
-            badge,
-            ownerId = player.Id,
-            createdAt = createdAt.UtcDateTime,
-            roomId,
-            colour1,
-            colour2
-        }, transaction);
+        connection.Execute("INSERT INTO `groups` (`name`,`desc`,badge,owner_id,created,room_id,state,colour1,colour2,admindeco) VALUES (@name,@description,@badge,@ownerId,@createdAt,@roomId,'0',@colour1,@colour2,0)", new { name, description, badge, ownerId = player.Id, createdAt = createdAt.UtcDateTime, roomId, colour1, colour2 }, transaction);
         var id = connection.ExecuteScalar<int>("SELECT LAST_INSERT_ID()", transaction: transaction);
-        connection.Execute("INSERT INTO group_memberships (user_id,group_id,`rank`) VALUES (@userId,@id,1)", new
-        {
-            userId = player.Id,
-            id
-        }, transaction);
+        connection.Execute("INSERT INTO group_memberships (user_id,group_id,`rank`) VALUES (@userId,@id,1)", new { userId = player.Id, id }, transaction);
         var updated = connection.Execute(
             "UPDATE rooms SET group_id=@id WHERE id=@roomId AND owner=@ownerId AND group_id=0 LIMIT 1",
-            new
-            {
-                id,
-                roomId,
-                ownerId = player.Id
-            }, transaction);
+            new { id, roomId, ownerId = player.Id }, transaction);
 
-        if (updated != 1)
-        {
+        if (updated != 1) {
             transaction.Rollback();
 
             return false;
         }
 
-        connection.Execute("DELETE FROM room_rights WHERE room_id=@roomId", new
-        {
-            roomId
-        }, transaction);
+        connection.Execute("DELETE FROM room_rights WHERE room_id=@roomId", new { roomId }, transaction);
         transaction.Commit();
         group = new(id, name, description, badge, roomId, player.Id, createdAt, 0, colour1, colour2, 0,
             false, GroupMembershipSnapshot.ForOwner(player.Id));
 
-        if (!_groups.TryAdd(group.Id, group))
-        {
+        if (!_groups.TryAdd(group.Id, group)) {
             return false;
         }
 
@@ -207,17 +168,13 @@ public class GroupManager : IGroupManager, IStartable
 
     public string GetColourCode(int id, bool colourOne)
     {
-        if (colourOne)
-        {
-            if (_symbolColours.ContainsKey(id))
-            {
+        if (colourOne) {
+            if (_symbolColours.ContainsKey(id)) {
                 return _symbolColours[id].Colour;
             }
         }
-        else
-        {
-            if (_backgroundColours.ContainsKey(id))
-            {
+        else {
+            if (_backgroundColours.ContainsKey(id)) {
                 return _backgroundColours[id].Colour;
             }
         }
@@ -229,13 +186,11 @@ public class GroupManager : IGroupManager, IStartable
     {
         Group? group = null;
 
-        if (_groups.ContainsKey(id))
-        {
+        if (_groups.ContainsKey(id)) {
             _groups.TryRemove(id, out group);
         }
 
-        if (group != null)
-        {
+        if (group != null) {
             group.Dispose();
         }
     }
@@ -245,13 +200,8 @@ public class GroupManager : IGroupManager, IStartable
         var groups = new List<Group>();
         using var connection = _database.Connection();
 
-        foreach (var id in connection.Query<int>("SELECT g.id FROM group_memberships AS m INNER JOIN `groups` AS g ON m.group_id=g.id WHERE m.user_id=@userId", new
-        {
-            userId
-        }))
-        {
-            if (TryGetGroup(id, out var group))
-            {
+        foreach (var id in connection.Query<int>("SELECT g.id FROM group_memberships AS m INNER JOIN `groups` AS g ON m.group_id=g.id WHERE m.user_id=@userId", new { userId })) {
+            if (TryGetGroup(id, out var group)) {
                 groups.Add(group);
             }
         }
@@ -263,10 +213,8 @@ public class GroupManager : IGroupManager, IStartable
     {
         var badges = new Dictionary<int, string>();
 
-        foreach (var groupIds in room.GetRoomUserManager().GetRoomUsers().Select(user => user.GetClient()?.GetHabbo().HabboStats.FavouriteGroupId ?? 0).Where(g => g > 0).Distinct())
-        {
-            if (!TryGetGroup(groupIds, out var group))
-            {
+        foreach (var groupIds in room.GetRoomUserManager().GetRoomUsers().Select(user => user.GetClient()?.GetHabbo().HabboStats.FavouriteGroupId ?? 0).Where(g => g > 0).Distinct()) {
+            if (!TryGetGroup(groupIds, out var group)) {
                 continue;
             }
 
@@ -277,44 +225,17 @@ public class GroupManager : IGroupManager, IStartable
     }
     private sealed class GroupRow
     {
-        public int Id
-        {
-            get; set;
-        }
+        public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string Badge { get; set; } = string.Empty;
-        public uint RoomId
-        {
-            get; set;
-        }
-        public int OwnerId
-        {
-            get; set;
-        }
-        public DateTimeOffset? CreatedAt
-        {
-            get; set;
-        }
-        public int State
-        {
-            get; set;
-        }
-        public int Colour1
-        {
-            get; set;
-        }
-        public int Colour2
-        {
-            get; set;
-        }
-        public int AdminDeco
-        {
-            get; set;
-        }
-        public bool ForumEnabled
-        {
-            get; set;
-        }
+        public uint RoomId { get; set; }
+        public int OwnerId { get; set; }
+        public DateTimeOffset? CreatedAt { get; set; }
+        public int State { get; set; }
+        public int Colour1 { get; set; }
+        public int Colour2 { get; set; }
+        public int AdminDeco { get; set; }
+        public bool ForumEnabled { get; set; }
     }
 }

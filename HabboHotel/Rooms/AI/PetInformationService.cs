@@ -21,17 +21,14 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
     {
         var habbo = session.GetHabbo();
 
-        if (!habbo.InRoom || habbo.CurrentRoom == null)
-        {
+        if (!habbo.InRoom || habbo.CurrentRoom == null) {
             return;
         }
 
         var room = habbo.CurrentRoom;
 
-        if (room.GetRoomUserManager().TryGetPet(petId, out var pet))
-        {
-            if (pet.RoomId != room.RoomId || pet.PetData == null)
-            {
+        if (room.GetRoomUserManager().TryGetPet(petId, out var pet)) {
+            if (pet.RoomId != room.RoomId || pet.PetData == null) {
                 return;
             }
 
@@ -42,8 +39,7 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
 
         var target = room.GetRoomUserManager().GetRoomUserByHabbo(petId)?.GetClient()?.GetHabbo();
 
-        if (target != null)
-        {
+        if (target != null) {
             session.Send(new PetInformationComposer(Capture(target, clock.GetUtcNow())));
         }
     }
@@ -52,25 +48,21 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
     {
         var room = session.GetHabbo().CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
-        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet))
-        {
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet)) {
             var target = room.GetRoomUserManager().GetRoomUserByHabbo(petId)?.GetClient()?.GetHabbo();
 
-            if (target != null)
-            {
+            if (target != null) {
                 session.SendWhisper("Maybe one day, boo boo.");
             }
 
             return;
         }
 
-        if (pet.RoomId != room.RoomId || pet.PetData == null)
-        {
+        if (pet.RoomId != room.RoomId || pet.PetData == null) {
             return;
         }
 

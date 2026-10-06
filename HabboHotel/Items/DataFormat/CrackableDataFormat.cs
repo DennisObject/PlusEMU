@@ -17,8 +17,7 @@ public class CrackableDataFormat : FurniObjectData
     {
         var d = data.Split("\n");
 
-        if (d.Length != 3)
-        {
+        if (d.Length != 3) {
             return;
         }
 
@@ -29,10 +28,8 @@ public class CrackableDataFormat : FurniObjectData
 
     public bool TryCrack()
     {
-        lock (_lock)
-        {
-            if (Hits < Target)
-            {
+        lock (_lock) {
+            if (Hits < Target) {
                 Hits++;
             }
 

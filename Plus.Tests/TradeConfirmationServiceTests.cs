@@ -276,10 +276,7 @@ public sealed class TradeConfirmationServiceTests
     internal sealed class RecordingTradeStore : ITradeStore
     {
         public List<(int, int, string, string)> Logged { get; } = [];
-        public Exception? LogFailure
-        {
-            get; set;
-        }
+        public Exception? LogFailure { get; set; }
         public void DeleteItem(uint itemId)
         {
         }
@@ -288,8 +285,7 @@ public sealed class TradeConfirmationServiceTests
         }
         public void Log(int firstUserId, int secondUserId, string firstItems, string secondItems)
         {
-            if (LogFailure != null)
-            {
+            if (LogFailure != null) {
                 throw LogFailure;
             }
 

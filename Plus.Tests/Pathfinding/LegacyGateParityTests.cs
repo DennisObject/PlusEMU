@@ -80,10 +80,7 @@ public partial class PlacedFurniRoomTests
     {
         var gate = LegacyGate();
         var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-        {
-            StringData = "1;0;0",
-            ItemsData = $"{gate.Id}:1,1,0,0,0"
-        };
+        { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,0" };
         box.SetItems.TryAdd(gate.Id, gate);
         Assert.True(box.Execute());
         Assert.Equal("0", gate.LegacyDataString);

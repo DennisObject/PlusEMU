@@ -18,8 +18,7 @@ public sealed class MessengerFriendDatabaseFactAttribute : FactAttribute
     public const string Variable = "PLUS_MESSENGER_FRIEND_SERVER_CONNECTION_STRING";
     public MessengerFriendDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable(Variable) == null)
-        {
+        if (Environment.GetEnvironmentVariable(Variable) == null) {
             Skip = $"Set {Variable} to a bare MariaDB server connection (no Database).";
         }
     }
@@ -30,17 +29,13 @@ public sealed class MessengerFriendSchema : IDisposable
 {
     private readonly string _server;
     public string Name { get; } = "task_messenger_tests_" + Guid.NewGuid().ToString("N")[..12];
-    public string ConnectionString
-    {
-        get;
-    }
+    public string ConnectionString { get; }
 
     public MessengerFriendSchema()
     {
         _server = Environment.GetEnvironmentVariable(MessengerFriendDatabaseFactAttribute.Variable)!;
 
-        using (var admin = new MySqlConnection(_server))
-        {
+        using (var admin = new MySqlConnection(_server)) {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{Name}` CHARACTER SET utf8mb4");
         }
@@ -87,15 +82,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     {
         using var connection = new MySqlConnection(schema.ConnectionString);
         connection.Open();
-        connection.Execute("INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (@id, @name, '', 0, 0, 0)", new
-        {
-            id,
-            name = "friend_" + id
-        });
-        connection.Execute("INSERT IGNORE INTO users_settings (user_id) VALUES (@id)", new
-        {
-            id
-        });
+        connection.Execute("INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (@id, @name, '', 0, 0, 0)", new { id, name = "friend_" + id });
+        connection.Execute("INSERT IGNORE INTO users_settings (user_id) VALUES (@id)", new { id });
     }
 
     private static HabboMessenger MessengerFor(IEnumerable<MessengerBuddy>? friends = null, IEnumerable<MessengerRequest>? requests = null, IEnumerable<int>? outstanding = null) =>
@@ -177,12 +165,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Account(9402);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9402, 9401)");
 
-        for (var i = 0; i < 300; i++)
-        {
-            Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9401, @other)", new
-            {
-                other = 9500000 + i
-            });
+        for (var i = 0; i < 300; i++) {
+            Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9401, @other)", new { other = 9500000 + i });
         }
 
         var acceptor = Habbo(9401, MessengerFor(requests: [new MessengerRequest { FromId = 9402, ToId = 9401 }]));
@@ -290,17 +274,14 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
         var accept = service.AcceptRequestAsync(acceptor, 9902);
 
-        try
-        {
+        try {
             await Task.Delay(200);
             Assert.False(accept.IsCompleted);
         }
-        finally
-        {
+        finally {
             held.Dispose();
 
-            try
-            {
+            try {
                 await accept.WaitAsync(TimeSpan.FromSeconds(30));
             }
             catch (Exception) { }
@@ -334,8 +315,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9982, 9981)");
         Execute("CREATE TRIGGER messenger_test_fail_friend BEFORE INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9981 AND NEW.user_two_id = 9982 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected friendship failure'; END IF; END");
 
-        try
-        {
+        try {
             var acceptor = Habbo(9981, MessengerFor(requests: [new MessengerRequest { FromId = 9982, ToId = 9981 }]));
             var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
 
@@ -346,7 +326,9 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
             Assert.True(acceptor.Messenger.Requests.ContainsKey(9982));
             Assert.Empty(acceptor.Messenger.Friends);
         }
-        finally { Execute("DROP TRIGGER IF EXISTS messenger_test_fail_friend"); }
+        finally {
+            Execute("DROP TRIGGER IF EXISTS messenger_test_fail_friend");
+        }
     }
 
     [MessengerFriendDatabaseFact]
@@ -408,8 +390,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9812, 9811)");
         Execute("CREATE TRIGGER messenger_test_fail_second AFTER INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9812 AND NEW.user_two_id = 9811 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected second-row failure'; END IF; END");
 
-        try
-        {
+        try {
             var acceptor = Habbo(9811, MessengerFor(requests: [new MessengerRequest { FromId = 9812, ToId = 9811 }]));
             var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
 
@@ -420,7 +401,9 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
             Assert.True(acceptor.Messenger.Requests.ContainsKey(9812));
             Assert.Empty(acceptor.Messenger.Friends);
         }
-        finally { Execute("DROP TRIGGER IF EXISTS messenger_test_fail_second"); }
+        finally {
+            Execute("DROP TRIGGER IF EXISTS messenger_test_fail_second");
+        }
     }
 
     [MessengerFriendDatabaseFact]
@@ -432,8 +415,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9852, 9851)");
         Execute("CREATE TRIGGER messenger_test_drop_requester AFTER INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9852 AND NEW.user_two_id = 9851 THEN DELETE FROM users WHERE id = 9852; END IF; END");
 
-        try
-        {
+        try {
             var acceptor = Habbo(9851, MessengerFor(requests: [new MessengerRequest { FromId = 9852, ToId = 9851 }]));
             var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
 
@@ -447,7 +429,9 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
             Assert.True(acceptor.Messenger.Requests.ContainsKey(9852));
             Assert.Empty(acceptor.Messenger.Friends);
         }
-        finally { Execute("DROP TRIGGER IF EXISTS messenger_test_drop_requester"); }
+        finally {
+            Execute("DROP TRIGGER IF EXISTS messenger_test_drop_requester");
+        }
     }
 
     [MessengerFriendDatabaseFact]
@@ -462,23 +446,19 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         var held = await gate.EnterManyAsync([9821, 9822]);
         Task<FriendRequestOutcome>? send = null;
 
-        try
-        {
+        try {
             // The precheck sees no incoming request; the request is recorded in memory before the hold is released.
             send = service.SendRequestAsync(sender, 9822);
             await Task.Delay(200);
             Assert.False(send.IsCompleted);
             sender.Messenger.AddFriendRequest(new MessengerRequest { FromId = 9822, ToId = 9821 });
         }
-        finally
-        {
+        finally {
             // Release the lease even when an assertion fails, then observe the send so its exception is never unobserved.
             held.Dispose();
 
-            if (send != null)
-            {
-                try
-                {
+            if (send != null) {
+                try {
                     await send.WaitAsync(TimeSpan.FromSeconds(30));
                 }
                 catch (Exception) { }
@@ -546,8 +526,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         using var held = holder.BeginTransaction();
         Task<FriendRequestError?>? accept = null;
 
-        try
-        {
+        try {
             holder.Execute("SELECT 1 FROM messenger_friendships WHERE user_one_id = 9961 AND user_two_id = 9962 FOR UPDATE", transaction: held);
             accept = service.AcceptRequestAsync(acceptor, 9972);
             await WaitForFriendshipLockWait(accept);
@@ -555,18 +534,14 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
             held.Commit();
             Assert.Null(await accept.WaitAsync(TimeSpan.FromSeconds(30)));
         }
-        finally
-        {
-            try
-            {
+        finally {
+            try {
                 held.Rollback();
             }
             catch (Exception) { }
 
-            if (accept != null)
-            {
-                try
-                {
+            if (accept != null) {
+                try {
                     await accept.WaitAsync(TimeSpan.FromSeconds(30));
                 }
                 catch (Exception) { }
@@ -580,15 +555,12 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     // INNODB_TRX is a cached snapshot refreshed only after 100 ms without a read, so each sample is spaced 200 ms apart.
     private async Task WaitForFriendshipLockWait(Task accept)
     {
-        for (var attempt = 0; attempt < 50; attempt++)
-        {
-            if (Scalar("SELECT COUNT(*) FROM information_schema.INNODB_TRX WHERE trx_state = 'LOCK WAIT' AND trx_query LIKE 'INSERT INTO messenger_friendships%SELECT 9971, 9972%'") > 0)
-            {
+        for (var attempt = 0; attempt < 50; attempt++) {
+            if (Scalar("SELECT COUNT(*) FROM information_schema.INNODB_TRX WHERE trx_state = 'LOCK WAIT' AND trx_query LIKE 'INSERT INTO messenger_friendships%SELECT 9971, 9972%'") > 0) {
                 return;
             }
 
-            if (accept.IsCompleted)
-            {
+            if (accept.IsCompleted) {
                 await accept;
                 throw new InvalidOperationException("The accept finished without waiting on the held friendship gap.");
             }

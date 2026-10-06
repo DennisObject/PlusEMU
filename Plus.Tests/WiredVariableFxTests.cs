@@ -18,10 +18,7 @@ public sealed class WiredVariableFxTests
         var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var viewer = new WiredVariableHolder(WiredVariableTarget.User, 901, 8);
         var old = new WiredVariableHolder(WiredVariableTarget.User, 900, 7);
-        var replacement = old with
-        {
-            StableId = samePlayer ? old.StableId : 902
-        };
+        var replacement = old with { StableId = samePlayer ? old.StableId : 902 };
         var reference = new WiredVariableReference(WiredVariableTarget.User, "custom:10");
         var before = new WiredVariableFrame(1, [viewer, old]);
         module.Mutate(reference, old, WiredVariableMutation.Give, 25, before);
@@ -32,14 +29,12 @@ public sealed class WiredVariableFxTests
         var pending = tracker.Update(viewer, before, [binding], [old], _ => 0);
         var after = new WiredVariableFrame(1, [viewer, replacement]);
 
-        if (!samePlayer)
-        {
+        if (!samePlayer) {
             module.Mutate(reference, replacement, WiredVariableMutation.Give, 25, after);
         }
 
         // Identity discrimination also catches a different holder before a detach callback arrives.
-        if (!samePlayer)
-        {
+        if (!samePlayer) {
             Assert.True(Assert.Single(tracker.Update(viewer, after, [binding], [replacement], _ => 0).Statuses).Initialize);
         }
 
@@ -101,11 +96,7 @@ public sealed class WiredVariableFxTests
         WiredVariableFxComposer.ComposeBatch(batch).Single().Compose(packet);
         Assert.Equal(new object[] { true, 1, "40|custom:22", true, true, 7, -2, -1, false, 0 }, packet.Values);
         var removed = new Packet();
-        WiredVariableFxComposer.ComposeBatch(batch with
-        {
-            Statuses = [],
-            RemovedStatuses = [key]
-        }).Single().Compose(removed);
+        WiredVariableFxComposer.ComposeBatch(batch with { Statuses = [], RemovedStatuses = [key] }).Single().Compose(removed);
         Assert.Equal(new object[] { 1, "40|custom:22|u|7" }, removed.Values);
     }
 
@@ -118,33 +109,13 @@ public sealed class WiredVariableFxTests
         var other = new WiredVariableHolder(WiredVariableTarget.User, 123, 9);
         var frame = new WiredVariableFrame(1, [holder, other]) { Trigger = [holder] };
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
-        Assert.True(executor.Execute("wf_act_give_var", new()
-        {
-            IntParams = [0, 0, 10, 0, 0],
-            Text = "10"
-        }, frame));
-        Assert.True(executor.Execute("wf_act_change_var_val", new()
-        {
-            IntParams = [0, 1, 0, 5, 0, 0, 0, 0, 0],
-            Text = "custom:10\t\t"
-        }, frame));
+        Assert.True(executor.Execute("wf_act_give_var", new() { IntParams = [0, 0, 10, 0, 0], Text = "10" }, frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", new() { IntParams = [0, 1, 0, 5, 0, 0, 0, 0, 0], Text = "custom:10\t\t" }, frame));
         Assert.Equal(15, module.Read(new(WiredVariableTarget.User, "custom:10"), holder, frame)!.Value);
-        Assert.True(executor.Execute("wf_cnd_var_val_match", new()
-        {
-            IntParams = [0, 2, 0, 15, 0, 0, 0, 0, 0, 0],
-            Text = "custom:10\t\t"
-        }, frame));
+        Assert.True(executor.Execute("wf_cnd_var_val_match", new() { IntParams = [0, 2, 0, 15, 0, 0, 0, 0, 0, 0], Text = "custom:10\t\t" }, frame));
         frame.Selector.AddRange([holder, other]);
-        Assert.False(executor.Execute("wf_cnd_has_var", new()
-        {
-            IntParams = [0, 200, 0, 0],
-            Text = "custom:10"
-        }, frame));
-        Assert.True(executor.Execute("wf_cnd_has_var", new()
-        {
-            IntParams = [0, 200, 0, 1],
-            Text = "custom:10"
-        }, frame));
+        Assert.False(executor.Execute("wf_cnd_has_var", new() { IntParams = [0, 200, 0, 0], Text = "custom:10" }, frame));
+        Assert.True(executor.Execute("wf_cnd_has_var", new() { IntParams = [0, 200, 0, 1], Text = "custom:10" }, frame));
     }
 
     private sealed class Directory : IWiredVariableDirectory
@@ -156,10 +127,7 @@ public sealed class WiredVariableFxTests
     private sealed class Packet : IOutgoingPacket
     {
         public List<object> Values { get; } = [];
-        public int MessageId
-        {
-            get; set;
-        }
+        public int MessageId { get; set; }
         public ReadOnlyMemory<byte> Buffer => default;
         public void WriteByte(byte value) => Values.Add(value);
         public void WriteShort(short value) => Values.Add(value);

@@ -32,8 +32,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((0, 1), StateLines());
         Assert.Equal(1, Whispers()); // the roll is the user's
 
-        for (var tick = 0; tick < 5 && dice.LegacyDataString == "-1"; tick++)
-        {
+        for (var tick = 0; tick < 5 && dice.LegacyDataString == "-1"; tick++) {
             dice.ProcessUpdates();
         }
 
@@ -60,8 +59,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("1", vending.LegacyDataString);
         Assert.Equal((1, 1), StateLines());
 
-        for (var tick = 0; tick < 5 && vending.LegacyDataString == "1"; tick++)
-        {
+        for (var tick = 0; tick < 5 && vending.LegacyDataString == "1"; tick++) {
             vending.ProcessUpdates();
         }
 
@@ -152,8 +150,7 @@ public partial class PlacedFurniRoomTests
         UseItem(gate);
         var whispers = 0;
 
-        for (var tick = 0; tick < 3; tick++)
-        {
+        for (var tick = 0; tick < 3; tick++) {
             ExecutorTick();
             whispers += Whispers();
         }
@@ -192,12 +189,13 @@ public partial class PlacedFurniRoomTests
 
         var capture = FurnitureStateEvents.Capture(_room);
 
-        try
-        {
+        try {
             lamp.LegacyDataString = "1";
             Task.Run(() => _room.GetWired().OnCycle()).GetAwaiter().GetResult();
         }
-        finally { capture.Dispose(); }
+        finally {
+            capture.Dispose();
+        }
 
         FurnitureStateEvents.Publish(_room, user, capture.Transitions);
         Cycle();
@@ -234,24 +232,20 @@ public partial class PlacedFurniRoomTests
         WatchState(lamp);
         var otherRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
 
-        using (var outer = FurnitureStateEvents.Capture(_room))
-        {
-            using (var inner = FurnitureStateEvents.Capture(_room))
-            {
+        using (var outer = FurnitureStateEvents.Capture(_room)) {
+            using (var inner = FurnitureStateEvents.Capture(_room)) {
                 lamp.LegacyDataString = "1";
                 Assert.Single(inner.Transitions);
             }
 
-            using (FurnitureStateEvents.Capture(otherRoom))
-            {
+            using (FurnitureStateEvents.Capture(otherRoom)) {
                 lamp.LegacyDataString = "0";
             }
 
             Assert.Single(outer.Transitions);
             Assert.Throws<InvalidOperationException>(new Action(() =>
             {
-                using (FurnitureStateEvents.Capture(_room))
-                {
+                using (FurnitureStateEvents.Capture(_room)) {
                     lamp.LegacyDataString = "1";
                     throw new InvalidOperationException();
                 }
@@ -315,8 +309,7 @@ public partial class PlacedFurniRoomTests
     {
         var lamp = Toggle(30);
 
-        for (var write = 0; write < WiredComponent.MaxQueuedStateWrites + 4; write++)
-        {
+        for (var write = 0; write < WiredComponent.MaxQueuedStateWrites + 4; write++) {
             lamp.LegacyDataString = write % 2 == 0 ? "1" : "0";
         }
 
@@ -347,10 +340,7 @@ public partial class PlacedFurniRoomTests
             new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)),
             new RoomWiredBuiltinVariables(_room, stateChanged: _room.GetWired().PublishBuiltinStateChanged));
         var holder = WiredVariableRuntimeFrames.FurniHolder(gate);
-        var context = new WiredRuntimeContext(_room, new(WiredEventKind.Use)
-        {
-            Actor = actor
-        },
+        var context = new WiredRuntimeContext(_room, new(WiredEventKind.Use) { Actor = actor },
             new(() => _room.GetRoomItemHandler().GetFloor, () => _room.GetRoomUserManager().GetUserList()), _room.GetWired());
         var frame = new WiredVariableFrame(_room.Id, [holder]) { RuntimeContext = context, Depth = 1 };
 
@@ -360,8 +350,7 @@ public partial class PlacedFurniRoomTests
         _room.GetRoomUserManager().RemoveUserFromRoom(_client, false, false);
         _client.Sent.Clear();
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Gates.Drain();
         }
 
@@ -396,19 +385,11 @@ public partial class PlacedFurniRoomTests
     private void TogglesOnUse(uint id, Item button, Item target)
     {
         var trigger = WiredBox(id, "wf_trg_stuff_state", 0, 1);
-        Assert.True(trigger.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 100],
-            SelectedItems = [button.Id]
-        }, out var config, out var error), error);
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [button.Id] }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(_room.GetWired().AddBox(trigger));
         var toggle = WiredBox(id + 1, "wf_act_toggle_state", 0, 1);
-        Assert.True(toggle.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 100],
-            SelectedItems = [target.Id]
-        }, out config, out error), error);
+        Assert.True(toggle.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [target.Id] }, out config, out error), error);
         toggle.ApplyConfiguration(config);
         Assert.True(_room.GetWired().AddBox(toggle));
     }

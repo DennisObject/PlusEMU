@@ -15,13 +15,11 @@ public sealed partial class CatalogAdminService
         {
             var entry = store.UndoRow(groupId) ?? throw NotFound("History entry");
 
-            if (entry.Operation is not ("UPDATE" or "MOVE") || entry.BeforeJson == null || entry.AfterJson == null)
-            {
+            if (entry.Operation is not ("UPDATE" or "MOVE") || entry.BeforeJson == null || entry.AfterJson == null) {
                 throw new CatalogAdminRejected(CatalogAdminCodes.Unsupported, "Only edits and moves can be undone; delete or recreate the entity instead.");
             }
 
-            if (entry.EntityType == OfferEntity)
-            {
+            if (entry.EntityType == OfferEntity) {
                 return UndoOffer(store, actor, entry);
             }
 
@@ -32,15 +30,11 @@ public sealed partial class CatalogAdminService
     {
         var existing = RequirePage(store, entry.EntityId, actor);
 
-        if (CatalogAdminMapping.ToPage(existing) != Snapshot<CatalogAdminPage>(entry.AfterJson!))
-        {
+        if (CatalogAdminMapping.ToPage(existing) != Snapshot<CatalogAdminPage>(entry.AfterJson!)) {
             throw ChangedSince();
         }
 
-        var before = Snapshot<CatalogAdminPage>(entry.BeforeJson!) with
-        {
-            PageId = existing.Id
-        };
+        var before = Snapshot<CatalogAdminPage>(entry.BeforeJson!) with { PageId = existing.Id };
         Reject(CatalogAdminValidation.Page(before, existing, actor.Access, store.Page));
         var row = CatalogAdminMapping.Apply(before, existing);
         store.UpdatePage(row);
@@ -54,23 +48,19 @@ public sealed partial class CatalogAdminService
         var after = Snapshot<CatalogAdminMove>(entry.AfterJson!);
         var existing = RequirePage(store, entry.EntityId, actor);
 
-        if (CatalogAdminMapping.ToPage(existing) != after.Page)
-        {
+        if (CatalogAdminMapping.ToPage(existing) != after.Page) {
             throw ChangedSince();
         }
 
-        foreach (var sibling in after.Siblings)
-        {
+        foreach (var sibling in after.Siblings) {
             var current = store.Page(sibling.PageId);
 
             // A sibling that moved elsewhere since may keep the same order number; its place is parent and order.
-            if (current == null || current.ParentId != sibling.ParentId || current.OrderNum != sibling.OrderNum)
-            {
+            if (current == null || current.ParentId != sibling.ParentId || current.OrderNum != sibling.OrderNum) {
                 throw ChangedSince();
             }
 
-            if (!CatalogAdminValidation.Available(current.RequiredPermission, actor.Access))
-            {
+            if (!CatalogAdminValidation.Available(current.RequiredPermission, actor.Access)) {
                 throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move reordered pages requiring a permission you do not have.");
             }
         }
@@ -81,17 +71,13 @@ public sealed partial class CatalogAdminService
         restored.OrderNum = before.Page.OrderNum;
         store.UpdatePage(restored);
 
-        foreach (var sibling in before.Siblings)
-        {
+        foreach (var sibling in before.Siblings) {
             store.SetPageOrder(sibling.PageId, sibling.OrderNum);
         }
 
         var page = CatalogAdminMapping.ToPage(restored);
 
-        return new(new(PageEntity, page.CatalogType, existing.Id, "MOVE", after, before with
-        {
-            Page = page
-        }), page, "Move undone");
+        return new(new(PageEntity, page.CatalogType, existing.Id, "MOVE", after, before with { Page = page }), page, "Move undone");
     }
 
     private static CatalogAdminMutation UndoOffer(CatalogAdminStore store, Habbo actor, CatalogAdminUndoRow entry)
@@ -100,11 +86,7 @@ public sealed partial class CatalogAdminService
         var type = CatalogType(RequirePage(store, existing.PageId, actor));
         var after = Snapshot<CatalogAdminOffer>(entry.AfterJson!);
 
-        if (CatalogAdminMapping.ToOffer(existing, after.OfferId, type) with
-        {
-            LimitedSells = 0
-        } != after)
-        {
+        if (CatalogAdminMapping.ToOffer(existing, after.OfferId, type) with { LimitedSells = 0 } != after) {
             throw ChangedSince();
         }
 
@@ -123,15 +105,12 @@ public sealed partial class CatalogAdminService
 
     private static T Snapshot<T>(string json)
     {
-        try
-        {
-            if (JsonSerializer.Deserialize<T>(json, SnapshotReader) is { } snapshot)
-            {
+        try {
+            if (JsonSerializer.Deserialize<T>(json, SnapshotReader) is { } snapshot) {
                 return snapshot;
             }
         }
-        catch (JsonException)
-        {
+        catch (JsonException) {
         }
 
         throw new CatalogAdminRejected(CatalogAdminCodes.Unsupported, "The logged change cannot be read.");

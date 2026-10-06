@@ -40,16 +40,14 @@ public class MagicTileParityTests
             underlying.Definition.IsSeat = walkMagic && underlyingInteraction == InteractionType.None;
             Add(underlying, 0);
 
-            if (walkMagic)
-            {
+            if (walkMagic) {
                 var low = Helper(100, InteractionType.WalkMagicTile);
                 low.Definition.Height = 100;
                 Add(low, 0.75);
                 Add(Helper(10, InteractionType.WalkMagicTile), 1.25);
                 Add(Helper(11, InteractionType.WalkMagicTile), 1.25);
             }
-            else
-            {
+            else {
                 Add(Helper(2, InteractionType.Stacktool), 2);
             }
 
@@ -61,8 +59,7 @@ public class MagicTileParityTests
             Assert.Equal(map.SqAbsoluteHeight(1, 1), grid.LegacyZ[tile]);
             Assert.Equal(map.GameMap[1, 1] != 0, grid.Active(tile));
 
-            if (walkMagic)
-            {
+            if (walkMagic) {
                 Assert.Equal(1.25, grid.WalkZ[tile]);
                 Assert.Equal(SurfaceKind.WalkMagic, grid.Kind[tile]);
                 Assert.Equal((uint)11, grid.SupportItem[tile]);
@@ -78,8 +75,7 @@ public class MagicTileParityTests
                 new PathWorkspace(grid.SlotCapacity, grid.ActiveNodeCount), route);
             Assert.Equal(legacy.Count > 0, outcome == PathOutcome.Found);
 
-            if (legacy.Count > 0)
-            {
+            if (legacy.Count > 0) {
                 Assert.Equal(legacy.Count - 1, route.Count);
             }
 

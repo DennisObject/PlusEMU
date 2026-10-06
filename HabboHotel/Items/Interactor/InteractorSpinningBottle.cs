@@ -17,8 +17,7 @@ public class InteractorSpinningBottle : IFurniInteractor
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (item.LegacyDataString != "-1")
-        {
+        if (item.LegacyDataString != "-1") {
             item.LegacyDataString = "-1";
             item.UpdateState(false, true);
             item.RequestUpdate(3, true);
@@ -27,8 +26,7 @@ public class InteractorSpinningBottle : IFurniInteractor
 
     public void OnWiredTrigger(Item item)
     {
-        if (item.LegacyDataString != "-1")
-        {
+        if (item.LegacyDataString != "-1") {
             item.LegacyDataString = "-1";
             item.UpdateState(false, true);
             item.RequestUpdate(3, true);

@@ -34,13 +34,11 @@ public partial class PlacedFurniRoomTests
 
         var expected = new List<(GameClient Session, string Action, int Amount)>();
 
-        if (!owner)
-        {
+        if (!owner) {
             expected.Add((_client, RewardTrackActions.EnterOtherUsersRoom, 1));
         }
 
-        if (matchingFollow)
-        {
+        if (matchingFollow) {
             expected.Add((_client, RewardTrackActions.FollowFriend, 1));
         }
 
@@ -63,13 +61,11 @@ public partial class PlacedFurniRoomTests
         {
             Assert.Same(_client, session);
 
-            if (action == RewardTrackActions.Teleport)
-            {
+            if (action == RewardTrackActions.Teleport) {
                 Assert.Equal("2", tile.LegacyDataString);
                 Assert.Equal(0, tile.InteractingUser2);
             }
-            else
-            {
+            else {
                 Assert.Equal("0", tile.LegacyDataString);
             }
         });
@@ -143,11 +139,12 @@ public partial class PlacedFurniRoomTests
         var current = typeof(RewardTrackManager).GetField("<Current>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)!;
         var previous = current.GetValue(null);
 
-        try
-        {
+        try {
             current.SetValue(null, null);
             action();
         }
-        finally { current.SetValue(null, previous); }
+        finally {
+            current.SetValue(null, previous);
+        }
     }
 }

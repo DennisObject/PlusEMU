@@ -38,8 +38,7 @@ public sealed class ModeratorRoomInfoTests
         data.Tags[0] = "changed";
         data.Tags.Clear();
 
-        for (var index = 0; index < 2; index++)
-        {
+        for (var index = 0; index < 2; index++) {
             var packet = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(packet);
             Assert.Equal(new object[] { 42u, 3, true, 7, "owner", true, "room", "description", 2, "one", "two", false }, packet.Writes);
@@ -104,8 +103,7 @@ public sealed class ModeratorRoomInfoTests
         var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
 
-        if (ownerPresent)
-        {
+        if (ownerPresent) {
             var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 7, Username = "OWNER" });
             var user = new RoomUser(7, 42, 1, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
             var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
@@ -139,14 +137,8 @@ public sealed class ModeratorRoomInfoTests
 
     private sealed class RecordingService : IModeratorRoomInfoService
     {
-        public uint RoomId
-        {
-            get; private set;
-        }
-        public GameClient? Client
-        {
-            get; private set;
-        }
+        public uint RoomId { get; private set; }
+        public GameClient? Client { get; private set; }
         public void Show(GameClient session, uint roomId)
         {
             Client = session;

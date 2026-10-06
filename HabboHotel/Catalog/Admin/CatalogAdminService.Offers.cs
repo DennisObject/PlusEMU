@@ -31,8 +31,7 @@ public sealed partial class CatalogAdminService
             Reject(CatalogAdminValidation.Offer(offer, null, actor.Access, store.Page, store.FurnitureExists));
             var row = CatalogAdminMapping.Apply(offer, null);
 
-            if (offer.OrderNumber < 0)
-            {
+            if (offer.OrderNumber < 0) {
                 row.OrderNum = store.NextOfferOrder(row.PageId);
             }
 
@@ -70,8 +69,7 @@ public sealed partial class CatalogAdminService
     public CatalogAdminOutcome MoveOffer(Habbo actor, CatalogAdminEnvelope envelope, int offerId, int orderNumber) =>
         Mutate(actor, envelope, "moveOffer", OfferEntity, offerId, store =>
         {
-            if (orderNumber < 0)
-            {
+            if (orderNumber < 0) {
                 throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, "Order cannot be negative.");
             }
 
@@ -88,8 +86,7 @@ public sealed partial class CatalogAdminService
     public CatalogAdminOutcome ReorderOffers(Habbo actor, CatalogAdminEnvelope envelope, IReadOnlyList<(int OfferId, int OrderNumber)> orders) =>
         Mutate(actor, envelope, "reorder", PageEntity, 0, store =>
         {
-            if (orders.Count is 0 or > MaxReorderCount || orders.Select(order => order.OfferId).Distinct().Count() != orders.Count || orders.Any(order => order.OrderNumber < 0))
-            {
+            if (orders.Count is 0 or > MaxReorderCount || orders.Select(order => order.OfferId).Distinct().Count() != orders.Count || orders.Any(order => order.OrderNumber < 0)) {
                 throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, $"Send 1 to {MaxReorderCount} distinct offers with non-negative order numbers.");
             }
 
@@ -97,15 +94,13 @@ public sealed partial class CatalogAdminService
                 Row: store.Offer(ResolveListedOffer(store, actor, order.OfferId, useBinding: false)) ?? throw NotFound("Offer"))).ToList();
             int pageId = rows[0].Row.PageId;
 
-            if (rows.Any(entry => entry.Row.PageId != pageId))
-            {
+            if (rows.Any(entry => entry.Row.PageId != pageId)) {
                 throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, "Reorder offers one page at a time.");
             }
 
             var page = RequirePage(store, pageId, actor);
 
-            foreach (var entry in rows.Where(entry => entry.Row.OrderNum != entry.OrderNumber))
-            {
+            foreach (var entry in rows.Where(entry => entry.Row.OrderNum != entry.OrderNumber)) {
                 store.SetOfferOrder(entry.Row.Id, entry.OrderNumber);
             }
 
@@ -122,23 +117,19 @@ public sealed partial class CatalogAdminService
         var matches = _catalogManager.Pages.Where(page => page.Offers.ContainsKey(offerId))
             .Select(page => (PageId: page.Id, RowId: page.Offers[offerId].Id)).ToList();
 
-        if (_viewedPages.TryGetValue(actor.Id, out var viewed) && matches.Where(match => match.PageId == viewed).ToList() is [var onViewedPage])
-        {
+        if (_viewedPages.TryGetValue(actor.Id, out var viewed) && matches.Where(match => match.PageId == viewed).ToList() is [var onViewedPage]) {
             return onViewedPage.RowId;
         }
 
-        if (useBinding && BoundOffer(actor, offerId) is { } bound)
-        {
+        if (useBinding && BoundOffer(actor, offerId) is { } bound) {
             return bound;
         }
 
-        if (matches is [var only])
-        {
+        if (matches is [var only]) {
             return only.RowId;
         }
 
-        if (matches.Count > 1)
-        {
+        if (matches.Count > 1) {
             throw new CatalogAdminRejected(CatalogAdminCodes.Conflict, $"Offer #{offerId} is on several pages; open its page and try again.");
         }
 
@@ -149,10 +140,8 @@ public sealed partial class CatalogAdminService
     {
         var bindings = _offerBindings.GetOrCreateValue(actor);
 
-        lock (bindings)
-        {
-            if (bindings.Count >= MaxBoundOffers && !bindings.ContainsKey(offerId))
-            {
+        lock (bindings) {
+            if (bindings.Count >= MaxBoundOffers && !bindings.ContainsKey(offerId)) {
                 bindings.Remove(bindings.Keys.First());
             }
 
@@ -162,13 +151,11 @@ public sealed partial class CatalogAdminService
 
     private int? BoundOffer(Habbo actor, int offerId)
     {
-        if (!_offerBindings.TryGetValue(actor, out var bindings))
-        {
+        if (!_offerBindings.TryGetValue(actor, out var bindings)) {
             return null;
         }
 
-        lock (bindings)
-        {
+        lock (bindings) {
             return bindings.TryGetValue(offerId, out var rowId) ? rowId : null;
         }
     }
@@ -181,8 +168,7 @@ public sealed partial class CatalogAdminService
     {
         var onPage = store.OfferIdsOnPage(row.PageId);
 
-        if (row.OfferId > 0 && onPage.First(offer => offer.OfferId == row.OfferId).Id == row.Id)
-        {
+        if (row.OfferId > 0 && onPage.First(offer => offer.OfferId == row.OfferId).Id == row.Id) {
             return row.OfferId;
         }
 

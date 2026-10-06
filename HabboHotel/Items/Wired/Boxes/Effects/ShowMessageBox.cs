@@ -18,29 +18,17 @@ internal class ShowMessageBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
 
-    public Item Item
-    {
-        get; set;
-    }
+    public Item Item { get; set; }
 
     public WiredBoxType Type => WiredBoxType.EffectShowMessage;
 
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
 
     public string StringData { get; set; } = string.Empty;
 
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
 
     public string ItemsData { get; set; } = string.Empty;
 
@@ -53,44 +41,37 @@ internal class ShowMessageBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params == null || @params.Length == 0)
-        {
+        if (@params == null || @params.Length == 0) {
             return false;
         }
 
         var player = (Habbo)@params[0];
 
-        if (player == null || player.Client == null || string.IsNullOrWhiteSpace(StringData))
-        {
+        if (player == null || player.Client == null || string.IsNullOrWhiteSpace(StringData)) {
             return false;
         }
 
         var user = player.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(player.Username);
 
-        if (user == null)
-        {
+        if (user == null) {
             return false;
         }
 
         var message = StringData;
 
-        if (StringData.Contains("%USERNAME%"))
-        {
+        if (StringData.Contains("%USERNAME%")) {
             message = message.Replace("%USERNAME%", player.Username);
         }
 
-        if (StringData.Contains("%ROOMNAME%"))
-        {
+        if (StringData.Contains("%ROOMNAME%")) {
             message = message.Replace("%ROOMNAME%", player.CurrentRoom.Name);
         }
 
-        if (StringData.Contains("%USERCOUNT%"))
-        {
+        if (StringData.Contains("%USERCOUNT%")) {
             message = message.Replace("%USERCOUNT%", player.CurrentRoom.UserCount.ToString());
         }
 
-        if (StringData.Contains("%USERSONLINE%"))
-        {
+        if (StringData.Contains("%USERSONLINE%")) {
             message = message.Replace("%USERSONLINE%", _clients.Count.ToString());
         }
 

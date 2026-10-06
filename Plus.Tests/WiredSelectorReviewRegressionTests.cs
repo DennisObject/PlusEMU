@@ -24,12 +24,10 @@ public sealed class WiredSelectorReviewRegressionTests
         });
         var result = selector.Select(f.Context);
 
-        if (name == "wf_slc_furni_onfurni")
-        {
+        if (name == "wf_slc_furni_onfurni") {
             Assert.Equal(new uint[] { 3 }, result.Selection.FurniIds);
         }
-        else
-        {
+        else {
             Assert.Equal(new[] { 11 }, result.Selection.UserIds);
         }
 
@@ -49,12 +47,10 @@ public sealed class WiredSelectorReviewRegressionTests
         });
         var result = selector.Select(f.Context);
 
-        if (name == "wf_slc_furni_onfurni")
-        {
+        if (name == "wf_slc_furni_onfurni") {
             Assert.Equal(new uint[] { 4 }, result.Selection.FurniIds);
         }
-        else
-        {
+        else {
             Assert.Equal(new[] { 12 }, result.Selection.UserIds);
         }
     }
@@ -66,19 +62,11 @@ public sealed class WiredSelectorReviewRegressionTests
     {
         var f = new Fixture();
 
-        if (anchorOnly)
-        {
-            f.World = f.World with
-            {
-                Furni = f.World.Furni.Where(x => x.Id != 4).ToArray()
-            };
+        if (anchorOnly) {
+            f.World = f.World with { Furni = f.World.Furni.Where(x => x.Id != 4).ToArray() };
         }
 
-        var selector = f.Selector("wf_slc_furni_onfurni", new()
-        {
-            SelectedItems = [2],
-            IntParams = [3, 100, 0, 0]
-        });
+        var selector = f.Selector("wf_slc_furni_onfurni", new() { SelectedItems = [2], IntParams = [3, 100, 0, 0] });
         Assert.Equal(anchorOnly ? new uint[] { 2 } : [2, 4], selector.Select(f.Context).Selection.FurniIds.Order());
     }
 
@@ -88,12 +76,7 @@ public sealed class WiredSelectorReviewRegressionTests
     public void NativeCaptureFormatterPreservesSavedPickOrderAndSingleFirst(int mode, string expected)
     {
         var f = new Fixture();
-        var addon = f.Addon(new()
-        {
-            IntParams = [mode, 100],
-            SelectedItems = [4, 3],
-            Text = "items\t;"
-        });
+        var addon = f.Addon(new() { IntParams = [mode, 100], SelectedItems = [4, 3], Text = "items\t;" });
         Assert.True(addon.Apply(f.Context));
         Assert.Equal(expected, f.Context.Policy.FormatText(f.Context, "$(items)"));
         Assert.Equal(1, f.WorldCaptures);
@@ -104,23 +87,11 @@ public sealed class WiredSelectorReviewRegressionTests
     {
         var f = new Fixture();
         f.Context.Policy.Addons.FurniLimit = 1;
-        Assert.True(f.Addon(new()
-        {
-            IntParams = [2, 100],
-            SelectedItems = [4, 3],
-            Text = "items\t;"
-        }).Apply(f.Context));
+        Assert.True(f.Addon(new() { IntParams = [2, 100], SelectedItems = [4, 3], Text = "items\t;" }).Apply(f.Context));
         var capped = Assert.Single(f.Context.Targets.ResolveFurni(f.Context, [4, 3], WiredSources.Selected));
         Assert.Equal(capped.Definition.PublicName, f.Context.Policy.FormatText(f.Context, "$(items)"));
         f.Items.Remove(capped);
-        f.Items.Add(new()
-        {
-            Id = capped.Id,
-            Definition = new()
-            {
-                PublicName = "Replacement"
-            }
-        });
+        f.Items.Add(new() { Id = capped.Id, Definition = new() { PublicName = "Replacement" } });
         Assert.Equal("", f.Context.Policy.FormatText(f.Context, "$(items)"));
         Assert.Equal(1, f.WorldCaptures);
     }
@@ -142,10 +113,7 @@ public sealed class WiredSelectorReviewRegressionTests
         public Fixture()
         {
             RoomUser[] users = [new(111, 1, 11, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused), new(112, 1, 12, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)];
-            Context = new(_room, new(WiredEventKind.Enter)
-            {
-                EventItem = Items[0]
-            },
+            Context = new(_room, new(WiredEventKind.Enter) { EventItem = Items[0] },
                 new(() => Items, () => users, id => Items.FirstOrDefault(x => x.Id == id),
                     id => users.FirstOrDefault(x => x.VirtualId == id)), new Operations());
             Context.Triggering.FurniIds.Add(1);
@@ -159,14 +127,7 @@ public sealed class WiredSelectorReviewRegressionTests
         }
         public IWiredContextualSelector Selector(string name, WiredConfiguration configuration)
         {
-            var selector = WiredSelectorFactory.Create(_room, new()
-            {
-                Id = 100,
-                Definition = new()
-                {
-                    InteractionName = name
-                }
-            },
+            var selector = WiredSelectorFactory.Create(_room, new() { Id = 100, Definition = new() { InteractionName = name } },
                 _state, TestGroupManager.Empty, readWorld: ReadWorld)!;
             Assert.True(selector.TryValidateConfiguration(configuration, out var valid, out var error), error);
             selector.ApplyConfiguration(valid);
@@ -175,14 +136,7 @@ public sealed class WiredSelectorReviewRegressionTests
         }
         public IWiredContextualAddon Addon(WiredConfiguration configuration)
         {
-            var addon = WiredAddonFactory.Create(_room, new()
-            {
-                Id = 200,
-                Definition = new()
-                {
-                    InteractionName = "wf_xtra_text_output_furni_name"
-                }
-            },
+            var addon = WiredAddonFactory.Create(_room, new() { Id = 200, Definition = new() { InteractionName = "wf_xtra_text_output_furni_name" } },
                 _state, TestGroupManager.Empty, readWorld: ReadWorld)!;
             Assert.True(addon.TryValidateConfiguration(configuration, out var valid, out var error), error);
             addon.ApplyConfiguration(valid);

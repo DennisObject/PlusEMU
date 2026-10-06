@@ -36,28 +36,23 @@ public static class ClaimMatrix
 {
     public static TargetOccupancy BlockingMask(ActorProfile actor, NavFlags target, StepPurpose purpose, OccupancyView view)
     {
-        if (actor.LegacyOverride || purpose == StepPurpose.Interaction)
-        {
+        if (actor.LegacyOverride || purpose == StepPurpose.Interaction) {
             return TargetOccupancy.None;
         }
 
-        if (purpose == StepPurpose.Roller)
-        {
+        if (purpose == StepPurpose.Roller) {
             return (TargetOccupancy)127;
         }
 
-        if (actor.IgnoreUsers || (target & NavFlags.Door) != 0)
-        {
+        if (actor.IgnoreUsers || (target & NavFlags.Door) != 0) {
             return TargetOccupancy.RollerClaim;
         }
 
-        if (!actor.Walkthrough)
-        {
+        if (!actor.Walkthrough) {
             return view == OccupancyView.Execution ? (TargetOccupancy)127 : TargetOccupancy.Stationary | TargetOccupancy.OffGraph;
         }
 
-        if (purpose != StepPurpose.Goal)
-        {
+        if (purpose != StepPurpose.Goal) {
             return TargetOccupancy.RollerClaim;
         }
 
@@ -76,8 +71,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     public StepResult CanStep(ActorProfile actor, in NavPosition from, in NavPosition to,
         StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy = null)
     {
-        if (!Adjacent(from, to))
-        {
+        if (!Adjacent(from, to)) {
             return new(StepReason.BoundsOrAdjacency);
         }
 
@@ -90,8 +84,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     public StepResult CanRollOntoVacatedRoller(ActorProfile actor, in NavPosition from, in NavPosition to,
         PlanningOccupancy occupancy, bool floorStatusReleased = false)
     {
-        if (!Adjacent(from, to))
-        {
+        if (!Adjacent(from, to)) {
             return new(StepReason.BoundsOrAdjacency);
         }
 
@@ -123,53 +116,43 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     private StepResult CanEnter(ActorProfile actor, in NavPosition from, in NavPosition to,
         int slot, NavFlags flags, StepPurpose purpose, OccupancyView view, PlanningOccupancy? occupancy)
     {
-        if (actor.LegacyOverride)
-        {
+        if (actor.LegacyOverride) {
             return new(StepReason.Ok);
         }
 
-        if (purpose == StepPurpose.Interaction)
-        {
+        if (purpose == StepPurpose.Interaction) {
             return new(actor.Interaction?.Allows(from, to) == true ? StepReason.Ok : StepReason.InteractionDenied);
         }
 
-        if (!IsStandable(flags, slot, purpose))
-        {
+        if (!IsStandable(flags, slot, purpose)) {
             return new(StepReason.NotStandable);
         }
 
-        if ((flags & NavFlags.FloorLocked) != 0)
-        {
+        if ((flags & NavFlags.FloorLocked) != 0) {
             return new(StepReason.FloorLocked);
         }
 
-        if (!actor.IgnoreStepHeight && purpose != StepPurpose.Roller)
-        {
+        if (!actor.IgnoreStepHeight && purpose != StepPurpose.Roller) {
             var height = HeightReason(grid.WalkZ[slot] - from.Z);
 
-            if (height != StepReason.Ok)
-            {
+            if (height != StepReason.Ok) {
                 return new(height);
             }
         }
 
-        if (from.X != to.X && from.Y != to.Y && _cornerRule != CornerRule.None)
-        {
+        if (from.X != to.X && from.Y != to.Y && _cornerRule != CornerRule.None) {
             var corner = CornerReason(actor, from, to);
 
-            if (corner != StepReason.Ok)
-            {
+            if (corner != StepReason.Ok) {
                 return new(corner);
             }
         }
 
-        if ((flags & NavFlags.GuildGate) != 0 && !_access.CanEnterGuildGate(actor, grid.GroupId[slot]))
-        {
+        if ((flags & NavFlags.GuildGate) != 0 && !_access.CanEnterGuildGate(actor, grid.GroupId[slot])) {
             return new(StepReason.GateDenied);
         }
 
-        if (occupancy != null && (occupancy.Targets[slot] & ClaimMatrix.BlockingMask(actor, flags, purpose, view)) != 0)
-        {
+        if (occupancy != null && (occupancy.Targets[slot] & ClaimMatrix.BlockingMask(actor, flags, purpose, view)) != 0) {
             return new(StepReason.Occupied);
         }
 
@@ -194,8 +177,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
         var b = grid.Tile(from.X, to.Y);
 
         // Official requires both flanks to exist even when the first is open.
-        if (_cornerRule == CornerRule.Official && (grid.TileVoid[a] || grid.TileVoid[b]))
-        {
+        if (_cornerRule == CornerRule.Official && (grid.TileVoid[a] || grid.TileVoid[b])) {
             return StepReason.CornerVoid;
         }
 
@@ -203,8 +185,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
 
         if (_cornerRule == CornerRule.Strict
             ? !openA || !CanFlankKnownTile(actor, from.Z, b)
-            : !openA && !CanFlankKnownTile(actor, from.Z, b))
-        {
+            : !openA && !CanFlankKnownTile(actor, from.Z, b)) {
             return StepReason.CornerBlocked;
         }
 
@@ -213,8 +194,7 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
 
     public bool CanFlank(ActorProfile actor, in NavPosition from, int x, int y)
     {
-        if (!grid.InBounds(x, y))
-        {
+        if (!grid.InBounds(x, y)) {
             return false;
         }
 
@@ -225,10 +205,8 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private bool CanFlankKnownTile(ActorProfile actor, double fromZ, int t)
     {
-        for (var ordinal = 0; ordinal < grid.SurfaceCount(t); ordinal++)
-        {
-            if (FlankSurfaceOpen(actor, fromZ, grid.SurfaceAt(t, ordinal)))
-            {
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(t); ordinal++) {
+            if (FlankSurfaceOpen(actor, fromZ, grid.SurfaceAt(t, ordinal))) {
                 return true;
             }
         }

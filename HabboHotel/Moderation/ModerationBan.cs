@@ -10,22 +10,10 @@ public class ModerationBan
         ExpiresAt = expiresAt?.ToUniversalTime();
     }
 
-    public string Value
-    {
-        get; set;
-    }
-    public DateTimeOffset? ExpiresAt
-    {
-        get; set;
-    }
-    public string Reason
-    {
-        get; set;
-    }
-    public ModerationBanType Type
-    {
-        get; set;
-    }
+    public string Value { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
+    public string Reason { get; set; }
+    public ModerationBanType Type { get; set; }
 
     public bool IsExpiredAt(DateTimeOffset now) => ExpiresAt is not { } expiresAt || expiresAt <= now;
 }

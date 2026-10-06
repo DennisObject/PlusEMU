@@ -118,8 +118,7 @@ public sealed class CatalogBrowsingSnapshotTests
         var viewed = new List<int>();
         var admin = CatalogSnapshotTestSupport.Proxy<ICatalogAdminService>((method, args) =>
         {
-            if (method == nameof(ICatalogAdminService.RecordViewedPage))
-            {
+            if (method == nameof(ICatalogAdminService.RecordViewedPage)) {
                 viewed.Add((int)args[1]!);
 
                 return null;
@@ -236,10 +235,7 @@ public sealed class CatalogBrowsingSnapshotTests
     private sealed class Rooms : IRoomDataLoader
     {
         public List<RoomData> Data { get; set; } = [];
-        public int OwnerId
-        {
-            get; private set;
-        }
+        public int OwnerId { get; private set; }
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId)
         {
             OwnerId = ownerId;
@@ -250,10 +246,7 @@ public sealed class CatalogBrowsingSnapshotTests
     }
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
@@ -267,23 +260,11 @@ public sealed class CatalogBrowsingSnapshotTests
     }
     private sealed class RecordingBrowsing : ICatalogBrowsingService
     {
-        public string? Type
-        {
-            get; private set;
-        }
-        public bool PromotableRequested
-        {
-            get; private set;
-        }
-        public CatalogPageRequest? PageRequest
-        {
-            get; private set;
-        }
+        public string? Type { get; private set; }
+        public bool PromotableRequested { get; private set; }
+        public CatalogPageRequest? PageRequest { get; private set; }
         public List<string> Modes { get; } = [];
-        public int? OfferId
-        {
-            get; private set;
-        }
+        public int? OfferId { get; private set; }
         public void ShowOffer(GameClient session, int offerId) => OfferId = offerId;
         public void ShowPetPalettes(GameClient session, string type) => Type = type;
         public void ShowPromotableRooms(GameClient session) => PromotableRequested = true;
@@ -295,14 +276,8 @@ public sealed class CatalogBrowsingSnapshotTests
     private sealed class RecordingSnapshots(ICatalogSnapshotService inner) : ICatalogSnapshotService
     {
         public List<int> PageOffers { get; } = [];
-        public int IndexCaptures
-        {
-            get; private set;
-        }
-        public int OfferCaptures
-        {
-            get; private set;
-        }
+        public int IndexCaptures { get; private set; }
+        public int OfferCaptures { get; private set; }
         public CatalogOfferSnapshot CaptureOffer(CatalogItem item)
         {
             OfferCaptures++;

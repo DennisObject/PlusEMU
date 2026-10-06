@@ -20,24 +20,12 @@ internal class UserSaysCommandBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.TriggerUserSaysCommand;
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -53,30 +41,25 @@ internal class UserSaysCommandBox : IWiredItem
     {
         var player = (Habbo)@params[0];
 
-        if (player == null || player.CurrentRoom == null || !player.InRoom)
-        {
+        if (player == null || player.CurrentRoom == null || !player.InRoom) {
             return false;
         }
 
         var user = player.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(player.Username);
 
-        if (user == null)
-        {
+        if (user == null) {
             return false;
         }
 
-        if (BoolData && Instance.OwnerId != player.Id || string.IsNullOrWhiteSpace(StringData))
-        {
+        if (BoolData && Instance.OwnerId != player.Id || string.IsNullOrWhiteSpace(StringData)) {
             return false;
         }
 
-        if (!_commands.TryGetCommand(StringData.Replace(":", "").ToLower(), out var chatCommand))
-        {
+        if (!_commands.TryGetCommand(StringData.Replace(":", "").ToLower(), out var chatCommand)) {
             return false;
         }
 
-        if (player.ChatCommand == chatCommand)
-        {
+        if (player.ChatCommand == chatCommand) {
             return Instance.GetWired().RunStack(this, [player], () =>
             {
                 player.WiredInteraction = true;

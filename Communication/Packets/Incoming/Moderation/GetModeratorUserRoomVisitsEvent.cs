@@ -13,8 +13,7 @@ internal class GetModeratorUserRoomVisitsEvent(IModeratorHistoryService history)
     {
         var result = history.GetUserRoomVisits(packet.ReadInt());
 
-        if (result != null)
-        {
+        if (result != null) {
             session.Send(new ModeratorUserRoomVisitsComposer(result));
         }
 

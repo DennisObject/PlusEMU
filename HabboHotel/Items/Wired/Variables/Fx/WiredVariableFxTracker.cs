@@ -23,15 +23,12 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
     /// <summary>Call on room-unit/furniture removal, even if the same holder returns before the next flush.</summary>
     public void DetachHolder(WiredVariableHolder holder)
     {
-        if (holder.Target is not (WiredVariableTarget.User or WiredVariableTarget.Furni))
-        {
+        if (holder.Target is not (WiredVariableTarget.User or WiredVariableTarget.Furni)) {
             return;
         }
 
-        foreach (var viewer in _viewers.Values)
-        {
-            foreach (var key in viewer.Statuses.Keys.Where(x => x.EntityId == holder.EntityId && x.UserEntity == (holder.Target == WiredVariableTarget.User)).ToArray())
-            {
+        foreach (var viewer in _viewers.Values) {
+            foreach (var key in viewer.Statuses.Keys.Where(x => x.EntityId == holder.EntityId && x.UserEntity == (holder.Target == WiredVariableTarget.User)).ToArray()) {
                 viewer.Statuses.Remove(key);
                 viewer.Holders.Remove(key);
             }
@@ -43,8 +40,7 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
     /// <summary>Call after all packets were composed/enqueued without failure; this does not acknowledge network delivery. Reset the viewer on disconnect/send failure.</summary>
     public bool Acknowledge(long stableUserId, WiredVariableFxBatch batch)
     {
-        if (!_pending.TryGetValue(stableUserId, out var pending) || !ReferenceEquals(pending.Batch, batch))
-        {
+        if (!_pending.TryGetValue(stableUserId, out var pending) || !ReferenceEquals(pending.Batch, batch)) {
             return false;
         }
 
@@ -58,20 +54,17 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
         IReadOnlyList<WiredVariableFxBinding> bindings, IReadOnlyList<WiredVariableHolder> readyHolders,
         Func<WiredVariableHolder, int> team, WiredVariableReadSnapshot? reads = null)
     {
-        if (reads is null)
-        {
+        if (reads is null) {
             using var snapshot = CaptureReads(frame, bindings);
 
             return Update(viewer, frame, bindings, readyHolders, team, snapshot);
         }
 
-        if (viewer.Target != WiredVariableTarget.User || !viewer.CanPersist || !frame.Contains(viewer))
-        {
+        if (viewer.Target != WiredVariableTarget.User || !viewer.CanPersist || !frame.Contains(viewer)) {
             throw new ArgumentException("FX viewer must be a present player.", nameof(viewer));
         }
 
-        if (!_viewers.TryGetValue(viewer.StableId, out var state))
-        {
+        if (!_viewers.TryGetValue(viewer.StableId, out var state)) {
             state = new();
         }
 
@@ -82,69 +75,51 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
         var wanted = new Dictionary<WiredVariableFxKey, WiredVariableFxStatus>();
         var identities = new Dictionary<WiredVariableFxKey, WiredVariableHolder>();
 
-        foreach (var binding in bindings)
-        {
-            foreach (var holder in readyHolders)
-            {
-                if (wanted.Count >= maxStatuses)
-                {
+        foreach (var binding in bindings) {
+            foreach (var holder in readyHolders) {
+                if (wanted.Count >= maxStatuses) {
                     break;
                 }
 
-                if (holder.Target != binding.Variable.Target || !frame.Contains(holder) || !CanSee(binding, viewer, holder, frame, team, reads))
-                {
+                if (holder.Target != binding.Variable.Target || !frame.Contains(holder) || !CanSee(binding, viewer, holder, frame, team, reads)) {
                     continue;
                 }
 
                 var value = reads.Read(binding.Variable, holder, frame);
 
-                if (value is null)
-                {
+                if (value is null) {
                     continue;
                 }
 
                 var min = ReadOverride(binding.OverrideMin, holder, frame, reads);
                 var max = ReadOverride(binding.OverrideMax, holder, frame, reads);
 
-                if (min is not null || max is not null)
-                {
+                if (min is not null || max is not null) {
                     min ??= binding.Config.Min;
                     max ??= binding.Config.Max;
 
-                    if (max <= min)
-                    {
+                    if (max <= min) {
                         max = min + 1;
                     }
                 }
 
                 var extra = ImmutableSortedDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
 
-                if (binding.Config.ColorId == 1002)
-                {
-                    var color = team(holder) switch
-                    {
-                        1 => "#ff0000",
-                        2 => "#00ff00",
-                        3 => "#0000ff",
-                        4 => "#ffff00",
-                        _ => null
-                    };
+                if (binding.Config.ColorId == 1002) {
+                    var color = team(holder) switch { 1 => "#ff0000", 2 => "#00ff00", 3 => "#0000ff", 4 => "#ffff00", _ => null };
 
-                    if (color is not null)
-                    {
+                    if (color is not null) {
                         extra["delegated_color"] = color;
                     }
                 }
 
-                if (binding.Config.Category == 2 || binding.Config.ColorId == 1001)
-                {
+                if (binding.Config.Category == 2 || binding.Config.ColorId == 1001) {
                     var level = binding.Level?.Invoke(value.Value) ?? new(1, 1, binding.Config.Min, binding.Config.Max, false);
                     extra["current_level"] = level.Level.ToString(CultureInfo.InvariantCulture);
                     extra["max_level"] = level.MaxLevel.ToString(CultureInfo.InvariantCulture);
                     extra["is_maxed"] = level.IsMaxed ? "true" : "false";
 
-                    if (binding.Level is not null)
-                    {
+                    if (binding.Level is not null) {
                         min = level.Start;
                         max = level.Next;
                     }
@@ -175,8 +150,7 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
 
     private static long? ReadOverride(WiredVariableReference? reference, WiredVariableHolder holder, WiredVariableFrame frame, WiredVariableReadSnapshot reads)
     {
-        if (reference is null)
-        {
+        if (reference is null) {
             return null;
         }
 
@@ -202,10 +176,7 @@ public sealed class WiredVariableFxTracker(WiredVariableModule variables, int ma
     private static string Signature<T>(T value) => JsonSerializer.Serialize(value);
     private sealed class Viewer
     {
-        public bool Synced
-        {
-            get; set;
-        }
+        public bool Synced { get; set; }
         public Dictionary<int, string> Configs { get; set; } = [];
         public Dictionary<WiredVariableFxKey, string> Statuses { get; set; } = [];
         public Dictionary<WiredVariableFxKey, WiredVariableHolder> Holders { get; set; } = [];

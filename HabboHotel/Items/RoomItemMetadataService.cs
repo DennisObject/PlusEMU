@@ -35,13 +35,7 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
     {
         using var connection = database.Connection();
 
-        if (connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new
-        {
-            itemId,
-            roomId,
-            data
-        }) != 1)
-        {
+        if (connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId, data }) != 1) {
             throw new InvalidOperationException("Mannequin data was not persisted.");
         }
     }
@@ -51,15 +45,7 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         using var connection = database.Connection();
 
         if (connection.Execute("UPDATE room_items_toner toner JOIN items item ON item.id=toner.id SET toner.enabled=TRUE,toner.data1=@hue,toner.data2=@saturation,toner.data3=@lightness WHERE toner.id=@itemId AND item.room_id=@roomId",
-                new
-                {
-                    itemId,
-                    roomId,
-                    hue,
-                    saturation,
-                    lightness
-                }) != 1)
-        {
+                new { itemId, roomId, hue, saturation, lightness }) != 1) {
             throw new InvalidOperationException("Toner data was not persisted.");
         }
     }
@@ -71,21 +57,11 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (connection.Query<uint>("SELECT id FROM items WHERE id=@itemId AND room_id=@roomId FOR UPDATE", new
-        {
-            itemId,
-            roomId
-        }, transaction).Count() != 1)
-        {
+        if (connection.Query<uint>("SELECT id FROM items WHERE id=@itemId AND room_id=@roomId FOR UPDATE", new { itemId, roomId }, transaction).Count() != 1) {
             throw new InvalidOperationException("Branding item is not in the room.");
         }
 
-        connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new
-        {
-            itemId,
-            roomId,
-            data
-        }, transaction);
+        connection.Execute("UPDATE items SET extra_data=@data WHERE id=@itemId AND room_id=@roomId LIMIT 1", new { itemId, roomId, data }, transaction);
         transaction.Commit();
     }
 
@@ -96,20 +72,15 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (!ItemExists(connection, transaction, itemId))
-        {
+        if (!ItemExists(connection, transaction, itemId)) {
             return null;
         }
 
         var row = FirstSidecar(connection, transaction, itemId);
 
-        if (row == null)
-        {
+        if (row == null) {
             connection.Execute("INSERT INTO room_items_moodlight (item_id,enabled,current_preset,preset_one,preset_two,preset_three) VALUES (@itemId,FALSE,1,'#000000,255,0','#000000,255,0','#000000,255,0')",
-                new
-                {
-                    itemId
-                }, transaction);
+                new { itemId }, transaction);
             row = FirstSidecar(connection, transaction, itemId) ?? throw new InvalidOperationException("Moodlight defaults were not persisted.");
         }
 
@@ -126,11 +97,7 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         using var transaction = connection.BeginTransaction();
         RequireItemInRoom(connection, transaction, itemId, roomId);
         var row = FirstSidecar(connection, transaction, itemId) ?? throw new InvalidOperationException("Moodlight sidecar was not found.");
-        connection.Execute("UPDATE room_items_moodlight SET enabled=@enabled WHERE id=@sidecarId LIMIT 1", new
-        {
-            enabled,
-            sidecarId = row.SidecarId
-        }, transaction);
+        connection.Execute("UPDATE room_items_moodlight SET enabled=@enabled WHERE id=@sidecarId LIMIT 1", new { enabled, sidecarId = row.SidecarId }, transaction);
         transaction.Commit();
     }
 
@@ -151,12 +118,7 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         var row = FirstSidecar(connection, transaction, itemId) ?? throw new InvalidOperationException("Moodlight sidecar was not found.");
         // An identical value changes no rows; the locked, existing sidecar is the contract.
         connection.Execute($"UPDATE room_items_moodlight SET enabled=TRUE, current_preset=@preset, {column}=@value WHERE id=@sidecarId LIMIT 1",
-            new
-            {
-                preset,
-                value,
-                sidecarId = row.SidecarId
-            }, transaction);
+            new { preset, value, sidecarId = row.SidecarId }, transaction);
         transaction.Commit();
     }
 
@@ -166,84 +128,47 @@ public sealed class RoomItemMetadataStore(IDatabase database) : IRoomItemMetadat
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (!ItemExists(connection, transaction, itemId))
-        {
+        if (!ItemExists(connection, transaction, itemId)) {
             return null;
         }
 
         var row = FirstToner(connection, transaction, itemId);
 
-        if (row == null)
-        {
-            connection.Execute("INSERT INTO room_items_toner (id,enabled,data1,data2,data3) VALUES (@itemId,FALSE,0,0,0)", new
-            {
-                itemId
-            }, transaction);
+        if (row == null) {
+            connection.Execute("INSERT INTO room_items_toner (id,enabled,data1,data2,data3) VALUES (@itemId,FALSE,0,0,0)", new { itemId }, transaction);
             row = FirstToner(connection, transaction, itemId) ?? throw new InvalidOperationException("Toner defaults were not persisted.");
         }
 
         transaction.Commit();
 
-        return new()
-        {
-            Enabled = row.Enabled,
-            Hue = row.Hue,
-            Saturation = row.Saturation,
-            Lightness = row.Lightness
-        };
+        return new() { Enabled = row.Enabled, Hue = row.Hue, Saturation = row.Saturation, Lightness = row.Lightness };
     }
 
     private static bool ItemExists(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, uint itemId) =>
-        connection.Query<uint>("SELECT id FROM items WHERE id = @itemId FOR UPDATE", new
-        {
-            itemId
-        }, transaction).Count() == 1;
+        connection.Query<uint>("SELECT id FROM items WHERE id = @itemId FOR UPDATE", new { itemId }, transaction).Count() == 1;
 
     private static void RequireItemInRoom(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, uint itemId, uint roomId)
     {
-        if (connection.Query<uint>("SELECT id FROM items WHERE id = @itemId AND room_id = @roomId FOR UPDATE", new
-        {
-            itemId,
-            roomId
-        }, transaction).Count() != 1)
-        {
+        if (connection.Query<uint>("SELECT id FROM items WHERE id = @itemId AND room_id = @roomId FOR UPDATE", new { itemId, roomId }, transaction).Count() != 1) {
             throw new InvalidOperationException("Item is not in the room.");
         }
     }
 
     private static SidecarRow? FirstSidecar(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, uint itemId) =>
         connection.Query<SidecarRow>("SELECT id AS SidecarId,enabled AS Enabled,current_preset AS CurrentPreset,preset_one AS PresetOne,preset_two AS PresetTwo,preset_three AS PresetThree FROM room_items_moodlight WHERE item_id = @itemId ORDER BY id LIMIT 1 FOR UPDATE",
-            new
-            {
-                itemId
-            }, transaction).FirstOrDefault();
+            new { itemId }, transaction).FirstOrDefault();
 
     private static TonerRow? FirstToner(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, uint itemId) =>
         connection.Query<TonerRow>("SELECT enabled AS Enabled,data1 AS Hue,data2 AS Saturation,data3 AS Lightness FROM room_items_toner WHERE id = @itemId FOR UPDATE",
-            new
-            {
-                itemId
-            }, transaction).FirstOrDefault();
+            new { itemId }, transaction).FirstOrDefault();
 
     private sealed record SidecarRow(int SidecarId, bool Enabled, int CurrentPreset, string PresetOne, string PresetTwo, string PresetThree);
     private sealed class TonerRow
     {
-        public bool Enabled
-        {
-            get; init;
-        }
-        public int Hue
-        {
-            get; init;
-        }
-        public int Saturation
-        {
-            get; init;
-        }
-        public int Lightness
-        {
-            get; init;
-        }
+        public bool Enabled { get; init; }
+        public int Hue { get; init; }
+        public int Saturation { get; init; }
+        public int Lightness { get; init; }
     }
 }
 
@@ -262,22 +187,19 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
 
-        if (room == null || !room.CheckRights(session, true))
-        {
+        if (room == null || !room.CheckRights(session, true)) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(itemId);
 
-        if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Mannequin)
-        {
+        if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Mannequin) {
             return;
         }
 
         var fields = item.LegacyDataString.Split((char)5);
 
-        if (fields.Length == 2)
-        {
+        if (fields.Length == 2) {
             return;
         }
 
@@ -296,15 +218,13 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
     {
         var room = session.GetHabbo().CurrentRoom;
 
-        if (room == null || !room.CheckRights(session, true))
-        {
+        if (room == null || !room.CheckRights(session, true)) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(request.ItemId);
 
-        if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Mannequin)
-        {
+        if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Mannequin) {
             return;
         }
 
@@ -322,35 +242,30 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
 
-        if (!habbo.InRoom || room == null || !room.CheckRights(session, true) || !habbo.Access.Can(PermissionKeys.RoomItemSaveBrandingItems))
-        {
+        if (!habbo.InRoom || room == null || !room.CheckRights(session, true) || !habbo.Access.Can(PermissionKeys.RoomItemSaveBrandingItems)) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(request.ItemId);
 
-        if (item == null || item.IsTemporary)
-        {
+        if (item == null || item.IsTemporary) {
             return;
         }
 
-        if (item.Definition.InteractionType != InteractionType.Background)
-        {
+        if (item.Definition.InteractionType != InteractionType.Background) {
             // Non-background furniture keeps the placement-only republish that an id-only frame has always caused.
             room.GetRoomItemHandler().SetFloorItem(session, item, item.GetX, item.GetY, item.Rotation, false, false, true);
 
             return;
         }
 
-        if (request.Values is not { } values || FurniExtraData.RejectsClientImage(values))
-        {
+        if (request.Values is not { } values || FurniExtraData.RejectsClientImage(values)) {
             return;
         }
 
         var pairs = new Dictionary<string, string> { ["state"] = "0" };
 
-        for (var index = 0; index < values.Length; index += 2)
-        {
+        for (var index = 0; index < values.Length; index += 2) {
             pairs[values[index]] = values[index + 1];
         }
 
@@ -362,15 +277,13 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
     public void SetToner(Room room, GameClient session, TonerSettingsRequest request)
     {
         if (!room.CheckRights(session, true) || room.TonerData == null || room.TonerData.ItemId != request.ItemId ||
-            request.Hue is < 0 or > 255 || request.Saturation is < 0 or > 255 || request.Lightness is < 0 or > 255)
-        {
+            request.Hue is < 0 or > 255 || request.Saturation is < 0 or > 255 || request.Lightness is < 0 or > 255) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(request.ItemId);
 
-        if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Toner)
-        {
+        if (item == null || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Toner) {
             return;
         }
 

@@ -10,15 +10,13 @@ internal class ModeratorActionEvent : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!session.GetHabbo().InRoom)
-        {
+        if (!session.GetHabbo().InRoom) {
             return Task.CompletedTask;
         }
 
         var currentRoom = session.GetHabbo().CurrentRoom;
 
-        if (currentRoom == null)
-        {
+        if (currentRoom == null) {
             return Task.CompletedTask;
         }
 

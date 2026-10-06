@@ -86,13 +86,11 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
 
     private CatalogOfferProducts CaptureProducts(CatalogItem item)
     {
-        if (item.HabbiconId > 0)
-        {
+        if (item.HabbiconId > 0) {
             return new HabbiconProducts(item.HabbiconId);
         }
 
-        if (item.Definition.InteractionType is InteractionType.Deal or InteractionType.Roomdeal)
-        {
+        if (item.Definition.InteractionType is InteractionType.Deal or InteractionType.Roomdeal) {
             return CaptureDeal(item.Definition.BehaviourData);
         }
 
@@ -126,13 +124,11 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
     {
         var interaction = item.Definition.InteractionType;
 
-        if (interaction is InteractionType.Wallpaper or InteractionType.Floor or InteractionType.Landscape)
-        {
+        if (interaction is InteractionType.Wallpaper or InteractionType.Floor or InteractionType.Landscape) {
             return (true, item.CatalogName.Split('_')[2]);
         }
 
-        if (interaction == InteractionType.Bot)
-        {
+        if (interaction == InteractionType.Bot) {
             return (true, catalog.TryGetBot(item.ItemId, out var bot) ? bot.Figure : UnknownBotFigure);
         }
 

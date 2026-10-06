@@ -23,25 +23,21 @@ public sealed class RoomItemPickupService(
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return Task.CompletedTask;
         }
 
         var item = room.GetRoomItemHandler().GetItem(itemId);
 
-        if (item == null)
-        {
+        if (item == null) {
             return Task.CompletedTask;
         }
 
-        lock (item)
-        {
+        lock (item) {
             if (!ReferenceEquals(habbo.CurrentRoom, room) ||
                 !ReferenceEquals(room.GetRoomItemHandler().GetItem(itemId), item) || item.IsTemporary ||
                 item.RoomId != room.Id || item.OwnerId is 0 or > int.MaxValue ||
-                item.Definition.InteractionType == InteractionType.Postit)
-            {
+                item.Definition.InteractionType == InteractionType.Postit) {
                 return Task.CompletedTask;
             }
 
@@ -49,8 +45,7 @@ public sealed class RoomItemPickupService(
             var mayTake = habbo.Access.Can(PermissionKeys.RoomItemTake);
 
             if (ownerId != habbo.Id && !mayTake && !room.CheckRights(session, false) &&
-                !(room.Group != null && room.CheckRights(session, false, true)))
-            {
+                !(room.Group != null && room.CheckRights(session, false, true))) {
                 return Task.CompletedTask;
             }
 
@@ -60,21 +55,18 @@ public sealed class RoomItemPickupService(
             var inventoryItem = item.ToInventoryItem();
             inventoryItem.OwnerId = (uint)recipientId;
 
-            if (!store.PickUp(new(item.Id, room.Id, ownerId, recipientId, item.Definition.InteractionType)))
-            {
+            if (!store.PickUp(new(item.Id, room.Id, ownerId, recipientId, item.Definition.InteractionType))) {
                 return Task.CompletedTask;
             }
 
-            if (item.Definition.InteractionType is InteractionType.Tent or InteractionType.TentSmall)
-            {
+            if (item.Definition.InteractionType is InteractionType.Tent or InteractionType.TentSmall) {
                 room.RemoveTent(item.Id);
             }
 
             room.GetRoomItemHandler().RemoveFurniture(receiverHabbo == null ? null! : receiver!, item.Id);
             item.RoomId = 0;
 
-            if (receiverHabbo != null)
-            {
+            if (receiverHabbo != null) {
                 receiverHabbo.Inventory.Furniture.AddItem(inventoryItem);
                 receiver!.Send(new FurniListUpdateComposer());
             }

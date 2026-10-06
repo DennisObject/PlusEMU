@@ -13,18 +13,9 @@ public sealed class UserRewardTrackState
         Premium = premium;
     }
 
-    public string TrackId
-    {
-        get;
-    }
-    public int Points
-    {
-        get; private set;
-    }
-    public bool Premium
-    {
-        get; private set;
-    }
+    public string TrackId { get; }
+    public int Points { get; private set; }
+    public bool Premium { get; private set; }
 
     public int ProgressOf(string taskId) => _progress.GetValueOrDefault(taskId);
 
@@ -43,8 +34,7 @@ public sealed class UserRewardTrackState
         _progress[step.TaskId] = step.Count;
         _peaks[step.TaskId] = Math.Max(PeakOf(step.TaskId), step.Peak);
 
-        if (step.PointsGranted > 0)
-        {
+        if (step.PointsGranted > 0) {
             Points += step.PointsGranted;
         }
     }

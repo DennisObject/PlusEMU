@@ -23,16 +23,14 @@ public sealed record WiredMovementComposer(int Type, int Id, int FromX, int From
         packet.WriteString(ToZ.ToString(CultureInfo.InvariantCulture));
         packet.WriteInteger(Id);
 
-        if (Type == 1)
-        {
+        if (Type == 1) {
             packet.WriteInteger(BodyRotation);
             packet.WriteInteger(DurationMs);
             packet.WriteInteger(0);
             packet.WriteInteger(0);
             packet.WriteInteger(0);
         }
-        else
-        {
+        else {
             packet.WriteInteger(1);
             packet.WriteInteger(BodyRotation);
             packet.WriteInteger(HeadRotation);

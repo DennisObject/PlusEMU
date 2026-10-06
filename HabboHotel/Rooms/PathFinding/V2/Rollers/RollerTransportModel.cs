@@ -55,18 +55,9 @@ internal sealed class TransportGroup : IRollerDepartureView
         _departures = moves.GroupBy(move => move.Origin).ToDictionary(tile => tile.Key, RollerDepartures.Of);
     }
 
-    internal TransportGroupKind Kind
-    {
-        get;
-    }
-    internal IReadOnlyList<RollerMove> Moves
-    {
-        get;
-    }
-    internal uint FirstRollerId
-    {
-        get;
-    }
+    internal TransportGroupKind Kind { get; }
+    internal IReadOnlyList<RollerMove> Moves { get; }
+    internal uint FirstRollerId { get; }
 
     public RollerDepartures At(Point tile) => _departures.GetValueOrDefault(tile, RollerDepartures.None);
 }
@@ -84,18 +75,9 @@ internal sealed class RollerDepartures
         Users = users;
     }
 
-    internal Item? Roller
-    {
-        get;
-    }
-    internal IReadOnlySet<uint> Items
-    {
-        get;
-    }
-    internal IReadOnlySet<RoomUser> Users
-    {
-        get;
-    }
+    internal Item? Roller { get; }
+    internal IReadOnlySet<uint> Items { get; }
+    internal IReadOnlySet<RoomUser> Users { get; }
     internal bool IsEmpty => Items.Count == 0 && Users.Count == 0;
 
     internal bool AllUsersLeave(IEnumerable<RoomUser> occupants) => occupants.All(Users.Contains);
@@ -114,8 +96,7 @@ internal sealed class RollerDepartures
     {
         var list = moves.ToList();
 
-        if (list.Count == 0)
-        {
+        if (list.Count == 0) {
             return None;
         }
 

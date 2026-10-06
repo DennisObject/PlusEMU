@@ -15,17 +15,14 @@ internal sealed class RollerLoadBuilder(Room room, RollerTransport transport)
         var actorsSeen = new HashSet<RoomUser>(ReferenceEqualityComparer.Instance);
         var loads = new List<RollerLoad>();
 
-        foreach (var roller in rollers)
-        {
-            if (roller == null || roller.SquareInFront == new Point(roller.GetX, roller.GetY))
-            {
+        foreach (var roller in rollers) {
+            if (roller == null || roller.SquareInFront == new Point(roller.GetX, roller.GetY)) {
                 continue;
             }
 
             var load = Load(roller, cargoSeen, actorsSeen);
 
-            if (load.Moves.Count > 0)
-            {
+            if (load.Moves.Count > 0) {
                 loads.Add(load);
             }
         }
@@ -46,8 +43,7 @@ internal sealed class RollerLoadBuilder(Room room, RollerTransport transport)
             .Select(cargo => CargoMove(roller, cargo, destination, nextIsRoller)).ToList();
         var actor = map.GetRoomUsers(new(roller.GetX, roller.GetY)).FirstOrDefault(user => transport.RestsOnRoller(roller, user));
 
-        if (actor != null && transport.CanRide(actor) && actorsSeen.Add(actor))
-        {
+        if (actor != null && transport.CanRide(actor) && actorsSeen.Add(actor)) {
             moves.Add(ActorMove(roller, actor, destination, nextIsRoller));
         }
 

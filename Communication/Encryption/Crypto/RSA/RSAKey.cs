@@ -28,72 +28,39 @@ public class RsaKey
         //this.GeneratePair(1024, this.e);
     }
 
-    public int E
-    {
-        get;
-    }
-    public BigInteger e
-    {
-        get; private set;
-    }
-    public BigInteger N
-    {
-        get; private set;
-    }
-    public BigInteger D
-    {
-        get; private set;
-    }
-    public BigInteger P
-    {
-        get; private set;
-    }
-    public BigInteger Q
-    {
-        get; private set;
-    }
-    public BigInteger Dmp1
-    {
-        get; private set;
-    }
-    public BigInteger Dmq1
-    {
-        get; private set;
-    }
-    public BigInteger Coeff
-    {
-        get; private set;
-    }
+    public int E { get; }
+    public BigInteger e { get; private set; }
+    public BigInteger N { get; private set; }
+    public BigInteger D { get; private set; }
+    public BigInteger P { get; private set; }
+    public BigInteger Q { get; private set; }
+    public BigInteger Dmp1 { get; private set; }
+    public BigInteger Dmq1 { get; private set; }
+    public BigInteger Coeff { get; private set; }
 
     public void GeneratePair(int b, BigInteger e)
     {
         this.e = e;
         var qs = b >> 1;
 
-        while (true)
-        {
-            while (true)
-            {
+        while (true) {
+            while (true) {
                 P = BigInteger.genPseudoPrime(b - qs, 1, Random.Shared);
 
-                if ((P - 1).gcd(this.e) == 1 && P.isProbablePrime(10))
-                {
+                if ((P - 1).gcd(this.e) == 1 && P.isProbablePrime(10)) {
                     break;
                 }
             }
 
-            while (true)
-            {
+            while (true) {
                 Q = BigInteger.genPseudoPrime(qs, 1, Random.Shared);
 
-                if ((Q - 1).gcd(this.e) == 1 && P.isProbablePrime(10))
-                {
+                if ((Q - 1).gcd(this.e) == 1 && P.isProbablePrime(10)) {
                     break;
                 }
             }
 
-            if (P < Q)
-            {
+            if (P < Q) {
                 var t = P;
                 P = Q;
                 Q = t;
@@ -101,8 +68,7 @@ public class RsaKey
 
             var phi = (P - 1) * (Q - 1);
 
-            if (phi.gcd(this.e) == 1)
-            {
+            if (phi.gcd(this.e) == 1) {
                 N = P * Q;
                 D = this.e.modInverse(phi);
                 Dmp1 = D % (P - 1);
@@ -126,8 +92,7 @@ public class RsaKey
         string? dmp1 = null, string? dmq1 = null,
         string? coeff = null)
     {
-        if (p == null)
-        {
+        if (p == null) {
             return new(new(n, 16), Convert.ToInt32(e, 16), new(d, 16), 0, 0, 0, 0, 0);
         }
 
@@ -147,41 +112,35 @@ public class RsaKey
 
     private byte[]? DoEncrypt(DoCalculateionDelegate method, byte[] src, Pkcs1PadType type)
     {
-        try
-        {
+        try {
             var bl = GetBlockSize();
             var paddedBytes = Pkcs1Pad(src, bl, type);
             var m = new BigInteger(paddedBytes);
 
-            if (m == 0)
-            {
+            if (m == 0) {
                 return null;
             }
 
             var c = method(m);
 
-            if (c == 0)
-            {
+            if (c == 0) {
                 return null;
             }
 
             return c.getBytes();
         }
-        catch
-        {
+        catch {
             return null;
         }
     }
 
     private byte[]? DoDecrypt(DoCalculateionDelegate method, byte[] src, Pkcs1PadType type)
     {
-        try
-        {
+        try {
             var c = new BigInteger(src);
             var m = method(c);
 
-            if (m == 0)
-            {
+            if (m == 0) {
                 return null;
             }
 
@@ -190,8 +149,7 @@ public class RsaKey
 
             return bytes;
         }
-        catch
-        {
+        catch {
             return null;
         }
     }
@@ -201,19 +159,16 @@ public class RsaKey
         var bytes = new byte[n];
         var i = src.Length - 1;
 
-        while (i >= 0 && n > 11)
-        {
+        while (i >= 0 && n > 11) {
             bytes[--n] = src[i--];
         }
 
         bytes[--n] = 0;
 
-        while (n > 2)
-        {
+        while (n > 2) {
             byte x = 0;
 
-            switch (type)
-            {
+            switch (type) {
                 case Pkcs1PadType.FullByte:
                     x = 0xFF;
                     break;
@@ -235,13 +190,11 @@ public class RsaKey
     {
         var i = 0;
 
-        while (i < src.Length && src[i] == 0)
-        {
+        while (i < src.Length && src[i] == 0) {
             ++i;
         }
 
-        if (src.Length - i != n - 1 || src[i] > 2)
-        {
+        if (src.Length - i != n - 1 || src[i] > 2) {
             Console.WriteLine("PKCS#1 unpad: i={0}, expected src[i]==[0,1,2], got src[i]={1}", i, src[i].ToString("X"));
 
             return null;
@@ -249,18 +202,15 @@ public class RsaKey
 
         ++i;
 
-        while (src[i] != 0)
-        {
-            if (++i >= src.Length)
-            {
+        while (src[i] != 0) {
+            if (++i >= src.Length) {
                 Console.WriteLine("PKCS#1 unpad: i={0}, src[i-1]!=0 (={1})", i, src[i - 1].ToString("X"));
             }
         }
 
         var bytes = new byte[src.Length - i - 1];
 
-        for (var p = 0; ++i < src.Length; p++)
-        {
+        for (var p = 0; ++i < src.Length; p++) {
             bytes[p] = src[i];
         }
 
@@ -271,8 +221,7 @@ public class RsaKey
 
     protected BigInteger DoPrivate(BigInteger m)
     {
-        if (P == 0 && Q == 0)
-        {
+        if (P == 0 && Q == 0) {
             return m.modPow(D, N);
         }
 

@@ -19,8 +19,7 @@ internal sealed class RollerCycle
 
     internal void Run(IEnumerable<Item> rollers)
     {
-        foreach (var group in _planner.Plan(_loads.Build(rollers)))
-        {
+        foreach (var group in _planner.Plan(_loads.Build(rollers))) {
             _committer.TryCommit(group);
         }
     }

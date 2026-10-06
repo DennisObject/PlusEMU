@@ -17,14 +17,12 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
         var roomId = box.Instance.Id;
         var ownerId = box.Instance.OwnerId > 0 ? (uint)box.Instance.OwnerId : 0;
 
-        if (roomId != variables.RoomId)
-        {
+        if (roomId != variables.RoomId) {
             throw new InvalidOperationException("Invalid variable room.");
         }
 
         if (!WiredVariableDefinitions.TryDecode(box.Descriptor.CanonicalName, box.Item.Id,
-            roomId, ownerId, validated, out var definition, out var error))
-        {
+            roomId, ownerId, validated, out var definition, out var error)) {
             throw new InvalidOperationException(error);
         }
 
@@ -41,66 +39,46 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
         using var transaction = connection.BeginTransaction(IsolationLevel.ReadCommitted);
         // Same order as ordinary value writers: rooms, item/configuration, definition guard, value.
         var owner = DatabaseWiredVariableDirectory.ParseOwner(connection.QuerySingleOrDefault<string>(
-            "SELECT owner FROM rooms WHERE id=@roomId FOR UPDATE", new
-            {
-                roomId
-            }, transaction));
+            "SELECT owner FROM rooms WHERE id=@roomId FOR UPDATE", new { roomId }, transaction));
 
-        if (owner != ownerId)
-        {
+        if (owner != ownerId) {
             throw new InvalidOperationException("The variable room owner changed before saving.");
         }
 
-        var placement = connection.QuerySingleOrDefault<uint?>("SELECT room_id FROM items WHERE id=@itemId FOR UPDATE", new
-        {
-            itemId
-        }, transaction);
+        var placement = connection.QuerySingleOrDefault<uint?>("SELECT room_id FROM items WHERE id=@itemId FOR UPDATE", new { itemId }, transaction);
 
-        if (placement != roomId)
-        {
+        if (placement != roomId) {
             throw new InvalidOperationException("The variable item left its room before saving.");
         }
 
         var saved = connection.QuerySingleOrDefault<ConfigurationRow>(
-            "SELECT box_name AS Name,configuration AS Configuration FROM wired_item_configurations WHERE item_id=@itemId FOR UPDATE", new
-            {
-                itemId
-            }, transaction);
+            "SELECT box_name AS Name,configuration AS Configuration FROM wired_item_configurations WHERE item_id=@itemId FOR UPDATE", new { itemId }, transaction);
 
-        if (expected is null ? saved is not null : saved is null || saved.Name != name || !SameConfiguration(saved.Configuration, expected))
-        {
+        if (expected is null ? saved is not null : saved is null || saved.Name != name || !SameConfiguration(saved.Configuration, expected)) {
             throw new InvalidOperationException("The variable configuration changed before saving.");
         }
 
-        if (DatabaseWiredVariableStore.LockDefinition(connection, transaction, itemId))
-        {
+        if (DatabaseWiredVariableStore.LockDefinition(connection, transaction, itemId)) {
             throw new InvalidOperationException("The variable definition was deleted.");
         }
 
         WiredVariableWrite? write = null;
 
-        if (definition.Target == WiredVariableTarget.Global)
-        {
+        if (definition.Target == WiredVariableTarget.Global) {
             var before = active;
 
-            if (definition.IsDurable)
-            {
+            if (definition.IsDurable) {
                 var row = connection.QuerySingleOrDefault<ValueRow>("""
                     SELECT value AS Value,created_at AS CreatedAt,updated_at AS UpdatedAt
                     FROM wired_variable_values WHERE definition_id=@itemId AND target_kind=3 AND holder_id=0 FOR UPDATE
-                    """, new
-                {
-                    itemId
-                }, transaction);
+                    """, new { itemId }, transaction);
                 before = row is null ? null : new(row.Value, row.CreatedAt, row.UpdatedAt);
             }
 
-            if (before?.Value == definition.InitialValue)
-            {
+            if (before?.Value == definition.InitialValue) {
                 write = new(before, before);
             }
-            else
-            {
+            else {
                 var now = clock.GetUtcNow();
                 write = new(before, new(definition.InitialValue, before is null ? now : before.CreatedAt, now));
             }
@@ -110,27 +88,14 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
             INSERT INTO wired_item_configurations (item_id,box_name,schema_version,configuration)
             VALUES (@itemId,@name,@Version,@configuration)
             ON DUPLICATE KEY UPDATE box_name=@name,schema_version=@Version,configuration=@configuration
-            """, new
-        {
-            itemId,
-            name,
-            proposed.Version,
-            configuration = JsonSerializer.Serialize(proposed)
-        }, transaction);
+            """, new { itemId, name, proposed.Version, configuration = JsonSerializer.Serialize(proposed) }, transaction);
 
-        if (definition.IsDurable && write is { Changed: true, After: { } after })
-        {
+        if (definition.IsDurable && write is { Changed: true, After: { } after }) {
             connection.Execute("""
                 INSERT INTO wired_variable_values (definition_id,target_kind,holder_id,value,created_at,updated_at)
                 VALUES (@itemId,3,0,@Value,@CreatedAt,@UpdatedAt)
                 ON DUPLICATE KEY UPDATE value=@Value,created_at=@CreatedAt,updated_at=@UpdatedAt
-                """, new
-            {
-                itemId,
-                after.Value,
-                CreatedAt = after.CreatedAt?.UtcDateTime,
-                UpdatedAt = after.UpdatedAt?.UtcDateTime
-            }, transaction);
+                """, new { itemId, after.Value, CreatedAt = after.CreatedAt?.UtcDateTime, UpdatedAt = after.UpdatedAt?.UtcDateTime }, transaction);
         }
 
         transaction.Commit();
@@ -139,13 +104,14 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
     }
     private static bool SameConfiguration(string json, WiredConfiguration expected)
     {
-        try
-        {
+        try {
             var saved = JsonSerializer.Deserialize<WiredConfiguration>(json, DatabaseWiredVariableDirectory.JsonOptions);
 
             return saved is not null && JsonNode.DeepEquals(JsonSerializer.SerializeToNode(saved), JsonSerializer.SerializeToNode(expected));
         }
-        catch (JsonException) { return false; }
+        catch (JsonException) {
+            return false;
+        }
     }
     private sealed class ConfigurationRow
     {
@@ -153,17 +119,8 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
     }
     private sealed class ValueRow
     {
-        public int Value
-        {
-            get; set;
-        }
-        public DateTimeOffset? CreatedAt
-        {
-            get; set;
-        }
-        public DateTimeOffset? UpdatedAt
-        {
-            get; set;
-        }
+        public int Value { get; set; }
+        public DateTimeOffset? CreatedAt { get; set; }
+        public DateTimeOffset? UpdatedAt { get; set; }
     }
 }

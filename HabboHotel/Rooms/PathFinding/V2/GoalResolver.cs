@@ -23,34 +23,29 @@ public static class GoalResolver
     public static AcceptedGoal ResolveClick(NavGrid grid, ActorProfile actor, in NavPosition start,
         int x, int y, PlanningOccupancy? occupancy, ActorAccessResolver? access = null)
     {
-        if (!grid.InBounds(x, y))
-        {
+        if (!grid.InBounds(x, y)) {
             return new(x, y, -1);
         }
 
         var bed = BedSlot(grid, grid.Tile(x, y));
 
-        if (bed < 0 || actor.LegacyOverride)
-        {
+        if (bed < 0 || actor.LegacyOverride) {
             return Resolve(grid, actor, x, y, occupancy, access);
         }
 
         var best = new AcceptedGoal(x, y, -1);
         var distance = int.MaxValue;
 
-        foreach (var tile in grid.PillowTiles[bed])
-        {
+        foreach (var tile in grid.PillowTiles[bed]) {
             var pillow = PillowSlot(grid, tile, grid.SupportItem[bed]);
 
-            if (pillow < 0 || !Accepts(grid, actor, pillow, occupancy, access))
-            {
+            if (pillow < 0 || !Accepts(grid, actor, pillow, occupancy, access)) {
                 continue;
             }
 
             var nextDistance = PathTieBreak.Heuristic(start.X, start.Y, tile % grid.Width, tile / grid.Width);
 
-            if (nextDistance < distance)
-            {
+            if (nextDistance < distance) {
                 best = new(tile % grid.Width, tile / grid.Width, pillow);
                 distance = nextDistance;
             }
@@ -62,26 +57,22 @@ public static class GoalResolver
     public static AcceptedGoal Resolve(NavGrid grid, ActorProfile actor, int x, int y, PlanningOccupancy? occupancy,
         ActorAccessResolver? access = null)
     {
-        if (!grid.InBounds(x, y))
-        {
+        if (!grid.InBounds(x, y)) {
             return new(x, y, -1);
         }
 
         var t = grid.Tile(x, y);
 
-        if (actor.LegacyOverride)
-        {
+        if (actor.LegacyOverride) {
             return new(x, y, t);
         }
 
         var goal = new AcceptedGoal(x, y, -1);
 
-        for (var ordinal = 0; ordinal < grid.SurfaceCount(t); ordinal++)
-        {
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(t); ordinal++) {
             var slot = grid.SurfaceAt(t, ordinal);
 
-            if (Accepts(grid, actor, slot, occupancy, access))
-            {
+            if (Accepts(grid, actor, slot, occupancy, access)) {
                 goal = goal.With(slot);
             }
         }
@@ -101,12 +92,10 @@ public static class GoalResolver
 
     private static int BedSlot(NavGrid grid, int tile)
     {
-        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++)
-        {
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++) {
             var slot = grid.SurfaceAt(tile, ordinal);
 
-            if ((grid.Flags[slot] & NavFlags.GoalOnlyBed) != 0)
-            {
+            if ((grid.Flags[slot] & NavFlags.GoalOnlyBed) != 0) {
                 return slot;
             }
         }
@@ -116,12 +105,10 @@ public static class GoalResolver
 
     private static int PillowSlot(NavGrid grid, int tile, uint bed)
     {
-        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++)
-        {
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++) {
             var slot = grid.SurfaceAt(tile, ordinal);
 
-            if (grid.SupportItem[slot] == bed && (grid.Flags[slot] & NavFlags.GoalOnlyBed) != 0)
-            {
+            if (grid.SupportItem[slot] == bed && (grid.Flags[slot] & NavFlags.GoalOnlyBed) != 0) {
                 return slot;
             }
         }

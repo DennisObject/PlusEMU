@@ -211,26 +211,16 @@ public sealed class LoveLockServiceTests
 
     private sealed class RecordingStore(Action? beforeLock = null) : ILoveLockStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
-        public int Writes
-        {
-            get; private set;
-        }
-        public string? Data
-        {
-            get; private set;
-        }
+        public bool Fail { get; init; }
+        public int Writes { get; private set; }
+        public string? Data { get; private set; }
         public void Lock(uint itemId, uint roomId, string data)
         {
             beforeLock?.Invoke();
             Writes++;
             Data = data;
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
         }

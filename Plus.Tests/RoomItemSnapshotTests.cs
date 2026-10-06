@@ -38,10 +38,7 @@ public sealed class RoomItemSnapshotTests
     [Fact]
     public void NestedDataAndDefinitionChangesCannotChangeAComposedSnapshot()
     {
-        var data = new MapDataFormat(new()
-        {
-            ["state"] = "before"
-        });
+        var data = new MapDataFormat(new() { ["state"] = "before" });
         var item = Item(data);
         item.UniqueNumber = 4;
         item.UniqueSeries = 20;
@@ -119,10 +116,8 @@ public sealed class RoomItemSnapshotTests
         using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
         IOutgoingPacket packet = new FlashOutgoingPacket(stream);
 
-        foreach (var field in fields)
-        {
-            switch (field)
-            {
+        foreach (var field in fields) {
+            switch (field) {
                 case int value:
                     packet.WriteInt(value);
                     break;

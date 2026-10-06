@@ -26,47 +26,38 @@ public sealed class LandingEffects
     {
         var location = new Location(actor.X, actor.Y, actor.Z, actor.Movement.LocationRevision);
 
-        try
-        {
+        try {
             var items = SurfaceContacts.Of(_room, actor, _room.GetGameMap().GetAllRoomItemForSquare(actor.X, actor.Y));
 
-            foreach (var item in items)
-            {
-                if (!ApplyItem(actor, item) || !IsHere(actor, location))
-                {
+            foreach (var item in items) {
+                if (!ApplyItem(actor, item) || !IsHere(actor, location)) {
                     return;
                 }
             }
 
-            if (!actor.IsBot)
-            {
+            if (!actor.IsBot) {
                 ApplyGames(actor, location);
             }
         }
-        catch (Exception error) { ExceptionLogger.LogException(error); }
-        finally
-        {
-            if (!wasLaying && actor.HasStatus("lay") && IsHere(actor, location))
-            {
+        catch (Exception error) {
+            ExceptionLogger.LogException(error);
+        }
+        finally {
+            if (!wasLaying && actor.HasStatus("lay") && IsHere(actor, location)) {
                 _room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
-                {
-                    Actor = actor,
-                    Action = (int)WiredAvatarAction.Lay
-                });
+                { Actor = actor, Action = (int)WiredAvatarAction.Lay });
             }
         }
     }
 
     private bool ApplyItem(RoomUser actor, Item item)
     {
-        switch (item.Definition.InteractionType)
-        {
+        switch (item.Definition.InteractionType) {
             case InteractionType.Banzaigateblue:
             case InteractionType.Banzaigatered:
             case InteractionType.Banzaigategreen:
             case InteractionType.Banzaigateyellow:
-                if (!actor.IsBot)
-                {
+                if (!actor.IsBot) {
                     ToggleTeam(actor, item, _room.GetTeamManagerForBanzai(), 32);
                 }
 
@@ -75,15 +66,13 @@ public sealed class LandingEffects
             case InteractionType.FreezeRedGate:
             case InteractionType.FreezeGreenGate:
             case InteractionType.FreezeYellowGate:
-                if (!actor.IsBot)
-                {
+                if (!actor.IsBot) {
                     ToggleTeam(actor, item, _room.GetTeamManagerForFreeze(), 39);
                 }
 
                 return true;
             case InteractionType.Banzaitele:
-                if (actor.HasStatus("mv"))
-                {
+                if (actor.HasStatus("mv")) {
                     _room.GetGameItemHandler().OnTeleportRoomUserEnter(actor, item);
                 }
 
@@ -102,18 +91,15 @@ public sealed class LandingEffects
         var effects = actor.GetClient().GetHabbo().Effects;
         var effect = (int)item.Team + offset;
 
-        if (actor.Team == Team.None)
-        {
-            if (!teams.CanEnterOnTeam(item.Team))
-            {
+        if (actor.Team == Team.None) {
+            if (!teams.CanEnterOnTeam(item.Team)) {
                 return;
             }
 
             actor.Team = item.Team;
             teams.AddUser(actor);
 
-            if (effects.CurrentEffect != effect)
-            {
+            if (effects.CurrentEffect != effect) {
                 effects.ApplyEffect(effect);
             }
 
@@ -124,23 +110,20 @@ public sealed class LandingEffects
         teams.OnUserLeave(actor);
         actor.Team = Team.None;
 
-        if (otherTeam || effects.CurrentEffect == effect)
-        {
+        if (otherTeam || effects.CurrentEffect == effect) {
             effects.ApplyEffect(0);
         }
     }
 
     private static bool ApplyEffect(RoomUser actor, Item item)
     {
-        if (actor.IsBot)
-        {
+        if (actor.IsBot) {
             return true;
         }
 
         var effects = actor.GetClient()?.GetHabbo()?.Effects;
 
-        if (effects == null || item.Definition.EffectId == 0 && effects.CurrentEffect == 0)
-        {
+        if (effects == null || item.Definition.EffectId == 0 && effects.CurrentEffect == 0) {
             return false;
         }
 
@@ -154,20 +137,17 @@ public sealed class LandingEffects
 
     private bool ApplyArrow(RoomUser actor, Item item)
     {
-        if (actor.GoalX != item.GetX || actor.GoalY != item.GetY)
-        {
+        if (actor.GoalX != item.GetX || actor.GoalY != item.GetY) {
             return true;
         }
 
         var habbo = actor.GetClient()?.GetHabbo();
 
-        if (habbo == null)
-        {
+        if (habbo == null) {
             return true;
         }
 
-        if (!ReferenceEquals(habbo.CurrentRoom, _room))
-        {
+        if (!ReferenceEquals(habbo.CurrentRoom, _room)) {
             return false;
         }
 
@@ -176,29 +156,24 @@ public sealed class LandingEffects
         var roomId = linked == 0 ? 0 : target != null ? _room.RoomId
             : ReadId("SELECT `room_id` FROM `items` WHERE `id` = @id LIMIT 1", linked);
 
-        if (roomId == 0)
-        {
+        if (roomId == 0) {
             actor.UnlockWalking();
 
             return true;
         }
 
-        if (roomId == _room.RoomId)
-        {
-            if (target == null)
-            {
+        if (roomId == _room.RoomId) {
+            if (target == null) {
                 actor.GetClient().SendWhisper("Hey, that arrow is poorly!");
             }
-            else
-            {
+            else {
                 _room.GetGameMap().TeleportToItem(actor, target);
             }
 
             return false;
         }
 
-        if (!actor.IsBot)
-        {
+        if (!actor.IsBot) {
             PrepareRoom(actor, habbo, linked, roomId);
         }
 
@@ -218,36 +193,28 @@ public sealed class LandingEffects
     {
         using var connection = _database.Connection();
 
-        return connection.QuerySingleOrDefault<uint?>(sql, new
-        {
-            id
-        }) ?? 0;
+        return connection.QuerySingleOrDefault<uint?>(sql, new { id }) ?? 0;
     }
 
     private void ApplyGames(RoomUser actor, Location location)
     {
-        if (_room.GotSoccer())
-        {
+        if (_room.GotSoccer()) {
             _room.GetSoccer().OnUserWalk(actor);
         }
 
-        if (!IsHere(actor, location))
-        {
+        if (!IsHere(actor, location)) {
             return;
         }
 
-        if (_room.GotBanzai())
-        {
+        if (_room.GotBanzai()) {
             _room.GetBanzai().OnUserWalk(actor);
         }
 
-        if (!IsHere(actor, location))
-        {
+        if (!IsHere(actor, location)) {
             return;
         }
 
-        if (_room.GotFreeze())
-        {
+        if (_room.GotFreeze()) {
             _room.GetFreeze().OnUserWalk(actor);
         }
     }

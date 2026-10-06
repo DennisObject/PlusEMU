@@ -9,32 +9,14 @@ public enum WiredConditionMode
 
 public sealed class WiredExecutionPolicy
 {
-    public WiredConditionMode ConditionMode
-    {
-        get; set;
-    }
-    public int ConditionThreshold
-    {
-        get; set;
-    }
-    public bool OrderedEffects
-    {
-        get; set;
-    }
-    public bool StopOnSuccess
-    {
-        get; set;
-    }
-    public long DelayMilliseconds
-    {
-        get; set;
-    }
+    public WiredConditionMode ConditionMode { get; set; }
+    public int ConditionThreshold { get; set; }
+    public bool OrderedEffects { get; set; }
+    public bool StopOnSuccess { get; set; }
+    public long DelayMilliseconds { get; set; }
     public WiredAddonPolicy Addons { get; } = new();
     // Stateful random/unseen boxes own the picker. The engine invokes it only after conditions.
-    public Func<IReadOnlyList<IWiredItem>, IReadOnlyList<IWiredItem>>? ChooseActions
-    {
-        get; set;
-    }
+    public Func<IReadOnlyList<IWiredItem>, IReadOnlyList<IWiredItem>>? ChooseActions { get; set; }
     public List<Func<WiredRuntimeContext, string, string>> TextFormatters { get; } = [];
     public string FormatText(WiredRuntimeContext context, string text) =>
         TextFormatters.Aggregate(text, (current, formatter) => formatter(context, current));

@@ -34,8 +34,7 @@ public sealed class ClubCatalogService(
 {
     public Task ShowStatus(GameClient session, string type)
     {
-        if (type == "habbo_club")
-        {
+        if (type == "habbo_club") {
             session.Send(new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(session.GetHabbo().Access)));
         }
 
@@ -63,8 +62,7 @@ public sealed class ClubCatalogService(
         var habbo = session.GetHabbo();
         var claim = rewards.Claim(habbo, productCode);
 
-        if (claim == null)
-        {
+        if (claim == null) {
             session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
 
             return Task.CompletedTask;
@@ -82,8 +80,7 @@ public sealed class ClubCatalogService(
 
         session.Send(new ClubGiftReceivedComposer(received));
 
-        foreach (var itemId in itemIds)
-        {
+        foreach (var itemId in itemIds) {
             session.Send(new FurniListNotificationComposer(itemId, 1));
         }
 
@@ -101,8 +98,7 @@ public sealed class ClubCatalogService(
         if (!catalog.Pages.Any(page => page.CanOpen(habbo) &&
                 page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy") ||
             !catalog.TryGetClubOffer(offerId, out var offer) ||
-            memberships.Purchase(habbo, offer) == null)
-        {
+            memberships.Purchase(habbo, offer) == null) {
             session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
 
             return Task.CompletedTask;
@@ -110,8 +106,7 @@ public sealed class ClubCatalogService(
 
         session.Send(new CreditBalanceComposer(habbo.Credits));
 
-        if (offer.Points > 0)
-        {
+        if (offer.Points > 0) {
             var balance = offer.PointsType == 5 ? habbo.Diamonds : habbo.Duckets;
             session.Send(new HabboActivityPointNotificationComposer(balance, -offer.Points, offer.PointsType));
         }

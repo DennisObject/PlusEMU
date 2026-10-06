@@ -23,8 +23,7 @@ internal static class MagicTileHeight
 
     internal static double Clamp(double height, double floorZ)
     {
-        if (!double.IsFinite(height))
-        {
+        if (!double.IsFinite(height)) {
             height = floorZ;
         }
 
@@ -35,8 +34,7 @@ internal static class MagicTileHeight
 
     internal static bool Sync(Item item)
     {
-        if (!IsMagicTile(item.Definition.InteractionType))
-        {
+        if (!IsMagicTile(item.Definition.InteractionType)) {
             return false;
         }
 
@@ -45,8 +43,7 @@ internal static class MagicTileHeight
         var normalized = ToWire(item.GetZ).ToString(CultureInfo.InvariantCulture)
             + (separator < 0 ? "" : stored[separator..]);
 
-        if (stored == normalized && item.ExtraData is LegacyDataFormat)
-        {
+        if (stored == normalized && item.ExtraData is LegacyDataFormat) {
             return false;
         }
 

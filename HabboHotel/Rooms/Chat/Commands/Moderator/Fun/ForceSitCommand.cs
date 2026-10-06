@@ -15,34 +15,27 @@ internal class ForceSitCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!session.GetHabbo().Access.Outranks(target.Access))
-        {
+        if (!session.GetHabbo().Access.Outranks(target.Access)) {
             return Task.CompletedTask;
         }
 
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(target.Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return Task.CompletedTask;
         }
 
-        if (user.Statusses.ContainsKey("lie") || user.IsLying || user.RidingHorse || user.IsWalking)
-        {
+        if (user.Statusses.ContainsKey("lie") || user.IsLying || user.RidingHorse || user.IsWalking) {
             return Task.CompletedTask;
         }
 
-        if (!user.Statusses.ContainsKey("sit"))
-        {
-            if (user.RotBody % 2 == 0)
-            {
-                if (user == null)
-                {
+        if (!user.Statusses.ContainsKey("sit")) {
+            if (user.RotBody % 2 == 0) {
+                if (user == null) {
                     return Task.CompletedTask;
                 }
 
-                try
-                {
+                try {
                     user.Statusses.Add("sit", "1.0");
                     user.Z -= 0.35;
                     user.IsSitting = true;
@@ -50,8 +43,7 @@ internal class ForceSitCommand : ITargetChatCommand
                 }
                 catch { }
             }
-            else
-            {
+            else {
                 user.RotBody--;
                 user.Statusses.Add("sit", "1.0");
                 user.Z -= 0.35;
@@ -59,8 +51,7 @@ internal class ForceSitCommand : ITargetChatCommand
                 user.UpdateNeeded = true;
             }
         }
-        else if (user.IsSitting)
-        {
+        else if (user.IsSitting) {
             user.Z += 0.35;
             user.Statusses.Remove("sit");
             user.Statusses.Remove("1.0");

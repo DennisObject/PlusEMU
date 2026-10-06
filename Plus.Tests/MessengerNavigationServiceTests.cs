@@ -41,11 +41,7 @@ public sealed class MessengerNavigationServiceTests
         {
             Id = 1,
             Messenger = new HabboMessenger(
-            new()
-            {
-                [3] = new MessengerBuddy { Id = 3 },
-                [4] = new MessengerBuddy { Id = 4 }
-            }, new(), [], TimeProvider.System)
+            new() { [3] = new MessengerBuddy { Id = 3 }, [4] = new MessengerBuddy { Id = 4 } }, new(), [], TimeProvider.System)
         });
         var search = new RecordingSearch
         {
@@ -135,14 +131,9 @@ public sealed class MessengerNavigationServiceTests
         var schema = "task_refactor_tests_search_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
-            {
-                Database = schema,
-                AllowZeroDateTime = true,
-                ConvertZeroDateTime = true
-            }.ConnectionString;
+            { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString;
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
             connection.Execute("CREATE TABLE users(id INT PRIMARY KEY,username VARCHAR(100),motto VARCHAR(100),look VARCHAR(100),last_online DATETIME(6) NULL); INSERT INTO users VALUES(1,'Alice','a','look1',NULL),(2,'Alice2','b','look2','2039-12-31 23:59:59.123456'),(3,'Bob','c','look3',NULL)");
@@ -157,7 +148,9 @@ public sealed class MessengerNavigationServiceTests
             Assert.Equal("b", future.Motto);
             Assert.Empty(search.GetSearchResult("nobody"));
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static void ReadSearchRow(FlashIncomingPacket wire, int id, string name, string motto, bool online, string look, string lastOnline)

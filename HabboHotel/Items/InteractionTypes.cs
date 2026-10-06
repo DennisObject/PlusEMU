@@ -6,8 +6,7 @@ public static class InteractionTypes
 {
     public static InteractionType GetTypeFromString(string type)
     {
-        if (WiredBoxRegistry.TryGet(type, out var descriptor))
-        {
+        if (WiredBoxRegistry.TryGet(type, out var descriptor)) {
             return descriptor.Category switch
             {
                 WiredBoxCategory.Trigger => InteractionType.WiredTrigger,
@@ -19,8 +18,7 @@ public static class InteractionTypes
             };
         }
 
-        switch (type.ToLower())
-        {
+        switch (type.ToLower()) {
             case "":
             case "default":
                 return InteractionType.None;
@@ -246,8 +244,7 @@ public static class InteractionTypes
                 return InteractionType.Skateboard;
             case "pet":
                 return InteractionType.Pet;
-            default:
-                {
+            default: {
                     //Logging.WriteLine("Unknown interaction type in parse code: " + pType, ConsoleColor.Yellow);
                     return InteractionType.None;
                 }

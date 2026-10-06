@@ -11,26 +11,11 @@ public sealed class Reward
         Message = message;
     }
 
-    public DateTimeOffset? StartsAt
-    {
-        get;
-    }
-    public DateTimeOffset? EndsAt
-    {
-        get;
-    }
-    public RewardType Type
-    {
-        get;
-    }
-    public string RewardData
-    {
-        get;
-    }
-    public string Message
-    {
-        get;
-    }
+    public DateTimeOffset? StartsAt { get; }
+    public DateTimeOffset? EndsAt { get; }
+    public RewardType Type { get; }
+    public string RewardData { get; }
+    public string Message { get; }
 
     public bool IsActiveAt(DateTimeOffset utcNow) =>
         StartsAt is { } start && EndsAt is { } end && utcNow.ToUniversalTime() >= start && utcNow.ToUniversalTime() <= end;

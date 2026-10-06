@@ -315,10 +315,7 @@ public sealed class CatalogPurchaseServiceTests
 
     private sealed class RecordingPurchaseService : ICatalogPurchaseService
     {
-        public CatalogPurchaseRequest? Request
-        {
-            get; private set;
-        }
+        public CatalogPurchaseRequest? Request { get; private set; }
         public Task Purchase(GameClient session, CatalogPurchaseRequest request)
         {
             Request = request;
@@ -336,10 +333,7 @@ public sealed class CatalogPurchaseServiceTests
 
     private sealed class RecordingRewards(bool succeeds) : IClubRewards
     {
-        public int Charges
-        {
-            get; private set;
-        }
+        public int Charges { get; private set; }
         public IDbConnection Connection { get; } = Proxy<IDbConnection, EmptyProxy>();
         public IDbTransaction Transaction { get; } = Proxy<IDbTransaction, EmptyProxy>();
         public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0,
@@ -347,8 +341,7 @@ public sealed class CatalogPurchaseServiceTests
         {
             Charges++;
 
-            if (!succeeds || deliver?.Invoke(Connection, Transaction) == false)
-            {
+            if (!succeeds || deliver?.Invoke(Connection, Transaction) == false) {
                 return false;
             }
 
@@ -366,30 +359,12 @@ public sealed class CatalogPurchaseServiceTests
 
     private sealed class RecordingBotStore(bool fail) : ICatalogBotPurchaseStore
     {
-        public Action? BeforeCreate
-        {
-            get; set;
-        }
-        public int Creates
-        {
-            get; private set;
-        }
-        public IDbConnection? Connection
-        {
-            get; private set;
-        }
-        public IDbTransaction? Transaction
-        {
-            get; private set;
-        }
-        public CatalogBot? Preset
-        {
-            get; private set;
-        }
-        public int OwnerId
-        {
-            get; private set;
-        }
+        public Action? BeforeCreate { get; set; }
+        public int Creates { get; private set; }
+        public IDbConnection? Connection { get; private set; }
+        public IDbTransaction? Transaction { get; private set; }
+        public CatalogBot? Preset { get; private set; }
+        public int OwnerId { get; private set; }
 
         public Bot Create(IDbConnection connection, IDbTransaction transaction, CatalogBot preset, int ownerId)
         {
@@ -397,8 +372,7 @@ public sealed class CatalogPurchaseServiceTests
             Creates++;
             (Connection, Transaction, Preset, OwnerId) = (connection, transaction, preset, ownerId);
 
-            if (fail)
-            {
+            if (fail) {
                 throw new InvalidOperationException("forced bot store failure");
             }
 
@@ -408,17 +382,13 @@ public sealed class CatalogPurchaseServiceTests
 
     private sealed class RecordingFactory(bool succeeds) : IItemFactory
     {
-        public int Creates
-        {
-            get; private set;
-        }
+        public int Creates { get; private set; }
         public Item CreateSingleItemNullable(ItemDefinition definition, Habbo habbo, string extraData,
             string displayFlags, int groupId = 0, uint limitedNumber = 0, uint limitedStack = 0)
         {
             Creates++;
 
-            if (!succeeds)
-            {
+            if (!succeeds) {
                 return null!;
             }
 
@@ -433,12 +403,10 @@ public sealed class CatalogPurchaseServiceTests
         {
             var items = new List<Item>();
 
-            for (var i = 0; i < amount; i++)
-            {
+            for (var i = 0; i < amount; i++) {
                 var item = CreateSingleItemNullable(definition, habbo, extraData, extraData, groupId);
 
-                if (item != null)
-                {
+                if (item != null) {
                     items.Add(item);
                 }
             }
@@ -457,35 +425,28 @@ public sealed class CatalogPurchaseServiceTests
     {
         public CatalogPage Page { get; set; } = null!;
         public ClubOffer ClubOffer { get; set; } = null!;
-        public CatalogBot? Bot
-        {
-            get; set;
-        }
+        public CatalogBot? Bot { get; set; }
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(ICatalogManager.TryGetPage))
-            {
+            if (targetMethod?.Name == nameof(ICatalogManager.TryGetPage)) {
                 args![1] = Page;
 
                 return (int)args[0]! == Page.Id;
             }
 
-            if (targetMethod?.Name == nameof(ICatalogManager.TryGetClubOffer))
-            {
+            if (targetMethod?.Name == nameof(ICatalogManager.TryGetClubOffer)) {
                 args![1] = ClubOffer;
 
                 return (int)args[0]! == ClubOffer.Id;
             }
 
-            if (targetMethod?.Name == nameof(ICatalogManager.TryGetBot))
-            {
+            if (targetMethod?.Name == nameof(ICatalogManager.TryGetBot)) {
                 args![1] = Bot;
 
                 return Bot != null && (uint)args[0]! == Bot.Id;
             }
 
-            if (targetMethod?.Name == "get_ClubOffers")
-            {
+            if (targetMethod?.Name == "get_ClubOffers") {
                 return new[] { ClubOffer };
             }
 
@@ -508,18 +469,15 @@ public sealed class CatalogPurchaseServiceTests
 
     private static object? Default(Type? type)
     {
-        if (type == null || type == typeof(void))
-        {
+        if (type == null || type == typeof(void)) {
             return null;
         }
 
-        if (type == typeof(Task))
-        {
+        if (type == typeof(Task)) {
             return Task.CompletedTask;
         }
 
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))
-        {
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>)) {
             return typeof(Task).GetMethod(nameof(Task.FromResult))!.MakeGenericMethod(type.GenericTypeArguments[0])
                 .Invoke(null, new[] { type.GenericTypeArguments[0].IsValueType ? Activator.CreateInstance(type.GenericTypeArguments[0]) : null });
         }

@@ -12,18 +12,15 @@ internal sealed class InteractorSkateboard(IAchievementManager achievements) : I
         var session = user?.GetClient();
         var habbo = session?.GetHabbo();
 
-        if (user == null || session == null || habbo?.Effects == null)
-        {
+        if (user == null || session == null || habbo?.Effects == null) {
             return;
         }
 
-        if (habbo.Effects.CurrentEffect != SkateboardEffect)
-        {
+        if (habbo.Effects.CurrentEffect != SkateboardEffect) {
             habbo.Effects.ApplyEffect(SkateboardEffect);
         }
 
-        if (!TryTrick(user.LastItem, out var body, out var head, out var lift, out var achievement))
-        {
+        if (!TryTrick(user.LastItem, out var body, out var head, out var lift, out var achievement)) {
             return;
         }
 
@@ -41,13 +38,11 @@ internal sealed class InteractorSkateboard(IAchievementManager achievements) : I
         lift = 0;
         achievement = "";
 
-        if (previous?.Definition?.ItemName != "sb_rail")
-        {
+        if (previous?.Definition?.ItemName != "sb_rail") {
             return false;
         }
 
-        if (previous.Rotation == 2)
-        {
+        if (previous.Rotation == 2) {
             body = 3;
             head = 3;
             lift = 1;
@@ -56,8 +51,7 @@ internal sealed class InteractorSkateboard(IAchievementManager achievements) : I
             return true;
         }
 
-        if (previous.Rotation == 0)
-        {
+        if (previous.Rotation == 0) {
             body = 2;
             head = 2;
             achievement = "ACH_SkateBoardSlide";

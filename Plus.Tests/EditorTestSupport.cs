@@ -34,10 +34,8 @@ internal static class EditorTestSupport
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
-            switch (value)
-            {
+        foreach (var value in values) {
+            switch (value) {
                 case int number:
                     var bytes = new byte[4];
                     BinaryPrimitives.WriteInt32BigEndian(bytes, number);

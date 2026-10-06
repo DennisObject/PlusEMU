@@ -25,10 +25,7 @@ public sealed class GiftStore(IDatabase database) : IGiftStore
     {
         using var connection = database.Connection();
 
-        return connection.QuerySingleOrDefault<GiftContent>("SELECT base_id AS BaseId,extra_data AS ExtraData FROM user_presents WHERE item_id=@itemId LIMIT 1", new
-        {
-            itemId
-        });
+        return connection.QuerySingleOrDefault<GiftContent>("SELECT base_id AS BaseId,extra_data AS ExtraData FROM user_presents WHERE item_id=@itemId LIMIT 1", new { itemId });
     }
 
     public void Open(uint itemId, int ownerId, uint roomId, uint presentBaseId, GiftContent content)
@@ -37,22 +34,8 @@ public sealed class GiftStore(IDatabase database) : IGiftStore
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (connection.Execute("UPDATE items SET base_item=@BaseId,extra_data=@ExtraData,room_id=0 WHERE id=@itemId AND user_id=@ownerId AND room_id=@roomId AND base_item=@presentBaseId LIMIT 1", new
-        {
-            itemId,
-            ownerId,
-            roomId,
-            presentBaseId,
-            content.BaseId,
-            content.ExtraData
-        }, transaction) != 1 ||
-            connection.Execute("DELETE FROM user_presents WHERE item_id=@itemId AND base_id=@BaseId AND extra_data <=> @ExtraData LIMIT 1", new
-            {
-                itemId,
-                content.BaseId,
-                content.ExtraData
-            }, transaction) != 1)
-        {
+        if (connection.Execute("UPDATE items SET base_item=@BaseId,extra_data=@ExtraData,room_id=0 WHERE id=@itemId AND user_id=@ownerId AND room_id=@roomId AND base_item=@presentBaseId LIMIT 1", new { itemId, ownerId, roomId, presentBaseId, content.BaseId, content.ExtraData }, transaction) != 1 ||
+            connection.Execute("DELETE FROM user_presents WHERE item_id=@itemId AND base_id=@BaseId AND extra_data <=> @ExtraData LIMIT 1", new { itemId, content.BaseId, content.ExtraData }, transaction) != 1) {
             throw new InvalidOperationException("Gift was not opened.");
         }
 
@@ -65,20 +48,11 @@ public sealed class GiftStore(IDatabase database) : IGiftStore
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
-        if (connection.Execute("DELETE FROM items WHERE id=@itemId AND user_id=@ownerId AND room_id=@roomId LIMIT 1", new
-        {
-            itemId,
-            ownerId,
-            roomId
-        }, transaction) != 1)
-        {
+        if (connection.Execute("DELETE FROM items WHERE id=@itemId AND user_id=@ownerId AND room_id=@roomId LIMIT 1", new { itemId, ownerId, roomId }, transaction) != 1) {
             throw new InvalidOperationException("Invalid gift was not deleted.");
         }
 
-        connection.Execute("DELETE FROM user_presents WHERE item_id=@itemId", new
-        {
-            itemId
-        }, transaction);
+        connection.Execute("DELETE FROM user_presents WHERE item_id=@itemId", new { itemId }, transaction);
         transaction.Commit();
     }
 }
@@ -94,19 +68,16 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
     {
         var habbo = session.GetHabbo();
 
-        lock (habbo.WalletSync)
-        {
+        lock (habbo.WalletSync) {
             var room = habbo.CurrentRoom;
 
-            if (habbo.WalletClosed || room == null)
-            {
+            if (habbo.WalletClosed || room == null) {
                 return Task.CompletedTask;
             }
 
             var gift = room.GetRoomItemHandler().GetItem(itemId);
 
-            if (gift == null || gift.IsTemporary || gift.RoomId != room.RoomId || gift.OwnerId != habbo.Id || gift.Definition?.InteractionType != InteractionType.Gift)
-            {
+            if (gift == null || gift.IsTemporary || gift.RoomId != room.RoomId || gift.OwnerId != habbo.Id || gift.Definition?.InteractionType != InteractionType.Gift) {
                 return Task.CompletedTask;
             }
 
@@ -114,8 +85,7 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
             var fields = gift.LegacyDataString.Split((char)5);
             var purchaserValid = fields.Length > 2 && int.TryParse(fields[2], out var purchaserId) && cache.GenerateUser(purchaserId) != null;
 
-            if (content == null || !purchaserValid || !items.Items.TryGetValue(content?.BaseId ?? 0, out var definition))
-            {
+            if (content == null || !purchaserValid || !items.Items.TryGetValue(content?.BaseId ?? 0, out var definition)) {
                 store.DeleteInvalid(gift.Id, habbo.Id, room.RoomId);
                 room.GetRoomItemHandler().RemoveFurniture(null, gift.Id);
                 habbo.Inventory.Furniture.RemoveItem(gift.Id);
@@ -127,8 +97,7 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
 
             Item replacement;
 
-            try
-            {
+            try {
                 replacement = new()
                 {
                     Id = gift.Id,
@@ -144,8 +113,7 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
                     WallCoordinates = gift.WallCoordinates
                 };
             }
-            catch (Exception exception)
-            {
+            catch (Exception exception) {
                 logger.LogWarning(exception, "Gift {GiftId} replacement could not be prepared for user {UserId}", gift.Id, habbo.Id);
                 session.SendNotification("Oops, the item inside this gift could not be prepared.");
 
@@ -155,13 +123,11 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
             string wireExtraData;
             InventoryItem inventoryFallback;
 
-            try
-            {
+            try {
                 wireExtraData = replacement.ExtraData.Serialize();
                 inventoryFallback = replacement.ToInventoryItem();
             }
-            catch (Exception exception)
-            {
+            catch (Exception exception) {
                 logger.LogWarning(exception, "Gift {GiftId} replacement could not be serialized for user {UserId}", gift.Id, habbo.Id);
                 session.SendNotification("Oops, the item inside this gift could not be prepared.");
 
@@ -172,18 +138,14 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
             room.GetRoomItemHandler().RemoveFurniture(session, gift.Id);
             var inRoom = false;
 
-            if (definition.Type == ItemType.Floor)
-            {
-                try
-                {
+            if (definition.Type == ItemType.Floor) {
+                try {
                     inRoom = room.GetRoomItemHandler().SetFloorItem(session, replacement, replacement.GetX, replacement.GetY, replacement.Rotation, true, false, true);
                 }
-                catch (Exception exception)
-                {
+                catch (Exception exception) {
                     logger.LogError(exception, "Gift {GiftId} replacement placement failed for user {UserId} in room {RoomId}", gift.Id, habbo.Id, room.RoomId);
 
-                    if (ReferenceEquals(room.GetRoomItemHandler().GetItem(replacement.Id), replacement))
-                    {
+                    if (ReferenceEquals(room.GetRoomItemHandler().GetItem(replacement.Id), replacement)) {
                         room.GetRoomItemHandler().RemoveFurniture(session, replacement.Id);
                     }
 
@@ -191,12 +153,10 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
                 }
             }
 
-            if (!inRoom)
-            {
+            if (!inRoom) {
                 habbo.Inventory.Furniture.AddItem(inventoryFallback);
 
-                if (definition.Type == ItemType.Floor)
-                {
+                if (definition.Type == ItemType.Floor) {
                     session.SendNotification("The opened gift could not be placed, so it was moved to your inventory.");
                 }
             }

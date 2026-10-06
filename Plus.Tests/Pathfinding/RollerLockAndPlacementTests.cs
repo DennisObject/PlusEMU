@@ -97,8 +97,7 @@ public partial class PlacedFurniRoomTests
         var fired = false;
         PlannerObserveWalkOn(() =>
         {
-            if (fired)
-            {
+            if (fired) {
                 return;
             }
 
@@ -231,15 +230,21 @@ public partial class PlacedFurniRoomTests
     private void PlannerInterleaveRotation(Action work, Action rotate)
     {
         Exception? failure = null;
-        var worker = new Thread(() => { try { work(); } catch (Exception error) { failure = error; } });
-
-        lock (_room.GetGameMap().PlacementSync)
+        var worker = new Thread(() =>
         {
+            try {
+                work();
+            }
+            catch (Exception error) {
+                failure = error;
+            }
+        });
+
+        lock (_room.GetGameMap().PlacementSync) {
             worker.Start();
             var deadline = DateTime.UtcNow.AddSeconds(30);
 
-            while ((worker.ThreadState & ThreadState.WaitSleepJoin) == 0 && worker.IsAlive && DateTime.UtcNow < deadline)
-            {
+            while ((worker.ThreadState & ThreadState.WaitSleepJoin) == 0 && worker.IsAlive && DateTime.UtcNow < deadline) {
                 Thread.Sleep(1);
             }
 
@@ -249,8 +254,7 @@ public partial class PlacedFurniRoomTests
 
         Assert.True(worker.Join(TimeSpan.FromSeconds(30)));
 
-        if (failure != null)
-        {
+        if (failure != null) {
             throw failure;
         }
     }

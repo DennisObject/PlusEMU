@@ -11,13 +11,11 @@ public class TcpSessionProxy : TcpSession
         _client.Id = Id;
         _client.SendCallback = args =>
         {
-            if (!Socket.Connected)
-            {
+            if (!Socket.Connected) {
                 return false;
             }
 
-            try
-            {
+            try {
                 return Socket.SendAsync(args);
             }
             catch (Exception e) // TODO 80O: Maybe handle some potential errors.

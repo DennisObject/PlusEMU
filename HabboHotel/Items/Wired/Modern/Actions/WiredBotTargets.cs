@@ -21,8 +21,7 @@ public sealed class WiredBotTargets
     {
         _targets.Remove(user);
 
-        foreach (var bot in _targets.Where(entry => ReferenceEquals(entry.Value.User, user)).Select(entry => entry.Key).ToArray())
-        {
+        foreach (var bot in _targets.Where(entry => ReferenceEquals(entry.Value.User, user)).Select(entry => entry.Key).ToArray()) {
             Stop(bot);
         }
     }
@@ -39,57 +38,40 @@ public sealed class WiredBotTargets
         var result = new List<WiredRuntimeEvent>();
         var attached = room.GetRoomUserManager().GetUserList().ToHashSet();
 
-        foreach (var (bot, target) in _targets.ToArray())
-        {
-            if (!attached.Contains(bot))
-            {
+        foreach (var (bot, target) in _targets.ToArray()) {
+            if (!attached.Contains(bot)) {
                 _targets.Remove(bot);
                 continue;
             }
 
-            if (target.Item is { } item)
-            {
-                if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(item.Id), item))
-                {
+            if (target.Item is { } item) {
+                if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(item.Id), item)) {
                     Stop(bot);
                     continue;
                 }
 
-                if (!WiredRoomOperations.IsOnItem(bot, item))
-                {
+                if (!WiredRoomOperations.IsOnItem(bot, item)) {
                     continue;
                 }
 
-                result.Add(new(WiredEventKind.BotReachedFurni)
-                {
-                    Actor = bot,
-                    EventItem = item
-                });
+                result.Add(new(WiredEventKind.BotReachedFurni) { Actor = bot, EventItem = item });
                 Stop(bot);
             }
-            else if (target.User is { } user)
-            {
-                if (!attached.Contains(user))
-                {
+            else if (target.User is { } user) {
+                if (!attached.Contains(user)) {
                     Stop(bot);
                     continue;
                 }
 
                 var near = Math.Max(Math.Abs(user.X - bot.X), Math.Abs(user.Y - bot.Y)) <= 1;
 
-                if (near && !target.Reached)
-                {
-                    result.Add(new(WiredEventKind.BotReachedUser)
-                    {
-                        Actor = bot,
-                        TargetUser = user
-                    });
+                if (near && !target.Reached) {
+                    result.Add(new(WiredEventKind.BotReachedUser) { Actor = bot, TargetUser = user });
                 }
 
                 target.Reached = near;
 
-                if (near)
-                {
+                if (near) {
                     continue;
                 }
 
@@ -98,8 +80,7 @@ public sealed class WiredBotTargets
                     .Where(point => room.GetGameMap().ValidTile(point.X, point.Y) && room.GetGameMap().CanWalk(point.X, point.Y, false))
                     .OrderBy(point => Math.Abs(point.X - bot.X) + Math.Abs(point.Y - bot.Y)).ToArray();
 
-                if (destinations.Length != 0)
-                {
+                if (destinations.Length != 0) {
                     bot.MoveTo(destinations[0].X, destinations[0].Y);
                 }
             }

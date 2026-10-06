@@ -81,10 +81,7 @@ public sealed class GroupCreationPresentationTests
 
     private sealed class RecordingPresentation : IGroupPresentationService
     {
-        public bool Shown
-        {
-            get; private set;
-        }
+        public bool Shown { get; private set; }
         public void ShowCreationWindow(GameClient session) => Shown = true;
         public void ShowMembers(GameClient session, GroupMembersRequest request) => throw new NotSupportedException();
         public void ShowBadgeEditor(GameClient session) => throw new NotSupportedException();

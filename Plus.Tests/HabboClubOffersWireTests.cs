@@ -85,14 +85,8 @@ public class HabboClubOffersWireTests
 
     private sealed class RecordingService : IClubOfferSnapshotService
     {
-        public int Window
-        {
-            get; private set;
-        }
-        public bool Extended
-        {
-            get; private set;
-        }
+        public int Window { get; private set; }
+        public bool Extended { get; private set; }
         public void ShowOffers(GameClient session, int windowId) => Window = windowId;
         public void ShowExtension(GameClient session) => Extended = true;
     }

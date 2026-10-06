@@ -29,12 +29,10 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         Assert.Equal((1, 1, z), (actor.X, actor.Y, actor.Z));
 
-        if (terrain != "void")
-        {
+        if (terrain != "void") {
             Assert.Equal(_room.GetGameMap().Navigation!.Grid.Reference(5), actor.Movement.CurrentRef);
         }
-        else
-        {
+        else {
             Assert.Null(actor.Movement.CurrentRef);
         }
 
@@ -66,24 +64,20 @@ public partial class PlacedFurniRoomTests
 
     private void ReviewOverrideTerrain(string terrain)
     {
-        if (terrain == "furniture")
-        {
+        if (terrain == "furniture") {
             ExecutorFloor(10, 1, 1, z: .25, height: 1.5);
         }
 
-        if (terrain == "seat")
-        {
+        if (terrain == "seat") {
             Add(10, 1, 1, z: .25, height: .5, seat: true);
         }
 
-        if (terrain == "magic")
-        {
+        if (terrain == "magic") {
             Add(10, 1, 1, height: 2);
             Add(11, 1, 1, z: .5, type: InteractionType.WalkMagicTile);
         }
 
-        if (terrain != "void")
-        {
+        if (terrain != "void") {
             return;
         }
 
@@ -102,19 +96,16 @@ public partial class PlacedFurniRoomTests
         var actor = ExecutorActor(0, 1);
         ReviewObserveWalkOff((user, item) =>
         {
-            if (item != origin)
-            {
+            if (item != origin) {
                 return;
             }
 
             var navigation = _room.GetGameMap().Navigation!;
 
-            if (remove)
-            {
+            if (remove) {
                 navigation.Remove(user);
             }
-            else
-            {
+            else {
                 navigation.ForcePlace(user, 3, 2, 0, ForceResolution.ExactZ);
             }
         });
@@ -124,8 +115,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(remove ? NavState.Removing : NavState.Active, actor.Movement.State);
         ReviewAssertMapMembership(actor, remove ? null : new Point(3, 2));
 
-        if (!remove)
-        {
+        if (!remove) {
             Assert.Equal((3, 2, 0d), (actor.X, actor.Y, actor.Z));
         }
 
@@ -142,17 +132,14 @@ public partial class PlacedFurniRoomTests
         var actor = ExecutorActor(0, 1);
         ReviewObserveWalkOff((_, item) =>
         {
-            if (item != origin)
-            {
+            if (item != origin) {
                 return;
             }
 
-            if (remove)
-            {
+            if (remove) {
                 _room.GetRoomItemHandler().RemoveFurniture(null!, destination.Id);
             }
-            else
-            {
+            else {
                 destination.GetZ = 1;
             }
 
@@ -194,8 +181,7 @@ public partial class PlacedFurniRoomTests
     {
         var actor = v2 ? ExecutorActor(0, 1) : Viewer(0, 1);
 
-        if (!v2)
-        {
+        if (!v2) {
             actor.UserId = 7;
             _room.GetGameMap().AddUserToMap(actor, actor.Coordinate);
         }
@@ -219,8 +205,7 @@ public partial class PlacedFurniRoomTests
         actor.IsWalking = true;
         actor.PathRecalcNeeded = false;
 
-        if (!v2)
-        {
+        if (!v2) {
             actor.Path = [new(1, 1), new(1, 2), new(0, 2), new(0, 1)];
             actor.PathStep = 1;
 
@@ -254,8 +239,7 @@ public partial class PlacedFurniRoomTests
         var packet = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
         var count = packet.ReadInt();
 
-        for (var index = 0; index < count; index++)
-        {
+        for (var index = 0; index < count; index++) {
             var id = packet.ReadInt();
             packet.ReadInt();
             packet.ReadInt();
@@ -264,8 +248,7 @@ public partial class PlacedFurniRoomTests
             var body = packet.ReadInt();
             packet.ReadString();
 
-            if (id == actor.VirtualId)
-            {
+            if (id == actor.VirtualId) {
                 return (head, body);
             }
         }
@@ -277,10 +260,8 @@ public partial class PlacedFurniRoomTests
     {
         var map = _room.GetGameMap();
 
-        for (var y = 0; y < map.StaticModel.MapSizeY; y++)
-        {
-            for (var x = 0; x < map.StaticModel.MapSizeX; x++)
-            {
+        for (var y = 0; y < map.StaticModel.MapSizeY; y++) {
+            for (var x = 0; x < map.StaticModel.MapSizeX; x++) {
                 Assert.Equal(registered == new Point(x, y) ? 1 : 0,
                     map.GetRoomUsers(new(x, y)).Count(member => ReferenceEquals(member, actor)));
             }
@@ -303,10 +284,7 @@ public partial class PlacedFurniRoomTests
         public WiredBoxType Type => WiredBoxType.TriggerWalkOffFurni;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
         public bool Execute(params object[] arguments)

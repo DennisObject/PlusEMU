@@ -21,9 +21,7 @@ public sealed class NavigatorSearchSnapshotTests
     {
         var ids = new uint[] { 2, 99, 1, 2 };
         var result = new SearchResultList(7, "cat", "id", "Name", true, 0, "", NavigatorViewMode.Thumbnail, "query", "none", 0)
-        {
-            CategoryType = category
-        };
+        { CategoryType = category };
         var navigator = CatalogSnapshotTestSupport.Proxy<INavigatorManager>((method, args) => method switch
         {
             nameof(INavigatorManager.GetCategoriessForSearch) => new List<SearchResultList> { result },
@@ -49,13 +47,9 @@ public sealed class NavigatorSearchSnapshotTests
             return ids.Select((id, index) => new Group(index, "Group", "", "", id, 42, null, 0, 1, 1, 0, false, GroupMembershipSnapshot.Empty)).ToList();
         });
         var loader = new Rooms();
-        var (client, _) = HabbiconTestSupport.Client(new()
-        {
-            Id = 42
-        });
+        var (client, _) = HabbiconTestSupport.Client(new() { Id = 42 });
 
-        foreach (var id in ids)
-        {
+        foreach (var id in ids) {
             client.GetHabbo().FavoriteRooms.Add(id);
         }
 
@@ -66,13 +60,11 @@ public sealed class NavigatorSearchSnapshotTests
 
         Assert.Equal(new uint[] { 2, 1 }, Assert.Single(snapshot.Results).Rooms.Select(room => room.Id));
 
-        if (category == NavigatorCategoryType.MyRooms)
-        {
+        if (category == NavigatorCategoryType.MyRooms) {
             Assert.Equal(42, loader.OwnerId);
             Assert.Empty(loader.Resolved);
         }
-        else
-        {
+        else {
             Assert.Equal(ids, loader.Resolved);
         }
 
@@ -96,10 +88,7 @@ public sealed class NavigatorSearchSnapshotTests
 
     private sealed class Rooms : IRoomDataLoader
     {
-        public int? OwnerId
-        {
-            get; private set;
-        }
+        public int? OwnerId { get; private set; }
         public List<uint> Resolved { get; } = [];
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId)
         {

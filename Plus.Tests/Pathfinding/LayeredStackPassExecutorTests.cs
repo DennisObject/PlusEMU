@@ -26,7 +26,12 @@ public partial class PlacedFurniRoomTests
         var rug = grid.SlotOf(new SurfaceRef(LayeredTile(1, 1), 12, SurfaceKind.Top));
         Assert.Equal((LayeredTile(1, 1), true), (grid.SlotOf(new SurfaceRef(LayeredTile(1, 1), 21, SurfaceKind.Top)), rug >= grid.TileCount));
         var observed = new List<(TargetOccupancy Rug, TargetOccupancy Deck)>();
-        ExecutorObserveLanding((_, item) => { if (item.Id == 12) { observed.Add((claims.OccupancyAt(rug, 0), claims.OccupancyAt(LayeredTile(1, 1), 0))); } });
+        ExecutorObserveLanding((_, item) =>
+        {
+            if (item.Id == 12) {
+                observed.Add((claims.OccupancyAt(rug, 0), claims.OccupancyAt(LayeredTile(1, 1), 0)));
+            }
+        });
         EnableExecutorRollers();
         ExecutorTick();
         Assert.Equal((1, 1, 0d), (actor.X, actor.Y, actor.Z));
@@ -45,8 +50,7 @@ public partial class PlacedFurniRoomTests
         ExecutorFloor(60, 3, 3).Definition.InteractionType = InteractionType.Banzaifloor;
         LayeredNavigation.Inputs.Attach(_room.GetRoomItemHandler().GetItem(60));
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             LayeredNavigation.ApplyDirty();
         }
 
@@ -67,8 +71,7 @@ public partial class PlacedFurniRoomTests
         vending.Definition.VendingIds.Add(DrinkId);
         Item? blocker = null;
 
-        if (vendingZ == 0)
-        {
+        if (vendingZ == 0) {
             blocker = ExecutorFloor(30, 1, 0, height: 1);
             blocker.Definition.Walkable = false;
         }
@@ -78,8 +81,7 @@ public partial class PlacedFurniRoomTests
         ExecutorFloor(33, 3, 0, z: 2);
         var actor = LayeredActor(3, 0);
 
-        if (blocker != null)
-        {
+        if (blocker != null) {
             _room.GetRoomItemHandler().RemoveFurniture(null!, blocker.Id);
         }
 
@@ -88,8 +90,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(vendingZ == 0 ? SurfaceKind.Top : SurfaceKind.Floor, LayeredNavigation.Grid.Kind[LayeredTile(1, 0)]);
         vending.Interactor.OnTrigger(_client, vending, 0, true);
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
         }
 
@@ -130,8 +131,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         ExecutorFloor(34, 1, 0);
 
-        for (var tick = 0; tick < 2; tick++)
-        {
+        for (var tick = 0; tick < 2; tick++) {
             ExecutorTick();
         }
 
@@ -149,8 +149,7 @@ public partial class PlacedFurniRoomTests
         Assert.NotNull(Approaches.Peek(actor));
         _room.GetRoomItemHandler().RemoveFurniture(null!, 31);
 
-        for (var tick = 0; tick < 5; tick++)
-        {
+        for (var tick = 0; tick < 5; tick++) {
             ExecutorTick();
         }
 
@@ -189,7 +188,12 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         var claims = LayeredNavigation.Executor.Claims;
         var observed = new List<TargetOccupancy>();
-        ExecutorObserveLanding((_, item) => { if (item.Id == 12) { observed.Add(claims.OccupancyAt(LayeredNavigation.Grid.SlotOf(actor.Movement.CurrentRef!.Value), 0)); } });
+        ExecutorObserveLanding((_, item) =>
+        {
+            if (item.Id == 12) {
+                observed.Add(claims.OccupancyAt(LayeredNavigation.Grid.SlotOf(actor.Movement.CurrentRef!.Value), 0));
+            }
+        });
         EnableExecutorRollers();
         ExecutorTick();
         Assert.Equal((1, 1, 0d), (actor.X, actor.Y, actor.Z));

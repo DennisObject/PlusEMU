@@ -15,22 +15,18 @@ public class RconConnection
         _socket = socket;
         _logger = logger;
 
-        try
-        {
+        try {
             _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, OnCallBack, _socket);
         }
-        catch
-        {
+        catch {
             Dispose();
         }
     }
 
     public void OnCallBack(IAsyncResult iAr)
     {
-        try
-        {
-            if (!int.TryParse(_socket.EndReceive(iAr).ToString(), out var bytes))
-            {
+        try {
+            if (!int.TryParse(_socket.EndReceive(iAr).ToString(), out var bytes)) {
                 Dispose();
 
                 return;
@@ -38,13 +34,11 @@ public class RconConnection
 
             var data = Encoding.Default.GetString(_buffer, 0, bytes);
 
-            if (!PlusEnvironment.RconSocket.GetCommands().Parse(data))
-            {
+            if (!PlusEnvironment.RconSocket.GetCommands().Parse(data)) {
                 _logger.LogError("Failed to execute a MUS command. Raw data: {Data}", data);
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             Console.WriteLine(e.ToString());
         }
 
@@ -53,8 +47,7 @@ public class RconConnection
 
     public void Dispose()
     {
-        if (_socket != null)
-        {
+        if (_socket != null) {
             _socket.Shutdown(SocketShutdown.Both);
             _socket.Close();
             _socket.Dispose();

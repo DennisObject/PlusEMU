@@ -31,8 +31,7 @@ public sealed class AvatarEffectService(TimeProvider time) : IAvatarEffectServic
         var now = time.GetUtcNow();
         var effect = habbo.Effects.GetEffectNullableAt(effectId, now, false, true);
 
-        if (effect == null || habbo.Effects.HasEffectAt(effectId, now, true))
-        {
+        if (effect == null || habbo.Effects.HasEffectAt(effectId, now, true)) {
             return;
         }
 
@@ -45,29 +44,25 @@ public sealed class AvatarEffectService(TimeProvider time) : IAvatarEffectServic
         var selected = effectId < 0 ? 0 : effectId;
         var habbo = session.GetHabbo();
 
-        if (!habbo.InRoom)
-        {
+        if (!habbo.InRoom) {
             return;
         }
 
         var room = habbo.CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
         var now = time.GetUtcNow();
 
-        if (selected != 0 && habbo.Effects.HasEffectAt(selected, now, true))
-        {
+        if (selected != 0 && habbo.Effects.HasEffectAt(selected, now, true)) {
             user.ApplyEffect(selected);
         }
     }

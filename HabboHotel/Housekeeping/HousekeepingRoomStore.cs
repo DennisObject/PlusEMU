@@ -28,16 +28,12 @@ public sealed class HousekeepingRoomStore : IHousekeepingRoomStore
 
     public HousekeepingRoom? Find(int roomId)
     {
-        if (roomId <= 0)
-        {
+        if (roomId <= 0) {
             return null;
         }
 
         using var connection = _database.Connection();
-        var row = connection.QuerySingleOrDefault<RoomRow>(Select + "WHERE r.`id` = @roomId LIMIT 1", new
-        {
-            roomId
-        });
+        var row = connection.QuerySingleOrDefault<RoomRow>(Select + "WHERE r.`id` = @roomId LIMIT 1", new { roomId });
 
         return row == null ? null : View(row);
     }
@@ -46,11 +42,7 @@ public sealed class HousekeepingRoomStore : IHousekeepingRoomStore
     {
         using var connection = _database.Connection();
         var rows = connection.Query<RoomRow>(Select + (exactMatch ? "WHERE r.`caption` = @query " : "WHERE r.`caption` LIKE @query ") + "ORDER BY r.`id` LIMIT @limit",
-            new
-            {
-                query = exactMatch ? query : EscapeLike(query) + "%",
-                limit = Math.Clamp(limit, 1, HousekeepingLimits.MaxRoomResults)
-            });
+            new { query = exactMatch ? query : EscapeLike(query) + "%", limit = Math.Clamp(limit, 1, HousekeepingLimits.MaxRoomResults) });
 
         return rows.Select(View).ToList();
     }
@@ -60,8 +52,7 @@ public sealed class HousekeepingRoomStore : IHousekeepingRoomStore
     /// <summary>A loaded room's live state wins over the persisted row.</summary>
     private HousekeepingRoom View(RoomRow row)
     {
-        if (_roomManager.TryGetRoom((uint)row.Id, out var room))
-        {
+        if (_roomManager.TryGetRoom((uint)row.Id, out var room)) {
             return View(room);
         }
 
@@ -76,25 +67,13 @@ public sealed class HousekeepingRoomStore : IHousekeepingRoomStore
 
     private sealed class RoomRow
     {
-        public int Id
-        {
-            get; set;
-        }
+        public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public int OwnerId
-        {
-            get; set;
-        }
+        public int OwnerId { get; set; }
         public string OwnerName { get; set; } = string.Empty;
-        public int UserCount
-        {
-            get; set;
-        }
-        public int MaxUsers
-        {
-            get; set;
-        }
+        public int UserCount { get; set; }
+        public int MaxUsers { get; set; }
         public string State { get; set; } = "open";
         public string RoomType { get; set; } = "private";
     }

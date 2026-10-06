@@ -18,27 +18,32 @@ public partial class PlacedFurniRoomTests
         InitializeExternalUnloadCollections();
         var navigation = _room.GetGameMap().Navigation!;
         using var race = new ReviewDisposalRace(() => ReviewTeardown(teardown, navigation));
-        ReviewObserveWalkOff((_, item) => { if (item == origin) { race.BlockTick(); } });
+        ReviewObserveWalkOff((_, item) =>
+        {
+            if (item == origin) {
+                race.BlockTick();
+            }
+        });
         actor.MoveTo(1, 1);
         ExecutorTick();
         Assert.True(RoomCycle.TryStart(_room, _room.ProcessRoom));
 
-        try
-        {
+        try {
             race.StartDisposal();
             Assert.Equal(NavState.Active, actor.Movement.State);
             Assert.False(_room.MDisposed);
             Assert.NotNull(_room.GetGameMap());
             Assert.True(actor.Movement.HasIntent);
         }
-        finally { race.Finish(_room.ProcessTask); }
+        finally {
+            race.Finish(_room.ProcessTask);
+        }
 
         Assert.Equal(NavState.Removing, actor.Movement.State);
         Assert.All(navigation.Executor.Context.Claims.TileCount, count => Assert.Equal(0, count));
         Assert.Equal(0, DrainRemainingSearches(navigation));
 
-        if (teardown == "room")
-        {
+        if (teardown == "room") {
             Assert.Null(_room.GetGameMap());
         }
     }
@@ -50,7 +55,12 @@ public partial class PlacedFurniRoomTests
         var actor = ExecutorActor(0, 1);
         InitializeExternalUnloadCollections();
         var navigation = _room.GetGameMap().Navigation!;
-        ReviewObserveWalkOff((_, item) => { if (item == origin) { _room.Dispose(); } });
+        ReviewObserveWalkOff((_, item) =>
+        {
+            if (item == origin) {
+                _room.Dispose();
+            }
+        });
         actor.MoveTo(1, 1);
         ExecutorTick();
         Assert.True(RoomCycle.TryStart(_room, _room.ProcessRoom));
@@ -63,16 +73,13 @@ public partial class PlacedFurniRoomTests
 
     private void ReviewTeardown(string teardown, RoomNavigation navigation)
     {
-        if (teardown == "room")
-        {
+        if (teardown == "room") {
             _room.Dispose();
         }
-        else if (teardown == "manager")
-        {
+        else if (teardown == "manager") {
             _room.GetRoomUserManager().Dispose();
         }
-        else
-        {
+        else {
             navigation.Shutdown();
         }
     }
@@ -94,12 +101,15 @@ public partial class PlacedFurniRoomTests
             Assert.True(_entered.Wait(TimeSpan.FromSeconds(10)));
             _disposer = new Thread(() =>
             {
-                try
-                {
+                try {
                     teardown();
                 }
-                catch (Exception error) { _error = error; }
-                finally { _finished.Set(); }
+                catch (Exception error) {
+                    _error = error;
+                }
+                finally {
+                    _finished.Set();
+                }
             });
             _disposer.Start();
             Assert.True(SpinWait.SpinUntil(() => _finished.IsSet
@@ -109,8 +119,7 @@ public partial class PlacedFurniRoomTests
         {
             _release.Set();
 
-            if (_disposer != null)
-            {
+            if (_disposer != null) {
                 Assert.True(_disposer.Join(TimeSpan.FromSeconds(10)));
             }
 

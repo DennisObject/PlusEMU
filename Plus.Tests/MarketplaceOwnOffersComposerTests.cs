@@ -38,10 +38,7 @@ public class MarketplaceOwnOffersComposerTests
     private sealed class RecordingPacket : IOutgoingPacket
     {
         public List<object> Writes { get; } = [];
-        public int MessageId
-        {
-            get; set;
-        }
+        public int MessageId { get; set; }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

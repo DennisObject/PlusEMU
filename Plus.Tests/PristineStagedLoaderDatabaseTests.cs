@@ -24,11 +24,7 @@ public sealed class PristineStagedLoaderDatabaseTests
             var expires = DateTimeOffset.FromUnixTimeSeconds(now + 3600);
             connection.Execute("ALTER TABLE room_bans MODIFY expire INT NOT NULL DEFAULT 0");
             connection.Execute("INSERT INTO room_bans (user_id, room_id, expire) VALUES (8, 42, @expired), (9, 99, @expires)",
-                new
-                {
-                    expired = now - 30,
-                    expires = now + 3600
-                });
+                new { expired = now - 30, expires = now + 3600 });
             connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/22_UseUtcRoomBanExpiry.sql")));
             Assert.Equal(expires, Assert.Single(store.Load(99)).ExpiresAt);
             store.Save(42, 7, expires);
@@ -39,11 +35,7 @@ public sealed class PristineStagedLoaderDatabaseTests
             store.Save(42, int.MaxValue, expires);
             Assert.Equal(int.MaxValue, Assert.Single(store.Load(42)).UserId);
             connection.Execute("UPDATE room_bans SET user_id = @id WHERE room_id = 42 AND user_id = @previous",
-                new
-                {
-                    id = 2147483648u,
-                    previous = int.MaxValue
-                });
+                new { id = 2147483648u, previous = int.MaxValue });
             Assert.Throws<OverflowException>(() => store.Load(42).ToArray());
             Assert.Throws<OverflowException>(() => store.ActiveUserIds(42).ToArray());
         });
@@ -68,11 +60,7 @@ public sealed class PristineStagedLoaderDatabaseTests
                     (12, 1, 7, 250, 251, 'sold', 125, '1', @expired, '2', '', 1002, 0, 0),
                     (13, 1, 8, 900, 901, 'other owner', 126, '1', @now, '2', '', 1003, 0, 0);
                 INSERT INTO catalog_marketplace_data (sprite, avgprice, sold) VALUES (123, 900, 3);
-                """, new
-            {
-                now,
-                expired = now - 172860
-            });
+                """, new { now, expired = now - 172860 });
             connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/25_UseUtcMarketplaceTimes.sql")));
             Assert.Equal(300, market.AvgPriceForSprite(123));
             var offers = market.OwnOffers(7);
@@ -86,17 +74,10 @@ public sealed class PristineStagedLoaderDatabaseTests
             var sold = Assert.Single(offers.Offers, offer => offer.OfferId == 12);
             Assert.Equal(2, sold.State);
             Assert.True(sold.MinutesRemaining < 0);
-            connection.Execute("UPDATE catalog_marketplace_offers SET offer_id = @id WHERE offer_id = 10", new
-            {
-                id = int.MaxValue
-            });
+            connection.Execute("UPDATE catalog_marketplace_offers SET offer_id = @id WHERE offer_id = 10", new { id = int.MaxValue });
             Assert.Contains(market.OwnOffers(7).Offers, offer => offer.OfferId == int.MaxValue);
             connection.Execute("UPDATE catalog_marketplace_offers SET offer_id = @id WHERE offer_id = @previous",
-                new
-                {
-                    id = 2147483648u,
-                    previous = int.MaxValue
-                });
+                new { id = 2147483648u, previous = int.MaxValue });
             Assert.Throws<OverflowException>(() => market.OwnOffers(7));
         });
     }
@@ -121,25 +102,14 @@ public sealed class PristineStagedLoaderDatabaseTests
             Assert.Equal(3, group.MemberCount);
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM group_requests WHERE group_id = 42 AND user_id = 7"));
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM group_requests WHERE group_id = 99 AND user_id = 12"));
-            connection.Execute("UPDATE group_memberships SET user_id = @id WHERE group_id = 42 AND user_id = 7", new
-            {
-                id = int.MaxValue
-            });
+            connection.Execute("UPDATE group_memberships SET user_id = @id WHERE group_id = 42 AND user_id = 7", new { id = int.MaxValue });
             Assert.Equal([int.MaxValue], Load().GetMembers);
             connection.Execute("UPDATE group_memberships SET user_id = @id WHERE group_id = 42 AND user_id = @previous",
-                new
-                {
-                    id = 2147483648u,
-                    previous = int.MaxValue
-                });
+                new { id = 2147483648u, previous = int.MaxValue });
             Assert.Throws<OverflowException>(() => Load());
             connection.Execute("UPDATE group_memberships SET user_id = @id WHERE group_id = 42 AND user_id = @overflow; " +
                 "UPDATE group_requests SET user_id = @overflow WHERE group_id = 42 AND user_id = 11",
-                new
-                {
-                    id = int.MaxValue,
-                    overflow = 2147483648u
-                });
+                new { id = int.MaxValue, overflow = 2147483648u });
             Assert.Throws<OverflowException>(() => Load());
         });
     }
@@ -155,8 +125,7 @@ public sealed class PristineStagedLoaderDatabaseTests
             var room = new Room(data, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
             var rooms = PristineStagedDatabase.Proxy<IRoomManager>((method, args) =>
             {
-                if (method != "TryGetRoom")
-                {
+                if (method != "TryGetRoom") {
                     throw new InvalidOperationException(method);
                 }
 
@@ -182,16 +151,9 @@ public sealed class PristineStagedLoaderDatabaseTests
                 entry => Assert.Equal(new ModeratorChatEntry(7, "Alice", "first id", DateTimeOffset.FromUnixTimeSeconds(1700000030)), entry));
             Assert.Equal(2, chatlogs.Flushes);
             connection.Execute("INSERT INTO chatlogs (id, user_id, room_id, message, `timestamp`) VALUES (5, @id, 42, 'boundary', @createdAt)",
-                new
-                {
-                    id = int.MaxValue,
-                    createdAt = DateTimeOffset.FromUnixTimeSeconds(1700000060).UtcDateTime
-                });
+                new { id = int.MaxValue, createdAt = DateTimeOffset.FromUnixTimeSeconds(1700000060).UtcDateTime });
             Assert.Equal(int.MaxValue, history.GetRoomChatlog(42)!.Entries[0].UserId);
-            connection.Execute("UPDATE chatlogs SET user_id = @id WHERE id = 5", new
-            {
-                id = 2147483648u
-            });
+            connection.Execute("UPDATE chatlogs SET user_id = @id WHERE id = 5", new { id = 2147483648u });
             Assert.Throws<OverflowException>(() => history.GetRoomChatlog(42));
         });
     }
@@ -209,10 +171,7 @@ public sealed class PristineStagedLoaderDatabaseTests
 
     private sealed class Chatlogs : IChatlogManager
     {
-        public int Flushes
-        {
-            get; private set;
-        }
+        public int Flushes { get; private set; }
         public void FlushAndSave() => Flushes++;
         public void StoreChatlog(ChatlogEntry entry) => throw new NotSupportedException();
     }

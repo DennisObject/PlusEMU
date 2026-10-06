@@ -14,8 +14,7 @@ public class PathfindingBenchmarks
     {
         var output = Environment.GetEnvironmentVariable("PLUSEMU_PATHFINDING_BENCHMARK");
 
-        if (string.IsNullOrEmpty(output))
-        {
+        if (string.IsNullOrEmpty(output)) {
             return;
         }
 
@@ -23,12 +22,9 @@ public class PathfindingBenchmarks
         Run("64² open (~30 steps), target p99 <30µs", Open(64), 1, 1, 31, 21, 5000, 500);
         var maze = Open(64);
 
-        for (var x = 8; x < 56; x += 8)
-        {
-            for (var y = 0; y < 64; y++)
-            {
-                if (y != (x / 8 % 2 == 0 ? 20 : 40))
-                {
+        for (var x = 8; x < 56; x += 8) {
+            for (var y = 0; y < 64; y++) {
+                if (y != (x / 8 % 2 == 0 ? 20 : 40)) {
                     maze[y][x] = 'x';
                 }
             }
@@ -37,16 +33,14 @@ public class PathfindingBenchmarks
         Run("64² maze, target p99 <150µs", maze, 1, 30, 60, 30, 1000, 100);
         var cliff = Open(256);
 
-        for (var y = 0; y < 256; y++)
-        {
+        for (var y = 0; y < 256; y++) {
             cliff[y][128] = '2';
         }
 
         Run("256² unreachable after prechecks, target p99 <3000µs", cliff, 1, 1, 254, 254, 60, 30);
         var split = Open(64);
 
-        for (var y = 0; y < 64; y++)
-        {
+        for (var y = 0; y < 64; y++) {
             split[y][32] = 'x';
         }
 
@@ -54,15 +48,13 @@ public class PathfindingBenchmarks
         var walkers = RoomPerformanceFixture.Create(100, 0, 64);
         var movementSamples = new double[1000];
 
-        for (var warmup = 0; warmup < 30; warmup++)
-        {
+        for (var warmup = 0; warmup < 30; warmup++) {
             Move();
         }
 
         var bytes = GC.GetAllocatedBytesForCurrentThread();
 
-        for (var i = 0; i < movementSamples.Length; i++)
-        {
+        for (var i = 0; i < movementSamples.Length; i++) {
             var start = Stopwatch.GetTimestamp();
             Move();
             movementSamples[i] = Microseconds(start);
@@ -88,10 +80,7 @@ public class PathfindingBenchmarks
             Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
             Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
             map.GenerateMaps();
-            var navigation = map.Navigation ?? new RoomNavigation(room, model, new()
-            {
-                Engine = PathfindingEngine.Shadow
-            }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+            var navigation = map.Navigation ?? new RoomNavigation(room, model, new() { Engine = PathfindingEngine.Shadow }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             navigation.Compiler.RebuildAll();
             var grid = navigation.Grid;
             var settings = new PathfindingSettings();
@@ -106,13 +95,11 @@ public class PathfindingBenchmarks
             var from = new Vector2D(sx, sy);
             var to = new Vector2D(gx, gy);
 
-            for (var i = 0; i < 30; i++)
-            {
+            for (var i = 0; i < 30; i++) {
                 search.Find(request, ws, route);
             }
 
-            for (var i = 0; i < 5; i++)
-            {
+            for (var i = 0; i < 5; i++) {
                 PathFinder.FindPath(legacyActor, true, map, from, to, metrics);
             }
 
@@ -125,8 +112,7 @@ public class PathfindingBenchmarks
             var v2CpuStart = process.TotalProcessorTime;
             var allocated = GC.GetAllocatedBytesForCurrentThread();
 
-            for (var i = 0; i < v2Iterations; i++)
-            {
+            for (var i = 0; i < v2Iterations; i++) {
                 var start = Stopwatch.GetTimestamp();
                 search.Find(request, ws, route);
                 v2Samples[i] = Microseconds(start);
@@ -137,8 +123,7 @@ public class PathfindingBenchmarks
             var legacyCpuStart = process.TotalProcessorTime;
             allocated = GC.GetAllocatedBytesForCurrentThread();
 
-            for (var i = 0; i < legacyIterations; i++)
-            {
+            for (var i = 0; i < legacyIterations; i++) {
                 var start = Stopwatch.GetTimestamp();
                 PathFinder.FindPath(legacyActor, true, map, from, to, metrics);
                 legacySamples[i] = Microseconds(start);
@@ -157,24 +142,20 @@ public class PathfindingBenchmarks
     {
         var output = Environment.GetEnvironmentVariable("PLUSEMU_PATHFINDING_BENCHMARK");
 
-        if (string.IsNullOrEmpty(output))
-        {
+        if (string.IsNullOrEmpty(output)) {
             return;
         }
 
         var results = new List<string> { $"Runtime={Environment.Version}; Release/AnyCPU; µs/search; warmed; same records, layering off (K=1) vs on (K=2)" };
 
-        foreach (var layered in new[] { false, true })
-        {
+        foreach (var layered in new[] { false, true }) {
             // 64² floor with a zero-height deck at Z 1 over every even column: K=2 doubles those nodes.
             var settings = new PathfindingSettings { LayeringEnabled = layered };
             var (grid, inputs, compiler) = Plus.Tests.Pathfinding.NavTest.Create(64, 64, settings);
             uint id = 1;
 
-            for (var t = 0; t < 64 * 64; t++)
-            {
-                if (t % 64 % 2 == 0)
-                {
+            for (var t = 0; t < 64 * 64; t++) {
+                if (t % 64 % 2 == 0) {
                     inputs.Publish(Plus.Tests.Pathfinding.NavTest.Record(id, id++, [t], z: 1));
                 }
             }
@@ -186,16 +167,14 @@ public class PathfindingBenchmarks
             using var lease = PathWorkspacePool.Rent(grid.SlotCapacity, grid.ActiveNodeCount);
             var ws = lease.Workspace;
 
-            for (var i = 0; i < 50; i++)
-            {
+            for (var i = 0; i < 50; i++) {
                 Assert.Equal(PathOutcome.Found, search.Find(request, ws, route));
             }
 
             var samples = new double[2000];
             var allocated = GC.GetAllocatedBytesForCurrentThread();
 
-            for (var i = 0; i < samples.Length; i++)
-            {
+            for (var i = 0; i < samples.Length; i++) {
                 var start = Stopwatch.GetTimestamp();
                 search.Find(request, ws, route);
                 samples[i] = Microseconds(start);

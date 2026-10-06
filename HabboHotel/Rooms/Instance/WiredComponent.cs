@@ -77,15 +77,13 @@ public partial class WiredComponent : IWiredRuntimeOperations
         {
             _selectorState.Observe(evt, now);
 
-            if (evt.Kind == WiredEventKind.Leave && evt.Actor != null)
-            {
+            if (evt.Kind == WiredEventKind.Leave && evt.Actor != null) {
                 ForgetFxActor(evt.Actor);
                 WiredAvatarState.For(_room).Forget(evt.Actor);
                 WiredBotTargets.For(_room).Forget(evt.Actor);
                 WiredGameState.For(_room).Forget(evt.Actor);
 
-                if (_variables?.IsValueCreated == true)
-                {
+                if (_variables?.IsValueCreated == true) {
                     _variables.Value.HolderLeft(WiredVariableRuntimeFrames.UserHolder(evt.Actor));
                 }
             }
@@ -95,8 +93,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             ? _variables.Value.CaptureSpeech(context, trigger) : null;
         _engine.ConfigurationPublished = box =>
         {
-            if (_variables?.IsValueCreated == true)
-            {
+            if (_variables?.IsValueCreated == true) {
                 _variables.Value.ConfigurationSaved(box);
             }
         };
@@ -114,8 +111,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         PublishStateWrites();
         _engine.OnFastCycle();
 
-        if (_variables?.IsValueCreated == true && _variables.Value.FxDirty)
-        {
+        if (_variables?.IsValueCreated == true && _variables.Value.FxDirty) {
             FlushVariableFx();
         }
     }
@@ -123,8 +119,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
     internal void ObserveFastWork(Action<bool>? observer) => _engine.ObserveFastWork(observer);
     public bool Dispatch(WiredRuntimeEvent @event)
     {
-        if (@event.Kind == WiredEventKind.GameStart)
-        {
+        if (@event.Kind == WiredEventKind.GameStart) {
             WiredGameState.For(_room).ResetQuotas();
         }
 
@@ -141,18 +136,14 @@ public partial class WiredComponent : IWiredRuntimeOperations
         var oldItems = before.DistinctBy(x => x.Id).ToDictionary(x => x.Id);
         var newItems = after.DistinctBy(x => x.Id).ToDictionary(x => x.Id);
 
-        foreach (var item in oldItems.Values.Where(x => !newItems.ContainsKey(x.Id)).OrderBy(x => x.GetZ).ThenBy(x => x.Id))
-        {
-            if (ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item))
-            {
+        foreach (var item in oldItems.Values.Where(x => !newItems.ContainsKey(x.Id)).OrderBy(x => x.GetZ).ThenBy(x => x.Id)) {
+            if (ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)) {
                 item.UserWalksOffFurni(actor);
             }
         }
 
-        foreach (var item in newItems.Values.Where(x => !oldItems.ContainsKey(x.Id)).OrderBy(x => x.GetZ).ThenBy(x => x.Id))
-        {
-            if (ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item))
-            {
+        foreach (var item in newItems.Values.Where(x => !oldItems.ContainsKey(x.Id)).OrderBy(x => x.GetZ).ThenBy(x => x.Id)) {
+            if (ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)) {
                 item.UserWalksOnFurni(actor);
             }
         }
@@ -185,34 +176,27 @@ public partial class WiredComponent : IWiredRuntimeOperations
         var newBox = GenerateNewBox(item);
         var descriptor = item.Definition.WiredDescriptor;
 
-        if (descriptor == null && newBox != null && WiredLegacyEditorProjection.TryGetDescriptor(newBox, out var projected))
-        {
+        if (descriptor == null && newBox != null && WiredLegacyEditorProjection.TryGetDescriptor(newBox, out var projected)) {
             descriptor = projected;
         }
 
-        if (descriptor != null)
-        {
-            try
-            {
+        if (descriptor != null) {
+            try {
                 var saved = ConfigurationStore.Load(item.Id, descriptor);
 
                 if (saved != null && saved.SelectedItems.Concat(saved.SecondarySelectedItems)
-                    .Any(id => _room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true))
-                {
+                    .Any(id => _room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
                     throw new InvalidDataException("Saved static selections cannot reference temporary room furniture.");
                 }
 
                 var selected = WiredBoxLoading.Select(newBox, CreateConfiguredBox(item, descriptor), saved);
 
-                if (selected is IWiredConfiguredItem configured)
-                {
-                    if (_variables?.IsValueCreated == true)
-                    {
+                if (selected is IWiredConfiguredItem configured) {
+                    if (_variables?.IsValueCreated == true) {
                         _variables.Value.ConfigurationLoaded(configured);
                     }
 
-                    if (!AddBox(configured))
-                    {
+                    if (!AddBox(configured)) {
                         return null;
                     }
 
@@ -221,52 +205,39 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
                 newBox = selected;
             }
-            catch (Exception error)
-            {
+            catch (Exception error) {
                 _logger.LogError(error, "Cannot load Wired configuration for item {ItemId} in room {RoomId}; saved bytes retained", item.Id, _room.Id);
 
                 return null;
             }
         }
 
-        if (newBox == null)
-        {
+        if (newBox == null) {
             _logger.LogWarning("Unsupported wired type {WiredType} on item {ItemId} in room {RoomId}",
                 item.Definition.WiredType, item.Id, _room.Id);
 
             return null;
         }
 
-        using (var connection = _database.Connection())
-        {
+        using (var connection = _database.Connection()) {
             var row = connection.QuerySingleOrDefault<WiredItemRow>(
-                "SELECT items,delay,`string` AS StringData,`bool` AS BoolData FROM wired_items WHERE id=@id LIMIT 1", new
-                {
-                    item.Id
-                });
+                "SELECT items,delay,`string` AS StringData,`bool` AS BoolData FROM wired_items WHERE id=@id LIMIT 1", new { item.Id });
 
-            if (row != null)
-            {
-                if (string.IsNullOrEmpty(row.StringData))
-                {
-                    if (newBox.Type == WiredBoxType.ConditionMatchStateAndPosition || newBox.Type == WiredBoxType.ConditionDontMatchStateAndPosition)
-                    {
+            if (row != null) {
+                if (string.IsNullOrEmpty(row.StringData)) {
+                    if (newBox.Type == WiredBoxType.ConditionMatchStateAndPosition || newBox.Type == WiredBoxType.ConditionDontMatchStateAndPosition) {
                         newBox.StringData = "0;0;0";
                     }
-                    else if (newBox.Type == WiredBoxType.ConditionUserCountInRoom || newBox.Type == WiredBoxType.ConditionUserCountDoesntInRoom)
-                    {
+                    else if (newBox.Type == WiredBoxType.ConditionUserCountInRoom || newBox.Type == WiredBoxType.ConditionUserCountDoesntInRoom) {
                         newBox.StringData = "0;0";
                     }
-                    else if (newBox.Type == WiredBoxType.ConditionFurniHasNoFurni)
-                    {
+                    else if (newBox.Type == WiredBoxType.ConditionFurniHasNoFurni) {
                         newBox.StringData = "0";
                     }
-                    else if (newBox.Type == WiredBoxType.EffectMatchPosition)
-                    {
+                    else if (newBox.Type == WiredBoxType.EffectMatchPosition) {
                         newBox.StringData = "0;0;0";
                     }
-                    else if (newBox.Type == WiredBoxType.EffectMoveAndRotate)
-                    {
+                    else if (newBox.Type == WiredBoxType.EffectMoveAndRotate) {
                         newBox.StringData = "0;0";
                     }
                 }
@@ -275,28 +246,23 @@ public partial class WiredComponent : IWiredRuntimeOperations
                 newBox.BoolData = row.BoolData;
                 newBox.ItemsData = row.Items;
 
-                if (newBox is IWiredCycle)
-                {
+                if (newBox is IWiredCycle) {
                     var box = (IWiredCycle)newBox;
                     box.Delay = row.Delay;
                 }
 
-                foreach (var str in row.Items.Split(';'))
-                {
+                foreach (var str in row.Items.Split(';')) {
                     var id = 0;
                     var sId = "0";
 
-                    if (str.Contains(':'))
-                    {
+                    if (str.Contains(':')) {
                         sId = str.Split(':')[0];
                     }
 
-                    if (int.TryParse(str, out id) || int.TryParse(sId, out id))
-                    {
+                    if (int.TryParse(str, out id) || int.TryParse(sId, out id)) {
                         var selectedItem = _room.GetRoomItemHandler().GetItem(Convert.ToUInt32(id));
 
-                        if (selectedItem == null)
-                        {
+                        if (selectedItem == null) {
                             continue;
                         }
 
@@ -304,8 +270,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
                     }
                 }
             }
-            else
-            {
+            else {
                 newBox.ItemsData = "";
                 newBox.StringData = "";
                 newBox.BoolData = false;
@@ -313,8 +278,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             }
         }
 
-        if (!AddBox(newBox))
-        {
+        if (!AddBox(newBox)) {
             // ummm
         }
 
@@ -323,8 +287,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public IWiredItem? GenerateNewBox(Item item)
     {
-        switch (item.Definition.WiredType)
-        {
+        switch (item.Definition.WiredType) {
             case WiredBoxType.TriggerRoomEnter:
                 return new RoomEnterBox(_room, item);
             case WiredBoxType.TriggerRepeat:
@@ -456,29 +419,23 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public bool OtherBoxHasItem(IWiredItem box, uint itemId)
     {
-        if (box == null)
-        {
+        if (box == null) {
             return false;
         }
 
         ICollection<IWiredItem> items = GetEffects(box).Where(x => x.Item.Id != box.Item.Id).ToList();
 
-        if (items != null && items.Count > 0)
-        {
-            foreach (var item in items)
-            {
-                if (item.Type != WiredBoxType.EffectMoveAndRotate && item.Type != WiredBoxType.EffectMoveFurniFromNearestUser && item.Type != WiredBoxType.EffectMoveFurniToNearestUser)
-                {
+        if (items != null && items.Count > 0) {
+            foreach (var item in items) {
+                if (item.Type != WiredBoxType.EffectMoveAndRotate && item.Type != WiredBoxType.EffectMoveFurniFromNearestUser && item.Type != WiredBoxType.EffectMoveFurniToNearestUser) {
                     continue;
                 }
 
-                if (item.SetItems == null || item.SetItems.Count == 0)
-                {
+                if (item.SetItems == null || item.SetItems.Count == 0) {
                     continue;
                 }
 
-                if (item.SetItems.ContainsKey(itemId))
-                {
+                if (item.SetItems.ContainsKey(itemId)) {
                     return true;
                 }
             }
@@ -489,8 +446,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public bool TriggerEvent(WiredBoxType type, params object[] arguments)
     {
-        if (type == WiredBoxType.TriggerGameStarts)
-        {
+        if (type == WiredBoxType.TriggerGameStarts) {
             WiredGameState.For(_room).ResetQuotas();
         }
 
@@ -530,36 +486,28 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public bool OnUserFurniCollision(Room room, Item item)
     {
-        if (room == null || item == null)
-        {
+        if (room == null || item == null) {
             return false;
         }
 
-        foreach (var point in item.GetSides())
-        {
-            if (room.GetGameMap().SquareHasUsers(point.X, point.Y))
-            {
+        foreach (var point in item.GetSides()) {
+            if (room.GetGameMap().SquareHasUsers(point.X, point.Y)) {
                 var users = room.GetGameMap().GetRoomUsers(point);
 
-                if (users != null && users.Count > 0)
-                {
-                    foreach (var user in users.ToList())
-                    {
-                        if (user == null)
-                        {
+                if (users != null && users.Count > 0) {
+                    foreach (var user in users.ToList()) {
+                        if (user == null) {
                             continue;
                         }
 
                         item.UserFurniCollision(user);
                     }
                 }
-                else
-                {
+                else {
                     continue;
                 }
             }
-            else
-            {
+            else {
                 continue;
             }
         }
@@ -571,8 +519,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public void OnEvent(Item item)
     {
-        if (item.LegacyDataString == "1")
-        {
+        if (item.LegacyDataString == "1") {
             return;
         }
 
@@ -586,45 +533,32 @@ public partial class WiredComponent : IWiredRuntimeOperations
         var items = "";
         IWiredCycle? cycle = null;
 
-        if (item is IWiredCycle)
-        {
+        if (item is IWiredCycle) {
             cycle = (IWiredCycle)item;
         }
 
-        foreach (var I in item.SetItems.Values)
-        {
+        foreach (var I in item.SetItems.Values) {
             var selectedItem = _room.GetRoomItemHandler().GetItem(Convert.ToUInt32(I.Id));
 
-            if (selectedItem == null)
-            {
+            if (selectedItem == null) {
                 continue;
             }
 
-            if (item.Type == WiredBoxType.EffectMatchPosition || item.Type == WiredBoxType.ConditionMatchStateAndPosition || item.Type == WiredBoxType.ConditionDontMatchStateAndPosition)
-            {
+            if (item.Type == WiredBoxType.EffectMatchPosition || item.Type == WiredBoxType.ConditionMatchStateAndPosition || item.Type == WiredBoxType.ConditionDontMatchStateAndPosition) {
                 items += $"{I.Id}:{I.GetX},{I.GetY},{I.GetZ},{I.Rotation},{I.LegacyDataString};";
             }
-            else
-            {
+            else {
                 items += $"{I.Id};";
             }
         }
 
-        if (item.Type == WiredBoxType.EffectMatchPosition || item.Type == WiredBoxType.ConditionMatchStateAndPosition || item.Type == WiredBoxType.ConditionDontMatchStateAndPosition)
-        {
+        if (item.Type == WiredBoxType.EffectMatchPosition || item.Type == WiredBoxType.ConditionMatchStateAndPosition || item.Type == WiredBoxType.ConditionDontMatchStateAndPosition) {
             item.ItemsData = items;
         }
 
         using var connection = _database.Connection();
         connection.Execute("REPLACE INTO wired_items (id,items,delay,`string`,`bool`) VALUES (@id,@items,@delay,@stringData,@boolData)",
-            new
-            {
-                id = item.Item.Id,
-                items,
-                delay = item is IWiredCycle ? cycle.Delay : 0,
-                stringData = item.StringData,
-                boolData = item.BoolData
-            });
+            new { id = item.Item.Id, items, delay = item is IWiredCycle ? cycle.Delay : 0, stringData = item.StringData, boolData = item.BoolData });
         _engine.CancelPending(item);
     }
 
@@ -637,15 +571,9 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private sealed class WiredItemRow
     {
         public string Items { get; init; } = "";
-        public int Delay
-        {
-            get; init;
-        }
+        public int Delay { get; init; }
         public string StringData { get; init; } = "";
-        public bool BoolData
-        {
-            get; init;
-        }
+        public bool BoolData { get; init; }
     }
 
     public void Cleanup()

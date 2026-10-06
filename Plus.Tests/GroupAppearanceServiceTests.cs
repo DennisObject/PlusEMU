@@ -134,12 +134,10 @@ public sealed class GroupAppearanceServiceTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 connection.Execute("CREATE TABLE `groups` (`id` INT PRIMARY KEY,`name` VARCHAR(50) NOT NULL,`desc` VARCHAR(100) NOT NULL,`badge` VARCHAR(50) NOT NULL,`colour1` INT NOT NULL,`colour2` INT NOT NULL); INSERT INTO `groups` VALUES(9,'old','old description','oldbadge',1,2)");
             }
 
@@ -155,8 +153,7 @@ public sealed class GroupAppearanceServiceTests
                 verify.QuerySingle<(string, string, string, int, int)>("SELECT `name`,`desc`,`badge`,`colour1`,`colour2` FROM `groups` WHERE `id`=9"));
             Assert.Equal(1, verify.ExecuteScalar<int>("SELECT COUNT(*) FROM `groups`"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -227,26 +224,11 @@ public sealed class GroupAppearanceServiceTests
 
     private sealed class RecordingAppearanceService : IGroupAppearanceService
     {
-        public GroupIdentityRequest? Identity
-        {
-            get; private set;
-        }
-        public int BadgeGroupId
-        {
-            get; private set;
-        }
-        public ImmutableArray<GroupBadgePartRequest> BadgeParts
-        {
-            get; private set;
-        }
-        public int BadgeCalls
-        {
-            get; private set;
-        }
-        public GroupColoursRequest? Colours
-        {
-            get; private set;
-        }
+        public GroupIdentityRequest? Identity { get; private set; }
+        public int BadgeGroupId { get; private set; }
+        public ImmutableArray<GroupBadgePartRequest> BadgeParts { get; private set; }
+        public int BadgeCalls { get; private set; }
+        public GroupColoursRequest? Colours { get; private set; }
         public Task UpdateIdentity(GameClient session, GroupIdentityRequest request)
         {
             Identity = request;
@@ -272,18 +254,9 @@ public sealed class GroupAppearanceServiceTests
     private sealed class RecordingStore(Action? beforeWrite = null) : IGroupAppearanceStore
     {
         public bool Succeeds { get; init; } = true;
-        public int Writes
-        {
-            get; private set;
-        }
-        public string? Badge
-        {
-            get; private set;
-        }
-        public (int Main, int Secondary)? Colours
-        {
-            get; private set;
-        }
+        public int Writes { get; private set; }
+        public string? Badge { get; private set; }
+        public (int Main, int Secondary)? Colours { get; private set; }
         public bool UpdateIdentity(int groupId, string name, string description)
         {
             beforeWrite?.Invoke();
@@ -311,14 +284,8 @@ public sealed class GroupAppearanceServiceTests
 
     private sealed class RecordingGroupInfo : IGroupInfoSnapshotService
     {
-        public GroupInfoSnapshot? Last
-        {
-            get; private set;
-        }
-        public (int Main, int Secondary)? Colours
-        {
-            get; private set;
-        }
+        public GroupInfoSnapshot? Last { get; private set; }
+        public (int Main, int Secondary)? Colours { get; private set; }
         public GroupInfoSnapshot Capture(Group group, int viewerId)
         {
             Colours = (group.Colour1, group.Colour2);

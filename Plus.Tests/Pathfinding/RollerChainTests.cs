@@ -80,12 +80,10 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         EnableExecutorRollers();
 
-        for (var cycle = 1; cycle <= 3; cycle++)
-        {
+        for (var cycle = 1; cycle <= 3; cycle++) {
             ExecutorTick();
 
-            for (var index = 0; index < actors.Length; index++)
-            {
+            for (var index = 0; index < actors.Length; index++) {
                 Assert.Equal((index + cycle, 1, .5), (actors[index].X, actors[index].Y, actors[index].Z));
             }
 
@@ -107,12 +105,10 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         EnableExecutorRollers();
 
-        for (var cycle = 1; cycle <= 3; cycle++)
-        {
+        for (var cycle = 1; cycle <= 3; cycle++) {
             ExecutorTick();
 
-            for (var index = 0; index < cargo.Length; index++)
-            {
+            for (var index = 0; index < cargo.Length; index++) {
                 Assert.Equal((index + cycle, 1, 1d), (cargo[index].GetX, cargo[index].GetY, cargo[index].GetZ));
                 var slide = ExecutorCargoSlide(cargo[index]);
                 Assert.Equal((index + cycle - 1, index + cycle, "1", "1"), (slide.FromX, slide.ToX, slide.FromZ, slide.ToZ));
@@ -132,8 +128,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         EnableExecutorRollers();
 
-        for (var cycle = 0; cycle < 3; cycle++)
-        {
+        for (var cycle = 0; cycle < 3; cycle++) {
             ExecutorTick();
             Assert.Equal((7, 1, 0d), (observer.X, observer.Y, observer.Z));
             Assert.DoesNotContain(_client.Sent, header => header == ServerPacketHeader.SlideObjectBundleComposer);
@@ -158,8 +153,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(startZ.ToString(System.Globalization.CultureInfo.InvariantCulture), slide.FromZ);
         Assert.Equal((startZ - .5).ToString(System.Globalization.CultureInfo.InvariantCulture), slide.ToZ);
 
-        if (engine == PathfindingEngine.V2 && startZ != .5)
-        {
+        if (engine == PathfindingEngine.V2 && startZ != .5) {
             Assert.Null(actor.Movement.CurrentRef);
         }
     }
@@ -170,28 +164,22 @@ public partial class PlacedFurniRoomTests
         Set("_gamemap", new Gamemap(_room, new RoomModel("roller-chain", 0, 0, 0, 0, rows, 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance));
         _room.GetGameMap().GenerateMaps();
 
-        for (var x = 0; x < width - 1; x++)
-        {
+        for (var x = 0; x < width - 1; x++) {
             ExecutorRoller((uint)(reverseIds ? 100 - x : 10 + x), x, 1);
         }
     }
 
     private void InstallRollerChainEngine(PathfindingEngine engine)
     {
-        if (engine == PathfindingEngine.Legacy)
-        {
+        if (engine == PathfindingEngine.Legacy) {
             return;
         }
 
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, new()
-        {
-            Engine = engine
-        }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
+        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = engine }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(map, navigation);
 
-        foreach (var item in _room.GetRoomItemHandler().GetFloor)
-        {
+        foreach (var item in _room.GetRoomItemHandler().GetFloor) {
             navigation.Inputs.Attach(item);
         }
     }
@@ -200,8 +188,7 @@ public partial class PlacedFurniRoomTests
     {
         var client = id == 1 ? _client : new TestClient();
 
-        if (id != 1)
-        {
+        if (id != 1) {
             client.SetHabbo(new Habbo
             {
                 Id = id + 6,
@@ -219,12 +206,10 @@ public partial class PlacedFurniRoomTests
             .GetValue(_room.GetRoomUserManager())!;
         Assert.True(roster.TryAdd(id, actor));
 
-        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation)
-        {
+        if (_room.GetGameMap().Navigation is { UsesExecutor: true } navigation) {
             navigation.Admit(actor);
         }
-        else
-        {
+        else {
             _room.GetGameMap().AddUserToMap(actor, new(x, 1));
         }
 

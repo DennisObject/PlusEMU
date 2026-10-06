@@ -15,14 +15,8 @@ public sealed record CameraCheckoutResult(bool Ok, string Error = "", int WaitSe
 [Singleton]
 public interface ICameraCheckoutService
 {
-    bool Enabled
-    {
-        get;
-    }
-    (int Credits, int Points, int PublishPoints) Prices
-    {
-        get;
-    }
+    bool Enabled { get; }
+    (int Credits, int Points, int PublishPoints) Prices { get; }
     CameraCheckoutResult Purchase(Habbo habbo, CameraCheckoutMedia media);
     CameraCheckoutResult Publish(Habbo habbo, CameraCheckoutMedia media);
     CameraCheckoutResult EnterCompetition(Habbo habbo, CameraCheckoutMedia media);
@@ -35,8 +29,7 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
         (Setting("camera.price.credits"), Setting("camera.price.points"), Setting("camera.price.publish.points"));
     private int Setting(string key)
     {
-        if (!int.TryParse(settings.TryGetValue(key), out int value) || value < 0 || value > 1_000_000)
-        {
+        if (!int.TryParse(settings.TryGetValue(key), out int value) || value < 0 || value > 1_000_000) {
             throw new InvalidOperationException($"Invalid {key}");
         }
 
@@ -46,18 +39,10 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
         Enabled && !habbo.WalletClosed && habbo.CurrentRoom?.RoomId == media.RoomId && media.Id != Guid.Empty;
     private static bool Owned(IDbConnection connection, IDbTransaction transaction, Habbo habbo, CameraCheckoutMedia media) =>
         connection.QuerySingleOrDefault<int?>("SELECT user_id FROM camera_media WHERE id=@id AND room_id=@roomId FOR UPDATE",
-            new
-            {
-                id = media.Id.ToString("D"),
-                roomId = media.RoomId
-            }, transaction) == habbo.Id;
+            new { id = media.Id.ToString("D"), roomId = media.RoomId }, transaction) == habbo.Id;
     private static void LockUser(IDbConnection connection, IDbTransaction transaction, int userId)
     {
-        if (connection.QuerySingleOrDefault<int?>("SELECT id FROM users WHERE id=@userId FOR UPDATE", new
-        {
-            userId
-        }, transaction) != userId)
-        {
+        if (connection.QuerySingleOrDefault<int?>("SELECT id FROM users WHERE id=@userId FOR UPDATE", new { userId }, transaction) != userId) {
             throw new InvalidOperationException("Camera account does not exist");
         }
     }
@@ -66,28 +51,23 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
 
     public CameraCheckoutResult Purchase(Habbo habbo, CameraCheckoutMedia media)
     {
-        lock (habbo.WalletSync)
-        {
-            if (!HasContext(habbo, media))
-            {
+        lock (habbo.WalletSync) {
+            if (!HasContext(habbo, media)) {
                 return new(false, "unavailable");
             }
 
             int credits = Setting("camera.price.credits"), points = Setting("camera.price.points");
 
-            if (!uint.TryParse(settings.TryGetValue("camera.item_id"), out uint definitionId))
-            {
+            if (!uint.TryParse(settings.TryGetValue("camera.item_id"), out uint definitionId)) {
                 return new(false, "unavailable");
             }
 
             if (!ValidCurrency("camera.price.points.type") || !definitions.Items.TryGetValue(definitionId, out var definition) ||
-                definition.Type != ItemType.Wall || definition.InteractionType != InteractionType.CameraPicture)
-            {
+                definition.Type != ItemType.Wall || definition.InteractionType != InteractionType.CameraPicture) {
                 return new(false, "unavailable");
             }
 
-            if (habbo.Credits < credits || habbo.Duckets < points)
-            {
+            if (habbo.Credits < credits || habbo.Duckets < points) {
                 return new(false, "insufficient_balance");
             }
 
@@ -96,8 +76,7 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
             using var transaction = connection.BeginTransaction();
             LockUser(connection, transaction, habbo.Id);
 
-            if (!Owned(connection, transaction, habbo, media))
-            {
+            if (!Owned(connection, transaction, habbo, media)) {
                 return new(false, "unavailable");
             }
 
@@ -114,20 +93,9 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
             uint itemId = connection.QuerySingle<uint>("""
                 INSERT INTO items (user_id,room_id,base_item,extra_data,x,y,z,rot,wall_pos)
                 VALUES (@userId,0,@definitionId,@extraData,0,0,0,0,''); SELECT LAST_INSERT_ID();
-                """, new
-            {
-                userId = habbo.Id,
-                definitionId,
-                extraData
-            }, transaction);
+                """, new { userId = habbo.Id, definitionId, extraData }, transaction);
             connection.Execute("INSERT INTO camera_purchases (item_id,media_id,user_id,created_at) VALUES (@itemId,@id,@userId,@now)",
-                new
-                {
-                    itemId,
-                    id = media.Id.ToString("D"),
-                    userId = habbo.Id,
-                    now = time.GetUtcNow().UtcDateTime
-                }, transaction);
+                new { itemId, id = media.Id.ToString("D"), userId = habbo.Id, now = time.GetUtcNow().UtcDateTime }, transaction);
             Charge(connection, transaction, habbo, credits, points);
             transaction.Commit();
             habbo.Credits -= credits;
@@ -145,10 +113,8 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
 
     public CameraCheckoutResult Publish(Habbo habbo, CameraCheckoutMedia media)
     {
-        lock (habbo.WalletSync)
-        {
-            if (!HasContext(habbo, media) || !ValidCurrency("camera.price.publish.points.type"))
-            {
+        lock (habbo.WalletSync) {
+            if (!HasContext(habbo, media) || !ValidCurrency("camera.price.publish.points.type")) {
                 return new(false, "unavailable");
             }
 
@@ -158,21 +124,13 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
             using var transaction = connection.BeginTransaction();
             LockUser(connection, transaction, habbo.Id);
 
-            if (!Owned(connection, transaction, habbo, media))
-            {
+            if (!Owned(connection, transaction, habbo, media)) {
                 return new(false, "unavailable");
             }
 
-            var args = new
-            {
-                id = media.Id.ToString("D"),
-                userId = habbo.Id,
-                roomId = media.RoomId,
-                now = time.GetUtcNow().UtcDateTime
-            };
+            var args = new { id = media.Id.ToString("D"), userId = habbo.Id, roomId = media.RoomId, now = time.GetUtcNow().UtcDateTime };
 
-            if (connection.QuerySingle<int>("SELECT COUNT(*) FROM camera_publications WHERE media_id=@id AND user_id=@userId", args, transaction) != 0)
-            {
+            if (connection.QuerySingle<int>("SELECT COUNT(*) FROM camera_publications WHERE media_id=@id AND user_id=@userId", args, transaction) != 0) {
                 return new(true);
             }
 
@@ -180,13 +138,11 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
             var last = connection.QuerySingleOrDefault<long?>("SELECT TIMESTAMPDIFF(MICROSECOND,'1970-01-01',last_publish_at) FROM camera_accounts WHERE user_id=@userId FOR UPDATE", args, transaction);
             int wait = last.HasValue ? Math.Max(0, (int)Math.Ceiling((last.Value / 1_000_000d + cooldown - (args.now - DateTime.UnixEpoch).TotalSeconds))) : 0;
 
-            if (wait > 0)
-            {
+            if (wait > 0) {
                 return new(false, "cooldown", wait);
             }
 
-            if (habbo.Duckets < price)
-            {
+            if (habbo.Duckets < price) {
                 return new(false, "insufficient_balance");
             }
 
@@ -202,16 +158,13 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
 
     public CameraCheckoutResult EnterCompetition(Habbo habbo, CameraCheckoutMedia media)
     {
-        lock (habbo.WalletSync)
-        {
-            if (!HasContext(habbo, media) || settings.TryGetValue("camera.competition.enabled") != "1")
-            {
+        lock (habbo.WalletSync) {
+            if (!HasContext(habbo, media) || settings.TryGetValue("camera.competition.enabled") != "1") {
                 return new(false, "disabled");
             }
 
             // Plus has no verified-email flag, so fail closed when verification is required.
-            if (settings.TryGetValue("camera.competition.require_email") != "0")
-            {
+            if (settings.TryGetValue("camera.competition.require_email") != "0") {
                 return new(false, "email");
             }
 
@@ -220,29 +173,20 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
             using var transaction = connection.BeginTransaction();
             LockUser(connection, transaction, habbo.Id);
 
-            if (!Owned(connection, transaction, habbo, media))
-            {
+            if (!Owned(connection, transaction, habbo, media)) {
                 return new(false, "unavailable");
             }
 
             var now = time.GetUtcNow().UtcDateTime;
-            var args = new
-            {
-                id = media.Id.ToString("D"),
-                userId = habbo.Id,
-                now,
-                day = now.Date
-            };
+            var args = new { id = media.Id.ToString("D"), userId = habbo.Id, now, day = now.Date };
 
-            if (connection.QuerySingle<int>("SELECT COUNT(*) FROM camera_competition_entries WHERE media_id=@id AND user_id=@userId", args, transaction) != 0)
-            {
+            if (connection.QuerySingle<int>("SELECT COUNT(*) FROM camera_competition_entries WHERE media_id=@id AND user_id=@userId", args, transaction) != 0) {
                 return new(true);
             }
 
             int count = connection.QuerySingle<int>("SELECT COUNT(*) FROM camera_competition_entries WHERE user_id=@userId AND created_at>=@day", args, transaction);
 
-            if (count >= Setting("camera.competition.daily"))
-            {
+            if (count >= Setting("camera.competition.daily")) {
                 return new(false, "limit");
             }
 
@@ -254,11 +198,5 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
     }
     private static void Charge(IDbConnection connection, IDbTransaction transaction, Habbo habbo, int credits, int points) =>
         connection.Execute("UPDATE users SET credits=@credits,activity_points=@points,vip_points=@diamonds WHERE id=@userId",
-            new
-            {
-                credits = habbo.Credits - credits,
-                points = habbo.Duckets - points,
-                diamonds = habbo.Diamonds,
-                userId = habbo.Id
-            }, transaction);
+            new { credits = habbo.Credits - credits, points = habbo.Duckets - points, diamonds = habbo.Diamonds, userId = habbo.Id }, transaction);
 }

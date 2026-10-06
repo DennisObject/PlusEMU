@@ -101,10 +101,7 @@ public class FurniEditorImporterTests
         public override bool CanSeek => false;
         public override bool CanWrite => false;
         public override long Length => throw new NotSupportedException();
-        public override long Position
-        {
-            get => 0; set => throw new NotSupportedException();
-        }
+        public override long Position { get => 0; set => throw new NotSupportedException(); }
         public override void Flush()
         {
         }

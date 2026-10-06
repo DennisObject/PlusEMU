@@ -12,43 +12,22 @@ public sealed partial class WiredRoomVariables
     {
         var definition = source.Definition;
 
-        if (definition.Target == WiredVariableTarget.Context)
-        {
+        if (definition.Target == WiredVariableTarget.Context) {
             yield break;
         }
 
-        if (source.HasValue && DerivedMetadataOn(definition.ItemId) is { } level)
-        {
-            foreach (var sub in Enumerable.Range(0, level.DerivedKeys.Length).Where(level.HasDerived))
-            {
-                if (SyntheticId(definition.Target, definition.ItemId, sub, false) is { } id && _room.GetRoomItemHandler().GetItem(id) is null)
-                {
-                    yield return new(definition with
-                    {
-                        ItemId = id,
-                        Name = definition.Name + "." + level.DerivedKeys[sub]
-                    }, true, true)
-                    {
-                        IsDerived = true
-                    };
+        if (source.HasValue && DerivedMetadataOn(definition.ItemId) is { } level) {
+            foreach (var sub in Enumerable.Range(0, level.DerivedKeys.Length).Where(level.HasDerived)) {
+                if (SyntheticId(definition.Target, definition.ItemId, sub, false) is { } id && _room.GetRoomItemHandler().GetItem(id) is null) {
+                    yield return new(definition with { ItemId = id, Name = definition.Name + "." + level.DerivedKeys[sub] }, true, true) { IsDerived = true };
                 }
             }
         }
 
-        if (MetadataOn(definition.ItemId, "wf_xtra_var_time_util")?.TimeUtilities is { } time && (time.Mode == 0 ? source.HasValue : source.CanReadTimestamps))
-        {
-            foreach (var sub in time.Selected)
-            {
-                if (SyntheticId(definition.Target, definition.ItemId, sub, true) is { } id && _room.GetRoomItemHandler().GetItem(id) is null)
-                {
-                    yield return new(definition with
-                    {
-                        ItemId = id,
-                        Name = definition.Name + "." + WiredVariableTimeUtilities.Key(sub)
-                    }, true, true)
-                    {
-                        IsDerived = true
-                    };
+        if (MetadataOn(definition.ItemId, "wf_xtra_var_time_util")?.TimeUtilities is { } time && (time.Mode == 0 ? source.HasValue : source.CanReadTimestamps)) {
+            foreach (var sub in time.Selected) {
+                if (SyntheticId(definition.Target, definition.ItemId, sub, true) is { } id && _room.GetRoomItemHandler().GetItem(id) is null) {
+                    yield return new(definition with { ItemId = id, Name = definition.Name + "." + WiredVariableTimeUtilities.Key(sub) }, true, true) { IsDerived = true };
                 }
             }
         }
@@ -59,19 +38,16 @@ public sealed partial class WiredRoomVariables
         if (!WiredVariableModule.TryDefinitionId(reference.Token, out var id) || reference.Target == WiredVariableTarget.Context
             || !TryDecode(reference.Target, id, out var baseId, out var sub, out var isTime)
             || !_definitions.TryGetValue(baseId, out var definition) || !definition.HasPersistedConfiguration
-            || _room.GetRoomItemHandler().GetItem(id) is not null)
-        {
+            || _room.GetRoomItemHandler().GetItem(id) is not null) {
             return null;
         }
 
         var source = new WiredVariableReference(reference.Target, $"custom:{baseId}");
 
-        if (isTime)
-        {
+        if (isTime) {
             var time = MetadataOn(baseId, "wf_xtra_var_time_util")?.TimeUtilities;
 
-            if (time is null || !time.Has(sub))
-            {
+            if (time is null || !time.Has(sub)) {
                 return null;
             }
 
@@ -89,8 +65,7 @@ public sealed partial class WiredRoomVariables
     public static uint? SyntheticId(WiredVariableTarget target, uint baseId, int sub, bool time)
     {
         if (target is not (WiredVariableTarget.User or WiredVariableTarget.Furni or WiredVariableTarget.Global)
-            || baseId is 0 or >= 6250000 || (time ? sub is < 1 or > 26 : sub is < 0 or > 7))
-        {
+            || baseId is 0 or >= 6250000 || (time ? sub is < 1 or > 26 : sub is < 0 or > 7)) {
             return null;
         }
 
@@ -112,8 +87,7 @@ public sealed partial class WiredRoomVariables
         sub = 0;
         var offset = Offset(target, time);
 
-        if (id < offset)
-        {
+        if (id < offset) {
             return false;
         }
 

@@ -4,8 +4,7 @@ public static class BanTypeUtility
 {
     public static ModerationBanType GetModerationBanType(string type)
     {
-        switch (type)
-        {
+        switch (type) {
             default:
             case "user":
                 return ModerationBanType.Username;
@@ -18,8 +17,7 @@ public static class BanTypeUtility
 
     public static string FromModerationBanType(ModerationBanType type)
     {
-        switch (type)
-        {
+        switch (type) {
             default:
             case ModerationBanType.Username:
                 return "user";

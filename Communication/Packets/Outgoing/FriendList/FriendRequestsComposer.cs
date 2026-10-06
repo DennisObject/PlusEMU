@@ -18,8 +18,7 @@ public class FriendRequestsComposer : IServerPacket
         packet.WriteInteger(_requests.Length);
         packet.WriteInteger(_requests.Length);
 
-        foreach (var request in _requests)
-        {
+        foreach (var request in _requests) {
             packet.WriteInteger(request.UserId);
             packet.WriteString(request.Username);
             packet.WriteString(request.Look);

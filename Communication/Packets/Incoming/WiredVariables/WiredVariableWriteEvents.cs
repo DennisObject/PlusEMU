@@ -10,8 +10,7 @@ public sealed class WiredUserVariableUpdateEvent(IWiredVariableMenuService menus
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!TryRead(packet, false, out var request))
-        {
+        if (!TryRead(packet, false, out var request)) {
             return Task.CompletedTask;
         }
 
@@ -23,8 +22,7 @@ public sealed class WiredUserVariableUpdateEvent(IWiredVariableMenuService menus
     {
         request = null;
 
-        try
-        {
+        try {
             var action = manage ? packet.ReadInt() : 0;
             var target = packet.ReadInt();
             var targetId = packet.ReadInt();
@@ -34,8 +32,7 @@ public sealed class WiredUserVariableUpdateEvent(IWiredVariableMenuService menus
 
             if (action is < 0 or > 2 || target is not (0 or 1 or 3) || definitionId < 0 || packet.HasDataRemaining()
                 || Encoding.UTF8.GetByteCount(token) > 64 || token.Length > 0 && (definitionId != 0 || !token.StartsWith("internal:@", StringComparison.Ordinal))
-                || token.Length == 0 && definitionId == 0)
-            {
+                || token.Length == 0 && definitionId == 0) {
                 return false;
             }
 
@@ -43,7 +40,9 @@ public sealed class WiredUserVariableUpdateEvent(IWiredVariableMenuService menus
 
             return true;
         }
-        catch (ArgumentException) { return false; }
+        catch (ArgumentException) {
+            return false;
+        }
     }
 }
 
@@ -51,8 +50,7 @@ public sealed class WiredUserVariableManageEvent(IWiredVariableMenuService menus
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredUserVariableUpdateEvent.TryRead(packet, true, out var request))
-        {
+        if (!WiredUserVariableUpdateEvent.TryRead(packet, true, out var request)) {
             return Task.CompletedTask;
         }
 

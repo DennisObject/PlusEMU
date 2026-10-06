@@ -34,25 +34,21 @@ public class Argon2idPasswordHasher : IPasswordHasher
 
     public PasswordVerificationResult Verify(string password, string stored)
     {
-        if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(stored))
-        {
+        if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(stored)) {
             return PasswordVerificationResult.Failed;
         }
 
-        if (!stored.StartsWith(Prefix, StringComparison.Ordinal))
-        {
+        if (!stored.StartsWith(Prefix, StringComparison.Ordinal)) {
             return VerifyLegacyPlaintext(password, stored);
         }
 
-        if (!TryParse(stored, out var parameters))
-        {
+        if (!TryParse(stored, out var parameters)) {
             return PasswordVerificationResult.Failed;
         }
 
         var actual = Derive(password, parameters.Salt, parameters.MemoryKiB, parameters.Iterations, parameters.Parallelism, parameters.Hash.Length);
 
-        if (!CryptographicOperations.FixedTimeEquals(actual, parameters.Hash))
-        {
+        if (!CryptographicOperations.FixedTimeEquals(actual, parameters.Hash)) {
             return PasswordVerificationResult.Failed;
         }
 
@@ -90,8 +86,7 @@ public class Argon2idPasswordHasher : IPasswordHasher
         parameters = default;
         var parts = stored.Split('$');
 
-        if (parts.Length != 6 || parts[2] != $"v={Version}")
-        {
+        if (parts.Length != 6 || parts[2] != $"v={Version}") {
             return false;
         }
 
@@ -101,14 +96,12 @@ public class Argon2idPasswordHasher : IPasswordHasher
             || !TryReadSetting(settings[0], "m=", MaxMemoryKiB, out var memory)
             || !TryReadSetting(settings[1], "t=", MaxIterations, out var iterations)
             || !TryReadSetting(settings[2], "p=", MaxParallelism, out var parallelism)
-            || memory < 8 * parallelism)
-        {
+            || memory < 8 * parallelism) {
             return false;
         }
 
         if (!TryFromBase64(parts[4], out var salt) || salt.Length < 8
-            || !TryFromBase64(parts[5], out var hash) || hash.Length < 16)
-        {
+            || !TryFromBase64(parts[5], out var hash) || hash.Length < 16) {
             return false;
         }
 
@@ -132,16 +125,14 @@ public class Argon2idPasswordHasher : IPasswordHasher
     {
         bytes = [];
 
-        if (value.Length == 0 || value.Length % 4 == 1)
-        {
+        if (value.Length == 0 || value.Length % 4 == 1) {
             return false;
         }
 
         var padded = value.PadRight(value.Length + (4 - value.Length % 4) % 4, '=');
         var buffer = new byte[padded.Length];
 
-        if (!Convert.TryFromBase64String(padded, buffer, out var written))
-        {
+        if (!Convert.TryFromBase64String(padded, buffer, out var written)) {
             return false;
         }
 

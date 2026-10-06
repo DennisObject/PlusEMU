@@ -13,10 +13,7 @@ public sealed record WiredAddonInputs(WiredSelectorWorld World, WiredSelectorInp
 /// <summary>One instance per placed addon; Reset is required on configure, move and pickup.</summary>
 public sealed class WiredAddonModule
 {
-    public static IReadOnlyList<string> Names
-    {
-        get;
-    } =
+    public static IReadOnlyList<string> Names { get; } =
     [
         "wf_xtra_anim_time", "wf_xtra_mov_no_animation", "wf_xtra_mov_carry_users", "wf_xtra_or_eval",
         "wf_xtra_exec_in_order", "wf_xtra_execution_limit", "wf_xtra_text_output_furni_name",
@@ -27,14 +24,8 @@ public sealed class WiredAddonModule
     private readonly Random _random;
     private IWiredActionPicker? _picker;
     private long _lastNow;
-    public string Name
-    {
-        get;
-    }
-    public WiredConfiguration Configuration
-    {
-        get; private set;
-    }
+    public string Name { get; }
+    public WiredConfiguration Configuration { get; private set; }
 
     public WiredAddonModule(string name, WiredConfiguration configuration, Random? random = null)
     {
@@ -67,8 +58,7 @@ public sealed class WiredAddonModule
         HashSet<int> Users(int source) => (input.ResolveUsers?.Invoke(source)
             ?? WiredSelectorSources.Users(source, input.Selection, input.World)).ToHashSet();
 
-        switch (Name)
-        {
+        switch (Name) {
             case "wf_xtra_anim_time":
                 policy.AnimationTimeMs = P(0);
                 break;
@@ -95,26 +85,22 @@ public sealed class WiredAddonModule
                 policy.ActionPicker = _picker;
                 break;
             case "wf_xtra_filter_furni":
-                if (P(0) > 0)
-                {
+                if (P(0) > 0) {
                     policy.FurniLimit = Math.Min(policy.FurniLimit ?? int.MaxValue, P(0));
                 }
 
                 break;
             case "wf_xtra_filter_users":
-                if (P(0) > 0)
-                {
+                if (P(0) > 0) {
                     policy.UserLimit = Math.Min(policy.UserLimit ?? int.MaxValue, P(0));
                 }
 
                 break;
             case "wf_xtra_text_output_furni_name":
-            case "wf_xtra_text_output_username":
-                {
+            case "wf_xtra_text_output_username": {
                     var parts = c.Text.Split('\t', 2);
 
-                    if (parts[0].Length == 0)
-                    {
+                    if (parts[0].Length == 0) {
                         break;
                     }
 
@@ -123,14 +109,12 @@ public sealed class WiredAddonModule
                     {
                         IEnumerable<string> names;
 
-                        if (Name == "wf_xtra_text_output_furni_name")
-                        {
+                        if (Name == "wf_xtra_text_output_furni_name") {
                             var byId = current.World.Furni.ToDictionary(x => x.Id);
                             var ids = current.ResolveFurni?.Invoke(P(1), c)
                                 ?? WiredSelectorSources.Furni(P(1), c, current.Selection, current.World);
 
-                            if (P(1) == 100)
-                            {
+                            if (P(1) == 100) {
                                 // Resolver eligibility enforces caps/identity; saved order determines names and single-first.
                                 var eligible = ids.ToHashSet();
                                 ids = c.SelectedItems.Distinct().Where(eligible.Contains);
@@ -138,8 +122,7 @@ public sealed class WiredAddonModule
 
                             names = ids.Where(byId.ContainsKey).Select(id => byId[id].Name);
                         }
-                        else
-                        {
+                        else {
                             var byId = current.World.Users.ToDictionary(x => x.Id);
                             names = (current.ResolveUsers?.Invoke(P(1))
                                 ?? WiredSelectorSources.Users(P(1), current.Selection, current.World))
@@ -152,25 +135,21 @@ public sealed class WiredAddonModule
                     });
                     break;
                 }
-            case "wf_xtra_mov_curve":
-                {
+            case "wf_xtra_mov_curve": {
                     long? strength = P(3) == 1 ? ReadVariable(input, P(4), c.Text, P(5), P(6), c) : P(2);
 
-                    if (strength is not null)
-                    {
+                    if (strength is not null) {
                         policy.Curve = new(P(0), P(1), (int)Math.Clamp(strength.Value, -1000, 1000));
                     }
 
                     break;
                 }
-            case "wf_xtra_rotate_to_dir":
-                {
+            case "wf_xtra_rotate_to_dir": {
                     var distance = (WiredProjectileDistance)P(14);
                     long? tiles = distance != WiredProjectileDistance.Normal && P(15) == 1
                         ? ReadVariable(input, P(17), c.Text.Split('\t').ElementAtOrDefault(1) ?? "", P(21), P(22), c) : P(16);
 
-                    if (tiles is null)
-                    {
+                    if (tiles is null) {
                         distance = WiredProjectileDistance.Normal;
                     }
 
@@ -188,8 +167,7 @@ public sealed class WiredAddonModule
     private static long? ReadVariable(WiredAddonInputs input, int target, string token, int users, int furni,
         WiredConfiguration c)
     {
-        if (input.ReadVariable is null)
-        {
+        if (input.ReadVariable is null) {
             throw new InvalidOperationException("Variable operand reader is required");
         }
 
@@ -198,20 +176,17 @@ public sealed class WiredAddonModule
 
     private bool Acquire(long now, int max, int window)
     {
-        if (now < _lastNow)
-        {
+        if (now < _lastNow) {
             _executions.Clear();
         }
 
         _lastNow = now;
 
-        while (_executions.TryPeek(out var oldest) && now - oldest >= window)
-        {
+        while (_executions.TryPeek(out var oldest) && now - oldest >= window) {
             _executions.Dequeue();
         }
 
-        if (_executions.Count >= max)
-        {
+        if (_executions.Count >= max) {
             return false;
         }
 

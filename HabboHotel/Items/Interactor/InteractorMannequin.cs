@@ -17,32 +17,24 @@ internal class InteractorMannequin(IUserProfileService profiles) : IFurniInterac
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (item.LegacyDataString.Contains(Convert.ToChar(5).ToString()))
-        {
+        if (item.LegacyDataString.Contains(Convert.ToChar(5).ToString())) {
             var stuff = item.LegacyDataString.Split(Convert.ToChar(5));
             var newFig = new Dictionary<string, string>();
             newFig.Clear();
 
-            foreach (var man in stuff[1].Split('.'))
-            {
-                foreach (var fig in session.GetHabbo().Look.Split('.'))
-                {
-                    if (fig.Split('-')[0] == man.Split('-')[0])
-                    {
-                        if (newFig.ContainsKey(fig.Split('-')[0]) && !newFig.ContainsValue(man))
-                        {
+            foreach (var man in stuff[1].Split('.')) {
+                foreach (var fig in session.GetHabbo().Look.Split('.')) {
+                    if (fig.Split('-')[0] == man.Split('-')[0]) {
+                        if (newFig.ContainsKey(fig.Split('-')[0]) && !newFig.ContainsValue(man)) {
                             newFig.Remove(fig.Split('-')[0]);
                             newFig.Add(fig.Split('-')[0], man);
                         }
-                        else if (!newFig.ContainsKey(fig.Split('-')[0]) && !newFig.ContainsValue(man))
-                        {
+                        else if (!newFig.ContainsKey(fig.Split('-')[0]) && !newFig.ContainsValue(man)) {
                             newFig.Add(fig.Split('-')[0], man);
                         }
                     }
-                    else
-                    {
-                        if (!newFig.ContainsKey(fig.Split('-')[0]))
-                        {
+                    else {
+                        if (!newFig.ContainsKey(fig.Split('-')[0])) {
                             newFig.Add(fig.Split('-')[0], fig);
                         }
                     }
@@ -51,8 +43,7 @@ internal class InteractorMannequin(IUserProfileService profiles) : IFurniInterac
 
             var final = "";
 
-            foreach (var str in newFig.Values)
-            {
+            foreach (var str in newFig.Values) {
                 final += $"{str}.";
             }
 

@@ -29,12 +29,10 @@ public sealed class ProcessComponent : IProcessComponent
     {
         ArgumentNullException.ThrowIfNull(sweep);
 
-        lock (_timerGate)
-        {
+        lock (_timerGate) {
             ObjectDisposedException.ThrowIf(_disposed != 0, this);
 
-            if (_timer != null)
-            {
+            if (_timer != null) {
                 throw new InvalidOperationException("The cache process has already been initialized.");
             }
 
@@ -47,24 +45,19 @@ public sealed class ProcessComponent : IProcessComponent
     /// </summary>
     private void Run(Action sweep)
     {
-        lock (_timerGate)
-        {
-            if (_disposed != 0 || Interlocked.CompareExchange(ref _timerRunning, 1, 0) != 0)
-            {
+        lock (_timerGate) {
+            if (_disposed != 0 || Interlocked.CompareExchange(ref _timerRunning, 1, 0) != 0) {
                 return;
             }
         }
 
-        try
-        {
+        try {
             sweep();
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             _logger.LogError(e, "Cache cleanup failed");
         }
-        finally
-        {
+        finally {
             Volatile.Write(ref _timerRunning, 0);
         }
     }
@@ -74,22 +67,18 @@ public sealed class ProcessComponent : IProcessComponent
     /// </summary>
     public void Dispose()
     {
-        lock (_timerGate)
-        {
-            if (Interlocked.Exchange(ref _disposed, 1) != 0)
-            {
+        lock (_timerGate) {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0) {
                 return;
             }
 
             var timer = _timer;
             _timer = null;
 
-            try
-            {
+            try {
                 timer?.Dispose();
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 _logger.LogError(e, "Failed to dispose the cache cleanup timer");
             }
         }

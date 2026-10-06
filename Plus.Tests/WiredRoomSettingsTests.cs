@@ -206,15 +206,13 @@ public class WiredRoomSettingsTests
         var registered = (Dictionary<uint, IPacketEvent>)typeof(PacketManager).GetField("_incomingPackets", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
 
-        foreach (var handler in handlers)
-        {
+        foreach (var handler in handlers) {
             var name = handler.GetType().Name;
             var id = (uint)typeof(ClientPacketHeader).GetField(name)!.GetRawConstantValue()!;
             Assert.Same(handler, registered[id]);
             Assert.Single(typeof(ClientPacketHeader).GetFields(), field => field.IsLiteral && field.GetRawConstantValue() is uint value && value == id);
 
-            if (profile == "example.json" && handler is WiredMenuPermissionsSaveEvent)
-            {
+            if (profile == "example.json" && handler is WiredMenuPermissionsSaveEvent) {
                 Assert.False(revision.IncomingHeaders.ContainsKey(name));
                 Assert.Equal(1936u, revision.IncomingHeaders["UpdateFloorPropertiesEvent"]);
                 continue;
@@ -244,21 +242,11 @@ public class WiredRoomSettingsTests
         client.Revision = new()
         {
             InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
-            {
-                [ServerPacketHeader.WiredRoomSettingsDataComposer] = 5102,
-                [ServerPacketHeader.WiredValidationErrorComposer] = 156
-            }
+            { [ServerPacketHeader.WiredRoomSettingsDataComposer] = 5102, [ServerPacketHeader.WiredValidationErrorComposer] = 156 }
         };
         typeof(GameClient).GetProperty("SendCallback", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(client,
             (Func<System.Net.Sockets.SocketAsyncEventArgs, bool>)(args =>
-            {
-                replies.Add(((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2)), new()
-                {
-                    Buffer = args.MemoryBuffer[6..].ToArray()
-                }));
-
-                return true;
-            }));
+            { replies.Add(((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2)), new() { Buffer = args.MemoryBuffer[6..].ToArray() })); return true; }));
 
         return replies;
     }
@@ -302,8 +290,7 @@ public class WiredRoomSettingsTests
         {
             Loads++;
 
-            if (FailLoad)
-            {
+            if (FailLoad) {
                 throw new InvalidOperationException("Rejected read.");
             }
 
@@ -313,8 +300,7 @@ public class WiredRoomSettingsTests
         {
             BeforeSave?.Invoke();
 
-            if (Fail || Saved != expected)
-            {
+            if (Fail || Saved != expected) {
                 throw new InvalidOperationException("Rejected storage.");
             }
 
@@ -327,10 +313,7 @@ public class WiredRoomSettingsTests
     }
     private sealed class RecordingService : IWiredRoomSettingsService
     {
-        public (Room Room, GameClient Session)? Reloaded
-        {
-            get; private set;
-        }
+        public (Room Room, GameClient Session)? Reloaded { get; private set; }
         public List<(Room Room, GameClient Session, int Inspect, int Modify, string? Timezone)> Saves { get; } = [];
         public void Reload(Room room, GameClient session) => Reloaded = (room, session);
         public void Save(Room room, GameClient session, int inspect, int modify, string? timezone) =>

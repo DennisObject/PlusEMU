@@ -12,8 +12,7 @@ public sealed class IgnoresComponent
 
     public bool TryAdd(int userId)
     {
-        if (_ignoredUsers.Contains(userId))
-        {
+        if (_ignoredUsers.Contains(userId)) {
             return false;
         }
 

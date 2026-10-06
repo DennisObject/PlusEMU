@@ -10,27 +10,23 @@ internal sealed class MovementExecutor(Room room, MovementContext context, Rebin
         _committed.Clear();
         var actors = room.GetRoomUserManager().GetUserList().OrderBy(a => a.VirtualId).ToArray();
 
-        foreach (var actor in actors)
-        {
+        foreach (var actor in actors) {
             PhaseA(actor);
         }
 
-        if (room.MDisposed)
-        {
+        if (room.MDisposed) {
             return;
         }
 
         search.Run();
 
-        foreach (var actor in actors)
-        {
+        foreach (var actor in actors) {
             PhaseC(actor);
         }
 
         context.Claims.ReleaseRollers();
 
-        if (!room.MDisposed)
-        {
+        if (!room.MDisposed) {
             ticks.EndCycle();
         }
     }
@@ -38,8 +34,7 @@ internal sealed class MovementExecutor(Room room, MovementContext context, Rebin
     {
         var state = actor.Movement;
 
-        if (state.State != NavState.Active)
-        {
+        if (state.State != NavState.Active) {
             return;
         }
 
@@ -47,39 +42,33 @@ internal sealed class MovementExecutor(Room room, MovementContext context, Rebin
         rebind.Rebind(actor);
         context.RefreshMembership(actor);
 
-        if (!ticks.BeforeMovement(actor))
-        {
+        if (!ticks.BeforeMovement(actor)) {
             return;
         }
 
-        if (commit.Commit(actor))
-        {
+        if (commit.Commit(actor)) {
             _committed.Add(actor);
         }
 
-        if (Eligible(actor))
-        {
+        if (Eligible(actor)) {
             intake.Consume(actor);
         }
     }
     private void PhaseC(RoomUser actor)
     {
-        if (!Eligible(actor))
-        {
+        if (!Eligible(actor)) {
             return;
         }
 
         announce.Announce(actor, _committed.Contains(actor));
 
-        if (!Eligible(actor))
-        {
+        if (!Eligible(actor)) {
             return;
         }
 
         announce.SynchronizeHorse(actor);
 
-        if (Eligible(actor))
-        {
+        if (Eligible(actor)) {
             ticks.AfterMovement(actor);
         }
     }

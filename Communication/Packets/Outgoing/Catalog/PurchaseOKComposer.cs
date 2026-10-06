@@ -15,8 +15,7 @@ public class PurchaseOKComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        if (_confirmation != null)
-        {
+        if (_confirmation != null) {
 
             packet.WriteUInteger(_confirmation.Id);
             packet.WriteString(_confirmation.Name);
@@ -28,14 +27,12 @@ public class PurchaseOKComposer : IServerPacket
             packet.WriteInteger(1);
             packet.WriteString(_confirmation.ProductType);
 
-            if (_confirmation.ProductType == "b")
-            {
+            if (_confirmation.ProductType == "b") {
                 packet.WriteString(_confirmation.Name);
                 packet.WriteInteger(0);
                 packet.WriteBoolean(false);
             }
-            else
-            {
+            else {
                 packet.WriteInteger(_confirmation.SpriteId);
                 packet.WriteString("");
                 packet.WriteInteger(1);
@@ -44,8 +41,7 @@ public class PurchaseOKComposer : IServerPacket
                 packet.WriteInteger(1);
             }
         }
-        else
-        {
+        else {
             packet.WriteInteger(0);
             packet.WriteString("");
             packet.WriteBoolean(false);

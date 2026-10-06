@@ -19,23 +19,14 @@ public sealed class WiredVariableWallBuiltinTests
     {
         var f = new Fixture();
         var expected = new Dictionary<string, int>
-        {
-            ["@position.x"] = 1,
-            ["@position.y"] = 2,
-            ["@wallitem_offset"] = 10,
-            ["@altitude"] = 2000,
-            ["@rotation"] = 4
-        };
+        { ["@position.x"] = 1, ["@position.y"] = 2, ["@wallitem_offset"] = 10, ["@altitude"] = 2000, ["@rotation"] = 4 };
 
-        foreach (var (key, value) in expected)
-        {
+        foreach (var (key, value) in expected) {
             Assert.Equal(value, f.Read(key)!.Value);
         }
 
-        using (var reads = f.Module.CaptureReads(expected.Keys.Select(Reference), f.Frame))
-        {
-            foreach (var (key, value) in expected)
-            {
+        using (var reads = f.Module.CaptureReads(expected.Keys.Select(Reference), f.Frame)) {
+            foreach (var (key, value) in expected) {
                 Assert.Equal(value, reads.Read(Reference(key), f.Holder, f.Frame)!.Value);
             }
         }
@@ -68,15 +59,13 @@ public sealed class WiredVariableWallBuiltinTests
         var keys = new[] { "@position.x", "@position.y", "@altitude", "@rotation", "@wallitem_offset" };
         var missing = new RoomWiredBuiltinVariables(f.Room);
 
-        foreach (var key in keys)
-        {
+        foreach (var key in keys) {
             Assert.Null(missing.Read(Reference(key), f.Holder, f.Frame));
         }
 
         f.Wall.WallCoordinates = "invalid";
 
-        foreach (var key in keys)
-        {
+        foreach (var key in keys) {
             Assert.Null(f.Read(key));
         }
 
@@ -84,22 +73,18 @@ public sealed class WiredVariableWallBuiltinTests
         f.Wall.WallCoordinates = ":w=1,2 l=10,20 l";
         f.Walls.TryRemove(f.Wall.Id, out _);
 
-        foreach (var key in keys)
-        {
+        foreach (var key in keys) {
             Assert.Null(f.Read(key));
         }
 
         f.Walls[f.Wall.Id] = new Item { Id = f.Wall.Id, OwnerId = 5, Definition = f.Wall.Definition, WallCoordinates = ":w=7,8 l=30,40 r" };
 
-        foreach (var key in keys)
-        {
+        foreach (var key in keys) {
             Assert.Null(f.Read(key));
         }
 
-        using (var reads = f.Module.CaptureReads(keys.Select(Reference), f.Frame))
-        {
-            foreach (var key in keys)
-            {
+        using (var reads = f.Module.CaptureReads(keys.Select(Reference), f.Frame)) {
+            foreach (var key in keys) {
                 Assert.Null(reads.Read(Reference(key), f.Holder, f.Frame));
             }
         }
@@ -131,26 +116,11 @@ public sealed class WiredVariableWallBuiltinTests
         public const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
         public Room Room { get; } = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         public Item Wall { get; } = new() { Id = 2, OwnerId = 5, RoomId = 1, Definition = new() { Type = ItemType.Wall }, ExtraData = new LegacyDataFormat { Data = "0" }, WallCoordinates = ":w=1,2 l=10,20 l" };
-        public ConcurrentDictionary<uint, Item> Walls
-        {
-            get;
-        }
-        public ConcurrentDictionary<uint, Item> Floors
-        {
-            get;
-        }
-        public WiredVariableHolder Holder
-        {
-            get;
-        }
-        public WiredVariableFrame Frame
-        {
-            get;
-        }
-        public WiredVariableModule Module
-        {
-            get;
-        }
+        public ConcurrentDictionary<uint, Item> Walls { get; }
+        public ConcurrentDictionary<uint, Item> Floors { get; }
+        public WiredVariableHolder Holder { get; }
+        public WiredVariableFrame Frame { get; }
+        public WiredVariableModule Module { get; }
         public Fixture()
         {
             Room.Id = 1;
@@ -164,10 +134,7 @@ public sealed class WiredVariableWallBuiltinTests
             Floors = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;
             Walls[Wall.Id] = Wall;
             typeof(Item).GetField("_room", Private)!.SetValue(Wall, Room);
-            var context = new WiredRuntimeContext(Room, new(WiredEventKind.ClickFurni)
-            {
-                EventItem = Wall
-            },
+            var context = new WiredRuntimeContext(Room, new(WiredEventKind.ClickFurni) { EventItem = Wall },
                 new(() => Floors.Values, () => [], handler.GetItem), wired);
             context.Triggering.FurniIds.Add(Wall.Id);
             Frame = WiredVariableRuntimeFrames.Create(context);

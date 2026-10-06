@@ -13,8 +13,7 @@ internal sealed class RollerAdmission(Room room, RollerTransport transport)
         var departing = departures.At(destination);
 
         if (!room.GetGameMap().CanRollItemHere(destination.X, destination.Y)
-            || !NextRollerClear(destination, departing))
-        {
+            || !NextRollerClear(destination, departing)) {
             return false;
         }
 
@@ -29,8 +28,7 @@ internal sealed class RollerAdmission(Room room, RollerTransport transport)
         var items = room.GetGameMap().GetAllRoomItemForSquare(tile.X, tile.Y);
         var rollers = items.Where(RollerIdentity.IsRoller).ToList();
 
-        if (rollers.Count == 0)
-        {
+        if (rollers.Count == 0) {
             return true;
         }
 

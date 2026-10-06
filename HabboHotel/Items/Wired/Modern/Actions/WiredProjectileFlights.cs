@@ -13,16 +13,14 @@ public sealed class WiredProjectileFlights(Room room)
 
     public bool Begin(Item item, int sourceX, int sourceY, double sourceZ, int durationMs, long nowMs)
     {
-        if (!item.IsFloorItem || !ReferenceEquals(room.GetRoomItemHandler().GetItem(item.Id), item))
-        {
+        if (!item.IsFloorItem || !ReferenceEquals(room.GetRoomItemHandler().GetItem(item.Id), item)) {
             return false;
         }
 
         var path = BuildPath(sourceX, sourceY, item.GetX, item.GetY);
         var map = room.GetGameMap();
 
-        if (path.Any(point => !map.ValidTile(point.X, point.Y)))
-        {
+        if (path.Any(point => !map.ValidTile(point.X, point.Y))) {
             return false;
         }
 
@@ -36,20 +34,17 @@ public sealed class WiredProjectileFlights(Room room)
 
     public int? Read(Item item, string key, long nowMs)
     {
-        if (!_flights.TryGetValue(item.Id, out var flight))
-        {
+        if (!_flights.TryGetValue(item.Id, out var flight)) {
             return null;
         }
 
-        if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(item.Id), flight.Item))
-        {
+        if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(item.Id), flight.Item)) {
             _flights.Remove(item.Id);
 
             return null;
         }
 
-        if (!ReferenceEquals(flight.Item, item))
-        {
+        if (!ReferenceEquals(flight.Item, item)) {
             return null;
         }
 
@@ -72,8 +67,7 @@ public sealed class WiredProjectileFlights(Room room)
     }
     public void Forget(Item item)
     {
-        if (_flights.TryGetValue(item.Id, out var flight) && ReferenceEquals(flight.Item, item))
-        {
+        if (_flights.TryGetValue(item.Id, out var flight) && ReferenceEquals(flight.Item, item)) {
             _flights.Remove(item.Id);
         }
     }
@@ -85,8 +79,7 @@ public sealed class WiredProjectileFlights(Room room)
         var steps = Math.Max(Math.Abs(dx), Math.Abs(dy));
         var path = new List<Point>(steps + 1);
 
-        for (var step = 0; step <= steps; step++)
-        {
+        for (var step = 0; step <= steps; step++) {
             var progress = steps == 0 ? 0d : step / (double)steps;
             path.Add(new((int)Math.Round(sourceX + dx * progress), (int)Math.Round(sourceY + dy * progress)));
         }

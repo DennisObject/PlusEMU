@@ -6,36 +6,28 @@ public static class Rotation
     {
         var rotation = 0;
 
-        if (x1 > x2 && y1 > y2)
-        {
+        if (x1 > x2 && y1 > y2) {
             rotation = 7;
         }
-        else if (x1 < x2 && y1 < y2)
-        {
+        else if (x1 < x2 && y1 < y2) {
             rotation = 3;
         }
-        else if (x1 > x2 && y1 < y2)
-        {
+        else if (x1 > x2 && y1 < y2) {
             rotation = 5;
         }
-        else if (x1 < x2 && y1 > y2)
-        {
+        else if (x1 < x2 && y1 > y2) {
             rotation = 1;
         }
-        else if (x1 > x2)
-        {
+        else if (x1 > x2) {
             rotation = 6;
         }
-        else if (x1 < x2)
-        {
+        else if (x1 < x2) {
             rotation = 2;
         }
-        else if (y1 < y2)
-        {
+        else if (y1 < y2) {
             rotation = 4;
         }
-        else if (y1 > y2)
-        {
+        else if (y1 > y2) {
             rotation = 0;
         }
 
@@ -46,8 +38,7 @@ public static class Rotation
     {
         var rot = Calculate(x1, y1, x2, y2);
 
-        if (!moonwalk)
-        {
+        if (!moonwalk) {
             return rot;
         }
 
@@ -56,12 +47,10 @@ public static class Rotation
 
     public static int RotationIverse(int rot)
     {
-        if (rot > 3)
-        {
+        if (rot > 3) {
             rot = rot - 4;
         }
-        else
-        {
+        else {
             rot = rot + 4;
         }
 

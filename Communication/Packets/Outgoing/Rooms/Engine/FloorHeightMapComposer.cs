@@ -33,8 +33,7 @@ public class FloorHeightMapComposer : IServerPacket
         packet.WriteString(_map);
         packet.WriteInteger(_hides.Count);
 
-        foreach (var hide in _hides)
-        {
+        foreach (var hide in _hides) {
             packet.WriteInteger(hide.FurniId);
             packet.WriteBoolean(hide.On);
             packet.WriteInteger(hide.RootX);

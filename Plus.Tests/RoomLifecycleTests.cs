@@ -104,8 +104,7 @@ public sealed class RoomLifecycleTests
         var replacing = false;
         services.AddScoped<IRoomComponent>(provider => new ReplacingComponent(provider.GetRequiredService<Probe>(), () =>
         {
-            if (replacing)
-            {
+            if (replacing) {
                 return;
             }
 
@@ -157,10 +156,7 @@ public sealed class RoomLifecycleTests
 
     private sealed class Probe : IDisposable
     {
-        public bool Disposed
-        {
-            get; private set;
-        }
+        public bool Disposed { get; private set; }
         public void Dispose() => Disposed = true;
     }
 

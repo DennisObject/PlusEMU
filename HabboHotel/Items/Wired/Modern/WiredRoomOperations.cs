@@ -23,8 +23,7 @@ public static class WiredRoomOperations
     public static WiredConfiguration PrepareSnapshots(IWiredConfiguredItem box, WiredConfiguration proposed)
     {
         if (box.Descriptor.CanonicalName is not ("wf_act_match_to_sshot" or "wf_act_place_furni"
-            or "wf_cnd_match_snapshot" or "wf_cnd_not_match_snap" or "wf_trg_stuff_state" or "wf_trg_state_changed"))
-        {
+            or "wf_cnd_match_snapshot" or "wf_cnd_not_match_snap" or "wf_trg_stuff_state" or "wf_trg_state_changed")) {
             return proposed;
         }
 
@@ -59,8 +58,7 @@ public static class WiredRoomOperations
         yield return new(x, y);
 
         foreach (var point in Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width,
-                     x, y, rotation).Values.Select(tile => new Point(tile.X, tile.Y)).Distinct())
-        {
+                     x, y, rotation).Values.Select(tile => new Point(tile.X, tile.Y)).Distinct()) {
             yield return point;
         }
     }
@@ -84,50 +82,42 @@ public static class WiredRoomOperations
         double? height = null, bool throughUsers = false, bool throughFurni = false, WiredCollisionPolicy? collision = null)
     {
         if (!item.IsFloorItem || !ValidRotation(item, rotation)
-            || height is { } z && (!double.IsFinite(z) || z < 0 || z > 80))
-        {
+            || height is { } z && (!double.IsFinite(z) || z < 0 || z > 80)) {
             return false;
         }
 
         var map = room.GetGameMap();
         var magic = MagicTileHeight.IsMagicTile(item.Definition.InteractionType);
 
-        foreach (var point in Footprint(item, x, y, rotation))
-        {
-            if (!map.ValidTile(point.X, point.Y))
-            {
+        foreach (var point in Footprint(item, x, y, rotation)) {
+            if (!map.ValidTile(point.X, point.Y)) {
                 return false;
             }
 
-            if (magic && point.X == map.Model.DoorX && point.Y == map.Model.DoorY)
-            {
+            if (magic && point.X == map.Model.DoorX && point.Y == map.Model.DoorY) {
                 return false;
             }
 
             var placement = map.ResolvePlacement(point.X, point.Y, item.Id, collision);
 
-            if (!magic && !placement.HasHelper && map.Model.SqState[point.X, point.Y] != SquareState.Open)
-            {
+            if (!magic && !placement.HasHelper && map.Model.SqState[point.X, point.Y] != SquareState.Open) {
                 return false;
             }
 
-            if (!magic && !placement.HasHelper && !throughUsers && !item.Definition.IsSeat && (collision?.BlocksUsers(map.GetRoomUsers(point)) ?? map.GetRoomUsers(point).Count != 0))
-            {
+            if (!magic && !placement.HasHelper && !throughUsers && !item.Definition.IsSeat && (collision?.BlocksUsers(map.GetRoomUsers(point)) ?? map.GetRoomUsers(point).Count != 0)) {
                 return false;
             }
 
             var others = map.GetCoordinatedItems(point).Where(other => other.Id != item.Id).ToArray();
 
             if (others.Any(other => collision?.BlockingFurni.Contains(other.Id) == true)
-                || !magic && !placement.HasHelper && !throughFurni && others.Any(other => collision?.BlocksFurni(other) ?? !other.Definition.Stackable))
-            {
+                || !magic && !placement.HasHelper && !throughFurni && others.Any(other => collision?.BlocksFurni(other) ?? !other.Definition.Stackable)) {
                 return false;
             }
 
             var top = height ?? placement.PlacementZ;
 
-            if (top + item.Definition.Height > 80)
-            {
+            if (top + item.Definition.Height > 80) {
                 return false;
             }
         }
@@ -144,8 +134,7 @@ public static class WiredRoomOperations
         var rot = rotation ?? item.Rotation;
         var z = height ?? (keepAltitude ? item.GetZ : (double?)null);
 
-        if (!CanMoveItem(room, item, x, y, rot, z, collision: collision))
-        {
+        if (!CanMoveItem(room, item, x, y, rot, z, collision: collision)) {
             return false;
         }
 
@@ -153,20 +142,17 @@ public static class WiredRoomOperations
         var sourceZ = item.GetZ;
         var rotationChanged = rot != item.Rotation;
 
-        if (source.X == x && source.Y == y && rot == item.Rotation && (z == null || z == sourceZ))
-        {
+        if (source.X == x && source.Y == y && rot == item.Rotation && (z == null || z == sourceZ)) {
             return false;
         }
 
         // The full placement path maintains map/index, moved-item persistence and room statuses.
         if (!room.GetRoomItemHandler().SetFloorItem(null!, item, x, y, rot, false, false,
-                announce && (!animate || rotationChanged), true, z ?? -1, collision))
-        {
+                announce && (!animate || rotationChanged), true, z ?? -1, collision)) {
             return false;
         }
 
-        if (animate)
-        {
+        if (animate) {
             room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, sourceZ,
                 item.GetX, item.GetY, item.GetZ, 0, 0, item.Id));
         }
@@ -177,27 +163,23 @@ public static class WiredRoomOperations
     public static bool RelocateAvatar(Room room, RoomUser avatar, int x, int y,
         bool slide, bool throughUsers = false)
     {
-        if (room.UsesV2Movement)
-        {
+        if (room.UsesV2Movement) {
             return RelocateExecutorAvatar(room, avatar, x, y, slide, throughUsers);
         }
 
         var map = room.GetGameMap();
 
         if (room.GetRoomUserManager().GetRoomUserByVirtualId(avatar.VirtualId) != avatar
-            || !map.ValidTile(x, y) || map.Model.SqState[x, y] != SquareState.Open)
-        {
+            || !map.ValidTile(x, y) || map.Model.SqState[x, y] != SquareState.Open) {
             return false;
         }
 
-        if (avatar.X == x && avatar.Y == y)
-        {
+        if (avatar.X == x && avatar.Y == y) {
             return false;
         }
 
         if (!throughUsers && (!map.CanWalk(x, y, false)
-                             || map.GetRoomUsers(new(x, y)).Any(other => other != avatar)))
-        {
+                             || map.GetRoomUsers(new(x, y)).Any(other => other != avatar))) {
             return false;
         }
 
@@ -216,8 +198,7 @@ public static class WiredRoomOperations
         avatar.UpdateNeeded = true;
         room.GetRoomUserManager().UpdateUserStatus(avatar, true);
 
-        if (slide)
-        {
+        if (slide) {
             room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, oldZ, x, y,
                 avatar.Z, 0, avatar.VirtualId, 0));
         }
@@ -230,13 +211,11 @@ public static class WiredRoomOperations
         var map = room.GetGameMap();
 
         if (room.GetRoomUserManager().GetRoomUserByVirtualId(avatar.VirtualId) != avatar
-            || !map.ValidTile(x, y) || map.Model.SqState[x, y] != SquareState.Open)
-        {
+            || !map.ValidTile(x, y) || map.Model.SqState[x, y] != SquareState.Open) {
             return false;
         }
 
-        if (avatar.X == x && avatar.Y == y)
-        {
+        if (avatar.X == x && avatar.Y == y) {
             return false;
         }
 
@@ -246,8 +225,7 @@ public static class WiredRoomOperations
     private static void RelocateOwned(Room room, RoomNavigation navigation, RoomUser actor,
         int x, int y, bool slide, bool throughUsers, long discardThrough)
     {
-        if (!CanRelocateAvatar(room, actor, x, y, throughUsers))
-        {
+        if (!CanRelocateAvatar(room, actor, x, y, throughUsers)) {
             return;
         }
 
@@ -256,8 +234,7 @@ public static class WiredRoomOperations
         navigation.ForcePlaceThrough(actor, x, y, room.GetGameMap().SqAbsoluteHeight(x, y), ForceResolution.ExactZ, discardThrough);
         navigation.Executor.Context.LandingEffects.Apply(actor, wasLaying);
 
-        if (slide)
-        {
+        if (slide) {
             room.SendPacket(new SlideObjectBundleComposer(source.X, source.Y, source.Z,
                 actor.X, actor.Y, actor.Z, 0, actor.VirtualId, 0));
         }
@@ -266,8 +243,7 @@ public static class WiredRoomOperations
     private static bool RelocateExecutorAvatar(Room room, RoomUser avatar, int x, int y,
         bool slide, bool throughUsers = false)
     {
-        if (!CanRelocateAvatar(room, avatar, x, y, throughUsers))
-        {
+        if (!CanRelocateAvatar(room, avatar, x, y, throughUsers)) {
             return false;
         }
 
@@ -295,15 +271,12 @@ public static class WiredRoomOperations
     {
         var found = false;
 
-        foreach (var outcome in outcomes)
-        {
-            if (quantifier == 0 && !outcome)
-            {
+        foreach (var outcome in outcomes) {
+            if (quantifier == 0 && !outcome) {
                 return false;
             }
 
-            if (quantifier != 0 && outcome)
-            {
+            if (quantifier != 0 && outcome) {
                 return true;
             }
 

@@ -15,8 +15,7 @@ public sealed class WiredModernCondition : WiredModernBox
     public WiredModernCondition(Room room, Item item, WiredBoxDescriptor descriptor,
         IGroupManager groups, Func<Item, long?> counterTime, Func<DateTimeOffset> clock) : base(room, item, descriptor)
     {
-        if (!WiredConditionConfiguration.Supports(descriptor.CanonicalName))
-        {
+        if (!WiredConditionConfiguration.Supports(descriptor.CanonicalName)) {
             throw new ArgumentException("Unknown condition.", nameof(descriptor));
         }
 
@@ -31,8 +30,7 @@ public sealed class WiredModernCondition : WiredModernBox
     {
         var config = context.ConfigurationOf(this);
 
-        if (!TryValidateConfiguration(config, out config, out _))
-        {
+        if (!TryValidateConfiguration(config, out config, out _)) {
             return false;
         }
 
@@ -49,8 +47,7 @@ public sealed class WiredModernCondition : WiredModernBox
         bool Quantify(Func<RoomUser, bool> predicate, int index) => WiredRoomOperations.Quantify(Avatars().Select(predicate), Param(config, index));
         var now = _clock();
 
-        switch (name)
-        {
+        switch (name) {
             case "wf_cnd_actor_dir":
                 return Quantify(user => (Param(config, 0) & (1 << user.RotBody)) != 0, 2);
             case "wf_cnd_actor_in_team":
@@ -65,8 +62,7 @@ public sealed class WiredModernCondition : WiredModernBox
             case "wf_cnd_actor_in_group":
                 var group = context.Room.Group;
 
-                if (Param(config, 1) == 1 && !_groups.TryGetGroup(Param(config, 2), out group))
-                {
+                if (Param(config, 1) == 1 && !_groups.TryGetGroup(Param(config, 2), out group)) {
                     return false;
                 }
 
@@ -141,8 +137,7 @@ public sealed class WiredModernCondition : WiredModernBox
         var action = Param(config, 0);
 
         if (@event.Kind == WiredEventKind.AvatarAction && ReferenceEquals(@event.Actor, user)
-            && Triggers.WiredTriggerPredicates.MatchesAction(config, @event.Action, @event.Code))
-        {
+            && Triggers.WiredTriggerPredicates.MatchesAction(config, @event.Action, @event.Code)) {
             return true;
         }
 

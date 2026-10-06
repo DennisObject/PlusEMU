@@ -24,11 +24,12 @@ public class MovementCommandTests
         Assert.True(captured.Wait(5000));
         var newer = new MoveCommand(2, 8, 9, MoveOrigin.Wired, MoveFlags.IgnoreUsers);
 
-        try
-        {
+        try {
             Assert.True(slot.Publish(newer));
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
 
         Assert.False(await older);
         Assert.Same(newer, slot.Read());
@@ -67,8 +68,7 @@ public class MovementCommandTests
         {
             var command = slot.Read();
 
-            if (command == null || command.Sequence <= lastConsumed)
-            {
+            if (command == null || command.Sequence <= lastConsumed) {
                 return null;
             }
 
@@ -93,12 +93,7 @@ public class MovementCommandTests
     {
         var original = new MoveCommand(19, 3, 4, MoveOrigin.StaffCommand,
             MoveFlags.IgnoreUsers | MoveFlags.Teleport);
-        var replacement = original with
-        {
-            Sequence = 20,
-            X = 5,
-            Origin = MoveOrigin.User
-        };
+        var replacement = original with { Sequence = 20, X = 5, Origin = MoveOrigin.User };
         Assert.Equal((19L, 3, 4, MoveOrigin.StaffCommand),
             (original.Sequence, original.X, original.Y, original.Origin));
         Assert.Equal((20L, 5, 4, MoveOrigin.User),
@@ -113,14 +108,12 @@ public class MovementCommandTests
         var inner = Room();
         Assert.Null(RoomOwnerScope.CurrentOwner);
 
-        using (RoomOwnerScope.Enter(outer))
-        {
+        using (RoomOwnerScope.Enter(outer)) {
             Assert.Same(outer, RoomOwnerScope.CurrentOwner);
             Assert.True(RoomOwnerScope.IsOwner(outer));
             Assert.False(RoomOwnerScope.IsOwner(inner));
 
-            using (RoomOwnerScope.Enter(inner))
-            {
+            using (RoomOwnerScope.Enter(inner)) {
                 Assert.Same(inner, RoomOwnerScope.CurrentOwner);
                 Assert.True(RoomOwnerScope.IsOwner(inner));
                 Assert.False(RoomOwnerScope.IsOwner(outer));
@@ -137,8 +130,7 @@ public class MovementCommandTests
     {
         var outer = Room();
 
-        using (RoomOwnerScope.Enter(outer))
-        {
+        using (RoomOwnerScope.Enter(outer)) {
             Assert.Throws<InvalidOperationException>((Action)(() =>
             {
                 using var scope = RoomOwnerScope.Enter(Room());
@@ -157,8 +149,7 @@ public class MovementCommandTests
         var room = Room();
         using var completed = new ManualResetEventSlim();
 
-        using (RoomOwnerScope.Enter(room))
-        {
+        using (RoomOwnerScope.Enter(room)) {
             var worker = Task.Run(() =>
             {
                 var result = (RoomOwnerScope.CurrentOwner, RoomOwnerScope.IsOwner(room));
@@ -190,8 +181,7 @@ public class MovementCommandTests
             new RoomCommand(RoomCommandKind.Remove, actor, 41)
         };
 
-        foreach (var command in commands)
-        {
+        foreach (var command in commands) {
             queue.Enqueue(command);
         }
 

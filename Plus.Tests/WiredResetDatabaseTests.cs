@@ -19,8 +19,7 @@ public sealed class WiredResetDatabaseFactAttribute : FactAttribute
 
     public WiredResetDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
-        {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable))) {
             Skip = $"Set {Variable} to a disposable database with the base schema and Wired migrations 14, 15 and 17.";
         }
     }
@@ -45,17 +44,11 @@ public class WiredResetDatabaseTests
         Assert.Equal(0, Count(admin, "wired_reward_state", "item_id", world.Definition));
         Assert.Equal(0, Count(admin, "wired_variable_values", "definition_id", world.Definition));
         // The same box placed again defines its variable afresh, so the definition is not retired.
-        Assert.False(admin.QuerySingle<bool>("SELECT retired FROM wired_variable_locks WHERE definition_id=@Id", new
-        {
-            Id = world.Definition
-        }));
+        Assert.False(admin.QuerySingle<bool>("SELECT retired FROM wired_variable_locks WHERE definition_id=@Id", new { Id = world.Definition }));
         // Other variables keep what the boxes hold for them, and other boxes keep their selections.
         Assert.Equal(2, Count(admin, "wired_variable_values", "definition_id", world.Other));
         Assert.Equal(1, Count(admin, "wired_item_configurations", "item_id", world.Other));
-        Assert.Equal(world.Definition.ToString(), admin.QuerySingle<string>("SELECT items FROM wired_items WHERE id=@Id", new
-        {
-            Id = world.Selector
-        }));
+        Assert.Equal(world.Definition.ToString(), admin.QuerySingle<string>("SELECT items FROM wired_items WHERE id=@Id", new { Id = world.Selector }));
     }
 
     [WiredResetDatabaseFact]
@@ -67,12 +60,10 @@ public class WiredResetDatabaseTests
         // The last statement fails, after every other row was already deleted in the transaction.
         admin.Execute($"CREATE TRIGGER `{trigger}` BEFORE DELETE ON wired_reward_state FOR EACH ROW BEGIN IF OLD.item_id={world.Definition} THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Disposable Wired reset rollback probe'; END IF; END");
 
-        try
-        {
+        try {
             Assert.Throws<MySqlException>(() => new WiredConfigurationStore(new TestDatabase()).Reset([world.Definition, world.Legacy]));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP TRIGGER IF EXISTS `{trigger}`");
         }
 
@@ -116,26 +107,14 @@ public class WiredResetDatabaseTests
         using var writer = Open();
         using var transaction = writer.BeginTransaction(IsolationLevel.ReadCommitted);
         // A value writer has authorized against the box, exactly as the variable store does, and not yet written.
-        writer.Execute("SELECT room_id FROM items WHERE id=@Id FOR UPDATE", new
-        {
-            Id = world.Definition
-        }, transaction);
-        writer.Execute("SELECT configuration FROM wired_item_configurations WHERE item_id=@Id FOR UPDATE", new
-        {
-            Id = world.Definition
-        }, transaction);
-        writer.Execute("SELECT retired FROM wired_variable_locks WHERE definition_id=@Id FOR UPDATE", new
-        {
-            Id = world.Definition
-        }, transaction);
+        writer.Execute("SELECT room_id FROM items WHERE id=@Id FOR UPDATE", new { Id = world.Definition }, transaction);
+        writer.Execute("SELECT configuration FROM wired_item_configurations WHERE item_id=@Id FOR UPDATE", new { Id = world.Definition }, transaction);
+        writer.Execute("SELECT retired FROM wired_variable_locks WHERE definition_id=@Id FOR UPDATE", new { Id = world.Definition }, transaction);
 
         var reset = Task.Run(() => new WiredConfigurationStore(new TestDatabase()).Reset([world.Definition]));
         Assert.False(reset.Wait(TimeSpan.FromMilliseconds(500)));
         writer.Execute("INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at,updated_at) VALUES (@Id,0,99,11,'1970-01-01 00:00:00.001000','1970-01-01 00:00:00.001000')",
-            new
-            {
-                Id = world.Definition
-            }, transaction);
+            new { Id = world.Definition }, transaction);
         transaction.Commit();
 
         Assert.True(reset.Wait(TimeSpan.FromSeconds(30)));
@@ -166,39 +145,15 @@ public class WiredResetDatabaseTests
         var selector = PlaceItem(admin, (uint)room.OwnerId, room.Id);
         Configure(admin, definition.Id, "wf_var_room", new WiredConfiguration { IntParams = [10, 7], Text = "reset_probe" });
         Configure(admin, other, "wf_var_furni", new WiredConfiguration { IntParams = [1, 10], Text = "reset_other" });
-        admin.Execute("INSERT INTO wired_variable_locks(definition_id) VALUES (@Definition),(@Other)", new
-        {
-            Definition = definition.Id,
-            Other = other
-        });
+        admin.Execute("INSERT INTO wired_variable_locks(definition_id) VALUES (@Definition),(@Other)", new { Definition = definition.Id, Other = other });
         admin.Execute("""
             INSERT INTO wired_variable_values(definition_id,target_kind,holder_id,value,created_at,updated_at) VALUES
             (@Definition,3,0,42,@At,@At),(@Definition,0,@Owner,5,@At,@At),(@Other,1,@Definition,9,@At,@At),(@Other,1,@Legacy,8,@At,@At)
-            """, new
-        {
-            Definition = definition.Id,
-            Other = other,
-            Legacy = legacy,
-            Owner = room.OwnerId,
-            At = DateTime.UnixEpoch.AddMilliseconds(1)
-        });
-        admin.Execute("INSERT INTO wired_items VALUES (@Id,'',0,'probe','0')", new
-        {
-            Id = definition.Id
-        });
-        admin.Execute("INSERT INTO wired_items VALUES (@Id,'',5,'legacy probe','1')", new
-        {
-            Id = legacy
-        });
-        admin.Execute("INSERT INTO wired_items VALUES (@Id,@Items,0,'','0')", new
-        {
-            Id = selector,
-            Items = definition.Id.ToString()
-        });
-        admin.Execute("INSERT INTO wired_reward_state(item_id,claims) VALUES (@Id,'{\"1\":{}}')", new
-        {
-            Id = definition.Id
-        });
+            """, new { Definition = definition.Id, Other = other, Legacy = legacy, Owner = room.OwnerId, At = DateTime.UnixEpoch.AddMilliseconds(1) });
+        admin.Execute("INSERT INTO wired_items VALUES (@Id,'',0,'probe','0')", new { Id = definition.Id });
+        admin.Execute("INSERT INTO wired_items VALUES (@Id,'',5,'legacy probe','1')", new { Id = legacy });
+        admin.Execute("INSERT INTO wired_items VALUES (@Id,@Items,0,'','0')", new { Id = selector, Items = definition.Id.ToString() });
+        admin.Execute("INSERT INTO wired_reward_state(item_id,claims) VALUES (@Id,'{\"1\":{}}')", new { Id = definition.Id });
 
         return new(definition.Id, legacy, other, selector);
     }
@@ -206,12 +161,7 @@ public class WiredResetDatabaseTests
     private static (Room Room, Item Item) PlacedVariable(MySqlConnection admin)
     {
         var suffix = Guid.NewGuid().ToString("N")[..12];
-        var owner = Insert(admin, "users", new()
-        {
-            ["username"] = "wr_" + suffix,
-            ["password"] = suffix,
-            ["mail"] = suffix + "@invalid"
-        });
+        var owner = Insert(admin, "users", new() { ["username"] = "wr_" + suffix, ["password"] = suffix, ["mail"] = suffix + "@invalid" });
         var roomId = Insert(admin, "rooms", new()
         {
             ["owner"] = owner.ToString(),
@@ -245,47 +195,26 @@ public class WiredResetDatabaseTests
 
     private static void Configure(MySqlConnection admin, uint itemId, string name, WiredConfiguration configuration) =>
         admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@Id,@Name,1,@Json)",
-            new
-            {
-                Id = itemId,
-                Name = name,
-                Json = JsonSerializer.Serialize(configuration)
-            });
+            new { Id = itemId, Name = name, Json = JsonSerializer.Serialize(configuration) });
 
     private static int GlobalValue(MySqlConnection admin, uint definitionId) =>
-        admin.QuerySingle<int>("SELECT value FROM wired_variable_values WHERE definition_id=@Id AND target_kind=3 AND holder_id=0", new
-        {
-            Id = definitionId
-        });
+        admin.QuerySingle<int>("SELECT value FROM wired_variable_values WHERE definition_id=@Id AND target_kind=3 AND holder_id=0", new { Id = definitionId });
 
     private static int Count(MySqlConnection admin, string table, string column, uint id) =>
-        admin.ExecuteScalar<int>($"SELECT COUNT(*) FROM `{table}` WHERE `{column}`=@Id", new
-        {
-            Id = id
-        });
+        admin.ExecuteScalar<int>($"SELECT COUNT(*) FROM `{table}` WHERE `{column}`=@Id", new { Id = id });
 
     private static uint Insert(MySqlConnection connection, string table, Dictionary<string, object> values)
     {
-        var columns = connection.Query<Column>("SELECT COLUMN_NAME AS Name,DATA_TYPE AS Type,COLUMN_TYPE AS FullType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@table AND IS_NULLABLE='NO' AND COLUMN_DEFAULT IS NULL AND EXTRA NOT LIKE '%auto_increment%'", new
-        {
-            table
-        });
+        var columns = connection.Query<Column>("SELECT COLUMN_NAME AS Name,DATA_TYPE AS Type,COLUMN_TYPE AS FullType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@table AND IS_NULLABLE='NO' AND COLUMN_DEFAULT IS NULL AND EXTRA NOT LIKE '%auto_increment%'", new { table });
 
-        foreach (var column in columns.Where(column => !values.ContainsKey(column.Name)))
-        {
+        foreach (var column in columns.Where(column => !values.ContainsKey(column.Name))) {
             values[column.Name] = column.Type switch
-            {
-                "enum" => column.FullType.Split('\'')[1],
-                "datetime" or "timestamp" or "date" => DateTime.UtcNow,
-                "varchar" or "char" or "text" or "mediumtext" or "longtext" => "",
-                _ => 0
-            };
+            { "enum" => column.FullType.Split('\'')[1], "datetime" or "timestamp" or "date" => DateTime.UtcNow, "varchar" or "char" or "text" or "mediumtext" or "longtext" => "", _ => 0 };
         }
 
         var parameters = new DynamicParameters();
 
-        foreach (var entry in values)
-        {
+        foreach (var entry in values) {
             parameters.Add(entry.Key, entry.Value);
         }
 

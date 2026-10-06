@@ -161,8 +161,7 @@ public sealed class RoomChatServiceTests
         var world = new World();
         var first = Now.AddMilliseconds(125);
 
-        for (var i = 0; i < 5; i++)
-        {
+        for (var i = 0; i < 5; i++) {
             Assert.False(world.SenderUser.IncrementAndCheckFlood(first, out _));
         }
 
@@ -171,8 +170,7 @@ public sealed class RoomChatServiceTests
 
         var refreshed = first.AddMinutes(1);
 
-        for (var i = 0; i < 5; i++)
-        {
+        for (var i = 0; i < 5; i++) {
             Assert.False(world.SenderUser.IncrementAndCheckFlood(refreshed, out _));
         }
 
@@ -215,15 +213,13 @@ public sealed class RoomChatServiceTests
         Assert.False(packet.HasDataRemaining());
         Assert.Equal(1, clock.Calls);
 
-        if (allowed)
-        {
+        if (allowed) {
             Assert.Equal(new[] { 61 }, store.Used);
             Assert.Equal(new[] { RewardTrackActions.UseHabbicon }, world.Rewards.Progresses);
             Assert.Equal(Now, habbo.LastHabbiconTriggeredAt);
             Assert.Equal(new[] { ServerPacketHeader.RoomUseHabbiconComposer, ServerPacketHeader.UserHabbiconsComposer }, world.SenderPackets.Select(p => p.Header));
         }
-        else
-        {
+        else {
             Assert.Empty(store.Used);
             Assert.Empty(world.Rewards.Progresses);
             Assert.Empty(world.SenderPackets);
@@ -335,44 +331,20 @@ public sealed class RoomChatServiceTests
 
     private sealed class World
     {
-        public GameClient Sender
-        {
-            get;
-        }
-        public GameClient Recipient
-        {
-            get;
-        }
-        public RoomUser RecipientUser
-        {
-            get;
-        }
-        public RoomUser SenderUser
-        {
-            get;
-        }
-        public List<(uint Header, byte[] Payload)> SenderPackets
-        {
-            get;
-        }
-        public List<(uint Header, byte[] Payload)> RecipientPackets
-        {
-            get;
-        }
+        public GameClient Sender { get; }
+        public GameClient Recipient { get; }
+        public RoomUser RecipientUser { get; }
+        public RoomUser SenderUser { get; }
+        public List<(uint Header, byte[] Payload)> SenderPackets { get; }
+        public List<(uint Header, byte[] Payload)> RecipientPackets { get; }
         public RecordingLogs Logs { get; } = new();
         public RecordingCommands Commands { get; } = new();
         public RecordingFilter Filter { get; } = new();
         public RecordingQuests Quests { get; } = new();
         public RecordingRewards Rewards { get; } = new();
         public Settings Settings { get; } = new();
-        public ClientDirectory Clients
-        {
-            get;
-        }
-        public IRoomChatService Service
-        {
-            get;
-        }
+        public ClientDirectory Clients { get; }
+        public IRoomChatService Service { get; }
         private readonly Room _room;
         private readonly WiredComponent _wired;
         private readonly ConcurrentDictionary<uint, Item> _floorItems;
@@ -435,10 +407,7 @@ public sealed class RoomChatServiceTests
             _floorItems[item.Id] = item;
             var trigger = _wired.CreateConfiguredBox(item)!;
             Assert.True(trigger.TryValidateConfiguration(new()
-            {
-                Text = message,
-                IntParams = [1, 1, 0]
-            }, out var configuration, out var error), error);
+            { Text = message, IntParams = [1, 1, 0] }, out var configuration, out var error), error);
             trigger.ApplyConfiguration(configuration);
             Assert.True(_wired.AddBox(trigger));
         }
@@ -461,18 +430,9 @@ public sealed class RoomChatServiceTests
 
     private sealed class RecordingRoomChatService : IRoomChatService
     {
-        public (string Message, int Colour) ChatRequest
-        {
-            get; private set;
-        }
-        public (string Message, int Colour) ShoutRequest
-        {
-            get; private set;
-        }
-        public (string Parameters, int Colour) WhisperRequest
-        {
-            get; private set;
-        }
+        public (string Message, int Colour) ChatRequest { get; private set; }
+        public (string Message, int Colour) ShoutRequest { get; private set; }
+        public (string Parameters, int Colour) WhisperRequest { get; private set; }
         public Task Chat(GameClient session, string message, int colour)
         {
             ChatRequest = (message, colour);
@@ -504,10 +464,7 @@ public sealed class RoomChatServiceTests
 
     private sealed class RecordingCommands : ICommandManager
     {
-        public bool Handled
-        {
-            get; set;
-        }
+        public bool Handled { get; set; }
         public List<string> Messages { get; } = [];
         public Task<bool> Parse(GameClient session, string message)
         {
@@ -527,10 +484,7 @@ public sealed class RoomChatServiceTests
 
     private sealed class RecordingFilter : IWordFilterManager
     {
-        public bool Banned
-        {
-            get; set;
-        }
+        public bool Banned { get; set; }
         public string Replacement { get; set; } = "";
         public void Init()
         {
@@ -590,10 +544,7 @@ public sealed class RoomChatServiceTests
 
     private sealed class ZonedClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {
-        public int Calls
-        {
-            get; set;
-        }
+        public int Calls { get; set; }
         public override DateTimeOffset GetUtcNow()
         {
             Calls++;
@@ -615,8 +566,7 @@ public sealed class RoomChatServiceTests
         }
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(IGameClientManager.GetClientByUserId))
-            {
+            if (targetMethod?.Name == nameof(IGameClientManager.GetClientByUserId)) {
                 return ByUserId.GetValueOrDefault((int)args![0]!);
             }
 
@@ -626,10 +576,7 @@ public sealed class RoomChatServiceTests
 
     public class RecordingModeration : DispatchProxy
     {
-        public DateTimeOffset? Expiry
-        {
-            get; private set;
-        }
+        public DateTimeOffset? Expiry { get; private set; }
         public static (IModerationManager Manager, RecordingModeration Recorder) Create()
         {
             var manager = DispatchProxy.Create<IModerationManager, RecordingModeration>();
@@ -638,8 +585,7 @@ public sealed class RoomChatServiceTests
         }
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(IModerationManager.BanUser))
-            {
+            if (targetMethod?.Name == nameof(IModerationManager.BanUser)) {
                 Expiry = (DateTimeOffset?)args![4];
 
                 return Task.CompletedTask;

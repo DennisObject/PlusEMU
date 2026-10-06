@@ -12,27 +12,15 @@ public readonly record struct WiredVariableHolder(WiredVariableTarget Target, lo
 public sealed class WiredVariableFrame(uint roomId, IReadOnlyList<WiredVariableHolder> holders)
 {
     public uint RoomId { get; } = roomId;
-    public Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext? RuntimeContext
-    {
-        get; init;
-    }
+    public Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext? RuntimeContext { get; init; }
     public IReadOnlyList<WiredVariableHolder> Holders { get; } = holders;
     public MemoryWiredVariableStore Context { get; init; } = new();
     public IReadOnlyList<WiredVariableHolder> Trigger { get; init; } = [];
     public IReadOnlyList<WiredVariableHolder> Signal { get; init; } = [];
     public List<WiredVariableHolder> Selector { get; } = [];
-    public Func<WiredVariableTarget, int, IEnumerable<uint>, IEnumerable<WiredVariableHolder>>? ResolveSource
-    {
-        get; init;
-    }
-    public int Depth
-    {
-        get; init;
-    }
-    public string? ChatText
-    {
-        get; init;
-    }
+    public Func<WiredVariableTarget, int, IEnumerable<uint>, IEnumerable<WiredVariableHolder>>? ResolveSource { get; init; }
+    public int Depth { get; init; }
+    public string? ChatText { get; init; }
     public bool Contains(WiredVariableHolder holder) => holder.Target is WiredVariableTarget.Global or WiredVariableTarget.Context
         ? holder.StableId == 0 && holder.EntityId == 0 : Holders.Contains(holder);
 }

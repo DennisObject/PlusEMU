@@ -51,15 +51,13 @@ public sealed class UserSocialShowcaseService(
     {
         var room = session.GetHabbo().CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return Task.CompletedTask;
         }
 
         var badges = groups.GetAllBadgesInRoom(room);
 
-        if (badges == null)
-        {
+        if (badges == null) {
             return Task.CompletedTask;
         }
 

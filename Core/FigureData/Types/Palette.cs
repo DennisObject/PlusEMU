@@ -8,12 +8,6 @@ public class Palette
         Colors = new();
     }
 
-    public int Id
-    {
-        get; set;
-    }
-    public Dictionary<int, Color> Colors
-    {
-        get; set;
-    }
+    public int Id { get; set; }
+    public Dictionary<int, Color> Colors { get; set; }
 }

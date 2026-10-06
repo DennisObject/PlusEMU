@@ -78,11 +78,7 @@ public class WiredEditorPromotionTests
             Id = 7,
             ExtraData = new LegacyDataFormat { Data = "1" },
             Definition = new()
-            {
-                ItemName = "wf_act_bot_clothes",
-                WiredType = WiredBoxType.EffectBotChangesClothesBox,
-                InteractionType = InteractionType.WiredEffect
-            }
+            { ItemName = "wf_act_bot_clothes", WiredType = WiredBoxType.EffectBotChangesClothesBox, InteractionType = InteractionType.WiredEffect }
         };
         Floor(room).TryAdd(7, item);
         IWiredItem box = legacy
@@ -105,10 +101,7 @@ public class WiredEditorPromotionTests
     }
     public class SavingFigure : DispatchProxy
     {
-        public int Level
-        {
-            get; private set;
-        }
+        public int Level { get; private set; }
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
             Assert.Equal("ProcessFigure", method!.Name);
@@ -137,10 +130,7 @@ public class WiredEditorPromotionTests
             Id = 7,
             ExtraData = new LegacyDataFormat { Data = "1" },
             Definition = new()
-            {
-                ItemName = "wf_act_place_furni",
-                Type = ItemType.Floor
-            }
+            { ItemName = "wf_act_place_furni", Type = ItemType.Floor }
         };
         Floor(room).TryAdd(7, item);
         var box = wired.CreateConfiguredBox(item)!;
@@ -177,8 +167,7 @@ public class WiredEditorPromotionTests
         packets.Clear();
         await handler.Parse(client, ActionPacket([32, 2, 0, 0, 0, 0], [prototype.Id]));
 
-        if (!typed)
-        {
+        if (!typed) {
             Assert.Equal(new uint[] { 156 }, packets);
             Assert.Same(initial, box.Configuration);
             Assert.Empty(database.Rows);
@@ -218,10 +207,7 @@ public class WiredEditorPromotionTests
             Id = 7,
             ExtraData = new LegacyDataFormat { Data = "1" },
             Definition = new()
-            {
-                ItemName = "wf_act_toggle_state",
-                Type = ItemType.Floor
-            }
+            { ItemName = "wf_act_toggle_state", Type = ItemType.Floor }
         };
         Floor(room).TryAdd(7, item);
         var box = wired.CreateConfiguredBox(item)!;
@@ -233,13 +219,11 @@ public class WiredEditorPromotionTests
         await new SaveWiredEffectConfigEvent(Service(database)).Parse(SaveClient(room, packets), ActionPacket([0, 100], [high.Id]));
         Assert.Equal(new uint[] { temporary ? 156u : 1155u }, packets);
 
-        if (temporary)
-        {
+        if (temporary) {
             Assert.Same(prior, box.Configuration);
             Assert.Empty(database.Rows);
         }
-        else
-        {
+        else {
             Assert.Equal(new uint[] { high.Id }, box.Configuration.SelectedItems);
             Assert.Single(database.Rows);
         }
@@ -255,11 +239,7 @@ public class WiredEditorPromotionTests
             Id = 7,
             ExtraData = new LegacyDataFormat { Data = "1" },
             Definition = new()
-            {
-                ItemName = "wf_trg_says_something",
-                WiredType = WiredBoxType.TriggerUserSays,
-                InteractionType = InteractionType.WiredTrigger
-            }
+            { ItemName = "wf_trg_says_something", WiredType = WiredBoxType.TriggerUserSays, InteractionType = InteractionType.WiredTrigger }
         };
         Floor(room).TryAdd(7, item);
         Assert.True(wired.AddBox(wired.GenerateNewBox(item)!));
@@ -284,18 +264,11 @@ public class WiredEditorPromotionTests
             Id = 7,
             ExtraData = new LegacyDataFormat { Data = "1" },
             Definition = new()
-            {
-                ItemName = "wf_act_give_score",
-                Type = ItemType.Floor
-            }
+            { ItemName = "wf_act_give_score", Type = ItemType.Floor }
         };
         Floor(room).TryAdd(7, item);
         var box = wired.CreateConfiguredBox(item)!;
-        Assert.True(box.TryValidateConfiguration(new()
-        {
-            IntParams = [2, 0, 0],
-            ScoreQuotaPerGame = 3
-        }, out var prior, out var error), error);
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0, 0], ScoreQuotaPerGame = 3 }, out var prior, out var error), error);
         box.ApplyConfiguration(prior);
         Assert.True(wired.AddBox(box));
         var packets = new List<uint>();
@@ -312,10 +285,7 @@ public class WiredEditorPromotionTests
             Revision = new()
             {
                 InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
-                {
-                    [ServerPacketHeader.WiredValidationErrorComposer] = 156,
-                    [ServerPacketHeader.HideWiredConfigComposer] = 1155
-                }
+                { [ServerPacketHeader.WiredValidationErrorComposer] = 156, [ServerPacketHeader.HideWiredConfigComposer] = 1155 }
             },
             SendCallback = args => { packets.Add((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2))); return true; }
         };
@@ -331,26 +301,21 @@ public class WiredEditorPromotionTests
         packet.WriteUInteger(7);
         packet.WriteInteger(parameters.Length);
 
-        foreach (var value in parameters)
-        {
+        foreach (var value in parameters) {
             packet.WriteInteger(value);
         }
 
         packet.WriteString("");
         packet.WriteInteger(selected.Length);
 
-        foreach (var id in selected)
-        {
+        foreach (var id in selected) {
             packet.WriteUInteger(id);
         }
 
         packet.WriteInteger(0);
         packet.WriteInteger(0);
 
-        return new()
-        {
-            Buffer = stream.ToArray().AsMemory(6)
-        };
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
 
     [Theory]
@@ -388,8 +353,7 @@ public class WiredEditorPromotionTests
         var prior = field.GetValue(null);
         field.SetValue(null, database);
 
-        try
-        {
+        try {
             var (room, wired, target) = Room();
             var names = new[] { "wf_trg_says_something", "wf_act_show_message", "wf_act_teleport_to", "wf_cnd_user_count_in", "wf_act_match_to_sshot" };
             var types = new[] { WiredBoxType.TriggerUserSays, WiredBoxType.EffectShowMessage, WiredBoxType.EffectTeleportToFurni, WiredBoxType.ConditionUserCountInRoom, WiredBoxType.EffectMatchPosition };
@@ -407,12 +371,7 @@ public class WiredEditorPromotionTests
             };
             Floor(room).TryAdd(item.Id, item);
             var original = wired.GenerateNewBox(item)!;
-            original.StringData = kind switch
-            {
-                3 => "1;5",
-                4 => "0;0;0",
-                _ => "old bytes"
-            };
+            original.StringData = kind switch { 3 => "1;5", 4 => "0;0;0", _ => "old bytes" };
             original.BoolData = true;
             original.ItemsData = "8:0,0,1,0,old-snapshot;";
             Assert.True(wired.AddBox(original));
@@ -424,24 +383,14 @@ public class WiredEditorPromotionTests
                 Revision = new()
                 {
                     InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
-                    {
-                        [ServerPacketHeader.WiredValidationErrorComposer] = 156,
-                        [ServerPacketHeader.HideWiredConfigComposer] = 1155
-                    }
+                    { [ServerPacketHeader.WiredValidationErrorComposer] = 156, [ServerPacketHeader.HideWiredConfigComposer] = 1155 }
                 },
                 SendCallback = args => { packets.Add((uint)FlashGameClient.DecodeInt16(args.MemoryBuffer.Slice(4, 2))); return true; }
             };
             client.SetHabbo(new Habbo { Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access([]) });
             var handler = kind == 0 ? (SaveWiredConfigEvent)new SaveWiredTriggerConfigEvent(Service(database))
                 : kind == 3 ? new SaveWiredConditionConfigEvent(Service(database)) : new SaveWiredEffectConfigEvent(Service(database));
-            var parameters = kind switch
-            {
-                0 => new[] { 0, 1, 0 },
-                1 => [0, 0, 34, -1],
-                2 => [0, 0, 0],
-                3 => [2, 8, 0],
-                _ => [1, 1, 1, 1, 100]
-            };
+            var parameters = kind switch { 0 => new[] { 0, 1, 0 }, 1 => [0, 0, 34, -1], 2 => [0, 0, 0], 3 => [2, 8, 0], _ => [1, 1, 1, 1, 100] };
             var text = kind is 0 or 1 ? "new text" : "";
             database.FailWrites = true;
             await handler.Parse(client, Packet(kind, parameters, text));
@@ -469,8 +418,7 @@ public class WiredEditorPromotionTests
             Assert.Equal(oldText, original.StringData);
             Assert.Equal("8:0,0,1,0,old-snapshot;", original.ItemsData);
 
-            if (kind == 2)
-            {
+            if (kind == 2) {
                 Assert.Equal(0, configured.Configuration.FurniSources["targets"]); // Explicit trigger source survives saved picks.
             }
 
@@ -480,12 +428,13 @@ public class WiredEditorPromotionTests
             var reloaded = Assert.IsAssignableFrom<IWiredConfiguredItem>(new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, new WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel).LoadWiredBox(item));
             Assert.Equal(parameters, reloaded.Configuration.IntParams);
 
-            if (savedSnapshot != null)
-            {
+            if (savedSnapshot != null) {
                 Assert.Equal(savedSnapshot, Assert.Single(reloaded.Configuration.Snapshots));
             }
         }
-        finally { field.SetValue(null, prior); }
+        finally {
+            field.SetValue(null, prior);
+        }
     }
 
     private static FlashIncomingPacket Packet(int kind, int[] values, string text)
@@ -495,30 +444,24 @@ public class WiredEditorPromotionTests
         packet.WriteUInteger(7);
         packet.WriteInteger(values.Length);
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             packet.WriteInteger(value);
         }
 
         packet.WriteString(text);
         packet.WriteInteger(kind is 2 or 4 ? 1 : 0);
 
-        if (kind is 2 or 4)
-        {
+        if (kind is 2 or 4) {
             packet.WriteUInteger(8);
         }
 
-        if (kind is not (0 or 3))
-        {
+        if (kind is not (0 or 3)) {
             packet.WriteInteger(7);
         }
 
         packet.WriteInteger(0);
 
-        return new()
-        {
-            Buffer = stream.ToArray().AsMemory(6)
-        };
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
 
     private static (Room, WiredComponent, Item) Room()
@@ -576,8 +519,7 @@ public class WiredEditorPromotionTests
 
             return Proxy.Create<IDbCommand>((method, args) =>
             {
-                switch (method.Name)
-                {
+                switch (method.Name) {
                     case "set_CommandText":
                         sql = (string)args![0]!;
 
@@ -593,8 +535,7 @@ public class WiredEditorPromotionTests
                     case "set_CommandType":
                         return null;
                     case "ExecuteNonQuery":
-                        if (FailWrites)
-                        {
+                        if (FailWrites) {
                             throw new IOException("Database write failed.");
                         }
 
@@ -609,8 +550,7 @@ public class WiredEditorPromotionTests
                         table.Columns.Add("Version", typeof(int));
                         table.Columns.Add("Json", typeof(string));
 
-                        if (Rows.TryGetValue(Convert.ToUInt32(parameters["Id"].Value), out var row))
-                        {
+                        if (Rows.TryGetValue(Convert.ToUInt32(parameters["Id"].Value), out var row)) {
                             table.Rows.Add(row.Name, row.Version, row.Json);
                         }
 
@@ -629,10 +569,7 @@ public class WiredEditorPromotionTests
         public WiredBoxType Type => WiredBoxType.None;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public WiredBoxDescriptor Descriptor { get; } = WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_give_reward") with { Support = WiredBoxSupport.Implemented };
         public WiredConfiguration Configuration { get; private set; } = new();

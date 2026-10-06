@@ -12,16 +12,14 @@ internal readonly record struct WiredWallPosition(int X, int Y, int Offset, int 
     {
         position = default;
 
-        if (validated == null)
-        {
+        if (validated == null) {
             return false;
         }
 
         var sections = validated.Split(' ');
 
         if (sections.Length != 3 || !sections[0].StartsWith(":w=") || !sections[1].StartsWith("l=")
-            || sections[2] is not ("l" or "r"))
-        {
+            || sections[2] is not ("l" or "r")) {
             return false;
         }
 
@@ -32,8 +30,7 @@ internal readonly record struct WiredWallPosition(int X, int Y, int Offset, int 
             || !int.TryParse(xy[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var x)
             || !int.TryParse(xy[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var y)
             || !int.TryParse(local[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var offset)
-            || !int.TryParse(local[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var altitude))
-        {
+            || !int.TryParse(local[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var altitude)) {
             return false;
         }
 

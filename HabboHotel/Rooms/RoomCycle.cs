@@ -14,8 +14,7 @@ internal static class RoomCycle
     // Both passes share the room's task slot. Fast misses do not change legacy lag counters.
     public static bool TryStart(Room room, Action pass)
     {
-        if (room.IsCrashed || room.MDisposed || room.ProcessTask is { IsCompleted: false })
-        {
+        if (room.IsCrashed || room.MDisposed || room.ProcessTask is { IsCompleted: false }) {
             return false;
         }
 
@@ -27,8 +26,7 @@ internal static class RoomCycle
 
     public static RoomTick Next(bool workInProgress, int lag)
     {
-        if (!workInProgress)
-        {
+        if (!workInProgress) {
             return new(true, 0, false);
         }
 

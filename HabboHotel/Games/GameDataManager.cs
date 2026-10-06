@@ -34,8 +34,7 @@ public class GameDataManager : IGameDataManager, IStartable
         var games = await connection.QueryAsync<GameRow>("SELECT id, name, colour_one AS ColourOne, colour_two AS ColourTwo, resource_path AS ResourcePath, string_three AS StringThree, game_swf AS Swf, game_assets AS Assets, game_server_host AS ServerHost, game_server_port AS ServerPort, socket_policy_port AS SocketPolicyPort, game_enabled AS Enabled FROM games_config");
         _games.Clear();
 
-        foreach (var game in games)
-        {
+        foreach (var game in games) {
             _games.Add(game.Id, new(game.Id, game.Name, game.ColourOne, game.ColourTwo, game.ResourcePath, game.StringThree, game.Swf, game.Assets, game.ServerHost, game.ServerPort, game.SocketPolicyPort, game.Enabled));
         }
 
@@ -44,10 +43,7 @@ public class GameDataManager : IGameDataManager, IStartable
 
     private sealed class GameRow
     {
-        public int Id
-        {
-            get; set;
-        }
+        public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public string ColourOne { get; set; } = string.Empty;
         public string ColourTwo { get; set; } = string.Empty;
@@ -58,10 +54,7 @@ public class GameDataManager : IGameDataManager, IStartable
         public string ServerHost { get; set; } = string.Empty;
         public string ServerPort { get; set; } = string.Empty;
         public string SocketPolicyPort { get; set; } = string.Empty;
-        public bool Enabled
-        {
-            get; set;
-        }
+        public bool Enabled { get; set; }
     }
 
     public bool TryGetGame(int gameId, [NotNullWhen(true)] out GameData? data) => _games.TryGetValue(gameId, out data);

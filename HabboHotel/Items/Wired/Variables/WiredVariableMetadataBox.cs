@@ -10,15 +10,12 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
 {
     public WiredVariableMetadataBox(Room room, Item item, WiredBoxDescriptor descriptor)
-        : base(room, item, descriptor, configuration => Validate(descriptor.CanonicalName, configuration)) { ConfigurationChanged(); }
-    public WiredVariableTimeUtilities? TimeUtilities
+        : base(room, item, descriptor, configuration => Validate(descriptor.CanonicalName, configuration))
     {
-        get; private set;
+        ConfigurationChanged();
     }
-    public WiredVariableLevelSystem? LevelSystem
-    {
-        get; private set;
-    }
+    public WiredVariableTimeUtilities? TimeUtilities { get; private set; }
+    public WiredVariableLevelSystem? LevelSystem { get; private set; }
     public IReadOnlyDictionary<int, string> TextConnector { get; private set; } = new Dictionary<int, string>();
     public static bool Supports(string name) => IsFx(name) || name is "wf_xtra_var_lvlup_system" or "wf_xtra_var_text_connector" or "wf_xtra_var_time_util" or "wf_var_quest" or "wf_var_quest_chain";
     public bool IsQuest => Descriptor.CanonicalName is "wf_var_quest" or "wf_var_quest_chain";
@@ -32,13 +29,11 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
     public bool HasDerived(int sub) => sub >= 0 && sub < DerivedKeys.Length && (IsQuest || LevelSystem is { } level && (level.SubvariableMask & (1 << sub)) != 0);
     public int ReadDerived(int value, int sub)
     {
-        if (!HasDerived(sub))
-        {
+        if (!HasDerived(sub)) {
             throw new ArgumentOutOfRangeException(nameof(sub));
         }
 
-        if (!IsQuest)
-        {
+        if (!IsQuest) {
             return LevelSystem!.Read(value, sub);
         }
 
@@ -59,93 +54,62 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
         or "wf_xtra_var_fx_status" or "wf_xtra_var_fx_boss" or "wf_xtra_var_fx_number";
     protected override void ConfigurationChanged()
     {
-        if (Descriptor.CanonicalName == "wf_xtra_var_time_util")
-        {
+        if (Descriptor.CanonicalName == "wf_xtra_var_time_util") {
             TimeUtilities = new(Configuration.IntParams[0], Configuration.IntParams[1]);
         }
 
-        if (Descriptor.CanonicalName == "wf_xtra_var_lvlup_system")
-        {
+        if (Descriptor.CanonicalName == "wf_xtra_var_lvlup_system") {
             WiredVariableLevelSystem.TryParse(Configuration.Text, out var level);
             LevelSystem = level;
         }
 
-        if (Descriptor.CanonicalName == "wf_xtra_var_text_connector")
-        {
+        if (Descriptor.CanonicalName == "wf_xtra_var_text_connector") {
             TextConnector = ParseConnector(Configuration.Text);
         }
     }
     private static WiredConfiguration Validate(string name, WiredConfiguration configuration)
     {
-        if (configuration.Version != 1 || configuration.Text.Length > 8192)
-        {
+        if (configuration.Version != 1 || configuration.Text.Length > 8192) {
             throw new ArgumentException("Invalid variable metadata.");
         }
 
-        if (IsFx(name))
-        {
-            if (configuration.IntParams.Length == 0 && configuration.Text.Length == 0)
-            {
-                configuration = configuration with
-                {
-                    IntParams = [0, 2, 0, 3000, 0, -1, 2, 0, 0, 100, 0, 0, 0, 0, 0, 0]
-                };
+        if (IsFx(name)) {
+            if (configuration.IntParams.Length == 0 && configuration.Text.Length == 0) {
+                configuration = configuration with { IntParams = [0, 2, 0, 3000, 0, -1, 2, 0, 0, 100, 0, 0, 0, 0, 0, 0] };
             }
 
             var target = configuration.IntParams.ElementAtOrDefault(0) == 0 ? WiredVariableTarget.User : WiredVariableTarget.Furni;
 
-            if (!WiredVariableFxSettings.TryDecode(name, 1, configuration, new(target, ""), out _, out var error))
-            {
+            if (!WiredVariableFxSettings.TryDecode(name, 1, configuration, new(target, ""), out _, out var error)) {
                 throw new ArgumentException(error);
             }
         }
-        else if (name == "wf_xtra_var_lvlup_system")
-        {
-            if (configuration.Text.Length == 0)
-            {
-                configuration = configuration with
-                {
-                    Text = "{\"mode\":1,\"stepSize\":100,\"maxLevel\":10,\"firstLevelXp\":100,\"increaseFactor\":100,\"interpolationText\":\"\",\"subvariables\":[0,1]}"
-                };
+        else if (name == "wf_xtra_var_lvlup_system") {
+            if (configuration.Text.Length == 0) {
+                configuration = configuration with { Text = "{\"mode\":1,\"stepSize\":100,\"maxLevel\":10,\"firstLevelXp\":100,\"increaseFactor\":100,\"interpolationText\":\"\",\"subvariables\":[0,1]}" };
             }
 
-            if (!WiredVariableLevelSystem.TryParse(configuration.Text, out _))
-            {
+            if (!WiredVariableLevelSystem.TryParse(configuration.Text, out _)) {
                 throw new ArgumentException("Invalid level system.");
             }
         }
-        else if (name is "wf_var_quest" or "wf_var_quest_chain")
-        {
-            if (configuration.IntParams.Length == 0)
-            {
-                configuration = configuration with
-                {
-                    IntParams = [0]
-                };
+        else if (name is "wf_var_quest" or "wf_var_quest_chain") {
+            if (configuration.IntParams.Length == 0) {
+                configuration = configuration with { IntParams = [0] };
             }
 
-            if (configuration.IntParams.Length != 1 || configuration.Text.Length != 0)
-            {
+            if (configuration.IntParams.Length != 1 || configuration.Text.Length != 0) {
                 throw new ArgumentException("Invalid quest metadata.");
             }
 
-            configuration = configuration with
-            {
-                IntParams = [Math.Max(0, configuration.IntParams[0])]
-            };
+            configuration = configuration with { IntParams = [Math.Max(0, configuration.IntParams[0])] };
         }
-        else if (name == "wf_xtra_var_time_util")
-        {
-            if (configuration.IntParams.Length == 0)
-            {
-                configuration = configuration with
-                {
-                    IntParams = [0, 0]
-                };
+        else if (name == "wf_xtra_var_time_util") {
+            if (configuration.IntParams.Length == 0) {
+                configuration = configuration with { IntParams = [0, 0] };
             }
 
-            if (configuration.IntParams.Length != 2 || configuration.Text.Length != 0)
-            {
+            if (configuration.IntParams.Length != 2 || configuration.Text.Length != 0) {
                 throw new ArgumentException("Invalid time utility configuration.");
             }
 
@@ -155,12 +119,10 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
                 configuration.IntParams[1] is 1 or 2 ? configuration.IntParams[1] : 0]
             };
         }
-        else if (name == "wf_xtra_var_text_connector")
-        {
+        else if (name == "wf_xtra_var_text_connector") {
             ParseConnector(configuration.Text);
         }
-        else
-        {
+        else {
             throw new ArgumentException("Unsupported variable metadata.");
         }
 
@@ -168,26 +130,22 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
     }
     private static IReadOnlyDictionary<int, string> ParseConnector(string text)
     {
-        if (text.Length > 1000)
-        {
+        if (text.Length > 1000) {
             throw new ArgumentException("Text connector is too long.");
         }
 
         var result = new Dictionary<int, string>();
         var lines = text.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
-        if (lines.Length > 30)
-        {
+        if (lines.Length > 30) {
             throw new ArgumentException("Text connector has too many entries.");
         }
 
-        foreach (var line in lines)
-        {
+        foreach (var line in lines) {
             var separator = line.IndexOf('=');
 
             if (separator <= 0 || !int.TryParse(line[..separator].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var key)
-                || string.IsNullOrWhiteSpace(line[(separator + 1)..]))
-            {
+                || string.IsNullOrWhiteSpace(line[(separator + 1)..])) {
                 throw new ArgumentException("Invalid text connector entry.");
             }
 

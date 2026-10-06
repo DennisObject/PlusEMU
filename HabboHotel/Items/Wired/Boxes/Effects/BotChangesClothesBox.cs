@@ -18,24 +18,12 @@ internal class BotChangesClothesBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.EffectBotChangesClothesBox;
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -43,8 +31,7 @@ internal class BotChangesClothesBox : IWiredItem
         var unknown = packet.ReadInt();
         var botConfiguration = packet.ReadString();
 
-        if (SetItems.Count > 0)
-        {
+        if (SetItems.Count > 0) {
             SetItems.Clear();
         }
 
@@ -53,28 +40,24 @@ internal class BotChangesClothesBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params == null || @params.Length == 0)
-        {
+        if (@params == null || @params.Length == 0) {
             return false;
         }
 
-        if (string.IsNullOrEmpty(StringData))
-        {
+        if (string.IsNullOrEmpty(StringData)) {
             return false;
         }
 
         var stuff = StringData.Split('\t');
 
-        if (stuff.Length != 2)
-        {
+        if (stuff.Length != 2) {
             return false; //This is important, incase a cunt scripts.
         }
 
         var username = stuff[0];
         var user = Instance.GetRoomUserManager().GetBotByName(username);
 
-        if (user == null)
-        {
+        if (user == null) {
             return false;
         }
 

@@ -133,8 +133,7 @@ public sealed class TradeOfferServiceTests
         var trade = f.Start(alice, bob);
         Stock(alice, Enumerable.Range(0, 10).Select(i => Floor((uint)(1000 + i), 11, ltd: true)).ToArray());
 
-        for (uint id = 1000; id < 1010; id++)
-        {
+        for (uint id = 1000; id < 1010; id++) {
             f.Trades.OfferItem(alice.Session, id);
         }
 
@@ -146,8 +145,7 @@ public sealed class TradeOfferServiceTests
         var secondTrade = f.Start(plain, second);
         Stock(plain, Enumerable.Range(0, 501).Select(i => Floor((uint)(5000 + i), 12)).ToArray());
 
-        for (uint id = 5000; id < 5501; id++)
-        {
+        for (uint id = 5000; id < 5501; id++) {
             f.Trades.OfferItem(plain.Session, id);
         }
 
@@ -297,11 +295,7 @@ public sealed class TradeOfferServiceTests
     }
 
     private static void Stock(TradeConfirmationServiceTests.Actor actor, params InventoryItem[] items) =>
-        actor.Habbo.Inventory = new()
-        {
-            Furniture = new(items, []),
-            Badges = new(new())
-        };
+        actor.Habbo.Inventory = new() { Furniture = new(items, []), Badges = new(new()) };
 
     private static InventoryItem Floor(uint id, int definitionId, bool ltd = false) => new()
     {
@@ -314,12 +308,10 @@ public sealed class TradeOfferServiceTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             var bytes = new byte[4];
 
-            switch (value)
-            {
+            switch (value) {
                 case int number:
                     BinaryPrimitives.WriteInt32BigEndian(bytes, number);
                     stream.Write(bytes);

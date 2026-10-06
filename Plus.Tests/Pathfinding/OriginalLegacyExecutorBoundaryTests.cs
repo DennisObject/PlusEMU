@@ -15,8 +15,7 @@ public partial class PlacedFurniRoomTests
         bool? owned = null;
         ReviewObserveWalkOff((_, item) =>
         {
-            if (item == source)
-            {
+            if (item == source) {
                 owned = RoomOwnerScope.IsOwner(_room);
             }
         });
@@ -33,8 +32,7 @@ public partial class PlacedFurniRoomTests
     {
         Task tick;
 
-        lock (_room.NavigationSync)
-        {
+        lock (_room.NavigationSync) {
             tick = Task.Run(_room.ProcessWiredOnly);
             Assert.True(tick.Wait(TimeSpan.FromSeconds(3)));
         }

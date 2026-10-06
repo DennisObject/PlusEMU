@@ -16,8 +16,7 @@ public class SearchSchedulerTests
         Enqueue(scheduler, second);
         Enqueue(scheduler, third);
 
-        for (var revision = 2; revision <= 100; revision++)
-        {
+        for (var revision = 2; revision <= 100; revision++) {
             first.GoalRevision = revision;
             Enqueue(scheduler, first);
         }
@@ -108,12 +107,13 @@ public class SearchSchedulerTests
             return new(PathOutcome.Found, 8);
         }, (job, _) => installed.Add(job)));
 
-        try
-        {
+        try {
             Assert.True(started.Wait(5000));
             Invalidate(actor, lifetimeChanged);
         }
-        finally { finish.Set(); }
+        finally {
+            finish.Set();
+        }
 
         Assert.Equal(8, await runner);
         Assert.Empty(installed);
@@ -230,12 +230,10 @@ public class SearchSchedulerTests
 
     private static void Invalidate(Actor actor, bool lifetimeChanged)
     {
-        if (lifetimeChanged)
-        {
+        if (lifetimeChanged) {
             actor.LifetimeId++;
         }
-        else
-        {
+        else {
             actor.GoalRevision++;
         }
     }

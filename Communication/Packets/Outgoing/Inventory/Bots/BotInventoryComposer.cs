@@ -12,8 +12,7 @@ public sealed class BotInventoryComposer(ImmutableArray<BotInventorySnapshot> bo
     {
         packet.WriteInteger(bots.Length);
 
-        foreach (var bot in bots)
-        {
+        foreach (var bot in bots) {
             packet.WriteInteger(bot.Id);
             packet.WriteString(bot.Name);
             packet.WriteString(bot.Motto);

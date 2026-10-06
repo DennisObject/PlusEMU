@@ -15,12 +15,10 @@ public class OpenBotActionComposer : IServerPacket
         packet.WriteInteger(_snapshot.BotId);
         packet.WriteInteger(_snapshot.ActionId);
 
-        if (_snapshot.ActionId == 2)
-        {
+        if (_snapshot.ActionId == 2) {
             packet.WriteString(_snapshot.Data);
         }
-        else if (_snapshot.ActionId == 5)
-        {
+        else if (_snapshot.ActionId == 5) {
             packet.WriteString(_snapshot.Data);
         }
     }

@@ -18,11 +18,7 @@ public sealed class WiredSelectorVariableBridgeTests
         module.Mutate(new(user.Target, "custom:10"), user, WiredVariableMutation.Give, 5, frame);
         module.Mutate(new(furniture.Target, "custom:11"), furniture, WiredVariableMutation.Give, 8, frame);
         var queries = WiredSelectorVariableBridge.Create(module, frame);
-        var inputs = Inputs() with
-        {
-            FurniVariablePredicate = queries.FurniPredicate,
-            UserVariablePredicate = queries.UserPredicate
-        };
+        var inputs = Inputs() with { FurniVariablePredicate = queries.FurniPredicate, UserVariablePredicate = queries.UserPredicate };
         var selected = WiredSelectorModule.SelectRaw("wf_slc_users_with_var", Config(text: "custom:10"), World(), inputs);
         Assert.Equal(new[] { 4 }, selected.Selection.UserIds);
         Assert.False(queries.UserPredicate("wf_slc_users_with_var", Config([0, 2, 0, 0, 0, 0, 0, 0, 0], text: "custom:10"), 999));

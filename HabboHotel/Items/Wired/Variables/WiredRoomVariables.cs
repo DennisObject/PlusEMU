@@ -12,25 +12,14 @@ public sealed partial class WiredRoomVariables
     private readonly TimeProvider _clock;
     private readonly WiredVariableConfigurationPersistence _persistence;
     private readonly Dictionary<uint, WiredVariableDefinitionBox> _definitions = [];
-    public WiredVariableModule Module
-    {
-        get;
-    }
-    public WiredVariableEditor Editor
-    {
-        get;
-    }
-    public WiredVariableFxTracker Fx
-    {
-        get;
-    }
+    public WiredVariableModule Module { get; }
+    public WiredVariableEditor Editor { get; }
+    public WiredVariableFxTracker Fx { get; }
     public IReadOnlyCollection<WiredVariableDefinitionBox> Definitions => _definitions.Values.ToArray();
     public WiredVariableCatalog Catalog()
     {
         var definitions = Module.DescribeDefinitions(_definitions.Keys).Select(description => description with
-        {
-            TextConnector = MetadataOn(description.Definition.ItemId, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>()
-        }).ToArray();
+        { TextConnector = MetadataOn(description.Definition.ItemId, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>() }).ToArray();
 
         return new(definitions.Concat(definitions.SelectMany(DerivedDescriptions)).ToArray());
     }
@@ -52,25 +41,20 @@ public sealed partial class WiredRoomVariables
 
     public IWiredConfiguredItem? CreateBox(Item item)
     {
-        if (item.Definition.WiredDescriptor is { } descriptor)
-        {
-            if (descriptor.CanonicalName == "wf_trg_var_changed")
-            {
+        if (item.Definition.WiredDescriptor is { } descriptor) {
+            if (descriptor.CanonicalName == "wf_trg_var_changed") {
                 return new WiredVariableChangedTrigger(_room, item, descriptor);
             }
 
-            if (descriptor.CanonicalName == "wf_xtra_text_input_variable")
-            {
+            if (descriptor.CanonicalName == "wf_xtra_text_input_variable") {
                 return new WiredVariableTextInputBox(_room, item, descriptor);
             }
 
-            if (WiredVariableMetadataBox.Supports(descriptor.CanonicalName))
-            {
+            if (WiredVariableMetadataBox.Supports(descriptor.CanonicalName)) {
                 return new WiredVariableMetadataBox(_room, item, descriptor);
             }
 
-            if (WiredVariableAddonBox.Supports(descriptor.CanonicalName))
-            {
+            if (WiredVariableAddonBox.Supports(descriptor.CanonicalName)) {
                 return new WiredVariableAddonBox(_room, item, descriptor, Module,
                 id => MetadataOn(id, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>());
             }
@@ -81,30 +65,26 @@ public sealed partial class WiredRoomVariables
     /// <summary>Call after hydration from the companion configuration store. Database failures must abort activation.</summary>
     public void ConfigurationLoaded(IWiredConfiguredItem box)
     {
-        if (box is WiredVariableTextInputBox textInput)
-        {
+        if (box is WiredVariableTextInputBox textInput) {
             _textInputs[box.Item.Id] = textInput;
 
             return;
         }
 
-        if (box is WiredVariableMetadataBox metadata)
-        {
+        if (box is WiredVariableMetadataBox metadata) {
             _metadata[box.Item.Id] = metadata;
             FxDirty = true;
 
             return;
         }
 
-        if (box is not WiredVariableDefinitionBox definition || !definition.HasPersistedConfiguration)
-        {
+        if (box is not WiredVariableDefinitionBox definition || !definition.HasPersistedConfiguration) {
             return;
         }
 
         _definitions[box.Item.Id] = definition;
 
-        if (definition.Descriptor.CanonicalName == "wf_var_room" && !Module.InitializeGlobal(box.Item.Id))
-        {
+        if (definition.Descriptor.CanonicalName == "wf_var_room" && !Module.InitializeGlobal(box.Item.Id)) {
             throw new InvalidOperationException("The room variable could not be initialized from its authoritative definition.");
         }
 
@@ -113,18 +93,15 @@ public sealed partial class WiredRoomVariables
     /// <summary>Memory-only publication hook, called after atomic persistence and ApplyConfiguration.</summary>
     public void ConfigurationSaved(IWiredConfiguredItem box)
     {
-        if (box is WiredVariableTextInputBox textInput)
-        {
+        if (box is WiredVariableTextInputBox textInput) {
             _textInputs[box.Item.Id] = textInput;
         }
 
-        if (box is WiredVariableMetadataBox metadata)
-        {
+        if (box is WiredVariableMetadataBox metadata) {
             _metadata[box.Item.Id] = metadata;
         }
 
-        if (box is WiredVariableDefinitionBox definition)
-        {
+        if (box is WiredVariableDefinitionBox definition) {
             _definitions[box.Item.Id] = definition;
         }
 
@@ -135,8 +112,7 @@ public sealed partial class WiredRoomVariables
         Module.HolderLeft(holder);
         Fx.DetachHolder(holder);
 
-        if (holder.Target == WiredVariableTarget.User && holder.CanPersist)
-        {
+        if (holder.Target == WiredVariableTarget.User && holder.CanPersist) {
             Fx.RemoveViewer(holder.StableId);
         }
 
@@ -147,8 +123,7 @@ public sealed partial class WiredRoomVariables
     {
         var item = _room.GetRoomItemHandler()?.GetItem(itemId);
 
-        if (item is not null)
-        {
+        if (item is not null) {
             ItemDetached(item);
 
             return;
@@ -164,8 +139,7 @@ public sealed partial class WiredRoomVariables
         _definitions.Remove(itemId);
         Module.DetachDefinition(itemId);
 
-        if (holder is { } detached)
-        {
+        if (holder is { } detached) {
             HolderLeft(detached);
         }
 
@@ -183,8 +157,7 @@ public sealed partial class WiredRoomVariables
     {
         var changes = Module.DrainChanges();
 
-        if (changes.Count > 0)
-        {
+        if (changes.Count > 0) {
             FxDirty = true;
         }
 

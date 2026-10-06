@@ -19,8 +19,7 @@ public sealed class MessengerNavigationService(ISearchResultFactory search, IGam
     {
         query = StringCharFilter.Escape(query.Replace("%", ""));
 
-        if (query.Length < 1 || query.Length > 100)
-        {
+        if (query.Length < 1 || query.Length > 100) {
             return;
         }
 
@@ -28,16 +27,13 @@ public sealed class MessengerNavigationService(ISearchResultFactory search, IGam
         var friends = new List<HabboSearchEntry>();
         var others = new List<HabboSearchEntry>();
 
-        foreach (var result in search.GetSearchResult(query).ToList())
-        {
+        foreach (var result in search.GetSearchResult(query).ToList()) {
             var entry = new HabboSearchEntry(result, clients.GetClientByUserId(result.UserId) != null);
 
-            if (habbo.Messenger.FriendshipExists(result.UserId))
-            {
+            if (habbo.Messenger.FriendshipExists(result.UserId)) {
                 friends.Add(entry);
             }
-            else
-            {
+            else {
                 others.Add(entry);
             }
         }
@@ -49,29 +45,25 @@ public sealed class MessengerNavigationService(ISearchResultFactory search, IGam
     {
         var habbo = session.GetHabbo();
 
-        if (buddyId == 0 || buddyId == habbo.Id)
-        {
+        if (buddyId == 0 || buddyId == habbo.Id) {
             return;
         }
 
         var target = clients.GetClientByUserId(buddyId)?.GetHabbo();
 
-        if (target == null)
-        {
+        if (target == null) {
             return;
         }
 
         var room = target.CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             session.Send(new FollowFriendFailedComposer(FriendFollowError.Unavailable));
 
             return;
         }
 
-        if (habbo.CurrentRoom?.RoomId == room.RoomId)
-        {
+        if (habbo.CurrentRoom?.RoomId == room.RoomId) {
             return;
         }
 

@@ -13,8 +13,7 @@ public class ModeratorUserChatlogComposer(ModeratorUserChatlog chatlog) : IServe
         packet.WriteString(chatlog.User.Username);
         packet.WriteInteger(chatlog.Rooms.Length);
 
-        foreach (var room in chatlog.Rooms)
-        {
+        foreach (var room in chatlog.Rooms) {
             packet.WriteByte(1);
             packet.WriteShort(2);
             packet.WriteString("roomName");
@@ -25,8 +24,7 @@ public class ModeratorUserChatlogComposer(ModeratorUserChatlog chatlog) : IServe
             packet.WriteUInteger(room.Room.Id);
             packet.WriteShort((short)room.Entries.Length);
 
-            foreach (var entry in room.Entries)
-            {
+            foreach (var entry in room.Entries) {
                 packet.WriteString(entry.Timestamp.DateTime.ToShortTimeString());
                 packet.WriteInteger(entry.UserId);
                 packet.WriteString(entry.Username);

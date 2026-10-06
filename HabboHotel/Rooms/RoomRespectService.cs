@@ -19,16 +19,14 @@ public sealed class RoomRespectService(IAchievementManager achievements, IQuestM
         var habbo = session.GetHabbo();
         var stats = habbo.HabboStats;
 
-        if (!ReferenceEquals(habbo.CurrentRoom, room) || stats == null || stats.DailyRespectPoints <= 0)
-        {
+        if (!ReferenceEquals(habbo.CurrentRoom, room) || stats == null || stats.DailyRespectPoints <= 0) {
             return;
         }
 
         var users = room.GetRoomUserManager();
         var user = users.GetRoomUserByHabbo(userId);
 
-        if (user == null || user.IsBot)
-        {
+        if (user == null || user.IsBot) {
             return;
         }
 
@@ -36,15 +34,13 @@ public sealed class RoomRespectService(IAchievementManager achievements, IQuestM
         var target = targetClient?.GetHabbo();
 
         if (target == null || target.Id == habbo.Id || target.HabboStats == null
-            || !ReferenceEquals(target.CurrentRoom, room))
-        {
+            || !ReferenceEquals(target.CurrentRoom, room)) {
             return;
         }
 
         var actor = users.GetRoomUserByHabbo(habbo.Id);
 
-        if (actor == null)
-        {
+        if (actor == null) {
             return;
         }
 
@@ -56,8 +52,7 @@ public sealed class RoomRespectService(IAchievementManager achievements, IQuestM
         stats.RespectGiven++;
         target.HabboStats.Respect++;
 
-        if (room.RespectNotificationsEnabled)
-        {
+        if (room.RespectNotificationsEnabled) {
             room.SendPacket(new RespectNotificationComposer(target.Id, target.HabboStats.Respect));
         }
 

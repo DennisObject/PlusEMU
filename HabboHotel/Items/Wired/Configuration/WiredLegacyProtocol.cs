@@ -12,34 +12,29 @@ public static class WiredLegacyProtocol
     {
         configuration = new();
 
-        try
-        {
+        try {
             var intCount = packet.ReadInt();
 
-            if (intCount is < 0 or > WiredConfigurationLimits.IntParams)
-            {
+            if (intCount is < 0 or > WiredConfigurationLimits.IntParams) {
                 return false;
             }
 
             var ints = ImmutableArray.CreateBuilder<int>(intCount);
 
-            for (var i = 0; i < intCount; i++)
-            {
+            for (var i = 0; i < intCount; i++) {
                 ints.Add(packet.ReadInt());
             }
 
             var text = packet.ReadString();
             var itemCount = packet.ReadInt();
 
-            if (itemCount is < 0 or > WiredConfigurationLimits.SelectedItems)
-            {
+            if (itemCount is < 0 or > WiredConfigurationLimits.SelectedItems) {
                 return false;
             }
 
             var items = ImmutableArray.CreateBuilder<uint>(itemCount);
 
-            for (var i = 0; i < itemCount; i++)
-            {
+            for (var i = 0; i < itemCount; i++) {
                 items.Add(packet.ReadUInt());
             }
 
@@ -54,8 +49,7 @@ public static class WiredLegacyProtocol
 
             return !packet.HasDataRemaining() && IsWithinLimits(configuration);
         }
-        catch (Exception error) when (error is ArgumentException or InvalidOperationException or IOException or OverflowException)
-        {
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException or IOException or OverflowException) {
             return false;
         }
     }
@@ -87,8 +81,7 @@ public static class WiredLegacyProtocol
         packet.WriteInteger(furniLimit);
         packet.WriteInteger(configuration.SelectedItems.Length);
 
-        foreach (var selected in configuration.SelectedItems)
-        {
+        foreach (var selected in configuration.SelectedItems) {
             packet.WriteUInteger(selected);
         }
 
@@ -97,25 +90,21 @@ public static class WiredLegacyProtocol
         packet.WriteString(configuration.Text);
         packet.WriteInteger(configuration.IntParams.Length);
 
-        foreach (var value in configuration.IntParams)
-        {
+        foreach (var value in configuration.IntParams) {
             packet.WriteInteger(value);
         }
 
         packet.WriteInteger(configuration.SelectionCode);
         packet.WriteInteger(descriptor.EditorCode);
 
-        if (descriptor.Envelope == WiredBoxCategory.Action)
-        {
+        if (descriptor.Envelope == WiredBoxCategory.Action) {
             packet.WriteInteger(configuration.Delay);
         }
 
-        if (descriptor.Envelope != WiredBoxCategory.Condition)
-        {
+        if (descriptor.Envelope != WiredBoxCategory.Condition) {
             packet.WriteInteger(blockedItems.Count);
 
-            foreach (var blocked in blockedItems)
-            {
+            foreach (var blocked in blockedItems) {
                 packet.WriteInteger(blocked);
             }
         }

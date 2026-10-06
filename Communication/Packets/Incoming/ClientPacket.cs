@@ -12,17 +12,13 @@ public class ClientPacket
         Init(messageId, body);
     }
 
-    public int Id
-    {
-        get; private set;
-    }
+    public int Id { get; private set; }
 
     public int RemainingLength => _body.Length - _pointer;
 
     public void Init(int messageId, byte[] body)
     {
-        if (body == null)
-        {
+        if (body == null) {
             body = new byte[0];
         }
 
@@ -40,15 +36,13 @@ public class ClientPacket
 
     public byte[] ReadBytes(int bytes)
     {
-        if (bytes > RemainingLength)
-        {
+        if (bytes > RemainingLength) {
             bytes = RemainingLength;
         }
 
         var data = new byte[bytes];
 
-        for (var i = 0; i < bytes; i++)
-        {
+        for (var i = 0; i < bytes; i++) {
             data[i] = _body[_pointer++];
         }
 
@@ -57,15 +51,13 @@ public class ClientPacket
 
     public byte[] PlainReadBytes(int bytes)
     {
-        if (bytes > RemainingLength)
-        {
+        if (bytes > RemainingLength) {
             bytes = RemainingLength;
         }
 
         var data = new byte[bytes];
 
-        for (int x = 0, y = _pointer; x < bytes; x++, y++)
-        {
+        for (int x = 0, y = _pointer; x < bytes; x++, y++) {
             data[x] = _body[y];
         }
 
@@ -85,8 +77,7 @@ public class ClientPacket
 
     public int PopInt()
     {
-        if (RemainingLength < 1)
-        {
+        if (RemainingLength < 1) {
             return 0;
         }
 

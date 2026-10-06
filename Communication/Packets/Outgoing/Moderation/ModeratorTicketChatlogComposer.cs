@@ -22,8 +22,7 @@ public sealed class ModeratorTicketChatlogComposer(ModeratorTicketChatlogSnapsho
         packet.WriteUInteger(data.RoomId);
         packet.WriteShort((short)data.Chats.Length);
 
-        foreach (var chat in data.Chats)
-        {
+        foreach (var chat in data.Chats) {
             packet.WriteString(data.CreatedAt.UtcDateTime.ToShortTimeString());
             packet.WriteInteger(data.TicketId);
             packet.WriteString(data.ReportedName);

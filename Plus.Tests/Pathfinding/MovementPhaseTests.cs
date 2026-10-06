@@ -46,8 +46,7 @@ public partial class PlacedFurniRoomTests
         Assert.False(actor.HasStatus("mv"));
         actor.Freezed = true;
 
-        for (var cycle = 0; cycle < 20; cycle++)
-        {
+        for (var cycle = 0; cycle < 20; cycle++) {
             ExecutorTick();
         }
 
@@ -80,8 +79,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((1, 1), (first.X, first.Y));
         Assert.Equal((2, 1), (second.X, second.Y));
 
-        for (var cycle = 0; cycle < 12; cycle++)
-        {
+        for (var cycle = 0; cycle < 12; cycle++) {
             ExecutorTick();
         }
 
@@ -143,8 +141,7 @@ public partial class PlacedFurniRoomTests
         var calls = 0;
         ExecutorObserveLanding((user, item) =>
         {
-            if (item != landing)
-            {
+            if (item != landing) {
                 return;
             }
 
@@ -170,8 +167,7 @@ public partial class PlacedFurniRoomTests
         var revision = actor.Movement.LocationRevision;
         ExecutorObserveLanding((_, item) =>
         {
-            if (item == landing)
-            {
+            if (item == landing) {
                 Assert.True(_room.GetRoomItemHandler().SetFloorItem(adjacent, 2, 1, .5));
             }
         });
@@ -191,8 +187,7 @@ public partial class PlacedFurniRoomTests
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
 
-        foreach (var item in _room.GetRoomItemHandler().GetFloor)
-        {
+        foreach (var item in _room.GetRoomItemHandler().GetFloor) {
             navigation.Inputs.Attach(item);
         }
 
@@ -234,10 +229,7 @@ public partial class PlacedFurniRoomTests
         public WiredBoxType Type => WiredBoxType.TriggerWalkOnFurni;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
         public bool Execute(params object[] arguments)

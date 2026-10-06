@@ -15,9 +15,6 @@ public sealed class CalendarLoader(IDatabase database) : ICalendarLoader
     {
         using var connection = database.Connection();
 
-        return connection.Query<CalendarEntry>("SELECT `day`, `status` FROM `user_xmas15_calendar` WHERE `user_id` = @userId", new
-        {
-            userId
-        }).ToList();
+        return connection.Query<CalendarEntry>("SELECT `day`, `status` FROM `user_xmas15_calendar` WHERE `user_id` = @userId", new { userId }).ToList();
     }
 }

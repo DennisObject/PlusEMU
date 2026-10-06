@@ -38,8 +38,7 @@ public sealed class MessengerFriendHandlerTests
         var values = new object[51 + 1];
         values[0] = 51;
 
-        for (var i = 1; i < values.Length; i++)
-        {
+        for (var i = 1; i < values.Length; i++) {
             values[i] = i;
         }
 
@@ -94,12 +93,10 @@ public sealed class MessengerFriendHandlerTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             var bytes = new byte[4];
 
-            switch (value)
-            {
+            switch (value) {
                 case int number:
                     BinaryPrimitives.WriteInt32BigEndian(bytes, number);
                     stream.Write(bytes);

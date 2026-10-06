@@ -29,8 +29,7 @@ public class PetLocale : IPetLocale, IStartable
 
     public string[] GetValue(string key)
     {
-        if (_values.TryGetValue(key, out var value))
-        {
+        if (_values.TryGetValue(key, out var value)) {
             return value;
         }
 

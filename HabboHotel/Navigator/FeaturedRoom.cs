@@ -10,20 +10,8 @@ public class FeaturedRoom
         Image = images;
     }
 
-    public int RoomId
-    {
-        get;
-    }
-    public string Caption
-    {
-        get;
-    }
-    public string Description
-    {
-        get;
-    }
-    public string Image
-    {
-        get;
-    }
+    public int RoomId { get; }
+    public string Caption { get; }
+    public string Description { get; }
+    public string Image { get; }
 }

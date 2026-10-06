@@ -5,27 +5,14 @@ public sealed class Route
     private SurfaceRef[] _steps = new SurfaceRef[32];
     // Planned surface Z per step; advisory tie-break data for blocked-route fallback only.
     private double[] _advisoryZ = new double[32];
-    public int Count
-    {
-        get; internal set;
-    }
-    public int GridVersion
-    {
-        get; internal set;
-    }
-    public GraphView View
-    {
-        get; internal set;
-    }
-    public SurfaceRef? GoalSurface
-    {
-        get; internal set;
-    }
+    public int Count { get; internal set; }
+    public int GridVersion { get; internal set; }
+    public GraphView View { get; internal set; }
+    public SurfaceRef? GoalSurface { get; internal set; }
     public ReadOnlySpan<SurfaceRef> Steps => _steps.AsSpan(0, Count);
     internal void EnsureCapacity(int count)
     {
-        if (count <= _steps.Length)
-        {
+        if (count <= _steps.Length) {
             return;
         }
 
@@ -44,8 +31,7 @@ public sealed class Route
     internal void SetAdvisoryZ(int index, double z) => _advisoryZ[index] = z;
     internal void CaptureAdvisory(NavGrid grid)
     {
-        for (var i = 0; i < Count; i++)
-        {
+        for (var i = 0; i < Count; i++) {
             _advisoryZ[i] = grid.Position(_steps[i].Tile, View == GraphView.LegacyTile).Z;
         }
     }

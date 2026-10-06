@@ -13,26 +13,22 @@ public sealed class WiredDirectionalActions
         var heading = _headings.GetValueOrDefault(item, initial);
         var moved = false;
 
-        for (var attempt = 0; attempt < 8; attempt++)
-        {
+        for (var attempt = 0; attempt < 8; attempt++) {
             var offset = WiredRoomOperations.Offset(heading);
             var x = item.GetX + offset.X;
             var y = item.GetY + offset.Y;
             var occupants = blockUsers ? usersAt(x, y) : [];
 
-            foreach (var user in occupants.Where(user => !user.IsBot))
-            {
+            foreach (var user in occupants.Where(user => !user.IsBot)) {
                 collision(item, user);
             }
 
-            if (occupants.Length == 0 && move(x, y))
-            {
+            if (occupants.Length == 0 && move(x, y)) {
                 moved = true;
                 break;
             }
 
-            if (turn == 6)
-            {
+            if (turn == 6) {
                 break;
             }
 
@@ -47,8 +43,7 @@ public sealed class WiredDirectionalActions
     {
         var live = attached.ToHashSet();
 
-        foreach (var item in _headings.Keys.Where(item => !live.Contains(item)).ToArray())
-        {
+        foreach (var item in _headings.Keys.Where(item => !live.Contains(item)).ToArray()) {
             _headings.Remove(item);
         }
     }
@@ -70,8 +65,7 @@ public sealed class WiredDirectionalActions
         var dx = user.X - item.GetX;
         var dy = user.Y - item.GetY;
 
-        if (away)
-        {
+        if (away) {
             dx = -dx;
             dy = -dy;
         }
@@ -83,9 +77,5 @@ public sealed class WiredDirectionalActions
             .Where(point => point.X != item.GetX || point.Y != item.GetY);
     }
     public static int AvatarRotation(int body, int raw) => raw switch
-    {
-        8 => (body + 2) % 8,
-        9 => (body + 6) % 8,
-        _ => raw
-    };
+    { 8 => (body + 2) % 8, 9 => (body + 6) % 8, _ => raw };
 }

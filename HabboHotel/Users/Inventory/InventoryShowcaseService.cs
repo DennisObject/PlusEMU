@@ -23,8 +23,7 @@ public sealed class InventoryShowcaseService : IInventoryShowcaseService
     {
         var inventory = session.GetHabbo().Inventory;
 
-        if (inventory == null)
-        {
+        if (inventory == null) {
             return;
         }
 
@@ -35,8 +34,7 @@ public sealed class InventoryShowcaseService : IInventoryShowcaseService
     {
         var inventory = session.GetHabbo().Inventory;
 
-        if (inventory == null)
-        {
+        if (inventory == null) {
             return;
         }
 

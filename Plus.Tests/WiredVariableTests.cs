@@ -24,21 +24,13 @@ public sealed class WiredVariableTests
     {
         var directory = new Directory();
         directory.Definitions[10] = new(10, 1, 5, "a", WiredVariableTarget.Context, WiredVariableAvailability.RoomActive, true);
-        directory.Definitions[11] = directory.Definitions[10] with
-        {
-            ItemId = 11,
-            Name = "b",
-            HasValue = false
-        };
+        directory.Definitions[11] = directory.Definitions[10] with { ItemId = 11, Name = "b", HasValue = false };
         var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         var frame = Frame();
         Assert.False(module.CaptureContextValues(new Dictionary<uint, int> { [10] = 10, [11] = 20 }, frame));
         Assert.Empty(frame.Context.GetHolders(10));
         Assert.Empty(module.DrainChanges());
-        directory.Definitions[11] = directory.Definitions[11] with
-        {
-            HasValue = true
-        };
+        directory.Definitions[11] = directory.Definitions[11] with { HasValue = true };
         Assert.True(module.CaptureContextValues(new Dictionary<uint, int> { [10] = 10, [11] = 20 }, frame));
         Assert.Equal(10, module.Read(new(WiredVariableTarget.Context, "custom:10"), new(WiredVariableTarget.Context, 0, 0), frame)!.Value);
         Assert.Equal(2, module.DrainChanges().Count);
@@ -50,11 +42,7 @@ public sealed class WiredVariableTests
     {
         var directory = new Directory();
         directory.Definitions[10] = new(10, 1, 5, "active", WiredVariableTarget.Furni, WiredVariableAvailability.RoomActive, true);
-        directory.Definitions[11] = directory.Definitions[10] with
-        {
-            ItemId = 11,
-            Availability = WiredVariableAvailability.Persistent
-        };
+        directory.Definitions[11] = directory.Definitions[10] with { ItemId = 11, Availability = WiredVariableAvailability.Persistent };
         var items = new[] { new Plus.HabboHotel.Items.Item { Id = uint.MaxValue, IsTemporary = true },
             new Plus.HabboHotel.Items.Item { Id = uint.MaxValue - 1, IsTemporary = true } };
         var a = WiredVariableRuntimeFrames.FurniHolder(items[0]);
@@ -71,14 +59,12 @@ public sealed class WiredVariableTests
         Assert.True(module.Mutate(active, a, WiredVariableMutation.Give, 10, frame));
         Assert.True(module.Mutate(active, b, WiredVariableMutation.Give, 20, frame));
 
-        using (var reads = module.CaptureReads([active], frame))
-        {
+        using (var reads = module.CaptureReads([active], frame)) {
             Assert.Equal(10, reads.Read(active, a, frame)!.Value);
             Assert.Equal(20, reads.Read(active, b, frame)!.Value);
         }
 
-        foreach (var holder in frame.Holders)
-        {
+        foreach (var holder in frame.Holders) {
             Assert.False(module.Mutate(persistent, holder, WiredVariableMutation.Give, 99, frame));
             Assert.Null(module.Read(persistent, holder, frame));
         }
@@ -203,10 +189,7 @@ public sealed class WiredVariableTests
     private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset UtcNow { get; set; } = now;
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
@@ -235,15 +218,8 @@ public sealed class WiredVariableTests
     public void SharedReferenceResolvesByIdEnforcesReadOnlyAndRechecksOwnership()
     {
         var directory = new Directory();
-        directory.Definitions[20] = User(WiredVariableAvailability.Shared) with
-        {
-            ItemId = 20,
-            RoomId = 2
-        };
-        directory.Definitions[10] = User() with
-        {
-            Link = new(2, new(WiredVariableTarget.User, "custom:20"), true)
-        };
+        directory.Definitions[20] = User(WiredVariableAvailability.Shared) with { ItemId = 20, RoomId = 2 };
+        directory.Definitions[10] = User() with { Link = new(2, new(WiredVariableTarget.User, "custom:20"), true) };
         var holder = Holder(11, 1);
         var frame = Frame(holder);
         var store = new MemoryWiredVariableStore();
@@ -252,13 +228,7 @@ public sealed class WiredVariableTests
         Assert.Equal(91, module.Read(UserRef, holder, frame)!.Value);
         Assert.False(module.Mutate(UserRef, holder, WiredVariableMutation.Set, 8, frame));
         Assert.Empty(module.DrainChanges());
-        directory.Definitions[10] = directory.Definitions[10] with
-        {
-            Link = directory.Definitions[10].Link! with
-            {
-                ReadOnly = false
-            }
-        };
+        directory.Definitions[10] = directory.Definitions[10] with { Link = directory.Definitions[10].Link! with { ReadOnly = false } };
         Assert.True(module.Mutate(UserRef, holder, WiredVariableMutation.Set, 8, frame));
         Assert.Equal(8, store.Read(new(20, WiredVariableTarget.User, 11))!.Value);
         directory.Owners[2] = 99;
@@ -270,15 +240,8 @@ public sealed class WiredVariableTests
     public void EchoCyclesAndForgedHolderIdentitiesAreRejected()
     {
         var directory = new Directory();
-        directory.Definitions[10] = User() with
-        {
-            Link = new(1, new(WiredVariableTarget.User, "custom:11"), false)
-        };
-        directory.Definitions[11] = User() with
-        {
-            ItemId = 11,
-            Link = new(1, UserRef, false)
-        };
+        directory.Definitions[10] = User() with { Link = new(1, new(WiredVariableTarget.User, "custom:11"), false) };
+        directory.Definitions[11] = User() with { ItemId = 11, Link = new(1, UserRef, false) };
         var holder = Holder(5, 1);
         var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         Assert.Null(module.Read(UserRef, holder, Frame(holder)));
@@ -291,14 +254,8 @@ public sealed class WiredVariableTests
     public void SameNamesDoNotAliasAndPresenceOnlyValuesCannotBeWritten()
     {
         var directory = new Directory();
-        directory.Definitions[10] = User() with
-        {
-            HasValue = false
-        };
-        directory.Definitions[11] = User() with
-        {
-            ItemId = 11
-        };
+        directory.Definitions[10] = User() with { HasValue = false };
+        directory.Definitions[11] = User() with { ItemId = 11 };
         var holder = Holder(1, 1);
         var frame = Frame(holder);
         var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
@@ -404,18 +361,10 @@ public sealed class WiredVariableTests
     [Fact]
     public void DefinitionDecoderUsesOctaneUserSlotOrder()
     {
-        Assert.True(WiredVariableDefinitions.TryDecode("wf_var_user", 10, 1, 5, new()
-        {
-            IntParams = [1, 10],
-            Text = "score"
-        }, out var definition, out _));
+        Assert.True(WiredVariableDefinitions.TryDecode("wf_var_user", 10, 1, 5, new() { IntParams = [1, 10], Text = "score" }, out var definition, out _));
         Assert.True(definition!.HasValue);
         Assert.True(definition.IsDurable);
-        Assert.False(WiredVariableDefinitions.TryDecode("wf_var_user", 10, 1, 5, new()
-        {
-            IntParams = [10, 1],
-            Text = "score"
-        }, out _, out _));
+        Assert.False(WiredVariableDefinitions.TryDecode("wf_var_user", 10, 1, 5, new() { IntParams = [10, 1], Text = "score" }, out _, out _));
     }
 
     [Theory]
@@ -425,35 +374,19 @@ public sealed class WiredVariableTests
     public void TransactionRechecksAuthorizationAfterResolution(string change)
     {
         var directory = new Directory();
-        directory.Definitions[10] = User() with
-        {
-            Link = new(2, new(WiredVariableTarget.User, "custom:20"), false)
-        };
-        directory.Definitions[20] = User(WiredVariableAvailability.Shared) with
-        {
-            ItemId = 20,
-            RoomId = 2
-        };
+        directory.Definitions[10] = User() with { Link = new(2, new(WiredVariableTarget.User, "custom:20"), false) };
+        directory.Definitions[20] = User(WiredVariableAvailability.Shared) with { ItemId = 20, RoomId = 2 };
         var backing = new MemoryWiredVariableStore();
         var store = new AuthorizingStore(backing, directory, () =>
         {
-            if (change == "owner")
-            {
+            if (change == "owner") {
                 directory.Owners[2] = 8;
             }
-            else if (change == "delete")
-            {
+            else if (change == "delete") {
                 directory.Definitions.Remove(20);
             }
-            else
-            {
-                directory.Definitions[10] = directory.Definitions[10] with
-                {
-                    Link = directory.Definitions[10].Link! with
-                    {
-                        ReadOnly = true
-                    }
-                };
+            else {
+                directory.Definitions[10] = directory.Definitions[10] with { Link = directory.Definitions[10].Link! with { ReadOnly = true } };
             }
         });
         var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));

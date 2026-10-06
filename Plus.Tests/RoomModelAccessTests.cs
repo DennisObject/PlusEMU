@@ -105,8 +105,7 @@ public sealed class RoomModelAccessTests
         var previousDatabase = DatabaseField.GetValue(null);
         DatabaseField.SetValue(null, EditorTestSupport.UntouchableDatabase());
 
-        try
-        {
+        try {
             var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7001, Access = Access(staffModels) });
             var service = new RoomCreationService(
                 Proxy<IRoomDataLoader>((method, _) => throw new InvalidOperationException(method)),
@@ -121,7 +120,9 @@ public sealed class RoomModelAccessTests
             Assert.Equal(1, modelReads);
             Assert.Empty(sent);
         }
-        finally { DatabaseField.SetValue(null, previousDatabase); }
+        finally {
+            DatabaseField.SetValue(null, previousDatabase);
+        }
     }
 
     [Theory]
@@ -135,8 +136,7 @@ public sealed class RoomModelAccessTests
         int creationCalls = 0, databaseReads = 0, friendUpdates = 0;
         var rooms = Proxy<IRoomManager>((method, arguments) =>
         {
-            if (method == "TryGetModel")
-            {
+            if (method == "TryGetModel") {
                 arguments[1] = model;
 
                 return true;
@@ -158,8 +158,7 @@ public sealed class RoomModelAccessTests
         var previousDatabase = DatabaseField.GetValue(null);
         DatabaseField.SetValue(null, database);
 
-        try
-        {
+        try {
             var (client, _) = HabbiconTestSupport.Client(habbo);
             var loader = Proxy<IRoomDataLoader>((method, arguments) =>
             {
@@ -183,7 +182,9 @@ public sealed class RoomModelAccessTests
             Assert.Equal(1, databaseReads);
             Assert.Equal(1, friendUpdates);
         }
-        finally { DatabaseField.SetValue(null, previousDatabase); }
+        finally {
+            DatabaseField.SetValue(null, previousDatabase);
+        }
     }
 
     [Theory]
@@ -193,20 +194,17 @@ public sealed class RoomModelAccessTests
     {
         var data = new DataTable();
 
-        foreach (var name in new[] { "Id", "DoorX", "DoorY", "DoorZ", "DoorDir", "Heightmap", "WallHeight", "RequiredClubLevel", "RequiredPermission" })
-        {
+        foreach (var name in new[] { "Id", "DoorX", "DoorY", "DoorZ", "DoorDir", "Heightmap", "WallHeight", "RequiredClubLevel", "RequiredPermission" }) {
             data.Columns.Add(name, name == "DoorZ" ? typeof(double) : name is "Id" or "Heightmap" or "RequiredPermission" ? typeof(string) : typeof(int));
         }
 
         data.Rows.Add("test_model", 0, 0, 0d, 0, "00\r00", 0, -1, ExtraPermission);
         var manager = new RoomManager(NullLogger<RoomManager>.Instance, ReaderDatabase(data), null!, TimeProvider.System, new TestRoomFactory(), new TestRoomDataLoaderFactory());
 
-        if (custom)
-        {
+        if (custom) {
             Assert.True(manager.LoadModel("test_model"));
         }
-        else
-        {
+        else {
             manager.LoadModels();
         }
 
@@ -239,27 +237,12 @@ public sealed class RoomModelAccessTests
     {
         private readonly MySqlParameterCollection _parameters = new MySqlCommand().Parameters;
         public override string CommandText { get; set; } = "";
-        public override int CommandTimeout
-        {
-            get; set;
-        }
-        public override CommandType CommandType
-        {
-            get; set;
-        }
-        public override bool DesignTimeVisible
-        {
-            get; set;
-        }
-        public override UpdateRowSource UpdatedRowSource
-        {
-            get; set;
-        }
+        public override int CommandTimeout { get; set; }
+        public override CommandType CommandType { get; set; }
+        public override bool DesignTimeVisible { get; set; }
+        public override UpdateRowSource UpdatedRowSource { get; set; }
         protected override DbConnection? DbConnection { get; set; } = connection;
-        protected override DbTransaction? DbTransaction
-        {
-            get; set;
-        }
+        protected override DbTransaction? DbTransaction { get; set; }
         protected override DbParameterCollection DbParameterCollection => _parameters;
         protected override DbParameter CreateDbParameter() => new MySqlParameter();
         public override void Cancel()

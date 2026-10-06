@@ -18,50 +18,17 @@ public class Quest
         LocksAt = locksAt?.ToUniversalTime();
     }
 
-    public int Id
-    {
-        get;
-    }
-    public string Category
-    {
-        get;
-    }
-    public string DataBit
-    {
-        get;
-    }
-    public int GoalData
-    {
-        get;
-    }
-    public QuestType GoalType
-    {
-        get;
-    }
-    public string Name
-    {
-        get;
-    }
-    public int Number
-    {
-        get;
-    }
-    public int Reward
-    {
-        get;
-    }
-    public int RewardType
-    {
-        get;
-    }
-    public DateTimeOffset? UnlocksAt
-    {
-        get;
-    }
-    public DateTimeOffset? LocksAt
-    {
-        get;
-    }
+    public int Id { get; }
+    public string Category { get; }
+    public string DataBit { get; }
+    public int GoalData { get; }
+    public QuestType GoalType { get; }
+    public string Name { get; }
+    public int Number { get; }
+    public int Reward { get; }
+    public int RewardType { get; }
+    public DateTimeOffset? UnlocksAt { get; }
+    public DateTimeOffset? LocksAt { get; }
 
     public string ActionName => QuestTypeUtillity.GetString(GoalType);
 
@@ -69,8 +36,7 @@ public class Quest
 
     public bool IsCompleted(int progress)
     {
-        switch (GoalType)
-        {
+        switch (GoalType) {
             default:
                 return progress >= GoalData;
             case QuestType.ExploreFindItem:

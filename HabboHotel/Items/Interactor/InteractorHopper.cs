@@ -12,19 +12,16 @@ public class InteractorHopper(IItemTravelStore travelStore) : IFurniInteractor, 
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
         itemRoom.GetRoomItemHandler().HopperCount++;
 
-        if (item.InteractingUser != 0)
-        {
+        if (item.InteractingUser != 0) {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
 
-            if (user != null)
-            {
+            if (user != null) {
                 user.ClearMovement(true);
                 user.AllowOverride = false;
                 user.CanWalk = true;
@@ -38,20 +35,17 @@ public class InteractorHopper(IItemTravelStore travelStore) : IFurniInteractor, 
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
         travelStore.RemoveHopper(item.Id, itemRoom.RoomId);
         itemRoom.GetRoomItemHandler().HopperCount--;
 
-        if (item.InteractingUser != 0)
-        {
+        if (item.InteractingUser != 0) {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
 
-            if (user != null)
-            {
+            if (user != null) {
                 user.UnlockWalking();
             }
 
@@ -63,30 +57,25 @@ public class InteractorHopper(IItemTravelStore travelStore) : IFurniInteractor, 
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
-        if (item == null || itemRoom == null || session == null || session.GetHabbo() == null)
-        {
+        if (item == null || itemRoom == null || session == null || session.GetHabbo() == null) {
             return;
         }
 
         var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
         // Alright. But is this user in the right position?
-        if (AtEntry(user, item))
-        {
+        if (AtEntry(user, item)) {
             TryEnter(item, user);
         }
-        else if (user.CanWalk)
-        {
+        else if (user.CanWalk) {
             user.ApproachItem(item, ActionKind);
         }
     }
@@ -100,8 +89,7 @@ public class InteractorHopper(IItemTravelStore travelStore) : IFurniInteractor, 
     // Fine. But is this tele even free?
     private static bool TryEnter(Item item, RoomUser user)
     {
-        if (item.InteractingUser != 0)
-        {
+        if (item.InteractingUser != 0) {
             return false;
         }
 

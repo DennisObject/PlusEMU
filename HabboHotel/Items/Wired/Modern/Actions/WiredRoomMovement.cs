@@ -24,35 +24,30 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         var dy = y - item.GetY;
 
         // A carry must validate every passenger destination before the furniture commits.
-        if (carried.Any(user => !ValidAvatarDestination(room, user.X + dx, user.Y + dy)))
-        {
+        if (carried.Any(user => !ValidAvatarDestination(room, user.X + dx, user.Y + dy))) {
             return false;
         }
 
         var z = height ?? (physics?.KeepAltitude == true ? item.GetZ : (double?)null);
 
         if (!WiredRoomOperations.MoveItem(room, item, x, y, options.Rotation, z, animate: false,
-                collision: collision, announce: !options.Animate))
-        {
+                collision: collision, announce: !options.Animate)) {
             return false;
         }
 
-        if (policy.Projectile?.ItemIds.Contains(item.Id) == true)
-        {
+        if (policy.Projectile?.ItemIds.Contains(item.Id) == true) {
             WiredProjectileFlights.For(room).Begin(item, source.X, source.Y, source.Z,
                 options.Animate ? options.AnimationTimeMs : 0, context.NowMilliseconds);
         }
 
-        if (options.Animate)
-        {
+        if (options.Animate) {
             room.SendPacket(new WiredMoveStyleComposer((int)item.Id, options.CurveType,
                 options.CurveType == 7 ? options.CurveStrength : options.CurveIntensity, options.AnimationDistanceOffset));
             room.SendPacket(new WiredMovementComposer(1, (int)item.Id, source.X, source.Y, source.Z,
                 item.GetX, item.GetY, item.GetZ, item.Rotation, item.Rotation, options.AnimationTimeMs));
         }
 
-        foreach (var user in carried)
-        {
+        foreach (var user in carried) {
             MoveAvatar(context, user, user.X + dx, user.Y + dy, options.Animate, 1, true);
         }
 
@@ -64,18 +59,15 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
     {
         var room = context.Room;
 
-        if (context.Policy.Addons.Physics is { } physics)
-        {
+        if (context.Policy.Addons.Physics is { } physics) {
             if (!ValidAvatarDestination(room, x, y)
-                || room.GetGameMap().GetCoordinatedItems(new(x, y)).Any(item => physics.BlockingFurni.Contains(item.Id)))
-            {
+                || room.GetGameMap().GetCoordinatedItems(new(x, y)).Any(item => physics.BlockingFurni.Contains(item.Id))) {
                 return false;
             }
 
             var occupants = room.GetGameMap().GetRoomUsers(new(x, y)).Where(other => !ReferenceEquals(other, user)).ToArray();
 
-            if (!throughUsers && occupants.Any(other => !physics.ThroughUsers.Contains(other.VirtualId)))
-            {
+            if (!throughUsers && occupants.Any(other => !physics.ThroughUsers.Contains(other.VirtualId))) {
                 return false;
             }
 
@@ -90,16 +82,14 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         var goalY = user.GoalY;
         var oldItems = room.GetGameMap().GetCoordinatedItems(user.Coordinate).DistinctBy(item => item.Id).ToArray();
 
-        if (!WiredRoomOperations.RelocateAvatar(room, user, x, y, false, throughUsers))
-        {
+        if (!WiredRoomOperations.RelocateAvatar(room, user, x, y, false, throughUsers)) {
             return false;
         }
 
         var newItems = room.GetGameMap().GetCoordinatedItems(user.Coordinate).DistinctBy(item => item.Id).ToArray();
         walkTransition(user, oldItems, newItems);
 
-        if (animate && !context.Policy.Addons.DisableAnimation)
-        {
+        if (animate && !context.Policy.Addons.DisableAnimation) {
             var curve = context.Policy.Addons.Curve;
             room.SendPacket(new WiredMoveStyleComposer(user.VirtualId, curve?.Type ?? 0,
                 curve?.Type == 7 ? curve.Strength : curve?.Intensity ?? 100, 0, true));
@@ -108,8 +98,7 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         }
 
         if (wasWalking && (walkMode == 1 || walkMode == 0
-            && Math.Abs(goalX - x) + Math.Abs(goalY - y) < Math.Abs(goalX - oldX) + Math.Abs(goalY - oldY)))
-        {
+            && Math.Abs(goalX - x) + Math.Abs(goalY - y) < Math.Abs(goalX - oldX) + Math.Abs(goalY - oldY))) {
             user.MoveTo(goalX, goalY);
         }
 

@@ -13,8 +13,7 @@ public class MovementExecutorBenchmarks
     {
         var output = Environment.GetEnvironmentVariable("PLUSEMU_EXECUTOR_BENCHMARK");
 
-        if (string.IsNullOrEmpty(output))
-        {
+        if (string.IsNullOrEmpty(output)) {
             return;
         }
 
@@ -36,8 +35,7 @@ public class MovementExecutorBenchmarks
         var fixture = new MovementBenchmarkFixture(engine);
         var samples = new double[600];
 
-        for (var warmup = 0; warmup < 30; warmup++)
-        {
+        for (var warmup = 0; warmup < 30; warmup++) {
             fixture.Prepare();
             fixture.Tick();
             fixture.Tick();
@@ -45,13 +43,11 @@ public class MovementExecutorBenchmarks
 
         long allocated = 0;
 
-        for (var pair = 0; pair < samples.Length / 2; pair++)
-        {
+        for (var pair = 0; pair < samples.Length / 2; pair++) {
             fixture.Prepare();
             var bytes = GC.GetAllocatedBytesForCurrentThread();
 
-            for (var phase = 0; phase < 2; phase++)
-            {
+            for (var phase = 0; phase < 2; phase++) {
                 var start = Stopwatch.GetTimestamp();
                 fixture.Tick();
                 samples[pair * 2 + phase] = Microseconds(start);
@@ -73,8 +69,7 @@ public class MovementExecutorBenchmarks
         using var lease = PathWorkspacePool.Rent(corpus.Grid.SlotCapacity, corpus.Grid.ActiveNodeCount);
         var workspace = lease.Workspace;
 
-        for (var warmup = 0; warmup < 20; warmup++)
-        {
+        for (var warmup = 0; warmup < 20; warmup++) {
             SearchBatch(search, corpus.Requests, workspace, route);
         }
 
@@ -82,8 +77,7 @@ public class MovementExecutorBenchmarks
         var counters = new SearchBatchCounters();
         var bytes = GC.GetAllocatedBytesForCurrentThread();
 
-        for (var index = 0; index < samples.Length; index++)
-        {
+        for (var index = 0; index < samples.Length; index++) {
             var start = Stopwatch.GetTimestamp();
             counters = SearchBatch(search, corpus.Requests, workspace, route);
             samples[index] = Microseconds(start);
@@ -102,8 +96,7 @@ public class MovementExecutorBenchmarks
         var actor = new ActorProfile { IgnoreUsers = true };
         var requests = new SearchRequest[100];
 
-        for (var index = 0; index < requests.Length; index++)
-        {
+        for (var index = 0; index < requests.Length; index++) {
             var offset = index % 25;
             var side = index / 25;
             var (dx, dy) = side switch
@@ -128,8 +121,7 @@ public class MovementExecutorBenchmarks
     {
         var counters = new SearchBatchCounters();
 
-        foreach (var request in requests)
-        {
+        foreach (var request in requests) {
             var outcome = search.Find(request, workspace, route);
             counters = new(counters.Found + (outcome == PathOutcome.Found ? 1 : 0),
                 counters.Expansions + workspace.Expansions, counters.CanStep + workspace.CanStepCalls,
@@ -161,10 +153,7 @@ public class MovementExecutorBenchmarks
             _engine = engine;
             RoomPerformanceFixture.SetField(_fixture.Room, "_roomItemHandling", new RoomItemHandling(_fixture.Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
             _fixture.Map.GenerateMaps();
-            _navigation = new(_fixture.Room, _fixture.Map.StaticModel, new()
-            {
-                Engine = engine
-            }, TestLogging.Navigation,
+            _navigation = new(_fixture.Room, _fixture.Map.StaticModel, new() { Engine = engine }, TestLogging.Navigation,
                 TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(_fixture.Map, _navigation);
@@ -176,8 +165,7 @@ public class MovementExecutorBenchmarks
         {
             using var owner = _engine == PathfindingEngine.V2 ? RoomOwnerScope.Enter(_fixture.Room) : null;
 
-            for (var index = 0; index < _fixture.Bots.Count; index++)
-            {
+            for (var index = 0; index < _fixture.Bots.Count; index++) {
                 var actor = _fixture.Bots[index];
                 _fixture.Map.RemoveUserFromMap(actor, actor.Coordinate);
                 actor.X = index % 2 == 0 ? 1 : 32;
@@ -186,12 +174,10 @@ public class MovementExecutorBenchmarks
                 actor.AllowOverride = false;
                 actor.Path.Clear();
 
-                if (_engine == PathfindingEngine.V2)
-                {
+                if (_engine == PathfindingEngine.V2) {
                     _navigation.Admit(actor);
                 }
-                else
-                {
+                else {
                     _fixture.Map.AddUserToMap(actor, actor.Coordinate);
                 }
             }
@@ -199,8 +185,7 @@ public class MovementExecutorBenchmarks
 
         internal void Prepare()
         {
-            for (var index = 0; index < _fixture.Bots.Count; index++)
-            {
+            for (var index = 0; index < _fixture.Bots.Count; index++) {
                 var actor = _fixture.Bots[index];
                 var origin = index % 2 == 0 ? 1 : 32;
                 _landing[index] = actor.X == origin ? origin + 1 : origin;
@@ -210,12 +195,10 @@ public class MovementExecutorBenchmarks
                 actor.PathRecalcNeeded = false;
                 actor.SetStep = false;
 
-                if (_engine == PathfindingEngine.V2)
-                {
+                if (_engine == PathfindingEngine.V2) {
                     PrepareV2(actor);
                 }
-                else
-                {
+                else {
                     PrepareLegacy(actor);
                 }
             }
@@ -250,8 +233,7 @@ public class MovementExecutorBenchmarks
 
         internal void VerifyLanding()
         {
-            for (var index = 0; index < _fixture.Bots.Count; index++)
-            {
+            for (var index = 0; index < _fixture.Bots.Count; index++) {
                 Assert.Equal(_landing[index], _fixture.Bots[index].X);
             }
         }

@@ -63,23 +63,18 @@ public sealed class GroupInfoSnapshotService(IGameClientManager clientManager, I
     {
         var habbo = clientManager.GetClientByUserId(userId)?.GetHabbo();
 
-        if (habbo != null)
-        {
+        if (habbo != null) {
             return habbo.Username;
         }
 
         var user = cacheManager.GenerateUser(userId);
 
-        if (user != null)
-        {
+        if (user != null) {
             return user.Username;
         }
 
         using var connection = database.Connection();
-        var name = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id=@userId LIMIT 1", new
-        {
-            userId
-        });
+        var name = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id=@userId LIMIT 1", new { userId });
 
         return string.IsNullOrEmpty(name) ? "Unknown User" : name;
     }

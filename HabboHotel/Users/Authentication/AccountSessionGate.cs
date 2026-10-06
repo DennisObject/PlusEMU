@@ -35,7 +35,9 @@ public sealed class AccountSessionGate : IAccountSessionGate
     private readonly ConcurrentDictionary<int, long> _revoked = new();
     private readonly TimeSpan _timeout;
 
-    public AccountSessionGate() : this(TimeSpan.FromSeconds(10)) { }
+    public AccountSessionGate() : this(TimeSpan.FromSeconds(10))
+    {
+    }
 
     internal AccountSessionGate(TimeSpan timeout) => _timeout = timeout;
 
@@ -45,8 +47,7 @@ public sealed class AccountSessionGate : IAccountSessionGate
     {
         var stripe = Stripe(userId);
 
-        if (!await stripe.WaitAsync(_timeout, cancellationToken))
-        {
+        if (!await stripe.WaitAsync(_timeout, cancellationToken)) {
             throw new TimeoutException($"Account {userId} is busy.");
         }
 
@@ -59,24 +60,19 @@ public sealed class AccountSessionGate : IAccountSessionGate
         var indexes = userIds.Select(id => (int)((uint)id % Stripes)).Distinct().OrderBy(index => index).ToArray();
         var held = new List<Held>(indexes.Length);
 
-        try
-        {
-            foreach (var index in indexes)
-            {
+        try {
+            foreach (var index in indexes) {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (!await _stripes[index].WaitAsync(_timeout, cancellationToken))
-                {
+                if (!await _stripes[index].WaitAsync(_timeout, cancellationToken)) {
                     throw new TimeoutException("Account is busy.");
                 }
 
                 held.Add(new Held(_stripes[index]));
             }
         }
-        catch
-        {
-            for (var i = held.Count - 1; i >= 0; i--)
-            {
+        catch {
+            for (var i = held.Count - 1; i >= 0; i--) {
                 held[i].Dispose();
             }
 
@@ -90,8 +86,7 @@ public sealed class AccountSessionGate : IAccountSessionGate
     {
         var stripe = Stripe(userId);
 
-        if (!stripe.Wait(_timeout))
-        {
+        if (!stripe.Wait(_timeout)) {
             throw new TimeoutException($"Account {userId} is busy.");
         }
 
@@ -108,8 +103,7 @@ public sealed class AccountSessionGate : IAccountSessionGate
     {
         public void Dispose()
         {
-            for (var i = held.Count - 1; i >= 0; i--)
-            {
+            for (var i = held.Count - 1; i >= 0; i--) {
                 held[i].Dispose();
             }
         }
@@ -121,8 +115,7 @@ public sealed class AccountSessionGate : IAccountSessionGate
 
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref _released, 1) == 0)
-            {
+            if (Interlocked.Exchange(ref _released, 1) == 0) {
                 stripe.Release();
             }
         }

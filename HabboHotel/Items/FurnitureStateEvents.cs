@@ -37,29 +37,23 @@ internal static class FurnitureStateEvents
     // Called by the item for each actual write, possibly under its NavSync: reads and enqueues only.
     public static void Record(Room room, Item item)
     {
-        if (item.IsWired)
-        {
+        if (item.IsWired) {
             return;
         }
 
-        for (var placing = _placing; placing != null; placing = placing.Previous)
-        {
-            if (ReferenceEquals(placing.Room, room) && ReferenceEquals(placing.Item, item))
-            {
+        for (var placing = _placing; placing != null; placing = placing.Previous) {
+            if (ReferenceEquals(placing.Room, room) && ReferenceEquals(placing.Item, item)) {
                 return;
             }
         }
 
         // Writes before admission or after removal are not this room's state changes.
-        if (!ReferenceEquals(room.GetRoomItemHandler()?.GetItem(item.Id), item))
-        {
+        if (!ReferenceEquals(room.GetRoomItemHandler()?.GetItem(item.Id), item)) {
             return;
         }
 
-        for (var capture = _capture; capture != null; capture = capture.Previous)
-        {
-            if (ReferenceEquals(capture.Room, room))
-            {
+        for (var capture = _capture; capture != null; capture = capture.Previous) {
+            if (ReferenceEquals(capture.Room, room)) {
                 capture.Add(new(item, item.Placement, 0));
 
                 return;
@@ -79,27 +73,22 @@ internal static class FurnitureStateEvents
     /// <summary>Takes the write this thread made to the item after the mark, unless it was already reported.</summary>
     public static bool TakeWriteSince(Item item, long mark)
     {
-        if (_recent is not { } recent)
-        {
+        if (_recent is not { } recent) {
             return false;
         }
 
-        for (var age = 1; age <= RecentWrites; age++)
-        {
+        for (var age = 1; age <= RecentWrites; age++) {
             var index = (_recentNext - age + RecentWrites) % RecentWrites;
 
-            if (recent[index] is not { } transition)
-            {
+            if (recent[index] is not { } transition) {
                 continue;
             }
 
-            if (transition.Sequence <= mark)
-            {
+            if (transition.Sequence <= mark) {
                 return false;
             }
 
-            if (!ReferenceEquals(transition.Item, item))
-            {
+            if (!ReferenceEquals(transition.Item, item)) {
                 continue;
             }
 
@@ -120,10 +109,8 @@ internal static class FurnitureStateEvents
     // Each captured write once, in order, for the placement that made it.
     public static void Publish(Room room, RoomUser? actor, IReadOnlyList<FurnitureStateTransition> transitions)
     {
-        foreach (var transition in transitions)
-        {
-            if (Current(transition))
-            {
+        foreach (var transition in transitions) {
+            if (Current(transition)) {
                 Publish(room, actor, transition.Item);
             }
         }
@@ -132,13 +119,8 @@ internal static class FurnitureStateEvents
     // One write that is already this caller's to report, for the furni the room still holds.
     public static void Publish(Room room, RoomUser? actor, Item item)
     {
-        if (Holds(room, item))
-        {
-            room.GetWired()?.Dispatch(new(WiredEventKind.StateChanged)
-            {
-                Actor = Present(room, actor),
-                EventItem = item
-            });
+        if (Holds(room, item)) {
+            room.GetWired()?.Dispatch(new(WiredEventKind.StateChanged) { Actor = Present(room, actor), EventItem = item });
         }
     }
 
@@ -151,8 +133,7 @@ internal static class FurnitureStateEvents
     // A follow-up of a sequenced or toggled write reports that write with the user who caused it.
     public static void PublishFollowed(Room room, RoomUser? actor, Item item)
     {
-        if (TakeFollowedWrite(item))
-        {
+        if (TakeFollowedWrite(item)) {
             Publish(room, actor, item);
         }
     }
@@ -190,20 +171,13 @@ internal static class FurnitureStateEvents
             Previous = _capture;
             _capture = this;
         }
-        public Room Room
-        {
-            get;
-        }
-        internal StateCapture? Previous
-        {
-            get;
-        }
+        public Room Room { get; }
+        internal StateCapture? Previous { get; }
         public IReadOnlyList<FurnitureStateTransition> Transitions => _transitions;
         internal void Add(FurnitureStateTransition transition) => _transitions.Add(transition);
         public void Dispose()
         {
-            if (_disposed)
-            {
+            if (_disposed) {
                 return;
             }
 
@@ -222,22 +196,12 @@ internal static class FurnitureStateEvents
             Previous = _placing;
             _placing = this;
         }
-        public Room Room
-        {
-            get;
-        }
-        public Item Item
-        {
-            get;
-        }
-        public PlacementScope? Previous
-        {
-            get;
-        }
+        public Room Room { get; }
+        public Item Item { get; }
+        public PlacementScope? Previous { get; }
         public void Dispose()
         {
-            if (_disposed)
-            {
+            if (_disposed) {
                 return;
             }
 

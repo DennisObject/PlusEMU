@@ -38,20 +38,16 @@ internal static class HabbiconTestSupport
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
-            if (value is int number)
-            {
+        foreach (var value in values) {
+            if (value is int number) {
                 var bytes = new byte[4];
                 BinaryPrimitives.WriteInt32BigEndian(bytes, number);
                 stream.Write(bytes);
             }
-            else if (value is bool flag)
-            {
+            else if (value is bool flag) {
                 stream.WriteByte(flag ? (byte)1 : (byte)0);
             }
-            else if (value is string text)
-            {
+            else if (value is string text) {
                 var bytes = Encoding.UTF8.GetBytes(text);
                 var length = new byte[2];
                 BinaryPrimitives.WriteUInt16BigEndian(length, checked((ushort)bytes.Length));
@@ -79,17 +75,13 @@ internal static class HabbiconTestSupport
         public List<(HabbiconAction Action, int Id)> Actions { get; } = new();
         public List<int[]> Clears { get; } = new();
         public List<int> Used { get; } = new();
-        public int? Rejection
-        {
-            get; set;
-        }
+        public int? Rejection { get; set; }
         public HabbiconSnapshot Load(int userId) => Data;
         public HabbiconChange Change(Habbo habbo, HabbiconAction action, int id)
         {
             Actions.Add((action, id));
 
-            if (Rejection is { } code)
-            {
+            if (Rejection is { } code) {
                 throw new HabbiconRejected((HabbiconActionError)code);
             }
 
@@ -108,10 +100,7 @@ internal static class HabbiconTestSupport
     internal sealed class RecordingPacket : IOutgoingPacket
     {
         public List<object> Writes { get; } = new();
-        public int MessageId
-        {
-            get; set;
-        }
+        public int MessageId { get; set; }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

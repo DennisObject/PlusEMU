@@ -14,15 +14,13 @@ public sealed class TradeModerationService(IUserDataFactory users, IGameClientMa
 {
     public async Task Lock(GameClient actor, int userId, int minutes, string reason)
     {
-        if (!await users.HabboExists(userId))
-        {
+        if (!await users.HabboExists(userId)) {
             actor.SendWhisper("An error occurred whilst finding that user in the database.");
 
             return;
         }
 
-        if (!access.Outranks(actor.GetHabbo().Id, userId))
-        {
+        if (!access.Outranks(actor.GetHabbo().Id, userId)) {
             actor.SendWhisper("Oops, you cannot trade lock another user with an equal or higher rank.");
 
             return;

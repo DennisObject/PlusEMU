@@ -23,13 +23,11 @@ public class Arc4
         _i = 0;
         _j = 0;
 
-        for (_i = 0; _i < Poolsize; ++_i)
-        {
+        for (_i = 0; _i < Poolsize; ++_i) {
             _bytes[_i] = (byte)_i;
         }
 
-        for (_i = 0; _i < Poolsize; ++_i)
-        {
+        for (_i = 0; _i < Poolsize; ++_i) {
             _j = (_j + _bytes[_i] + key[_i % key.Length]) & (Poolsize - 1);
             Swap(_i, _j);
         }
@@ -66,8 +64,7 @@ public class Arc4
 
     public void Transform(Span<byte> source)
     {
-        for (var k = 0; k < source.Length; k++)
-        {
+        for (var k = 0; k < source.Length; k++) {
             source[k] ^= Next();
         }
     }

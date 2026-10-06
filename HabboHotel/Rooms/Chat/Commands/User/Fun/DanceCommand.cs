@@ -15,22 +15,18 @@ internal class DanceCommand : IChatCommand
     {
         var thisUser = session.GetHabbo().CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (thisUser == null)
-        {
+        if (thisUser == null) {
             return;
         }
 
-        if (parameters.Length == 0)
-        {
+        if (parameters.Length == 0) {
             session.SendWhisper("Please enter an ID of a dance.");
 
             return;
         }
 
-        if (int.TryParse(parameters[0], out var danceId))
-        {
-            if (danceId > 4 || danceId < 0)
-            {
+        if (int.TryParse(parameters[0], out var danceId)) {
+            if (danceId > 4 || danceId < 0) {
                 session.SendWhisper("The dance ID must be between 0 and 4!");
 
                 return;
@@ -38,8 +34,7 @@ internal class DanceCommand : IChatCommand
 
             session.GetHabbo().CurrentRoom.SendPacket(new DanceComposer(thisUser.VirtualId, danceId));
         }
-        else
-        {
+        else {
             session.SendWhisper("Please enter a valid dance ID.");
         }
     }

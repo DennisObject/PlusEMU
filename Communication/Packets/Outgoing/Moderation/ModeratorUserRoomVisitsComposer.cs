@@ -13,8 +13,7 @@ public class ModeratorUserRoomVisitsComposer(ModeratorUserRoomVisits history) : 
         packet.WriteString(history.User.Username);
         packet.WriteInteger(history.Visits.Length);
 
-        foreach (var visit in history.Visits)
-        {
+        foreach (var visit in history.Visits) {
             packet.WriteUInteger(visit.Room.Id);
             packet.WriteString(visit.Room.Name);
             packet.WriteInteger(visit.EnteredAt.Hour);

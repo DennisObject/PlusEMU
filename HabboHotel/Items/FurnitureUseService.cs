@@ -27,13 +27,7 @@ public sealed class FurnitureUseStore(IDatabase database) : IFurnitureUseStore
         if (connection.Execute("""
             UPDATE room_items_toner toner JOIN items item ON item.id=toner.id
             SET toner.enabled=@enabled WHERE toner.id=@itemId AND item.room_id=@roomId
-            """, new
-        {
-            itemId,
-            roomId,
-            enabled
-        }) != 1)
-        {
+            """, new { itemId, roomId, enabled }) != 1) {
             throw new InvalidOperationException("Toner state was not persisted.");
         }
     }
@@ -55,8 +49,7 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
     {
         var item = FindPermanent(room, session, itemId);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
@@ -67,8 +60,7 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
     {
         var item = FindPermanent(room, session, request.ItemId);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
@@ -79,8 +71,7 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
     {
         var item = FindPermanent(room, session, itemId);
 
-        if (item?.Definition.InteractionType != InteractionType.OneWayGate)
-        {
+        if (item?.Definition.InteractionType != InteractionType.OneWayGate) {
             return;
         }
 
@@ -91,8 +82,7 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
     {
         var item = FindPermanent(room, session, request.ItemId);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
@@ -109,12 +99,10 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
         var actor = FurnitureStateEvents.Actor(room, session);
         var capture = FurnitureStateEvents.Capture(room);
 
-        try
-        {
+        try {
             item.Interactor.OnTrigger(session, item, request, hasRights);
         }
-        finally
-        {
+        finally {
             capture.Dispose();
             FurnitureStateEvents.Publish(room, actor, capture.Transitions);
         }
@@ -122,8 +110,7 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
 
     private static Item? FindPermanent(Room room, GameClient session, uint itemId)
     {
-        if (!ReferenceEquals(session.GetHabbo().CurrentRoom, room))
-        {
+        if (!ReferenceEquals(session.GetHabbo().CurrentRoom, room)) {
             return null;
         }
 
@@ -136,38 +123,24 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
     {
         var actor = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (actor == null || actor.IsBot)
-        {
+        if (actor == null || actor.IsBot) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(request.ItemId);
 
-        if (item == null || request.IsWall && !item.IsWallItem || !request.IsWall && !item.IsFloorItem)
-        {
+        if (item == null || request.IsWall && !item.IsWallItem || !request.IsWall && !item.IsFloorItem) {
             return;
         }
 
-        if (item.IsTemporary && !room.GetRoomItemHandler().OwnsTemporary(item))
-        {
+        if (item.IsTemporary && !room.GetRoomItemHandler().OwnsTemporary(item)) {
             return;
         }
 
-        room.GetWired().Dispatch(new(WiredEventKind.ClickFurni)
-        {
-            Actor = actor,
-            EventItem = item
-        });
+        room.GetWired().Dispatch(new(WiredEventKind.ClickFurni) { Actor = actor, EventItem = item });
 
-        if (!request.IsWall && string.Equals(item.Definition.InteractionName, "room_invisible_click_tile", StringComparison.OrdinalIgnoreCase))
-        {
-            room.GetWired().Dispatch(new(WiredEventKind.ClickTile)
-            {
-                Actor = actor,
-                EventItem = item,
-                X = item.GetX,
-                Y = item.GetY
-            });
+        if (!request.IsWall && string.Equals(item.Definition.InteractionName, "room_invisible_click_tile", StringComparison.OrdinalIgnoreCase)) {
+            room.GetWired().Dispatch(new(WiredEventKind.ClickTile) { Actor = actor, EventItem = item, X = item.GetX, Y = item.GetY });
         }
     }
 
@@ -175,30 +148,24 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
     {
         var habbo = session.GetHabbo();
 
-        if (habbo.CurrentRoom != room)
-        {
+        if (habbo.CurrentRoom != room) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(request.ItemId);
 
-        if (item == null || item.IsTemporary || item.RoomId != room.Id || item.Definition == null)
-        {
+        if (item == null || item.IsTemporary || item.RoomId != room.Id || item.Definition == null) {
             return;
         }
 
-        if (item.Definition.InteractionType == InteractionType.Banzaitele)
-        {
+        if (item.Definition.InteractionType == InteractionType.Banzaitele) {
             return;
         }
 
-        if (item.Definition.InteractionType == InteractionType.Toner)
-        {
-            lock (room.NavigationSync)
-            {
+        if (item.Definition.InteractionType == InteractionType.Toner) {
+            lock (room.NavigationSync) {
                 if (habbo.CurrentRoom != room || !room.CheckRights(session, true) ||
-                    room.GetRoomItemHandler().GetItem(item.Id) != item || room.TonerData?.ItemId != item.Id)
-                {
+                    room.GetRoomItemHandler().GetItem(item.Id) != item || room.TonerData?.ItemId != item.Id) {
                     return;
                 }
 
@@ -214,19 +181,16 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
 
         var hasRights = room.CheckRights(session, false, true);
 
-        if (item.Definition.InteractionType == InteractionType.GnomeBox && item.OwnerId == habbo.Id)
-        {
+        if (item.Definition.InteractionType == InteractionType.GnomeBox && item.OwnerId == habbo.Id) {
             session.Send(new GnomeBoxComposer(item.Id));
         }
 
         var toggle = true;
 
-        if (item.Definition.InteractionType is InteractionType.WfFloorSwitch1 or InteractionType.WfFloorSwitch2)
-        {
+        if (item.Definition.InteractionType is InteractionType.WfFloorSwitch1 or InteractionType.WfFloorSwitch2) {
             var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
 
-            if (user == null)
-            {
+            if (user == null) {
                 return;
             }
 
@@ -235,8 +199,7 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
 
         Trigger(room, session, item, request.Parameter, hasRights);
 
-        if (toggle)
-        {
+        if (toggle) {
             room.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, habbo, item);
         }
 

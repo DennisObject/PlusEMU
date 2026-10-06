@@ -122,8 +122,7 @@ public sealed class BotManagementServiceTests
         bot.Id = 99;
         bot.Name = "changed";
 
-        for (var i = 0; i < 2; i++)
-        {
+        for (var i = 0; i < 2; i++) {
             var packet = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(packet);
             Assert.Equal(new object[] { 31, 5, "Helper" }, packet.Writes);
@@ -153,18 +152,9 @@ public sealed class BotManagementServiceTests
 
     private sealed class RecordingStore : IBotManagementStore
     {
-        public bool Fail
-        {
-            get; set;
-        }
-        public int SpeechWrites
-        {
-            get; private set;
-        }
-        public (int BotId, uint RoomId, bool Automatic, int Interval, bool Mix)? LastSpeech
-        {
-            get; private set;
-        }
+        public bool Fail { get; set; }
+        public int SpeechWrites { get; private set; }
+        public (int BotId, uint RoomId, bool Automatic, int Interval, bool Mix)? LastSpeech { get; private set; }
         public List<(int BotId, string Mode)> WalkingModes { get; } = [];
         public BotPlacementData Place(int botId, int ownerId, uint roomId, int x, int y) => throw new NotSupportedException();
         public void PickUp(int botId, uint roomId) => throw new NotSupportedException();
@@ -179,8 +169,7 @@ public sealed class BotManagementServiceTests
         public void SaveName(int botId, uint roomId, string name) => throw new NotSupportedException();
         public void SaveWalkingMode(int botId, uint roomId, string mode)
         {
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
 

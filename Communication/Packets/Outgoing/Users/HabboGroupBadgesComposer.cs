@@ -12,8 +12,7 @@ public sealed class HabboGroupBadgesComposer(ImmutableArray<GroupBadgeSnapshot> 
     {
         packet.WriteInteger(badges.Length);
 
-        foreach (var badge in badges)
-        {
+        foreach (var badge in badges) {
             packet.WriteInteger(badge.GroupId);
             packet.WriteString(badge.Badge);
         }

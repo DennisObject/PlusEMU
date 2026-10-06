@@ -25,15 +25,13 @@ public sealed class FurnitureDataReloadComposer : IServerPacket
     {
         packet.WriteInteger(_mode);
 
-        if (_mode != Delta)
-        {
+        if (_mode != Delta) {
             return;
         }
 
         packet.WriteInteger(_entries.Count);
 
-        foreach (var entry in _entries)
-        {
+        foreach (var entry in _entries) {
             packet.WriteString(entry.IsWallItem ? "I" : "S");
             packet.WriteInteger(entry.Id);
             packet.WriteString(entry.Classname);

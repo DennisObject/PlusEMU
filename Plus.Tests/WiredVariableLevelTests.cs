@@ -13,8 +13,7 @@ public sealed class WiredVariableLevelTests
         Assert.Equal(200, flatGrowth.Level(150).Next);
 
         foreach (var zero in new[] { "{\"mode\":1,\"stepSize\":0}", "{\"mode\":2,\"firstLevelXp\":0}",
-            "{\"mode\":1,\"stepSize\":-10}", "{\"mode\":2,\"firstLevelXp\":-10}" })
-        {
+            "{\"mode\":1,\"stepSize\":-10}", "{\"mode\":2,\"firstLevelXp\":-10}" }) {
             Assert.True(WiredVariableLevelSystem.TryParse(zero, out var system));
             Assert.True(system!.Level(0).IsMaxed);
             Assert.Equal(0, system.Level(0).Next);

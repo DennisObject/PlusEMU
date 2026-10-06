@@ -100,11 +100,7 @@ public sealed class QuestProgressServiceTests
     {
         var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, questId, 0, 0, "", 0);
 
-        return HabbiconTestSupport.Client(new()
-        {
-            Id = userId,
-            HabboStats = stats
-        });
+        return HabbiconTestSupport.Client(new() { Id = userId, HabboStats = stats });
     }
 
     private static Quest TestQuest(int id, string category, int number) =>
@@ -112,18 +108,14 @@ public sealed class QuestProgressServiceTests
 
     private sealed class RecordingStore(Action? beforeStart = null) : IQuestProgressStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
+        public bool Fail { get; init; }
         public List<(int UserId, int QuestId)> Starts { get; } = [];
         public List<(int UserId, int QuestId, int Progress, bool Completed)> Progress { get; } = [];
         public void Start(int userId, int questId)
         {
             beforeStart?.Invoke();
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
 
@@ -131,15 +123,13 @@ public sealed class QuestProgressServiceTests
         }
         public void Cancel(int userId, int questId)
         {
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
         }
         public void SaveProgress(int userId, int questId, int progress, bool completed)
         {
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
 
@@ -150,14 +140,8 @@ public sealed class QuestProgressServiceTests
     private sealed class QuestManagerFake(params Quest[] quests) : IQuestManager
     {
         private readonly Dictionary<int, Quest> _quests = quests.ToDictionary(quest => quest.Id);
-        public int ListRequests
-        {
-            get; private set;
-        }
-        public (string Category, int Number)? NextRequest
-        {
-            get; private set;
-        }
+        public int ListRequests { get; private set; }
+        public (string Category, int Number)? NextRequest { get; private set; }
         public Quest GetQuest(int id) => _quests.GetValueOrDefault(id)!;
         public Quest GetNextQuestInSeries(string category, int number)
         {

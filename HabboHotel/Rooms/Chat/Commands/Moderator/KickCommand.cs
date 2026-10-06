@@ -15,31 +15,26 @@ internal class KickCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!session.GetHabbo().Access.Outranks(target.Access))
-        {
+        if (!session.GetHabbo().Access.Outranks(target.Access)) {
             return Task.CompletedTask;
         }
 
-        if (target == session.GetHabbo())
-        {
+        if (target == session.GetHabbo()) {
             session.SendWhisper("Get a life.");
 
             return Task.CompletedTask;
         }
 
-        if (!target.InRoom)
-        {
+        if (!target.InRoom) {
             session.SendWhisper("That user currently isn't in a room.");
 
             return Task.CompletedTask;
         }
 
-        if (parameters.Any())
-        {
+        if (parameters.Any()) {
             target.Client.SendNotification($"A moderator has kicked you from the room for the following reason: {CommandManager.MergeParams(parameters)}");
         }
-        else
-        {
+        else {
             target.Client.SendNotification("A moderator has kicked you from the room.");
         }
 

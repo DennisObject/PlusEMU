@@ -20,13 +20,11 @@ internal class ModerationMsgEvent : IPacketEvent
         var message = packet.ReadString();
         var client = _clientManager.GetClientByUserId(userId);
 
-        if (client == null)
-        {
+        if (client == null) {
             return Task.CompletedTask;
         }
 
-        if (client.GetHabbo() == null || !session.GetHabbo().Access.Outranks(client.GetHabbo().Access))
-        {
+        if (client.GetHabbo() == null || !session.GetHabbo().Access.Outranks(client.GetHabbo().Access)) {
             return Task.CompletedTask;
         }
 

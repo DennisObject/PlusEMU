@@ -15,8 +15,7 @@ internal sealed class SubmitNewTicketEvent(IModeratorTicketService tickets) : IP
         var count = packet.ReadInt();
         var chats = ImmutableArray.CreateBuilder<string>();
 
-        for (var index = 0; index < count; index++)
-        {
+        for (var index = 0; index < count; index++) {
             packet.ReadInt();
             chats.Add(packet.ReadString());
         }

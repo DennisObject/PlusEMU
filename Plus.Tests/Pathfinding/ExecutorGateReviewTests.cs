@@ -29,8 +29,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         Assert.Equal((2, 1), (actor.X, actor.Y));
 
-        for (var cycle = 0; cycle < 8; cycle++)
-        {
+        for (var cycle = 0; cycle < 8; cycle++) {
             ExecutorTick();
         }
 
@@ -46,8 +45,7 @@ public partial class PlacedFurniRoomTests
         var actor = ReviewGateActor(v2);
         actor.MoveTo(1, 1);
 
-        for (var cycle = 0; cycle < 3; cycle++)
-        {
+        for (var cycle = 0; cycle < 3; cycle++) {
             ExecutorTick();
         }
 
@@ -83,8 +81,7 @@ public partial class PlacedFurniRoomTests
         var group = new Group(23, "gate", "", "", RoomId, 7, DateTimeOffset.UnixEpoch, 0, 1, 1, 0, false,
             GroupMembershipSnapshot.Empty);
 
-        if (member)
-        {
+        if (member) {
             ((List<int>)typeof(Group).GetField("_members", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(group)!).Add(7);
         }
@@ -109,8 +106,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser ReviewGateActor(bool v2)
     {
-        if (v2)
-        {
+        if (v2) {
             return ExecutorActor(0, 1);
         }
 

@@ -18,16 +18,11 @@ public sealed class FurnitureInventoryLoader(IDatabase database, IItemDataManage
             "SELECT items.id,items.base_item AS BaseItem,items.user_id AS UserId,items.extra_data AS ExtraData," +
             "items.limited_number AS LimitedNumber,items.limited_stack AS LimitedStack,COALESCE(items_groups.group_id,0) AS GroupId " +
             "FROM items LEFT JOIN items_groups ON items.id=items_groups.id WHERE items.room_id=0 AND items.user_id=@userId",
-            new
-            {
-                userId
-            });
+            new { userId });
         var items = new List<InventoryItem>();
 
-        foreach (var row in rows)
-        {
-            if (!definitions.Items.TryGetValue(row.BaseItem, out var definition))
-            {
+        foreach (var row in rows) {
+            if (!definitions.Items.TryGetValue(row.BaseItem, out var definition)) {
                 continue;
             }
 
@@ -47,30 +42,12 @@ public sealed class FurnitureInventoryLoader(IDatabase database, IItemDataManage
 
     private sealed class InventoryItemRow
     {
-        public uint Id
-        {
-            get; init;
-        }
-        public uint BaseItem
-        {
-            get; init;
-        }
-        public int UserId
-        {
-            get; init;
-        }
+        public uint Id { get; init; }
+        public uint BaseItem { get; init; }
+        public int UserId { get; init; }
         public string ExtraData { get; init; } = "";
-        public uint LimitedNumber
-        {
-            get; init;
-        }
-        public uint LimitedStack
-        {
-            get; init;
-        }
-        public int GroupId
-        {
-            get; init;
-        }
+        public uint LimitedNumber { get; init; }
+        public uint LimitedStack { get; init; }
+        public int GroupId { get; init; }
     }
 }

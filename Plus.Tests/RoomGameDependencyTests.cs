@@ -19,8 +19,7 @@ public partial class PlacedFurniRoomTests
         var unloaded = new List<uint>();
         Set("_rooms", TestRoomOwners.Create(unloaded.Add));
 
-        if (v2)
-        {
+        if (v2) {
             _room.EnableV2Movement();
         }
 
@@ -43,8 +42,7 @@ public partial class PlacedFurniRoomTests
         var unloaded = new List<uint>();
         Set("_rooms", TestRoomOwners.Create(unloaded.Add));
 
-        if (v2)
-        {
+        if (v2) {
             _room.EnableV2Movement();
         }
 
@@ -87,10 +85,7 @@ public partial class PlacedFurniRoomTests
     {
         Assert.True(_room.GetRoomUserManager().AddAvatarToRoom(_client));
         var actor = _room.GetRoomUserManager().GetRoomUserByHabbo(7)!;
-        _client.GetHabbo().Effects = new(_interactionClock)
-        {
-            CurrentEffect = 35
-        };
+        _client.GetHabbo().Effects = new(_interactionClock) { CurrentEffect = 35 };
         actor.Team = Team.Blue;
         actor.LockedTilesCount = 4;
         var calls = new List<(string, int)>();
@@ -147,10 +142,11 @@ public partial class PlacedFurniRoomTests
         var previous = _gameField.GetValue(null);
         _gameField.SetValue(null, null);
 
-        try
-        {
+        try {
             action();
         }
-        finally { _gameField.SetValue(null, previous); }
+        finally {
+            _gameField.SetValue(null, previous);
+        }
     }
 }

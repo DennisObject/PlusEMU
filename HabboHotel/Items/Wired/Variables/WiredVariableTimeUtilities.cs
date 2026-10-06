@@ -31,20 +31,13 @@ public sealed record WiredVariableTimeUtilities(int Mask, int Mode)
     };
     public int? Read(WiredVariableValue value, int id, TimeZoneInfo zone)
     {
-        if (!Has(id))
-        {
+        if (!Has(id)) {
             return null;
         }
 
-        long? seconds = Mode switch
-        {
-            1 => value.CreatedAt?.ToUnixTimeSeconds(),
-            2 => value.UpdatedAt?.ToUnixTimeSeconds(),
-            _ => Math.Max(0, value.Value)
-        };
+        long? seconds = Mode switch { 1 => value.CreatedAt?.ToUnixTimeSeconds(), 2 => value.UpdatedAt?.ToUnixTimeSeconds(), _ => Math.Max(0, value.Value) };
 
-        if (seconds is null || Mode != 0 && seconds <= 0)
-        {
+        if (seconds is null || Mode != 0 && seconds <= 0) {
             return null;
         }
 

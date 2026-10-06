@@ -9,7 +9,9 @@ public sealed class UsersComposer : IServerPacket
 {
     private readonly ImmutableArray<RoomUserSnapshot> _users;
 
-    public UsersComposer(RoomUserSnapshot user) : this([user]) { }
+    public UsersComposer(RoomUserSnapshot user) : this([user])
+    {
+    }
     public UsersComposer(IReadOnlyList<RoomUserSnapshot> users) => _users = users.ToImmutableArray();
     public uint MessageId => ServerPacketHeader.UsersComposer;
 
@@ -17,8 +19,7 @@ public sealed class UsersComposer : IServerPacket
     {
         packet.WriteInteger(_users.Length);
 
-        foreach (var user in _users)
-        {
+        foreach (var user in _users) {
             packet.WriteInteger(user.Id);
             packet.WriteString(user.Name);
             packet.WriteString(user.Motto);
@@ -30,8 +31,7 @@ public sealed class UsersComposer : IServerPacket
             packet.WriteInteger(user.Rotation);
             packet.WriteInteger(user.Kind);
 
-            if (user.Kind == 1)
-            {
+            if (user.Kind == 1) {
                 packet.WriteString(user.Gender);
                 packet.WriteInteger(user.GroupId);
                 packet.WriteInteger(0);
@@ -40,8 +40,7 @@ public sealed class UsersComposer : IServerPacket
                 packet.WriteInteger(user.AchievementPoints);
                 packet.WriteBoolean(false);
             }
-            else if (user.IsPet)
-            {
+            else if (user.IsPet) {
                 packet.WriteInteger(user.PetType);
                 packet.WriteInteger(user.OwnerId);
                 packet.WriteString(user.OwnerName);
@@ -52,8 +51,7 @@ public sealed class UsersComposer : IServerPacket
                 packet.WriteInteger(0);
                 packet.WriteString("");
             }
-            else
-            {
+            else {
                 packet.WriteString(user.Gender);
                 packet.WriteInteger(user.OwnerId);
                 packet.WriteString(user.OwnerName);

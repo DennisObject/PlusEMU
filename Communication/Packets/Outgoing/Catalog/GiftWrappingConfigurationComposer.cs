@@ -13,8 +13,7 @@ public class GiftWrappingConfigurationComposer : IServerPacket
         packet.WriteInteger(1);
         packet.WriteInteger(10);
 
-        for (var i = 3372; i < 3382;)
-        {
+        for (var i = 3372; i < 3382;) {
             packet.WriteInteger(i);
             i++;
         }
@@ -41,8 +40,7 @@ public class GiftWrappingConfigurationComposer : IServerPacket
         packet.WriteInteger(10);
         packet.WriteInteger(7);
 
-        for (var i = 187; i < 194;)
-        {
+        for (var i = 187; i < 194;) {
             packet.WriteInteger(i);
             i++;
         }

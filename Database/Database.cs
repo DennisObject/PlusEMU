@@ -32,8 +32,7 @@ public sealed class Database : IDatabase
 
     public bool IsConnected()
     {
-        try
-        {
+        try {
             var con = new MySqlConnection(_connectionStr);
             con.Open();
             var cmd = con.CreateCommand();
@@ -42,8 +41,7 @@ public sealed class Database : IDatabase
             cmd.Dispose();
             con.Close();
         }
-        catch (MySqlException)
-        {
+        catch (MySqlException) {
             return false;
         }
 

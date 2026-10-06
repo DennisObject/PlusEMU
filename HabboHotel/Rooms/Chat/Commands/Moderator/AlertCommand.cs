@@ -15,13 +15,11 @@ internal class AlertCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo habbo, string[] parameters)
     {
-        if (!session.GetHabbo().Access.Outranks(habbo.Access))
-        {
+        if (!session.GetHabbo().Access.Outranks(habbo.Access)) {
             return Task.CompletedTask;
         }
 
-        if (habbo.Username == session.GetHabbo().Username)
-        {
+        if (habbo.Username == session.GetHabbo().Username) {
             session.SendWhisper("Get a life.");
 
             return Task.CompletedTask;

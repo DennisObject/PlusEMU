@@ -28,8 +28,7 @@ public partial class PlacedFurniRoomTests
         var observed = new List<(int FirstX, int SecondX, int FirstPending, int SecondPending)>();
         _client.BeforeCapture = header =>
         {
-            if (header == ServerPacketHeader.AvatarEffectComposer)
-            {
+            if (header == ServerPacketHeader.AvatarEffectComposer) {
                 observed.Add((first.X, second.X, first.Movement.PendingCount, second.Movement.PendingCount));
             }
         };
@@ -67,8 +66,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(0, first.Movement.BlockReplans);
         Assert.Equal(0, second.Movement.BlockReplans);
 
-        for (var tick = 0; tick < 12; tick++)
-        {
+        for (var tick = 0; tick < 12; tick++) {
             ExecutorTick();
             Assert.NotEqual(first.Coordinate, second.Coordinate);
         }
@@ -142,8 +140,7 @@ public partial class PlacedFurniRoomTests
         Assert.Same(pending, _room.GetRoomUserManager().GetRoomUserByVirtualId(8));
         pending.MoveTo(3, 2);
 
-        for (var tick = 0; tick < 3; tick++)
-        {
+        for (var tick = 0; tick < 3; tick++) {
             ExecutorTick();
         }
 
@@ -174,8 +171,7 @@ public partial class PlacedFurniRoomTests
         skipped.Team = Team.Blue;
         Add(11, 1, 1, type: InteractionType.WalkMagicTile);
 
-        if (kind == InteractionType.Banzaitele)
-        {
+        if (kind == InteractionType.Banzaitele) {
             InteractionItem(12, 3, 2, kind);
         }
 
@@ -206,8 +202,7 @@ public partial class PlacedFurniRoomTests
         var teams = _room.GetTeamManagerForBanzai();
         var members = Enumerable.Range(8, 5).Select(AcceptanceTeamMember).ToArray();
 
-        foreach (var member in members)
-        {
+        foreach (var member in members) {
             teams.AddUser(member);
         }
 
@@ -278,19 +273,12 @@ public partial class PlacedFurniRoomTests
     private RoomUser AcceptanceBot(int x, int y, int id, bool admit = true, bool temporary = false)
     {
         var actor = new RoomUser(0, RoomId, id, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
-        {
-            X = x,
-            Y = y,
-            InternalRoomId = id,
-            BotData = ProfileBot(temporary),
-            AllowOverride = temporary
-        };
+        { X = x, Y = y, InternalRoomId = id, BotData = ProfileBot(temporary), AllowOverride = temporary };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         Assert.True(users.TryAdd(id, actor));
 
-        if (admit)
-        {
+        if (admit) {
             _room.GetGameMap().Navigation!.Admit(actor);
         }
 

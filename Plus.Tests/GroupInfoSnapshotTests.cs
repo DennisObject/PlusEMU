@@ -36,8 +36,7 @@ public class GroupInfoSnapshotTests : IDisposable
         DatabaseField.SetValue(null, _database);
         GameField.SetValue(null, Proxy<IGame>((method, _) => method == "get_RoomManager" ? UnloadedRooms() : throw new InvalidOperationException(method)));
 
-        foreach (var (id, name) in new[] { (7, "Owner"), (4, "Admin"), (5, "Requester"), (3, "Member"), (9, "Outsider") })
-        {
+        foreach (var (id, name) in new[] { (7, "Owner"), (4, "Admin"), (5, "Requester"), (3, "Member"), (9, "Outsider") }) {
             _clients[id] = HabbiconTestSupport.Client(new Habbo { Id = id, Username = name }).Client;
         }
     }
@@ -54,16 +53,11 @@ public class GroupInfoSnapshotTests : IDisposable
         var service = Service(_clients, _ => null);
         var lines = new List<string>();
 
-        foreach (var type in new[] { 0, 1, 2 })
-        {
-            foreach (var viewer in new[] { 7, 4, 5, 3, 9 })
-            {
-                foreach (var newWindow in new[] { false, true })
-                {
-                    foreach (var forum in new[] { false, true })
-                    {
-                        foreach (var adminOnly in new[] { 0, 1 })
-                        {
+        foreach (var type in new[] { 0, 1, 2 }) {
+            foreach (var viewer in new[] { 7, 4, 5, 3, 9 }) {
+                foreach (var newWindow in new[] { false, true }) {
+                    foreach (var forum in new[] { false, true }) {
+                        foreach (var adminOnly in new[] { 0, 1 }) {
                             var snapshot = service.Capture(NewGroup(type, forum, adminOnly), viewer);
                             lines.Add($"t{type} v{viewer} w{newWindow} f{forum} a{adminOnly}: {Writes(snapshot, newWindow)}");
                         }
@@ -167,15 +161,13 @@ public class GroupInfoSnapshotTests : IDisposable
             DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), type, 3, 4, adminOnly, forum,
             GroupMembershipSnapshot.Empty);
 
-        if (withRoom)
-        {
+        if (withRoom) {
             var room = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
             room.Id = 42;
             room.Name = "HQ";
             _rooms[room.Id] = room;
         }
-        else
-        {
+        else {
             _rooms.Remove(group.RoomId);
         }
 

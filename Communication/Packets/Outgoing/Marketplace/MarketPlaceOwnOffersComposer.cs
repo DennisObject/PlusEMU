@@ -9,18 +9,14 @@ public class MarketPlaceOwnOffersComposer : IServerPacket
     public uint MessageId => ServerPacketHeader.MarketPlaceOwnOffersComposer;
 
     public MarketPlaceOwnOffersComposer(MarketplaceOwnOffers data) =>
-        _data = data with
-        {
-            Offers = data.Offers.ToArray()
-        };
+        _data = data with { Offers = data.Offers.ToArray() };
 
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_data.AccumulatedAmount);
         packet.WriteInteger(_data.Offers.Count);
 
-        foreach (var offer in _data.Offers)
-        {
+        foreach (var offer in _data.Offers) {
             packet.WriteInteger(offer.OfferId);
             packet.WriteInteger(offer.State);
             packet.WriteInteger(1);

@@ -20,32 +20,18 @@ public sealed class NameChangeStore(IDatabase database) : INameChangeStore
         var updated = connection.Execute(
             "UPDATE users SET username = @newName, last_change = @changedAt " +
             "WHERE id = @userId AND username = @oldName",
-            new
-            {
-                userId,
-                oldName,
-                newName,
-                changedAt = changedAt.UtcDateTime
-            },
+            new { userId, oldName, newName, changedAt = changedAt.UtcDateTime },
             transaction);
 
-        if (updated != 1)
-        {
+        if (updated != 1) {
             return false;
         }
 
-        if (writeLog)
-        {
+        if (writeLog) {
             connection.Execute(
                 "INSERT INTO logs_client_namechange (user_id, new_name, old_name, `timestamp`) " +
                 "VALUES (@userId, @newName, @oldName, @changedAt)",
-                new
-                {
-                    userId,
-                    oldName,
-                    newName,
-                    changedAt = changedAt.UtcDateTime
-                },
+                new { userId, oldName, newName, changedAt = changedAt.UtcDateTime },
                 transaction);
         }
 

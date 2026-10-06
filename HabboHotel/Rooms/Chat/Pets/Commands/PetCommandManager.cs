@@ -31,13 +31,11 @@ public class PetCommandManager : IPetCommandManager, IStartable
         _commandRegister.Clear();
         _commandDatabase.Clear();
 
-        foreach (var row in commands)
-        {
+        foreach (var row in commands) {
             _commandRegister.Add(row.Id, row.Title);
             _commandDatabase.Add($"{row.Title}.input", row.Input);
 
-            foreach (var command in row.Input.Split(','))
-            {
+            foreach (var command in row.Input.Split(',')) {
                 _petCommands.Add(command, new(row.Id, command));
             }
         }
@@ -45,8 +43,7 @@ public class PetCommandManager : IPetCommandManager, IStartable
 
     public int TryInvoke(string input)
     {
-        if (_petCommands.TryGetValue(input.ToLower(), out var command))
-        {
+        if (_petCommands.TryGetValue(input.ToLower(), out var command)) {
             return command.Id;
         }
 

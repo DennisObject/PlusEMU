@@ -10,8 +10,7 @@ internal sealed class TransportLandingService(Room room)
     {
         var habbo = actor.GetClient()?.GetHabbo();
 
-        if (habbo == null)
-        {
+        if (habbo == null) {
             return;
         }
 
@@ -21,18 +20,15 @@ internal sealed class TransportLandingService(Room room)
         var items = SurfaceContacts.Filter(grid, destination.X, destination.Y, contact,
             room.GetGameMap().GetRoomItemForSquare(destination.X, destination.Y));
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOnFurni, habbo, item);
 
-            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active)
-            {
+            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active) {
                 return;
             }
         }
 
-        if (roller != null && ReferenceEquals(room.GetRoomItemHandler().GetItem(roller.Id), roller))
-        {
+        if (roller != null && ReferenceEquals(room.GetRoomItemHandler().GetItem(roller.Id), roller)) {
             room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOffFurni, habbo, roller);
         }
     }

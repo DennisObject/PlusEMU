@@ -40,8 +40,7 @@ public class CatalogStructureWireTests
     {
         var page = new CatalogPage { Id = id, ParentId = parentId, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", RequiredPermission = requiredPermission };
 
-        foreach (var offerId in offerIds)
-        {
+        foreach (var offerId in offerIds) {
             page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id };
         }
 
@@ -150,14 +149,8 @@ public class CatalogStructureWireTests
         var user = EditorTestSupport.Player();
         var staff = Page(1, -1, requiredPermission: EditorTestSupport.RestrictedPagePermission);
         var normal = Page(2, -1);
-        staff.Items = new()
-        {
-            [10] = Item(10, 6, 1)
-        };
-        normal.Items = new()
-        {
-            [20] = Item(20, 6, 2)
-        };
+        staff.Items = new() { [10] = Item(10, 6, 1) };
+        normal.Items = new() { [20] = Item(20, 6, 2) };
         var index = new CatalogOfferIndex();
         index.Build([staff, normal]);
 

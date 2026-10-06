@@ -41,16 +41,14 @@ public class ClaimLedgerOccupancyTests
         ledger.TryClaim(first, 1, ClaimKind.Exclusive, TargetOccupancy.None);
         ledger.TryClaim(second, 1, ClaimKind.Roller, TargetOccupancy.None);
 
-        for (var warm = 0; warm < 100; warm++)
-        {
+        for (var warm = 0; warm < 100; warm++) {
             ledger.OccupancyAt(1, 10);
         }
 
         var before = GC.GetAllocatedBytesForCurrentThread();
         var result = TargetOccupancy.None;
 
-        for (var query = 0; query < 1000; query++)
-        {
+        for (var query = 0; query < 1000; query++) {
             result |= ledger.OccupancyAt(1, 10);
         }
 
@@ -61,12 +59,10 @@ public class ClaimLedgerOccupancyTests
 
     private static void AssertViews(ClaimLedger ledger)
     {
-        foreach (var group in new long[] { 0, 10, 20 })
-        {
+        foreach (var group in new long[] { 0, 10, 20 }) {
             var snapshot = ledger.Snapshot(group);
 
-            for (var slot = 0; slot < snapshot.Targets.Length; slot++)
-            {
+            for (var slot = 0; slot < snapshot.Targets.Length; slot++) {
                 Assert.Equal(snapshot.Targets[slot], ledger.OccupancyAt(slot, group));
             }
         }

@@ -77,8 +77,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         {
             Assert.Equal("TryGetRoom", method);
 
-            if ((uint)args[0]! != RoomId)
-            {
+            if ((uint)args[0]! != RoomId) {
                 return false;
             }
 
@@ -221,22 +220,18 @@ public partial class PlacedFurniRoomTests : IDisposable
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
-            if (value is bool flag)
-            {
+        foreach (var value in values) {
+            if (value is bool flag) {
                 stream.WriteByte(flag ? (byte)1 : (byte)0);
             }
-            else if (value is string text)
-            {
+            else if (value is string text) {
                 var bytes = Encoding.UTF8.GetBytes(text);
                 var length = new byte[2];
                 BinaryPrimitives.WriteInt16BigEndian(length, (short)bytes.Length);
                 stream.Write(length);
                 stream.Write(bytes);
             }
-            else
-            {
+            else {
                 var bytes = new byte[4];
                 BinaryPrimitives.WriteInt32BigEndian(bytes, (int)value);
                 stream.Write(bytes);
@@ -256,10 +251,7 @@ public partial class PlacedFurniRoomTests : IDisposable
     private sealed class InteractionTimeProvider(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = now;
-        public int Calls
-        {
-            get; set;
-        }
+        public int Calls { get; set; }
         public override TimeZoneInfo LocalTimeZone => zone;
         public override DateTimeOffset GetUtcNow()
         {
@@ -317,31 +309,13 @@ public partial class PlacedFurniRoomTests : IDisposable
     private sealed class NoOpCommand(Func<string, DataTable>? read = null, Action<string, DbParameterCollection>? write = null) : DbCommand
     {
         [AllowNull] public override string CommandText { get; set; } = "";
-        public override int CommandTimeout
-        {
-            get; set;
-        }
-        public override CommandType CommandType
-        {
-            get; set;
-        }
-        public override bool DesignTimeVisible
-        {
-            get; set;
-        }
-        public override UpdateRowSource UpdatedRowSource
-        {
-            get; set;
-        }
-        protected override DbConnection? DbConnection
-        {
-            get; set;
-        }
+        public override int CommandTimeout { get; set; }
+        public override CommandType CommandType { get; set; }
+        public override bool DesignTimeVisible { get; set; }
+        public override UpdateRowSource UpdatedRowSource { get; set; }
+        protected override DbConnection? DbConnection { get; set; }
         protected override DbParameterCollection DbParameterCollection { get; } = new NoOpParameters();
-        protected override DbTransaction? DbTransaction
-        {
-            get; set;
-        }
+        protected override DbTransaction? DbTransaction { get; set; }
         public override void Cancel()
         {
         }
@@ -358,20 +332,17 @@ public partial class PlacedFurniRoomTests : IDisposable
         protected override DbParameter CreateDbParameter() => new NoOpParameter();
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
-            if (read != null)
-            {
+            if (read != null) {
                 return read(CommandText).CreateDataReader();
             }
 
             var table = new DataTable();
 
-            if (CommandText.Contains("FROM group_memberships", StringComparison.Ordinal))
-            {
+            if (CommandText.Contains("FROM group_memberships", StringComparison.Ordinal)) {
                 table.Columns.Add("UserId", typeof(int));
                 table.Columns.Add("Rank", typeof(int));
             }
-            else
-            {
+            else {
                 table.Columns.Add("Value", typeof(int));
             }
 
@@ -381,32 +352,14 @@ public partial class PlacedFurniRoomTests : IDisposable
 
     private sealed class NoOpParameter : DbParameter
     {
-        public override DbType DbType
-        {
-            get; set;
-        }
-        public override ParameterDirection Direction
-        {
-            get; set;
-        }
-        public override bool IsNullable
-        {
-            get; set;
-        }
+        public override DbType DbType { get; set; }
+        public override ParameterDirection Direction { get; set; }
+        public override bool IsNullable { get; set; }
         [AllowNull] public override string ParameterName { get; set; } = "";
-        public override int Size
-        {
-            get; set;
-        }
+        public override int Size { get; set; }
         [AllowNull] public override string SourceColumn { get; set; } = "";
-        public override bool SourceColumnNullMapping
-        {
-            get; set;
-        }
-        public override object? Value
-        {
-            get; set;
-        }
+        public override bool SourceColumnNullMapping { get; set; }
+        public override object? Value { get; set; }
         public override void ResetDbType()
         {
         }
@@ -425,8 +378,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         }
         public override void AddRange(Array values)
         {
-            foreach (var value in values)
-            {
+            foreach (var value in values) {
                 Add(value);
             }
         }
@@ -481,10 +433,7 @@ public partial class PlacedFurniRoomTests : IDisposable
 
     private sealed class TestClient : GameClient
     {
-        public Action<uint>? BeforeCapture
-        {
-            get; set;
-        }
+        public Action<uint>? BeforeCapture { get; set; }
         public List<uint> Sent { get; } = new();
         public List<(uint Header, byte[] Body)> Packets { get; } = new();
         public TestClient() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)

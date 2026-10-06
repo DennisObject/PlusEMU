@@ -62,15 +62,13 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
         using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
         reason = HousekeepingLimits.Normalize(reason);
 
-        if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxBanHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
-        {
+        if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxBanHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) {
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         }
 
         using var account = await _sessionGate.EnterAsync(userId, deadline.Token);
 
-        if (_users.Target(actor, userId, _permissions, out var user) is { } denied)
-        {
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) {
             return denied;
         }
 
@@ -86,8 +84,7 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     {
         using var account = _sessionGate.Enter(userId);
 
-        if (_users.Target(actor, userId, _permissions, out var user) is { } denied)
-        {
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) {
             return denied;
         }
 
@@ -100,27 +97,20 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     {
         reason = HousekeepingLimits.Normalize(reason);
 
-        if (!HousekeepingLimits.InRange(minutes, 1, HousekeepingLimits.MaxMuteMinutes) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
-        {
+        if (!HousekeepingLimits.InRange(minutes, 1, HousekeepingLimits.MaxMuteMinutes) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) {
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         }
 
         using var account = _sessionGate.Enter(userId);
 
-        if (_users.Target(actor, userId, _permissions, out var user) is { } denied)
-        {
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) {
             return denied;
         }
 
         var seconds = minutes * 60.0;
-        Execute("UPDATE `users` SET `time_muted` = @seconds WHERE `id` = @userId LIMIT 1", new
-        {
-            seconds,
-            userId
-        });
+        Execute("UPDATE `users` SET `time_muted` = @seconds WHERE `id` = @userId LIMIT 1", new { seconds, userId });
 
-        if (_clients.Online(userId) is { } client)
-        {
+        if (_clients.Online(userId) is { } client) {
             client.GetHabbo().TimeMuted = seconds;
             client.SendNotification(reason.Length > 0 ? reason : $"You have been muted by a moderator for {minutes} minute(s)!");
         }
@@ -132,27 +122,23 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     {
         reason = HousekeepingLimits.Normalize(reason);
 
-        if (!HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
-        {
+        if (!HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) {
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         }
 
         using var account = _sessionGate.Enter(userId);
 
-        if (_users.Target(actor, userId, _permissions, out var user) is { } denied)
-        {
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) {
             return denied;
         }
 
-        if (_clients.Online(userId) is not { } client)
-        {
+        if (_clients.Online(userId) is not { } client) {
             return HousekeepingOutcome.Fail(UserOffline, Label(user));
         }
 
         var room = client.GetHabbo().CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return HousekeepingOutcome.Fail(UserNotInRoom, Label(user));
         }
 
@@ -166,25 +152,21 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     {
         reason = HousekeepingLimits.Normalize(reason);
 
-        if (!HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
-        {
+        if (!HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) {
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         }
 
         using var account = _sessionGate.Enter(userId);
 
-        if (_users.Target(actor, userId, _permissions, out var user) is { } denied)
-        {
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) {
             return denied;
         }
 
-        if (_clients.Online(userId) is not { } client)
-        {
+        if (_clients.Online(userId) is not { } client) {
             return HousekeepingOutcome.Fail(UserOffline, Label(user));
         }
 
-        if (reason.Length > 0)
-        {
+        if (reason.Length > 0) {
             client.SendNotification(reason);
         }
 
@@ -198,20 +180,17 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     {
         reason = HousekeepingLimits.Normalize(reason);
 
-        if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxTradeLockHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength))
-        {
+        if (!HousekeepingLimits.InRange(hours, 1, HousekeepingLimits.MaxTradeLockHours) || !HousekeepingLimits.IsText(reason, HousekeepingLimits.MaxReasonLength)) {
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0)));
         }
 
-        if (_users.Target(actor, userId, _permissions, out var user) is { } denied)
-        {
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) {
             return denied;
         }
 
         _tradingLocks.Set(userId, TimeSpan.FromHours(hours));
 
-        if (_clients.Online(userId) is { } client)
-        {
+        if (_clients.Online(userId) is { } client) {
             client.SendNotification(reason.Length > 0 ? $"You have been trade banned for {hours} hour(s)!\r\rReason:\r\r{reason}" : $"You have been trade banned for {hours} hour(s)!");
         }
 
@@ -222,19 +201,14 @@ public sealed class HousekeepingUserActions : IHousekeepingUserActions
     {
         using var account = _sessionGate.Enter(userId);
 
-        if (_users.Target(actor, userId, _permissions, out var user) is { } denied)
-        {
+        if (_users.Target(actor, userId, _permissions, out var user) is { } denied) {
             return denied;
         }
 
         var password = GeneratePassword();
         // The new hash is written before the revocation: a login that reads the row after the generation bump must
         // already find the new password, or it would pass with the old one under the new generation.
-        Execute("UPDATE `users` SET `password` = @hash WHERE `id` = @userId LIMIT 1", new
-        {
-            hash = _passwordHasher.Hash(password).GetAwaiter().GetResult(),
-            userId
-        });
+        Execute("UPDATE `users` SET `password` = @hash WHERE `id` = @userId LIMIT 1", new { hash = _passwordHasher.Hash(password).GetAwaiter().GetResult(), userId });
         SignOutEverywhere(userId);
         _clients.GetClientByUserId(userId)?.Disconnect();
 

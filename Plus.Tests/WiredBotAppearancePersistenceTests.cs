@@ -86,8 +86,7 @@ public sealed class WiredBotAppearancePersistenceTests
         var schema = "task_refactor_tests_wired_bot_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var connectionString = new MySqlConnectionStringBuilder(ProductionConnection())
             {
                 Database = schema
@@ -117,8 +116,7 @@ public sealed class WiredBotAppearancePersistenceTests
             Assert.Equal(("hd-200-1", "M"), connection.QuerySingle<(string Look, string Gender)>(
                 "SELECT look AS `Look`, gender AS Gender FROM bots WHERE id=31"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -126,14 +124,8 @@ public sealed class WiredBotAppearancePersistenceTests
     private sealed class Fixture : IDisposable
     {
         private readonly List<(uint Header, byte[] Payload)> _sent;
-        public Room Room
-        {
-            get;
-        }
-        public RoomUser Bot
-        {
-            get;
-        }
+        public Room Room { get; }
+        public RoomUser Bot { get; }
 
         public Fixture()
         {
@@ -149,10 +141,7 @@ public sealed class WiredBotAppearancePersistenceTests
             botData.Gender = "F";
             botData.AiType = BotAiType.Generic;
             botData.VirtualId = 31;
-            Bot = new(0, Room.Id, 31, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)
-            {
-                BotData = botData
-            };
+            Bot = new(0, Room.Id, 31, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { BotData = botData };
             var bots = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
                 .GetField("_bots", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
             bots[botData.Id] = Bot;
@@ -173,11 +162,7 @@ public sealed class WiredBotAppearancePersistenceTests
                 (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System,
                 TestWiredRewardService.Instance, store, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
             Assert.True(action.TryValidateConfiguration(
-                new()
-                {
-                    IntParams = [0],
-                    Text = "\thd-200-1"
-                }, out var configuration, out var error), error);
+                new() { IntParams = [0], Text = "\thd-200-1" }, out var configuration, out var error), error);
             action.ApplyConfiguration(configuration);
 
             return action;
@@ -214,17 +199,13 @@ public sealed class WiredBotAppearancePersistenceTests
 
     private sealed class RecordingStore(Action beforeWrite) : IBotManagementStore
     {
-        public bool Fail
-        {
-            get; set;
-        }
+        public bool Fail { get; set; }
         public List<(int BotId, uint RoomId, string Look, string Gender)> Writes { get; } = [];
         public void SaveAppearance(int botId, uint roomId, string look, string gender)
         {
             beforeWrite();
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced persistence failure");
             }
 

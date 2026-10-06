@@ -17,8 +17,7 @@ public class MarketPlaceOffersComposer : IServerPacket
     {
         packet.WriteInteger(_offers.Offers.Length);
 
-        foreach (var offer in _offers.Offers)
-        {
+        foreach (var offer in _offers.Offers) {
             packet.WriteUInteger(offer.OfferId);
             packet.WriteInteger(1); //State
             packet.WriteInteger(1);

@@ -13,8 +13,7 @@ internal sealed class ReleaseTicketEvent(IModeratorTicketService tickets) : IPac
         var count = packet.ReadInt();
         var ids = new List<int>();
 
-        for (var index = 0; index < count; index++)
-        {
+        for (var index = 0; index < count; index++) {
             ids.Add(packet.ReadInt());
         }
 

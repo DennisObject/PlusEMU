@@ -38,8 +38,7 @@ public sealed record RoomItemSnapshot(
 {
     public static RoomItemSnapshot Capture(Item item)
     {
-        lock (item.NavSync)
-        {
+        lock (item.NavSync) {
             return CaptureLocked(item);
         }
     }
@@ -52,20 +51,16 @@ public sealed record RoomItemSnapshot(
         var legacy = item.LegacyDataString;
         var extra = 1;
 
-        if (type == InteractionType.WalkMagicTile)
-        {
+        if (type == InteractionType.WalkMagicTile) {
             extra = legacy.Split(';').Skip(1).FirstOrDefault() == "1" ? 1 : 0;
         }
-        else if (type == InteractionType.Gift)
-        {
+        else if (type == InteractionType.Gift) {
             extra = GiftWrap.Style(legacy);
         }
-        else if (type == InteractionType.MusicDisc)
-        {
+        else if (type == InteractionType.MusicDisc) {
             var fields = legacy.Split('\n');
 
-            if (fields.Length >= 7 && int.TryParse(fields[6], out var songId))
-            {
+            if (fields.Length >= 7 && int.TryParse(fields[6], out var songId)) {
                 extra = songId;
             }
         }
@@ -91,25 +86,21 @@ public sealed record RoomFurnitureSnapshot(ImmutableArray<RoomItemSnapshot> Item
         var snapshots = items.Select(RoomItemSnapshot.Capture).ToImmutableArray();
         var names = new Dictionary<int, string>();
 
-        foreach (var item in snapshots)
-        {
+        foreach (var item in snapshots) {
             var name = item.UserId == roomOwnerId ? roomOwnerName ?? "" : item.Username;
 
-            if (!names.TryGetValue(item.UserId, out var existing) || (existing.Length == 0 && name.Length > 0))
-            {
+            if (!names.TryGetValue(item.UserId, out var existing) || (existing.Length == 0 && name.Length > 0)) {
                 names[item.UserId] = name;
             }
         }
 
         var owners = ImmutableArray.CreateBuilder<FurnitureOwner>();
 
-        if (names.Remove(roomOwnerId, out var ownerName))
-        {
+        if (names.Remove(roomOwnerId, out var ownerName)) {
             owners.Add(new(roomOwnerId, ownerName));
         }
 
-        foreach (var id in names.Keys.OrderBy(id => id))
-        {
+        foreach (var id in names.Keys.OrderBy(id => id)) {
             owners.Add(new(id, names[id]));
         }
 

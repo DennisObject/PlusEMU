@@ -18,30 +18,12 @@ public sealed record ClubMembership
         GiftsClaimed = giftsClaimed;
     }
 
-    public DateTimeOffset? ExpiresAt
-    {
-        get;
-    }
-    public DateTimeOffset? StartedAt
-    {
-        get;
-    }
-    public DateTimeOffset? FirstStartedAt
-    {
-        get;
-    }
-    public long PastSeconds
-    {
-        get; init;
-    }
-    public DateTimeOffset? ModifiedAt
-    {
-        get;
-    }
-    public int GiftsClaimed
-    {
-        get; init;
-    }
+    public DateTimeOffset? ExpiresAt { get; }
+    public DateTimeOffset? StartedAt { get; }
+    public DateTimeOffset? FirstStartedAt { get; }
+    public long PastSeconds { get; init; }
+    public DateTimeOffset? ModifiedAt { get; }
+    public int GiftsClaimed { get; init; }
 
     public static ClubMembership None { get; } = new();
     public bool Active(DateTimeOffset now) => ExpiresAt is { } expiry && now < expiry;
@@ -53,8 +35,7 @@ public sealed record ClubMembership
     /// <summary>Past tenure plus the running interval, capped at expiry. A missing expiry contributes no running time.</summary>
     public long Elapsed(DateTimeOffset now)
     {
-        if (StartedAt is not { } started || ExpiresAt is not { } expiry)
-        {
+        if (StartedAt is not { } started || ExpiresAt is not { } expiry) {
             return PastSeconds;
         }
 
@@ -75,8 +56,7 @@ public sealed record ClubMembership
         var basis = ToUtc(expiry) is { } current && current > now ? current : ToUtc(now)!.Value;
 
         // Divide rather than multiply: a product of a large day count and ticks-per-day overflows long.
-        if (days < 0 || days > TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerDay)
-        {
+        if (days < 0 || days > TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerDay) {
             return null;
         }
 
@@ -92,30 +72,12 @@ public sealed record ClubMembership
 /// <summary>Database projection with property setters; the registered UTC handler materializes each instant.</summary>
 internal sealed class ClubMembershipRow
 {
-    public DateTimeOffset? ExpiresAt
-    {
-        get; set;
-    }
-    public DateTimeOffset? StartedAt
-    {
-        get; set;
-    }
-    public DateTimeOffset? FirstStartedAt
-    {
-        get; set;
-    }
-    public long PastSeconds
-    {
-        get; set;
-    }
-    public DateTimeOffset? ModifiedAt
-    {
-        get; set;
-    }
-    public int GiftsClaimed
-    {
-        get; set;
-    }
+    public DateTimeOffset? ExpiresAt { get; set; }
+    public DateTimeOffset? StartedAt { get; set; }
+    public DateTimeOffset? FirstStartedAt { get; set; }
+    public long PastSeconds { get; set; }
+    public DateTimeOffset? ModifiedAt { get; set; }
+    public int GiftsClaimed { get; set; }
 
     public ClubMembership ToMembership() => new(ExpiresAt, StartedAt, FirstStartedAt, PastSeconds, ModifiedAt, GiftsClaimed);
 }

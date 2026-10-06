@@ -42,8 +42,7 @@ public sealed class GnomePackageServiceTests
     {
         var world = World(denial == "temporary");
 
-        switch (denial)
-        {
+        switch (denial) {
             case "owner":
                 world.Item.OwnerId = 99;
                 break;
@@ -124,8 +123,7 @@ public sealed class GnomePackageServiceTests
         var schema = "gnome_" + Guid.NewGuid().ToString("N");
         root.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var cs = new MySqlConnectionStringBuilder(root.ConnectionString)
             {
                 Database = schema,
@@ -150,8 +148,7 @@ public sealed class GnomePackageServiceTests
             var instant = DateTimeOffset.Parse("2040-01-01T00:00:00.123456Z");
             var request = new GnomePackageRequest(7, 100, 1, "prepared owner", 42, 1, 1, 0.5, "Pixel", "hat", instant);
 
-            foreach (var invalid in new[] { request with { OwnerId = 99 }, request with { RoomId = 99 }, request with { BaseItem = 101 } })
-            {
+            foreach (var invalid in new[] { request with { OwnerId = 99 }, request with { RoomId = 99 }, request with { BaseItem = 101 } }) {
                 Assert.Null(store.Open(invalid));
                 Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM bots"));
                 Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM bots_petdata"));
@@ -171,7 +168,9 @@ public sealed class GnomePackageServiceTests
             Assert.Null(store.Open(request));
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM bots"));
         }
-        finally { root.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            root.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static Fixture World(bool temporary = false)

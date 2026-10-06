@@ -71,15 +71,13 @@ public sealed class ModeratorActionServiceTests
         var rooms = Proxy<IRoomManager>((method, args) => { Assert.Equal("TryGetRoom", method); args[1] = room; return true; });
         var service = new ModeratorActionService(null!, null!, rooms, null!, null!, store);
 
-        if (fail)
-        {
+        if (fail) {
             Assert.Throws<InvalidOperationException>(() => service.ModerateRoom(actor, new(42, true, true, false)));
             Assert.Equal("Original", room.Name);
             Assert.Equal(RoomAccess.Open, room.Access);
             Assert.Single(room.Tags);
         }
-        else
-        {
+        else {
             service.ModerateRoom(actor, new(42, true, true, false));
             Assert.Equal(ModeratorActionService.InappropriateRoomText, room.Name);
             Assert.Equal(ModeratorActionService.InappropriateRoomText, room.Description);
@@ -119,21 +117,14 @@ public sealed class ModeratorActionServiceTests
     }
     private sealed class RecordingStore : IModeratorActionStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
-        public Action? BeforeWrite
-        {
-            get; init;
-        }
+        public bool Fail { get; init; }
+        public Action? BeforeWrite { get; init; }
         public List<(int Id, long Seconds)> Mutes { get; } = [];
         private void Persist()
         {
             BeforeWrite?.Invoke();
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
         }

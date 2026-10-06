@@ -76,23 +76,22 @@ public sealed class WiredVariableBuiltinStateTests
         {
             callbackEntered.Set();
 
-            if (!Monitor.TryEnter(engineGate, TimeSpan.FromSeconds(2)))
-            {
+            if (!Monitor.TryEnter(engineGate, TimeSpan.FromSeconds(2))) {
                 throw new TimeoutException("State callback retained module lock while entering engine");
             }
 
-            try
-            {
+            try {
                 notified = true;
             }
-            finally { Monitor.Exit(engineGate); }
+            finally {
+                Monitor.Exit(engineGate);
+            }
         });
         var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)), builtins);
         var reference = new WiredVariableReference(WiredVariableTarget.Furni, "internal:@state");
         var engine = Task.Run(() =>
         {
-            lock (engineGate)
-            {
+            lock (engineGate) {
                 engineEntered.Set();
                 Assert.True(callbackEntered.Wait(TimeSpan.FromSeconds(3)));
                 // Mirrors engine-owned FX reading values while a creator state callback enters Dispatch.

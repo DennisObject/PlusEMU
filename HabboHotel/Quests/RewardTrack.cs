@@ -9,18 +9,9 @@ public sealed class RewardTrackLevel
         Premium = premium;
     }
 
-    public int RequiredCount
-    {
-        get;
-    }
-    public int PointsReward
-    {
-        get;
-    }
-    public bool Premium
-    {
-        get;
-    }
+    public int RequiredCount { get; }
+    public int PointsReward { get; }
+    public bool Premium { get; }
 }
 
 public sealed class RewardTrackTask
@@ -35,38 +26,18 @@ public sealed class RewardTrackTask
         Levels = levels.OrderBy(level => level.RequiredCount).ToList();
     }
 
-    public string Id
-    {
-        get;
-    }
-    public string ActionType
-    {
-        get;
-    }
-    public string Parameter
-    {
-        get;
-    }
-    public bool Premium
-    {
-        get;
-    }
-    public int SortOrder
-    {
-        get;
-    }
-    public IReadOnlyList<RewardTrackLevel> Levels
-    {
-        get;
-    }
+    public string Id { get; }
+    public string ActionType { get; }
+    public string Parameter { get; }
+    public bool Premium { get; }
+    public int SortOrder { get; }
+    public IReadOnlyList<RewardTrackLevel> Levels { get; }
     public int Cap => Levels.Count == 0 ? 0 : Levels.Max(level => level.RequiredCount);
 
     public bool IsComplete(int progress)
     {
-        foreach (var level in Levels)
-        {
-            if (progress < level.RequiredCount)
-            {
+        foreach (var level in Levels) {
+            if (progress < level.RequiredCount) {
                 return false;
             }
         }
@@ -89,38 +60,14 @@ public sealed class RewardTrackPrize
         SortOrder = sortOrder;
     }
 
-    public string Id
-    {
-        get;
-    }
-    public int RequiredPoints
-    {
-        get;
-    }
-    public int ProductItemTypeId
-    {
-        get;
-    }
-    public string RewardType
-    {
-        get;
-    }
-    public string ExtraParams
-    {
-        get;
-    }
-    public int RewardAmount
-    {
-        get;
-    }
-    public bool Premium
-    {
-        get;
-    }
-    public int SortOrder
-    {
-        get;
-    }
+    public string Id { get; }
+    public int RequiredPoints { get; }
+    public int ProductItemTypeId { get; }
+    public string RewardType { get; }
+    public string ExtraParams { get; }
+    public int RewardAmount { get; }
+    public bool Premium { get; }
+    public int SortOrder { get; }
 }
 
 public sealed class RewardTrack
@@ -142,47 +89,17 @@ public sealed class RewardTrack
         PremiumCostCredits = premiumCostCredits;
     }
 
-    public string Id
-    {
-        get;
-    }
-    public string Theme
-    {
-        get;
-    }
-    public int SortOrder
-    {
-        get;
-    }
+    public string Id { get; }
+    public string Theme { get; }
+    public int SortOrder { get; }
     // A missing bound is unbounded on that side. The start is inclusive and the end is exclusive.
-    public DateTimeOffset? StartsAt
-    {
-        get;
-    }
-    public DateTimeOffset? EndsAt
-    {
-        get;
-    }
-    public bool HasPremium
-    {
-        get;
-    }
-    public double PremiumTaskPointsBoost
-    {
-        get;
-    }
-    public int PremiumInstantPoints
-    {
-        get;
-    }
-    public int PremiumCostDiamonds
-    {
-        get;
-    }
-    public int PremiumCostCredits
-    {
-        get;
-    }
+    public DateTimeOffset? StartsAt { get; }
+    public DateTimeOffset? EndsAt { get; }
+    public bool HasPremium { get; }
+    public double PremiumTaskPointsBoost { get; }
+    public int PremiumInstantPoints { get; }
+    public int PremiumCostDiamonds { get; }
+    public int PremiumCostCredits { get; }
     public IReadOnlyList<RewardTrackTask> Tasks => _tasks;
     public IReadOnlyList<RewardTrackPrize> Prizes => _prizes;
 
@@ -207,8 +124,7 @@ public sealed class RewardTrack
         {
             var points = left.RequiredPoints.CompareTo(right.RequiredPoints);
 
-            if (points != 0)
-            {
+            if (points != 0) {
                 return points;
             }
 
@@ -220,10 +136,8 @@ public sealed class RewardTrack
 
     public RewardTrackPrize? GetPrize(string prizeId)
     {
-        foreach (var prize in _prizes)
-        {
-            if (prize.Id == prizeId)
-            {
+        foreach (var prize in _prizes) {
+            if (prize.Id == prizeId) {
                 return prize;
             }
         }
@@ -236,21 +150,17 @@ public sealed class RewardTrack
     {
         var points = 0;
 
-        foreach (var level in task.Levels)
-        {
-            if (level.Premium && !premiumUser)
-            {
+        foreach (var level in task.Levels) {
+            if (level.Premium && !premiumUser) {
                 continue;
             }
 
-            if (before < level.RequiredCount && after >= level.RequiredCount)
-            {
+            if (before < level.RequiredCount && after >= level.RequiredCount) {
                 points += level.PointsReward;
             }
         }
 
-        if (premiumUser && PremiumTaskPointsBoost > 1)
-        {
+        if (premiumUser && PremiumTaskPointsBoost > 1) {
             points = (int)Math.Round(points * PremiumTaskPointsBoost, MidpointRounding.AwayFromZero);
         }
 

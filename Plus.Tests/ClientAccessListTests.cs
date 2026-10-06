@@ -23,8 +23,7 @@ public sealed class ClientAccessListTests
             new ChatStyle(2, "Staff", PermissionKeys.ChatStyleStaff),
             new ChatStyle(3, "Disabled", "", enabled: false),
             new ChatStyle(4, "Ambassador", PermissionKeys.Ambassador)
-        })
-        {
+        }) {
             styles.Add(style.Id, style);
         }
 
@@ -45,8 +44,7 @@ public sealed class ClientAccessListTests
             new RoomModel("model_staff", 0, 0, 0, 0, "00\r00", -1, 0, false),
             new RoomModel("model_gated", 0, 0, 0, 0, "00\r00", 0, 0, false) { RequiredPermission = PermissionKeys.ChatStyleStaff },
             new RoomModel("model_custom", 0, 0, 0, 0, "00\r00", 0, 0, true)
-        })
-        {
+        }) {
             models.Add(model.Id, model);
         }
 
@@ -97,8 +95,7 @@ public sealed class ClientAccessListTests
         var manager = Models();
         var staff = UserAccess.Create([], [new("*", false)]);
 
-        foreach (var id in new[] { "model_s", "model_wl" })
-        {
+        foreach (var id in new[] { "model_s", "model_wl" }) {
             Assert.True(manager.TryGetModel(id, out var model));
             Assert.False(model.CanCreate(UserAccess.Empty));
             Assert.False(model.CanCreate(staff));

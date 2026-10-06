@@ -13,46 +13,27 @@ public sealed class WiredVariableDefinitionBox : IWiredConfiguredItem, IWiredEdi
     public WiredVariableDefinitionBox(Room room, Item item, WiredBoxDescriptor descriptor,
         WiredVariableConfigurationPersistence? persistence = null, WiredVariableEditor? editor = null)
     {
-        if (!WiredVariableDefinitions.Supports(descriptor.CanonicalName))
-        {
+        if (!WiredVariableDefinitions.Supports(descriptor.CanonicalName)) {
             throw new ArgumentException("Unsupported variable definition.", nameof(descriptor));
         }
 
         Instance = room;
         Item = item;
-        Descriptor = descriptor with
-        {
-            Support = WiredBoxSupport.Implemented
-        };
+        Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
         _persistence = persistence;
         _editor = editor;
         Configuration = WiredVariableDefaults.Create(descriptor.CanonicalName);
     }
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => Item.Definition.WiredType;
     public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
     public string StringData { get; set; } = "";
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = "";
-    public WiredBoxDescriptor Descriptor
-    {
-        get;
-    }
+    public WiredBoxDescriptor Descriptor { get; }
     public WiredConfiguration Configuration { get; private set; } = new();
-    public bool HasPersistedConfiguration
-    {
-        get; private set;
-    }
+    public bool HasPersistedConfiguration { get; private set; }
     public WiredConfiguration GetEditorConfiguration() => _editor?.ForDisplay(Descriptor.CanonicalName, Item.Id, Configuration) ?? Configuration;
     public void PersistConfiguration(WiredConfiguration validated) =>
         (_persistence ?? throw new InvalidOperationException("Definition persistence is not bound.")).Persist(this, validated);

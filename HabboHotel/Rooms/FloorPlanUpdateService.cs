@@ -31,8 +31,7 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         var room = session.GetHabbo().CurrentRoom;
         var model = room?.GetGameMap().Model;
 
-        if (model != null)
-        {
+        if (model != null) {
             session.Send(new RoomEntryTileComposer(model.DoorX, model.DoorY, model.DoorOrientation));
         }
     }
@@ -41,23 +40,20 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
     {
         var room = session.GetHabbo().CurrentRoom;
 
-        if (room != null)
-        {
+        if (room != null) {
             session.Send(new RoomOccupiedTilesComposer(FloorPlanSave.OccupiedTiles(FloorItems(room))));
         }
     }
 
     public void Update(Room room, GameClient session, FloorPlanUpdateRequest body)
     {
-        if (session.GetHabbo().CurrentRoom != room || !room.CheckRights(session, true))
-        {
+        if (session.GetHabbo().CurrentRoom != room || !room.CheckRights(session, true)) {
             return;
         }
 
         var model = room.GetGameMap().Model;
 
-        if (model?.SqState == null || model.SqFloorHeight == null)
-        {
+        if (model?.SqState == null || model.SqFloorHeight == null) {
             Notify(session, FloorPlanSave.ErrorTitle);
 
             return;
@@ -72,15 +68,13 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
             room.GetGameMap().StaticModel.WallHeight);
         var layout = FloorPlanSave.Resolve(body.DoorFieldsPresent, body.WallHeightPresent, body.Requested, existing);
 
-        if (Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0 && (layout.WallThickness != 0 || layout.FloorThickness != 0))
-        {
+        if (Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0 && (layout.WallThickness != 0 || layout.FloorThickness != 0)) {
             return;
         }
 
         var decision = FloorPlanSave.Evaluate(body.Map, layout.DoorX, layout.DoorY, layout.DoorDirection, layout.WallThickness, layout.FloorThickness, layout.WallHeight, FloorItems(room), CurrentTiles(model));
 
-        if (decision.Error != null)
-        {
+        if (decision.Error != null) {
             Notify(session, decision.Error);
 
             return;
@@ -88,12 +82,10 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
 
         var modelName = $"model_bc_{room.Id}";
 
-        try
-        {
+        try {
             _store.Save(room.Id, modelName, decision);
         }
-        catch (Exception)
-        {
+        catch (Exception) {
             Notify(session, FloorPlanSave.ErrorTitle);
 
             return;
@@ -106,12 +98,10 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         var userManager = room.GetRoomUserManager();
         var connectedClients = new List<GameClient>();
 
-        foreach (var user in userManager.GetRoomUsers())
-        {
+        foreach (var user in userManager.GetRoomUsers()) {
             var client = user?.GetClient();
 
-            if (client == null)
-            {
+            if (client == null) {
                 continue;
             }
 
@@ -131,29 +121,23 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
 
     internal static bool TryPersist(Func<int> writeModel, Func<bool> modelVisible, Func<int> writeRoom)
     {
-        try
-        {
-            if (writeModel() < 1)
-            {
+        try {
+            if (writeModel() < 1) {
                 return false;
             }
         }
-        catch (Exception)
-        {
+        catch (Exception) {
             return false;
         }
 
-        if (!modelVisible())
-        {
+        if (!modelVisible()) {
             return false;
         }
 
-        try
-        {
+        try {
             return writeRoom() > 0;
         }
-        catch (Exception)
-        {
+        catch (Exception) {
             return false;
         }
     }
@@ -165,14 +149,11 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         System.Action unloadRoom,
         System.Action<GameClient> forward)
     {
-        foreach (var client in connectedClients)
-        {
-            try
-            {
+        foreach (var client in connectedClients) {
+            try {
                 removeFromRoom(client, true);
             }
-            finally
-            {
+            finally {
                 // RemoveUserFromRoom nulls CurrentRoom only after CloseConnectionComposer.
                 // A failed send is swallowed and would leave the disposed room attached.
                 ClearCurrentRoom(client);
@@ -182,8 +163,7 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         reloadModel();
         unloadRoom();
 
-        foreach (var client in connectedClients)
-        {
+        foreach (var client in connectedClients) {
             forward(client);
         }
     }
@@ -192,8 +172,7 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
     {
         Habbo? habbo = client.GetHabbo();
 
-        if (habbo != null)
-        {
+        if (habbo != null) {
             habbo.CurrentRoom = null;
         }
     }
@@ -205,10 +184,8 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
     {
         var items = new List<FloorPlanSave.FloorPlanItem>();
 
-        foreach (var item in room.GetRoomItemHandler().GetFloor)
-        {
-            if (item?.Definition == null)
-            {
+        foreach (var item in room.GetRoomItemHandler().GetFloor) {
+            if (item?.Definition == null) {
                 continue;
             }
 
@@ -226,10 +203,8 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         var width = Math.Min(model.MapSizeX, model.SqState.GetLength(0));
         var height = Math.Min(model.MapSizeY, model.SqState.GetLength(1));
 
-        for (var y = 0; y < height; y++)
-        {
-            for (var x = 0; x < width; x++)
-            {
+        for (var y = 0; y < height; y++) {
+            for (var x = 0; x < width; x++) {
                 tiles[(x, y)] = new FloorPlanSave.FloorTile(model.SqFloorHeight[x, y], model.SqState[x, y] != SquareState.Blocked);
             }
         }

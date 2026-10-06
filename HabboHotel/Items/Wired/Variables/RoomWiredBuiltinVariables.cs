@@ -46,13 +46,11 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         admission = WiredAdmission.Proceed;
 
-        if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state")
-        {
+        if (holder.Target != WiredVariableTarget.Furni || Normalize(reference.Token) != "@state") {
             return null;
         }
 
-        if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || GateTransitionService.For(room) is not { } gates)
-        {
+        if (FindItem(holder) is not { } item || !GateTransitionService.IsGate(item) || GateTransitionService.For(room) is not { } gates) {
             return null;
         }
 
@@ -62,8 +60,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         Action Replay(string? prepared) => replayWith(prepared is null ? original : _ => int.Parse(prepared, CultureInfo.InvariantCulture));
         var scope = gates.AdmitVariableWrite(item, Peek, Replay, stillTargeted, out admission, out var evaluated);
 
-        if (evaluated is not null)
-        {
+        if (evaluated is not null) {
             transform = _ => int.Parse(evaluated, CultureInfo.InvariantCulture);
         }
 
@@ -72,8 +69,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
 
     public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
     {
-        if (reference.Target != holder.Target || frame.RoomId != room.Id || !frame.Contains(holder))
-        {
+        if (reference.Target != holder.Target || frame.RoomId != room.Id || !frame.Contains(holder)) {
             return null;
         }
 
@@ -99,10 +95,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             },
             _ => null
         };
-        value ??= engineRead?.Invoke(reference with
-        {
-            Token = $"internal:{key}"
-        }, holder, frame);
+        value ??= engineRead?.Invoke(reference with { Token = $"internal:{key}" }, holder, frame);
 
         return value is int number ? new(number, null, null) : null;
     }
@@ -111,8 +104,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         var changed = Write(reference, holder, value, frame, out var completed);
 
-        if (changed)
-        {
+        if (changed) {
             completed?.Invoke();
         }
 
@@ -123,37 +115,31 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         completed = null;
 
-        if (reference.Target != holder.Target || frame.RoomId != room.Id || !frame.Contains(holder))
-        {
+        if (reference.Target != holder.Target || frame.RoomId != room.Id || !frame.Contains(holder)) {
             return false;
         }
 
         var key = Normalize(reference.Token);
 
-        if (holder.Target == WiredVariableTarget.User)
-        {
+        if (holder.Target == WiredVariableTarget.User) {
             var avatar = room.GetRoomUserManager().GetRoomUserByVirtualId(holder.EntityId);
 
-            if (avatar is null || !Matches(avatar, holder))
-            {
+            if (avatar is null || !Matches(avatar, holder)) {
                 return false;
             }
 
-            if (key == "@handitem" && value is >= 0 and <= 9999)
-            {
+            if (key == "@handitem" && value is >= 0 and <= 9999) {
                 avatar.CarryItem(value);
 
                 return true;
             }
 
-            if (key == "@team.score" && !avatar.IsBot && avatar.Team != Team.None && value >= 0)
-            {
+            if (key == "@team.score" && !avatar.IsBot && avatar.Team != Team.None && value >= 0) {
                 var game = room.GetGameManager();
                 var current = game.Points[(int)avatar.Team];
                 var difference = (long)value - current;
 
-                if (difference is < int.MinValue or > int.MaxValue)
-                {
+                if (difference is < int.MinValue or > int.MaxValue) {
                     return false;
                 }
 
@@ -163,44 +149,35 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             }
         }
 
-        if (holder.Target == WiredVariableTarget.Furni && key == "@state")
-        {
+        if (holder.Target == WiredVariableTarget.Furni && key == "@state") {
             var item = FindItem(holder);
 
             if (item is null || value < 0 || item.Definition.Modes <= value
-                || !int.TryParse(item.LegacyDataString, out var previous) || previous == value)
-            {
+                || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) {
                 return false;
             }
 
             var mark = FurnitureStateEvents.Mark();
 
-            if (GateTransitionService.For(item) != null)
-            {
-                if (!WriteGateState(item, value))
-                {
+            if (GateTransitionService.For(item) != null) {
+                if (!WriteGateState(item, value)) {
                     return false;
                 }
             }
-            else
-            {
+            else {
                 item.LegacyDataString = value.ToString(CultureInfo.InvariantCulture);
                 item.UpdateState();
             }
 
             // The completion reports this write only; a write the room's pass already reported stays reported.
-            if (stateChanged is not null && FurnitureStateEvents.TakeWriteSince(item, mark))
-            {
+            if (stateChanged is not null && FurnitureStateEvents.TakeWriteSince(item, mark)) {
                 completed = () => stateChanged(item, frame);
             }
 
             return true;
         }
 
-        return engineWrite?.Invoke(reference with
-        {
-            Token = $"internal:{key}"
-        }, holder, value, frame) == true;
+        return engineWrite?.Invoke(reference with { Token = $"internal:{key}" }, holder, value, frame) == true;
     }
 
     // v2 only: a gate's state goes through its transition service.
@@ -209,8 +186,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         var next = value.ToString(CultureInfo.InvariantCulture);
 
         // Closing writes from other threads were sequenced whole by Admit; nothing is notified early.
-        if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room))
-        {
+        if (GateTransitionService.IsClosing(item, next) && !RoomOwnerScope.IsOwner(room)) {
             return false;
         }
 
@@ -227,14 +203,12 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         var item = FindItem(holder);
 
-        if (item is null)
-        {
+        if (item is null) {
             return null;
         }
 
         // Wall coordinates require the native parser and captured-reference checks in engineRead.
-        if (item.IsWallItem && key is "@position.x" or "@position.y" or "@altitude" or "@rotation" or "@wallitem_offset")
-        {
+        if (item.IsWallItem && key is "@position.x" or "@position.y" or "@altitude" or "@rotation" or "@wallitem_offset") {
             return null;
         }
 
@@ -263,8 +237,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         var avatar = room.GetRoomUserManager().GetRoomUserByVirtualId(holder.EntityId);
 
-        if (avatar is null || !Matches(avatar, holder))
-        {
+        if (avatar is null || !Matches(avatar, holder)) {
             return null;
         }
 

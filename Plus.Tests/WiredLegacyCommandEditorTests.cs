@@ -58,10 +58,7 @@ public class WiredLegacyCommandEditorTests
         await world.Command(world.Owner, ":first", true);
         await world.Command(world.Guest, ":first", !ownerOnly);
         await world.Command(world.Owner, ":second", false);
-        var proposed = configuration with
-        {
-            Text = ":second"
-        };
+        var proposed = configuration with { Text = ":second" };
         Assert.True(WiredLegacyCustomEditor.TryPrepare(world.Box, proposed, WiredLegacyCustomEditor.CreateCandidate,
             out var candidate, out _));
         Assert.IsType<UserSaysCommandBox>(candidate);
@@ -102,11 +99,7 @@ public class WiredLegacyCommandEditorTests
     public void UnsupportedCurrentCommandSettingsRejectBeforeDetachedFactory(int match, int hide, int owner)
     {
         var box = new UserSaysCommandBox(null!, new Item(), TestWiredCommands.Unused) { StringData = ":first", BoolData = true };
-        Assert.False(WiredLegacyCustomEditor.TryPrepare(box, new()
-        {
-            IntParams = [match, hide, owner],
-            Text = ":second"
-        },
+        Assert.False(WiredLegacyCustomEditor.TryPrepare(box, new() { IntParams = [match, hide, owner], Text = ":second" },
             _ => throw new Exception("Factory must not run."), out _, out var error));
         Assert.Contains("Command Wired", error);
         Assert.Equal(":first", box.StringData);
@@ -117,26 +110,11 @@ public class WiredLegacyCommandEditorTests
     {
         private readonly CommandManager _commands;
         private readonly Dictionary<int, List<byte[]>> _packets = [];
-        public Room Room
-        {
-            get;
-        }
-        public WiredComponent Wired
-        {
-            get;
-        }
-        public UserSaysCommandBox Box
-        {
-            get;
-        }
-        public Habbo Owner
-        {
-            get;
-        }
-        public Habbo Guest
-        {
-            get;
-        }
+        public Room Room { get; }
+        public WiredComponent Wired { get; }
+        public UserSaysCommandBox Box { get; }
+        public Habbo Owner { get; }
+        public Habbo Guest { get; }
 
         public World(bool ownerOnly)
         {
@@ -192,8 +170,7 @@ public class WiredLegacyCommandEditorTests
             Assert.True(await _commands.Parse(actor.Client, command));
             Assert.Equal(accepted, actor.WiredInteraction);
 
-            if (!accepted)
-            {
+            if (!accepted) {
                 Assert.Empty(_packets[actor.Id]);
 
                 return;

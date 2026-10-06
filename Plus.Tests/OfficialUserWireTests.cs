@@ -93,22 +93,15 @@ public class OfficialUserWireTests
         var composer = new UsersComposer(source);
         var expected = new List<object> { 1, 10, "Helper", "hello", "figure", 4, 2, 3, "1.5", 0, isPet ? 2 : 4 };
 
-        if (isPet)
-        {
+        if (isPet) {
             expected.AddRange(new object[] { 13, 7, "Dennis", 1, true, false, 0, 0, "" });
         }
-        else
-        {
+        else {
             expected.AddRange(new object[] { "m", 7, "Dennis", 5, (short)1, (short)2, (short)3, (short)4, (short)5 });
         }
 
         expected.AddRange(new object[] { "", 0 });
-        source[0] = snapshot with
-        {
-            Name = "changed",
-            X = 99,
-            OwnerName = "changed"
-        };
+        source[0] = snapshot with { Name = "changed", X = 99, OwnerName = "changed" };
         Assert.Equal(expected, Compose(composer));
         Assert.Equal(expected, Compose(composer));
     }
@@ -191,10 +184,7 @@ public class OfficialUserWireTests
     private sealed class RecordingPacket : IOutgoingPacket
     {
         public List<object> Writes { get; } = [];
-        public int MessageId
-        {
-            get; set;
-        }
+        public int MessageId { get; set; }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

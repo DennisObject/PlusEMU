@@ -13,10 +13,7 @@ public sealed partial class NavGrid
     private readonly Dictionary<int, SurfaceRef> _leftPrimaries = new();
     private int _overflowHighWater;
 
-    public bool Layered
-    {
-        get; private set;
-    }
+    public bool Layered { get; private set; }
     private long LayerIndexBytes => _tileSlots.Length * 4L + _tileSurfaceCount.Length + _overflowTile.Length * 4L
         + _contacts.Sum(contacts => (contacts?.Length ?? 0) * 4L);
     // Surfaces dropped by the >4 pinned overflow cap in the latest publish; their actors go off-graph.
@@ -39,19 +36,15 @@ public sealed partial class NavGrid
 
     public int SlotOf(SurfaceRef surface)
     {
-        if ((uint)surface.Tile >= (uint)TileCount)
-        {
+        if ((uint)surface.Tile >= (uint)TileCount) {
             return -1;
         }
 
-        if (Layered)
-        {
-            for (var ordinal = 0; ordinal < _tileSurfaceCount[surface.Tile]; ordinal++)
-            {
+        if (Layered) {
+            for (var ordinal = 0; ordinal < _tileSurfaceCount[surface.Tile]; ordinal++) {
                 var slot = _tileSlots[surface.Tile * MaxSurfacesPerTile + ordinal];
 
-                if (SupportItem[slot] == surface.SupportItemId && Kind[slot] == surface.Kind)
-                {
+                if (SupportItem[slot] == surface.SupportItemId && Kind[slot] == surface.Kind) {
                     return slot;
                 }
             }
@@ -62,17 +55,14 @@ public sealed partial class NavGrid
 
     public int OwnerOf(int tile, uint itemId)
     {
-        if (!Layered)
-        {
+        if (!Layered) {
             return -1;
         }
 
-        for (var ordinal = 0; ordinal < _tileSurfaceCount[tile]; ordinal++)
-        {
+        for (var ordinal = 0; ordinal < _tileSurfaceCount[tile]; ordinal++) {
             var slot = _tileSlots[tile * MaxSurfacesPerTile + ordinal];
 
-            if (Array.IndexOf(_contacts[slot], itemId) >= 0)
-            {
+            if (Array.IndexOf(_contacts[slot], itemId) >= 0) {
                 return slot;
             }
         }
@@ -85,14 +75,12 @@ public sealed partial class NavGrid
 
     internal void EnterLayers()
     {
-        if (_tileSlots.Length == 0)
-        {
+        if (_tileSlots.Length == 0) {
             _tileSlots = new int[TileCount * MaxSurfacesPerTile];
             _tileSurfaceCount = new byte[TileCount];
         }
 
-        for (var t = 0; t < TileCount; t++)
-        {
+        for (var t = 0; t < TileCount; t++) {
             _tileSlots[t * MaxSurfacesPerTile] = t;
             _tileSurfaceCount[t] = (byte)(Active(t) ? 1 : 0);
         }
@@ -102,16 +90,12 @@ public sealed partial class NavGrid
 
     internal void LeaveLayers()
     {
-        for (var t = 0; t < TileCount; t++)
-        {
-            foreach (var slot in TileSurfaces(t))
-            {
-                if (slot != t)
-                {
+        for (var t = 0; t < TileCount; t++) {
+            foreach (var slot in TileSurfaces(t)) {
+                if (slot != t) {
                     ReleaseSlot(slot);
                 }
-                else
-                {
+                else {
                     _leftPrimaries[t] = Reference(t);
                 }
             }
@@ -123,10 +107,8 @@ public sealed partial class NavGrid
     // After the K=1 recompile, a primary slot that now holds a different surface is released too.
     internal void SettleLeftPrimaries()
     {
-        foreach (var (slot, previous) in _leftPrimaries)
-        {
-            if (!Active(slot) || Reference(slot) != previous)
-            {
+        foreach (var (slot, previous) in _leftPrimaries) {
+            if (!Active(slot) || Reference(slot) != previous) {
                 _releasedSlots.TryAdd(slot, previous);
             }
         }
@@ -144,13 +126,11 @@ public sealed partial class NavGrid
     {
         int slot;
 
-        if (_freeOverflow.Count > 0)
-        {
+        if (_freeOverflow.Count > 0) {
             slot = _freeOverflow.Min;
             _freeOverflow.Remove(slot);
         }
-        else
-        {
+        else {
             slot = TileCount + _overflowHighWater++;
             EnsureSlotCapacity(slot + 1);
         }
@@ -162,8 +142,7 @@ public sealed partial class NavGrid
 
     internal void ReleaseSlot(int slot)
     {
-        if (Active(slot))
-        {
+        if (Active(slot)) {
             ActiveNodeCount--;
         }
 
@@ -171,8 +150,7 @@ public sealed partial class NavGrid
         Flags[slot] = NavFlags.None;
         _contacts[slot] = [];
 
-        if (slot >= TileCount)
-        {
+        if (slot >= TileCount) {
             _freeOverflow.Add(slot);
         }
     }
@@ -201,8 +179,7 @@ public sealed partial class NavGrid
 
     private void EnsureSlotCapacity(int slots)
     {
-        if (slots <= WalkZ.Length)
-        {
+        if (slots <= WalkZ.Length) {
             return;
         }
 

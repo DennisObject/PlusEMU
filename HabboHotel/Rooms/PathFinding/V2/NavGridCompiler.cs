@@ -5,15 +5,9 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingSettings settings)
 {
     private readonly LayeredTileCompiler _layers = new(grid, settings);
-    internal Action<IReadOnlySet<int>>? BeforePublish
-    {
-        get; set;
-    }
+    internal Action<IReadOnlySet<int>>? BeforePublish { get; set; }
     // Surfaces holding members or claims; the overflow cap keeps them first (§5.3 step 5).
-    internal Func<SurfaceRef, bool>? SurfacePinned
-    {
-        get => _layers.SurfacePinned; set => _layers.SurfacePinned = value;
-    }
+    internal Func<SurfaceRef, bool>? SurfacePinned { get => _layers.SurfacePinned; set => _layers.SurfacePinned = value; }
     public void ApplyNow() => Apply();
     public void RebuildAll()
     {
@@ -26,16 +20,14 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
         var tiles = inputs.Drain();
         afterDrain?.Invoke();
 
-        if (tiles.Count == 0)
-        {
+        if (tiles.Count == 0) {
             return;
         }
 
         var selected = SelectClosure(tiles, beforeRead);
         var records = new Dictionary<uint, NavItemRecord>(inputs.AppliedRecords);
 
-        foreach (var (id, record) in selected)
-        {
+        foreach (var (id, record) in selected) {
             records[id] = record;
         }
 
@@ -44,22 +36,18 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
         var covering = Covering(records.Values, tiles);
         var compat = new Dictionary<int, CompatSurface>(tiles.Count);
 
-        foreach (var t in tiles)
-        {
+        foreach (var t in tiles) {
             compat[t] = CompileCompat(t, covering.GetValueOrDefault(t));
         }
 
-        if (grid.Layered)
-        {
+        if (grid.Layered) {
             _layers.Compile(compat, covering);
         }
-        else
-        {
+        else {
             grid.SettleLeftPrimaries();
         }
 
-        foreach (var (id, record) in selected)
-        {
+        foreach (var (id, record) in selected) {
             inputs.AppliedRecords[id] = record;
         }
 
@@ -72,49 +60,40 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
         var selected = new Dictionary<uint, NavItemRecord>();
         var snapshot = new Dictionary<uint, NavItemRecord>();
 
-        foreach (var id in inputs.ItemIds.Union(inputs.AppliedRecords.Keys))
-        {
+        foreach (var id in inputs.ItemIds.Union(inputs.AppliedRecords.Keys)) {
             beforeRead?.Invoke(id);
             snapshot[id] = inputs.Read(id)!;
         }
 
         bool changed;
 
-        do
-        {
+        do {
             changed = false;
 
-            foreach (var (id, record) in snapshot)
-            {
-                if (selected.ContainsKey(id))
-                {
+            foreach (var (id, record) in snapshot) {
+                if (selected.ContainsKey(id)) {
                     continue;
                 }
 
                 var applied = inputs.AppliedRecords.GetValueOrDefault(id);
 
-                if (!(Touches(applied, tiles) || Touches(record, tiles)))
-                {
+                if (!(Touches(applied, tiles) || Touches(record, tiles))) {
                     continue;
                 }
 
                 selected.Add(id, record);
 
-                if (applied?.Version == record.Version)
-                {
+                if (applied?.Version == record.Version) {
                     continue;
                 }
 
-                if (applied != null)
-                {
-                    foreach (var t in applied.Footprint)
-                    {
+                if (applied != null) {
+                    foreach (var t in applied.Footprint) {
                         changed |= tiles.Add(t);
                     }
                 }
 
-                foreach (var t in record.Footprint)
-                {
+                foreach (var t in record.Footprint) {
                     changed |= tiles.Add(t);
                 }
             }
@@ -127,19 +106,14 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
     {
         var covering = new Dictionary<int, List<NavItemRecord>>();
 
-        foreach (var record in records)
-        {
-            if (record.Removed || !settings.StacktoolLegacyCollision && record.Interaction == InteractionType.Stacktool)
-            {
+        foreach (var record in records) {
+            if (record.Removed || !settings.StacktoolLegacyCollision && record.Interaction == InteractionType.Stacktool) {
                 continue;
             }
 
-            foreach (var t in record.Footprint)
-            {
-                if (tiles.Contains(t))
-                {
-                    if (!covering.TryGetValue(t, out var list))
-                    {
+            foreach (var t in record.Footprint) {
+                if (tiles.Contains(t)) {
+                    if (!covering.TryGetValue(t, out var list)) {
                         covering[t] = list = new();
                     }
 
@@ -156,22 +130,18 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
     {
         var layered = settings.LayeringEnabled && !records.Any(r => !r.Removed && LayeringEligibility.RequiresSingleSurface(r));
 
-        if (layered == grid.Layered)
-        {
+        if (layered == grid.Layered) {
             return;
         }
 
-        if (layered)
-        {
+        if (layered) {
             grid.EnterLayers();
         }
-        else
-        {
+        else {
             grid.LeaveLayers();
         }
 
-        for (var t = 0; t < grid.TileCount; t++)
-        {
+        for (var t = 0; t < grid.TileCount; t++) {
             tiles.Add(t);
         }
     }
@@ -186,8 +156,7 @@ public sealed class NavGridCompiler(NavGrid grid, NavInputs inputs, PathfindingS
         grid.LegacyFloorStatus[t] = structuralStatus >= 0 ? (byte)structuralStatus
             : (surface.Flags & NavFlags.Transit) != 0 ? (byte)1 : surface.Flags == NavFlags.None ? (byte)0 : (byte)3;
 
-        if (grid.Layered)
-        {
+        if (grid.Layered) {
             return surface;
         }
 
@@ -209,21 +178,18 @@ internal readonly record struct CompatSurface(double Z, NavFlags Flags, uint Sup
         var top = records?.MaxBy(r => (r.Top, r.Z, r.ItemId));
         var legacyZ = top?.Top ?? floorZ;
 
-        if (t == grid.DoorTile)
-        {
+        if (t == grid.DoorTile) {
             return new(grid.DoorZ, NavFlags.Door, 0, SurfaceKind.Door, 0, [], legacyZ);
         }
 
         var walkMagic = records?.Where(r => r.Interaction == InteractionType.WalkMagicTile).MaxBy(r => (r.Z, r.ItemId));
 
         // The helper is the sole surface, even over void, seats or gates.
-        if (walkMagic != null)
-        {
+        if (walkMagic != null) {
             return new(walkMagic.Z, NavFlags.Transit, walkMagic.ItemId, SurfaceKind.WalkMagic, 0, [], walkMagic.Z);
         }
 
-        if (top == null)
-        {
+        if (top == null) {
             var floor = SurfaceRules.FloorCandidate(grid.BaseState[t], floorZ);
 
             return new(floorZ, floor?.Flags ?? NavFlags.None, 0, SurfaceKind.Floor, 0, [], legacyZ);

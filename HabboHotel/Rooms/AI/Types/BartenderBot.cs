@@ -42,44 +42,37 @@ internal class BartenderBot : BotAi
     {
         var botUser = GetRoomUser();
 
-        if (botUser == null)
-        {
+        if (botUser == null) {
             return;
         }
 
         var botData = GetBotData();
 
-        if (botData == null)
-        {
+        if (botData == null) {
             return;
         }
 
         var speakerSession = user?.GetClient();
 
-        if (speakerSession == null)
-        {
+        if (speakerSession == null) {
             return;
         }
 
-        if (user == null || speakerSession == null || speakerSession.GetHabbo() == null)
-        {
+        if (user == null || speakerSession == null || speakerSession.GetHabbo() == null) {
             return;
         }
 
-        if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8)
-        {
+        if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8) {
             return;
         }
 
         var response = _bots.GetResponse(botData.AiType, message);
 
-        if (response == null)
-        {
+        if (response == null) {
             return;
         }
 
-        switch (response.ResponseType.ToLower())
-        {
+        switch (response.ResponseType.ToLower()) {
             case "say":
                 botUser.Chat(response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username));
                 break;
@@ -91,8 +84,7 @@ internal class BartenderBot : BotAi
                 break;
         }
 
-        if (response.BeverageIds.Count > 0)
-        {
+        if (response.BeverageIds.Count > 0) {
             user.CarryItem(response.BeverageIds[Random.Shared.Next(0, response.BeverageIds.Count)]);
         }
     }
@@ -101,44 +93,37 @@ internal class BartenderBot : BotAi
     {
         var botUser = GetRoomUser();
 
-        if (botUser == null)
-        {
+        if (botUser == null) {
             return;
         }
 
         var botData = GetBotData();
 
-        if (botData == null)
-        {
+        if (botData == null) {
             return;
         }
 
         var speakerSession = user?.GetClient();
 
-        if (speakerSession == null)
-        {
+        if (speakerSession == null) {
             return;
         }
 
-        if (user == null || speakerSession == null || speakerSession.GetHabbo() == null)
-        {
+        if (user == null || speakerSession == null || speakerSession.GetHabbo() == null) {
             return;
         }
 
-        if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8)
-        {
+        if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8) {
             return;
         }
 
         var response = _bots.GetResponse(botData.AiType, message);
 
-        if (response == null)
-        {
+        if (response == null) {
             return;
         }
 
-        switch (response.ResponseType.ToLower())
-        {
+        switch (response.ResponseType.ToLower()) {
             case "say":
                 botUser.Chat(response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username));
                 break;
@@ -150,8 +135,7 @@ internal class BartenderBot : BotAi
                 break;
         }
 
-        if (response.BeverageIds.Count > 0)
-        {
+        if (response.BeverageIds.Count > 0) {
             user.CarryItem(response.BeverageIds[Random.Shared.Next(0, response.BeverageIds.Count)]);
         }
     }
@@ -160,44 +144,36 @@ internal class BartenderBot : BotAi
     {
         var botRoom = GetRoom();
 
-        if (botRoom == null)
-        {
+        if (botRoom == null) {
             return;
         }
 
         var botUser = GetRoomUser();
 
-        if (botUser == null)
-        {
+        if (botUser == null) {
             return;
         }
 
         var botData = GetBotData();
 
-        if (botData == null)
-        {
+        if (botData == null) {
             return;
         }
 
-        if (botData == null)
-        {
+        if (botData == null) {
             return;
         }
 
-        if (_speechTimer <= 0)
-        {
-            if (botData.RandomSpeech.Count > 0)
-            {
-                if (botData.AutomaticChat == false)
-                {
+        if (_speechTimer <= 0) {
+            if (botData.RandomSpeech.Count > 0) {
+                if (botData.AutomaticChat == false) {
                     return;
                 }
 
                 var speech = botData.GetRandomSpeech();
                 var @string = _wordFilter.CheckMessage(speech.Message);
 
-                if (@string.Contains("<img src") || @string.Contains("<font ") || @string.Contains("</font>") || @string.Contains("</a>") || @string.Contains("<i>"))
-                {
+                if (@string.Contains("<img src") || @string.Contains("<font ") || @string.Contains("</font>") || @string.Contains("</a>") || @string.Contains("<i>")) {
                     @string = "I really shouldn't be using HTML within bot speeches.";
                 }
 
@@ -206,66 +182,52 @@ internal class BartenderBot : BotAi
 
             _speechTimer = botData.SpeakingInterval;
         }
-        else
-        {
+        else {
             _speechTimer--;
         }
 
-        if (_actionTimer <= 0)
-        {
-            switch (botData.WalkingMode.ToLower())
-            {
+        if (_actionTimer <= 0) {
+            switch (botData.WalkingMode.ToLower()) {
                 default:
                 case "stand":
                     // (8) Why is my life so boring?
                     break;
                 case "freeroam":
-                    if (botData.ForcedMovement)
-                    {
-                        if (botUser.Coordinate == botData.TargetCoordinate)
-                        {
+                    if (botData.ForcedMovement) {
+                        if (botUser.Coordinate == botData.TargetCoordinate) {
                             botData.ForcedMovement = false;
                             botData.TargetCoordinate = new();
                             botUser.MoveTo(botData.TargetCoordinate.X, botData.TargetCoordinate.Y);
                         }
                     }
-                    else if (botData.ForcedUserTargetMovement > 0)
-                    {
+                    else if (botData.ForcedUserTargetMovement > 0) {
                         var target = botRoom.GetRoomUserManager().GetRoomUserByHabbo(botData.ForcedUserTargetMovement);
 
-                        if (target == null)
-                        {
+                        if (target == null) {
                             botData.ForcedUserTargetMovement = 0;
                             botUser.ClearMovement(true);
                         }
-                        else
-                        {
+                        else {
                             var sq = new Point(target.X, target.Y);
 
-                            if (target.RotBody == 0)
-                            {
+                            if (target.RotBody == 0) {
                                 sq.Y--;
                             }
-                            else if (target.RotBody == 2)
-                            {
+                            else if (target.RotBody == 2) {
                                 sq.X++;
                             }
-                            else if (target.RotBody == 4)
-                            {
+                            else if (target.RotBody == 4) {
                                 sq.Y++;
                             }
-                            else if (target.RotBody == 6)
-                            {
+                            else if (target.RotBody == 6) {
                                 sq.X--;
                             }
 
                             botUser.MoveTo(sq);
                         }
                     }
-                    else if (botData.TargetUser == 0)
-                    {
-                        if (botRoom.GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
-                        {
+                    else if (botData.TargetUser == 0) {
+                        if (botRoom.GetGameMap().TryGetRandomWalkableSquare(out var nextCoord)) {
                             botUser.MoveTo(nextCoord.X, nextCoord.Y);
                         }
                     }
@@ -277,8 +239,7 @@ internal class BartenderBot : BotAi
 
             _actionTimer = Random.Shared.Next(5, 15);
         }
-        else
-        {
+        else {
             _actionTimer--;
         }
     }

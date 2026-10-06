@@ -13,32 +13,11 @@ internal class Set
         Parts = new();
     }
 
-    public int Id
-    {
-        get; set;
-    }
-    public string Gender
-    {
-        get; set;
-    }
-    public int ClubLevel
-    {
-        get; set;
-    }
-    public bool Colorable
-    {
-        get; set;
-    }
-    public bool Selectable
-    {
-        get; set;
-    }
-    public bool Preselectable
-    {
-        get; set;
-    }
-    public Dictionary<string, Part> Parts
-    {
-        get; set;
-    }
+    public int Id { get; set; }
+    public string Gender { get; set; }
+    public int ClubLevel { get; set; }
+    public bool Colorable { get; set; }
+    public bool Selectable { get; set; }
+    public bool Preselectable { get; set; }
+    public Dictionary<string, Part> Parts { get; set; }
 }

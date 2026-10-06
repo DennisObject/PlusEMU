@@ -28,10 +28,8 @@ public sealed class AchievementSnapshotService : IAchievementSnapshotService
     {
         var snapshots = ImmutableArray.CreateBuilder<AchievementProgressSnapshot>();
 
-        foreach (var achievement in achievements)
-        {
-            if (Capture(habbo, achievement) is { } snapshot)
-            {
+        foreach (var achievement in achievements) {
+            if (Capture(habbo, achievement) is { } snapshot) {
                 snapshots.Add(snapshot);
             }
         }
@@ -42,8 +40,7 @@ public sealed class AchievementSnapshotService : IAchievementSnapshotService
     private static AchievementProgressSnapshot? Capture(Habbo habbo, Achievement achievement)
     {
         // An achievement without levels has no next level to show, so it is left out instead of being indexed.
-        if (achievement.Levels.Count == 0)
-        {
+        if (achievement.Levels.Count == 0) {
             return null;
         }
 
@@ -71,8 +68,7 @@ public sealed class AchievementSnapshotService : IAchievementSnapshotService
     // Sparse levels: the target when defined, otherwise the nearest defined level above it, otherwise the highest one below it.
     private static (int Level, AchievementLevel Data) ResolveLevel(Dictionary<int, AchievementLevel> levels, int target)
     {
-        if (levels.TryGetValue(target, out var exact))
-        {
+        if (levels.TryGetValue(target, out var exact)) {
             return (target, exact);
         }
 

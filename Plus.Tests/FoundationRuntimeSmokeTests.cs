@@ -43,8 +43,7 @@ public sealed class FoundationRuntimeDatabaseFactAttribute : FactAttribute
 {
     public FoundationRuntimeDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FOUNDATION_RUNTIME_DATABASE")))
-        {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("FOUNDATION_RUNTIME_DATABASE"))) {
             Skip = "Opt-in isolated foundation login and room-entry MariaDB smoke.";
         }
     }
@@ -70,8 +69,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
 
             foreach (var type in new[] { typeof(ItemDataManager), typeof(FigureDataManager), typeof(RoomManager),
                          typeof(AccessControl), typeof(ModerationManager), typeof(AchievementManager), typeof(BadgeManager),
-                         typeof(PetLocale), typeof(ChatStyleManager), typeof(ClothingManager), typeof(RewardManager) })
-            {
+                         typeof(PetLocale), typeof(ChatStyleManager), typeof(ClothingManager), typeof(RewardManager) }) {
                 await ((IStartable)services.GetRequiredService(type)).Start();
             }
 
@@ -79,8 +77,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
             var (client, sent) = Client(services.GetRequiredService<ILogger<GameClient>>());
             var rooms = services.GetRequiredService<IRoomManager>();
 
-            try
-            {
+            try {
                 var ticket = await services.GetRequiredService<ISsoTicketStore>().Issue(7);
                 output.WriteLine("Calling the public SSO packet handler with a real single-use ticket.");
                 await services.GetRequiredService<SSOTicketEvent>().Parse(client, HabbiconTestSupport.Incoming(ticket.Value));
@@ -161,16 +158,12 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 Assert.Null(moderation.Find(7)!.TradingLockExpiresAt);
                 Assert.Null(housekeeping.Find(7)!.TradingLockExpiresAt);
             }
-            finally
-            {
-                try
-                {
+            finally {
+                try {
                     client.OnDisconnected();
                 }
-                finally
-                {
-                    if (rooms.TryGetRoom(42, out _))
-                    {
+                finally {
+                    if (rooms.TryGetRoom(42, out _)) {
                         rooms.UnloadRoom(42);
                     }
                 }
@@ -235,11 +228,9 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
 
         public Runtime(IDatabase database)
         {
-            foreach (var type in new[] { typeof(PlusEnvironment), typeof(ExceptionLogger) })
-            {
+            foreach (var type in new[] { typeof(PlusEnvironment), typeof(ExceptionLogger) }) {
                 foreach (var field in type.GetFields(BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public)
-                             .Where(field => !field.IsInitOnly && !field.IsLiteral))
-                {
+                             .Where(field => !field.IsInitOnly && !field.IsLiteral)) {
                     _globals[field] = field.GetValue(null);
                 }
             }
@@ -248,17 +239,15 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
             var defaults = typeof(Program).GetField("_defaultTypes", BindingFlags.Static | BindingFlags.NonPublic)!;
             var previous = defaults.GetValue(null);
 
-            try
-            {
+            try {
                 defaults.SetValue(null, new Dictionary<ServiceLifetime, IEnumerable<Type>>
-                {
-                    [ServiceLifetime.Singleton] = [],
-                    [ServiceLifetime.Scoped] = []
-                });
+                { [ServiceLifetime.Singleton] = [], [ServiceLifetime.Scoped] = [] });
                 typeof(Program).GetMethod("AddDefaultRules", BindingFlags.Static | BindingFlags.NonPublic)!
                     .Invoke(null, [serviceCollection, typeof(Program).Assembly]);
             }
-            finally { defaults.SetValue(null, previous); }
+            finally {
+                defaults.SetValue(null, previous);
+            }
 
             serviceCollection.RemoveAll<IDatabase>();
             serviceCollection.AddSingleton(database);
@@ -266,8 +255,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
             serviceCollection.AddOptions();
             serviceCollection.AddLogging(logging => logging.AddProvider(_logs));
 
-            try
-            {
+            try {
                 Services = serviceCollection.BuildServiceProvider();
                 ExceptionLogger.Configure(Services.GetRequiredService<ILoggerFactory>());
                 Set("_database", database);
@@ -281,8 +269,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 DefaultTypeMap.MatchNamesWithUnderscores = true;
                 SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
             }
-            catch
-            {
+            catch {
                 Dispose();
                 throw;
             }
@@ -293,14 +280,11 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
 
         public void Dispose()
         {
-            try
-            {
+            try {
                 Services?.Dispose();
             }
-            finally
-            {
-                foreach (var (field, value) in _globals)
-                {
+            finally {
+                foreach (var (field, value) in _globals) {
                     field.SetValue(null, value);
                 }
 
@@ -324,8 +308,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
         public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Error;
         public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error, Func<TState, Exception?, string> formatter)
         {
-            if (IsEnabled(level))
-            {
+            if (IsEnabled(level)) {
                 errors.Enqueue(formatter(state, error) + " " + error);
             }
         }

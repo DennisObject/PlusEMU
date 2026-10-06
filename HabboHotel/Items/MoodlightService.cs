@@ -19,25 +19,20 @@ public sealed class MoodlightService(IRoomItemMetadataStore store) : IMoodlightS
 {
     public void ShowConfig(Room room, GameClient session)
     {
-        if (!Authorized(room, session))
-        {
+        if (!Authorized(room, session)) {
             return;
         }
 
-        if (room.MoodlightData == null)
-        {
+        if (room.MoodlightData == null) {
             // Every wall moodlight is loaded in list order, so the last one wins, as the original scan did.
-            foreach (var item in room.GetRoomItemHandler().GetWall.ToList())
-            {
-                if (!item.IsTemporary && item.Definition.InteractionType == InteractionType.Moodlight && Load(item.Id) is { } loaded)
-                {
+            foreach (var item in room.GetRoomItemHandler().GetWall.ToList()) {
+                if (!item.IsTemporary && item.Definition.InteractionType == InteractionType.Moodlight && Load(item.Id) is { } loaded) {
                     room.MoodlightData = loaded;
                 }
             }
         }
 
-        if (room.MoodlightData == null || ActiveMoodlight(room) == null)
-        {
+        if (room.MoodlightData == null || ActiveMoodlight(room) == null) {
             return;
         }
 
@@ -46,15 +41,13 @@ public sealed class MoodlightService(IRoomItemMetadataStore store) : IMoodlightS
 
     public void Toggle(Room room, GameClient session)
     {
-        if (!Authorized(room, session) || room.MoodlightData == null)
-        {
+        if (!Authorized(room, session) || room.MoodlightData == null) {
             return;
         }
 
         var item = ActiveMoodlight(room);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
@@ -69,34 +62,29 @@ public sealed class MoodlightService(IRoomItemMetadataStore store) : IMoodlightS
 
     public void UpdatePreset(Room room, GameClient session, MoodlightPresetUpdate request)
     {
-        if (!Authorized(room, session) || room.MoodlightData == null)
-        {
+        if (!Authorized(room, session) || room.MoodlightData == null) {
             return;
         }
 
         var item = ActiveMoodlight(room);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
         // Presets are 1..3 only; colours and intensities outside the accepted sets are refused before anything is written.
-        if (request.Preset is < 1 or > 3)
-        {
+        if (request.Preset is < 1 or > 3) {
             return;
         }
 
-        if (!MoodlightData.IsValidColor(request.ColorCode) || !MoodlightData.IsValidIntensity(request.Intensity))
-        {
+        if (!MoodlightData.IsValidColor(request.ColorCode) || !MoodlightData.IsValidIntensity(request.Intensity)) {
             return;
         }
 
         var selected = new MoodlightPreset(request.ColorCode, request.Intensity, request.BackgroundMode >= 2);
         var data = room.MoodlightData;
 
-        if (data.Presets.Count < request.Preset || data.Presets[request.Preset - 1] is not { } target)
-        {
+        if (data.Presets.Count < request.Preset || data.Presets[request.Preset - 1] is not { } target) {
             return;
         }
 

@@ -83,31 +83,26 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
         var boxId = request.BoxId;
         var ribbonId = request.RibbonId;
 
-        if (_settingsManager.TryGetValue("room.item.gifts.enabled") != "1")
-        {
+        if (_settingsManager.TryGetValue("room.item.gifts.enabled") != "1") {
             session.SendNotification("The hotel managers have disabled gifting");
 
             return Task.CompletedTask;
         }
 
-        if (!_catalogManager.TryGetPage(pageId, out var page))
-        {
+        if (!_catalogManager.TryGetPage(pageId, out var page)) {
             return Task.CompletedTask;
         }
 
-        if (!page.CanOpen(session.GetHabbo()))
-        {
+        if (!page.CanOpen(session.GetHabbo())) {
             return Task.CompletedTask;
         }
 
-        if (page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy")
-        {
+        if (page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy") {
             var receiver = _gameClientManager.GetClientByUsername(giftUser)?.GetHabbo();
 
             if (receiver == null || receiver.Id == session.GetHabbo().Id || !receiver.AllowGifts ||
                 !_catalogManager.TryGetClubOffer(itemId, out var offer) || !offer.Giftable ||
-                _clubMemberships.Purchase(session.GetHabbo(), offer, receiver.Id) == null)
-            {
+                _clubMemberships.Purchase(session.GetHabbo(), offer, receiver.Id) == null) {
                 session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
 
                 return Task.CompletedTask;
@@ -121,35 +116,29 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
             return Task.CompletedTask;
         }
 
-        if (!page.Offers.TryGetValue(itemId, out var item))
-        {
+        if (!page.Offers.TryGetValue(itemId, out var item)) {
             return Task.CompletedTask;
         }
 
-        if (!item.CanPurchase(session.GetHabbo()))
-        {
+        if (!item.CanPurchase(session.GetHabbo())) {
             return Task.CompletedTask;
         }
 
-        if (!ItemUtility.CanGiftItem(item))
-        {
+        if (!ItemUtility.CanGiftItem(item)) {
             return Task.CompletedTask;
         }
 
-        if (!_itemManager.Gifts.TryGetValue(spriteId, out var presentId) || !_itemManager.Items.TryGetValue(presentId, out var presentData) || presentData.InteractionType != InteractionType.Gift)
-        {
+        if (!_itemManager.Gifts.TryGetValue(spriteId, out var presentId) || !_itemManager.Items.TryGetValue(presentId, out var presentData) || presentData.InteractionType != InteractionType.Gift) {
             return Task.CompletedTask;
         }
 
-        if (session.GetHabbo().Credits < item.CostCredits)
-        {
+        if (session.GetHabbo().Credits < item.CostCredits) {
             session.Send(new PresentDeliverErrorComposer(true, false));
 
             return Task.CompletedTask;
         }
 
-        if (session.GetHabbo().Duckets < item.CostPixels)
-        {
+        if (session.GetHabbo().Duckets < item.CostPixels) {
             session.Send(new PresentDeliverErrorComposer(false, true));
 
             return Task.CompletedTask;
@@ -157,20 +146,17 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
 
         var habbo = _gameClientManager.GetClientByUsername(giftUser)?.GetHabbo();
 
-        if (habbo == null)
-        {
+        if (habbo == null) {
             session.Send(new GiftWrappingErrorComposer());
 
             return Task.CompletedTask;
         }
 
-        if (habbo.Id == session.GetHabbo().Id)
-        {
+        if (habbo.Id == session.GetHabbo().Id) {
             return Task.CompletedTask;
         }
 
-        if (!habbo.AllowGifts)
-        {
+        if (!habbo.AllowGifts) {
             session.SendNotification("Oops, this user doesn't allow gifts to be sent to them!");
 
             return Task.CompletedTask;
@@ -178,23 +164,19 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
 
         var sender = session.GetHabbo();
 
-        lock (sender.GiftPurchaseSync)
-        {
-            if (sender.LastGiftPurchasedAt is { } lastPurchase && utcNow - lastPurchase <= TimeSpan.FromSeconds(15))
-            {
+        lock (sender.GiftPurchaseSync) {
+            if (sender.LastGiftPurchasedAt is { } lastPurchase && utcNow - lastPurchase <= TimeSpan.FromSeconds(15)) {
                 session.SendNotification("You're purchasing gifts too fast! Please wait 15 seconds!");
                 sender.GiftPurchasingWarnings += 1;
 
-                if (sender.GiftPurchasingWarnings >= 25)
-                {
+                if (sender.GiftPurchasingWarnings >= 25) {
                     sender.SessionGiftBlocked = true;
                 }
 
                 return Task.CompletedTask;
             }
 
-            if (sender.SessionGiftBlocked)
-            {
+            if (sender.SessionGiftBlocked) {
                 return Task.CompletedTask;
             }
 
@@ -202,14 +184,12 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
             string? itemExtraData = null;
             var progressPetAchievement = false;
 
-            switch (item.Definition.InteractionType)
-            {
+            switch (item.Definition.InteractionType) {
                 case InteractionType.None:
                     itemExtraData = "";
                     break;
                 case InteractionType.Pet:
-                    if (!GiftWrap.PetDataAccepted(data))
-                    {
+                    if (!GiftWrap.PetDataAccepted(data)) {
                         return Task.CompletedTask;
                     }
 
@@ -220,12 +200,10 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                 case InteractionType.Landscape:
                     double number = 0;
 
-                    try
-                    {
+                    try {
                         number = string.IsNullOrEmpty(data) ? 0 : double.Parse(data, CultureInfo.InvariantCulture);
                     }
-                    catch
-                    {
+                    catch {
                         //ignored
                     }
 
@@ -244,8 +222,7 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                     itemExtraData = $"m{Convert.ToChar(5)}.ch-210-1321.lg-285-92{Convert.ToChar(5)}Default Mannequin";
                     break;
                 case InteractionType.BadgeDisplay:
-                    if (!session.GetHabbo().Inventory.Badges.HasBadge(data))
-                    {
+                    if (!session.GetHabbo().Inventory.Badges.HasBadge(data)) {
                         session.Send(new BroadcastMessageAlertComposer("Oops, it appears that you do not own this badge."));
 
                         return Task.CompletedTask;
@@ -265,8 +242,7 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
 
             if (!_clubRewards.Charge(session.GetHabbo(), item.CostCredits, item.CostPixels, item.CostDiamonds, (connection, transaction) =>
             {
-                if (!item.CanPurchase(session.GetHabbo()))
-                {
+                if (!item.CanPurchase(session.GetHabbo())) {
                     return false;
                 }
 
@@ -274,24 +250,20 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                     extra_data, itemExtraData ?? "");
 
                 return true;
-            }, ClubRewards.EligibleCatalogPurchase(item.CatalogName)))
-            {
+            }, ClubRewards.EligibleCatalogPurchase(item.CatalogName))) {
                 session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
 
                 return Task.CompletedTask;
             }
 
-            if (giveItem != null)
-            {
-                if (progressPetAchievement)
-                {
+            if (giveItem != null) {
+                if (progressPetAchievement) {
                     _achievementManager.ProgressAchievement(session, "ACH_PetLover", 1);
                 }
 
                 var receiver = _gameClientManager.GetClientByUserId(habbo.Id);
 
-                if (receiver != null)
-                {
+                if (receiver != null) {
                     receiver.GetHabbo().Inventory.Furniture.AddItem(giveItem);
                     receiver.Send(new FurniListNotificationComposer(giveItem.Id, 1));
                     receiver.Send(new PurchaseOKComposer());
@@ -299,12 +271,10 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                     receiver.Send(new FurniListUpdateComposer());
                 }
 
-                if (habbo.Id != session.GetHabbo().Id)
-                {
+                if (habbo.Id != session.GetHabbo().Id) {
                     _achievementManager.ProgressAchievement(session, "ACH_GiftGiver", 1);
 
-                    if (receiver != null)
-                    {
+                    if (receiver != null) {
                         _achievementManager.ProgressAchievement(receiver, "ACH_GiftReceiver", 1);
                     }
 
@@ -314,18 +284,15 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
 
             session.Send(new PurchaseOKComposer(CatalogPurchaseConfirmation.Capture(item, presentData)));
 
-            if (item.CostCredits > 0)
-            {
+            if (item.CostCredits > 0) {
                 session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
             }
 
-            if (item.CostPixels > 0)
-            {
+            if (item.CostPixels > 0) {
                 session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -item.CostPixels));
             }
 
-            if (item.CostDiamonds > 0)
-            {
+            if (item.CostDiamonds > 0) {
                 session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -item.CostDiamonds, 5));
             }
 

@@ -30,8 +30,7 @@ public static class WiredBotActions
         validated = proposed;
         error = "Invalid bot configuration.";
 
-        if (!Names.Contains(name) || !WiredLegacyProtocol.IsWithinLimits(proposed))
-        {
+        if (!Names.Contains(name) || !WiredLegacyProtocol.IsWithinLimits(proposed)) {
             return false;
         }
 
@@ -41,12 +40,10 @@ public static class WiredBotActions
         bool Source(int index) => p[index] is 0 or 100 or 200 or 201;
         bool User(int index) => p[index] is 0 or 10 or 11 or 200 or 201;
 
-        switch (name)
-        {
+        switch (name) {
             case "wf_act_bot_teleport":
             case "wf_act_bot_move":
-                if (p.Length != 2 || !Source(0) || !Source(1))
-                {
+                if (p.Length != 2 || !Source(0) || !Source(1)) {
                     return false;
                 }
 
@@ -55,8 +52,7 @@ public static class WiredBotActions
                 break;
             case "wf_act_bot_follow_avatar":
             case "wf_act_bot_give_handitem":
-                if (p.Length != 3 || p[0] < 0 || name == "wf_act_bot_follow_avatar" && p[0] > 1 || !User(1) || !Source(2))
-                {
+                if (p.Length != 3 || p[0] < 0 || name == "wf_act_bot_follow_avatar" && p[0] > 1 || !User(1) || !Source(2)) {
                     return false;
                 }
 
@@ -64,16 +60,14 @@ public static class WiredBotActions
                 u["bots"] = p[2];
                 break;
             case "wf_act_bot_talk":
-                if (p.Length != 3 || p[0] is < 0 or > 1 || !Source(1) || p[2] is < -1 or > 2)
-                {
+                if (p.Length != 3 || p[0] is < 0 or > 1 || !Source(1) || p[2] is < -1 or > 2) {
                     return false;
                 }
 
                 u["bots"] = p[1];
                 break;
             case "wf_act_bot_talk_to_avatar":
-                if (p.Length != 4 || p[0] is < 0 or > 1 || !User(1) || !Source(2) || p[3] is < -1 or > 2)
-                {
+                if (p.Length != 4 || p[0] is < 0 or > 1 || !User(1) || !Source(2) || p[3] is < -1 or > 2) {
                     return false;
                 }
 
@@ -81,8 +75,7 @@ public static class WiredBotActions
                 u["bots"] = p[2];
                 break;
             case "wf_act_bot_clothes":
-                if (p.Length != 1 || !Source(0))
-                {
+                if (p.Length != 1 || !Source(0)) {
                     return false;
                 }
 
@@ -90,16 +83,11 @@ public static class WiredBotActions
                 break;
         }
 
-        if (proposed.Text.Split('\t', 2)[0].Length > 64)
-        {
+        if (proposed.Text.Split('\t', 2)[0].Length > 64) {
             return false;
         }
 
-        validated = proposed with
-        {
-            FurniSources = f.ToImmutable(),
-            UserSources = u.ToImmutable()
-        };
+        validated = proposed with { FurniSources = f.ToImmutable(), UserSources = u.ToImmutable() };
         error = "";
 
         return true;
@@ -107,8 +95,7 @@ public static class WiredBotActions
     public static bool Execute(string name, WiredRuntimeContext context, WiredConfiguration config,
         WiredRoomMovement movement, IBotManagementStore botStore)
     {
-        if (!TryValidate(name, config, out config, out _))
-        {
+        if (!TryValidate(name, config, out config, out _)) {
             return false;
         }
 
@@ -121,8 +108,7 @@ public static class WiredBotActions
             : context.Targets.ResolveUsers(context, [], source, botName).Where(user => user.IsBot && !user.IsPet).ToArray();
         var optionalUnnamedHandItem = name == "wf_act_bot_give_handitem" && source == 0 && botName.Length == 0;
 
-        if (bots.Length == 0 && !optionalUnnamedHandItem)
-        {
+        if (bots.Length == 0 && !optionalUnnamedHandItem) {
             return false;
         }
 
@@ -133,26 +119,21 @@ public static class WiredBotActions
         var changed = false;
         var targets = WiredBotTargets.For(context.Room);
 
-        switch (name)
-        {
+        switch (name) {
             case "wf_act_bot_teleport":
             case "wf_act_bot_move":
-                if (items.Length == 0)
-                {
+                if (items.Length == 0) {
                     return false;
                 }
 
-                foreach (var bot in bots)
-                {
+                foreach (var bot in bots) {
                     var item = items[Random.Shared.Next(items.Length)];
 
-                    if (name == "wf_act_bot_teleport")
-                    {
+                    if (name == "wf_act_bot_teleport") {
                         WiredAvatarState.For(context.Room).Thaw(bot, teleport: true);
                         changed |= movement.MoveAvatar(context, bot, item.GetX, item.GetY, false);
                     }
-                    else
-                    {
+                    else {
                         bot.BotData.ForcedUserTargetMovement = 0;
                         bot.BotData.ForcedMovement = true;
                         bot.BotData.TargetCoordinate = new(item.GetX, item.GetY);
@@ -164,23 +145,19 @@ public static class WiredBotActions
 
                 return changed;
             case "wf_act_bot_follow_avatar":
-                if (p[0] == 0)
-                {
-                    foreach (var bot in bots)
-                    {
+                if (p[0] == 0) {
+                    foreach (var bot in bots) {
                         targets.Stop(bot);
                     }
 
                     return true;
                 }
 
-                if (users.Length == 0)
-                {
+                if (users.Length == 0) {
                     return false;
                 }
 
-                for (var index = 0; index < bots.Length; index++)
-                {
+                for (var index = 0; index < bots.Length; index++) {
                     var bot = bots[index];
                     var user = users[index % users.Length];
                     bot.BotData.ForcedMovement = false;
@@ -188,28 +165,24 @@ public static class WiredBotActions
                     targets.Follow(bot, user);
                 }
 
-                foreach (var arrived in targets.Poll(context.Room))
-                {
+                foreach (var arrived in targets.Poll(context.Room)) {
                     context.Room.GetWired().Dispatch(arrived);
                 }
 
                 return true;
             case "wf_act_bot_give_handitem":
                 // Turbo's executable body grants immediately after resolving the named bot.
-                foreach (var user in users)
-                {
+                foreach (var user in users) {
                     user.CarryItem(p[0]);
                 }
 
                 return users.Length > 0;
             case "wf_act_bot_clothes":
-                if (!FigureWellFormed(text))
-                {
+                if (!FigureWellFormed(text)) {
                     return false;
                 }
 
-                foreach (var bot in bots)
-                {
+                foreach (var bot in bots) {
                     botStore.SaveAppearance(bot.BotData.Id, context.Room.RoomId, text, bot.BotData.Gender);
                     bot.BotData.Look = text;
                     context.Room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(bot.BotData)));
@@ -218,29 +191,23 @@ public static class WiredBotActions
                 return true;
             case "wf_act_bot_talk":
             case "wf_act_bot_talk_to_avatar":
-                if (text.Length == 0)
-                {
+                if (text.Length == 0) {
                     return false;
                 }
 
-                if (name == "wf_act_bot_talk_to_avatar" && users.Length == 0)
-                {
+                if (name == "wf_act_bot_talk_to_avatar" && users.Length == 0) {
                     return false;
                 }
 
-                foreach (var bot in bots)
-                {
+                foreach (var bot in bots) {
                     var formatted = context.Policy.FormatText(context, text.Replace("%name%", bot.BotData.Name, StringComparison.Ordinal));
                     var width = p[name == "wf_act_bot_talk" ? 2 : 3];
 
-                    if (name == "wf_act_bot_talk_to_avatar" && p[0] == 1)
-                    {
-                        foreach (var user in users)
-                        {
+                    if (name == "wf_act_bot_talk_to_avatar" && p[0] == 1) {
+                        foreach (var user in users) {
                             var client = user.GetClient();
 
-                            if (client == null)
-                            {
+                            if (client == null) {
                                 continue;
                             }
 
@@ -248,8 +215,7 @@ public static class WiredBotActions
                             changed = true;
                         }
                     }
-                    else
-                    {
+                    else {
                         context.Room.SendPacket(new WiredChatComposer(bot.VirtualId, formatted, bot.BotData.ChatBubble, width, false, name == "wf_act_bot_talk" && p[0] == 1));
                         changed = true;
                     }

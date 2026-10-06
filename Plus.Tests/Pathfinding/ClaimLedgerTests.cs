@@ -161,10 +161,7 @@ public class ClaimLedgerTests
     {
         var (ledger, first, second) = TwoActors();
         Assert.True(ledger.TryClaim(first, 2, existing, TargetOccupancy.None));
-        var mask = ClaimMatrix.BlockingMask(new()
-        {
-            Walkthrough = true
-        }, NavFlags.Transit,
+        var mask = ClaimMatrix.BlockingMask(new() { Walkthrough = true }, NavFlags.Transit,
             StepPurpose.Transit, OccupancyView.Execution);
         Assert.Equal(accepted, ledger.TryClaim(second, 2, ClaimKind.Shared, mask));
     }
@@ -178,10 +175,7 @@ public class ClaimLedgerTests
     {
         var (ledger, first, second) = TwoActors();
         Assert.True(ledger.TryClaim(first, 2, existing, TargetOccupancy.None));
-        var mask = ClaimMatrix.BlockingMask(new()
-        {
-            Walkthrough = true
-        }, NavFlags.Transit,
+        var mask = ClaimMatrix.BlockingMask(new() { Walkthrough = true }, NavFlags.Transit,
             StepPurpose.Goal, OccupancyView.Execution);
         Assert.Equal(accepted, ledger.TryClaim(second, 2, ClaimKind.Goal, mask));
     }

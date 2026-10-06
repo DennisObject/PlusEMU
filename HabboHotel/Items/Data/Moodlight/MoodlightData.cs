@@ -26,8 +26,7 @@ public class MoodlightData
     {
         var bits = data.Split(',');
 
-        if (!IsValidColor(bits[0]))
-        {
+        if (!IsValidColor(bits[0])) {
             bits[0] = "#000000";
         }
 
@@ -38,8 +37,7 @@ public class MoodlightData
     {
         i--;
 
-        if (Presets[i] != null)
-        {
+        if (Presets[i] != null) {
             return Presets[i];
         }
 
@@ -48,8 +46,7 @@ public class MoodlightData
 
     public static bool IsValidColor(string colorCode)
     {
-        switch (colorCode)
-        {
+        switch (colorCode) {
             case "#000000":
             case "#0053F7":
             case "#EA4532":
@@ -65,8 +62,7 @@ public class MoodlightData
 
     public static bool IsValidIntensity(int intensity)
     {
-        if (intensity < 0 || intensity > 255)
-        {
+        if (intensity < 0 || intensity > 255) {
             return false;
         }
 

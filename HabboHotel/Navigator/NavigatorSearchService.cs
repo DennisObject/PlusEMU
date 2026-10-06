@@ -22,20 +22,16 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
         var goBack = 1;
         var limit = 12;
 
-        if (!string.IsNullOrEmpty(query))
-        {
+        if (!string.IsNullOrEmpty(query)) {
             categories = navigator.TryGetSearchResultList(0, out var result) ? [result] : [];
         }
-        else
-        {
+        else {
             categories = navigator.GetCategoriessForSearch(category);
 
-            if (categories.Count == 0)
-            {
+            if (categories.Count == 0) {
                 categories = navigator.GetResultByIdentifier(category);
 
-                if (categories.Count > 0)
-                {
+                if (categories.Count > 0) {
                     goBack = 2;
                     limit = 100;
                 }
@@ -72,18 +68,15 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
 
     private IEnumerable<RoomData> Query(string query)
     {
-        if (query.StartsWith("owner:", StringComparison.OrdinalIgnoreCase))
-        {
+        if (query.StartsWith("owner:", StringComparison.OrdinalIgnoreCase)) {
             return Resolve(store.FindByOwnerName(query[6..]));
         }
 
-        if (query.StartsWith("tag:", StringComparison.OrdinalIgnoreCase))
-        {
+        if (query.StartsWith("tag:", StringComparison.OrdinalIgnoreCase)) {
             return rooms.SearchTaggedRooms(query[4..]).Select(room => room.Data);
         }
 
-        if (query.StartsWith("group:", StringComparison.OrdinalIgnoreCase))
-        {
+        if (query.StartsWith("group:", StringComparison.OrdinalIgnoreCase)) {
             return rooms.SearchGroupRooms(query[6..]).Select(room => room.Data);
         }
 
@@ -92,10 +85,8 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
 
     private IEnumerable<RoomData> Resolve(IEnumerable<uint> ids)
     {
-        foreach (var id in ids)
-        {
-            if (roomData.TryGetData(id, out var room))
-            {
+        foreach (var id in ids) {
+            if (roomData.TryGetData(id, out var room)) {
                 yield return room;
             }
         }

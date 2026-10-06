@@ -31,22 +31,19 @@ public static class WiredVariableFxSettings
         if (category < 0 || itemId <= 0 || p.Length != 16 || p[0] is not (0 or 1) || p[1] is < 0 or > 4
             || p[2] is < 0 or > 2 || p[3] is < 1500 or > 20000 || p[4] < 0 || p[4] >= Renderers[category].Length
             || p[5] is not (>= -1 and <= 11 or 1001 or 1002) || p[6] is < -1 or > 4 || p[7] is < 0 or > 100
-            || p[10] is not (0 or 1) || p[11] is not (0 or 1) || p[12] is not (0 or 1) || p[13] is not (0 or 1))
-        {
+            || p[10] is not (0 or 1) || p[11] is not (0 or 1) || p[12] is not (0 or 1) || p[13] is not (0 or 1)) {
             return false;
         }
 
         var target = p[0] == 0 ? WiredVariableTarget.User : WiredVariableTarget.Furni;
 
-        if (shownVariable.Target != target)
-        {
+        if (shownVariable.Target != target) {
             return false;
         }
 
         var tokens = configuration.Text.Split('\t');
 
-        if (tokens.Length > 4)
-        {
+        if (tokens.Length > 4) {
             return false;
         }
 
@@ -54,55 +51,45 @@ public static class WiredVariableFxSettings
         var maxToken = tokens.ElementAtOrDefault(1) ?? "";
         var audienceToken = tokens.ElementAtOrDefault(2) ?? "";
 
-        if (p[10] == 1 && minToken.Length == 0 || p[11] == 1 && maxToken.Length == 0 || p[1] >= 3 && audienceToken.Length == 0)
-        {
+        if (p[10] == 1 && minToken.Length == 0 || p[11] == 1 && maxToken.Length == 0 || p[1] >= 3 && audienceToken.Length == 0) {
             return false;
         }
 
         var extra = ImmutableSortedDictionary.CreateBuilder<string, string>(StringComparer.Ordinal);
 
-        if (p[7] > 0 && (Renderers[category][p[4]] is 1 or 2 or 3 or 4 or 13 || category == 2))
-        {
+        if (p[7] > 0 && (Renderers[category][p[4]] is 1 or 2 or 3 or 4 or 13 || category == 2)) {
             extra["segments"] = p[7].ToString(CultureInfo.InvariantCulture);
         }
 
-        if (category == 2)
-        {
-            if (p[15] is < -1 or > 4)
-            {
+        if (category == 2) {
+            if (p[15] is < -1 or > 4) {
                 return false;
             }
 
             extra["sub_renderer"] = p[15].ToString(CultureInfo.InvariantCulture);
         }
 
-        if (category == 3)
-        {
+        if (category == 3) {
             extra["icon"] = StatusIcons[p[4]];
 
-            if (StatusColors[p[4]] is { } color)
-            {
+            if (StatusColors[p[4]] is { } color) {
                 extra["color"] = color;
             }
 
             extra["metallic"] = p[4] is 8 or 9 or 17 or 20 ? "true" : "false";
         }
 
-        if (category == 4 && p[4] == 0)
-        {
+        if (category == 4 && p[4] == 0) {
             extra["icon"] = "misc_skull";
             extra["icon_alignment"] = "double";
         }
 
-        if (category == 5)
-        {
+        if (category == 5) {
             extra["design"] = new[] { "freeze_style", "shalimar", "blocky" }[p[4]];
             var icon = tokens.ElementAtOrDefault(3) ?? "";
 
-            if (icon.Length > 0)
-            {
-                if (!Icons.Contains(icon) || p[15] is < 0 or > 2)
-                {
+            if (icon.Length > 0) {
+                if (!Icons.Contains(icon) || p[15] is < 0 or > 2) {
                     return false;
                 }
 

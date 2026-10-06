@@ -233,21 +233,17 @@ public sealed class UserMaintenanceServiceTests
         var held = await gate.EnterAsync(7);
         Task<bool>? change = null;
 
-        try
-        {
+        try {
             change = service.GiveCurrency(7, "credits", 5);
             await Task.Delay(200);
             Assert.False(change.IsCompleted);
             Assert.Empty(store.Written);
         }
-        finally
-        {
+        finally {
             held.Dispose();
 
-            if (change != null)
-            {
-                try
-                {
+            if (change != null) {
+                try {
                     await change.WaitAsync(TimeSpan.FromSeconds(30));
                 }
                 catch (Exception) { }
@@ -317,8 +313,7 @@ public sealed class UserMaintenanceServiceTests
     {
         var bytes = new byte[values.Length * 4];
 
-        for (var index = 0; index < values.Length; index++)
-        {
+        for (var index = 0; index < values.Length; index++) {
             BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(index * 4), values[index]);
         }
 
@@ -398,26 +393,11 @@ public sealed class UserMaintenanceServiceTests
 
     private sealed class RecordingStore(Action? beforeWrite = null) : IUserMaintenanceStore
     {
-        public bool Throw
-        {
-            get; init;
-        }
-        public bool Missing
-        {
-            get; init;
-        }
-        public int? Read
-        {
-            get; set;
-        }
-        public string? Motto
-        {
-            get; set;
-        }
-        public int Reads
-        {
-            get; private set;
-        }
+        public bool Throw { get; init; }
+        public bool Missing { get; init; }
+        public int? Read { get; set; }
+        public string? Motto { get; set; }
+        public int Reads { get; private set; }
         public List<(UserCurrency Currency, int Value)> Written { get; } = [];
         public int? ReadCurrency(int userId, UserCurrency currency)
         {
@@ -429,13 +409,11 @@ public sealed class UserMaintenanceServiceTests
         {
             beforeWrite?.Invoke();
 
-            if (Throw)
-            {
+            if (Throw) {
                 throw new InvalidOperationException("forced failure");
             }
 
-            if (Missing)
-            {
+            if (Missing) {
                 return false;
             }
 

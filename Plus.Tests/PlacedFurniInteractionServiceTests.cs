@@ -104,8 +104,7 @@ public partial class PlacedFurniRoomTests
         _client.Packets.Clear();
         var service = new FurnitureUseService(null!, null!);
 
-        switch (action)
-        {
+        switch (action) {
             case "off":
                 service.TurnOffDice(_room, _client, item.Id);
                 break;

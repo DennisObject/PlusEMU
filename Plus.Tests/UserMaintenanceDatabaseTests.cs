@@ -17,8 +17,7 @@ public sealed class UserMaintenanceDatabaseTests
         var schema = "user_maintenance_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE users (id INT PRIMARY KEY, credits INT NOT NULL, activity_points INT NOT NULL, vip_points INT NOT NULL, gotw_points INT NOT NULL, motto VARCHAR(100) NULL);
@@ -49,8 +48,7 @@ public sealed class UserMaintenanceDatabaseTests
             Assert.Equal(2, connection.QuerySingle<int>("SELECT activity_points FROM users WHERE id = 10"));
             Assert.Equal(1, connection.QuerySingle<int>("SELECT credits FROM users WHERE id = 10"));
         }
-        finally
-        {
+        finally {
             connection.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }

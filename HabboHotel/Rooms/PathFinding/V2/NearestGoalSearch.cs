@@ -23,30 +23,25 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
         workspace.Parent[_first] = -1;
         workspace.HeapNode[_tail++] = _first;
 
-        if (_first != grid.SlotCapacity)
-        {
+        if (_first != grid.SlotCapacity) {
             Consider(_first);
         }
 
         var cap = settings.MaxExpansionsPerSearch ?? (_request.Actor.LegacyOverride ? grid.SlotCapacity : grid.ActiveNodeCount) + 1;
 
-        while (_head < _tail)
-        {
-            if (workspace.Expansions++ >= cap)
-            {
+        while (_head < _tail) {
+            if (workspace.Expansions++ >= cap) {
                 return PathOutcome.BudgetCancelled;
             }
 
             Expand(workspace.HeapNode[_head++]);
         }
 
-        if (_best < 0)
-        {
+        if (_best < 0) {
             return PathOutcome.Unreachable;
         }
 
-        if (_best == _first)
-        {
+        if (_best == _first) {
             return PathOutcome.AlreadyThere;
         }
 
@@ -57,22 +52,18 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
 
     private int StartSlot(in NavPosition start)
     {
-        if (!grid.InBounds(start.X, start.Y))
-        {
+        if (!grid.InBounds(start.X, start.Y)) {
             return grid.SlotCapacity;
         }
 
         var tile = grid.Tile(start.X, start.Y);
 
-        if (_request.Actor.LegacyOverride)
-        {
+        if (_request.Actor.LegacyOverride) {
             return tile;
         }
 
-        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++)
-        {
-            if (grid.WalkZ[grid.SurfaceAt(tile, ordinal)] == start.Z)
-            {
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++) {
+            if (grid.WalkZ[grid.SurfaceAt(tile, ordinal)] == start.Z) {
                 return grid.SurfaceAt(tile, ordinal);
             }
         }
@@ -84,31 +75,26 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
     {
         var from = current == grid.SlotCapacity ? _request.Start : grid.Position(current, _request.Actor.LegacyOverride);
 
-        foreach (var (dx, dy) in PathTieBreak.Neighbours)
-        {
-            if (!_request.Actor.DiagonalEnabled && dx != 0 && dy != 0)
-            {
+        foreach (var (dx, dy) in PathTieBreak.Neighbours) {
+            if (!_request.Actor.DiagonalEnabled && dx != 0 && dy != 0) {
                 continue;
             }
 
             var x = from.X + dx;
             var y = from.Y + dy;
 
-            if (!grid.InBounds(x, y))
-            {
+            if (!grid.InBounds(x, y)) {
                 continue;
             }
 
             var tile = grid.Tile(x, y);
 
-            if (_request.Actor.LegacyOverride)
-            {
+            if (_request.Actor.LegacyOverride) {
                 Visit(current, from, tile);
                 continue;
             }
 
-            for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++)
-            {
+            for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++) {
                 Visit(current, from, grid.SurfaceAt(tile, ordinal));
             }
         }
@@ -116,8 +102,7 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
 
     private void Visit(int current, in NavPosition from, int slot)
     {
-        if (_workspace.Stamp[slot] == _workspace.Generation)
-        {
+        if (_workspace.Stamp[slot] == _workspace.Generation) {
             return;
         }
 
@@ -126,8 +111,7 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
         _workspace.CanStepCalls++;
 
         if (!_rules.CanStep(_request.Actor, from, grid.Position(slot, legacy), purpose,
-            OccupancyView.Planning, _request.Occupancy).Ok)
-        {
+            OccupancyView.Planning, _request.Occupancy).Ok) {
             return;
         }
 
@@ -135,8 +119,7 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
         _workspace.Parent[slot] = current;
         Consider(slot);
 
-        if (purpose == StepPurpose.Transit)
-        {
+        if (purpose == StepPurpose.Transit) {
             _workspace.HeapNode[_tail++] = slot;
         }
     }
@@ -145,8 +128,7 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
     {
         var point = grid.Position(slot);
 
-        if (!GoalResolver.Resolve(grid, _request.Actor, point.X, point.Y, _request.Occupancy).Contains(slot))
-        {
+        if (!GoalResolver.Resolve(grid, _request.Actor, point.X, point.Y, _request.Occupancy).Contains(slot)) {
             return;
         }
 
@@ -155,8 +137,7 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
         var chebyshev = Math.Max(Math.Abs(dx), Math.Abs(dy));
         var distance = (chebyshev, (ulong)(dx * dx) + (ulong)(dy * dy));
 
-        if (distance.CompareTo(_distance) >= 0)
-        {
+        if (distance.CompareTo(_distance) >= 0) {
             return;
         }
 
@@ -171,8 +152,7 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
     {
         var count = 0;
 
-        for (var node = _best; node != _first; node = _workspace.Parent[node])
-        {
+        for (var node = _best; node != _first; node = _workspace.Parent[node]) {
             count++;
         }
 
@@ -180,8 +160,7 @@ internal sealed class NearestGoalSearch(NavGrid grid, PathfindingSettings settin
         route.Count = count;
         route.GridVersion = grid.Version;
 
-        for (var node = _best; node != _first; node = _workspace.Parent[node])
-        {
+        for (var node = _best; node != _first; node = _workspace.Parent[node]) {
             route.Set(--count, Reference(node));
         }
 

@@ -51,13 +51,11 @@ public sealed class RoomItemMetadataServiceTests
         var store = new RecordingStore(() => Assert.Equal(original, item.LegacyDataString)) { Fail = fail };
         var service = new RoomItemMetadataService(store, Figures());
 
-        if (fail)
-        {
+        if (fail) {
             Assert.Throws<InvalidOperationException>(() => service.SetMannequinFigure(client, item.Id));
             Assert.Equal(original, item.LegacyDataString);
         }
-        else
-        {
+        else {
             service.SetMannequinFigure(client, item.Id);
             Assert.Equal($"f{(char)5}ch-3.lg-4{(char)5}display name", item.LegacyDataString);
         }
@@ -222,14 +220,8 @@ public sealed class RoomItemMetadataServiceTests
 
     private sealed class RecordingStore(Action? beforeWrite = null) : IRoomItemMetadataStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
-        public int Writes
-        {
-            get; private set;
-        }
+        public bool Fail { get; init; }
+        public int Writes { get; private set; }
         public string? Data;
         public void SetMannequinData(uint itemId, uint roomId, string data)
         {
@@ -251,8 +243,7 @@ public sealed class RoomItemMetadataServiceTests
             beforeWrite?.Invoke();
             Writes++;
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
         }

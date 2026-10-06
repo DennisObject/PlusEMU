@@ -26,8 +26,7 @@ public class VoucherManager : IVoucherManager, IStartable
         var vouchers = await connection.QueryAsync<Voucher>("SELECT voucher AS Code, type, value, current_uses AS CurrentUses, max_uses AS MaxUses FROM catalog_vouchers WHERE enabled = TRUE");
         _vouchers.Clear();
 
-        foreach (var voucher in vouchers)
-        {
+        foreach (var voucher in vouchers) {
             _vouchers.Add(voucher.Code, voucher);
         }
     }

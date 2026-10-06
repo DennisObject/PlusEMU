@@ -41,8 +41,7 @@ public partial class PlacedFurniRoomTests
         var origin = ExecutorFloor(10, startX, 1);
         ExecutorFloor(11, startX + 1, 1);
 
-        if (superFast)
-        {
+        if (superFast) {
             ExecutorFloor(12, 2, 1);
         }
 
@@ -154,8 +153,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(actor.Freezed);
         Assert.False(actor.HasStatus("mv"));
 
-        for (var cycle = 1; cycle < 10; cycle++)
-        {
+        for (var cycle = 1; cycle < 10; cycle++) {
             ExecutorTick();
         }
 
@@ -317,17 +315,13 @@ public partial class PlacedFurniRoomTests
         IRewardTrackManager? rewards = null, IGroupManager? groups = null)
     {
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, new()
-        {
-            Engine = PathfindingEngine.V2
-        },
+        var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = PathfindingEngine.V2 },
             TestLogging.Navigation, groups ?? new TestGroupManager(id => _groupLookup(id)),
             database ?? _database, rewards ?? TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
 
-        foreach (var item in _room.GetRoomItemHandler().GetFloor)
-        {
+        foreach (var item in _room.GetRoomItemHandler().GetFloor) {
             navigation.Inputs.Attach(item);
         }
 
@@ -364,8 +358,7 @@ public partial class PlacedFurniRoomTests
         var body = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
         var count = body.ReadInt();
 
-        for (var i = 0; i < count; i++)
-        {
+        for (var i = 0; i < count; i++) {
             var id = body.ReadInt();
             var x = body.ReadInt();
             var y = body.ReadInt();
@@ -374,8 +367,7 @@ public partial class PlacedFurniRoomTests
             body.ReadInt();
             var status = body.ReadString();
 
-            if (id == actor.VirtualId)
-            {
+            if (id == actor.VirtualId) {
                 return (x, y, z, status);
             }
         }
@@ -411,10 +403,7 @@ public partial class PlacedFurniRoomTests
         public WiredBoxType Type => kind;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
         public bool Execute(params object[] arguments)

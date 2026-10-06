@@ -24,8 +24,7 @@ public sealed class PlayerProfileService(IGroupManager groupManager, IMessengerD
     {
         var target = clients.GetClientByUserId(userId)?.GetHabbo() ?? await users.GetUserDataByIdAsync(userId);
 
-        if (target == null)
-        {
+        if (target == null) {
             session.SendNotification("An error occurred whilst finding that user's profile.");
 
             return;

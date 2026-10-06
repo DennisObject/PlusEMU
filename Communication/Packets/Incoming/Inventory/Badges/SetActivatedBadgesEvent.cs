@@ -11,8 +11,7 @@ internal sealed class SetActivatedBadgesEvent(IBadgeEquipmentService badges) : I
     {
         var requested = ImmutableArray.CreateBuilder<BadgeSlotSnapshot>(5);
 
-        for (var index = 0; index < 5; index++)
-        {
+        for (var index = 0; index < 5; index++) {
             var slot = packet.ReadInt();
             requested.Add(new(packet.ReadString(), slot));
         }

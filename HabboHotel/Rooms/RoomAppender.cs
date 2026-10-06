@@ -32,54 +32,45 @@ internal static class RoomAppender
         packet.WriteInteger(data.Category);
         packet.WriteInteger(data.Tags.Length);
 
-        foreach (var tag in data.Tags)
-        {
+        foreach (var tag in data.Tags) {
             packet.WriteString(tag);
         }
 
         var roomType = 0;
 
-        if (data.Group != null)
-        {
+        if (data.Group != null) {
             roomType += 2;
         }
 
-        if (data.Promotion != null)
-        {
+        if (data.Promotion != null) {
             roomType += 4;
         }
 
-        if (data.IsPrivate)
-        {
+        if (data.IsPrivate) {
             roomType += 8;
         }
 
-        if (data.AllowPets)
-        {
+        if (data.AllowPets) {
             roomType += 16;
         }
 
-        if (data.FeaturedImage != null)
-        {
+        if (data.FeaturedImage != null) {
             roomType += 1;
         }
 
         packet.WriteInteger(roomType);
 
-        if (data.FeaturedImage != null)
-        {
+        if (data.FeaturedImage != null) {
             packet.WriteString(data.FeaturedImage);
         }
 
-        if (data.Group != null)
-        {
+        if (data.Group != null) {
             packet.WriteInteger(data.Group.Id);
             packet.WriteString(data.Group.Name);
             packet.WriteString(data.Group.Badge);
         }
 
-        if (data.Promotion != null)
-        {
+        if (data.Promotion != null) {
             packet.WriteString(data.Promotion.Name);
             packet.WriteString(data.Promotion.Description);
             packet.WriteInteger(data.Promotion.MinutesLeft);

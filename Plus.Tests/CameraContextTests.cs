@@ -18,8 +18,7 @@ public class CameraContextTests
     {
         var directory = Path.Combine(Path.GetTempPath(), "camera-context-" + Guid.NewGuid());
 
-        try
-        {
+        try {
             using var service = new CameraService(Options.Create(new CameraConfiguration { OutputDirectory = directory }),
                 null!, null!, null!, TimeProvider.System, NullLogger<CameraService>.Instance);
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
@@ -50,10 +49,8 @@ public class CameraContextTests
             Assert.False(result.Ok);
             Assert.False(called);
         }
-        finally
-        {
-            if (Directory.Exists(directory))
-            {
+        finally {
+            if (Directory.Exists(directory)) {
                 Directory.Delete(directory, true);
             }
         }

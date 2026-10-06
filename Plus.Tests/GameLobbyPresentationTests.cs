@@ -65,8 +65,7 @@ public sealed class GameLobbyPresentationTests
         var load = new LoadGameComposer(GameLoadSnapshot.Capture(source[0]), "ticket");
         source.Clear();
 
-        for (var index = 0; index < 2; index++)
-        {
+        for (var index = 0; index < 2; index++) {
             var listPacket = new HabbiconTestSupport.RecordingPacket();
             list.Compose(listPacket);
             Assert.Equal(new object[] { 1, 9, "game", "AA", "BB", "path/", "three" }, listPacket.Writes);
@@ -113,14 +112,8 @@ public sealed class GameLobbyPresentationTests
 
     private sealed class RecordingService : IGameLobbyService
     {
-        public bool ListRequested
-        {
-            get; private set;
-        }
-        public int GameId
-        {
-            get; private set;
-        }
+        public bool ListRequested { get; private set; }
+        public int GameId { get; private set; }
         public void ShowGames(GameClient session) => ListRequested = true;
         public void JoinQueue(GameClient session, int gameId) => GameId = gameId;
     }

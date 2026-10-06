@@ -12,12 +12,7 @@ internal sealed class CameraQuota(IDatabase database, ISettingsManager settings,
         int daily = Read(edit ? "camera.render.edit.daily" : "camera.render.daily");
         int cooldown = Read(edit ? "camera.render.edit.cooldown" : "camera.render.cooldown");
         var now = time.GetUtcNow();
-        var args = new
-        {
-            userId,
-            day = now.UtcDateTime.Date,
-            now = now.UtcDateTime
-        };
+        var args = new { userId, day = now.UtcDateTime.Date, now = now.UtcDateTime };
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
@@ -32,8 +27,7 @@ internal sealed class CameraQuota(IDatabase database, ISettingsManager settings,
         var lastThumbnail = today.LastThumbnailAt ?? latest?.LastThumbnailAt;
 
         if (count >= daily || (last.HasValue && now - last.Value < TimeSpan.FromSeconds(cooldown)) ||
-            (thumbnail && lastThumbnail.HasValue && now - lastThumbnail.Value < TimeSpan.FromSeconds(Read("camera.thumbnail.cooldown"))))
-        {
+            (thumbnail && lastThumbnail.HasValue && now - lastThumbnail.Value < TimeSpan.FromSeconds(Read("camera.thumbnail.cooldown")))) {
             return false;
         }
 
@@ -48,25 +42,10 @@ internal sealed class CameraQuota(IDatabase database, ISettingsManager settings,
     }
     private sealed class QuotaRow
     {
-        public int Captures
-        {
-            get; set;
-        }
-        public int Edits
-        {
-            get; set;
-        }
-        public DateTimeOffset? LastCaptureAt
-        {
-            get; set;
-        }
-        public DateTimeOffset? LastEditAt
-        {
-            get; set;
-        }
-        public DateTimeOffset? LastThumbnailAt
-        {
-            get; set;
-        }
+        public int Captures { get; set; }
+        public int Edits { get; set; }
+        public DateTimeOffset? LastCaptureAt { get; set; }
+        public DateTimeOffset? LastEditAt { get; set; }
+        public DateTimeOffset? LastThumbnailAt { get; set; }
     }
 }

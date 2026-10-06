@@ -13,24 +13,12 @@ internal class GameStartsBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.TriggerGameStarts;
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -41,12 +29,10 @@ internal class GameStartsBox : IWiredItem
     {
         var accepted = false;
 
-        foreach (var user in Instance.GetRoomUserManager().GetRoomUsers().ToList())
-        {
+        foreach (var user in Instance.GetRoomUserManager().GetRoomUsers().ToList()) {
             var player = user?.GetClient()?.GetHabbo();
 
-            if (player != null)
-            {
+            if (player != null) {
                 accepted |= Instance.GetWired().RunStack(this, player);
             }
         }

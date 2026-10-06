@@ -20,8 +20,7 @@ public sealed class CredentialUtcDatabaseTests
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET latin1");
 
-        try
-        {
+        try {
             builder.Database = schema;
             await using var connection = new MySqlConnection(builder.ConnectionString);
             await connection.OpenAsync();
@@ -38,8 +37,7 @@ public sealed class CredentialUtcDatabaseTests
             Assert.Equal(new DateTime(2040, 1, 1),
                 await connection.QuerySingleAsync<DateTime>("SELECT created_at FROM user_sessions WHERE id='s'"));
         }
-        finally
-        {
+        finally {
             await server.ExecuteAsync($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -49,12 +47,9 @@ public sealed class CredentialUtcDatabaseTests
     {
         var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
 
-        foreach (var sqlMode in new[] { "STRICT_ALL_TABLES", "" })
-        {
-            foreach (var tombstone in new[] { "access.revoked", "remember.used", "remember.revoked", "session.revoked" })
-            {
-                foreach (var invalid in new[] { 0m, -1m, 253402300800m })
-                {
+        foreach (var sqlMode in new[] { "STRICT_ALL_TABLES", "" }) {
+            foreach (var tombstone in new[] { "access.revoked", "remember.used", "remember.revoked", "session.revoked" }) {
+                foreach (var invalid in new[] { 0m, -1m, 253402300800m }) {
                     await VerifyFailedPreflight(root, sqlMode, tombstone, invalid);
                 }
             }
@@ -167,22 +162,14 @@ public sealed class CredentialUtcDatabaseTests
         await AssertTokenTimes(connection, "user_access_tokens", session.AccessToken.Value, now, TimeSpan.FromMinutes(10));
         await AssertTokenTimes(connection, "user_remember_tokens", session.RememberToken!.Value.Value, now, TimeSpan.FromDays(30));
 
-        if (assertSessionCreated)
-        {
+        if (assertSessionCreated) {
             var familyId = await connection.QuerySingleAsync<string>(
-                "SELECT family_id FROM user_remember_tokens WHERE token_hash=@hash", new
-                {
-                    hash = SecureToken.Hash(session.RememberToken.Value.Value)
-                });
+                "SELECT family_id FROM user_remember_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(session.RememberToken.Value.Value) });
             Assert.Equal(now, await connection.QuerySingleAsync<DateTimeOffset>(
-                "SELECT created_at FROM user_sessions WHERE id=@id", new
-                {
-                    id = familyId
-                }));
+                "SELECT created_at FROM user_sessions WHERE id=@id", new { id = familyId }));
         }
 
-        if (withTicket)
-        {
+        if (withTicket) {
             Assert.Equal(now.AddMinutes(1), session.SsoTicket.ExpiresAt);
             Assert.Equal(now.AddMinutes(1), await connection.QuerySingleAsync<DateTimeOffset>(
                 "SELECT auth_ticket_expires_at FROM users WHERE id=1"));
@@ -193,10 +180,7 @@ public sealed class CredentialUtcDatabaseTests
     {
         var row = await connection.QuerySingleAsync<TokenTimeRow>(
             $"SELECT created_at AS CreatedAt, expires_at AS ExpiresAt FROM `{table}` WHERE token_hash=@hash",
-            new
-            {
-                hash = SecureToken.Hash(token)
-            });
+            new { hash = SecureToken.Hash(token) });
         Assert.Equal(now, row.CreatedAt);
         Assert.Equal(now.Add(lifetime), row.ExpiresAt);
     }
@@ -213,10 +197,7 @@ public sealed class CredentialUtcDatabaseTests
                 "session.revoked" => "UPDATE user_sessions SET revoked_at=@invalid WHERE id='s'",
                 _ => throw new ArgumentOutOfRangeException(nameof(tombstone))
             };
-            await connection.ExecuteAsync(update, new
-            {
-                invalid
-            });
+            await connection.ExecuteAsync(update, new { invalid });
             var before = await Snapshot(connection);
 
             await Assert.ThrowsAnyAsync<MySqlException>(() => connection.ExecuteAsync(Migration));
@@ -276,18 +257,11 @@ public sealed class CredentialUtcDatabaseTests
             Assert.Equal(clock.Now.AddDays(30), remember.ExpiresAt);
             Assert.Equal(clock.Now.AddSeconds(60), ticket.ExpiresAt);
             Assert.Equal(clock.Now, await connection.QuerySingleAsync<DateTimeOffset>(
-                "SELECT created_at FROM user_access_tokens WHERE token_hash=@hash", new
-                {
-                    hash = SecureToken.Hash(access.Value)
-                }));
+                "SELECT created_at FROM user_access_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(access.Value) }));
             Assert.Equal(clock.Now, await connection.QuerySingleAsync<DateTimeOffset>(
                 "SELECT created_at FROM user_sessions WHERE id<>'s' ORDER BY created_at DESC LIMIT 1"));
             await connection.ExecuteAsync("UPDATE user_remember_tokens SET used_at=@future WHERE token_hash=@hash",
-                new
-                {
-                    future = clock.Now.AddDays(1).UtcDateTime,
-                    hash = SecureToken.Hash(remember.Value)
-                });
+                new { future = clock.Now.AddDays(1).UtcDateTime, hash = SecureToken.Hash(remember.Value) });
             Assert.Equal(RememberRotationStatus.Rotated, (await new RememberTokenStore(database, clock, options).Rotate(remember.Value)).Status);
             Assert.Null(await new AccessTokenStore(database, clock, options).FindOwner("unknown-access"));
             Assert.Equal(RememberRotationStatus.Invalid,
@@ -315,15 +289,13 @@ public sealed class CredentialUtcDatabaseTests
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET latin1");
 
-        try
-        {
+        try {
             builder.Database = schema;
             await using var connection = new MySqlConnection(builder.ConnectionString);
             await connection.OpenAsync();
             await action(builder, connection);
         }
-        finally
-        {
+        finally {
             await server.ExecuteAsync($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -335,8 +307,7 @@ public sealed class CredentialUtcDatabaseTests
     {
         var definitions = new List<string>();
 
-        foreach (var table in new[] { "users", "user_access_tokens", "user_remember_tokens", "user_sessions" })
-        {
+        foreach (var table in new[] { "users", "user_access_tokens", "user_remember_tokens", "user_sessions" }) {
             var row = await connection.QuerySingleAsync<dynamic>($"SHOW CREATE TABLE `{table}`");
             definitions.Add((string)((IDictionary<string, object>)row).Values.Last());
         }
@@ -362,44 +333,23 @@ public sealed class CredentialUtcDatabaseTests
 
     private sealed class TokenTimeRow
     {
-        public DateTimeOffset CreatedAt
-        {
-            get; set;
-        }
-        public DateTimeOffset ExpiresAt
-        {
-            get; set;
-        }
+        public DateTimeOffset CreatedAt { get; set; }
+        public DateTimeOffset ExpiresAt { get; set; }
     }
 
     private sealed record MutationSnapshot
     {
-        public int Sessions
-        {
-            get; set;
-        }
-        public int Access
-        {
-            get; set;
-        }
-        public int Remember
-        {
-            get; set;
-        }
+        public int Sessions { get; set; }
+        public int Access { get; set; }
+        public int Remember { get; set; }
         public string Address { get; set; } = "";
     }
 
     private sealed class AdvancingTime(DateTimeOffset start, TimeSpan step) : TimeProvider
     {
         private DateTimeOffset _next = start;
-        public int Reads
-        {
-            get; private set;
-        }
-        public DateTimeOffset LastUtc
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
+        public DateTimeOffset LastUtc { get; private set; }
 
         public override DateTimeOffset GetUtcNow()
         {

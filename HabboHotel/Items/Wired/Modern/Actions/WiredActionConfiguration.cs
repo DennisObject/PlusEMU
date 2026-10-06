@@ -8,23 +8,19 @@ public static class WiredActionConfiguration
     // Raw current-editor fields; the concrete box validates and decodes named roles before publication.
     public static WiredConfiguration Defaults(string name)
     {
-        if (name == "wf_act_give_reward")
-        {
+        if (name == "wf_act_give_reward") {
             return WiredRewards.Defaults();
         }
 
-        if (WiredTemporaryFurnitureActions.Supports(name))
-        {
+        if (WiredTemporaryFurnitureActions.Supports(name)) {
             return WiredTemporaryFurnitureActions.Defaults(name);
         }
 
-        if (name == "wf_act_teleport_to_room")
-        {
+        if (name == "wf_act_teleport_to_room") {
             return WiredRoomForwarding.Defaults();
         }
 
-        if (WiredBotActions.Names.Contains(name))
-        {
+        if (WiredBotActions.Names.Contains(name)) {
             return WiredBotActions.Defaults(name);
         }
 
@@ -63,10 +59,6 @@ public static class WiredActionConfiguration
             _ => throw new ArgumentException("Unknown action.", nameof(name))
         };
 
-        return new()
-        {
-            IntParams = parameters,
-            Text = name == "wf_act_set_altitude" ? "0" : ""
-        };
+        return new() { IntParams = parameters, Text = name == "wf_act_set_altitude" ? "0" : "" };
     }
 }

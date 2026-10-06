@@ -16,8 +16,7 @@ public readonly record struct WiredRoomEntrySnapshot(WiredRoomEntryMethod Method
         player.WiredRoomNetworkDestination = 0;
         var id = player.IsTeleporting ? player.TeleporterId : player.IsHopping ? player.HopperId : 0;
 
-        if (id != 0 && room.GetRoomItemHandler().GetItem(id) is { } destination)
-        {
+        if (id != 0 && room.GetRoomItemHandler().GetItem(id) is { } destination) {
             return new(WiredRoomEntryMethod.Teleport, destination.Id);
         }
 

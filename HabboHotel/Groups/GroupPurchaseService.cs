@@ -48,16 +48,13 @@ public sealed class GroupPurchaseService(
         var habbo = session.GetHabbo();
         using var account = await accounts.EnterAsync(habbo.Id);
 
-        lock (habbo.WalletSync)
-        {
+        lock (habbo.WalletSync) {
             if (habbo.WalletClosed || ClubAccess.LevelFor(habbo.Access) == 0 ||
-                !TryPrepare(request, habbo.Id, out var prepared, out var room, out var cost))
-            {
+                !TryPrepare(request, habbo.Id, out var prepared, out var room, out var cost)) {
                 return;
             }
 
-            if (habbo.Credits < cost)
-            {
+            if (habbo.Credits < cost) {
                 session.Send(new BroadcastMessageAlertComposer(
                     $"A group costs {cost} credits! You only have {habbo.Credits}!"));
 
@@ -66,18 +63,15 @@ public sealed class GroupPurchaseService(
 
             Group group;
 
-            try
-            {
+            try {
                 if (!groups.TryCreateGroup(habbo, prepared.Name, prepared.Description, request.RoomId,
-                        prepared.Badge, request.MainColour, request.SecondaryColour, out group))
-                {
+                        prepared.Badge, request.MainColour, request.SecondaryColour, out group)) {
                     session.SendNotification(FailureMessage);
 
                     return;
                 }
             }
-            catch (Exception exception)
-            {
+            catch (Exception exception) {
                 logger.LogError(exception, "Failed to create group for user {UserId} in room {RoomId}",
                     habbo.Id, request.RoomId);
                 session.SendNotification(FailureMessage);
@@ -91,8 +85,7 @@ public sealed class GroupPurchaseService(
             room.GroupId = group.Id;
             room.Group = group;
 
-            if (habbo.CurrentRoom?.Data != room)
-            {
+            if (habbo.CurrentRoom?.Data != room) {
                 session.Send(new RoomForwardComposer(room.Id));
             }
 
@@ -111,8 +104,7 @@ public sealed class GroupPurchaseService(
             room.GroupId != 0 || room.Group != null ||
             !int.TryParse(settings.TryGetValue("catalog.group.purchase.cost"), NumberStyles.Integer,
                 CultureInfo.InvariantCulture, out cost) || cost < 0 ||
-            !TryBuildBadge(request.BadgeParts, out var badge))
-        {
+            !TryBuildBadge(request.BadgeParts, out var badge)) {
             return false;
         }
 
@@ -128,13 +120,11 @@ public sealed class GroupPurchaseService(
     {
         badge = string.Empty;
 
-        if (parts.IsDefaultOrEmpty || parts.Length > 5)
-        {
+        if (parts.IsDefaultOrEmpty || parts.Length > 5) {
             return false;
         }
 
-        for (var index = 0; index < parts.Length; index++)
-        {
+        for (var index = 0; index < parts.Length; index++) {
             var part = parts[index];
             badge += BadgePartUtility.WorkBadgeParts(index == 0,
                 part.Symbol.ToString(CultureInfo.InvariantCulture),

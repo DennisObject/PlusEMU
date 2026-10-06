@@ -24,8 +24,7 @@ public sealed class GameLoopTests
         var game = Create(() => { entered.TrySetResult(); release.Task.GetAwaiter().GetResult(); });
         game.StartGameLoop();
 
-        try
-        {
+        try {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Throws<InvalidOperationException>(game.StartGameLoop);
             var stopping = Task.Run(game.StopGameLoop);
@@ -35,8 +34,7 @@ public sealed class GameLoopTests
             game.StartGameLoop();
             await Task.Run(game.StopGameLoop).WaitAsync(TimeSpan.FromSeconds(5));
         }
-        finally
-        {
+        finally {
             release.TrySetResult();
             game.StopGameLoop();
         }
@@ -68,8 +66,7 @@ public sealed class GameLoopTests
         public Action Cycle { get; set; } = () => { };
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method?.Name != "OnCycle")
-            {
+            if (method?.Name != "OnCycle") {
                 throw new NotSupportedException(method?.Name);
             }
 

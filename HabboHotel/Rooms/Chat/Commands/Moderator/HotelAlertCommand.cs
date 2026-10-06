@@ -19,8 +19,7 @@ internal class HotelAlertCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!parameters.Any())
-        {
+        if (!parameters.Any()) {
             session.SendWhisper("Please enter a message to send.");
 
             return;

@@ -26,8 +26,7 @@ public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot sna
         var globals = _captured.Assignments.Where(x => x.Key.Target == WiredVariableTarget.Global).ToArray();
         packet.WriteInteger(globals.Length);
 
-        foreach (var value in globals)
-        {
+        foreach (var value in globals) {
             WriteAssignment(value);
         }
 
@@ -35,18 +34,11 @@ public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot sna
         var connectors = _captured.Definitions.Where(x => x.TextConnector.Count > 0).Select(x => new
         {
             itemId = x.Definition.ItemId,
-            variableType = x.Definition.Target switch
-            {
-                WiredVariableTarget.Furni => 0,
-                WiredVariableTarget.Global => 1,
-                WiredVariableTarget.User => 2,
-                _ => 3
-            },
+            variableType = x.Definition.Target switch { WiredVariableTarget.Furni => 0, WiredVariableTarget.Global => 1, WiredVariableTarget.User => 2, _ => 3 },
             textConnector = x.TextConnector.OrderBy(x => x.Key).Select(x => new { key = x.Key, value = x.Value }).ToArray()
         }).ToArray();
 
-        if (connectors.Length > 0)
-        {
+        if (connectors.Length > 0) {
             packet.WriteString(JsonSerializer.Serialize(connectors));
         }
 
@@ -55,8 +47,7 @@ public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot sna
             var selected = _captured.Definitions.Where(x => x.Definition.Target == target).ToArray();
             packet.WriteInteger(selected.Length);
 
-            foreach (var variable in selected)
-            {
+            foreach (var variable in selected) {
                 packet.WriteUInteger(variable.Definition.ItemId);
                 packet.WriteString(variable.Definition.Name);
                 packet.WriteBoolean(variable.HasValue);
@@ -70,13 +61,11 @@ public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot sna
             var groups = _captured.Assignments.Where(x => x.Key.Target == target).GroupBy(x => x.Key.HolderId).OrderBy(x => x.Key).ToArray();
             packet.WriteInteger(groups.Length);
 
-            foreach (var group in groups)
-            {
+            foreach (var group in groups) {
                 packet.WriteInteger(checked((int)group.Key));
                 packet.WriteInteger(group.Count());
 
-                foreach (var value in group.OrderBy(x => x.Key.DefinitionId))
-                {
+                foreach (var value in group.OrderBy(x => x.Key.DefinitionId)) {
                     WriteAssignment(value);
                 }
             }

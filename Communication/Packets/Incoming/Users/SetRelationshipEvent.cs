@@ -7,8 +7,7 @@ internal sealed class SetRelationshipEvent(IMessengerSocialMutationService socia
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (packet.Buffer.Length < 8)
-        {
+        if (packet.Buffer.Length < 8) {
             return Task.CompletedTask;
         }
 

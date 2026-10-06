@@ -63,8 +63,7 @@ public class AccessWireSnapshotTests
         unseen.Clear();
         tiles.Clear();
 
-        for (var index = 0; index < composers.Length; index++)
-        {
+        for (var index = 0; index < composers.Length; index++) {
             Assert.Equal(expected[index], Write(composers[index]));
             Assert.Equal(expected[index], Write(composers[index]));
         }
@@ -121,10 +120,7 @@ public class AccessWireSnapshotTests
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = new(2040, 1, 2, 3, 4, 5, TimeSpan.Zero);
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

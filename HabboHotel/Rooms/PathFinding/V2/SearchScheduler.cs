@@ -20,8 +20,7 @@ public sealed class SearchScheduler<TActor> where TActor : class
 
     public void Remove(TActor actor)
     {
-        if (_actors.Remove(actor, out var node))
-        {
+        if (_actors.Remove(actor, out var node)) {
             _jobs.Remove(node);
         }
     }
@@ -36,21 +35,18 @@ public sealed class SearchScheduler<TActor> where TActor : class
     {
         var spent = 0;
 
-        while (spent < budget && _jobs.First is { } node)
-        {
+        while (spent < budget && _jobs.First is { } node) {
             var job = node.Value;
             Remove(job.Actor);
 
-            if (!isCurrent(job))
-            {
+            if (!isCurrent(job)) {
                 continue;
             }
 
             var result = search(job);
             spent += result.Expansions;
 
-            if (isCurrent(job))
-            {
+            if (isCurrent(job)) {
                 onResult(job, result);
             }
         }

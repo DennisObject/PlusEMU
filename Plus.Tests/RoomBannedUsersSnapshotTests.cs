@@ -54,10 +54,7 @@ public sealed class RoomBannedUsersSnapshotTests
     }
     private sealed class Store : IRoomBanStore
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public IEnumerable<RoomBan> Load(uint roomId) => [];
         public IEnumerable<int> ActiveUserIds(uint roomId)
         {

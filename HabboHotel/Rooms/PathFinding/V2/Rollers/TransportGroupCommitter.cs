@@ -16,10 +16,8 @@ internal sealed class TransportGroupCommitter(Room room, RollerTransport transpo
 
         // Final validation and the positional commit see one placement state; no concurrent move or
         // rotation can land between them.
-        lock (room.GetGameMap().PlacementSync)
-        {
-            if (!validator.IsValid(group) || !transport.Reserve(group))
-            {
+        lock (room.GetGameMap().PlacementSync) {
+            if (!validator.IsValid(group) || !transport.Reserve(group)) {
                 return false;
             }
 
@@ -31,8 +29,7 @@ internal sealed class TransportGroupCommitter(Room room, RollerTransport transpo
         items.SettleFloorMoves(furniture);
         room.SendPacket(ordered.Select(move => move.Slide).ToList());
 
-        foreach (var move in actors.Where(StillLanded))
-        {
+        foreach (var move in actors.Where(StillLanded)) {
             transport.Land(move);
         }
 

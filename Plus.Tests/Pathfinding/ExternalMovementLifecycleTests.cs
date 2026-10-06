@@ -57,8 +57,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         var revision = actor.Movement.LocationRevision;
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Assert.True(WiredRoomOperations.RelocateAvatar(_room, actor, 2, 2, slide: false));
         }
 
@@ -241,8 +240,7 @@ public partial class PlacedFurniRoomTests
         long afterPlacement = -1;
         ExecutorObserveLanding((user, item) =>
         {
-            if (item != landing)
-            {
+            if (item != landing) {
                 return;
             }
 

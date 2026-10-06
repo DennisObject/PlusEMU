@@ -19,8 +19,7 @@ public class ModeratorRoomInfoComposer(ModeratorRoomInfoSnapshot snapshot) : ISe
         packet.WriteString(snapshot.Description);
         packet.WriteInteger(snapshot.Tags.Length);
 
-        foreach (var tag in snapshot.Tags)
-        {
+        foreach (var tag in snapshot.Tags) {
             packet.WriteString(tag);
         }
 

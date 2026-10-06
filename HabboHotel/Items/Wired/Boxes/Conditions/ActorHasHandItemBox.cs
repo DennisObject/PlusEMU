@@ -14,24 +14,12 @@ internal class ActorHasHandItemBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
     public WiredBoxType Type => WiredBoxType.ConditionActorHasHandItemBox;
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -43,27 +31,23 @@ internal class ActorHasHandItemBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0 || Instance == null || string.IsNullOrEmpty(StringData))
-        {
+        if (@params.Length == 0 || Instance == null || string.IsNullOrEmpty(StringData)) {
             return false;
         }
 
         var player = (Habbo)@params[0];
 
-        if (player == null)
-        {
+        if (player == null) {
             return false;
         }
 
         var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return false;
         }
 
-        if (user.CarryItemId != int.Parse(StringData))
-        {
+        if (user.CarryItemId != int.Parse(StringData)) {
             return false;
         }
 

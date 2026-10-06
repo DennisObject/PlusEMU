@@ -10,17 +10,13 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
 {
     public WiredModernTrigger(Room room, Item item, WiredBoxDescriptor descriptor) : base(room, item, descriptor)
     {
-        if (!WiredTriggerConfiguration.Events.TryGetValue(descriptor.CanonicalName, out var kind))
-        {
+        if (!WiredTriggerConfiguration.Events.TryGetValue(descriptor.CanonicalName, out var kind)) {
             throw new ArgumentException("Unknown trigger.", nameof(descriptor));
         }
 
         Events = [kind];
     }
-    public IReadOnlyCollection<WiredEventKind> Events
-    {
-        get;
-    }
+    public IReadOnlyCollection<WiredEventKind> Events { get; }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error) =>
         WiredTriggerConfiguration.TryValidate(Descriptor.CanonicalName, proposed, out validated, out error);
     public bool HidesChat(WiredRuntimeContext context) => Descriptor.CanonicalName == "wf_trg_says_something"
@@ -28,15 +24,13 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
 
     public override bool Execute(WiredRuntimeContext context)
     {
-        if (!Events.Contains(context.Event.Kind))
-        {
+        if (!Events.Contains(context.Event.Kind)) {
             return false;
         }
 
         var config = context.ConfigurationOf(this);
 
-        if (!TryValidateConfiguration(config, out config, out _))
-        {
+        if (!TryValidateConfiguration(config, out config, out _)) {
             return false;
         }
 
@@ -84,24 +78,19 @@ public sealed class WiredModernTimedTrigger : WiredModernTrigger, IWiredTimedTri
     private long _epoch;
     public WiredModernTimedTrigger(Room room, Item item, WiredBoxDescriptor descriptor) : base(room, item, descriptor)
     {
-        if (!WiredTriggerConfiguration.IsTimed(descriptor.CanonicalName))
-        {
+        if (!WiredTriggerConfiguration.IsTimed(descriptor.CanonicalName)) {
             throw new ArgumentException("Not a timed trigger.", nameof(descriptor));
         }
     }
     public WiredRuntimeEvent? Poll(long nowMilliseconds)
     {
-        if (!TryValidateConfiguration(Configuration, out var config, out _))
-        {
+        if (!TryValidateConfiguration(Configuration, out var config, out _)) {
             return null;
         }
 
         return _timers.TryFire(Descriptor.CanonicalName, Item.Id, config, nowMilliseconds,
             Math.Max(0, nowMilliseconds - _started), _epoch)
-            ? new(Events.Single())
-            {
-                EventItem = Item
-            } : null;
+            ? new(Events.Single()) { EventItem = Item } : null;
     }
     public void Reset(long nowMilliseconds)
     {

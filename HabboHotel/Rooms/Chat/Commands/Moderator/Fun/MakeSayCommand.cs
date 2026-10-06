@@ -16,29 +16,23 @@ internal class MakeSayCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!session.GetHabbo().Access.Outranks(target.Access))
-        {
+        if (!session.GetHabbo().Access.Outranks(target.Access)) {
             return Task.CompletedTask;
         }
 
-        if (!parameters.Any())
-        {
+        if (!parameters.Any()) {
             session.SendWhisper("You must enter a username and the message you wish to force them to say.");
         }
-        else
-        {
+        else {
             var message = CommandManager.MergeParams(parameters);
             var targetUser = session.GetHabbo().CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(target.Id);
 
-            if (targetUser != null)
-            {
-                if (targetUser.GetClient() != null && targetUser.GetClient().GetHabbo() != null)
-                {
+            if (targetUser != null) {
+                if (targetUser.GetClient() != null && targetUser.GetClient().GetHabbo() != null) {
                     room.SendPacket(new ChatComposer(targetUser.VirtualId, message, 0, targetUser.LastBubble));
                 }
             }
-            else
-            {
+            else {
                 session.SendWhisper("This user could not be found in the room");
             }
         }

@@ -23,8 +23,7 @@ public sealed class RoomEventSnapshotTests
         room.Id = 99;
         room.OwnerName = "Changed";
 
-        if (promotion != null)
-        {
+        if (promotion != null) {
             promotion.Name = "Changed";
             promotion.Description = "Changed";
         }

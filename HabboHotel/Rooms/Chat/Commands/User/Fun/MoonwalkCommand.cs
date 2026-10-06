@@ -14,19 +14,16 @@ internal class MoonwalkCommand : IChatCommand
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
         user.MoonwalkEnabled = !user.MoonwalkEnabled;
 
-        if (user.MoonwalkEnabled)
-        {
+        if (user.MoonwalkEnabled) {
             session.SendWhisper("Moonwalk enabled!");
         }
-        else
-        {
+        else {
             session.SendWhisper("Moonwalk disabled!");
         }
     }

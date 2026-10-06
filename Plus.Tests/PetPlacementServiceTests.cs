@@ -20,8 +20,7 @@ public sealed class PetPlacementDatabaseFactAttribute : FactAttribute
 {
     public PetPlacementDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null)
-        {
+        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null) {
             Skip = "Opt-in isolated pet placement MariaDB probe.";
         }
     }
@@ -139,8 +138,7 @@ public sealed class PetPlacementServiceTests
         world.Packets.Clear();
         world.Store.BeforeMove = move =>
         {
-            if (move.RoomId != 0)
-            {
+            if (move.RoomId != 0) {
                 return;
             }
 
@@ -170,8 +168,7 @@ public sealed class PetPlacementServiceTests
         var schema = "task_refactor_tests_pets_" + Guid.NewGuid().ToString("N");
         root.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var builder = new MySqlConnectionStringBuilder(rootBuilder.ConnectionString) { Database = schema };
             using var connection = new MySqlConnection(builder.ConnectionString);
             connection.Open();
@@ -199,8 +196,7 @@ public sealed class PetPlacementServiceTests
             Assert.False(store.TryMove(new(12, 99, 42, 0, 0, 0, 0, 10, 20, 30, 40)));
             Assert.Equal(42u, connection.ExecuteScalar<uint>("SELECT room_id FROM bots WHERE id = 12"));
         }
-        finally
-        {
+        finally {
             root.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -274,14 +270,8 @@ public sealed class PetPlacementServiceTests
 
     private sealed class RecordingService : IPetPlacementService
     {
-        public (Room Room, int PetId, int X, int Y)? Placed
-        {
-            get; private set;
-        }
-        public (Room Room, int PetId)? PickedUp
-        {
-            get; private set;
-        }
+        public (Room Room, int PetId, int X, int Y)? Placed { get; private set; }
+        public (Room Room, int PetId)? PickedUp { get; private set; }
         public void Place(Room room, GameClient session, int petId, int x, int y) => Placed = (room, petId, x, y);
         public void PickUp(Room room, GameClient session, int petId) => PickedUp = (room, petId);
     }
@@ -289,10 +279,7 @@ public sealed class PetPlacementServiceTests
     private sealed class RecordingStore : IPetRoomStore
     {
         public bool Result { get; set; } = true;
-        public Action<PetRoomMove>? BeforeMove
-        {
-            get; set;
-        }
+        public Action<PetRoomMove>? BeforeMove { get; set; }
         public List<PetRoomMove> Moves { get; } = [];
         public bool TryMove(PetRoomMove move)
         {

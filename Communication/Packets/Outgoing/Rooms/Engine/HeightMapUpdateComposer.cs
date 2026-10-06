@@ -12,8 +12,7 @@ public class HeightMapUpdateComposer(IReadOnlyList<HeightMapUpdateComposer.Tile>
     {
         packet.WriteByte((byte)_captured.Count);
 
-        foreach (var tile in _captured)
-        {
+        foreach (var tile in _captured) {
             packet.WriteByte((byte)tile.X);
             packet.WriteByte((byte)tile.Y);
             packet.WriteShort(tile.Value);

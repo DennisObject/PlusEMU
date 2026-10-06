@@ -31,8 +31,7 @@ public class RoomBroadcastTests
         };
         fixture.Clients[^1].Revision = changedRevision;
 
-        foreach (var client in fixture.Clients)
-        {
+        foreach (var client in fixture.Clients) {
             client.SendCallback = args => { received.Add(args.MemoryBuffer); return true; };
         }
 
@@ -45,8 +44,7 @@ public class RoomBroadcastTests
         Assert.Equal(2, composer.Count);
         Assert.Equal(500, received.Count);
 
-        foreach (var buffer in received.Take(499))
-        {
+        foreach (var buffer in received.Take(499)) {
             Assert.Equal(expected, buffer.ToArray());
         }
 
@@ -83,8 +81,7 @@ public class RoomBroadcastTests
         };
         var received = new List<byte[]>();
 
-        foreach (var client in clients)
-        {
+        foreach (var client in clients) {
             client.Revision = revision;
             client.SendCallback = args => { received.Add(args.MemoryBuffer.ToArray()); return false; };
         }
@@ -106,8 +103,7 @@ public class RoomBroadcastTests
         client.Send(composer);
         var expected = pending.ToArray();
 
-        for (var i = 0; i < 10; i++)
-        {
+        for (var i = 0; i < 10; i++) {
             using var stream = PlusMemoryStream.GetStream();
             stream.Write(new byte[expected.Length]);
         }
@@ -198,8 +194,7 @@ public class RoomBroadcastTests
     {
         var fixture = RoomPerformanceFixture.Create(500, 1);
 
-        foreach (var user in fixture.Users)
-        {
+        foreach (var user in fixture.Users) {
             user.UpdateNeeded = false;
         }
 
@@ -224,10 +219,8 @@ public class RoomBroadcastTests
         Assert.All(fixture.Bots, bot => Assert.Equal(2, bot.X));
         Assert.Equal(500, fixture.Map.GetRoomUsers(new(2, 1)).Count);
 
-        for (var x = 0; x < 4; x++)
-        {
-            for (var y = 0; y < 4; y++)
-            {
+        for (var x = 0; x < 4; x++) {
+            for (var y = 0; y < 4; y++) {
                 Assert.Equal(initial[x, y], fixture.Map.GameMap[x, y]);
             }
         }
@@ -280,10 +273,7 @@ public class RoomBroadcastTests
     private sealed class CountingPacket(IServerPacket inner) : IServerPacket
     {
         public uint MessageId => inner.MessageId;
-        public int Count
-        {
-            get; set;
-        }
+        public int Count { get; set; }
         public void Compose(IOutgoingPacket packet)
         {
             Count++;

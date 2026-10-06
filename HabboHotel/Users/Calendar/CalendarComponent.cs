@@ -24,13 +24,11 @@ public sealed class CalendarComponent
     /// <param name="player"></param>
     public bool Init(Habbo player)
     {
-        if (_lateBoxes.Count > 0)
-        {
+        if (_lateBoxes.Count > 0) {
             _lateBoxes.Clear();
         }
 
-        if (_openedBoxes.Count > 0)
-        {
+        if (_openedBoxes.Count > 0) {
             _openedBoxes.Clear();
         }
 

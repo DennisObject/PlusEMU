@@ -3,10 +3,7 @@ namespace Plus.HabboHotel.Items.DataFormat;
 public abstract class FurniObjectData : IFurniObjectData
 {
     public static FurniObjectData Empty = new EmptyDataFormat();
-    public abstract FurniDataStructure StructureType
-    {
-        get;
-    }
+    public abstract FurniDataStructure StructureType { get; }
     public abstract string Serialize();
     public abstract void Store(string data);
     public event EventHandler<EventArgs>? DataUpdated;

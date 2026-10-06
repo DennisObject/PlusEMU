@@ -9,13 +9,11 @@ internal class DropHandItemEvent : RoomPacketEvent
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return Task.CompletedTask;
         }
 
-        if (user.CarryItemId > 0 && user.CarryTimer > 0)
-        {
+        if (user.CarryItemId > 0 && user.CarryTimer > 0) {
             user.CarryItem(0);
         }
 

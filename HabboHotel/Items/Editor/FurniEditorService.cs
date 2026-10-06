@@ -100,32 +100,27 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorResult Update(Habbo actor, uint id, string json)
     {
-        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
-        {
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true) {
             return Denied(id);
         }
 
-        lock (_sync)
-        {
+        lock (_sync) {
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
             var repository = new FurniEditorRepository(connection, transaction);
 
-            if (repository.Item(id) is not { } current)
-            {
+            if (repository.Item(id) is not { } current) {
                 return NotFound(id);
             }
 
             var (changes, error) = FurniEditorUpdatePayload.Validate(json, current, KnownInteraction);
 
-            if (error != null)
-            {
+            if (error != null) {
                 return new(false, error, id);
             }
 
-            if (changes.Count == 0)
-            {
+            if (changes.Count == 0) {
                 return new(true, "No changes", id);
             }
 
@@ -143,26 +138,22 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorResult Delete(Habbo actor, uint id)
     {
-        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniDelete))
-        {
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniDelete)) {
             return Denied(id);
         }
 
-        lock (_sync)
-        {
+        lock (_sync) {
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
             var repository = new FurniEditorRepository(connection, transaction);
 
             // The row lock makes a concurrent catalog save that uses this furniture wait, then see it gone.
-            if (repository.Item(id, forUpdate: true) is not { } current)
-            {
+            if (repository.Item(id, forUpdate: true) is not { } current) {
                 return NotFound(id);
             }
 
-            if (repository.References(id) is { Count: > 0 } references)
-            {
+            if (repository.References(id) is { Count: > 0 } references) {
                 return new(false, $"Cannot delete: still used by {string.Join(", ", references)}", id);
             }
 
@@ -179,20 +170,17 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorResult UpdateFurnidata(Habbo actor, uint id, string json)
     {
-        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniEdit))
-        {
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniEdit)) {
             return Denied(id);
         }
 
-        if (!TakeFurnidataTurn(actor))
-        {
+        if (!TakeFurnidataTurn(actor)) {
             return new(false, "Too many requests", id);
         }
 
         var (payload, error) = FurnidataEditPayload.Parse(json);
 
-        if (payload == null)
-        {
+        if (payload == null) {
             return new(false, error!, id);
         }
 
@@ -202,13 +190,11 @@ public sealed class FurniEditorService : IFurniEditorService
 
     public FurniEditorResult RevertFurnidata(Habbo actor, uint id)
     {
-        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniEdit))
-        {
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true || !actor.Access.Can(PermissionKeys.FurniEdit)) {
             return Denied(id);
         }
 
-        if (!TakeFurnidataTurn(actor))
-        {
+        if (!TakeFurnidataTurn(actor)) {
             return new(false, "Too many requests", id);
         }
 
@@ -227,15 +213,13 @@ public sealed class FurniEditorService : IFurniEditorService
     {
         RequireEditor(actor, id);
 
-        if (!_importer.IsConfigured)
-        {
+        if (!_importer.IsConfigured) {
             throw new FurniEditorRejected("Import from Habbo is not configured", id);
         }
 
         string classname;
 
-        using (var connection = _database.Connection())
-        {
+        using (var connection = _database.Connection()) {
             classname = new FurniEditorRepository(connection).Item(id)?.ItemName ?? throw new FurniEditorRejected($"Item not found: {id}", id);
         }
 
@@ -248,45 +232,37 @@ public sealed class FurniEditorService : IFurniEditorService
     {
         FurnidataEdit edit;
 
-        lock (_sync)
-        {
+        lock (_sync) {
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
             var repository = new FurniEditorRepository(connection, transaction);
 
-            if (repository.Item(id) is not { } item)
-            {
+            if (repository.Item(id) is not { } item) {
                 return NotFound(id);
             }
 
             int? revertedLogId;
 
-            try
-            {
+            try {
                 (edit, revertedLogId) = write(repository, item);
             }
-            catch (FurnidataException e)
-            {
+            catch (FurnidataException e) {
                 return new(false, e.Message, id);
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
-            {
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) {
                 // IO messages carry server paths; the log keeps them, the editor gets a plain sentence.
                 _logger.LogError(e, "Furni editor: furnidata write for furniture #{Id} failed", id);
 
                 return new(false, "The furnidata file could not be written", id);
             }
 
-            if (!edit.Changed && revertedLogId == null)
-            {
+            if (!edit.Changed && revertedLogId == null) {
                 return new(true, "No changes", id);
             }
 
-            try
-            {
-                if (revertedLogId is { } logId)
-                {
+            try {
+                if (revertedLogId is { } logId) {
                     repository.MarkReverted(logId);
                 }
 
@@ -294,17 +270,14 @@ public sealed class FurniEditorService : IFurniEditorService
                     edit.Id, edit.IsWallItem ? FurniEditorRepository.WallSection : FurniEditorRepository.FloorSection);
                 var name = edit.Name.Length > 56 ? edit.Name[..56] : edit.Name;
 
-                if (name != item.PublicName && TextChanged(edit))
-                {
+                if (name != item.PublicName && TextChanged(edit)) {
                     repository.SetPublicName(id, name);
                 }
 
                 transaction.Commit();
             }
-            catch
-            {
-                if (edit.Changed)
-                {
+            catch {
+                if (edit.Changed) {
                     _furnidata.Restore(new FurnidataTarget(edit.Classname, edit.Id, edit.IsWallItem), edit.After, edit.Before);
                 }
 
@@ -323,20 +296,16 @@ public sealed class FurniEditorService : IFurniEditorService
 
     private static void Apply(JsonObject entry, FurnidataEditPayload payload)
     {
-        if (payload.Name != null)
-        {
+        if (payload.Name != null) {
             entry["name"] = payload.Name;
         }
 
-        if (payload.Description != null)
-        {
+        if (payload.Description != null) {
             entry["description"] = payload.Description;
         }
 
-        foreach (var (key, value) in payload.Structure)
-        {
-            if (!entry.ContainsKey(key))
-            {
+        foreach (var (key, value) in payload.Structure) {
+            if (!entry.ContainsKey(key)) {
                 throw new FurnidataException($"The furnidata entry has no {key}");
             }
 
@@ -347,8 +316,7 @@ public sealed class FurniEditorService : IFurniEditorService
     // Names and descriptions travel as a delta; any other change needs clients to reload the furnidata.
     private void Broadcast(FurnidataEdit edit)
     {
-        if (!edit.Changed)
-        {
+        if (!edit.Changed) {
             return;
         }
 
@@ -358,10 +326,8 @@ public sealed class FurniEditorService : IFurniEditorService
             : new FurnitureDataReloadComposer(FurnitureDataReloadComposer.ReloadHint, []);
 
         // Only Octane revisions map this packet; sending it to other clients would fail on the missing id.
-        foreach (var client in _gameClientManager.GetClients.ToList())
-        {
-            if (client?.GetHabbo() != null && client.Revision?.InternalIdToOutgoingIdMapping.ContainsKey(composer.MessageId) == true)
-            {
+        foreach (var client in _gameClientManager.GetClients.ToList()) {
+            if (client?.GetHabbo() != null && client.Revision?.InternalIdToOutgoingIdMapping.ContainsKey(composer.MessageId) == true) {
                 client.Send(composer);
             }
         }
@@ -379,8 +345,7 @@ public sealed class FurniEditorService : IFurniEditorService
     {
         var entry = (JsonObject)JsonNode.Parse(entryJson)!;
 
-        foreach (var field in TextFields)
-        {
+        foreach (var field in TextFields) {
             entry.Remove(field);
         }
 
@@ -389,12 +354,10 @@ public sealed class FurniEditorService : IFurniEditorService
 
     private bool TakeFurnidataTurn(Habbo actor)
     {
-        lock (_sync)
-        {
+        lock (_sync) {
             var now = _clock.GetUtcNow();
 
-            if (_lastFurnidataEdit.TryGetValue(actor.Id, out var last) && now - last < FurnidataCooldown)
-            {
+            if (_lastFurnidataEdit.TryGetValue(actor.Id, out var last) && now - last < FurnidataCooldown) {
                 return false;
             }
 
@@ -408,8 +371,7 @@ public sealed class FurniEditorService : IFurniEditorService
 
     private static void RequireEditor(Habbo actor, uint itemId = 0)
     {
-        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true)
-        {
+        if (actor?.Access?.Can(PermissionKeys.CatalogEdit) != true) {
             throw new FurniEditorRejected("No permission", itemId);
         }
     }

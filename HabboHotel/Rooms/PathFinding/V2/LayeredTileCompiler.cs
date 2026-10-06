@@ -5,10 +5,7 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings settings)
 {
     private readonly int _cap = Math.Clamp(settings.MaxSurfacesPerTile, 1, NavGrid.MaxSurfacesPerTile);
-    internal Func<SurfaceRef, bool>? SurfacePinned
-    {
-        get; set;
-    }
+    internal Func<SurfaceRef, bool>? SurfacePinned { get; set; }
 
     internal static NavFlags Lock(NavGrid grid, int t) => Lock(grid, t, Volatile.Read(ref grid.FloorStatusOverrides[t]));
     internal static NavFlags Lock(NavGrid grid, int t, int structuralStatus)
@@ -18,19 +15,16 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
     {
         var plans = new SortedDictionary<int, List<PlannedSurface>>();
 
-        foreach (var (t, surface) in compat)
-        {
+        foreach (var (t, surface) in compat) {
             plans[t] = Plan(t, surface, covering.GetValueOrDefault(t) ?? []);
         }
 
         // Release every unmatched slot before allocating, so freed holes are reused within one publish.
-        foreach (var (t, surfaces) in plans)
-        {
+        foreach (var (t, surfaces) in plans) {
             KeepOrRelease(t, surfaces);
         }
 
-        foreach (var (t, surfaces) in plans)
-        {
+        foreach (var (t, surfaces) in plans) {
             Publish(t, surfaces, compat[t]);
         }
     }
@@ -47,17 +41,14 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
 
     private IEnumerable<SurfaceCandidate> Candidates(int t, List<NavItemRecord> items)
     {
-        if (SurfaceRules.FloorCandidate(grid.BaseState[t], grid.BaseZ[t]) is { } floor)
-        {
+        if (SurfaceRules.FloorCandidate(grid.BaseState[t], grid.BaseZ[t]) is { } floor) {
             yield return floor;
         }
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             var candidate = SurfaceRules.ItemCandidate(item);
 
-            if (candidate.Standable)
-            {
+            if (candidate.Standable) {
                 yield return candidate;
             }
         }
@@ -68,17 +59,14 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
     {
         var headroom = candidate.Z + settings.AvatarClearance;
 
-        foreach (var item in items)
-        {
-            if (item.ItemId == candidate.Item?.ItemId)
-            {
+        foreach (var item in items) {
+            if (item.ItemId == candidate.Item?.ItemId) {
                 continue;
             }
 
             var (from, to) = SurfaceRules.BlockingInterval(item);
 
-            if (from < to && from < headroom && candidate.Z < to)
-            {
+            if (from < to && from < headroom && candidate.Z < to) {
                 return false;
             }
         }
@@ -98,8 +86,7 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
 
     private List<PlannedSurface> Cap(int t, List<PlannedSurface> surfaces)
     {
-        if (surfaces.Count <= _cap)
-        {
+        if (surfaces.Count <= _cap) {
             return surfaces;
         }
 
@@ -109,8 +96,7 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
             : pinned.Concat(surfaces.Except(pinned).OrderByDescending(surface => surface.Z).Take(Math.Max(0, _cap - pinned.Count)));
         var kept = keep.OrderBy(surface => surface.Z).ToList();
 
-        foreach (var dropped in pinned.Except(kept))
-        {
+        foreach (var dropped in pinned.Except(kept)) {
             grid.ForceOffGraph(dropped.Reference(t));
         }
 
@@ -120,13 +106,11 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
     // An item is owned by its own surface, else by the highest surface at or below its base, else the lowest.
     private static void AssignContacts(List<PlannedSurface> surfaces, List<NavItemRecord> items)
     {
-        if (surfaces.Count == 0)
-        {
+        if (surfaces.Count == 0) {
             return;
         }
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             var owner = surfaces.FirstOrDefault(surface => surface.Members.Contains(item.ItemId))
                 ?? surfaces.LastOrDefault(surface => surface.Z <= item.Z + SurfaceRules.Epsilon) ?? surfaces[0];
             owner.Contacts.Add(item.ItemId);
@@ -135,17 +119,14 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
 
     private void KeepOrRelease(int t, List<PlannedSurface> surfaces)
     {
-        foreach (var slot in grid.TileSurfaces(t).ToArray())
-        {
+        foreach (var slot in grid.TileSurfaces(t).ToArray()) {
             var reference = grid.Reference(slot);
             var match = surfaces.FirstOrDefault(surface => surface.Slot < 0 && surface.Reference(t) == reference);
 
-            if (match != null)
-            {
+            if (match != null) {
                 match.Slot = slot;
             }
-            else
-            {
+            else {
                 grid.ReleaseSlot(slot);
             }
         }
@@ -157,12 +138,10 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
         var ownSlotTaken = surfaces.Any(surface => surface.Slot == t);
         var locked = Lock(grid, t);
 
-        for (var ordinal = 0; ordinal < surfaces.Count; ordinal++)
-        {
+        for (var ordinal = 0; ordinal < surfaces.Count; ordinal++) {
             var surface = surfaces[ordinal];
 
-            if (surface.Slot < 0)
-            {
+            if (surface.Slot < 0) {
                 surface.Slot = ownSlotTaken ? grid.AllocateOverflow(t) : t;
                 ownSlotTaken = true;
             }
@@ -176,8 +155,7 @@ internal sealed class LayeredTileCompiler(NavGrid grid, PathfindingSettings sett
         grid.TileVoid[t] = grid.BaseState[t] == SquareState.Blocked && surfaces.Count == 0;
 
         // A tile's own slot without a surface keeps the compatibility anchor for interaction targets.
-        if (!ownSlotTaken)
-        {
+        if (!ownSlotTaken) {
             grid.WriteSurface(t, compat.Z, NavFlags.None, compat.Support, compat.Kind, 0, 0, [], []);
         }
     }

@@ -238,8 +238,7 @@ public sealed class GroupPresentationServiceTests
         var roles = new List<int>();
         var names = new List<string>();
 
-        for (var index = 0; index < count; index++)
-        {
+        for (var index = 0; index < count; index++) {
             roles.Add(reader.ReadInt());
             reader.ReadInt();
             names.Add(reader.ReadString());
@@ -286,14 +285,8 @@ public sealed class GroupPresentationServiceTests
 
     private sealed class RecordingPresentationService : IGroupPresentationService
     {
-        public GroupMembersRequest? Request
-        {
-            get; private set;
-        }
-        public bool BadgeEditorShown
-        {
-            get; private set;
-        }
+        public GroupMembersRequest? Request { get; private set; }
+        public bool BadgeEditorShown { get; private set; }
         public void ShowMembers(GameClient session, GroupMembersRequest request) => Request = request;
         public void ShowBadgeEditor(GameClient session) => BadgeEditorShown = true;
         public void ShowCreationWindow(GameClient session) => throw new NotSupportedException();

@@ -7,8 +7,7 @@ internal sealed class ForcePlacementService(Room room, RoomNavigation navigation
     private NavGrid Grid => navigation.Grid;
     internal void Teleport(RoomUser actor, MoveCommand command)
     {
-        if (!Grid.InBounds(command.X, command.Y))
-        {
+        if (!Grid.InBounds(command.X, command.Y)) {
             cancellation.Cancel(actor, command.Sequence);
 
             return;
@@ -55,15 +54,13 @@ internal sealed class ForcePlacementService(Room room, RoomNavigation navigation
     }
     private void ResolveSupport(RoomUser actor, double z, ForceResolution resolution)
     {
-        if (!Grid.InBounds(actor.X, actor.Y))
-        {
+        if (!Grid.InBounds(actor.X, actor.Y)) {
             return;
         }
 
         var slot = SurfaceSelection.Select(Grid, Grid.Tile(actor.X, actor.Y), z, resolution);
 
-        if (slot < 0)
-        {
+        if (slot < 0) {
             return;
         }
 

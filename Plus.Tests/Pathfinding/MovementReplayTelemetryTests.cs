@@ -23,13 +23,11 @@ public partial class PlacedFurniRoomTests
         var legacy = ReplayMovement(inputs, PathfindingEngine.Legacy);
         var v2 = ReplayMovement(inputs, PathfindingEngine.V2);
 
-        for (var tick = 0; tick < legacy.Count; tick++)
-        {
+        for (var tick = 0; tick < legacy.Count; tick++) {
             Assert.True(ReplayTelemetryMatches(legacy[tick]), $"legacy telemetry at tick {tick}");
             Assert.True(ReplayTelemetryMatches(v2[tick]), $"v2 telemetry at tick {tick}");
 
-            if (FrameBytes(legacy[tick]) != FrameBytes(v2[tick]))
-            {
+            if (FrameBytes(legacy[tick]) != FrameBytes(v2[tick])) {
                 Assert.True(ReplayTimingDifference(legacy[tick], v2[tick]) || ReplayTrajectoryClass(scenario) != null,
                     $"classified telemetry at tick {tick}");
             }
@@ -71,13 +69,11 @@ public partial class PlacedFurniRoomTests
 
     private static bool ReplayTimingDifference(ReplayFrame legacy, ReplayFrame v2)
     {
-        if (legacy.Location != v2.Location || ReplayNonMovementStatus(legacy.Status) != ReplayNonMovementStatus(v2.Status))
-        {
+        if (legacy.Location != v2.Location || ReplayNonMovementStatus(legacy.Status) != ReplayNonMovementStatus(v2.Status)) {
             return false;
         }
 
-        if (!ReplayTelemetryMatches(legacy) || !ReplayTelemetryMatches(v2))
-        {
+        if (!ReplayTelemetryMatches(legacy) || !ReplayTelemetryMatches(v2)) {
             return false;
         }
 
@@ -89,20 +85,16 @@ public partial class PlacedFurniRoomTests
 
     private static bool ReplayTelemetryMatches(ReplayFrame frame)
     {
-        foreach (var packet in frame.Packets)
-        {
-            if (packet.VirtualId != 1 || packet.X != frame.Location.X || packet.Y != frame.Location.Y)
-            {
+        foreach (var packet in frame.Packets) {
+            if (packet.VirtualId != 1 || packet.X != frame.Location.X || packet.Y != frame.Location.Y) {
                 return false;
             }
 
-            if (!double.TryParse(packet.Z, NumberStyles.Float, CultureInfo.InvariantCulture, out var z) || z != frame.Location.Z)
-            {
+            if (!double.TryParse(packet.Z, NumberStyles.Float, CultureInfo.InvariantCulture, out var z) || z != frame.Location.Z) {
                 return false;
             }
 
-            if (ReplayNonMovementStatus(packet.Status) != ReplayNonMovementStatus(frame.Status))
-            {
+            if (ReplayNonMovementStatus(packet.Status) != ReplayNonMovementStatus(frame.Status)) {
                 return false;
             }
         }

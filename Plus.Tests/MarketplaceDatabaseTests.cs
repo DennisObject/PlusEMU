@@ -20,8 +20,7 @@ public sealed class MarketplaceDatabaseFactAttribute : FactAttribute
 {
     public MarketplaceDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_MARKETPLACE_PROBE_CONNECTION_STRING")))
-        {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_MARKETPLACE_PROBE_CONNECTION_STRING"))) {
             Skip = "Set PLUS_MARKETPLACE_PROBE_CONNECTION_STRING to a disposable task_refactor_tests_marketplace_ schema with the catalog_marketplace_offers and items tables.";
         }
     }
@@ -38,8 +37,7 @@ public sealed class MarketplaceDatabaseTests
 
     public MarketplaceDatabaseTests()
     {
-        if (!new MySqlConnectionStringBuilder(_connectionString).Database.StartsWith("task_refactor_tests_marketplace_", StringComparison.Ordinal))
-        {
+        if (!new MySqlConnectionStringBuilder(_connectionString).Database.StartsWith("task_refactor_tests_marketplace_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Marketplace probe tests require a disposable task_refactor_tests_marketplace_ schema.");
         }
 
@@ -116,8 +114,7 @@ public sealed class MarketplaceDatabaseTests
     {
         Insert(1, sprite: 100, asking: 50, total: 55, state: "1", timestamp: Now.ToUnixTimeSeconds() - 172800 + 60, seller: SellerId);
 
-        using (var connection = new MySqlConnection(_connectionString))
-        {
+        using (var connection = new MySqlConnection(_connectionString)) {
             connection.Execute("UPDATE `catalog_marketplace_offers` SET `listed_at` = DATE_ADD(`listed_at`, INTERVAL 500000 MICROSECOND) WHERE `offer_id` = 1");
         }
 
@@ -150,8 +147,7 @@ public sealed class MarketplaceDatabaseTests
             "`item_type` enum('1','2') NOT NULL DEFAULT '1', `timestamp` double NOT NULL, `state` enum('1','2') NOT NULL DEFAULT '1', `extra_data` text NOT NULL, " +
             "`furni_id` int(10) unsigned NOT NULL, `limited_number` int(11) NOT NULL DEFAULT '0', `limited_stack` int(11) NOT NULL DEFAULT '0', PRIMARY KEY (`offer_id`)) ENGINE=InnoDB DEFAULT CHARSET=latin1";
 
-        using (var connection = new MySqlConnection(_connectionString))
-        {
+        using (var connection = new MySqlConnection(_connectionString)) {
             connection.Execute($"DROP TABLE IF EXISTS `{table}`");
             connection.Execute(ddl);
             connection.Execute($"INSERT INTO `{table}` (`offer_id`,`item_id`,`user_id`,`asking_price`,`total_price`,`public_name`,`sprite_id`,`item_type`,`timestamp`,`extra_data`,`limited_number`,`limited_stack`,`furni_id`,`state`) VALUES " +
@@ -159,16 +155,12 @@ public sealed class MarketplaceDatabaseTests
                 "(5,900,7,1,1,'p',1,'1',2200000000.25,'',0,0,5,'1')");
 
             foreach (var statement in File.ReadAllText(Path.Combine(RepositoryRoot(), "Database", "Migrations", "25_UseUtcMarketplaceTimes.sql"))
-                         .Replace("`catalog_marketplace_offers`", $"`{table}`").Split(";\n", StringSplitOptions.RemoveEmptyEntries))
-            {
+                         .Replace("`catalog_marketplace_offers`", $"`{table}`").Split(";\n", StringSplitOptions.RemoveEmptyEntries)) {
                 connection.Execute(statement);
             }
 
             var rows = connection.Query<(uint Id, DateTimeOffset? ListedAt)>($"SELECT `offer_id` AS Id, `listed_at` AS ListedAt FROM `{table}` ORDER BY `offer_id`").ToArray();
-            var dropped = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = @table AND column_name = 'timestamp'", new
-            {
-                table
-            });
+            var dropped = connection.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = @table AND column_name = 'timestamp'", new { table });
             connection.Execute($"DROP TABLE `{table}`");
 
             Assert.Equal(new uint[] { 1, 2, 3, 4, 5 }, rows.Select(row => row.Id).ToArray());
@@ -185,8 +177,7 @@ public sealed class MarketplaceDatabaseTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
 
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Plus Emulator.csproj")))
-        {
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Plus Emulator.csproj"))) {
             dir = dir.Parent;
         }
 
@@ -249,18 +240,15 @@ public sealed class MarketplaceDatabaseTests
         InsertFurni(41, SellerId, roomId: 0);
         var seller = Seller();
 
-        using (var admin = new MySqlConnection(_connectionString))
-        {
+        using (var admin = new MySqlConnection(_connectionString)) {
             admin.Execute("RENAME TABLE `items` TO `items_probe_hidden`");
         }
 
-        try
-        {
+        try {
             var error = Assert.Throws<MySqlException>(() => Listing().TryList(seller, 41, 100));
             Assert.Contains("doesn't exist", error.Message, StringComparison.Ordinal);
         }
-        finally
-        {
+        finally {
             using var admin = new MySqlConnection(_connectionString);
             admin.Execute("RENAME TABLE `items_probe_hidden` TO `items`");
         }
@@ -384,19 +372,7 @@ public sealed class MarketplaceDatabaseTests
         DateTime? listedAt = timestamp <= 0 ? null : DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
         connection.Execute("INSERT INTO `catalog_marketplace_offers` (`offer_id`,`item_id`,`user_id`,`asking_price`,`total_price`,`public_name`,`sprite_id`,`item_type`,`listed_at`,`extra_data`,`limited_number`,`limited_stack`,`furni_id`,`state`) " +
             "VALUES (@offerId,@itemId,@seller,@asking,@total,'probe',@sprite,@itemType,@listedAt,'',0,0,@furniId,@state)",
-            new
-            {
-                offerId,
-                itemId,
-                seller,
-                asking,
-                total,
-                sprite,
-                itemType,
-                listedAt,
-                furniId,
-                state
-            });
+            new { offerId, itemId, seller, asking, total, sprite, itemType, listedAt, furniId, state });
     }
 
     [MarketplaceDatabaseFact]
@@ -445,8 +421,7 @@ public sealed class MarketplaceDatabaseTests
         Insert(2, sprite: 55, asking: -5, total: -5, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 78);
         Insert(3, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 79);
 
-        using (var connection = new MySqlConnection(_connectionString))
-        {
+        using (var connection = new MySqlConnection(_connectionString)) {
             connection.Execute("UPDATE `catalog_marketplace_offers` SET `limited_number` = -1 WHERE `offer_id` = 3");
         }
 
@@ -500,8 +475,7 @@ public sealed class MarketplaceDatabaseTests
     {
         Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
 
-        using (var connection = new MySqlConnection(_connectionString))
-        {
+        using (var connection = new MySqlConnection(_connectionString)) {
             connection.Execute("INSERT INTO `items` (`id`,`user_id`,`room_id`,`base_item`,`extra_data`) VALUES (77, 9, 0, 1, '')");
         }
 
@@ -512,8 +486,7 @@ public sealed class MarketplaceDatabaseTests
 
         Assert.Equal(new[] { "1" }, States());
 
-        using (var connection = new MySqlConnection(_connectionString))
-        {
+        using (var connection = new MySqlConnection(_connectionString)) {
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM `catalog_marketplace_data`"));
         }
 
@@ -523,12 +496,7 @@ public sealed class MarketplaceDatabaseTests
     private void InsertFurni(uint id, int owner, int roomId)
     {
         using var connection = new MySqlConnection(_connectionString);
-        connection.Execute("INSERT INTO `items` (`id`,`user_id`,`room_id`,`base_item`,`extra_data`) VALUES (@id,@owner,@roomId,1,'')", new
-        {
-            id,
-            owner,
-            roomId
-        });
+        connection.Execute("INSERT INTO `items` (`id`,`user_id`,`room_id`,`base_item`,`extra_data`) VALUES (@id,@owner,@roomId,1,'')", new { id, owner, roomId });
     }
 
     private int Count(string table)

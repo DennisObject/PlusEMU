@@ -24,8 +24,7 @@ public sealed class WiredSelectorBox : WiredConfiguredBehaviorBox, IWiredContext
         _variables = variables;
         _readWorld = readWorld;
 
-        if (descriptor.CanonicalName.EndsWith("_with_var", StringComparison.Ordinal) && variables is null)
-        {
+        if (descriptor.CanonicalName.EndsWith("_with_var", StringComparison.Ordinal) && variables is null) {
             throw new ArgumentException("Variable selectors require the concrete variable query provider", nameof(variables));
         }
     }
@@ -58,13 +57,11 @@ public static class WiredSelectorFactory
     {
         var descriptor = item.Definition.WiredDescriptor;
 
-        if (descriptor?.Category != WiredBoxCategory.Selector)
-        {
+        if (descriptor?.Category != WiredBoxCategory.Selector) {
             return null;
         }
 
-        if (descriptor.CanonicalName.EndsWith("_with_var", StringComparison.Ordinal) && variables is null)
-        {
+        if (descriptor.CanonicalName.EndsWith("_with_var", StringComparison.Ordinal) && variables is null) {
             return null;
         }
 

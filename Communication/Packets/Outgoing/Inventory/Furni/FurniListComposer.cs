@@ -14,8 +14,7 @@ public sealed class FurniListComposer(ImmutableArray<InventoryItemSnapshot> item
         packet.WriteInteger(page);
         packet.WriteInteger(items.Length);
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             InventoryFurnitureSerializer.Write(packet, item, added: false);
         }
     }

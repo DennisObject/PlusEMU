@@ -25,10 +25,8 @@ public sealed class WiredRequestGateService(TimeProvider clock) : IWiredRequestG
         var now = clock.GetTimestamp();
         var last = _last[(int)kind].GetValue(session, _ => new StrongBox<long?>());
 
-        lock (last)
-        {
-            if (last.Value is { } previous && clock.GetElapsedTime(previous, now) < Intervals[(int)kind])
-            {
+        lock (last) {
+            if (last.Value is { } previous && clock.GetElapsedTime(previous, now) < Intervals[(int)kind]) {
                 return false;
             }
 

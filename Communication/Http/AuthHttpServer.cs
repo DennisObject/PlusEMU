@@ -21,10 +21,7 @@ public interface IAuthHttpServer
     Task Stop();
 
     /// <summary>Bound addresses once started, e.g. http://127.0.0.1:8080.</summary>
-    IReadOnlyCollection<string> Urls
-    {
-        get;
-    }
+    IReadOnlyCollection<string> Urls { get; }
 }
 
 /// <summary>
@@ -65,8 +62,7 @@ public class AuthHttpServer : IAuthHttpServer
 
         // With no known proxies at all the middleware would trust every sender, so it only runs
         // when proxies are configured.
-        if (_configuration.TrustedProxies.Length > 0)
-        {
+        if (_configuration.TrustedProxies.Length > 0) {
             app.UseForwardedHeaders();
         }
 
@@ -83,8 +79,7 @@ public class AuthHttpServer : IAuthHttpServer
 
     public async Task Stop()
     {
-        if (_app == null)
-        {
+        if (_app == null) {
             return;
         }
 
@@ -98,8 +93,7 @@ public class AuthHttpServer : IAuthHttpServer
     {
         var address = context.Connection.RemoteIpAddress;
 
-        if (address == null)
-        {
+        if (address == null) {
             return "unknown";
         }
 
@@ -117,12 +111,10 @@ public class AuthHttpServer : IAuthHttpServer
         kestrel.Limits.MinRequestBodyDataRate = new(240, TimeSpan.FromSeconds(5));
         kestrel.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(30);
 
-        if (string.Equals(_configuration.Hostname, "localhost", StringComparison.OrdinalIgnoreCase))
-        {
+        if (string.Equals(_configuration.Hostname, "localhost", StringComparison.OrdinalIgnoreCase)) {
             kestrel.ListenLocalhost(_configuration.Port);
         }
-        else
-        {
+        else {
             kestrel.Listen(IPAddress.Parse(_configuration.Hostname), _configuration.Port);
         }
     }
@@ -135,14 +127,11 @@ public class AuthHttpServer : IAuthHttpServer
         options.KnownProxies.Clear();
         options.KnownIPNetworks.Clear();
 
-        foreach (var proxy in _configuration.TrustedProxies)
-        {
-            if (proxy.Contains('/'))
-            {
+        foreach (var proxy in _configuration.TrustedProxies) {
+            if (proxy.Contains('/')) {
                 options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(proxy));
             }
-            else
-            {
+            else {
                 options.KnownProxies.Add(IPAddress.Parse(proxy));
             }
         }
@@ -169,12 +158,10 @@ public class AuthHttpServer : IAuthHttpServer
 
     private static async Task RefuseWhenHashingIsSaturated(HttpContext context, Func<Task> next)
     {
-        try
-        {
+        try {
             await next();
         }
-        catch (PasswordCheckQueueFullException) when (!context.Response.HasStarted)
-        {
+        catch (PasswordCheckQueueFullException) when (!context.Response.HasStarted) {
             SetRetryAfter(context.Response, TimeSpan.FromSeconds(5));
             await WriteError(context, StatusCodes.Status429TooManyRequests);
         }
@@ -208,11 +195,7 @@ public class AuthHttpServer : IAuthHttpServer
         context.Response.StatusCode = status;
         context.Response.Headers.CacheControl = "no-store";
 
-        return context.Response.WriteAsJsonAsync(new
-        {
-            error,
-            code
-        });
+        return context.Response.WriteAsJsonAsync(new { error, code });
     }
 
     /// <summary>

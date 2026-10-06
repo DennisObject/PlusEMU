@@ -18,21 +18,18 @@ public sealed class TelevisionPresentationService(ITelevisionManager televisions
         var matches = televisions.TelevisionList.Where(video => video.YouTubeId == videoId)
             .Select(video => video.YouTubeId).ToImmutableArray();
 
-        foreach (var match in matches)
-        {
+        foreach (var match in matches) {
             session.Send(new GetYouTubeVideoComposer(itemId, match));
         }
     }
 
     public void ShowNextVideo(GameClient session, int itemId)
     {
-        if (!session.GetHabbo().InRoom)
-        {
+        if (!session.GetHabbo().InRoom) {
             return;
         }
 
-        if (televisions.TelevisionList.Count == 0)
-        {
+        if (televisions.TelevisionList.Count == 0) {
             session.SendNotification("Oh, it looks like the hotel manager haven't added any videos for you to watch! :(");
 
             return;
@@ -44,15 +41,13 @@ public sealed class TelevisionPresentationService(ITelevisionManager televisions
 
     public void ShowPlaylist(GameClient session, int itemId)
     {
-        if (!session.GetHabbo().InRoom)
-        {
+        if (!session.GetHabbo().InRoom) {
             return;
         }
 
         var playlist = televisions.TelevisionList.Select(TelevisionVideoSnapshot.Capture).ToImmutableArray();
 
-        if (playlist.IsEmpty)
-        {
+        if (playlist.IsEmpty) {
             session.SendNotification("Oh, it looks like the hotel manager haven't added any videos for you to watch! :(");
 
             return;

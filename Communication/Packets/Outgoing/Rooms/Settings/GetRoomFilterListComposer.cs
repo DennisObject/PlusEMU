@@ -15,8 +15,7 @@ public sealed class GetRoomFilterListComposer : IServerPacket
     {
         packet.WriteInteger(_words.Length);
 
-        foreach (var word in _words)
-        {
+        foreach (var word in _words) {
             packet.WriteString(word);
         }
     }

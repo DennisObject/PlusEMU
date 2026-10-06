@@ -30,8 +30,7 @@ public class NameChangeUpdateComposer : IServerPacket
         packet.WriteString(_name);
         packet.WriteInteger(_tags.Count);
 
-        foreach (var tag in _tags)
-        {
+        foreach (var tag in _tags) {
             packet.WriteString(_name + tag);
         }
     }

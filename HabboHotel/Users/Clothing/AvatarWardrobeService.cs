@@ -18,8 +18,7 @@ public sealed class AvatarWardrobeService(IFigureDataManager figures, IAvatarWar
     {
         var userId = session.GetHabbo().Id;
 
-        if (!await userData.HabboExists(userId))
-        {
+        if (!await userData.HabboExists(userId)) {
             return;
         }
 

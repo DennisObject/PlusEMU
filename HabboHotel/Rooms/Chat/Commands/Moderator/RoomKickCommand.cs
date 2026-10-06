@@ -15,18 +15,15 @@ internal class RoomKickCommand : IChatCommand
     {
         var message = CommandManager.MergeParams(parameters);
 
-        if (string.IsNullOrWhiteSpace(message))
-        {
+        if (string.IsNullOrWhiteSpace(message)) {
             session.SendWhisper("Please provide a reason to the users for this room kick.");
 
             return;
         }
 
-        foreach (var roomUser in room.GetRoomUserManager().GetUserList().ToList())
-        {
+        foreach (var roomUser in room.GetRoomUserManager().GetUserList().ToList()) {
             if (roomUser == null || roomUser.IsBot || roomUser.GetClient() == null || roomUser.GetClient().GetHabbo() == null ||
-                !session.GetHabbo().Access.Outranks(roomUser.GetClient().GetHabbo().Access) || roomUser.GetClient().GetHabbo().Id == session.GetHabbo().Id)
-            {
+                !session.GetHabbo().Access.Outranks(roomUser.GetClient().GetHabbo().Access) || roomUser.GetClient().GetHabbo().Id == session.GetHabbo().Id) {
                 continue;
             }
 

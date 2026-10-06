@@ -17,21 +17,18 @@ internal class SaveEnforcedCategorySettingsEvent : IPacketEvent
 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (!_roomManager.TryGetRoom(packet.ReadUInt(), out var room))
-        {
+        if (!_roomManager.TryGetRoom(packet.ReadUInt(), out var room)) {
             return Task.CompletedTask;
         }
 
-        if (!room.CheckRights(session, true))
-        {
+        if (!room.CheckRights(session, true)) {
             return Task.CompletedTask;
         }
 
         var categoryId = packet.ReadInt();
         var tradeSettings = packet.ReadInt();
 
-        if (tradeSettings < 0 || tradeSettings > 2)
-        {
+        if (tradeSettings < 0 || tradeSettings > 2) {
             tradeSettings = 0;
         }
 

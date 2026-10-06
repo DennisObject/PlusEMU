@@ -36,11 +36,7 @@ public sealed class RoomRightsServiceTests
             CurrentRoom = room,
             Access = EditorTestSupport.Access([])
         });
-        var service = new RoomRightsService(new RecordingStore(), null!, new Cache(new()
-        {
-            Id = 2,
-            Username = "guest"
-        }));
+        var service = new RoomRightsService(new RecordingStore(), null!, new Cache(new() { Id = 2, Username = "guest" }));
         service.Show(owner);
         var response = Assert.Single(sent);
         Assert.Equal(ServerPacketHeader.RoomRightsListComposer, response.Header);
@@ -95,11 +91,7 @@ public sealed class RoomRightsServiceTests
         var room = TestRoom();
         var (owner, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "owner", Access = EditorTestSupport.Access([]) });
         var store = new RecordingStore();
-        var service = new RoomRightsService(store, null!, new Cache(new()
-        {
-            Id = 2,
-            Username = "guest"
-        }));
+        var service = new RoomRightsService(store, null!, new Cache(new() { Id = 2, Username = "guest" }));
 
         service.Assign(room, owner, 2);
 
@@ -150,15 +142,11 @@ public sealed class RoomRightsServiceTests
 
     private sealed class RecordingStore : IRoomRightsStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
+        public bool Fail { get; init; }
         public List<(uint RoomId, int UserId)> Assignments { get; } = [];
         public void Assign(uint roomId, int userId)
         {
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
 
@@ -166,8 +154,7 @@ public sealed class RoomRightsServiceTests
         }
         public void Remove(uint roomId, IReadOnlyList<int> userIds)
         {
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
         }

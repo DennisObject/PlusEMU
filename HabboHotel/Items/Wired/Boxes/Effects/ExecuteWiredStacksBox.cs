@@ -14,29 +14,17 @@ internal class ExecuteWiredStacksBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
 
-    public Item Item
-    {
-        get; set;
-    }
+    public Item Item { get; set; }
 
     public WiredBoxType Type => WiredBoxType.EffectExecuteWiredStacks;
 
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
 
     public string StringData { get; set; } = string.Empty;
 
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
 
     public string ItemsData { get; set; } = string.Empty;
 
@@ -45,19 +33,16 @@ internal class ExecuteWiredStacksBox : IWiredItem
         var unknown = packet.ReadInt();
         var unknown2 = packet.ReadString();
 
-        if (SetItems.Count > 0)
-        {
+        if (SetItems.Count > 0) {
             SetItems.Clear();
         }
 
         var furniCount = packet.ReadInt();
 
-        for (var i = 0; i < furniCount; i++)
-        {
+        for (var i = 0; i < furniCount; i++) {
             var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
 
-            if (selectedItem != null)
-            {
+            if (selectedItem != null) {
                 SetItems.TryAdd(selectedItem.Id, selectedItem);
             }
         }
@@ -65,15 +50,13 @@ internal class ExecuteWiredStacksBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length != 1)
-        {
+        if (@params.Length != 1) {
             return false;
         }
 
         var player = (Habbo)@params[0];
 
-        if (player == null)
-        {
+        if (player == null) {
             return false;
         }
 

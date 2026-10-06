@@ -97,8 +97,7 @@ public sealed class UserPreferencePersistenceTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new HabbiconDatabaseTests.TestDatabase(new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -108,8 +107,7 @@ public sealed class UserPreferencePersistenceTests
             using var connection = database.Connection();
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
 
-            foreach (var table in new[] { "users", "users_settings", "user_stats" })
-            {
+            foreach (var table in new[] { "users", "users_settings", "user_stats" }) {
                 var definition = System.Text.RegularExpressions.Regex.Match(pristine,
                     $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
                 Assert.NotEmpty(definition);
@@ -138,8 +136,7 @@ public sealed class UserPreferencePersistenceTests
             var connections = 0;
             database.BeforeConnection = () =>
             {
-                if (Interlocked.Increment(ref connections) != 1)
-                {
+                if (Interlocked.Increment(ref connections) != 1) {
                     return;
                 }
 
@@ -150,20 +147,17 @@ public sealed class UserPreferencePersistenceTests
             Task? save = null;
             bool savedWhileWritePaused;
 
-            try
-            {
+            try {
                 Assert.True(enteredWrite.Wait(TimeSpan.FromSeconds(5)));
                 save = Task.Run(() => { startedSave.Set(); user.Save(); });
                 Assert.True(startedSave.Wait(TimeSpan.FromSeconds(5)));
                 savedWhileWritePaused = await Task.WhenAny(save, Task.Delay(100)) == save;
             }
-            finally
-            {
+            finally {
                 releaseWrite.Set();
                 await update.WaitAsync(TimeSpan.FromSeconds(5));
 
-                if (save != null)
-                {
+                if (save != null) {
                     await save.WaitAsync(TimeSpan.FromSeconds(5));
                 }
             }
@@ -178,7 +172,9 @@ public sealed class UserPreferencePersistenceTests
             Assert.Equal(5, connection.QuerySingle<int>("SELECT bubble_id FROM users WHERE id=7"));
             Assert.Empty(sent);
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     [Theory]
@@ -218,8 +214,7 @@ public sealed class UserPreferencePersistenceTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -245,7 +240,9 @@ public sealed class UserPreferencePersistenceTests
             Assert.Equal(0, user.CustomBubbleId);
             Assert.Empty(sent);
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     [RoomComponentDatabaseFact]
@@ -256,12 +253,10 @@ public sealed class UserPreferencePersistenceTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 connection.Execute("CREATE TABLE users_settings(user_id INT PRIMARY KEY, home_room INT UNSIGNED NOT NULL, chat_preference BOOL NOT NULL, ignore_invites BOOL NOT NULL, volume VARCHAR(15) NOT NULL); INSERT INTO users_settings VALUES(7,20,false,false,'20,30,40')");
             }
 
@@ -293,8 +288,7 @@ public sealed class UserPreferencePersistenceTests
             Assert.Equal(42u, user.HomeRoom);
             Assert.Empty(sent);
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -307,8 +301,7 @@ public sealed class UserPreferencePersistenceTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -316,12 +309,10 @@ public sealed class UserPreferencePersistenceTests
                 ConvertZeroDateTime = true
             }.ConnectionString);
 
-            using (var connection = database.Connection())
-            {
+            using (var connection = database.Connection()) {
                 var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
 
-                foreach (var table in new[] { "users", "users_settings", "user_stats", "user_info" })
-                {
+                foreach (var table in new[] { "users", "users_settings", "user_stats", "user_info" }) {
                     var definition = System.Text.RegularExpressions.Regex.Match(pristine,
                         $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
                     Assert.NotEmpty(definition);
@@ -339,8 +330,7 @@ public sealed class UserPreferencePersistenceTests
             Assert.Equal(new DateTimeOffset(2042, 1, 1, 0, 0, 0, TimeSpan.Zero), user.AccountCreatedAt);
             Assert.Null(await loader.GetUserDataByIdAsync(8));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -353,14 +343,12 @@ public sealed class UserPreferencePersistenceTests
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
             using var connection = database.Connection();
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
 
-            foreach (var table in new[] { "users", "users_settings", "user_stats" })
-            {
+            foreach (var table in new[] { "users", "users_settings", "user_stats" }) {
                 var definition = System.Text.RegularExpressions.Regex.Match(pristine,
                     $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
                 Assert.NotEmpty(definition);
@@ -400,18 +388,14 @@ public sealed class UserPreferencePersistenceTests
             Assert.Equal("bigint", connection.ExecuteScalar<string>(
                 "SELECT DATA_TYPE FROM information_schema.columns WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_statistics' AND COLUMN_NAME='OnlineTime'"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
 
     private sealed class SaveClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;

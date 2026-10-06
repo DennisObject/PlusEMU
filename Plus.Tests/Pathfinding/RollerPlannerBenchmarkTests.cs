@@ -31,8 +31,7 @@ public partial class PlacedFurniRoomTests
     {
         var output = Environment.GetEnvironmentVariable("PLUSEMU_ROLLER_BENCHMARK");
 
-        if (string.IsNullOrEmpty(output))
-        {
+        if (string.IsNullOrEmpty(output)) {
             return;
         }
 
@@ -43,8 +42,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         var planning = "plan_us=n/a";
 
-        if (engine == PathfindingEngine.V2)
-        {
+        if (engine == PathfindingEngine.V2) {
             var us = MinimumPlanningMicroseconds();
             planning = FormattableString.Invariant($"plan_us={us:F0} plan_us_per_roller={us / tiles:F2}");
         }
@@ -53,8 +51,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         var cycle = MedianTickMicroseconds();
 
-        lock (typeof(PlacedFurniRoomTests))
-        {
+        lock (typeof(PlacedFurniRoomTests)) {
             File.AppendAllLines(output, [FormattableString.Invariant(
                 $"{engine} {(loop ? "full loop" : "loaded chain")} rollers={tiles} {planning} cycle_median_us={cycle:F0}")]);
         }
@@ -71,8 +68,7 @@ public partial class PlacedFurniRoomTests
         var rollers = _room.GetRoomItemHandler().GetRollers().ToList();
         var best = double.MaxValue;
 
-        for (var repetition = 0; repetition < 60; repetition++)
-        {
+        for (var repetition = 0; repetition < 60; repetition++) {
             var start = Stopwatch.GetTimestamp();
             Assert.NotEmpty(planner.Plan(loads.Build(rollers)));
             best = Math.Min(best, Stopwatch.GetElapsedTime(start).TotalMicroseconds);
@@ -85,8 +81,7 @@ public partial class PlacedFurniRoomTests
     {
         var samples = new double[15];
 
-        for (var cycle = 0; cycle < samples.Length; cycle++)
-        {
+        for (var cycle = 0; cycle < samples.Length; cycle++) {
             var start = Stopwatch.GetTimestamp();
             ExecutorTick();
             samples[cycle] = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
@@ -100,8 +95,7 @@ public partial class PlacedFurniRoomTests
     {
         PrepareRollerChain(length + 1, false);
 
-        for (var x = 0; x < length; x++)
-        {
+        for (var x = 0; x < length; x++) {
             PlannerCargo((uint)(1000 + x), x, 1);
         }
 
@@ -116,8 +110,7 @@ public partial class PlacedFurniRoomTests
         _room.GetGameMap().GenerateMaps();
         var perimeter = LoopPerimeter(side).ToList();
 
-        for (var index = 0; index < perimeter.Count; index++)
-        {
+        for (var index = 0; index < perimeter.Count; index++) {
             var (tile, rotation) = perimeter[index];
             PlannerRoller((uint)(10 + index), tile.X, tile.Y, rotation);
             PlannerCargo((uint)(5000 + index), tile.X, tile.Y);
@@ -128,23 +121,19 @@ public partial class PlacedFurniRoomTests
 
     private static IEnumerable<(Point Tile, int Rotation)> LoopPerimeter(int side)
     {
-        for (var x = 1; x < side; x++)
-        {
+        for (var x = 1; x < side; x++) {
             yield return (new(x, 1), 2);
         }
 
-        for (var y = 1; y < side; y++)
-        {
+        for (var y = 1; y < side; y++) {
             yield return (new(side, y), 4);
         }
 
-        for (var x = side; x > 1; x--)
-        {
+        for (var x = side; x > 1; x--) {
             yield return (new(x, side), 6);
         }
 
-        for (var y = side; y > 1; y--)
-        {
+        for (var y = side; y > 1; y--) {
             yield return (new(1, y), 0);
         }
     }

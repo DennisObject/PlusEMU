@@ -100,16 +100,13 @@ public sealed class WiredMenuDelegationTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
-            if (value is int number)
-            {
+        foreach (var value in values) {
+            if (value is int number) {
                 var bytes = new byte[4];
                 BinaryPrimitives.WriteInt32BigEndian(bytes, number);
                 stream.Write(bytes);
             }
-            else
-            {
+            else {
                 var bytes = Encoding.UTF8.GetBytes((string)value);
                 var length = new byte[2];
                 BinaryPrimitives.WriteUInt16BigEndian(length, checked((ushort)bytes.Length));
@@ -118,10 +115,7 @@ public sealed class WiredMenuDelegationTests
             }
         }
 
-        return new()
-        {
-            Buffer = stream.ToArray()
-        };
+        return new() { Buffer = stream.ToArray() };
     }
 
     private sealed class RecordingMenus : IWiredVariableMenuService

@@ -17,15 +17,13 @@ internal class DisconnectUserCommand : IRconCommand
 
     public Task<bool> TryExecute(string[] parameters)
     {
-        if (!int.TryParse(parameters[0], out var userId))
-        {
+        if (!int.TryParse(parameters[0], out var userId)) {
             return Task.FromResult(false);
         }
 
         var client = _gameClientManager.GetClientByUserId(userId);
 
-        if (client == null || client.GetHabbo() == null)
-        {
+        if (client == null || client.GetHabbo() == null) {
             return Task.FromResult(false);
         }
 

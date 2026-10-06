@@ -14,8 +14,7 @@ public class InteractorScoreboard : IFurniInteractor
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (!hasRights)
-        {
+        if (!hasRights) {
             return;
         }
 
@@ -24,40 +23,32 @@ public class InteractorScoreboard : IFurniInteractor
         // Request 3 - Reset with UI/Wired/Double click
 
         // Find out what number we are on right now
-        if (!int.TryParse(item.LegacyDataString, out var oldValue))
-        {
+        if (!int.TryParse(item.LegacyDataString, out var oldValue)) {
             oldValue = 0;
         }
 
         // Decrease value with red button
-        if (oldValue >= 0 && oldValue <= 99 && request == 1)
-        {
-            if (oldValue > 0)
-            {
+        if (oldValue >= 0 && oldValue <= 99 && request == 1) {
+            if (oldValue > 0) {
                 oldValue--;
             }
-            else if (oldValue == 0)
-            {
+            else if (oldValue == 0) {
                 oldValue = 99;
             }
         }
 
         // Increase value with green button
-        if (oldValue >= 0 && oldValue <= 99 && request == 2)
-        {
-            if (oldValue < 99)
-            {
+        if (oldValue >= 0 && oldValue <= 99 && request == 2) {
+            if (oldValue < 99) {
                 oldValue++;
             }
-            else if (oldValue == 99)
-            {
+            else if (oldValue == 99) {
                 oldValue = 0;
             }
         }
 
         // Reset with UI/Wired/Double click
-        if (request == 3)
-        {
+        if (request == 3) {
             oldValue = 0;
             item.PendingReset = true;
         }

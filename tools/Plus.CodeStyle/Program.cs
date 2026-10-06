@@ -7,8 +7,7 @@ internal static class Program
 {
     private static async Task<int> Main(string[] args)
     {
-        if (args.Length != 1 || args[0] is not ("fix" or "check"))
-        {
+        if (args.Length != 1 || args[0] is not ("fix" or "check")) {
             Console.Error.WriteLine("Usage: dotnet run --project tools/Plus.CodeStyle -- fix|check (from the repository root)");
 
             return 2;
@@ -16,8 +15,7 @@ internal static class Program
 
         const string solution = "Plus Emulator.sln";
 
-        if (!File.Exists(solution))
-        {
+        if (!File.Exists(solution)) {
             Console.Error.WriteLine("Run this command from the repository root.");
 
             return 2;
@@ -26,99 +24,96 @@ internal static class Program
         bool check = args[0] == "check";
         int result = 0;
 
-        foreach (string category in new[] { "style", "whitespace" })
-        {
-            var start = new ProcessStartInfo("dotnet") { UseShellExecute = false };
+        foreach (string category in new[] { "style", "whitespace" }) {
+            result |= await FormatNative(category, check);
 
-            foreach (string argument in new[] { "format", category, solution, "--verbosity", "minimal" })
-            {
-                start.ArgumentList.Add(argument);
+            if (result != 0 && !check) {
+                return result;
             }
+        }
 
-            if (category == "style")
-            {
-                start.ArgumentList.Add("--diagnostics");
-                start.ArgumentList.Add("IDE0011");
-            }
+        while (true) {
+            int changed = 0;
 
-            if (check)
-            {
-                start.ArgumentList.Add("--verify-no-changes");
-            }
+            foreach (string path in SourceFiles(Directory.GetCurrentDirectory()).Order(StringComparer.Ordinal)) {
+                string source = await File.ReadAllTextAsync(path);
+                string formatted;
 
-            using var process = Process.Start(start)!;
-            await process.WaitForExitAsync();
+                try {
+                    formatted = StatementSpacing.Format(source);
+                }
+                catch (InvalidDataException error) {
+                    Console.Error.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), path)}: {error.Message}");
+                    result = 1;
+                    continue;
+                }
 
-            if (process.ExitCode != 0)
-            {
-                result = 1;
+                if (source == formatted) {
+                    continue;
+                }
 
-                if (!check)
-                {
-                    return result;
+                changed++;
+                Console.WriteLine($"{(check ? "Needs blank lines" : "Formatted")}: {Path.GetRelativePath(Directory.GetCurrentDirectory(), path)}");
+
+                if (!check) {
+                    await File.WriteAllTextAsync(path, formatted, new UTF8Encoding(false));
                 }
             }
-        }
 
-        int changed = 0;
+            Console.WriteLine(check ? $"Blank-line check: {changed} files need formatting." : $"Added blank lines in {changed} files.");
 
-        foreach (string path in SourceFiles(Directory.GetCurrentDirectory()).Order(StringComparer.Ordinal))
-        {
-            string source = await File.ReadAllTextAsync(path);
-            string formatted;
-
-            try
-            {
-                formatted = StatementSpacing.Format(source);
-            }
-            catch (InvalidDataException error)
-            {
-                Console.Error.WriteLine($"{Path.GetRelativePath(Directory.GetCurrentDirectory(), path)}: {error.Message}");
-                result = 1;
-                continue;
+            if (check || changed == 0) {
+                return result != 0 || (check && changed != 0) ? 1 : 0;
             }
 
-            if (source == formatted)
-            {
-                continue;
-            }
+            result |= await FormatNative("whitespace", false);
 
-            changed++;
-            Console.WriteLine($"{(check ? "Needs blank lines" : "Formatted")}: {Path.GetRelativePath(Directory.GetCurrentDirectory(), path)}");
-
-            if (!check)
-            {
-                await File.WriteAllTextAsync(path, formatted, new UTF8Encoding(false));
+            if (result != 0) {
+                return result;
             }
         }
+    }
 
-        Console.WriteLine(check ? $"Blank-line check: {changed} files need formatting." : $"Added blank lines in {changed} files.");
+    private static async Task<int> FormatNative(string category, bool check)
+    {
+        var start = new ProcessStartInfo("dotnet") { UseShellExecute = false };
 
-        return result != 0 || (check && changed != 0) ? 1 : 0;
+        foreach (string argument in new[] { "format", category, "Plus Emulator.sln", "--verbosity", "minimal" }) {
+            start.ArgumentList.Add(argument);
+        }
+
+        if (category == "style") {
+            start.ArgumentList.Add("--diagnostics");
+            start.ArgumentList.Add("IDE0011");
+        }
+
+        if (check) {
+            start.ArgumentList.Add("--verify-no-changes");
+        }
+
+        using var process = Process.Start(start)!;
+        await process.WaitForExitAsync();
+
+        return process.ExitCode == 0 ? 0 : 1;
     }
 
     private static IEnumerable<string> SourceFiles(string directory)
     {
-        foreach (string path in Directory.EnumerateFiles(directory, "*.cs"))
-        {
+        foreach (string path in Directory.EnumerateFiles(directory, "*.cs")) {
             if (!path.EndsWith(".g.cs", StringComparison.OrdinalIgnoreCase)
                 && !path.EndsWith(".generated.cs", StringComparison.OrdinalIgnoreCase)
-                && !File.ReadLines(path).Take(5).Any(line => line.Contains("<auto-generated", StringComparison.OrdinalIgnoreCase)))
-            {
+                && !File.ReadLines(path).Take(5).Any(line => line.Contains("<auto-generated", StringComparison.OrdinalIgnoreCase))) {
                 yield return path;
             }
         }
 
-        foreach (string child in Directory.EnumerateDirectories(directory))
-        {
+        foreach (string child in Directory.EnumerateDirectories(directory)) {
             if (Path.GetFileName(child) is ".git" or "bin" or "obj"
-                || (File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0)
-            {
+                || (File.GetAttributes(child) & FileAttributes.ReparsePoint) != 0) {
                 continue;
             }
 
-            foreach (string path in SourceFiles(child))
-            {
+            foreach (string path in SourceFiles(child)) {
                 yield return path;
             }
         }

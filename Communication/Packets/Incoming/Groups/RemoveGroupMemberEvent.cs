@@ -10,8 +10,7 @@ internal class RemoveGroupMemberEvent(IGroupRemovalService groups) : IPacketEven
         var groupId = packet.ReadInt();
         var userId = packet.ReadInt();
 
-        if (packet.HasDataRemaining())
-        {
+        if (packet.HasDataRemaining()) {
             packet.ReadBool();
         }
 

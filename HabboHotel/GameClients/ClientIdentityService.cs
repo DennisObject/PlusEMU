@@ -14,8 +14,7 @@ public sealed class ClientIdentityService(IModerationManager moderation) : IClie
     {
         session.MachineId = machineId;
 
-        if (moderation.HasMachineBanCheck(machineId))
-        {
+        if (moderation.HasMachineBanCheck(machineId)) {
             session.Disconnect();
 
             return;

@@ -9,13 +9,11 @@ public static class WiredVariableBoxFactory
     public static IWiredConfiguredItem? Create(Room room, Item item, WiredVariableModule variables, TimeProvider clock,
         WiredVariableConfigurationPersistence? definitions = null)
     {
-        if (item.Definition.WiredDescriptor is not { } descriptor)
-        {
+        if (item.Definition.WiredDescriptor is not { } descriptor) {
             return null;
         }
 
-        if (WiredVariableDefinitions.Supports(descriptor.CanonicalName))
-        {
+        if (WiredVariableDefinitions.Supports(descriptor.CanonicalName)) {
             return definitions is null ? null
             : new WiredVariableDefinitionBox(room, item, descriptor, definitions, new(variables));
         }

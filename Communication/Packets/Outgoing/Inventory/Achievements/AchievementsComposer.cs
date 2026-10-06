@@ -12,8 +12,7 @@ public class AchievementsComposer(ImmutableArray<AchievementProgressSnapshot> ac
     {
         packet.WriteInteger(achievements.Length);
 
-        foreach (var achievement in achievements)
-        {
+        foreach (var achievement in achievements) {
             packet.WriteInteger(achievement.Id); // Unknown (ID?)
             packet.WriteInteger(achievement.TargetLevel); // Target level
             packet.WriteString(achievement.Badge); // Target name/desc/badge

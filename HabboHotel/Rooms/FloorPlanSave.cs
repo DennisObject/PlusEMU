@@ -42,15 +42,11 @@ public static class FloorPlanSave
     /// </summary>
     public static Layout Resolve(bool doorFieldsPresent, bool wallHeightPresent, Layout requested, Layout existing)
     {
-        if (!doorFieldsPresent)
-        {
+        if (!doorFieldsPresent) {
             return existing;
         }
 
-        return wallHeightPresent ? requested : requested with
-        {
-            WallHeight = -1
-        };
+        return wallHeightPresent ? requested : requested with { WallHeight = -1 };
     }
 
     public readonly record struct Decision(
@@ -79,78 +75,64 @@ public static class FloorPlanSave
     {
         var map = rawMap?.ToLower().TrimEnd() ?? "";
 
-        if (map.Length == 0 || map.Any(letter => !IsMapChar(letter)))
-        {
+        if (map.Length == 0 || map.Any(letter => !IsMapChar(letter))) {
             return Reject(ErrorTitle);
         }
 
         var rows = map.Split('\r');
         var width = rows[0].Length;
 
-        if (rows.Length > MaxAxis)
-        {
+        if (rows.Length > MaxAxis) {
             return Reject(ErrorTooLargeHeight);
         }
 
-        if (width == 0 || width > MaxAxis || rows.Any(row => row.Length == 0 || row.Length > MaxAxis))
-        {
+        if (width == 0 || width > MaxAxis || rows.Any(row => row.Length == 0 || row.Length > MaxAxis)) {
             return Reject(ErrorTooLargeWidth);
         }
 
-        if (rows.Any(row => row.Length != width))
-        {
+        if (rows.Any(row => row.Length != width)) {
             return Reject(ErrorTitle);
         }
 
-        if (!rows.Any(row => row.Any(square => square != 'x')))
-        {
+        if (!rows.Any(row => row.Any(square => square != 'x'))) {
             return Reject(ErrorEffectiveHeight);
         }
 
-        if (doorX < 0 || doorY < 0 || doorX >= width || doorY >= rows.Length)
-        {
+        if (doorX < 0 || doorY < 0 || doorX >= width || doorY >= rows.Length) {
             return Reject(ErrorEntryOutside);
         }
 
-        if (rows[doorY][doorX] == 'x' || !TryHeight(rows[doorY][doorX], out var doorZ))
-        {
+        if (rows[doorY][doorX] == 'x' || !TryHeight(rows[doorY][doorX], out var doorZ)) {
             return Reject(ErrorEntryNotOnTile);
         }
 
-        if (doorDirection < 0 || doorDirection > 7)
-        {
+        if (doorDirection < 0 || doorDirection > 7) {
             return Reject(ErrorEntryDirection);
         }
 
-        if (wallThickness < -2 || wallThickness > 1)
-        {
+        if (wallThickness < -2 || wallThickness > 1) {
             return Reject(ErrorWallThickness);
         }
 
-        if (floorThickness < -2 || floorThickness > 1)
-        {
+        if (floorThickness < -2 || floorThickness > 1) {
             return Reject(ErrorFloorThickness);
         }
 
-        if (wallHeight < -1 || wallHeight > 15)
-        {
+        if (wallHeight < -1 || wallHeight > 15) {
             return Reject(ErrorWallHeight);
         }
 
         var blocking = new List<uint>();
 
-        foreach (var item in items)
-        {
-            if (!ItemBlocksSave(item, rows, width, currentTiles))
-            {
+        foreach (var item in items) {
+            if (!ItemBlocksSave(item, rows, width, currentTiles)) {
                 continue;
             }
 
             blocking.Add(item.Id);
         }
 
-        if (blocking.Count > 0)
-        {
+        if (blocking.Count > 0) {
             return new Decision(false, ErrorBlockedByItem, map, doorX, doorY, doorZ, doorDirection, wallThickness, floorThickness, wallHeight, blocking);
         }
 
@@ -162,12 +144,9 @@ public static class FloorPlanSave
         var seen = new HashSet<(int X, int Y)>();
         var tiles = new List<(int X, int Y)>();
 
-        foreach (var item in items)
-        {
-            foreach (var tile in Tiles(item))
-            {
-                if (seen.Add(tile))
-                {
+        foreach (var item in items) {
+            foreach (var tile in Tiles(item)) {
+                if (seen.Add(tile)) {
                     tiles.Add(tile);
                 }
             }
@@ -180,25 +159,21 @@ public static class FloorPlanSave
     {
         yield return (item.X, item.Y);
 
-        foreach (var tile in Gamemap.GetAffectedTiles(item.Length, item.Width, item.X, item.Y, item.Rotation).Values)
-        {
+        foreach (var tile in Gamemap.GetAffectedTiles(item.Length, item.Width, item.X, item.Y, item.Rotation).Values) {
             yield return (tile.X, tile.Y);
         }
     }
 
     private static bool ItemBlocksSave(FloorPlanItem item, string[] rows, int width, IReadOnlyDictionary<(int X, int Y), FloorTile> currentTiles)
     {
-        foreach (var (x, y) in Tiles(item))
-        {
-            if (x < 0 || y < 0 || x >= width || y >= rows.Length)
-            {
+        foreach (var (x, y) in Tiles(item)) {
+            if (x < 0 || y < 0 || x >= width || y >= rows.Length) {
                 return true;
             }
 
             var square = rows[y][x];
 
-            if (square == 'x')
-            {
+            if (square == 'x') {
                 return true;
             }
 
@@ -206,8 +181,7 @@ public static class FloorPlanSave
                 && currentTiles.TryGetValue((x, y), out var old)
                 && old.Walkable
                 && TryHeight(square, out var height)
-                && height != old.Height)
-            {
+                && height != old.Height) {
                 return true;
             }
         }
@@ -220,15 +194,13 @@ public static class FloorPlanSave
 
     private static bool TryHeight(char square, out int height)
     {
-        if (square is >= '0' and <= '9')
-        {
+        if (square is >= '0' and <= '9') {
             height = square - '0';
 
             return true;
         }
 
-        if (square is >= 'a' and <= 'w')
-        {
+        if (square is >= 'a' and <= 'w') {
             height = square - 'a' + 10;
 
             return true;

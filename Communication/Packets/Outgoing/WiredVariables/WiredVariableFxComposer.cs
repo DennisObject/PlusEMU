@@ -16,31 +16,24 @@ public sealed class WiredVariableFxComposer : IServerPacket
         MessageId = id;
         _batch = batch;
     }
-    public uint MessageId
-    {
-        get;
-    }
+    public uint MessageId { get; }
     public static IReadOnlyList<WiredVariableFxComposer> ComposeBatch(WiredVariableFxBatch batch)
     {
         var result = new List<WiredVariableFxComposer>();
 
-        if (batch.RemovedConfigs.Count > 0)
-        {
+        if (batch.RemovedConfigs.Count > 0) {
             result.Add(new(RemovedConfigsId, batch));
         }
 
-        if (batch.Configs.Count > 0)
-        {
+        if (batch.Configs.Count > 0) {
             result.Add(new(ConfigsId, batch));
         }
 
-        if (batch.RemovedStatuses.Count > 0)
-        {
+        if (batch.RemovedStatuses.Count > 0) {
             result.Add(new(RemovedStatusesId, batch));
         }
 
-        if (batch.Statuses.Count > 0)
-        {
+        if (batch.Statuses.Count > 0) {
             result.Add(new(StatusesId, batch));
         }
 
@@ -48,13 +41,11 @@ public sealed class WiredVariableFxComposer : IServerPacket
     }
     public void Compose(IOutgoingPacket packet)
     {
-        switch (MessageId)
-        {
+        switch (MessageId) {
             case ConfigsId:
                 packet.WriteInteger(_batch.Configs.Count);
 
-                foreach (var config in _batch.Configs)
-                {
+                foreach (var config in _batch.Configs) {
                     packet.WriteInteger(config.Id);
                     packet.WriteBoolean(config.UserFx);
                     packet.WriteInteger(config.ShowMode);
@@ -75,8 +66,7 @@ public sealed class WiredVariableFxComposer : IServerPacket
             case RemovedConfigsId:
                 packet.WriteInteger(_batch.RemovedConfigs.Count);
 
-                foreach (var id in _batch.RemovedConfigs)
-                {
+                foreach (var id in _batch.RemovedConfigs) {
                     packet.WriteInteger(id);
                 }
 
@@ -85,8 +75,7 @@ public sealed class WiredVariableFxComposer : IServerPacket
                 packet.WriteBoolean(_batch.InitializeAll);
                 packet.WriteInteger(_batch.Statuses.Count);
 
-                foreach (var status in _batch.Statuses)
-                {
+                foreach (var status in _batch.Statuses) {
                     packet.WriteString($"{status.Key.ConfigId}|{status.Key.VariableId}");
                     packet.WriteBoolean(status.Initialize);
                     packet.WriteBoolean(status.Key.UserEntity);
@@ -94,8 +83,7 @@ public sealed class WiredVariableFxComposer : IServerPacket
                     WriteLong(packet, status.Value);
                     packet.WriteBoolean(status.Min is not null && status.Max is not null);
 
-                    if (status.Min is long min && status.Max is long max)
-                    {
+                    if (status.Min is long min && status.Max is long max) {
                         WriteLong(packet, min);
                         WriteLong(packet, max);
                     }
@@ -107,8 +95,7 @@ public sealed class WiredVariableFxComposer : IServerPacket
             case RemovedStatusesId:
                 packet.WriteInteger(_batch.RemovedStatuses.Count);
 
-                foreach (var key in _batch.RemovedStatuses)
-                {
+                foreach (var key in _batch.RemovedStatuses) {
                     packet.WriteString(key.ToString());
                 }
 
@@ -124,8 +111,7 @@ public sealed class WiredVariableFxComposer : IServerPacket
     {
         packet.WriteInteger(extra.Count);
 
-        foreach (var (key, value) in extra)
-        {
+        foreach (var (key, value) in extra) {
             packet.WriteString(key);
             packet.WriteString(value);
         }

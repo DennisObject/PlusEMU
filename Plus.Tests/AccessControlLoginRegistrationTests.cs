@@ -60,8 +60,7 @@ public sealed class AccessControlLoginRegistrationTests
         public List<bool> RegisteredAtResolution { get; } = new();
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method?.Name != nameof(IAccessControl.Resolve))
-            {
+            if (method?.Name != nameof(IAccessControl.Resolve)) {
                 throw new InvalidOperationException(method?.Name);
             }
 

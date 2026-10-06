@@ -26,30 +26,25 @@ public sealed class GnomePackageService(
     {
         var habbo = session.GetHabbo();
 
-        if (!ReferenceEquals(habbo.CurrentRoom, room))
-        {
+        if (!ReferenceEquals(habbo.CurrentRoom, room)) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(itemId);
 
-        if (item == null)
-        {
+        if (item == null) {
             return;
         }
 
-        lock (item)
-        {
+        lock (item) {
             if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(itemId), item)
                 || item.IsTemporary || item.RoomId != room.RoomId
                 || item.OwnerId != habbo.Id
-                || item.Definition?.InteractionType != InteractionType.GnomeBox)
-            {
+                || item.Definition?.InteractionType != InteractionType.GnomeBox) {
                 return;
             }
 
-            if (!PetUtility.CheckPetName(petName))
-            {
+            if (!PetUtility.CheckPetName(petName)) {
                 session.Send(new CheckGnomeNameComposer(petName, PetPackageNameError.InvalidName));
 
                 return;
@@ -58,8 +53,7 @@ public sealed class GnomePackageService(
             var pet = store.Open(new(item.Id, item.Definition.Id, habbo.Id, habbo.Username, room.RoomId,
                 item.GetX, item.GetY, item.GetZ, petName, RandomClothing(), clock.GetUtcNow()));
 
-            if (pet == null)
-            {
+            if (pet == null) {
                 session.SendNotification("Oops, an error occoured. Please report this!");
 
                 return;
@@ -71,12 +65,10 @@ public sealed class GnomePackageService(
             room.GetRoomUserManager().DeployBot(new(pet.PetId, pet.RoomId, "pet", "freeroam", pet.Name, "", pet.Look,
                 pet.X, pet.Y, pet.Z, 0, 0, 0, 0, 0, ref speeches, "", 0, pet.OwnerId, false, 0, false, 0), pet);
 
-            if (definitions.Items.TryGetValue(320, out var foodDefinition))
-            {
+            if (definitions.Items.TryGetValue(320, out var foodDefinition)) {
                 var foodItem = items.CreateSingleItemNullable(foodDefinition, habbo, "", "");
 
-                if (foodItem != null)
-                {
+                if (foodItem != null) {
                     var food = foodItem.ToInventoryItem();
                     habbo.Inventory.Furniture.AddItem(food);
                     session.Send(new FurniListNotificationComposer(food.Id, 1));

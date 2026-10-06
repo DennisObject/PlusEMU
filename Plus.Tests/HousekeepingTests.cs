@@ -80,12 +80,7 @@ public class HousekeepingPolicyTests
 public class HousekeepingActionTests
 {
     private static Habbo Staff(int rank = 7, params string[] rights) =>
-        new()
-        {
-            Id = 1,
-            Username = "staff",
-            Access = HousekeepingPolicyTests.Access(rank * 10, rights)
-        };
+        new() { Id = 1, Username = "staff", Access = HousekeepingPolicyTests.Access(rank * 10, rights) };
 
     private static (HousekeepingUserActions Users, HousekeepingEconomyActions Economy, FakeClients Clients) Actions(params (HousekeepingUserRecord User, UserAccess Access)[] users) =>
         Actions(new AccountSessionGate(), null!, null!, users);
@@ -155,11 +150,7 @@ public class HousekeepingActionTests
     }
 
     private static (HousekeepingUserRecord User, UserAccess Access) User(int id, int rank) =>
-        (new()
-        {
-            Id = id,
-            Username = "user" + id
-        }, HousekeepingPolicyTests.Access(rank * 10));
+        (new() { Id = id, Username = "user" + id }, HousekeepingPolicyTests.Access(rank * 10));
 
     public class AccessProxy : DispatchProxy
     {
@@ -322,12 +313,7 @@ public class AccountSessionGateTests
 public class HousekeepingHandlerTests
 {
     private static Habbo Staff(params string[] rights) =>
-        new()
-        {
-            Id = 1,
-            Username = "staff",
-            Access = HousekeepingPolicyTests.Access(70, rights)
-        };
+        new() { Id = 1, Username = "staff", Access = HousekeepingPolicyTests.Access(70, rights) };
 
     private static (string Key, bool Ok, int ActionId, string Message) Result(byte[] payload)
     {
@@ -469,19 +455,7 @@ public class HousekeepingHandlerTests
     public async Task ActionLogIsReadBackNewestFirstForStaff()
     {
         var audit = new FakeAudit();
-        audit.Entries.Add(new()
-        {
-            Id = 4,
-            CreatedAt = DateTimeOffset.FromUnixTimeSeconds(100),
-            ActorId = 1,
-            ActorName = "staff",
-            TargetType = "room",
-            TargetId = 5,
-            TargetLabel = "Lobby",
-            Action = "room.close",
-            Detail = "open=False",
-            Success = true
-        });
+        audit.Entries.Add(new() { Id = 4, CreatedAt = DateTimeOffset.FromUnixTimeSeconds(100), ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true });
         var (client, sent) = Client(Staff(HousekeepingRights.Access));
         await new HousekeepingListActionLogEvent(new HousekeepingActionRunner(audit, NullLogger<HousekeepingActionRunner>.Instance), audit).Parse(client, Incoming(10_000));
         var packet = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
@@ -501,15 +475,11 @@ public class HousekeepingHandlerTests
     {
         public List<string> Calls { get; } = new();
         public string Password { get; init; } = "";
-        public bool Throw
-        {
-            get; init;
-        }
+        public bool Throw { get; init; }
 
         private HousekeepingOutcome Record(string call, string message = "")
         {
-            if (Throw)
-            {
+            if (Throw) {
                 throw new InvalidOperationException("boom");
             }
 
@@ -705,14 +675,12 @@ public class HousekeepingWireTests
             .UsingRegistrationStrategy(Scrutor.RegistrationStrategy.Skip).AsSelfWithInterfaces().WithSingletonLifetime());
         services.AddAssignableTo(typeof(Program).Assembly, typeof(HabboHotel.Users.Authentication.IPasswordHasher));
 
-        foreach (var name in Incoming.Keys)
-        {
+        foreach (var name in Incoming.Keys) {
             var handler = typeof(HousekeepingBanUserEvent).Assembly.GetType($"{typeof(HousekeepingBanUserEvent).Namespace}.{name}")!;
             // AsSelfWithInterfaces registers the handler itself and forwards IPacketEvent to that registration.
             Assert.Contains(services, service => service.ServiceType == handler && service.ImplementationType == handler);
 
-            foreach (var parameter in handler.GetConstructors().Single().GetParameters())
-            {
+            foreach (var parameter in handler.GetConstructors().Single().GetParameters()) {
                 Assert.True(services.Any(service => service.ServiceType == parameter.ParameterType), $"{name} needs {parameter.ParameterType.Name}");
             }
         }
@@ -727,14 +695,12 @@ public class HousekeepingWireTests
         Assert.Equal(Incoming.Keys.ToHashSet(), handlers);
         using var revision = JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json")));
 
-        foreach (var (name, id) in Incoming)
-        {
+        foreach (var (name, id) in Incoming) {
             Assert.Equal(id, (uint)typeof(ClientPacketHeader).GetField(name)!.GetRawConstantValue()!);
             Assert.Equal(id, revision.RootElement.GetProperty("IncomingHeaders").GetProperty(name).GetUInt32());
         }
 
-        foreach (var (name, id) in Outgoing)
-        {
+        foreach (var (name, id) in Outgoing) {
             Assert.Equal(id, (uint)typeof(ServerPacketHeader).GetField(name)!.GetRawConstantValue()!);
             Assert.Equal(id, revision.RootElement.GetProperty("OutgoingHeaders").GetProperty(name).GetUInt32());
         }

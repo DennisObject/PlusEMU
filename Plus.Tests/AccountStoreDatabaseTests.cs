@@ -19,10 +19,7 @@ public sealed class AccountStoreDatabaseTests : IDisposable
         var id = Track(await _store.Create(new NewAccount(name, "$argon2id$hash", name + "@example.com", "hd-180-1", "F", "10.1.2.3")));
 
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        var row = connection.QuerySingle("SELECT username, password, mail, look, gender, credits, motto, ip_reg, auth_ticket FROM users WHERE id = @id", new
-        {
-            id
-        });
+        var row = connection.QuerySingle("SELECT username, password, mail, look, gender, credits, motto, ip_reg, auth_ticket FROM users WHERE id = @id", new { id });
         Assert.Equal(name, (string)row.username);
         Assert.Equal("$argon2id$hash", (string)row.password);
         Assert.Equal("hd-180-1", (string)row.look);
@@ -31,10 +28,7 @@ public sealed class AccountStoreDatabaseTests : IDisposable
         Assert.Equal("Octane", (string)row.motto);
         Assert.Equal("10.1.2.3", (string)row.ip_reg);
         Assert.Equal("", (string)row.auth_ticket);
-        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_statistics WHERE id = @id", new
-        {
-            id
-        }));
+        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_statistics WHERE id = @id", new { id }));
     }
 
     [AuthDatabaseFact]
@@ -47,14 +41,8 @@ public sealed class AccountStoreDatabaseTests : IDisposable
 
         var id = Track(Assert.Single(ids, i => i != null));
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM users WHERE username = @name", new
-        {
-            name
-        }));
-        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_statistics WHERE id = @id", new
-        {
-            id
-        }));
+        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM users WHERE username = @name", new { name }));
+        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_statistics WHERE id = @id", new { id }));
     }
 
     [AuthDatabaseFact]
@@ -99,10 +87,7 @@ public sealed class AccountStoreDatabaseTests : IDisposable
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
 
-        return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new
-        {
-            id
-        });
+        return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new { id });
     }
 
     private int Track(int? id)

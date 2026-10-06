@@ -51,10 +51,7 @@ public class CameraEffectCatalogueTests
 
     private sealed class ScriptedHandler(string body) : HttpMessageHandler
     {
-        public int Calls
-        {
-            get; private set;
-        }
+        public int Calls { get; private set; }
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)

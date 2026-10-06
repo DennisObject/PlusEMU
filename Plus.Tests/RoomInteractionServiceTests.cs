@@ -116,14 +116,12 @@ public sealed class RoomInteractionServiceTests
         };
         var service = new RoomInteractionService(store);
 
-        if (fail)
-        {
+        if (fail) {
             Assert.Throws<InvalidOperationException>(() => service.UpdateSticky(room, client, item.Id, "9CCEFF", "edited"));
             Assert.Equal("FFFF33 old", item.LegacyDataString);
             Assert.Empty(sent);
         }
-        else
-        {
+        else {
             service.UpdateSticky(room, client, item.Id, "9CCEFF", "edited");
             Assert.Equal("9CCEFF edited", item.LegacyDataString);
             Assert.Single(sent);
@@ -176,8 +174,7 @@ public sealed class RoomInteractionServiceTests
         var schema = "task_refactor_tests_sticky_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
@@ -197,7 +194,9 @@ public sealed class RoomInteractionServiceTests
             Assert.Throws<MySqlException>(() => store.UpdateSticky(7, 9, "failure"));
             Assert.Equal("FFFF33 edited", connection.QuerySingle<string>("SELECT extra_data FROM items WHERE id=7"));
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private sealed class StickyDatabase(string connectionString) : IDatabase
@@ -251,14 +250,8 @@ public sealed class RoomInteractionServiceTests
 
     private sealed class RecordingStore : IRoomInteractionStore
     {
-        public int ResultingScore
-        {
-            get; init;
-        }
-        public bool Fail
-        {
-            get; set;
-        }
+        public int ResultingScore { get; init; }
+        public bool Fail { get; set; }
         public Action? BeforeUpdate;
         public string? UpdatedData;
         public int Updates;
@@ -268,25 +261,17 @@ public sealed class RoomInteractionServiceTests
             Updates++;
             UpdatedData = data;
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced");
             }
         }
-        public int Ratings
-        {
-            get; private set;
-        }
-        public int Deletions
-        {
-            get; private set;
-        }
+        public int Ratings { get; private set; }
+        public int Deletions { get; private set; }
         public int AddRating(uint roomId, int rating)
         {
             Ratings++;
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced");
             }
 
@@ -296,8 +281,7 @@ public sealed class RoomInteractionServiceTests
         {
             Deletions++;
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced");
             }
         }

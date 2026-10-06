@@ -236,14 +236,12 @@ public partial class PlacedFurniRoomTests
         var previousGame = _gameField.GetValue(null);
         var previousLanguage = languageField.GetValue(null);
 
-        try
-        {
+        try {
             _gameField.SetValue(null, Proxy<IGame>((method, _) => throw new InvalidOperationException($"global game:{method}")));
             languageField.SetValue(null, Proxy<ILanguageManager>((method, _) => throw new InvalidOperationException($"global language:{method}")));
             action();
         }
-        finally
-        {
+        finally {
             _gameField.SetValue(null, previousGame);
             languageField.SetValue(null, previousLanguage);
         }
@@ -277,22 +275,10 @@ public partial class PlacedFurniRoomTests
 
     private sealed class DependencyRoomItemStore : IRoomItemStore
     {
-        public Action<uint>? Clear
-        {
-            get; init;
-        }
-        public int ClearCount
-        {
-            get; private set;
-        }
-        public int FloorPlacements
-        {
-            get; private set;
-        }
-        public int WallPlacements
-        {
-            get; private set;
-        }
+        public Action<uint>? Clear { get; init; }
+        public int ClearCount { get; private set; }
+        public int FloorPlacements { get; private set; }
+        public int WallPlacements { get; private set; }
         public void AssignOwner(uint itemId, int userId)
         {
         }

@@ -14,8 +14,7 @@ public class BuddyListComposer(ImmutableArray<MessengerBuddySnapshot> friends, i
         packet.WriteInteger(page); // Page
         packet.WriteInteger(friends.Length);
 
-        foreach (var friend in friends)
-        {
+        foreach (var friend in friends) {
             MessengerBuddyWire.Write(packet, friend);
         }
     }

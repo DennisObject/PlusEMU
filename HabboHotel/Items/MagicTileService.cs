@@ -18,15 +18,13 @@ public sealed class MagicTileService : IMagicTileService
     {
         var room = AuthorizedRoom(session);
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(itemId);
 
-        if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
-        {
+        if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType)) {
             return;
         }
 
@@ -37,15 +35,13 @@ public sealed class MagicTileService : IMagicTileService
     {
         var room = AuthorizedRoom(session);
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
         var item = room.GetRoomItemHandler().GetItem(itemId);
 
-        if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
-        {
+        if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType)) {
             return;
         }
 
@@ -69,17 +65,13 @@ public sealed class MagicTileService : IMagicTileService
         var stackBelowZ = footprint.Max(tile => room.GetGameMap().ResolvePlacement(tile.X, tile.Y, item.Id).PlacementZ);
         var height = MagicTileHeight.Resolve(requestedHeight, floorZ, stackBelowZ);
 
-        if (!room.GetRoomItemHandler().SetFloorItem(item, item.GetX, item.GetY, height))
-        {
+        if (!room.GetRoomItemHandler().SetFloorItem(item, item.GetX, item.GetY, height)) {
             return;
         }
 
-        if (item.Definition.InteractionType == InteractionType.WalkMagicTile && multiWalk.HasValue)
-        {
+        if (item.Definition.InteractionType == InteractionType.WalkMagicTile && multiWalk.HasValue) {
             item.ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat
-            {
-                Data = MagicTileHeight.ToWire(height).ToString(System.Globalization.CultureInfo.InvariantCulture) + (multiWalk.Value ? ";1" : "")
-            };
+            { Data = MagicTileHeight.ToWire(height).ToString(System.Globalization.CultureInfo.InvariantCulture) + (multiWalk.Value ? ";1" : "") };
             room.GetRoomItemHandler().UpdateItem(item);
         }
 

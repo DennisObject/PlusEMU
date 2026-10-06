@@ -24,8 +24,7 @@ public sealed class ModeratorTargetHierarchyTests
             new GiveCommand(), new GiveBadgeCommand(null!), new FreezeCommand(null!),
             new KickCommand(), new SummonCommand(null!), new MuteCommand(null!),
             new UnmuteCommand(null!), new TradeBanCommand(null!), new BanCommand(null!, TimeProvider.System),
-            new IpBanCommand(null!, TimeProvider.System), new MipCommand(null!, TimeProvider.System) })
-        {
+            new IpBanCommand(null!, TimeProvider.System), new MipCommand(null!, TimeProvider.System) }) {
             yield return [command, 50];
             yield return [command, 90];
         }
@@ -117,8 +116,7 @@ public sealed class ModeratorTargetHierarchyTests
         public (int, int)? Ids;
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method?.Name != nameof(IAccessControl.Outranks))
-            {
+            if (method?.Name != nameof(IAccessControl.Outranks)) {
                 throw new InvalidOperationException(method?.Name);
             }
 

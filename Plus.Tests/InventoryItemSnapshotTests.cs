@@ -31,10 +31,7 @@ public sealed class InventoryItemSnapshotTests
     [Fact]
     public void LimitedWallItemSnapshotCopiesNestedDataDefinitionAndCollection()
     {
-        var data = new MapDataFormat(new()
-        {
-            ["state"] = "before"
-        });
+        var data = new MapDataFormat(new() { ["state"] = "before" });
         var item = Item(17, data);
         item.Definition.Type = ItemType.Wall;
         item.UniqueNumber = 4;
@@ -87,8 +84,7 @@ public sealed class InventoryItemSnapshotTests
         Assert.Equal(pages, sent.Count);
         var actualCount = 0;
 
-        for (var index = 0; index < sent.Count; index++)
-        {
+        for (var index = 0; index < sent.Count; index++) {
             var packet = sent[index];
             Assert.Equal(ServerPacketHeader.FurniListComposer, packet.Header);
             Assert.Equal(pages, BinaryPrimitives.ReadInt32BigEndian(packet.Payload));
@@ -130,10 +126,8 @@ public sealed class InventoryItemSnapshotTests
         using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
         IOutgoingPacket packet = new FlashOutgoingPacket(stream);
 
-        foreach (var field in fields)
-        {
-            switch (field)
-            {
+        foreach (var field in fields) {
+            switch (field) {
                 case int value:
                     packet.WriteInt(value);
                     break;

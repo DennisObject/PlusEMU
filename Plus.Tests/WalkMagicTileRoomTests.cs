@@ -235,8 +235,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("300;1", tile.LegacyDataString);
         Assert.Equal(1, RoomItemSnapshot.Capture(tile).FloorExtra);
 
-        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(tile)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(tile)) })
-        {
+        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(tile)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(tile)) }) {
             var packet = Body(composer);
             packet.ReadUInt();
             packet.ReadInt();
@@ -274,15 +273,13 @@ public partial class PlacedFurniRoomTests
     {
         var table = new DataTable();
 
-        foreach (var column in new[] { "id", "user_id", "x", "y", "rot", "limited_number", "limited_stack" })
-        {
+        foreach (var column in new[] { "id", "user_id", "x", "y", "rot", "limited_number", "limited_stack" }) {
             table.Columns.Add(column, typeof(int));
         }
 
         table.Columns.Add("z", typeof(double));
 
-        foreach (var column in new[] { "extra_data", "wall_pos", "username" })
-        {
+        foreach (var column in new[] { "extra_data", "wall_pos", "username" }) {
             table.Columns.Add(column, typeof(string));
         }
 
@@ -341,8 +338,7 @@ public partial class PlacedFurniRoomTests
         var width = full.ReadInt();
         var count = full.ReadInt();
 
-        for (var index = 0; index < count; index++)
-        {
+        for (var index = 0; index < count; index++) {
             Assert.Equal(_room.GetGameMap().PlacementHeightMap()[index % width, index / width], full.ReadShort());
         }
 
@@ -494,8 +490,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(4, full.ReadInt());
         Assert.Equal(16, full.ReadInt());
 
-        for (var index = 0; index < 5; index++)
-        {
+        for (var index = 0; index < 5; index++) {
             full.ReadShort();
         }
 
@@ -566,8 +561,7 @@ public partial class PlacedFurniRoomTests
     {
         var blocker = Add(10, 2, 2, height: 2, stackable: false);
 
-        if (helper)
-        {
+        if (helper) {
             Add(11, 2, 2, z: 0.75, type: InteractionType.WalkMagicTile);
         }
 
@@ -577,8 +571,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(expected, Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.MoveItem(_room, item, 2, 2, animate: false, collision: policy));
         Assert.Equal(expected ? 2 : 1, item.GetX);
 
-        if (expected)
-        {
+        if (expected) {
             Assert.Equal(helper ? 0.75 : 2, item.GetZ);
         }
     }
@@ -588,12 +581,10 @@ public partial class PlacedFurniRoomTests
     [InlineData(false, "1,1,1.75")]
     public void MountedMovementAlwaysEmitsHorseMvAndOnlyOffsetsRiderWithoutWalkTile(bool walkTile, string riderMv)
     {
-        if (walkTile)
-        {
+        if (walkTile) {
             Add(10, 1, 1, z: 0.75, type: InteractionType.WalkMagicTile);
         }
-        else
-        {
+        else {
             var support = Add(10, 1, 1, height: 0.75);
             support.Definition.Walkable = true;
             _room.GetGameMap().UpdateMapForItem(support);
@@ -632,8 +623,7 @@ public partial class PlacedFurniRoomTests
         var sends = 0;
         _client.BeforeCapture = header =>
         {
-            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1)
-            {
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1) {
                 return;
             }
 
@@ -647,8 +637,7 @@ public partial class PlacedFurniRoomTests
         });
         Task? later = null;
 
-        try
-        {
+        try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
             later = Task.Run(() =>
             {
@@ -660,12 +649,13 @@ public partial class PlacedFurniRoomTests
             Assert.True(later.Wait(TimeSpan.FromSeconds(10)));
             Assert.Equal(1, Volatile.Read(ref sends));
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
 
         await first;
 
-        if (later != null)
-        {
+        if (later != null) {
             await later;
         }
 
@@ -700,8 +690,7 @@ public partial class PlacedFurniRoomTests
         var sends = 0;
         _client.BeforeCapture = header =>
         {
-            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1)
-            {
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref sends) != 1) {
                 return;
             }
 
@@ -715,19 +704,16 @@ public partial class PlacedFurniRoomTests
         });
         Task? mutation = null;
 
-        try
-        {
+        try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
             mutation = Task.Run(() =>
             {
                 mutationReady.Set();
 
-                if (rebuild)
-                {
+                if (rebuild) {
                     map.GenerateMaps();
                 }
-                else
-                {
+                else {
                     _room.GetRoomItemHandler().UpdateItemOnRoller(bridge, new(1, 1), 42, 2);
                 }
 
@@ -738,20 +724,20 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(rebuild ? SquareState.Blocked : SquareState.Open, map.Model.SqState[1, 1]);
             Assert.Equal(1, Volatile.Read(ref sends));
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
 
         await first;
 
-        if (mutation != null)
-        {
+        if (mutation != null) {
             await mutation;
         }
 
         Assert.Equal(rebuild ? SquareState.Blocked : SquareState.Open, map.Model.SqState[1, 1]);
         Assert.Equal((short)256, DeltaAt(3, 2));
 
-        if (!rebuild)
-        {
+        if (!rebuild) {
             Assert.True(map.CanRollItemHere(1, 1));
             Assert.Equal((short)640, DeltaAt(1, 1));
             Assert.Equal((short)640, map.PlacementHeightMap()[1, 1]);
@@ -778,38 +764,35 @@ public partial class PlacedFurniRoomTests
         var sentUnderLock = false;
         _client.SendCallback = _ =>
         {
-            if (Interlocked.Increment(ref callbacks) != 1)
-            {
+            if (Interlocked.Increment(ref callbacks) != 1) {
                 return false;
             }
 
             sentUnderLock = Monitor.IsEntered(map.PlacementSync);
             sending.Set();
 
-            if (!moving.Wait(TimeSpan.FromSeconds(10)))
-            {
+            if (!moving.Wait(TimeSpan.FromSeconds(10))) {
                 return false;
             }
 
             // Bound the failed case, but exercise the real lock and disconnect cleanup path.
-            if (!Monitor.TryEnter(wiredSync, TimeSpan.FromSeconds(5)))
-            {
+            if (!Monitor.TryEnter(wiredSync, TimeSpan.FromSeconds(5))) {
                 return false;
             }
 
-            try
-            {
+            try {
                 wired.BeforeActorLeaves(actor);
                 cleanupCompleted = true;
             }
-            finally { Monitor.Exit(wiredSync); }
+            finally {
+                Monitor.Exit(wiredSync);
+            }
 
             return false;
         };
         var movement = Task.Run(() =>
         {
-            lock (wiredSync)
-            {
+            lock (wiredSync) {
                 wiredHeld.Set();
                 Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
                 moving.Set();
@@ -820,12 +803,10 @@ public partial class PlacedFurniRoomTests
         Assert.True(wiredHeld.Wait(TimeSpan.FromSeconds(10)));
         var send = Task.Run(() =>
         {
-            if (entry)
-            {
+            if (entry) {
                 map.SendPlacementHeightMap(_client);
             }
-            else
-            {
+            else {
                 table.Definition.Height = 1;
                 table.UpdateState();
             }
@@ -851,8 +832,7 @@ public partial class PlacedFurniRoomTests
         var captured = 0;
         _client.BeforeCapture = header =>
         {
-            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref captured) != 1)
-            {
+            if (header != ServerPacketHeader.HeightMapUpdateComposer || Interlocked.Increment(ref captured) != 1) {
                 return;
             }
 
@@ -865,8 +845,7 @@ public partial class PlacedFurniRoomTests
             firstTable.UpdateState();
         });
 
-        try
-        {
+        try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
             secondTable.Definition.Height = 2;
             secondTable.UpdateState();
@@ -876,15 +855,16 @@ public partial class PlacedFurniRoomTests
             secondTable.Definition.Height = 4;
             secondTable.UpdateState();
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
 
         await first.WaitAsync(TimeSpan.FromSeconds(15));
         var packets = _client.Packets.Where(packet => packet.Header is ServerPacketHeader.HeightMapComposer or ServerPacketHeader.HeightMapUpdateComposer).ToArray();
         Assert.Equal(new uint[] { ServerPacketHeader.HeightMapUpdateComposer, ServerPacketHeader.HeightMapComposer,
             ServerPacketHeader.HeightMapComposer, ServerPacketHeader.HeightMapUpdateComposer }, packets.Select(packet => packet.Header));
 
-        foreach (var packet in packets.Skip(1).Take(2))
-        {
+        foreach (var packet in packets.Skip(1).Take(2)) {
             var full = new FlashIncomingPacket { Buffer = packet.Body.ToArray() };
             Assert.Equal(4, full.ReadInt());
             Assert.Equal(16, full.ReadInt());
@@ -913,18 +893,15 @@ public partial class PlacedFurniRoomTests
         Task? rebuild = null;
         Monitor.Enter(oldIds);
 
-        try
-        {
+        try {
             // RemoveFromMap drops the helper ID before reading the remaining blocker under this lock.
             // Pause that actual handler exactly between old-index removal and SetState/new-index insertion.
             movement = Task.Run(() =>
             {
-                if (secondary)
-                {
+                if (secondary) {
                     Assert.True(_room.GetRoomItemHandler().SetFloorItem(tile, 2, 2, 2));
                 }
-                else
-                {
+                else {
                     Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, tile, 2, 2, 2, false, false, false, height: 2));
                 }
             });
@@ -938,15 +915,15 @@ public partial class PlacedFurniRoomTests
             Assert.True(rebuilding.Wait(TimeSpan.FromSeconds(10)));
             Assert.False(rebuild.Wait(TimeSpan.FromMilliseconds(100)));
         }
-        finally { Monitor.Exit(oldIds); }
+        finally {
+            Monitor.Exit(oldIds);
+        }
 
-        if (movement != null)
-        {
+        if (movement != null) {
             await movement.WaitAsync(TimeSpan.FromSeconds(15));
         }
 
-        if (rebuild != null)
-        {
+        if (rebuild != null) {
             await rebuild.WaitAsync(TimeSpan.FromSeconds(15));
         }
 
@@ -958,8 +935,7 @@ public partial class PlacedFurniRoomTests
         Assert.False(map.ResolvePlacement(1, 1).CanStack);
         Assert.DoesNotContain(tile, map.GetCoordinatedItems(new(1, 1)));
 
-        foreach (var point in tile.GetCoords)
-        {
+        foreach (var point in tile.GetCoords) {
             Assert.Same(tile, map.WalkMagicAt(point.X, point.Y));
         }
     }
@@ -977,8 +953,7 @@ public partial class PlacedFurniRoomTests
         Task firstPlacement;
         Task secondPlacement;
 
-        lock (map.PlacementSync)
-        {
+        lock (map.PlacementSync) {
             firstPlacement = Task.Factory.StartNew(() =>
             {
                 firstThread = Thread.CurrentThread;
@@ -1024,8 +999,7 @@ public partial class PlacedFurniRoomTests
         var sendUnderLock = false;
         existingClient.BeforeCapture = _ =>
         {
-            if (Interlocked.Increment(ref sends) == 1)
-            {
+            if (Interlocked.Increment(ref sends) == 1) {
                 sendUnderLock = Monitor.IsEntered(map.PlacementSync);
                 resolving.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
@@ -1035,15 +1009,16 @@ public partial class PlacedFurniRoomTests
         map.AddItemToMap(table, false); // Like a furniture commit, dirty the footprint before the flush.
         var flush = Task.Run(map.FlushPlacementUpdates);
 
-        try
-        {
+        try {
             Assert.True(resolving.Wait(TimeSpan.FromSeconds(10)));
             Viewer();
             map.SendPlacementHeightMap(_client);
             table.Definition.Height = 3;
             map.AddItemToMap(table, false);
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
 
         await flush.WaitAsync(TimeSpan.FromSeconds(15));
         map.FlushPlacementUpdates();
@@ -1078,8 +1053,7 @@ public partial class PlacedFurniRoomTests
         var sends = 0;
         blocker.SendCallback = _ =>
         {
-            if (Interlocked.Increment(ref sends) == 1)
-            {
+            if (Interlocked.Increment(ref sends) == 1) {
                 sending.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(10)));
             }
@@ -1089,22 +1063,18 @@ public partial class PlacedFurniRoomTests
         // Hold one different client's send so every map for the tested client remains queued.
         var drain = Task.Run(() => map.SendPlacementHeightMap(blocker));
 
-        try
-        {
+        try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(10)));
             map.SendPlacementHeightMap(_client);
             table.Definition.Height = 2;
             table.UpdateState();
 
-            switch (transition)
-            {
-                case "switch":
-                    {
+            switch (transition) {
+                case "switch": {
                         EnterProjectionRoom();
                         break;
                     }
-                case "reenter":
-                    {
+                case "reenter": {
                         _client.GetHabbo().CurrentRoom = null;
                         roster.TryRemove(1, out _);
                         var nextVisit = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused); // Same virtual ID, different visit identity.
@@ -1124,17 +1094,17 @@ public partial class PlacedFurniRoomTests
                     break;
             }
         }
-        finally { release.Set(); }
+        finally {
+            release.Set();
+        }
 
         await drain.WaitAsync(TimeSpan.FromSeconds(15));
         var packets = _client.Packets.Where(packet => packet.Header is ServerPacketHeader.HeightMapComposer or ServerPacketHeader.HeightMapUpdateComposer).ToArray();
 
-        if (transition is "unload" or "disconnect")
-        {
+        if (transition is "unload" or "disconnect") {
             Assert.Empty(packets);
         }
-        else
-        {
+        else {
             var packet = Assert.Single(packets);
             Assert.Equal(ServerPacketHeader.HeightMapComposer, packet.Header);
             var full = new FlashIncomingPacket { Buffer = packet.Body.ToArray() };
@@ -1142,12 +1112,10 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(16, full.ReadInt());
             var heights = Enumerable.Range(0, 16).Select(_ => full.ReadShort()).ToArray();
 
-            if (transition == "switch")
-            {
+            if (transition == "switch") {
                 Assert.All(heights, value => Assert.Equal((short)256, value));
             }
-            else
-            {
+            else {
                 Assert.Equal((short)768, heights[5]);
             }
         }
@@ -1183,8 +1151,7 @@ public partial class PlacedFurniRoomTests
         _client.SendCallback = args => { sent.Add(args.MemoryBuffer.Slice(6).ToArray()); return false; };
         _client.BeforeCapture = header =>
         {
-            if (header == ServerPacketHeader.HeightMapComposer && Interlocked.Increment(ref encodings) == 1)
-            {
+            if (header == ServerPacketHeader.HeightMapComposer && Interlocked.Increment(ref encodings) == 1) {
                 EnterProjectionRoom();
             }
         };
@@ -1194,8 +1161,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(4, body.ReadInt());
         Assert.Equal(16, body.ReadInt());
 
-        for (var index = 0; index < 16; index++)
-        {
+        for (var index = 0; index < 16; index++) {
             Assert.Equal((short)256, body.ReadShort());
         }
 
@@ -1204,19 +1170,16 @@ public partial class PlacedFurniRoomTests
 
     private short DeltaAt(int x, int y)
     {
-        foreach (var sent in _client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapUpdateComposer).Reverse())
-        {
+        foreach (var sent in _client.Packets.Where(packet => packet.Header == ServerPacketHeader.HeightMapUpdateComposer).Reverse()) {
             var packet = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
             var count = packet.ReadByte();
 
-            for (var index = 0; index < count; index++)
-            {
+            for (var index = 0; index < count; index++) {
                 var tx = packet.ReadByte();
                 var ty = packet.ReadByte();
                 var value = packet.ReadShort();
 
-                if (tx == x && ty == y)
-                {
+                if (tx == x && ty == y) {
                     return value;
                 }
             }
@@ -1230,9 +1193,6 @@ public partial class PlacedFurniRoomTests
         using var stream = PlusMemoryStream.GetStream();
         composer.Compose(new FlashOutgoingPacket(stream));
 
-        return new()
-        {
-            Buffer = stream.ToArray().AsMemory(6)
-        };
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
 }

@@ -83,10 +83,7 @@ public class BotDomainDependencyTests
 
     private static Pet Pet(int experience) => new(1, 7, 1, "pet", 0, "0", "ffffff", experience, 100, 100, 0,
         null, 0, 0, 0, 0, 0, 0, 0, "", "owner")
-    {
-        VirtualId = 3,
-        ExperienceLevels = [100, 200, 400]
-    };
+    { VirtualId = 3, ExperienceLevels = [100, 200, 400] };
 
     private static Room RoomWithUsers(out RoomUserManager users)
     {
@@ -161,7 +158,9 @@ public class BotDomainDependencyTests
 
     private sealed class Client : GameClient
     {
-        public Client() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { }
+        public Client() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
+        {
+        }
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
             (true, false, 0, 0, 0);
         public override void CreateHeader(Memory<byte> memory, uint messageId)

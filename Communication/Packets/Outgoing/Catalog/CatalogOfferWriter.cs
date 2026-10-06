@@ -27,8 +27,7 @@ public static class CatalogOfferWriter
 
     private static void WriteProducts(IOutgoingPacket packet, CatalogOfferProducts products)
     {
-        switch (products)
-        {
+        switch (products) {
             case HabbiconProducts habbicon:
                 packet.WriteInteger(1);
                 packet.WriteString("habbicon");
@@ -41,12 +40,10 @@ public static class CatalogOfferWriter
             case DealProducts deal:
                 packet.WriteInteger(deal.Items.Length);
 
-                foreach (var dealItem in deal.Items)
-                {
+                foreach (var dealItem in deal.Items) {
                     packet.WriteString(dealItem.ProductType);
 
-                    if (dealItem.ProductType == "b")
-                    {
+                    if (dealItem.ProductType == "b") {
                         packet.WriteString(dealItem.ItemName);
                         continue;
                     }
@@ -69,16 +66,14 @@ public static class CatalogOfferWriter
     {
         packet.WriteInteger(string.IsNullOrEmpty(item.Badge) ? 1 : 2); //Count 1 item if there is no badge, otherwise count as 2.
 
-        if (!string.IsNullOrEmpty(item.Badge))
-        {
+        if (!string.IsNullOrEmpty(item.Badge)) {
             packet.WriteString("b");
             packet.WriteString(item.Badge);
         }
 
         packet.WriteString(item.ProductType);
 
-        if (item.ProductType == "b")
-        {
+        if (item.ProductType == "b") {
             //This is just a badge, append the name.
             packet.WriteString(item.ItemName);
 
@@ -87,16 +82,14 @@ public static class CatalogOfferWriter
 
         packet.WriteInteger(item.SpriteId);
 
-        if (item.HasExtra)
-        {
+        if (item.HasExtra) {
             packet.WriteString(item.Extra);
         }
 
         packet.WriteInteger(item.Amount);
         packet.WriteBoolean(item.IsLimited); // IsLimited
 
-        if (item.IsLimited)
-        {
+        if (item.IsLimited) {
             packet.WriteUInteger(item.LimitedStack);
             packet.WriteUInteger(item.LimitedRemaining);
         }

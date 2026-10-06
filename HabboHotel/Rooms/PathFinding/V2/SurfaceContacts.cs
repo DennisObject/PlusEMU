@@ -9,13 +9,11 @@ internal static class SurfaceContacts
 {
     internal static int ContactSlot(NavGrid? grid, int x, int y, SurfaceRef? surface, double z)
     {
-        if (grid is not { Layered: true } || !grid.InBounds(x, y))
-        {
+        if (grid is not { Layered: true } || !grid.InBounds(x, y)) {
             return -1;
         }
 
-        if (surface is { } current && grid.SlotOf(current) is var slot and >= 0 && grid.Active(slot))
-        {
+        if (surface is { } current && grid.SlotOf(current) is var slot and >= 0 && grid.Active(slot)) {
             return slot;
         }
 
@@ -24,8 +22,7 @@ internal static class SurfaceContacts
 
     internal static List<Item> Filter(NavGrid? grid, int x, int y, int contactSlot, IEnumerable<Item> items)
     {
-        if (contactSlot < 0)
-        {
+        if (contactSlot < 0) {
             return items.ToList();
         }
 

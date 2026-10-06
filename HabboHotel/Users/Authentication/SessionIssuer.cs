@@ -99,22 +99,19 @@ public class SessionIssuer : ISessionIssuer
         // signed out everywhere in the same transaction that detects the reuse.
         var rotation = await _rememberTokens.RotateAt(rememberToken, instant, RevokeEverything);
 
-        if (rotation.Status != RememberRotationStatus.Rotated)
-        {
+        if (rotation.Status != RememberRotationStatus.Rotated) {
             return new(ResumeStatus.Invalid);
         }
 
         var userId = rotation.UserId;
 
-        if (await _accounts.UsernameById(userId) is not { } username)
-        {
+        if (await _accounts.UsernameById(userId) is not { } username) {
             await RevokeAll(userId);
 
             return new(ResumeStatus.Invalid);
         }
 
-        if (await _bans.FindAt(username, address, instant.UtcNow) is { } ban)
-        {
+        if (await _bans.FindAt(username, address, instant.UtcNow) is { } ban) {
             await RevokeAll(userId);
 
             return new(ResumeStatus.Banned, Ban: ban);
@@ -137,16 +134,14 @@ public class SessionIssuer : ISessionIssuer
     {
         var instant = CredentialInstant.Capture(_time);
 
-        if (string.IsNullOrEmpty(ticket) || await _ssoTickets.FindUserAt(ticket, instant) is not { } userId)
-        {
+        if (string.IsNullOrEmpty(ticket) || await _ssoTickets.FindUserAt(ticket, instant) is not { } userId) {
             return null;
         }
 
         var generation = await _generations.Current(userId);
 
         // Exchange always hands back a session (it gives a CMS-written ticket one), so logout can end it.
-        if (await _ssoTickets.ExchangeAt(ticket, instant) is not { SessionId: { } sessionId } owner || owner.UserId != userId)
-        {
+        if (await _ssoTickets.ExchangeAt(ticket, instant) is not { SessionId: { } sessionId } owner || owner.UserId != userId) {
             return null;
         }
 
@@ -162,12 +157,10 @@ public class SessionIssuer : ISessionIssuer
         // A ticket's session can change under us (an exchange tags a CMS ticket with a new one), so
         // the pre-lock read only names the user to lock; the ticket is withdrawn and whatever session
         // it carries at that moment is ended in one transaction under the lock Exchange also takes.
-        if (!string.IsNullOrEmpty(ssoTicket) && await _ssoTickets.FindOwner(ssoTicket) is { } byTicket)
-        {
+        if (!string.IsNullOrEmpty(ssoTicket) && await _ssoTickets.FindOwner(ssoTicket) is { } byTicket) {
             await _generations.Locked(byTicket.UserId, async scope =>
             {
-                if (await _ssoTickets.Withdraw(byTicket.UserId, ssoTicket, scope) is { SessionId: { } sessionId })
-                {
+                if (await _ssoTickets.Withdraw(byTicket.UserId, ssoTicket, scope) is { SessionId: { } sessionId }) {
                     await EndSession(byTicket.UserId, sessionId, scope);
                 }
             });
@@ -176,27 +169,22 @@ public class SessionIssuer : ISessionIssuer
         // Access tokens and remember families never change session, so their owners stay valid.
         var sessions = new HashSet<CredentialOwner>();
 
-        if (!string.IsNullOrEmpty(accessToken) && await _accessTokens.FindOwner(accessToken) is { } byToken)
-        {
+        if (!string.IsNullOrEmpty(accessToken) && await _accessTokens.FindOwner(accessToken) is { } byToken) {
             sessions.Add(byToken);
         }
 
-        if (!string.IsNullOrEmpty(rememberToken) && await _rememberTokens.FindOwner(rememberToken) is { } byRemember)
-        {
+        if (!string.IsNullOrEmpty(rememberToken) && await _rememberTokens.FindOwner(rememberToken) is { } byRemember) {
             sessions.Add(byRemember);
         }
 
-        foreach (var (userId, sessionId) in sessions)
-        {
-            if (sessionId != null)
-            {
+        foreach (var (userId, sessionId) in sessions) {
+            if (sessionId != null) {
                 await _generations.Locked(userId, scope => EndSession(userId, sessionId, scope));
             }
         }
 
         // Tokens without a session still end with their own logout.
-        if (!string.IsNullOrEmpty(accessToken))
-        {
+        if (!string.IsNullOrEmpty(accessToken)) {
             await _accessTokens.Revoke(accessToken);
         }
     }

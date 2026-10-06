@@ -13,51 +13,31 @@ public abstract class WiredConfiguredBehaviorBox : IWiredConfiguredItem
     {
         Instance = room;
         Item = item;
-        Descriptor = descriptor with
-        {
-            Support = WiredBoxSupport.Implemented
-        };
+        Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
         _normalize = normalize;
         Configuration = normalize(new());
     }
 
     private readonly Func<WiredConfiguration, WiredConfiguration> _normalize;
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
-    public WiredBoxDescriptor Descriptor
-    {
-        get;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
+    public WiredBoxDescriptor Descriptor { get; }
     public WiredBoxType Type => WiredBoxType.None;
-    public WiredConfiguration Configuration
-    {
-        get; private set;
-    }
+    public WiredConfiguration Configuration { get; private set; }
     public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
     public string StringData { get; set; } = "";
     public string ItemsData { get; set; } = "";
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
 
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
-        try
-        {
+        try {
             validated = _normalize(proposed);
             error = "";
 
             return true;
         }
-        catch (ArgumentException exception)
-        {
+        catch (ArgumentException exception) {
             validated = Configuration;
             error = exception.Message;
 

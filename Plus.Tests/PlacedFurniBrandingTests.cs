@@ -23,10 +23,7 @@ public partial class PlacedFurniRoomTests
     {
         var item = PlacedBranding(20, InteractionType.Background);
         Recipient();
-        item.ExtraData = new MapDataFormat(new()
-        {
-            ["old"] = "value"
-        });
+        item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         var store = new BrandingStore(() =>
         {
             Assert.Equal("old\tvalue", item.ExtraData.Serialize());
@@ -48,10 +45,7 @@ public partial class PlacedFurniRoomTests
     {
         var item = PlacedBranding(21, InteractionType.Background);
         Recipient();
-        item.ExtraData = new MapDataFormat(new()
-        {
-            ["old"] = "value"
-        });
+        item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         item.SetState(99, 99, 0, new());
         var store = new BrandingStore();
 
@@ -69,10 +63,7 @@ public partial class PlacedFurniRoomTests
     {
         var item = PlacedBranding(22, InteractionType.Background);
         Recipient();
-        item.ExtraData = new MapDataFormat(new()
-        {
-            ["old"] = "value"
-        });
+        item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         var before = (item.GetX, item.GetY, item.GetZ, item.Rotation);
         var store = new BrandingStore { Fail = true };
 
@@ -96,18 +87,13 @@ public partial class PlacedFurniRoomTests
     {
         var item = denial == "temporary" ? FloorTemporary(23) : PlacedBranding(23, InteractionType.Background);
         Recipient();
-        item.ExtraData = new MapDataFormat(new()
-        {
-            ["old"] = "value"
-        });
+        item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
 
-        if (denial == "right")
-        {
+        if (denial == "right") {
             _room.OwnerName = "someone-else";
         }
 
-        if (denial == "permission")
-        {
+        if (denial == "permission") {
             _client.GetHabbo().Access = UserAccess.Empty;
         }
 
@@ -133,10 +119,7 @@ public partial class PlacedFurniRoomTests
     {
         var item = PlacedBranding(24, type);
         Recipient();
-        item.ExtraData = new MapDataFormat(new()
-        {
-            ["old"] = "value"
-        });
+        item.ExtraData = new MapDataFormat(new() { ["old"] = "value" });
         var store = new BrandingStore();
         var service = new RoomItemMetadataService(store, null!);
 
@@ -182,8 +165,7 @@ public partial class PlacedFurniRoomTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             var bytes = Encoding.UTF8.GetBytes(value);
             var length = new byte[2];
             BinaryPrimitives.WriteUInt16BigEndian(length, checked((ushort)bytes.Length));
@@ -212,34 +194,18 @@ public partial class PlacedFurniRoomTests
 
     private sealed class BrandingStore(Action? beforeWrite = null) : IRoomItemMetadataStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
-        public int Writes
-        {
-            get; private set;
-        }
-        public uint ItemId
-        {
-            get; private set;
-        }
-        public uint RoomId
-        {
-            get; private set;
-        }
-        public string? Data
-        {
-            get; private set;
-        }
+        public bool Fail { get; init; }
+        public int Writes { get; private set; }
+        public uint ItemId { get; private set; }
+        public uint RoomId { get; private set; }
+        public string? Data { get; private set; }
         public void SetBrandingData(uint itemId, uint roomId, string data)
         {
             beforeWrite?.Invoke();
             Writes++;
             (ItemId, RoomId, Data) = (itemId, roomId, data);
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced failure");
             }
         }

@@ -16,22 +16,19 @@ internal static class SurfaceRules
 
     internal static SurfaceCandidate ItemCandidate(NavItemRecord item)
     {
-        if (item.Seat || item.Interaction is InteractionType.Bed or InteractionType.TentSmall)
-        {
+        if (item.Seat || item.Interaction is InteractionType.Bed or InteractionType.TentSmall) {
             return item.Seat
                 ? new(item.Z, NavFlags.GoalOnlySeat, SurfaceKind.SeatBase, item.ItemId, 0, 3, item)
                 : new(item.Z, NavFlags.GoalOnlyBed, SurfaceKind.BedBase, item.ItemId, 0, 3, item);
         }
 
-        if (item.Interaction == InteractionType.GuildGate)
-        {
+        if (item.Interaction == InteractionType.GuildGate) {
             return new(item.Top, NavFlags.Transit | NavFlags.GuildGate, SurfaceKind.GateBase, item.ItemId, item.GroupId, 2, item);
         }
 
         var flags = item.Walkable || OpenGate(item) ? NavFlags.Transit : NavFlags.None;
 
-        if (item.Interaction == InteractionType.Roller && flags != NavFlags.None)
-        {
+        if (item.Interaction == InteractionType.Roller && flags != NavFlags.None) {
             flags |= NavFlags.Roller;
         }
 

@@ -16,15 +16,12 @@ public sealed class ProcessComponent(ILogger<ProcessComponent> logger, TimeProvi
 
     public bool Init(Habbo player)
     {
-        if (player == null)
-        {
+        if (player == null) {
             return false;
         }
 
-        lock (_timerGate)
-        {
-            if (_disposed || _player != null)
-            {
+        lock (_timerGate) {
+            if (_disposed || _player != null) {
                 return false;
             }
 
@@ -39,50 +36,41 @@ public sealed class ProcessComponent(ILogger<ProcessComponent> logger, TimeProvi
     {
         Habbo player;
 
-        lock (_timerGate)
-        {
-            if (_disposed || _player == null)
-            {
+        lock (_timerGate) {
+            if (_disposed || _player == null) {
                 return;
             }
 
             player = _player;
 
-            if (Interlocked.CompareExchange(ref _running, 1, 0) != 0)
-            {
+            if (Interlocked.CompareExchange(ref _running, 1, 0) != 0) {
                 logger.LogWarning("<Player {PlayerId}> Server can't keep up, Player timer is lagging behind.", player.Id);
 
                 return;
             }
         }
 
-        try
-        {
+        try {
             var now = clock.GetUtcNow();
             var day = TimeZoneInfo.ConvertTime(now, clock.LocalTimeZone).ToString("MM/dd");
 
-            if (player.TimeMuted > 0)
-            {
+            if (player.TimeMuted > 0) {
                 player.TimeMuted -= 60;
             }
 
-            if (player.MessengerSpamTime > 0)
-            {
+            if (player.MessengerSpamTime > 0) {
                 player.MessengerSpamTime -= 60;
             }
 
-            if (player.MessengerSpamTime <= 0)
-            {
+            if (player.MessengerSpamTime <= 0) {
                 player.MessengerSpamCount = 0;
             }
 
             player.TimeAfk += 1;
 
             // Keep the reset and its live counts atomic with the final logout save.
-            lock (player.WalletSync)
-            {
-                if (!player.WalletClosed && player.HabboStats.RespectsTimestamp != day)
-                {
+            lock (player.WalletSync) {
+                if (!player.WalletClosed && player.HabboStats.RespectsTimestamp != day) {
                     var respects = player.Access.Limit("limit.daily_respects", 10);
                     var petRespects = player.Access.Limit("limit.daily_pet_respects", 10);
                     store.ResetDailyRespects(player.Id, respects, petRespects, day);
@@ -90,42 +78,35 @@ public sealed class ProcessComponent(ILogger<ProcessComponent> logger, TimeProvi
                     player.HabboStats.DailyRespectPoints = respects;
                     player.HabboStats.DailyPetRespectPoints = petRespects;
 
-                    if (player.Client != null)
-                    {
+                    if (player.Client != null) {
                         player.Client.Send(new UserObjectComposer(UserObjectSnapshot.Capture(player)));
                     }
                 }
             }
 
-            if (player.GiftPurchasingWarnings < 15)
-            {
+            if (player.GiftPurchasingWarnings < 15) {
                 player.GiftPurchasingWarnings = 0;
             }
 
-            if (player.MottoUpdateWarnings < 15)
-            {
+            if (player.MottoUpdateWarnings < 15) {
                 player.MottoUpdateWarnings = 0;
             }
 
-            if (player.ClothingUpdateWarnings < 15)
-            {
+            if (player.ClothingUpdateWarnings < 15) {
                 player.ClothingUpdateWarnings = 0;
             }
 
-            if (player.Client != null)
-            {
+            if (player.Client != null) {
                 achievements.ProgressAchievement(player.Client, "ACH_AllTimeHotelPresence", 1);
             }
 
             player.CheckCreditsTimer(settings);
             player.Effects.CheckEffectExpiryAt(player, now);
         }
-        catch (Exception exception)
-        {
+        catch (Exception exception) {
             logger.LogError(exception, "Player process failed for {PlayerId}", player.Id);
         }
-        finally
-        {
+        finally {
             Volatile.Write(ref _running, 0);
         }
     }
@@ -134,10 +115,8 @@ public sealed class ProcessComponent(ILogger<ProcessComponent> logger, TimeProvi
     {
         ITimer? timer;
 
-        lock (_timerGate)
-        {
-            if (_disposed)
-            {
+        lock (_timerGate) {
+            if (_disposed) {
                 return;
             }
 

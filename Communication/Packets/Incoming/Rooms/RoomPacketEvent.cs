@@ -9,8 +9,7 @@ public abstract class RoomPacketEvent : IPacketEvent
     {
         var room = session.GetHabbo().CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return Task.CompletedTask;
         }
 

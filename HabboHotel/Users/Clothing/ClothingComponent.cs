@@ -19,8 +19,7 @@ public sealed class ClothingComponent
 
     internal ClothingComponent(IEnumerable<ClothingParts> clothing, Habbo habbo, IClothingStore store)
     {
-        foreach (var part in clothing)
-        {
+        foreach (var part in clothing) {
             _allClothing.TryAdd(part.PartId, part);
         }
 
@@ -36,8 +35,7 @@ public sealed class ClothingComponent
     /// <param name="UserId"></param>
     public bool Init(Habbo habbo)
     {
-        if (_allClothing.Count > 0)
-        {
+        if (_allClothing.Count > 0) {
             return false;
         }
 
@@ -48,10 +46,8 @@ public sealed class ClothingComponent
 
     public void AddClothing(string clothingName, List<int> partIds)
     {
-        foreach (var partId in partIds.ToList())
-        {
-            if (!_allClothing.ContainsKey(partId))
-            {
+        foreach (var partId in partIds.ToList()) {
+            if (!_allClothing.ContainsKey(partId)) {
                 var newId = (_store ?? throw new InvalidOperationException("Clothing persistence is not configured.")).Add(_habbo.Id, partId, clothingName);
                 _allClothing.TryAdd(partId, new(newId, partId, clothingName));
             }
@@ -70,8 +66,7 @@ public sealed class ClothingComponent
 
     public void PublishCommitted(IEnumerable<ClothingParts> clothing)
     {
-        foreach (var part in clothing)
-        {
+        foreach (var part in clothing) {
             _allClothing.TryAdd(part.PartId, part);
         }
     }

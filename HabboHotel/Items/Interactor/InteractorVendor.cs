@@ -12,20 +12,17 @@ public class InteractorVendor : IFurniInteractor, IApproachInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
         item.LegacyDataString = "0";
         item.UpdateNeeded = true;
 
-        if (item.InteractingUser > 0)
-        {
+        if (item.InteractingUser > 0) {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
 
-            if (user != null)
-            {
+            if (user != null) {
                 user.CanWalk = true;
             }
         }
@@ -35,19 +32,16 @@ public class InteractorVendor : IFurniInteractor, IApproachInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
         item.LegacyDataString = "0";
 
-        if (item.InteractingUser > 0)
-        {
+        if (item.InteractingUser > 0) {
             var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(item.InteractingUser);
 
-            if (user != null)
-            {
+            if (user != null) {
                 user.CanWalk = true;
             }
         }
@@ -57,25 +51,21 @@ public class InteractorVendor : IFurniInteractor, IApproachInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
-        if (!CanDispense(item) || session == null)
-        {
+        if (!CanDispense(item) || session == null) {
             return;
         }
 
         var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
-        if (!Gamemap.TilesTouching(user.X, user.Y, item.GetX, item.GetY))
-        {
+        if (!Gamemap.TilesTouching(user.X, user.Y, item.GetX, item.GetY)) {
             user.ApproachItem(item, ActionKind);
 
             return;
@@ -86,13 +76,11 @@ public class InteractorVendor : IFurniInteractor, IApproachInteractor
 
     public bool StartFromApproach(Item item, RoomUser user)
     {
-        if (!CanDispense(item) || user.GetClient()?.GetHabbo() is not { } habbo)
-        {
+        if (!CanDispense(item) || user.GetClient()?.GetHabbo() is not { } habbo) {
             return false;
         }
 
-        if (!Gamemap.TilesTouching(user.X, user.Y, item.GetX, item.GetY))
-        {
+        if (!Gamemap.TilesTouching(user.X, user.Y, item.GetX, item.GetY)) {
             return false;
         }
 

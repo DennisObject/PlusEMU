@@ -14,23 +14,19 @@ internal class AllAroundMeCommand : IChatCommand
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
         var users = room.GetRoomUserManager().GetRoomUsers();
 
-        foreach (var u in users.ToList())
-        {
-            if (u == null || session.GetHabbo().Id == u.UserId)
-            {
+        foreach (var u in users.ToList()) {
+            if (u == null || session.GetHabbo().Id == u.UserId) {
                 continue;
             }
 
             if (u.GetClient()?.GetHabbo() is not { } target ||
-                !session.GetHabbo().Access.Outranks(target.Access))
-            {
+                !session.GetHabbo().Access.Outranks(target.Access)) {
                 continue;
             }
 

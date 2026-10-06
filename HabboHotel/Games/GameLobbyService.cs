@@ -30,8 +30,7 @@ public sealed class GameLobbyService(IGameDataManager games) : IGameLobbyService
 
     public void JoinQueue(GameClient session, int gameId)
     {
-        if (!games.TryGetGame(gameId, out var game))
-        {
+        if (!games.TryGetGame(gameId, out var game)) {
             return;
         }
 
@@ -46,8 +45,7 @@ public sealed class GameLobbyService(IGameDataManager games) : IGameLobbyService
         const string characters = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
         var result = new StringBuilder(length);
 
-        for (var index = 0; index < length; index++)
-        {
+        for (var index = 0; index < length; index++) {
             result.Append(characters[Random.Shared.Next(characters.Length)]);
         }
 

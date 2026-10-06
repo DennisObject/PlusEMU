@@ -10,13 +10,11 @@ public static class WiredConfigurationSave
         Func<uint, bool>? isTemporaryInRoom = null)
     {
         // A room publisher owns the engine lock; never acquire it while holding the per-box edit lock.
-        if (publish != null)
-        {
+        if (publish != null) {
             return TrySaveCore(box, proposed, store, out error, existsInRoom, publish, prepare, isTemporaryInRoom);
         }
 
-        lock (box)
-        {
+        lock (box) {
             return TrySaveCore(box, proposed, store, out error, existsInRoom, null, prepare, isTemporaryInRoom);
         }
     }
@@ -29,22 +27,19 @@ public static class WiredConfigurationSave
     {
         error = "Invalid Wired configuration.";
 
-        if (box.Descriptor.Support != WiredBoxSupport.Implemented || !WiredLegacyProtocol.IsWithinLimits(proposed))
-        {
+        if (box.Descriptor.Support != WiredBoxSupport.Implemented || !WiredLegacyProtocol.IsWithinLimits(proposed)) {
             return false;
         }
 
         if (existsInRoom != null && (!proposed.SelectedItems.All(existsInRoom)
-            || !proposed.SecondarySelectedItems.All(existsInRoom)))
-        {
+            || !proposed.SecondarySelectedItems.All(existsInRoom))) {
             return false;
         }
 
         var capturesTemplates = !box.Item.IsTemporary && box.Descriptor.CanonicalName == "wf_act_place_furni"
             && proposed.TemporaryPlacement != null && prepare != null;
 
-        if (!capturesTemplates && HasTemporaryPicks(proposed, isTemporaryInRoom))
-        {
+        if (!capturesTemplates && HasTemporaryPicks(proposed, isTemporaryInRoom)) {
             return false;
         }
 
@@ -53,36 +48,30 @@ public static class WiredConfigurationSave
 
         if (!WiredLegacyProtocol.IsWithinLimits(prepared) || HasTemporaryPicks(prepared, isTemporaryInRoom)
             || existsInRoom != null && (!prepared.SelectedItems.All(existsInRoom)
-                || !prepared.SecondarySelectedItems.All(existsInRoom)))
-        {
+                || !prepared.SecondarySelectedItems.All(existsInRoom))) {
             return false;
         }
 
-        if (!box.TryValidateConfiguration(prepared, out var validated, out error))
-        {
+        if (!box.TryValidateConfiguration(prepared, out var validated, out error)) {
             return false;
         }
 
         if (!WiredLegacyProtocol.IsWithinLimits(validated) || HasTemporaryPicks(validated, isTemporaryInRoom)
             || existsInRoom != null && (!validated.SelectedItems.All(existsInRoom)
-                || !validated.SecondarySelectedItems.All(existsInRoom)))
-        {
+                || !validated.SecondarySelectedItems.All(existsInRoom))) {
             error = "Invalid normalized Wired configuration.";
 
             return false;
         }
 
-        if (publish != null)
-        {
-            if (!publish(box, validated, () => Persist(box, validated, store)))
-            {
+        if (publish != null) {
+            if (!publish(box, validated, () => Persist(box, validated, store))) {
                 error = "This Wired box is no longer attached to the room.";
 
                 return false;
             }
         }
-        else
-        {
+        else {
             Persist(box, validated, store);
             box.ApplyConfiguration(validated);
         }
@@ -94,12 +83,10 @@ public static class WiredConfigurationSave
 
     private static void Persist(IWiredConfiguredItem box, WiredConfiguration validated, IWiredConfigurationStore store)
     {
-        if (box is IWiredConfigurationPersistenceProvider provider)
-        {
+        if (box is IWiredConfigurationPersistenceProvider provider) {
             provider.PersistConfiguration(validated);
         }
-        else
-        {
+        else {
             store.Save(box.Item.Id, box.Descriptor, validated);
         }
     }

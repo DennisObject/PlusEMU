@@ -30,49 +30,27 @@ public sealed class RoomDeletionService : IRoomDeletionService
         var roomId = room.Id;
         var itemsToRemove = new List<Item>();
 
-        foreach (var item in room.GetRoomItemHandler().GetWallAndFloor.ToList())
-        {
-            if (item == null)
-            {
+        foreach (var item in room.GetRoomItemHandler().GetWallAndFloor.ToList()) {
+            if (item == null) {
                 continue;
             }
 
             itemsToRemove.Add(item);
         }
 
-        using (var connection = _database.Connection())
-        {
+        using (var connection = _database.Connection()) {
             connection.Open();
             using var transaction = connection.BeginTransaction();
-            connection.Execute("UPDATE items SET room_id=0 WHERE room_id=@roomId", new
-            {
-                roomId
-            }, transaction);
-            connection.Execute("DELETE FROM user_roomvisits WHERE room_id=@roomId", new
-            {
-                roomId
-            }, transaction);
-            connection.Execute("DELETE FROM user_favorites WHERE room_id=@roomId", new
-            {
-                roomId
-            }, transaction);
-            connection.Execute("DELETE FROM room_rights WHERE room_id=@roomId", new
-            {
-                roomId
-            }, transaction);
-            connection.Execute("UPDATE users_settings SET home_room=0 WHERE home_room=@roomId", new
-            {
-                roomId
-            }, transaction);
-            connection.Execute("DELETE FROM rooms WHERE id=@roomId LIMIT 1", new
-            {
-                roomId
-            }, transaction);
+            connection.Execute("UPDATE items SET room_id=0 WHERE room_id=@roomId", new { roomId }, transaction);
+            connection.Execute("DELETE FROM user_roomvisits WHERE room_id=@roomId", new { roomId }, transaction);
+            connection.Execute("DELETE FROM user_favorites WHERE room_id=@roomId", new { roomId }, transaction);
+            connection.Execute("DELETE FROM room_rights WHERE room_id=@roomId", new { roomId }, transaction);
+            connection.Execute("UPDATE users_settings SET home_room=0 WHERE home_room=@roomId", new { roomId }, transaction);
+            connection.Execute("DELETE FROM rooms WHERE id=@roomId LIMIT 1", new { roomId }, transaction);
             transaction.Commit();
         }
 
-        foreach (var item in itemsToRemove)
-        {
+        foreach (var item in itemsToRemove) {
             var targetClient = _clientManager.GetClientByUserId(item.UserId);
 
             if (targetClient != null && targetClient.GetHabbo() != null) //Again, do we have an active client?

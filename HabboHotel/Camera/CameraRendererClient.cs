@@ -18,16 +18,12 @@ internal sealed class CameraRendererClient : IDisposable
     {
         _options = options.Value;
 
-        if (_options.MaxConcurrency is < 1 or > 4 || _options.TimeoutSeconds is < 1 or > 25)
-        {
+        if (_options.MaxConcurrency is < 1 or > 4 || _options.TimeoutSeconds is < 1 or > 25) {
             throw new InvalidOperationException("Invalid camera resource limits");
         }
 
         _capacity = new(_options.MaxConcurrency);
-        _http = new(CreateHandler())
-        {
-            Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds)
-        };
+        _http = new(CreateHandler()) { Timeout = TimeSpan.FromSeconds(_options.TimeoutSeconds) };
     }
     internal static SocketsHttpHandler CreateHandler() => new()
     {
@@ -37,17 +33,17 @@ internal sealed class CameraRendererClient : IDisposable
         {
             var addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, token);
 
-            foreach (var address in addresses.Where(IsPrivateAddress))
-            {
+            foreach (var address in addresses.Where(IsPrivateAddress)) {
                 var socket = new Socket(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
 
-                try
-                {
+                try {
                     await socket.ConnectAsync(address, context.DnsEndPoint.Port, token);
 
                     return new NetworkStream(socket, ownsSocket: true);
                 }
-                catch { socket.Dispose(); }
+                catch {
+                    socket.Dispose();
+                }
             }
 
             throw new HttpRequestException("Camera renderer has no reachable private address");
@@ -59,32 +55,21 @@ internal sealed class CameraRendererClient : IDisposable
     public async Task<CameraRenderedImage> Render(JsonElement scene, CameraViewport viewport, IReadOnlyList<CameraEffectSelection> effects, bool zoom, int level, CancellationToken token)
     {
         if (_options.Bearer.Length < 32 || !Uri.TryCreate(_options.RendererUrl, UriKind.Absolute, out var uri) ||
-            !CameraEffectCatalogue.IsPrivateHttp(uri) || uri.AbsolutePath != "/render" || uri.Query.Length != 0 || uri.Fragment.Length != 0)
-        {
+            !CameraEffectCatalogue.IsPrivateHttp(uri) || uri.AbsolutePath != "/render" || uri.Query.Length != 0 || uri.Fragment.Length != 0) {
             throw new InvalidOperationException("Camera renderer is not configured");
         }
 
-        if (!await _capacity.WaitAsync(0, token))
-        {
+        if (!await _capacity.WaitAsync(0, token)) {
             throw new InvalidOperationException("Camera renderer is busy");
         }
 
-        try
-        {
+        try {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
             deadline.CancelAfter(TimeSpan.FromSeconds(_options.TimeoutSeconds));
             token = deadline.Token;
-            byte[] body = JsonSerializer.SerializeToUtf8Bytes(new
-            {
-                scene,
-                viewport,
-                effects,
-                zoom,
-                level
-            }, Json);
+            byte[] body = JsonSerializer.SerializeToUtf8Bytes(new { scene, viewport, effects, zoom, level }, Json);
 
-            if (body.Length > 1024 * 1024)
-            {
+            if (body.Length > 1024 * 1024) {
                 throw new InvalidOperationException("Camera room is too large");
             }
 
@@ -95,8 +80,7 @@ internal sealed class CameraRendererClient : IDisposable
             using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
 
             if (!response.IsSuccessStatusCode || response.Content.Headers.ContentType?.MediaType != "application/json" ||
-                response.Content.Headers.ContentLength > 6 * 1024 * 1024)
-            {
+                response.Content.Headers.ContentLength > 6 * 1024 * 1024) {
                 throw new InvalidOperationException("Camera renderer did not return an image");
             }
 
@@ -105,10 +89,8 @@ internal sealed class CameraRendererClient : IDisposable
             var buffer = new byte[16384];
             int length;
 
-            while ((length = await stream.ReadAsync(buffer, token)) > 0)
-            {
-                if (output.Length + length > 6 * 1024 * 1024)
-                {
+            while ((length = await stream.ReadAsync(buffer, token)) > 0) {
+                if (output.Length + length > 6 * 1024 * 1024) {
                     throw new InvalidOperationException("Camera response is too large");
                 }
 
@@ -118,19 +100,19 @@ internal sealed class CameraRendererClient : IDisposable
             using var json = JsonDocument.Parse(output.ToArray(), new JsonDocumentOptions { MaxDepth = 4 });
             var root = json.RootElement;
 
-            if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count() != 2)
-            {
+            if (root.ValueKind != JsonValueKind.Object || root.EnumerateObject().Count() != 2) {
                 throw new InvalidOperationException("Invalid renderer response");
             }
 
             return new(Decode(root.GetProperty("png").GetString(), viewport.CropWidth), Decode(root.GetProperty("smallPng").GetString(), 110));
         }
-        finally { _capacity.Release(); }
+        finally {
+            _capacity.Release();
+        }
     }
     internal static byte[] Decode(string? value, int size)
     {
-        if (value == null || value.Length > 2_796_204)
-        {
+        if (value == null || value.Length > 2_796_204) {
             throw new InvalidOperationException("Invalid camera PNG");
         }
 
@@ -139,8 +121,7 @@ internal sealed class CameraRendererClient : IDisposable
 
         if (bytes.Length < 33 || bytes.Length > 2 * 1024 * 1024 || !bytes.AsSpan(0, 8).SequenceEqual(magic) ||
             !bytes.AsSpan(12, 4).SequenceEqual("IHDR"u8) || BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(16, 4)) != size ||
-            BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(20, 4)) != size)
-        {
+            BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(20, 4)) != size) {
             throw new InvalidOperationException("Invalid camera PNG dimensions");
         }
 

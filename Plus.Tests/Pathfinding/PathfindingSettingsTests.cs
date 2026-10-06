@@ -82,10 +82,7 @@ public class PathfindingSettingsTests
     [InlineData("x", 2)]
     public void MaxSurfacesPerTileIsClampedToTheSurfaceKeyLimit(string value, int expected)
     {
-        var settings = PathfindingSettings.Load(new Settings(new()
-        {
-            ["pathfinding.max_surfaces_per_tile"] = value
-        }));
+        var settings = PathfindingSettings.Load(new Settings(new() { ["pathfinding.max_surfaces_per_tile"] = value }));
         Assert.Equal(expected, settings.MaxSurfacesPerTile);
         Assert.False(settings.LayeringEnabled);
     }

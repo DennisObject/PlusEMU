@@ -10,8 +10,7 @@ internal sealed class HousekeepingGetRolesEvent(IAccessControl access) : IPacket
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (session.GetHabbo() is not { } actor || !actor.Access.Can(PermissionKeys.HousekeepingRolesManage))
-        {
+        if (session.GetHabbo() is not { } actor || !actor.Access.Can(PermissionKeys.HousekeepingRolesManage)) {
             return Task.CompletedTask;
         }
 

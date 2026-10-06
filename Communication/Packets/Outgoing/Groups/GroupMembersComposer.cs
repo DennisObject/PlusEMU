@@ -16,10 +16,8 @@ public class GroupMembersComposer(GroupMembersPresentation presentation) : IServ
         packet.WriteInteger(presentation.Total);
         packet.WriteInteger(presentation.Members.Length);
 
-        if (presentation.Total > 0)
-        {
-            foreach (var member in presentation.Members)
-            {
+        if (presentation.Total > 0) {
+            foreach (var member in presentation.Members) {
                 packet.WriteInteger(member.Role);
                 packet.WriteInteger(member.Id);
                 packet.WriteString(member.Username);

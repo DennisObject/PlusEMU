@@ -28,20 +28,17 @@ public sealed class RoomUserSnapshotService(IGroupManager groups, IGameClientMan
 
     public RoomUserSnapshot? Capture(RoomUser user)
     {
-        if (!user.IsBot)
-        {
+        if (!user.IsBot) {
             var habbo = clients.GetClientByUserId(user.HabboId)?.GetHabbo();
 
-            if (habbo == null)
-            {
+            if (habbo == null) {
                 return null;
             }
 
             Group? group = null;
             var favouriteGroupId = habbo.HabboStats?.FavouriteGroupId ?? 0;
 
-            if (favouriteGroupId > 0)
-            {
+            if (favouriteGroupId > 0) {
                 groups.TryGetGroup(favouriteGroupId, out group);
             }
 
@@ -53,8 +50,7 @@ public sealed class RoomUserSnapshotService(IGroupManager groups, IGameClientMan
 
         var kind = user.BotData.AiType == BotAiType.Pet ? 2 : 4;
 
-        if (user.IsPet)
-        {
+        if (user.IsPet) {
             return new(user.BotAi.BaseId, user.BotData.Name, user.BotData.Motto, user.PetData.Look.ToLowerInvariant(),
                 user.VirtualId, user.X, user.Y, user.Z.ToString(CultureInfo.InvariantCulture), 0, kind, "", 0, "", 0,
                 true, user.PetData.Type, user.PetData.OwnerId, user.PetData.OwnerName, user.PetData.Saddle > 0,
@@ -71,23 +67,18 @@ public sealed class RoomUserSnapshotService(IGroupManager groups, IGameClientMan
     {
         var online = clients.GetClientByUserId(userId)?.GetHabbo();
 
-        if (online != null)
-        {
+        if (online != null) {
             return online.Username;
         }
 
         var cached = cache.GenerateUser(userId);
 
-        if (cached != null)
-        {
+        if (cached != null) {
             return cached.Username;
         }
 
         using var connection = database.Connection();
-        var username = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id = @userId LIMIT 1", new
-        {
-            userId
-        });
+        var username = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id = @userId LIMIT 1", new { userId });
 
         return string.IsNullOrEmpty(username) ? "Unknown User" : username;
     }

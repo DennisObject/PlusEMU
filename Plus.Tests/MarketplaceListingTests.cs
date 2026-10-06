@@ -84,23 +84,19 @@ public class MarketplaceListingTests
         var store = new RecordingStore();
         var (habbo, item) = Owner(ItemType.Floor);
 
-        if (reason == "foreign-owner")
-        {
+        if (reason == "foreign-owner") {
             item.OwnerId = 8;
         }
 
-        if (reason == "trade-locked")
-        {
+        if (reason == "trade-locked") {
             item.Definition.AllowTrade = false;
         }
 
-        if (reason == "not-marketable")
-        {
+        if (reason == "not-marketable") {
             item.Definition.AllowMarketplaceSell = false;
         }
 
-        if (reason == "closed-wallet")
-        {
+        if (reason == "closed-wallet") {
             typeof(Habbo).GetField("_disconnected", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(habbo, true);
         }
 
@@ -207,8 +203,7 @@ public class MarketplaceListingTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             var bytes = new byte[4];
             BinaryPrimitives.WriteInt32BigEndian(bytes, value);
             stream.Write(bytes);
@@ -220,25 +215,15 @@ public class MarketplaceListingTests
     private sealed class RecordingStore : IMarketplaceOfferStore
     {
         public List<MarketplaceListing> Listings { get; } = new();
-        public bool Fail
-        {
-            get; set;
-        }
-        public bool OwnedAtWrite
-        {
-            get; set;
-        }
-        public Action? BeforeWrite
-        {
-            get; set;
-        }
+        public bool Fail { get; set; }
+        public bool OwnedAtWrite { get; set; }
+        public Action? BeforeWrite { get; set; }
 
         public void ListFurni(MarketplaceListing listing)
         {
             BeforeWrite?.Invoke();
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced persistence failure");
             }
 

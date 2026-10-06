@@ -14,8 +14,7 @@ internal class GetModeratorRoomChatlogEvent(IModeratorHistoryService history) : 
         packet.ReadInt(); //junk
         var result = history.GetRoomChatlog(packet.ReadUInt());
 
-        if (result != null)
-        {
+        if (result != null) {
             session.Send(new ModeratorRoomChatlogComposer(result));
         }
 

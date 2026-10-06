@@ -22,10 +22,7 @@ public sealed class WiredVariableCatalogTests
         Assert.Empty(unchanged.Changed);
         Assert.Empty(unchanged.Removed);
         Assert.NotEqual(catalog.Hash, new WiredVariableCatalog([variables[0] with { ReadOnly = true }, .. variables.Skip(1)]).Hash);
-        Assert.NotEqual(variables[0].Hash, (variables[0] with
-        {
-            TextConnector = new Dictionary<int, string> { [1] = "one" }
-        }).Hash);
+        Assert.NotEqual(variables[0].Hash, (variables[0] with { TextConnector = new Dictionary<int, string> { [1] = "one" } }).Hash);
     }
     [Fact]
     public void CatalogAndPagesResolveAliasesAndRecheckOwnersOnEveryRequest()
@@ -34,8 +31,7 @@ public sealed class WiredVariableCatalogTests
         var store = new MemoryWiredVariableStore();
         var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
 
-        foreach (var id in Enumerable.Range(1, 5))
-        {
+        foreach (var id in Enumerable.Range(1, 5)) {
             store.Mutate(new(20, WiredVariableTarget.User, id), _ => new(id * 10, DateTimeOffset.FromUnixTimeMilliseconds(1000), DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         }
 

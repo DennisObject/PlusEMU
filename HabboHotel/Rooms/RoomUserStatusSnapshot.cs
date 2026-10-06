@@ -14,12 +14,10 @@ public sealed record RoomUserStatusSnapshot(int VirtualId, int X, int Y, string 
     {
         var statusText = new StringBuilder("/");
 
-        foreach (var status in user.Statusses.ToList())
-        {
+        foreach (var status in user.Statusses.ToList()) {
             statusText.Append(status.Key);
 
-            if (!string.IsNullOrEmpty(status.Value))
-            {
+            if (!string.IsNullOrEmpty(status.Value)) {
                 statusText.Append(' ').Append(status.Value);
             }
 

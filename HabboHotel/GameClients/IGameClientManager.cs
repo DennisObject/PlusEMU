@@ -7,14 +7,8 @@ namespace Plus.HabboHotel.GameClients;
 
 public interface IGameClientManager
 {
-    int Count
-    {
-        get;
-    }
-    ICollection<GameClient> GetClients
-    {
-        get;
-    }
+    int Count { get; }
+    ICollection<GameClient> GetClients { get; }
     void OnCycle();
     GameClient? GetClientByUserId(int userId);
     GameClient? GetClientByUsername(string username);

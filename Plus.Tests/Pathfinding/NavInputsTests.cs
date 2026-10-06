@@ -29,7 +29,13 @@ public class NavInputsTests
         using var drained = new ManualResetEventSlim();
         using var published = new ManualResetEventSlim();
         var writer = Task.Run(() => { Assert.True(drained.Wait(5000)); inputs.MarkDirty(2); published.Set(); });
-        var first = inputs.Drain(word => { if (word == 0) { drained.Set(); Assert.True(published.Wait(5000)); } });
+        var first = inputs.Drain(word =>
+        {
+            if (word == 0) {
+                drained.Set();
+                Assert.True(published.Wait(5000));
+            }
+        });
         await writer;
         Assert.Contains(1, first);
         Assert.Contains(2, inputs.Drain());
@@ -60,7 +66,13 @@ public class NavInputsTests
         using var selected = new ManualResetEventSlim();
         using var moved = new ManualResetEventSlim();
         var writer = Task.Run(() => { Assert.True(selected.Wait(5000)); inputs.Publish(NavTest.Record(1, 3, [4, 5], h: 2)); moved.Set(); });
-        compiler.Apply(beforeRead: id => { if (id == 2) { selected.Set(); Assert.True(moved.Wait(5000)); } });
+        compiler.Apply(beforeRead: id =>
+        {
+            if (id == 2) {
+                selected.Set();
+                Assert.True(moved.Wait(5000));
+            }
+        });
         await writer;
         // Enumeration order need not be fixed; each footprint must still be coherent.
         Assert.Equal(grid.WalkZ[0], grid.WalkZ[1]);
@@ -109,21 +121,18 @@ public class NavInputsTests
         var (grid, inputs, compiler) = NavTest.Create(16, 16);
         var items = Enumerable.Range(1, 8).Select(i => NavTest.Item((uint)i, width: 2)).ToArray();
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             inputs.Attach(item);
         }
 
         var workers = items.Select(item => Task.Run(() =>
         {
-            for (var i = 0; i < 1000; i++)
-            {
+            for (var i = 0; i < 1000; i++) {
                 inputs.Mutate(item, () => { item.GetX = i % 14; item.GetY = (i + (int)item.Id) % 16; item.GetZ = item.Id; return true; });
             }
         })).ToArray();
 
-        while (workers.Any(w => !w.IsCompleted))
-        {
+        while (workers.Any(w => !w.IsCompleted)) {
             compiler.ApplyNow();
             await Task.Yield();
         }
@@ -243,19 +252,16 @@ public class NavInputsTests
         bool lockAvailable;
 
         // Force Wired -> NavSync to overlap pickup -> Wired's real DetachRoomItem.
-        lock (wiredLock)
-        {
+        lock (wiredLock) {
             pickup = Task.Run(() => remove.Invoke(handler, [item]));
             Assert.True(SpinWait.SpinUntil(() => navigation.Inputs.Read(item.Id)?.Removed == true, 5000));
             lockAvailable = Monitor.TryEnter(item.NavSync, 1000);
 
-            if (lockAvailable)
-            {
+            if (lockAvailable) {
                 Monitor.Exit(item.NavSync);
             }
 
-            if (lockAvailable)
-            {
+            if (lockAvailable) {
                 wired.OnEvent(item);
             }
         }
@@ -276,15 +282,13 @@ public class NavInputsTests
         var item = NavTest.Item();
         item.ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat();
 
-        for (var i = 0; i < 100; i++)
-        {
+        for (var i = 0; i < 100; i++) {
             Change(i);
         }
 
         var before = GC.GetAllocatedBytesForCurrentThread();
 
-        for (var i = 0; i < 10000; i++)
-        {
+        for (var i = 0; i < 10000; i++) {
             Change(i);
         }
 
@@ -362,10 +366,19 @@ public class NavInputsTests
         inputs.Attach(item);
         using var started = new ManualResetEventSlim();
         Exception? error = null;
-        var writer = new Thread(() => { started.Set(); try { item.LegacyDataString = "1"; } catch (Exception e) { error = e; } });
-
-        lock (item.NavSync)
+        var writer = new Thread(() =>
         {
+            started.Set();
+
+            try {
+                item.LegacyDataString = "1";
+            }
+            catch (Exception e) {
+                error = e;
+            }
+        });
+
+        lock (item.NavSync) {
             writer.Start();
             Assert.True(started.Wait(5000));
             Assert.True(SpinWait.SpinUntil(() => (writer.ThreadState & ThreadState.WaitSleepJoin) != 0, 5000));
@@ -390,8 +403,7 @@ public class NavInputsTests
         Task admission;
         Task pickup;
 
-        lock (item.NavSync)
-        {
+        lock (item.NavSync) {
             admission = Task.Run(() => Assert.True(handler.AdmitFloorItem(item)));
             pickup = Task.Run(() =>
             {
@@ -420,26 +432,31 @@ public class NavInputsTests
         Exception? placementError = null;
         var admission = new Thread(() =>
         {
-            try
-            {
+            try {
                 Assert.True(handler.AdmitFloorItem(item));
             }
-            catch (Exception e) { admissionError = e; }
-            finally { admitted.Set(); }
+            catch (Exception e) {
+                admissionError = e;
+            }
+            finally {
+                admitted.Set();
+            }
         });
         var placement = new Thread(() =>
         {
-            try
-            {
+            try {
                 item.SetPlacementState(2, 2, 1.5004,
                 Plus.HabboHotel.Rooms.Gamemap.GetAffectedTiles(1, 2, 2, 2, 2), 2);
             }
-            catch (Exception e) { placementError = e; }
-            finally { placed.Set(); }
+            catch (Exception e) {
+                placementError = e;
+            }
+            finally {
+                placed.Set();
+            }
         });
 
-        lock (item.NavSync)
-        {
+        lock (item.NavSync) {
             admission.Start();
             Assert.True(SpinWait.SpinUntil(() => (admission.ThreadState & ThreadState.WaitSleepJoin) != 0, 5000));
             Assert.Null(handler.GetItem(item.Id));

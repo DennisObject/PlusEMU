@@ -19,8 +19,7 @@ internal class HalCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (parameters.Length <= 1)
-        {
+        if (parameters.Length <= 1) {
             session.SendWhisper("Please enter a url and a message to send..");
 
             return;

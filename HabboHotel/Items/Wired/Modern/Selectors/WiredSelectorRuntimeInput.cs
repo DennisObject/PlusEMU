@@ -66,11 +66,9 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
         var users = context.Targets.ResolveUsers(context, [], RuntimeSources.AllRoom, raw: true);
         var remotes = new Dictionary<uint, WiredRemoteSelector>();
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             if (context.Room.GetWired().TryGet(item.Id, out var box) && box is IWiredConfiguredItem configured
-                && configured.Descriptor.Category == WiredBoxCategory.Selector)
-            {
+                && configured.Descriptor.Category == WiredBoxCategory.Selector) {
                 remotes[item.Id] = new(configured.Descriptor.CanonicalName, context.ConfigurationOf(configured));
             }
         }
@@ -78,8 +76,7 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
         var groupIds = remotes.Values.Where(x => x.Name == "wf_slc_users_group")
             .Select(x => WiredSelectorSources.Param(x.Configuration, 1)).Where(x => x > 0).ToHashSet();
 
-        if (context.Room.Group is { } roomGroup)
-        {
+        if (context.Room.Group is { } roomGroup) {
             groupIds.Add(roomGroup.Id);
         }
 

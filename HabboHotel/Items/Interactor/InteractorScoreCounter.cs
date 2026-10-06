@@ -9,13 +9,11 @@ public class InteractorScoreCounter : IFurniInteractor
     {
         var itemRoom = item.GetRoom();
 
-        if (itemRoom == null)
-        {
+        if (itemRoom == null) {
             return;
         }
 
-        if (item.Team == Team.None)
-        {
+        if (item.Team == Team.None) {
             return;
         }
 
@@ -29,27 +27,21 @@ public class InteractorScoreCounter : IFurniInteractor
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (!hasRights)
-        {
+        if (!hasRights) {
             return;
         }
 
         var oldValue = 0;
 
-        if (!int.TryParse(item.LegacyDataString, out oldValue))
-        {
-        }
+        if (!int.TryParse(item.LegacyDataString, out oldValue)) { }
 
-        if (request == 1)
-        {
+        if (request == 1) {
             oldValue++;
         }
-        else if (request == 2)
-        {
+        else if (request == 2) {
             oldValue--;
         }
-        else if (request == 3)
-        {
+        else if (request == 3) {
             oldValue = 0;
         }
 
@@ -61,9 +53,7 @@ public class InteractorScoreCounter : IFurniInteractor
     {
         var oldValue = 0;
 
-        if (!int.TryParse(item.LegacyDataString, out oldValue))
-        {
-        }
+        if (!int.TryParse(item.LegacyDataString, out oldValue)) { }
 
         oldValue++;
         item.LegacyDataString = oldValue.ToString();

@@ -14,26 +14,14 @@ internal class RegenerateMapsBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
 
     public WiredBoxType Type => WiredBoxType.EffectRegenerateMaps;
 
-    public ConcurrentDictionary<uint, Item> SetItems
-    {
-        get; set;
-    }
+    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -44,15 +32,13 @@ internal class RegenerateMapsBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (Instance == null)
-        {
+        if (Instance == null) {
             return false;
         }
 
         var now = Instance.RuntimeClock.GetUtcNow();
 
-        if (Instance.LastRegenerationAt is not { } lastRegeneration || now - lastRegeneration > TimeSpan.FromMinutes(1))
-        {
+        if (Instance.LastRegenerationAt is not { } lastRegeneration || now - lastRegeneration > TimeSpan.FromMinutes(1)) {
             Instance.GetGameMap().GenerateMaps();
             Instance.LastRegenerationAt = now;
 

@@ -19,8 +19,7 @@ public sealed class CatalogStudioHistoryComposer : IServerPacket
         packet.WriteInteger(_history.TotalCount);
         packet.WriteInteger(_history.Groups.Count);
 
-        foreach (var entry in _history.Groups)
-        {
+        foreach (var entry in _history.Groups) {
             packet.WriteInteger(entry.Id);
             packet.WriteInteger(entry.Id);
             packet.WriteInteger(entry.UserId);

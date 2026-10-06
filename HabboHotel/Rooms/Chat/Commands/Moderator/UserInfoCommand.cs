@@ -25,8 +25,7 @@ internal class UserInfoCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (parameters.Length < 2)
-        {
+        if (parameters.Length < 2) {
             session.SendWhisper("Please enter the username of the user you wish to view.");
 
             return;
@@ -35,8 +34,7 @@ internal class UserInfoCommand : IChatCommand
         var username = parameters[1];
         var userData = _users.Find(username);
 
-        if (userData == null)
-        {
+        if (userData == null) {
             session.SendNotification($"Oops, there is no user in the database with that username ({username})!");
 
             return;
@@ -63,16 +61,13 @@ internal class UserInfoCommand : IChatCommand
         habboInfo.Append($"Trading Locked: {(userData.TradingLockExpiresAt == null ? "No outstanding lock" : $"Expiry: {userData.TradingLockExpiresAt:dd/MM/yyyy}")}\r");
         habboInfo.Append($"Amount of trading locks: {userData.TradingLockCount}\r\r");
 
-        if (targetClient != null)
-        {
+        if (targetClient != null) {
             habboInfo.Append("Current Session:\r");
 
-            if (targetClient.GetHabbo().CurrentRoom is not { } currentRoom)
-            {
+            if (targetClient.GetHabbo().CurrentRoom is not { } currentRoom) {
                 habboInfo.Append("Currently not in a room.\r");
             }
-            else
-            {
+            else {
                 habboInfo.Append($"Room: {currentRoom.Name} ({currentRoom.RoomId})\r");
                 habboInfo.Append($"Room Owner: {currentRoom.OwnerName}\r");
                 habboInfo.Append($"Current Visitors: {currentRoom.UserCount}/{currentRoom.UsersMax}");

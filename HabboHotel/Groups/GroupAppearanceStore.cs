@@ -19,12 +19,7 @@ public sealed class GroupAppearanceStore(IDatabase database) : IGroupAppearanceS
         using var connection = database.Connection();
         var updated = connection.Execute(
             "UPDATE `groups` SET `name` = @name, `desc` = @description WHERE `id` = @groupId LIMIT 1",
-            new
-            {
-                groupId,
-                name,
-                description
-            });
+            new { groupId, name, description });
 
         return updated == 1 || Exists(connection, groupId);
     }
@@ -34,11 +29,7 @@ public sealed class GroupAppearanceStore(IDatabase database) : IGroupAppearanceS
         using var connection = database.Connection();
         var updated = connection.Execute(
             "UPDATE `groups` SET `badge` = @badge WHERE `id` = @groupId LIMIT 1",
-            new
-            {
-                groupId,
-                badge
-            });
+            new { groupId, badge });
 
         return updated == 1 || Exists(connection, groupId);
     }
@@ -48,19 +39,11 @@ public sealed class GroupAppearanceStore(IDatabase database) : IGroupAppearanceS
         using var connection = database.Connection();
         var updated = connection.Execute(
             "UPDATE `groups` SET `colour1` = @mainColour, `colour2` = @secondaryColour WHERE `id` = @groupId LIMIT 1",
-            new
-            {
-                groupId,
-                mainColour,
-                secondaryColour
-            });
+            new { groupId, mainColour, secondaryColour });
 
         return updated == 1 || Exists(connection, groupId);
     }
 
     private static bool Exists(System.Data.IDbConnection connection, int groupId) => connection.ExecuteScalar<bool>(
-        "SELECT EXISTS(SELECT 1 FROM `groups` WHERE `id` = @groupId)", new
-        {
-            groupId
-        });
+        "SELECT EXISTS(SELECT 1 FROM `groups` WHERE `id` = @groupId)", new { groupId });
 }

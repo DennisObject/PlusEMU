@@ -39,8 +39,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         var heights = new List<(int, double)>();
 
-        for (var tick = 0; tick < 3; tick++)
-        {
+        for (var tick = 0; tick < 3; tick++) {
             ExecutorTick();
             heights.Add((actor.X, actor.Z));
         }
@@ -81,8 +80,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         actor.MoveTo(2, 1);
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
         }
 
@@ -103,8 +101,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         stress.MoveTo(2, 1);
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
         }
 
@@ -138,8 +135,7 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(2, 2);
         var visited = new List<(int, int)>();
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
             visited.Add((actor.X, actor.Y));
         }
@@ -151,8 +147,7 @@ public partial class PlacedFurniRoomTests
         events.Clear();
         actor.MoveTo(0, 2);
 
-        for (var tick = 0; tick < 3; tick++)
-        {
+        for (var tick = 0; tick < 3; tick++) {
             ExecutorTick();
         }
 
@@ -205,8 +200,7 @@ public partial class PlacedFurniRoomTests
         var actor = LayeredActor(3, 2);
         LayeredNavigation.Compiler.SurfacePinned = _ => true;
 
-        for (uint id = 40; id < 44; id++)
-        {
+        for (uint id = 40; id < 44; id++) {
             LayeredFloorOnto(id, 3, 2, (id - 39) * 2);
             ExecutorTick();
         }
@@ -256,8 +250,7 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(2, 2);
         var path = new List<(int, int, double)>();
 
-        for (var tick = 0; tick < 5; tick++)
-        {
+        for (var tick = 0; tick < 5; tick++) {
             ExecutorTick();
             path.Add((actor.X, actor.Y, actor.Z));
         }
@@ -279,15 +272,13 @@ public partial class PlacedFurniRoomTests
         var actor = LayeredActor(under ? 2 : 0, under ? 0 : 1);
         InitializeClientEffects();
 
-        if (!under)
-        {
+        if (!under) {
             ExecutorAdditionalBot(2, 1, 5);
         }
 
         actor.MoveTo(under ? 2 : 3, under ? 2 : 1);
 
-        for (var tick = 0; tick < (under ? 2 : 3); tick++)
-        {
+        for (var tick = 0; tick < (under ? 2 : 3); tick++) {
             ExecutorTick();
         }
 
@@ -308,8 +299,7 @@ public partial class PlacedFurniRoomTests
         InitializeClientEffects();
         _client.GetHabbo().Gender = "M";
 
-        if (!under)
-        {
+        if (!under) {
             actor.SetPos(1, 1, 1);
             ExecutorAdditionalBot(2, 1, 5);
             ExecutorTick();
@@ -332,16 +322,14 @@ public partial class PlacedFurniRoomTests
         ExecutorFloor(20, 1, 1, height: 1);
         var actor = LayeredActor(under ? 2 : 0, under ? 0 : 1);
 
-        if (!under)
-        {
+        if (!under) {
             ExecutorAdditionalBot(2, 1, 5);
         }
 
         actor.CanWalk = false;
         actor.MoveTo(2, 1, MoveOrigin.Wired);
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
         }
 
@@ -360,8 +348,7 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(2, 2);
         var visited = new List<(int, int)>();
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
             visited.Add((actor.X, actor.Y));
         }
@@ -377,8 +364,7 @@ public partial class PlacedFurniRoomTests
         // only the deck is a goal; the route crosses that floor, climbs the stair and returns onto the deck.
         uint wall = 70;
 
-        foreach (var (x, y) in new[] { (1, 0), (2, 0), (3, 0), (0, 2), (1, 2), (2, 2), (3, 2) })
-        {
+        foreach (var (x, y) in new[] { (1, 0), (2, 0), (3, 0), (0, 2), (1, 2), (2, 2), (3, 2) }) {
             ExecutorFloor(wall++, x, y, height: 1).Definition.Walkable = false;
         }
 
@@ -390,8 +376,7 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(2, 1);
         var path = new List<(int, int, double)>();
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
             path.Add((actor.X, actor.Y, actor.Z));
         }
@@ -415,18 +400,15 @@ public partial class PlacedFurniRoomTests
         Assert.True(claims.TryClaim(actor, deck, kind, TargetOccupancy.None));
         _room.GetRoomItemHandler().RemoveFurniture(null!, 21);
 
-        if (reassigned)
-        {
+        if (reassigned) {
             ExecutorFloor(23, 3, 2, z: 2);
         }
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             LayeredNavigation.ApplyDirty();
         }
 
-        if (reassigned)
-        {
+        if (reassigned) {
             Assert.Equal(deck, LayeredNavigation.Grid.SlotOf(new SurfaceRef(LayeredTile(3, 2), 23, SurfaceKind.Top)));
         }
 
@@ -438,12 +420,7 @@ public partial class PlacedFurniRoomTests
     public void LayeredDeferredGoalIsReResolvedWhenItsSurfaceSlotIsReused()
     {
         var deck = ExecutorFloor(21, 3, 1, z: 1);
-        var actor = LayeredActor(0, 1, new()
-        {
-            Engine = PathfindingEngine.V2,
-            LayeringEnabled = true,
-            MaxExpansionsPerRoomTick = 0
-        });
+        var actor = LayeredActor(0, 1, new() { Engine = PathfindingEngine.V2, LayeringEnabled = true, MaxExpansionsPerRoomTick = 0 });
         var slot = LayeredNavigation.Grid.SlotOf(new SurfaceRef(LayeredTile(3, 1), 21, SurfaceKind.Top));
         ExecutorAdditionalBot(3, 1, 5);
         ExecutorTick();
@@ -454,13 +431,9 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         Assert.Equal(slot, LayeredNavigation.Grid.SlotOf(new SurfaceRef(LayeredTile(2, 1), 21, SurfaceKind.Top)));
         typeof(RoomNavigation).GetField("<Settings>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(LayeredNavigation, LayeredNavigation.Settings with
-            {
-                MaxExpansionsPerRoomTick = 200000
-            });
+            .SetValue(LayeredNavigation, LayeredNavigation.Settings with { MaxExpansionsPerRoomTick = 200000 });
 
-        for (var tick = 0; tick < 4; tick++)
-        {
+        for (var tick = 0; tick < 4; tick++) {
             ExecutorTick();
         }
 
@@ -485,8 +458,7 @@ public partial class PlacedFurniRoomTests
         ExecutorFloor(60, 3, 3).Definition.InteractionType = InteractionType.Banzaifloor;
         LayeredNavigation.Inputs.Attach(_room.GetRoomItemHandler().GetItem(60));
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             LayeredNavigation.ApplyDirty();
         }
 
@@ -509,8 +481,7 @@ public partial class PlacedFurniRoomTests
         ExecutorFloor(60, 3, 3).Definition.InteractionType = InteractionType.Banzaifloor;
         LayeredNavigation.Inputs.Attach(_room.GetRoomItemHandler().GetItem(60));
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             LayeredNavigation.ApplyDirty();
         }
 
@@ -541,16 +512,11 @@ public partial class PlacedFurniRoomTests
     private RoomUser LayeredActor(int x, int y, PathfindingSettings? settings = null)
     {
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new()
-        {
-            Engine = PathfindingEngine.V2,
-            LayeringEnabled = true
-        }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
+        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new() { Engine = PathfindingEngine.V2, LayeringEnabled = true }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
 
-        foreach (var item in _room.GetRoomItemHandler().GetFloor)
-        {
+        foreach (var item in _room.GetRoomItemHandler().GetFloor) {
             navigation.Inputs.Attach(item);
         }
 

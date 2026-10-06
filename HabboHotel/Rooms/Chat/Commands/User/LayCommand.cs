@@ -14,39 +14,31 @@ internal class LayCommand : IChatCommand
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
-        if (!room.GetGameMap().ValidTile(user.X + 2, user.Y + 2) && !room.GetGameMap().ValidTile(user.X + 1, user.Y + 1))
-        {
+        if (!room.GetGameMap().ValidTile(user.X + 2, user.Y + 2) && !room.GetGameMap().ValidTile(user.X + 1, user.Y + 1)) {
             session.SendWhisper("Oops, cannot lay down here - try elsewhere!");
 
             return;
         }
 
-        if (user.Statusses.ContainsKey("sit") || user.IsSitting || user.RidingHorse || user.IsWalking)
-        {
+        if (user.Statusses.ContainsKey("sit") || user.IsSitting || user.RidingHorse || user.IsWalking) {
             return;
         }
 
-        if (session.GetHabbo().Effects.CurrentEffect > 0)
-        {
+        if (session.GetHabbo().Effects.CurrentEffect > 0) {
             session.GetHabbo().Effects.ApplyEffect(0);
         }
 
-        if (!user.Statusses.ContainsKey("lay"))
-        {
-            if (user.RotBody % 2 == 0)
-            {
-                if (user == null)
-                {
+        if (!user.Statusses.ContainsKey("lay")) {
+            if (user.RotBody % 2 == 0) {
+                if (user == null) {
                     return;
                 }
 
-                try
-                {
+                try {
                     user.Statusses.Add("lay", "1.0 null");
                     user.Z -= 0.35;
                     user.IsLying = true;
@@ -54,8 +46,7 @@ internal class LayCommand : IChatCommand
                 }
                 catch { }
             }
-            else
-            {
+            else {
                 user.RotBody--; //
                 user.Statusses.Add("lay", "1.0 null");
                 user.Z -= 0.35;
@@ -63,8 +54,7 @@ internal class LayCommand : IChatCommand
                 user.UpdateNeeded = true;
             }
         }
-        else
-        {
+        else {
             user.Z += 0.35;
             user.Statusses.Remove("lay");
             user.Statusses.Remove("1.0");

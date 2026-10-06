@@ -53,13 +53,11 @@ public class AuthTokenCleanup : IStartable
     {
         var total = 0;
 
-        for (var i = 0; i < MaxBatchesPerRun; i++)
-        {
+        for (var i = 0; i < MaxBatchesPerRun; i++) {
             var deleted = await prune(BatchSize);
             total += deleted;
 
-            if (deleted < BatchSize)
-            {
+            if (deleted < BatchSize) {
                 break;
             }
         }
@@ -71,14 +69,11 @@ public class AuthTokenCleanup : IStartable
     {
         using var timer = new PeriodicTimer(Interval, _time);
 
-        do
-        {
-            try
-            {
+        do {
+            try {
                 await PruneExpired();
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 _logger.LogWarning(e, "Expired login token cleanup failed; retrying in {Interval}.", Interval);
             }
         } while (await timer.WaitForNextTickAsync());

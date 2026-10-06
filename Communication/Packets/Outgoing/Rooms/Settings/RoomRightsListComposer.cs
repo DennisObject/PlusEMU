@@ -18,8 +18,7 @@ public class RoomRightsListComposer : IServerPacket
         packet.WriteUInteger(_roomId);
         packet.WriteInteger(_users.Count);
 
-        foreach (var user in _users)
-        {
+        foreach (var user in _users) {
             packet.WriteInteger(user.Id);
             packet.WriteString(user.Username);
         }

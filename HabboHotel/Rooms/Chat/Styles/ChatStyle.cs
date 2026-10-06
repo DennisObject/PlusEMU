@@ -14,26 +14,11 @@ public sealed class ChatStyle
         Enabled = enabled;
     }
 
-    public int Id
-    {
-        get; set;
-    }
-    public string Name
-    {
-        get; set;
-    }
-    public string RequiredPermission
-    {
-        get; set;
-    }
-    public bool RequiresHc
-    {
-        get; set;
-    }
-    public bool Enabled
-    {
-        get; set;
-    }
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string RequiredPermission { get; set; }
+    public bool RequiresHc { get; set; }
+    public bool Enabled { get; set; }
 
     public bool CanUse(UserAccess access) => Enabled && (!RequiresHc || ClubAccess.LevelFor(access) > 0) &&
         (RequiredPermission.Length == 0 || access.Can(RequiredPermission));

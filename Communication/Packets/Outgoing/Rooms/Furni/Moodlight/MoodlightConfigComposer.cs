@@ -20,8 +20,7 @@ public class MoodlightConfigComposer : IServerPacket
         packet.WriteInteger(_snapshot.CurrentPreset);
         var i = 1;
 
-        foreach (var preset in _snapshot.Presets)
-        {
+        foreach (var preset in _snapshot.Presets) {
             packet.WriteInteger(i);
             packet.WriteInteger(preset.BackgroundOnly ? 2 : 1);
             packet.WriteString(preset.ColorCode);

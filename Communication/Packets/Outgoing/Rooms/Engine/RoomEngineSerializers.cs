@@ -49,8 +49,7 @@ public static class RoomEngineSerializers
     {
         packet.WriteInteger(furniture.Owners.Length);
 
-        foreach (var owner in furniture.Owners)
-        {
+        foreach (var owner in furniture.Owners) {
             packet.WriteInteger(owner.Id);
             packet.WriteString(owner.Name);
         }

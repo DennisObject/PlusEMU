@@ -26,8 +26,7 @@ public partial class PlacedFurniRoomTests
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         users[old.VirtualId] = replacement;
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             navigation.Admit(replacement);
         }
 
@@ -44,8 +43,7 @@ public partial class PlacedFurniRoomTests
     {
         var actor = ExecutorActor(0, 1);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Task.Run(() => actor.SetPos(2, 2, 1.25)).GetAwaiter().GetResult();
         }
 

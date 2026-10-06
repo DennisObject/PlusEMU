@@ -26,20 +26,13 @@ public sealed class RoomTradingComponent(IDatabase database, TimeProvider clock,
     void ITradeStore.DeleteItem(uint itemId)
     {
         using var connection = database.Connection();
-        connection.Execute("DELETE FROM items WHERE id = @itemId LIMIT 1", new
-        {
-            itemId
-        });
+        connection.Execute("DELETE FROM items WHERE id = @itemId LIMIT 1", new { itemId });
     }
 
     void ITradeStore.TransferItem(uint itemId, int userId)
     {
         using var connection = database.Connection();
-        connection.Execute("UPDATE items SET user_id = @userId WHERE id = @itemId LIMIT 1", new
-        {
-            userId,
-            itemId
-        });
+        connection.Execute("UPDATE items SET user_id = @userId WHERE id = @itemId LIMIT 1", new { userId, itemId });
     }
 
     void ITradeStore.Log(int firstUserId, int secondUserId, string firstItems, string secondItems)
@@ -49,13 +42,6 @@ public sealed class RoomTradingComponent(IDatabase database, TimeProvider clock,
         connection.Execute("""
             INSERT INTO logs_client_trade (`1id`, `2id`, `1items`, `2items`, `timestamp`)
             VALUES (@firstUserId, @secondUserId, @firstItems, @secondItems, @createdAt)
-            """, new
-        {
-            firstUserId,
-            secondUserId,
-            firstItems,
-            secondItems,
-            createdAt = now.UtcDateTime
-        });
+            """, new { firstUserId, secondUserId, firstItems, secondItems, createdAt = now.UtcDateTime });
     }
 }

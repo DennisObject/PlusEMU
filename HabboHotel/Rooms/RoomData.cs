@@ -115,185 +115,53 @@ public class RoomData
         Model = data.Model;
     }
 
-    public uint Id
-    {
-        get; set;
-    }
-    public string Name
-    {
-        get; set;
-    }
-    public string ModelName
-    {
-        get; set;
-    }
-    public string OwnerName
-    {
-        get; set;
-    }
-    public int OwnerId
-    {
-        get; set;
-    }
-    public string Password
-    {
-        get; set;
-    }
-    public int Score
-    {
-        get; set;
-    }
-    public RoomAccess Access
-    {
-        get; set;
-    }
-    public string Type
-    {
-        get; set;
-    }
-    public int UsersMax
-    {
-        get; set;
-    }
-    public int UsersNow
-    {
-        get; set;
-    }
-    public int Category
-    {
-        get; set;
-    }
-    public string Description
-    {
-        get; set;
-    }
-    public string Floor
-    {
-        get; set;
-    }
-    public string Landscape
-    {
-        get; set;
-    }
-    public bool AllowPets
-    {
-        get; set;
-    }
-    public bool AllowPetsEating
-    {
-        get; set;
-    }
-    public bool RoomBlockingEnabled
-    {
-        get; set;
-    }
-    public bool Hidewall
-    {
-        get; set;
-    }
-    public int WallThickness
-    {
-        get; set;
-    }
-    public int FloorThickness
-    {
-        get; set;
-    }
-    public string Wallpaper
-    {
-        get; set;
-    }
-    public int WhoCanMute
-    {
-        get; set;
-    }
-    public int WhoCanBan
-    {
-        get; set;
-    }
-    public int WhoCanKick
-    {
-        get; set;
-    }
-    public int ChatMode
-    {
-        get; set;
-    }
-    public int ChatSize
-    {
-        get; set;
-    }
-    public int ChatSpeed
-    {
-        get; set;
-    }
-    public int ExtraFlood
-    {
-        get; set;
-    }
-    public int ChatDistance
-    {
-        get; set;
-    }
-    public int TradeSettings
-    {
-        get; set;
-    }
-    public bool PushEnabled
-    {
-        get; set;
-    }
-    public bool PullEnabled
-    {
-        get; set;
-    }
-    public bool SuperPushEnabled
-    {
-        get; set;
-    }
-    public bool SuperPullEnabled
-    {
-        get; set;
-    }
-    public bool EnablesEnabled
-    {
-        get; set;
-    }
-    public bool RespectNotificationsEnabled
-    {
-        get; set;
-    }
-    public bool PetMorphsAllowed
-    {
-        get; set;
-    }
-    public int SalePrice
-    {
-        get; set;
-    }
-    public int GroupId
-    {
-        get; set;
-    }
-    public bool ReverseRollers
-    {
-        get; set;
-    }
-    public bool LayEnabled
-    {
-        get; set;
-    }
+    public uint Id { get; set; }
+    public string Name { get; set; }
+    public string ModelName { get; set; }
+    public string OwnerName { get; set; }
+    public int OwnerId { get; set; }
+    public string Password { get; set; }
+    public int Score { get; set; }
+    public RoomAccess Access { get; set; }
+    public string Type { get; set; }
+    public int UsersMax { get; set; }
+    public int UsersNow { get; set; }
+    public int Category { get; set; }
+    public string Description { get; set; }
+    public string Floor { get; set; }
+    public string Landscape { get; set; }
+    public bool AllowPets { get; set; }
+    public bool AllowPetsEating { get; set; }
+    public bool RoomBlockingEnabled { get; set; }
+    public bool Hidewall { get; set; }
+    public int WallThickness { get; set; }
+    public int FloorThickness { get; set; }
+    public string Wallpaper { get; set; }
+    public int WhoCanMute { get; set; }
+    public int WhoCanBan { get; set; }
+    public int WhoCanKick { get; set; }
+    public int ChatMode { get; set; }
+    public int ChatSize { get; set; }
+    public int ChatSpeed { get; set; }
+    public int ExtraFlood { get; set; }
+    public int ChatDistance { get; set; }
+    public int TradeSettings { get; set; }
+    public bool PushEnabled { get; set; }
+    public bool PullEnabled { get; set; }
+    public bool SuperPushEnabled { get; set; }
+    public bool SuperPullEnabled { get; set; }
+    public bool EnablesEnabled { get; set; }
+    public bool RespectNotificationsEnabled { get; set; }
+    public bool PetMorphsAllowed { get; set; }
+    public int SalePrice { get; set; }
+    public int GroupId { get; set; }
+    public bool ReverseRollers { get; set; }
+    public bool LayEnabled { get; set; }
 
 
-    public RoomModel Model
-    {
-        get; set;
-    }
+    public RoomModel Model { get; set; }
 
-    public RoomPromotion Promotion
-    {
-        get; set;
-    }
+    public RoomPromotion Promotion { get; set; }
 
     public Group Group
     {
@@ -305,8 +173,7 @@ public class RoomData
 
     public void EndPromotion()
     {
-        if (!HasActivePromotion)
-        {
+        if (!HasActivePromotion) {
             return;
         }
 

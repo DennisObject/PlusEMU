@@ -21,19 +21,16 @@ public sealed class WiredGameState
     }
     public bool GiveScore(Room room, uint boxId, int playerId, Team team, int amount, int? quota, Action<WiredRuntimeEvent> publish)
     {
-        if ((int)team is < 1 or > 4)
-        {
+        if ((int)team is < 1 or > 4) {
             return false;
         }
 
         var key = (boxId, playerId);
 
-        if (quota is > 0)
-        {
+        if (quota is > 0) {
             var grants = _grants.GetValueOrDefault(key);
 
-            if (grants >= quota)
-            {
+            if (grants >= quota) {
                 return false;
             }
 
@@ -42,28 +39,17 @@ public sealed class WiredGameState
 
         var previous = room.GetGameManager().Points[(int)team];
         room.GetGameManager().AddPointToTeam(team, amount);
-        publish(new(WiredEventKind.Score)
-        {
-            Team = (int)team,
-            PreviousValue = previous,
-            Value = room.GetGameManager().Points[(int)team]
-        });
+        publish(new(WiredEventKind.Score) { Team = (int)team, PreviousValue = previous, Value = room.GetGameManager().Points[(int)team] });
 
         return true;
     }
     public bool Join(Room room, RoomUser user, int type, Team chosen, int mode, IEnumerable<RoomUser> allUsers)
     {
-        if (user.IsBot)
-        {
+        if (user.IsBot) {
             return false;
         }
 
-        var manager = type switch
-        {
-            1 => room.GetTeamManagerForBanzai(),
-            2 => room.GetTeamManagerForFreeze(),
-            _ => null
-        };
+        var manager = type switch { 1 => room.GetTeamManagerForBanzai(), 2 => room.GetTeamManagerForFreeze(), _ => null };
         var candidates = Enumerable.Range(1, 4).Select(value => (Team)value).ToArray();
         var members = allUsers.Where(member => !member.IsBot && !ReferenceEquals(member, user) && TeamType(room, member) == type).ToArray();
         var team = mode switch
@@ -73,13 +59,11 @@ public sealed class WiredGameState
             _ => chosen
         };
 
-        if ((int)team is < 1 or > 4 || manager != null && user.Team != team && !manager.CanEnterOnTeam(team))
-        {
+        if ((int)team is < 1 or > 4 || manager != null && user.Team != team && !manager.CanEnterOnTeam(team)) {
             return false;
         }
 
-        if (user.Team == team && TeamType(room, user) == type)
-        {
+        if (user.Team == team && TeamType(room, user) == type) {
             return false;
         }
 
@@ -94,8 +78,7 @@ public sealed class WiredGameState
     }
     public bool Leave(Room room, RoomUser user)
     {
-        if (user.IsBot || user.Team == Team.None)
-        {
+        if (user.IsBot || user.Team == Team.None) {
             return false;
         }
 
@@ -105,8 +88,7 @@ public sealed class WiredGameState
         _types.Remove(user);
         user.UpdateNeeded = true;
 
-        if (user.GetClient()?.GetHabbo()?.Effects.CurrentEffect == effect)
-        {
+        if (user.GetClient()?.GetHabbo()?.Effects.CurrentEffect == effect) {
             user.ApplyEffect(0);
         }
 
@@ -118,13 +100,11 @@ public sealed class WiredGameState
         && (manager.RedTeam.Contains(user) || manager.GreenTeam.Contains(user) || manager.BlueTeam.Contains(user) || manager.YellowTeam.Contains(user));
     private static void RemoveFromManagers(Room room, RoomUser user)
     {
-        if (Contains(room.Teambanzai, user))
-        {
+        if (Contains(room.Teambanzai, user)) {
             room.Teambanzai.OnUserLeave(user);
         }
 
-        if (Contains(room.Teamfreeze, user))
-        {
+        if (Contains(room.Teamfreeze, user)) {
             room.Teamfreeze.OnUserLeave(user);
         }
     }

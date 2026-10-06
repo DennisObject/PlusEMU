@@ -106,6 +106,41 @@ public class CodeStyleTests
     }
 
     [Fact]
+    public void ExpandsControlFlowButPreservesCompactPropertiesAndInitializers()
+    {
+        const string source = "class Example\n{\n    string Name { get; }\n    void Run()\n    {\n        if (true) { Work(); return; }\n        try { Work(); } catch { throw; }\n        var value = new { Name = \"compact\" };\n    }\n}\n";
+
+        string formatted = StatementSpacing.Format(source);
+
+        Assert.Contains("string Name { get; }", formatted);
+        Assert.Contains("new { Name = \"compact\" }", formatted);
+        Assert.DoesNotContain("if (true) { Work();", formatted);
+        Assert.DoesNotContain("try { Work();", formatted);
+        Assert.Equal(Tokens(source), Tokens(formatted));
+        Assert.Equal(formatted, StatementSpacing.Format(formatted));
+    }
+
+    [Fact]
+    public void ExpandsInlineDeclarationsIncludingEmptyMethodBodies()
+    {
+        const string source = "class Example { string Name { get; } Example() { Work(); } void Run() { Work(); return; } void Empty() { } }";
+
+        string formatted = StatementSpacing.Format(source);
+
+        Assert.Equal("record Value(int Number);", StatementSpacing.Format("record Value(int Number);"));
+        Assert.DoesNotContain("{\n\n", formatted);
+        Assert.Equal("class Empty {\n    }", StatementSpacing.Format("class Empty {\n\n    }"));
+        Assert.Equal("class Empty {\r\n}", StatementSpacing.Format("class Empty {\r\n\r\n}"));
+        Assert.Contains("class Example {\n", formatted);
+        Assert.Contains("string Name { get; }", formatted);
+        Assert.Contains("Example() {\n", formatted);
+        Assert.Contains("void Run() {\n", formatted);
+        Assert.Contains("void Empty() {\n", formatted);
+        Assert.Equal(Tokens(source), Tokens(formatted));
+        Assert.Equal(formatted, StatementSpacing.Format(formatted));
+    }
+
+    [Fact]
     public void RejectsInvalidSyntax()
     {
         Assert.Throws<InvalidDataException>(() => StatementSpacing.Format("class Example {"));

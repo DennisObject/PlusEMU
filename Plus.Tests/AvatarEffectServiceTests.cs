@@ -334,22 +334,10 @@ public class AvatarEffectServiceTests
     {
         public List<(int Id, DateTimeOffset At)> Activations { get; } = new();
         public List<(int Id, int Quantity, bool Activated)> Saves { get; } = new();
-        public bool Fail
-        {
-            get; set;
-        }
-        public bool FailSave
-        {
-            get; set;
-        }
-        public Action<int>? OnActivate
-        {
-            get; set;
-        }
-        public Action<int>? OnSave
-        {
-            get; set;
-        }
+        public bool Fail { get; set; }
+        public bool FailSave { get; set; }
+        public Action<int>? OnActivate { get; set; }
+        public Action<int>? OnSave { get; set; }
 
         public IReadOnlyList<AvatarEffect> Load(int userId) => [];
         public AvatarEffect Create(int userId, int spriteId, double duration) => throw new NotSupportedException();
@@ -358,8 +346,7 @@ public class AvatarEffectServiceTests
         {
             OnActivate?.Invoke(id);
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced store failure");
             }
 
@@ -370,8 +357,7 @@ public class AvatarEffectServiceTests
         {
             OnSave?.Invoke(quantity);
 
-            if (FailSave)
-            {
+            if (FailSave) {
                 throw new InvalidOperationException("forced save failure");
             }
 

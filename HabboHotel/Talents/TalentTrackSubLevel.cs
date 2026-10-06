@@ -9,16 +9,7 @@ public class TalentTrackSubLevel
         RequiredProgress = requiredProgress;
     }
 
-    public int Level
-    {
-        get; set;
-    }
-    public string Badge
-    {
-        get; set;
-    }
-    public int RequiredProgress
-    {
-        get; set;
-    }
+    public int Level { get; set; }
+    public string Badge { get; set; }
+    public int RequiredProgress { get; set; }
 }

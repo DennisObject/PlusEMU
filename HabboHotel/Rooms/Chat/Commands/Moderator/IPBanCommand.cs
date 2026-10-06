@@ -28,8 +28,7 @@ internal class IpBanCommand : ITargetChatCommand
     {
         using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
 
-        if (!session.GetHabbo().Access.Outranks(target.Access))
-        {
+        if (!session.GetHabbo().Access.Outranks(target.Access)) {
             session.SendWhisper("Oops, you cannot ban that user.");
 
             return;
@@ -39,12 +38,10 @@ internal class IpBanCommand : ITargetChatCommand
         var username = target.Username;
         string reason;
 
-        if (parameters.Any())
-        {
+        if (parameters.Any()) {
             reason = CommandManager.MergeParams(parameters);
         }
-        else
-        {
+        else {
             reason = "No reason specified.";
         }
 

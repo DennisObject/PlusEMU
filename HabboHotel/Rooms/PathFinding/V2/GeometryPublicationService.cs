@@ -9,12 +9,10 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
     {
         context.Claims.RemapSlots(Grid.ReleasedSlots, LiveSlot);
 
-        foreach (var actor in context.Room.GetRoomUserManager().GetUserList())
-        {
+        foreach (var actor in context.Room.GetRoomUserManager().GetUserList()) {
             var state = actor.Movement;
 
-            if (state.State != NavState.Active)
-            {
+            if (state.State != NavState.Active) {
                 continue;
             }
 
@@ -22,20 +20,17 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
             var pending = PendingTouches(state, tiles);
             var invalidated = state.HasIntent && RouteTouches(actor, tiles);
 
-            if (current)
-            {
+            if (current) {
                 rebind.BeforePublish(actor);
             }
 
             var removed = ReleaseRemovedTargets(actor, tiles);
 
-            if (current || pending)
-            {
+            if (current || pending) {
                 context.RefreshMembership(actor);
             }
 
-            if (invalidated || removed)
-            {
+            if (invalidated || removed) {
                 Invalidate(actor);
             }
         }
@@ -43,10 +38,8 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
 
     private static bool PendingTouches(ActorMovementState state, IReadOnlySet<int> tiles)
     {
-        for (var index = 0; index < state.PendingCount; index++)
-        {
-            if (tiles.Contains(state.Pending[index].Tile))
-            {
+        for (var index = 0; index < state.PendingCount; index++) {
+            if (tiles.Contains(state.Pending[index].Tile)) {
                 return true;
             }
         }
@@ -58,14 +51,12 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
     {
         var state = actor.Movement;
 
-        for (var index = 0; index < state.PendingCount; index++)
-        {
+        for (var index = 0; index < state.PendingCount; index++) {
             var target = state.Pending[index];
             var privileged = state.Profile.LegacyOverride || state.Origin == MoveOrigin.Interaction;
             var slot = context.Graph.Slot(target, state.PendingView);
 
-            if (!tiles.Contains(target.Tile) || slot >= 0 && (Grid.Active(slot) || privileged))
-            {
+            if (!tiles.Contains(target.Tile) || slot >= 0 && (Grid.Active(slot) || privileged)) {
                 continue;
             }
 
@@ -94,32 +85,26 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
 
         // A queued layered goal names surfaces on its tile; rebuilding that tile re-resolves it.
         if (Grid.Layered && state.AcceptedGoal is { } goal && Grid.InBounds(goal.X, goal.Y)
-            && tiles.Contains(Grid.Tile(goal.X, goal.Y)))
-        {
+            && tiles.Contains(Grid.Tile(goal.X, goal.Y))) {
             return true;
         }
 
-        if (Grid.InBounds(actor.X, actor.Y) && Near(Grid.Tile(actor.X, actor.Y), tiles))
-        {
+        if (Grid.InBounds(actor.X, actor.Y) && Near(Grid.Tile(actor.X, actor.Y), tiles)) {
             return true;
         }
 
-        for (var index = 0; index < state.PendingCount; index++)
-        {
-            if (Near(state.Pending[index].Tile, tiles))
-            {
+        for (var index = 0; index < state.PendingCount; index++) {
+            if (Near(state.Pending[index].Tile, tiles)) {
                 return true;
             }
         }
 
         var previous = Grid.InBounds(actor.X, actor.Y) ? Grid.Tile(actor.X, actor.Y) : -1;
 
-        for (var index = state.Cursor; index < state.Route.Count; index++)
-        {
+        for (var index = state.Cursor; index < state.Route.Count; index++) {
             var tile = state.Route.Steps[index].Tile;
 
-            if (Near(tile, tiles) || FlanksTouch(previous, tile, tiles))
-            {
+            if (Near(tile, tiles) || FlanksTouch(previous, tile, tiles)) {
                 return true;
             }
 
@@ -131,8 +116,7 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
 
     private bool FlanksTouch(int from, int to, IReadOnlySet<int> tiles)
     {
-        if (from < 0 || from % Grid.Width == to % Grid.Width || from / Grid.Width == to / Grid.Width)
-        {
+        if (from < 0 || from % Grid.Width == to % Grid.Width || from / Grid.Width == to / Grid.Width) {
             return false;
         }
 
@@ -145,12 +129,9 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
         var x = tile % Grid.Width;
         var y = tile / Grid.Width;
 
-        for (var dy = -1; dy <= 1; dy++)
-        {
-            for (var dx = -1; dx <= 1; dx++)
-            {
-                if (Grid.InBounds(x + dx, y + dy) && tiles.Contains(Grid.Tile(x + dx, y + dy)))
-                {
+        for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+                if (Grid.InBounds(x + dx, y + dy) && tiles.Contains(Grid.Tile(x + dx, y + dy))) {
                     return true;
                 }
             }
@@ -165,8 +146,7 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
         state.RouteInvalidated = true;
         fallback.OnRouteInvalidated(actor);
 
-        if (!state.LandingInProgress)
-        {
+        if (!state.LandingInProgress) {
             FinishInvalidation(actor);
         }
     }
@@ -175,15 +155,13 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
     {
         var state = actor.Movement;
 
-        if (!state.RouteInvalidated || state.LandingInProgress || state.PendingCount != 0)
-        {
+        if (!state.RouteInvalidated || state.LandingInProgress || state.PendingCount != 0) {
             return false;
         }
 
         state.RouteInvalidated = false;
 
-        if (state.State == NavState.Active)
-        {
+        if (state.State == NavState.Active) {
             fallback.RecomputePrefix(actor);
         }
 

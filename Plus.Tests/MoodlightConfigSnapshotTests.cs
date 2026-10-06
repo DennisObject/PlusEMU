@@ -39,8 +39,7 @@ public sealed class MoodlightConfigSnapshotTests
         data.Presets.Clear();
         data.Presets.Add(new("#F2F851", 200, true));
 
-        for (var i = 0; i < 2; i++)
-        {
+        for (var i = 0; i < 2; i++) {
             var recomposed = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(recomposed);
             Assert.Equal(original.Writes, recomposed.Writes);

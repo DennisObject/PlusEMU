@@ -282,43 +282,21 @@ public class WiredAvatarPacketHookTests
         using var stream = PlusMemoryStream.GetStream();
         var packet = new FlashOutgoingPacket(stream);
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             packet.WriteInteger(value);
         }
 
-        return new()
-        {
-            Buffer = stream.ToArray().AsMemory(6)
-        };
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
 
     private sealed class World
     {
-        public Room Room
-        {
-            get;
-        }
-        public FlashGameClient Client
-        {
-            get;
-        }
-        public RoomUser Actor
-        {
-            get;
-        }
-        public CaptureAction Capture
-        {
-            get;
-        }
-        public RoomUserManager Users
-        {
-            get;
-        }
-        public IRoomAvatarActionService Actions
-        {
-            get;
-        }
+        public Room Room { get; }
+        public FlashGameClient Client { get; }
+        public RoomUser Actor { get; }
+        public CaptureAction Capture { get; }
+        public RoomUserManager Users { get; }
+        public IRoomAvatarActionService Actions { get; }
         public RecordingActionRewards Rewards { get; } = new();
         public List<byte[]> SentPackets { get; } = [];
         private readonly WiredComponent _wired;
@@ -373,10 +351,7 @@ public class WiredAvatarPacketHookTests
             var item = Item("wf_trg_user_performs_action");
             var trigger = _wired.CreateConfiguredBox(item)!;
             var parameters = new[] { action, action == 9 ? 1 : 0, action == 9 ? code : 0, action == 10 ? 1 : 0, action == 10 ? code : 1 };
-            Assert.True(trigger.TryValidateConfiguration(new()
-            {
-                IntParams = [.. parameters]
-            }, out var config, out var error), error);
+            Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [.. parameters] }, out var config, out var error), error);
             trigger.ApplyConfiguration(config);
             Assert.True(_wired.AddBox(trigger));
         }
@@ -398,34 +373,13 @@ public class WiredAvatarPacketHookTests
 
     private sealed class RecordingAvatarActions : IRoomAvatarActionService
     {
-        public Room? Room
-        {
-            get; private set;
-        }
-        public GameClient? Session
-        {
-            get; private set;
-        }
-        public int SignId
-        {
-            get; private set;
-        }
-        public int Action
-        {
-            get; private set;
-        }
-        public int DanceId
-        {
-            get; private set;
-        }
-        public int Posture
-        {
-            get; private set;
-        }
-        public (int X, int Y) LookTarget
-        {
-            get; private set;
-        }
+        public Room? Room { get; private set; }
+        public GameClient? Session { get; private set; }
+        public int SignId { get; private set; }
+        public int Action { get; private set; }
+        public int DanceId { get; private set; }
+        public int Posture { get; private set; }
+        public (int X, int Y) LookTarget { get; private set; }
         public List<bool> Typing { get; } = [];
         public (int X, int Y) MoveTarget;
         public int HandTarget;
@@ -444,10 +398,7 @@ public class WiredAvatarPacketHookTests
         WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_toggle_state")), IWiredContextualAction
     {
         public List<WiredRuntimeEvent> Events { get; } = [];
-        public string? SignStatusAtDispatch
-        {
-            get; private set;
-        }
+        public string? SignStatusAtDispatch { get; private set; }
         public bool IsNegative => false;
         public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
         {
@@ -460,8 +411,7 @@ public class WiredAvatarPacketHookTests
         {
             Events.Add(context.Event);
 
-            if (context.Event.Action == (int)WiredAvatarAction.Sign)
-            {
+            if (context.Event.Action == (int)WiredAvatarAction.Sign) {
                 SignStatusAtDispatch = context.Event.Actor?.Statusses.GetValueOrDefault("sign");
             }
 

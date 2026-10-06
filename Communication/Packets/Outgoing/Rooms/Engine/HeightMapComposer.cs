@@ -14,10 +14,8 @@ public class HeightMapComposer : IServerPacket
         _width = placement.GetLength(0);
         var heights = ImmutableArray.CreateBuilder<short>(placement.Length);
 
-        for (var row = 0; row < placement.GetLength(1); row++)
-        {
-            for (var column = 0; column < _width; column++)
-            {
+        for (var row = 0; row < placement.GetLength(1); row++) {
+            for (var column = 0; column < _width; column++) {
                 heights.Add(placement[column, row]);
             }
         }
@@ -30,8 +28,7 @@ public class HeightMapComposer : IServerPacket
         packet.WriteInteger(_width);
         packet.WriteInteger(_heights.Length);
 
-        foreach (var height in _heights)
-        {
+        foreach (var height in _heights) {
             packet.WriteShort(height);
         }
     }

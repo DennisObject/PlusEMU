@@ -45,23 +45,19 @@ public sealed class FurnitureUseServiceTests
     {
         var (room, client, item) = Context();
 
-        if (invalid == "rights")
-        {
+        if (invalid == "rights") {
             room.OwnerName = "another-owner";
         }
 
-        if (invalid == "room")
-        {
+        if (invalid == "room") {
             client.GetHabbo().CurrentRoom = null;
         }
 
-        if (invalid == "toner")
-        {
+        if (invalid == "toner") {
             room.TonerData.ItemId++;
         }
 
-        if (invalid == "item")
-        {
+        if (invalid == "item") {
             item.RoomId++;
         }
 
@@ -95,18 +91,14 @@ public sealed class FurnitureUseServiceTests
 
     private sealed class Store(Action? before = null) : IFurnitureUseStore
     {
-        public bool Fail
-        {
-            get; init;
-        }
+        public bool Fail { get; init; }
         public List<(uint, uint, bool)> Values { get; } = [];
         public void SetTonerEnabled(uint itemId, uint roomId, bool enabled)
         {
             before?.Invoke();
             Values.Add((itemId, roomId, enabled));
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced write failure");
             }
         }

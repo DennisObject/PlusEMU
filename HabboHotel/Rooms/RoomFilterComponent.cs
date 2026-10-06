@@ -22,29 +22,18 @@ public sealed class RoomFilterComponent(IDatabase database) : IRoomComponent, IR
     {
         using var connection = database.Connection();
         _room.WordFilterList = connection.Query<string>(
-            "SELECT word FROM room_filter WHERE room_id = @roomId", new
-            {
-                roomId = _room.Id
-            }).ToList();
+            "SELECT word FROM room_filter WHERE room_id = @roomId", new { roomId = _room.Id }).ToList();
     }
 
     void IRoomFilterStore.Add(uint roomId, string word)
     {
         using var connection = database.Connection();
-        connection.Execute("INSERT INTO room_filter (room_id, word) VALUES (@roomId, @word)", new
-        {
-            roomId,
-            word
-        });
+        connection.Execute("INSERT INTO room_filter (room_id, word) VALUES (@roomId, @word)", new { roomId, word });
     }
 
     void IRoomFilterStore.Remove(uint roomId, string word)
     {
         using var connection = database.Connection();
-        connection.Execute("DELETE FROM room_filter WHERE room_id = @roomId AND word = @word", new
-        {
-            roomId,
-            word
-        });
+        connection.Execute("DELETE FROM room_filter WHERE room_id = @roomId AND word = @word", new { roomId, word });
     }
 }

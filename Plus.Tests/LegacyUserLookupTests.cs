@@ -25,8 +25,7 @@ public sealed class LegacyUserLookupTests
         var game = DispatchProxy.Create<IGame, ClientManagerProxy>();
         ((ClientManagerProxy)(object)game).Clients = clients;
 
-        try
-        {
+        try {
             gameField.SetValue(null, game);
             cache[userId] = snapshot;
             Assert.Same(online, PlusEnvironment.GetHabboById(userId));
@@ -36,13 +35,11 @@ public sealed class LegacyUserLookupTests
             cache[userId] = snapshot;
             Assert.Same(snapshot, PlusEnvironment.GetHabboById(userId));
         }
-        finally
-        {
+        finally {
             gameField.SetValue(null, oldGame);
             cache.TryRemove(userId, out _);
 
-            if (hadCache)
-            {
+            if (hadCache) {
                 cache[userId] = oldCached!;
             }
         }

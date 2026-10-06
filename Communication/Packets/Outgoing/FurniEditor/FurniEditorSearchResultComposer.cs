@@ -15,8 +15,7 @@ public sealed class FurniEditorSearchResultComposer : IServerPacket
     {
         packet.WriteInteger(_result.Items.Count);
 
-        foreach (var item in _result.Items)
-        {
+        foreach (var item in _result.Items) {
             FurniEditorItemWriter.Write(packet, item);
         }
 

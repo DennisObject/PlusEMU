@@ -26,56 +26,45 @@ public partial class WiredComponent
     private readonly IDatabase _database;
     private readonly IWiredRewardService _rewards;
     private Lazy<WiredRoomVariables>? _variables;
-    public WiredRoomSettings Settings
-    {
-        get;
-    }
+    public WiredRoomSettings Settings { get; }
     internal DateTimeOffset CalendarTime =>
         TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), Settings.ExplicitTimeZone ?? _clock.LocalTimeZone);
     private IWiredConfigurationStore ConfigurationStore => _configurationStore;
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
         _database, _clock, builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
-    {
-        TimeZone = () => Settings.ExplicitTimeZone ?? TimeZoneInfo.Utc
-    })).Value;
+    { TimeZone = () => Settings.ExplicitTimeZone ?? TimeZoneInfo.Utc })).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
     public IWiredConfiguredItem? CreateConfiguredBox(Item item, WiredBoxDescriptor? descriptor = null)
     {
         // Plus command boxes retain CommandManager dispatch and its feedback; speech is a different behavior.
-        if (item.Definition.WiredType == WiredBoxType.TriggerUserSaysCommand)
-        {
+        if (item.Definition.WiredType == WiredBoxType.TriggerUserSaysCommand) {
             return null;
         }
 
         descriptor ??= item.Definition.WiredDescriptor;
 
-        if (descriptor == null)
-        {
+        if (descriptor == null) {
             return null;
         }
 
         IWiredConfiguredItem? box = null;
         WiredConfiguration? defaults = null;
 
-        if (descriptor.Category == WiredBoxCategory.Selector && WiredSelectorModule.Names.Contains(descriptor.CanonicalName))
-        {
+        if (descriptor.Category == WiredBoxCategory.Selector && WiredSelectorModule.Names.Contains(descriptor.CanonicalName)) {
             box = new WiredSelectorBox(_room, item, descriptor, _selectorState, _groups,
                 context => WiredSelectorVariableBridge.Create(context, Variables.Module));
         }
-        else if (descriptor.Category == WiredBoxCategory.Addon && WiredAddonModule.Names.Contains(descriptor.CanonicalName))
-        {
+        else if (descriptor.Category == WiredBoxCategory.Addon && WiredAddonModule.Names.Contains(descriptor.CanonicalName)) {
             box = new WiredAddonBox(_room, item, descriptor, _selectorState, _groups,
                 context => WiredSelectorVariableBridge.Create(context, Variables.Module));
         }
-        else if (descriptor.Category == WiredBoxCategory.Trigger && WiredTriggerConfiguration.Events.ContainsKey(descriptor.CanonicalName))
-        {
+        else if (descriptor.Category == WiredBoxCategory.Trigger && WiredTriggerConfiguration.Events.ContainsKey(descriptor.CanonicalName)) {
             box = WiredTriggerConfiguration.IsTimed(descriptor.CanonicalName)
                 ? new WiredModernTimedTrigger(_room, item, descriptor) : new WiredModernTrigger(_room, item, descriptor);
             defaults = WiredTriggerConfiguration.Defaults(descriptor.CanonicalName);
         }
-        else if (descriptor.Category == WiredBoxCategory.Condition && WiredConditionConfiguration.Supports(descriptor.CanonicalName))
-        {
+        else if (descriptor.Category == WiredBoxCategory.Condition && WiredConditionConfiguration.Supports(descriptor.CanonicalName)) {
             // Calendar predicates use the configured zone; elapsed durations use the shared UTC room clock.
             box = new WiredModernCondition(_room, item, descriptor, _groups, ReadCounterMilliseconds,
                 descriptor.CanonicalName is "wf_cnd_match_time" or "wf_cnd_match_date" or "wf_cnd_date_rng_active"
@@ -83,23 +72,19 @@ public partial class WiredComponent
             defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName,
                 descriptor.CanonicalName == "wf_cnd_match_date" ? CalendarTime.Year : 0);
         }
-        else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName))
-        {
+        else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName)) {
             box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event),
                 DispatchWalkTransition, _roomLog, _logger, _clock, _rewards, _botStore, _clients, _definitions, _travelStore);
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
             || WiredVariableAddonBox.Supports(descriptor.CanonicalName) || descriptor.CanonicalName is "wf_xtra_text_input_variable" or "wf_trg_var_changed"
-            || descriptor.Category == WiredBoxCategory.Variable)
-        {
+            || descriptor.Category == WiredBoxCategory.Variable) {
             box = Variables.CreateBox(item);
         }
 
-        if (box != null && defaults != null)
-        {
-            if (!box.TryValidateConfiguration(defaults, out var validated, out var error))
-            {
+        if (box != null && defaults != null) {
+            if (!box.TryValidateConfiguration(defaults, out var validated, out var error)) {
                 throw new InvalidDataException(error);
             }
 
@@ -139,19 +124,16 @@ public partial class WiredComponent
     public void AttachRoomItem(Item item) => _engine.Mutate(() =>
     {
         if (WiredCounterController.Recognizes(item) && ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)
-            && (!_counterItems.TryGetValue(item.Id, out var previous) || !ReferenceEquals(previous, item)))
-        {
+            && (!_counterItems.TryGetValue(item.Id, out var previous) || !ReferenceEquals(previous, item))) {
             _counterItems[item.Id] = item;
             _counters.Attach(item);
         }
 
         if (item.IsTemporary && ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)
-            && !_engine.TryGet(item.Id, out _))
-        {
+            && !_engine.TryGet(item.Id, out _)) {
             var box = CreateConfiguredBox(item) ?? GenerateNewBox(item);
 
-            if (box != null)
-            {
+            if (box != null) {
                 AddBox(box);
             }
         }
@@ -165,13 +147,11 @@ public partial class WiredComponent
         _counters.Forget(item);
         WiredProjectileFlights.For(_room).Forget(item);
 
-        if (_counterItems.TryGetValue(item.Id, out var attached) && ReferenceEquals(attached, item))
-        {
+        if (_counterItems.TryGetValue(item.Id, out var attached) && ReferenceEquals(attached, item)) {
             _counterItems.Remove(item.Id);
         }
 
-        if (_variables?.IsValueCreated == true)
-        {
+        if (_variables?.IsValueCreated == true) {
             _variables.Value.ItemDetached(item);
         }
 
@@ -189,15 +169,13 @@ public partial class WiredComponent
     {
         var boxes = items.Where(item => item.IsWired && !item.IsTemporary).ToList();
 
-        if (boxes.Count == 0)
-        {
+        if (boxes.Count == 0) {
             return false;
         }
 
         ConfigurationStore.Reset(boxes.Select(item => item.Id).ToArray());
 
-        foreach (var box in boxes)
-        {
+        foreach (var box in boxes) {
             DetachRoomItem(box);
         }
 
@@ -206,8 +184,7 @@ public partial class WiredComponent
 
     public bool TryUseCounter(Item item, int parameter) => _engine.Mutate(() =>
     {
-        if (!WiredCounterController.Recognizes(item) || !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item))
-        {
+        if (!WiredCounterController.Recognizes(item) || !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)) {
             return false;
         }
 
@@ -228,18 +205,15 @@ public partial class WiredComponent
 
     private void PollCounters(long now)
     {
-        foreach (var stale in _counterItems.Values.Where(item => !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)).ToArray())
-        {
+        foreach (var stale in _counterItems.Values.Where(item => !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)).ToArray()) {
             DetachRoomItem(stale);
         }
 
         var mark = FurnitureStateEvents.Mark();
         PublishCounterChanges(_counters.Poll(now), mark);
 
-        if (WiredBotTargets.For(_room).HasTargets)
-        {
-            foreach (var arrival in WiredBotTargets.For(_room).Poll(_room))
-            {
+        if (WiredBotTargets.For(_room).HasTargets) {
+            foreach (var arrival in WiredBotTargets.For(_room).Poll(_room)) {
                 QueueRuntimeEvent(arrival);
             }
         }
@@ -252,13 +226,11 @@ public partial class WiredComponent
         // Display writes made by boxes are already queued; they are reported by the room's pass.
         PublishCounterChanges(_counters.TakeChanges(), FurnitureStateEvents.Mark());
 
-        if (_variables?.IsValueCreated != true)
-        {
+        if (_variables?.IsValueCreated != true) {
             return;
         }
 
-        foreach (var change in _variables.Value.DrainChanges())
-        {
+        foreach (var change in _variables.Value.DrainChanges()) {
             QueueRuntimeEvent(new(WiredEventKind.Variable)
             {
                 Code = unchecked((int)change.Key.DefinitionId),
@@ -274,8 +246,7 @@ public partial class WiredComponent
 
     private void QueueRuntimeEvent(WiredRuntimeEvent @event, int? depth = null)
     {
-        if (!_engine.Enqueue(@event, depth))
-        {
+        if (!_engine.Enqueue(@event, depth)) {
             _logger.LogWarning("Wired {EventKind} event rejected by room queue/depth limits in room {RoomId}", @event.Kind, _room.Id);
         }
     }
@@ -283,27 +254,22 @@ public partial class WiredComponent
     // A display change is reported only for a display write this thread made after the mark.
     private void PublishCounterChanges(IEnumerable<WiredCounterChange> changes, long mark)
     {
-        foreach (var change in changes)
-        {
-            if (!ReferenceEquals(_room.GetRoomItemHandler().GetItem(change.Item.Id), change.Item))
-            {
+        foreach (var change in changes) {
+            if (!ReferenceEquals(_room.GetRoomItemHandler().GetItem(change.Item.Id), change.Item)) {
                 continue;
             }
 
-            if (change.Event.Kind == WiredEventKind.GameStart)
-            {
+            if (change.Event.Kind == WiredEventKind.GameStart) {
                 _room.GetGameManager().Reset();
                 WiredGameState.For(_room).ResetQuotas();
             }
 
-            if (change.DisplayChanged)
-            {
+            if (change.DisplayChanged) {
                 change.Item.UpdateState();
             }
 
             if (change.Event.Kind == WiredEventKind.StateChanged
-                && (!change.DisplayChanged || !FurnitureStateEvents.TakeWriteSince(change.Item, mark)))
-            {
+                && (!change.DisplayChanged || !FurnitureStateEvents.TakeWriteSince(change.Item, mark))) {
                 continue;
             }
 

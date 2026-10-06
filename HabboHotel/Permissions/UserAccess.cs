@@ -38,8 +38,7 @@ public sealed class UserAccess
     // Keep the online session holder stable across refreshes and reloads.
     internal void ReplaceWith(UserAccess replacement)
     {
-        lock (_sync)
-        {
+        lock (_sync) {
             _assignments = replacement._assignments;
             _overrides = replacement._overrides;
             _registry = replacement._registry;
@@ -72,17 +71,14 @@ public sealed class UserAccess
     {
         var snapshot = Volatile.Read(ref _snapshot);
 
-        if (snapshot.NextExpiry is not { } expiry || now < expiry)
-        {
+        if (snapshot.NextExpiry is not { } expiry || now < expiry) {
             return snapshot;
         }
 
-        lock (_sync)
-        {
+        lock (_sync) {
             snapshot = _snapshot;
 
-            if (snapshot.NextExpiry is { } next && now >= next)
-            {
+            if (snapshot.NextExpiry is { } next && now >= next) {
                 Volatile.Write(ref _snapshot, snapshot = Compile(now));
             }
 

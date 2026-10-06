@@ -23,23 +23,19 @@ public sealed class WiredMonitorService(IWiredRequestGateService gates) : IWired
     {
         var settings = room.GetWired().Settings;
 
-        if (!settings.CanInspect(session))
-        {
+        if (!settings.CanInspect(session)) {
             return;
         }
 
-        if (action == WiredMonitorActions.Clear)
-        {
+        if (action == WiredMonitorActions.Clear) {
             // A clear has its own gate so a poll cannot swallow it.
-            if (!settings.CanManage(session) || !gates.TryPass(session, WiredRequestKind.MonitorClear))
-            {
+            if (!settings.CanManage(session) || !gates.TryPass(session, WiredRequestKind.MonitorClear)) {
                 return;
             }
 
             room.GetWired().ClearLogs();
         }
-        else if (!gates.TryPass(session, WiredRequestKind.MonitorFetch))
-        {
+        else if (!gates.TryPass(session, WiredRequestKind.MonitorFetch)) {
             return;
         }
 
@@ -49,8 +45,7 @@ public sealed class WiredMonitorService(IWiredRequestGateService gates) : IWired
     // The client's pages are 1-based, and the filter text is trimmed before it is matched.
     public void ShowLogs(Room room, GameClient session, int page, int size, int level, int source, string query)
     {
-        if (!room.GetWired().Settings.CanInspect(session) || !gates.TryPass(session, WiredRequestKind.RoomLogPage))
-        {
+        if (!room.GetWired().Settings.CanInspect(session) || !gates.TryPass(session, WiredRequestKind.RoomLogPage)) {
             return;
         }
 

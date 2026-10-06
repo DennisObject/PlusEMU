@@ -13,11 +13,7 @@ internal static class ModernWiredDatabaseProbe
     public static string GuardedConnectionString()
     {
         using var process = Process.Start(new ProcessStartInfo("docker")
-        {
-            ArgumentList = { "inspect", "plus-wired-preview-db-1" },
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
-        })!;
+        { ArgumentList = { "inspect", "plus-wired-preview-db-1" }, RedirectStandardOutput = true, RedirectStandardError = true })!;
         var inspect = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
         Assert.Equal(0, process.ExitCode);
@@ -45,13 +41,9 @@ internal static class ModernWiredDatabaseProbe
 
     public static uint Insert(MySqlConnection connection, string table, Dictionary<string, object> values)
     {
-        var columns = connection.Query<Column>("SELECT COLUMN_NAME AS Name,DATA_TYPE AS Type,COLUMN_TYPE AS FullType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@table AND IS_NULLABLE='NO' AND COLUMN_DEFAULT IS NULL AND EXTRA NOT LIKE '%auto_increment%'", new
-        {
-            table
-        });
+        var columns = connection.Query<Column>("SELECT COLUMN_NAME AS Name,DATA_TYPE AS Type,COLUMN_TYPE AS FullType FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name=@table AND IS_NULLABLE='NO' AND COLUMN_DEFAULT IS NULL AND EXTRA NOT LIKE '%auto_increment%'", new { table });
 
-        foreach (var column in columns.Where(x => !values.ContainsKey(x.Name)))
-        {
+        foreach (var column in columns.Where(x => !values.ContainsKey(x.Name))) {
             values[column.Name] = column.Type switch
             {
                 "enum" => column.FullType.Split('\'')[1],
@@ -63,8 +55,7 @@ internal static class ModernWiredDatabaseProbe
 
         var parameters = new DynamicParameters();
 
-        foreach (var value in values)
-        {
+        foreach (var value in values) {
             parameters.Add(value.Key, value.Value);
         }
 
@@ -90,8 +81,7 @@ internal static class ModernWiredDatabaseProbe
 
             return new CountedConnection(new MySqlConnection(connectionString), () => Interlocked.Increment(ref Commands), sql =>
             {
-                if (FailSqlPrefix is { } prefix && sql.TrimStart().StartsWith(prefix, StringComparison.Ordinal))
-                {
+                if (FailSqlPrefix is { } prefix && sql.TrimStart().StartsWith(prefix, StringComparison.Ordinal)) {
                     throw new InjectedCommandFailure();
                 }
             });
@@ -101,10 +91,7 @@ internal static class ModernWiredDatabaseProbe
     private sealed class CountedConnection(MySqlConnection inner, Action command, Action<string> execute) : IDbConnection
     {
         [System.Diagnostics.CodeAnalysis.AllowNull]
-        public string ConnectionString
-        {
-            get => inner.ConnectionString; set => inner.ConnectionString = value ?? "";
-        }
+        public string ConnectionString { get => inner.ConnectionString; set => inner.ConnectionString = value ?? ""; }
         public int ConnectionTimeout => inner.ConnectionTimeout; public string Database => inner.Database; public ConnectionState State => inner.State;
         public IDbTransaction BeginTransaction() => inner.BeginTransaction(); public IDbTransaction BeginTransaction(IsolationLevel level) => inner.BeginTransaction(level);
         public void ChangeDatabase(string name) => inner.ChangeDatabase(name); public void Close() => inner.Close(); public void Open() => inner.Open(); public void Dispose() => inner.Dispose();
@@ -118,31 +105,13 @@ internal static class ModernWiredDatabaseProbe
     private sealed class InterceptedCommand(IDbCommand inner, Action<string> execute) : IDbCommand
     {
         [System.Diagnostics.CodeAnalysis.AllowNull]
-        public string CommandText
-        {
-            get => inner.CommandText; set => inner.CommandText = value ?? "";
-        }
-        public int CommandTimeout
-        {
-            get => inner.CommandTimeout; set => inner.CommandTimeout = value;
-        }
-        public CommandType CommandType
-        {
-            get => inner.CommandType; set => inner.CommandType = value;
-        }
-        public IDbConnection? Connection
-        {
-            get => inner.Connection; set => inner.Connection = value;
-        }
+        public string CommandText { get => inner.CommandText; set => inner.CommandText = value ?? ""; }
+        public int CommandTimeout { get => inner.CommandTimeout; set => inner.CommandTimeout = value; }
+        public CommandType CommandType { get => inner.CommandType; set => inner.CommandType = value; }
+        public IDbConnection? Connection { get => inner.Connection; set => inner.Connection = value; }
         public IDataParameterCollection Parameters => inner.Parameters;
-        public IDbTransaction? Transaction
-        {
-            get => inner.Transaction; set => inner.Transaction = value;
-        }
-        public UpdateRowSource UpdatedRowSource
-        {
-            get => inner.UpdatedRowSource; set => inner.UpdatedRowSource = value;
-        }
+        public IDbTransaction? Transaction { get => inner.Transaction; set => inner.Transaction = value; }
+        public UpdateRowSource UpdatedRowSource { get => inner.UpdatedRowSource; set => inner.UpdatedRowSource = value; }
         public void Cancel() => inner.Cancel(); public IDbDataParameter CreateParameter() => inner.CreateParameter(); public void Dispose() => inner.Dispose();
         public void Prepare() => inner.Prepare();
         public int ExecuteNonQuery()

@@ -24,8 +24,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
 
     public void Dispose()
     {
-        foreach (var access in _accessControls)
-        {
+        foreach (var access in _accessControls) {
             access.Dispose();
         }
 
@@ -49,8 +48,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     {
         var connectionString = Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING") ?? "";
 
-        if (connectionString.Length > 0 && !new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_housekeeping_tests_", StringComparison.Ordinal))
-        {
+        if (connectionString.Length > 0 && !new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_housekeeping_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Housekeeping database tests require a disposable task_housekeeping_tests_ schema.");
         }
 
@@ -60,8 +58,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         _remember = new(_database, TimeProvider.System, _options);
         _sessions = Sessions();
 
-        if (connectionString.Length == 0)
-        {
+        if (connectionString.Length == 0) {
             return;
         }
 
@@ -72,10 +69,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         Execute("INSERT INTO users (id, username, password, auth_ticket, `rank`, ip_last, online) VALUES " +
                 $"({Staff}, 'cr_staff', '', '', 9, '', 0), ({Target}, 'cr_target', @hash, '', 1, '10.94.0.2', 0), " +
                 $"({Moderator}, 'cr_moderator', @hash, '', 3, '', 0), ({Neighbour}, 'cr_neighbour', @hash, '', 1, '10.94.0.4', 0), " +
-                $"({Locked}, 'cr_locked', @hash, '', 1, '', 0), ({Unbanned}, 'cr_unbanned', @hash, '', 1, '', 0)", new
-                {
-                    hash
-                });
+                $"({Locked}, 'cr_locked', @hash, '', 1, '', 0), ({Unbanned}, 'cr_unbanned', @hash, '', 1, '', 0)", new { hash });
         Execute($"INSERT INTO user_roles (user_id, role_id) VALUES ({Staff}, 9), ({Target}, 1), ({Moderator}, 3), ({Neighbour}, 1), ({Locked}, 1), ({Unbanned}, 1)");
         Execute($"INSERT INTO user_info (user_id) VALUES ({Target}), ({Moderator}), ({Neighbour}), ({Locked}), ({Unbanned})");
     }
@@ -238,23 +232,20 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         locker.Open();
         var transaction = locker.BeginTransaction();
 
-        try
-        {
+        try {
             locker.Execute($"SELECT id FROM users WHERE id = {Locked} FOR UPDATE", transaction: transaction);
             var ban = Task.Run(() => Moderation().BanUser("System", ModerationBanType.Username, "cr_locked", "auto-ban", DateTimeOffset.UtcNow.AddHours(1)));
             await Task.Delay(500);
             Assert.True(target.Closed.IsCancellationRequested);
             await ban.WaitAsync(TimeSpan.FromSeconds(4.5));
         }
-        finally
-        {
+        finally {
             transaction.Rollback();
         }
 
         var deadline = DateTime.UtcNow.AddSeconds(20);
 
-        while (LiveAccessTokens(Locked) > 0 && DateTime.UtcNow < deadline)
-        {
+        while (LiveAccessTokens(Locked) > 0 && DateTime.UtcNow < deadline) {
             await Task.Delay(250);
         }
 
@@ -395,16 +386,10 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     public async Task TheHttpBanCheckReadsNativeUtcExpiries()
     {
         Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES ('user', 'cr_target', 'old', @expire, 'probe', NULL)",
-            new
-            {
-                expire = DateTime.UtcNow.AddMinutes(-1)
-            });
+            new { expire = DateTime.UtcNow.AddMinutes(-1) });
         Assert.Null(await new BanLookup(_database, TimeProvider.System).Find("cr_target", "192.0.2.1"));
         Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES ('user', 'cr_target', 'live', @expire, 'probe', NULL)",
-            new
-            {
-                expire = DateTime.UtcNow.AddMinutes(1)
-            });
+            new { expire = DateTime.UtcNow.AddMinutes(1) });
         Assert.Equal("live", (await new BanLookup(_database, TimeProvider.System).Find("cr_target", "192.0.2.1"))?.Reason);
     }
 
@@ -434,12 +419,10 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         using var transaction = locker.BeginTransaction();
         locker.Execute(lockSql, transaction: transaction);
 
-        try
-        {
+        try {
             await whileLocked();
         }
-        finally
-        {
+        finally {
             transaction.Rollback();
         }
     }
@@ -448,8 +431,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     {
         var deadline = DateTime.UtcNow.AddSeconds(20);
 
-        while (!condition() && DateTime.UtcNow < deadline)
-        {
+        while (!condition() && DateTime.UtcNow < deadline) {
             await Task.Delay(250);
         }
 

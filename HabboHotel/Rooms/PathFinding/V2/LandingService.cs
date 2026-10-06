@@ -10,8 +10,7 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
         var initial = context.Graph.Position(surface, view);
         room.GetGameMap().UpdateUserMovement(new(actor.X, actor.Y), new(initial.X, initial.Y), actor);
 
-        if (!LeaveOrigin(actor, revision))
-        {
+        if (!LeaveOrigin(actor, revision)) {
             return;
         }
 
@@ -19,8 +18,7 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
         var landing = context.Graph.ResolveLanding(surface, view, initial.Z);
         SetLandingPosition(actor, landing);
 
-        if (surface.Tile == navigation.Grid.DoorTile && !actor.IsBot)
-        {
+        if (surface.Tile == navigation.Grid.DoorTile && !actor.IsBot) {
             room.GetRoomUserManager().RemoveUserFromRoom(actor.GetClient(), true);
 
             return;
@@ -30,12 +28,10 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
     }
     private bool LeaveOrigin(RoomUser actor, long revision)
     {
-        foreach (var item in SurfaceContacts.Of(room, actor, room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y))))
-        {
+        foreach (var item in SurfaceContacts.Of(room, actor, room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)))) {
             item.UserWalksOffFurni(actor);
 
-            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active)
-            {
+            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active) {
                 return false;
             }
         }
@@ -57,22 +53,18 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
     {
         var items = SurfaceContacts.Of(room, actor, room.GetGameMap().GetCoordinatedItems(new(actor.X, actor.Y)));
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             item.Interactor.OnWalkOn(actor);
 
-            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active)
-            {
+            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active) {
                 return;
             }
         }
 
-        foreach (var item in items)
-        {
+        foreach (var item in items) {
             item.UserWalksOnFurni(actor);
 
-            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active)
-            {
+            if (actor.Movement.LocationRevision != revision || actor.Movement.State != NavState.Active) {
                 return;
             }
         }
@@ -83,15 +75,13 @@ internal sealed class LandingService(Room room, RoomNavigation navigation, Movem
     }
     private void MirrorHorse(RoomUser actor, NavPosition target)
     {
-        if (!actor.RidingHorse || actor.IsBot)
-        {
+        if (!actor.RidingHorse || actor.IsBot) {
             return;
         }
 
         var horse = room.GetRoomUserManager().GetRoomUserByVirtualId(actor.HorseId);
 
-        if (horse == null)
-        {
+        if (horse == null) {
             return;
         }
 

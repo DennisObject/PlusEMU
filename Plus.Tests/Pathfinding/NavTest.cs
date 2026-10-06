@@ -23,14 +23,10 @@ internal static class NavTest
     public static RoomNavigation Enable(Gamemap map)
     {
         var room = (Room)typeof(Gamemap).GetField("_room", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(map)!;
-        var navigation = new RoomNavigation(room, map.StaticModel, new()
-        {
-            Engine = PathfindingEngine.Shadow
-        }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+        var navigation = new RoomNavigation(room, map.StaticModel, new() { Engine = PathfindingEngine.Shadow }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(map, navigation);
 
-        foreach (var item in room.GetRoomItemHandler().GetFloor)
-        {
+        foreach (var item in room.GetRoomItemHandler().GetFloor) {
             navigation.Inputs.Attach(item);
         }
 

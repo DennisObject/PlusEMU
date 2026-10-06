@@ -140,8 +140,7 @@ public sealed class ItemRedemptionServiceTests
             before?.Invoke();
             ExchangeDeletes++;
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced");
             }
         }
@@ -149,8 +148,7 @@ public sealed class ItemRedemptionServiceTests
         {
             before?.Invoke();
 
-            if (Fail)
-            {
+            if (Fail) {
                 throw new InvalidOperationException("forced");
             }
 

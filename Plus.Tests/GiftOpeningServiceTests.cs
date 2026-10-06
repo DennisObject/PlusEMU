@@ -146,10 +146,7 @@ public sealed class GiftOpeningServiceTests
 
     private sealed class FailingPlacement : IRoomItemStore
     {
-        public int Attempts
-        {
-            get; private set;
-        }
+        public int Attempts { get; private set; }
         public void AssignOwner(uint itemId, int userId)
         {
         }
@@ -207,8 +204,7 @@ public sealed class GiftOpeningServiceTests
         {
             before?.Invoke();
 
-            if (FailOpen)
-            {
+            if (FailOpen) {
                 throw new InvalidOperationException("forced");
             }
 

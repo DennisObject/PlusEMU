@@ -4,17 +4,13 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 public sealed class ActorAccess
 {
     private readonly HashSet<int> _groups = new();
-    public int CapabilityVersion
-    {
-        get; private set;
-    }
+    public int CapabilityVersion { get; private set; }
     public IReadOnlyCollection<int> GroupIds => _groups;
     public bool IsMember(int groupId) => _groups.Contains(groupId);
 
     internal void SetMembership(int groupId, bool member)
     {
-        if (member ? _groups.Add(groupId) : _groups.Remove(groupId))
-        {
+        if (member ? _groups.Add(groupId) : _groups.Remove(groupId)) {
             CapabilityVersion++;
         }
     }

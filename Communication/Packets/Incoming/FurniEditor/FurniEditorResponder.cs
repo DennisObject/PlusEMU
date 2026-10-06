@@ -9,12 +9,10 @@ internal static class FurniEditorResponder
 {
     public static void Read(GameClient session, Func<IServerPacket> read)
     {
-        try
-        {
+        try {
             session.Send(read());
         }
-        catch (FurniEditorRejected rejected)
-        {
+        catch (FurniEditorRejected rejected) {
             session.Send(new FurniEditorResultComposer(new(false, rejected.Message, rejected.ItemId)));
         }
     }
@@ -25,16 +23,13 @@ internal static class FurniEditorResponder
     {
         IServerPacket answer;
 
-        try
-        {
+        try {
             answer = await work();
         }
-        catch (FurniEditorRejected rejected)
-        {
+        catch (FurniEditorRejected rejected) {
             answer = new FurniEditorResultComposer(new(false, rejected.Message, rejected.ItemId));
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             logger.LogError(e, "Furni editor request failed");
             answer = new FurniEditorResultComposer(new(false, "The server could not finish this request", itemId));
         }

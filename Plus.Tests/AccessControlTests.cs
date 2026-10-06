@@ -143,13 +143,11 @@ public sealed class AccessControlTests
         // The SQL expands each old threshold onto each individual role; higher weight grants nothing by itself.
         var roleGrants = new List<string>();
 
-        if (migratedRank >= 4)
-        {
+        if (migratedRank >= 4) {
             roleGrants.Add(PermissionKeys.CameraUse);
         }
 
-        if (migratedRank >= 5)
-        {
+        if (migratedRank >= 5) {
             roleGrants.Add(PermissionKeys.ModerationTool);
         }
 

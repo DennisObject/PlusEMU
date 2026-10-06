@@ -219,10 +219,7 @@ public sealed class CatalogGiftPurchaseServiceTests
 
     private sealed class RecordingService : ICatalogGiftPurchaseService
     {
-        public CatalogGiftPurchaseRequest? Request
-        {
-            get; private set;
-        }
+        public CatalogGiftPurchaseRequest? Request { get; private set; }
         public Task Purchase(GameClient session, CatalogGiftPurchaseRequest request)
         {
             Request = request;
@@ -240,16 +237,12 @@ public sealed class CatalogGiftPurchaseServiceTests
 
     private sealed class ClientLookup(GameClient sender, GameClient recipient, bool missing) : IGameClientManager
     {
-        public int Lookups
-        {
-            get; private set;
-        }
+        public int Lookups { get; private set; }
         public GameClient? GetClientByUsername(string username)
         {
             Lookups++;
 
-            if (missing)
-            {
+            if (missing) {
                 return null;
             }
 
@@ -298,20 +291,15 @@ public sealed class CatalogGiftPurchaseServiceTests
 
     private sealed class Rewards : IClubRewards
     {
-        public int Charges
-        {
-            get; private set;
-        }
+        public int Charges { get; private set; }
         public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0,
             Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true)
         {
             Charges++;
             var oldCredits = habbo.Credits;
 
-            try
-            {
-                if (deliver?.Invoke(null!, null!) == false)
-                {
+            try {
+                if (deliver?.Invoke(null!, null!) == false) {
                     return false;
                 }
 
@@ -321,8 +309,7 @@ public sealed class CatalogGiftPurchaseServiceTests
 
                 return true;
             }
-            catch
-            {
+            catch {
                 habbo.Credits = oldCredits;
                 throw;
             }
@@ -335,17 +322,13 @@ public sealed class CatalogGiftPurchaseServiceTests
 
     private sealed class GiftStore(bool fails, ItemDefinition present) : ICatalogGiftStore
     {
-        public int Creates
-        {
-            get; private set;
-        }
+        public int Creates { get; private set; }
         public InventoryItem Create(IDbConnection connection, IDbTransaction transaction, int recipientId,
             ItemDefinition presentDefinition, ItemDefinition contentDefinition, string presentExtraData, string contentExtraData)
         {
             Creates++;
 
-            if (fails)
-            {
+            if (fails) {
                 throw new InvalidOperationException("store failed");
             }
 
@@ -361,8 +344,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         public CatalogPage Page { get; set; } = null!;
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(ICatalogManager.TryGetPage))
-            {
+            if (targetMethod?.Name == nameof(ICatalogManager.TryGetPage)) {
                 args![1] = Page;
 
                 return (int)args[0]! == Page.Id;
@@ -391,13 +373,11 @@ public sealed class CatalogGiftPurchaseServiceTests
 
     private static object? Default(Type? type)
     {
-        if (type == null || type == typeof(void))
-        {
+        if (type == null || type == typeof(void)) {
             return null;
         }
 
-        if (type == typeof(Task))
-        {
+        if (type == typeof(Task)) {
             return Task.CompletedTask;
         }
 

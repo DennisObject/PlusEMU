@@ -76,10 +76,7 @@ public class ModernWiredRuntimeTests
         {
             var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name),
                 TestGroupManager.Empty, _ => null, () => now);
-            Assert.True(condition.TryValidateConfiguration(new()
-            {
-                IntParams = [2]
-            }, out var configuration, out var error), error);
+            Assert.True(condition.TryValidateConfiguration(new() { IntParams = [2] }, out var configuration, out var error), error);
             condition.ApplyConfiguration(configuration);
 
             return condition;
@@ -111,10 +108,7 @@ public class ModernWiredRuntimeTests
             var reads = 0;
             var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name), TestGroupManager.Empty,
                 _ => null, () => { reads++; return now; });
-            Assert.True(condition.TryValidateConfiguration(new()
-            {
-                IntParams = [2]
-            }, out var configuration, out var error), error);
+            Assert.True(condition.TryValidateConfiguration(new() { IntParams = [2] }, out var configuration, out var error), error);
             condition.ApplyConfiguration(configuration);
             Assert.Equal(expected, condition.Execute(Context(room, new(WiredEventKind.Use), [], [])));
             Assert.Equal(1, reads);
@@ -126,18 +120,15 @@ public class ModernWiredRuntimeTests
     {
         var (room, _, _) = World();
 
-        foreach (var name in WiredTriggerConfiguration.Events.Keys)
-        {
+        foreach (var name in WiredTriggerConfiguration.Events.Keys) {
             Assert.True(WiredTriggerConfiguration.TryValidate(name, WiredTriggerConfiguration.Defaults(name), out _, out _), name);
         }
 
-        foreach (var name in WiredConditionConfiguration.PositiveNames.Concat(WiredConditionConfiguration.NegativeNames.Keys))
-        {
+        foreach (var name in WiredConditionConfiguration.PositiveNames.Concat(WiredConditionConfiguration.NegativeNames.Keys)) {
             Assert.True(WiredConditionConfiguration.TryValidate(name, WiredConditionConfiguration.Defaults(name, 2040), out _, out _), name);
         }
 
-        foreach (var name in WiredMovementActions.Names.Concat(WiredModernAction.OtherNames).Concat(WiredBotActions.Names))
-        {
+        foreach (var name in WiredMovementActions.Names.Concat(WiredModernAction.OtherNames).Concat(WiredBotActions.Names)) {
             Assert.True(ActionBox(room, name).TryValidateConfiguration(WiredActionConfiguration.Defaults(name), out _, out _), name);
         }
     }
@@ -150,18 +141,11 @@ public class ModernWiredRuntimeTests
         var forwarded = MakeItem(2, "forwarded");
         var clicked = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var operations = new RecordingOperations();
-        var context = new WiredRuntimeContext(room, new(WiredEventKind.ClickUser)
-        {
-            TargetUser = clicked
-        },
+        var context = new WiredRuntimeContext(room, new(WiredEventKind.ClickUser) { TargetUser = clicked },
             new(() => new[] { antenna, forwarded }, () => new[] { clicked }), operations);
         var call = ActionBox(room, "wf_act_neg_call_stacks");
         call.Item.SetState(2, 2, 0, Gamemap.GetAffectedTiles(1, 1, 2, 2, 0));
-        Assert.True(call.TryValidateConfiguration(new()
-        {
-            IntParams = [100],
-            SelectedItems = [1]
-        }, out var callConfig, out _));
+        Assert.True(call.TryValidateConfiguration(new() { IntParams = [100], SelectedItems = [1] }, out var callConfig, out _));
         call.ApplyConfiguration(callConfig);
         Assert.True(call.IsNegative);
         Assert.True(call.Execute(context));
@@ -171,12 +155,7 @@ public class ModernWiredRuntimeTests
         Assert.False(call.Execute(context));
         Assert.Empty(operations.Called);
         var signal = ActionBox(room, "wf_act_neg_send_signal");
-        Assert.True(signal.TryValidateConfiguration(new()
-        {
-            IntParams = [1, 100, 11, 1, 1, 0],
-            SelectedItems = [1],
-            Text = "2"
-        }, out var signalConfig, out _));
+        Assert.True(signal.TryValidateConfiguration(new() { IntParams = [1, 100, 11, 1, 1, 0], SelectedItems = [1], Text = "2" }, out var signalConfig, out _));
         signal.ApplyConfiguration(signalConfig);
         Assert.True(signal.Execute(context));
         var received = Assert.Single(operations.Signals);
@@ -194,11 +173,7 @@ public class ModernWiredRuntimeTests
         var clocks = new WiredCounterController();
         clocks.Attach(item);
         var box = ActionBox(room, "wf_act_adjust_clock", clocks);
-        box.TryValidateConfiguration(new()
-        {
-            IntParams = [2, 100, 1, 3],
-            SelectedItems = [1]
-        }, out var config, out _);
+        box.TryValidateConfiguration(new() { IntParams = [2, 100, 1, 3], SelectedItems = [1] }, out var config, out _);
         box.ApplyConfiguration(config);
         Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [item], [])));
         Assert.Equal(61500, clocks.ReadMilliseconds(item));
@@ -215,11 +190,7 @@ public class ModernWiredRuntimeTests
         var (room, _, _) = World();
         var log = new WiredRoomLog(2);
         var box = ActionBox(room, "wf_act_neg_log", log: log);
-        box.TryValidateConfiguration(new()
-        {
-            IntParams = [1, 0],
-            Text = "First"
-        }, out var config, out _);
+        box.TryValidateConfiguration(new() { IntParams = [1, 0], Text = "First" }, out var config, out _);
         box.ApplyConfiguration(config);
         Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
         Assert.Equal("First", Assert.Single(log.Read(0, 10).Entries).Message);
@@ -227,10 +198,7 @@ public class ModernWiredRuntimeTests
         log.Append(1, 100, "Third", DateTimeOffset.UtcNow);
         Assert.Equal(2, log.Read(0, 10).Total);
         Assert.Equal("Third", Assert.Single(log.Read(0, 10, 1, "third").Entries).Message);
-        box.ApplyConfiguration(config with
-        {
-            Text = ""
-        });
+        box.ApplyConfiguration(config with { Text = "" });
         Assert.False(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
     }
 
@@ -242,11 +210,7 @@ public class ModernWiredRuntimeTests
         var clock = new CountingClock(instant, TimeZoneInfo.Utc);
         var log = new WiredRoomLog();
         var box = ActionBox(room, "wf_act_log", log: log, clock: clock);
-        Assert.True(box.TryValidateConfiguration(new()
-        {
-            IntParams = [1, 0],
-            Text = "Captured"
-        }, out var config, out _));
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [1, 0], Text = "Captured" }, out var config, out _));
         box.ApplyConfiguration(config);
 
         Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
@@ -268,11 +232,7 @@ public class ModernWiredRuntimeTests
             .SetValue(f.Room.GetWired(), settings);
         var item = MakeItem(102, "wf_act_log");
         var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
-        Assert.True(box.TryValidateConfiguration(new()
-        {
-            IntParams = [2, 0],
-            Text = "Gate opened"
-        }, out var config, out _));
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
         box.ApplyConfiguration(config);
         f.Items[102] = item;
         f.Engine.Add(box);
@@ -343,8 +303,7 @@ public class ModernWiredRuntimeTests
         monitor = Reply(alice, 5101).Skip(16, 1);
         Assert.Equal(4, monitor.Int());
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             monitor.String();
             monitor.String();
             Assert.Equal(0, monitor.Int());
@@ -401,11 +360,7 @@ public class ModernWiredRuntimeTests
         // Seed one room log line through the real wired log action.
         var item = MakeItem(102, "wf_act_log");
         var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
-        Assert.True(box.TryValidateConfiguration(new()
-        {
-            IntParams = [2, 0],
-            Text = "Gate opened"
-        }, out var config, out _));
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
         box.ApplyConfiguration(config);
         f.Items[102] = item;
         f.Engine.Add(box);
@@ -512,18 +467,15 @@ public class ModernWiredRuntimeTests
     {
         using var stream = new MemoryStream();
 
-        foreach (var value in values)
-        {
-            if (value is string text)
-            {
+        foreach (var value in values) {
+            if (value is string text) {
                 var bytes = System.Text.Encoding.UTF8.GetBytes(text);
                 var length = new byte[2];
                 System.Buffers.Binary.BinaryPrimitives.WriteInt16BigEndian(length, (short)bytes.Length);
                 stream.Write(length);
                 stream.Write(bytes);
             }
-            else
-            {
+            else {
                 var bytes = new byte[4];
                 System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes, (int)value);
                 stream.Write(bytes);
@@ -598,10 +550,8 @@ public class ModernWiredRuntimeTests
         // a delay of N half-seconds fires every N ticks, as the editor's N x 0.5s says.
         var fired = new List<int>();
 
-        for (var tick = 1; tick <= 6; tick++)
-        {
-            if (repeater.TickCount == 0)
-            {
+        for (var tick = 1; tick <= 6; tick++) {
+            if (repeater.TickCount == 0) {
                 fired.Add(tick);
             }
 
@@ -627,10 +577,7 @@ public class ModernWiredRuntimeTests
         var (room, _, _) = World();
         var picked = MakeItem(1, "test");
         var old = new MatchPositionBox(room, MakeItem(100, "wf_act_match_to_sshot"))
-        {
-            StringData = "1;1;1",
-            ItemsData = "1:2,1,3.25,4,old,raw,state"
-        };
+        { StringData = "1;1;1", ItemsData = "1:2,1,3.25,4,old,raw,state" };
         old.SetItems[1] = picked;
         picked.LegacyDataString = "changed";
         Assert.True(WiredLegacyConfigurationAdapter.TryConvert(old, Descriptor("wf_act_match_to_sshot"), out var config));
@@ -659,28 +606,19 @@ public class ModernWiredRuntimeTests
         item.Definition.WiredType = WiredBoxType.EffectShowMessage;
         Func<bool> execute;
 
-        if (legacy)
-        {
+        if (legacy) {
             var action = Assert.IsType<ShowMessageBox>(fixture.Room.GetWired().GenerateNewBox(item));
             action.StringData = text;
             execute = () => action.Execute(fixture.Habbo);
         }
-        else
-        {
+        else {
             var action = Assert.IsType<WiredModernAction>(fixture.Room.GetWired().CreateConfiguredBox(item));
-            Assert.True(action.TryValidateConfiguration(new()
-            {
-                IntParams = [0, 0, 34, -1],
-                Text = text
-            },
+            Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 0, 34, -1], Text = text },
                 out var configuration, out var error), error);
             action.ApplyConfiguration(configuration);
             execute = () =>
             {
-                var context = Context(fixture.Room, new(WiredEventKind.Use)
-                {
-                    Actor = fixture.User
-                }, [], [fixture.User]);
+                var context = Context(fixture.Room, new(WiredEventKind.Use) { Actor = fixture.User }, [], [fixture.User]);
                 context.Triggering.UserIds.Add(fixture.User.VirtualId);
 
                 return action.Execute(context);
@@ -694,8 +632,7 @@ public class ModernWiredRuntimeTests
             ? throw new InvalidOperationException("Text formatting used the global client manager.")
             : method.Invoke(original, arguments);
 
-        try
-        {
+        try {
             field.SetValue(null, game);
             Assert.True(execute());
             AssertChat(17);
@@ -705,7 +642,9 @@ public class ModernWiredRuntimeTests
             Assert.Equal(2, reads);
             Assert.Empty(replies);
         }
-        finally { field.SetValue(null, original); }
+        finally {
+            field.SetValue(null, original);
+        }
 
         void AssertChat(int expectedOnline)
         {
@@ -718,8 +657,7 @@ public class ModernWiredRuntimeTests
             Assert.Equal(0, packet.Int());
             Assert.Equal(expectedText.Length, packet.Int());
 
-            if (!legacy)
-            {
+            if (!legacy) {
                 Assert.Equal(-1, packet.Int());
             }
 
@@ -744,16 +682,9 @@ public class ModernWiredRuntimeTests
         Assert.Equal(ServerPacketHeader.WiredRewardResultComposer, new WiredRewardResultComposer(5).MessageId);
         var (room, _, _) = World();
         var box = ActionBox(room, "wf_act_show_message");
-        Assert.True(box.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 0, 252, 2],
-            Text = "Hello"
-        }, out var config, out _));
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [0, 0, 252, 2], Text = "Hello" }, out var config, out _));
         Assert.Equal(2, config.IntParams[3]);
-        Assert.False(box.TryValidateConfiguration(config with
-        {
-            IntParams = [0, 0, 252, 3]
-        }, out _, out _));
+        Assert.False(box.TryValidateConfiguration(config with { IntParams = [0, 0, 252, 3] }, out _, out _));
     }
 
     private sealed class RecordingOperations : IWiredRuntimeOperations
@@ -890,8 +821,7 @@ public class ModernWiredRuntimeTests
         map.AddToMap(item);
         var users = new List<RoomUser>();
 
-        for (var direction = 0; direction < 8; direction++)
-        {
+        for (var direction = 0; direction < 8; direction++) {
             var offset = WiredRoomOperations.Offset(direction);
             var user = new RoomUser(direction + 1, 0, direction + 20, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
             user.SetPos(1 + offset.X, 1 + offset.Y, 0);
@@ -901,7 +831,12 @@ public class ModernWiredRuntimeTests
         }
 
         var collisions = 0;
-        var action = ActionBox(room, "wf_act_move_to_dir", publish: e => { if (e.Kind == WiredEventKind.Collision) { collisions++; } });
+        var action = ActionBox(room, "wf_act_move_to_dir", publish: e =>
+        {
+            if (e.Kind == WiredEventKind.Collision) {
+                collisions++;
+            }
+        });
         Assert.True(WiredConfigurationSave.TrySave(action, SavePacket([0, 6, 100, 1], [item.Id], 0), TestWiredConfigurationStore.Instance, out var error), error);
         Assert.Equal(new[] { 0, 6, 100, 1 }, EditorFields(WiredEditorSnapshot.Capture(action), 13).Ints);
 
@@ -960,10 +895,7 @@ public class ModernWiredRuntimeTests
     {
         var item = MakeItem(1, "test");
         var moves = new List<Point>();
-        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new()
-        {
-            IntParams = [raw, 0, 100]
-        }, [item], [], [],
+        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [raw, 0, 100] }, [item], [], [],
             (_, x, y, _, _) => { moves.Add(new(x, y)); return true; }, (_, _, _, _, _) => false, (_, _) => throw new Exception()));
         Assert.Equal(new Point(dx, dy), Assert.Single(moves));
     }
@@ -981,10 +913,7 @@ public class ModernWiredRuntimeTests
     {
         var item = MakeItem(1, "test");
         var moved = Point.Empty;
-        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new()
-        {
-            IntParams = [direction, 0, 100, 0]
-        }, [item], [], [],
+        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [direction, 0, 100, 0] }, [item], [], [],
             (_, x, y, _, _) => { moved = new(x, y); return true; }, (_, _, _, _, _) => throw new Exception(), (_, _) => throw new Exception()));
         Assert.Equal(new Point(dx, dy), moved);
     }
@@ -998,10 +927,7 @@ public class ModernWiredRuntimeTests
         var item = MakeItem(1, "test");
         item.Rotation = 0;
         var rotation = -1;
-        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new()
-        {
-            IntParams = [-1, turn, 100, 0]
-        }, [item], [], [],
+        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [-1, turn, 100, 0] }, [item], [], [],
             (_, _, _, value, _) => { rotation = value; return true; }, (_, _, _, _, _) => false, (_, _) => { }));
         Assert.Equal(expected, rotation);
     }
@@ -1015,17 +941,14 @@ public class ModernWiredRuntimeTests
         Point[] compass = [new(0, 1), new(1, 0), new(0, -1), new(-1, 0), new(1, -1), new(1, 1), new(-1, 1), new(-1, -1)];
         var (room, _, _) = World();
 
-        for (var movement = 0; movement <= 11; movement++)
-        {
-            for (var rotation = 0; rotation <= 3; rotation++)
-            {
+        for (var movement = 0; movement <= 11; movement++) {
+            for (var rotation = 0; rotation <= 3; rotation++) {
                 var box = ActionBox(room, "wf_act_move_rotate");
                 Assert.True(WiredConfigurationSave.TrySave(box, SavePacket([movement, rotation, 100], [8, 9], 4), TestWiredConfigurationStore.Instance, out var error), error);
                 var saved = box.Configuration;
                 Assert.Equal(new[] { storedDirection[movement], storedTurn[rotation], 100, 0 }, saved.IntParams);
 
-                if (movement >= 4)
-                {
+                if (movement >= 4) {
                     Assert.Equal(compass[movement - 4], WiredRoomOperations.Offset(saved.IntParams[0]));
                 }
 
@@ -1049,10 +972,8 @@ public class ModernWiredRuntimeTests
     {
         var (room, _, _) = World();
 
-        for (var movement = 0; movement <= 7; movement++)
-        {
-            for (var rotation = 0; rotation <= 3; rotation++)
-            {
+        for (var movement = 0; movement <= 7; movement++) {
+            for (var rotation = 0; rotation <= 3; rotation++) {
                 var legacy = new MoveAndRotateBox(null!, MakeItem(7, "wf_act_move_rotate")) { StringData = $"{movement};{rotation}", Delay = 3 };
                 legacy.SetItems.TryAdd(8, MakeItem(8, "test"));
                 Assert.True(WiredLegacyEditorProjection.TryGetConfiguration(legacy, out var descriptor, out var stored));
@@ -1079,15 +1000,11 @@ public class ModernWiredRuntimeTests
     [InlineData(7)]
     public void StoredRandomTurnIsAQuarterTurnEitherWay(int start)
     {
-        for (var attempt = 0; attempt < 32; attempt++)
-        {
+        for (var attempt = 0; attempt < 32; attempt++) {
             var item = MakeItem(1, "test");
             item.Rotation = start;
             var rotation = -1;
-            Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new()
-            {
-                IntParams = [-1, 6, 100, 0]
-            }, [item], [], [],
+            Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [-1, 6, 100, 0] }, [item], [], [],
                 (_, _, _, value, _) => { rotation = value; return true; }, (_, _, _, _, _) => false, (_, _) => { }));
             Assert.Contains(rotation, new[] { (start + 2) % 8, (start + 6) % 8 });
         }
@@ -1109,21 +1026,12 @@ public class ModernWiredRuntimeTests
         map.AddToMap(mover);
         var east = ActionBox(room, "wf_act_move_rotate");
         var west = ActionBox(room, "wf_act_move_rotate");
-        Assert.True(east.TryValidateConfiguration(new()
-        {
-            IntParams = [5, 3, 100],
-            SelectedItems = [1]
-        }, out var config, out var error), error);
+        Assert.True(east.TryValidateConfiguration(new() { IntParams = [5, 3, 100], SelectedItems = [1] }, out var config, out var error), error);
         east.ApplyConfiguration(config);
-        Assert.True(west.TryValidateConfiguration(new()
-        {
-            IntParams = [7, 3, 100],
-            SelectedItems = [1]
-        }, out config, out error), error);
+        Assert.True(west.TryValidateConfiguration(new() { IntParams = [7, 3, 100], SelectedItems = [1] }, out config, out error), error);
         west.ApplyConfiguration(config);
 
-        for (var step = 0; step < 16; step++)
-        {
+        for (var step = 0; step < 16; step++) {
             var before = mover.Rotation;
             var box = step % 2 == 0 ? east : west;
             Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [mover], [])));
@@ -1156,12 +1064,7 @@ public class ModernWiredRuntimeTests
     {
         var (room, _, _) = World();
         var box = ActionBox(room, "wf_act_move_rotate");
-        Assert.Same(box, WiredBoxLoading.Select(null, box, new()
-        {
-            IntParams = [movement, rotation, 100],
-            SelectedItems = [8],
-            Delay = 2
-        }));
+        Assert.Same(box, WiredBoxLoading.Select(null, box, new() { IntParams = [movement, rotation, 100], SelectedItems = [8], Delay = 2 }));
         var loaded = box.Configuration;
         Assert.Equal(new[] { direction, turn, 100, 0 }, loaded.IntParams);
         var editor = EditorFields(WiredEditorSnapshot.Capture(box));
@@ -1193,10 +1096,7 @@ public class ModernWiredRuntimeTests
         Assert.Same(saved, box.Configuration);
         Assert.Equal(new[] { 5, 1, 100 }, EditorFields(WiredEditorSnapshot.Capture(box)).Ints);
         // A stored row like this fails to load as any invalid row does, and never runs.
-        var stored = saved with
-        {
-            IntParams = [.. ints]
-        };
+        var stored = saved with { IntParams = [.. ints] };
         Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, ActionBox(room, "wf_act_move_rotate"), stored));
         Assert.False(new WiredMovementActions().Execute("wf_act_move_rotate", stored, [MakeItem(1, "test")], [], [],
             (_, _, _, _, _) => throw new Exception(), (_, _, _, _, _) => throw new Exception(), (_, _) => throw new Exception()));
@@ -1231,10 +1131,7 @@ public class ModernWiredRuntimeTests
     public void RoomForwardingResolvesActualLinkSectionsPairsAndFallbackInOrder()
     {
         var link = MakeItem(1, "link");
-        link.ExtraData = new MapDataFormat(new()
-        {
-            ["internalLink"] = "23"
-        });
+        link.ExtraData = new MapDataFormat(new() { ["internalLink"] = "23" });
         Assert.Equal(new WiredRoomForwarding.Destination(23), WiredRoomForwarding.Resolve([link], "99", _ => throw new Exception(), _ => throw new Exception(), TestLogging.Logger));
         link.ExtraData = new LegacyDataFormat { Data = "{\"room_linker\":{\"ItemId\":17}}" };
         Assert.Equal(new WiredRoomForwarding.Destination(42, 17), WiredRoomForwarding.Resolve([link], "99", id => id == 17 ? 42u : 0, _ => throw new Exception(), TestLogging.Logger));
@@ -1254,16 +1151,9 @@ public class ModernWiredRuntimeTests
         var sent = 0;
         fixture.Habbo.Client.SendCallback = _ => { sent++; return true; };
         var action = ActionBox(fixture.Room, "wf_act_teleport_to_room");
-        Assert.True(action.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 100],
-            Text = "42"
-        }, out var config, out _));
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
         action.ApplyConfiguration(config);
-        var context = Context(fixture.Room, new(WiredEventKind.Enter)
-        {
-            Actor = fixture.User
-        }, [], [fixture.User]);
+        var context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = fixture.User }, [], [fixture.User]);
         context.Triggering.UserIds.Add(fixture.User.VirtualId);
         Assert.True(action.Execute(context));
         Assert.Equal(1, sent);
@@ -1280,16 +1170,9 @@ public class ModernWiredRuntimeTests
     {
         using var f = new TeleportFixture();
         var action = ActionBox(f.Room, "wf_act_teleport_to_room");
-        Assert.True(action.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 100],
-            Text = "42"
-        }, out var config, out _));
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
         action.ApplyConfiguration(config);
-        var context = Context(f.Room, new(WiredEventKind.Enter)
-        {
-            Actor = f.User
-        }, [], [f.User]);
+        var context = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, [], [f.User]);
         context.Triggering.UserIds.Add(f.User.VirtualId);
         f.Habbo.CurrentRoom = null;
         Assert.False(action.Execute(context));
@@ -1332,8 +1215,7 @@ public class ModernWiredRuntimeTests
         state.ResetQuotas();
         Assert.True(state.GiveScore(room, 1, 7, Team.Red, 3, 1, scores.Add));
 
-        for (var index = 0; index < 12; index++)
-        {
+        for (var index = 0; index < 12; index++) {
             Assert.True(state.GiveScore(room, 3, 7, Team.Red, 1, null, scores.Add));
         }
 
@@ -1373,11 +1255,7 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void BotValidationPreservesWidthAndFigureChecksActualTurboShape()
     {
-        Assert.True(WiredBotActions.TryValidate("wf_act_bot_talk_to_avatar", new()
-        {
-            IntParams = [1, 11, 100, 2],
-            Text = "Alice\tHello"
-        }, out var config, out _));
+        Assert.True(WiredBotActions.TryValidate("wf_act_bot_talk_to_avatar", new() { IntParams = [1, 11, 100, 2], Text = "Alice\tHello" }, out var config, out _));
         Assert.Equal(11, config.UserSources["users"]);
         Assert.Equal(100, config.UserSources["bots"]);
         Assert.Equal(2, config.IntParams[3]);
@@ -1409,26 +1287,19 @@ public class ModernWiredRuntimeTests
         f.Fire();
         Assert.Equal(4, f.User.CurrentEffect);
 
-        if (change == "target")
-        {
+        if (change == "target") {
             f.Items.TryRemove(f.Target.Id, out _);
         }
 
-        if (change == "source")
-        {
+        if (change == "source") {
             f.Engine.Remove(f.Trigger.Item.Id);
         }
 
-        if (change == "save")
-        {
-            Assert.True(f.Engine.PublishConfigured(f.Action, f.Action.Configuration with
-            {
-                IntParams = [1, 100, 0]
-            }, () => { }));
+        if (change == "save") {
+            Assert.True(f.Engine.PublishConfigured(f.Action, f.Action.Configuration with { IntParams = [1, 100, 0] }, () => { }));
         }
 
-        if (change == "visit")
-        {
+        if (change == "visit") {
             RoomUsers(f.Room)[7] = new RoomUser(1, 0, 7, f.Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
             f.Habbo.Effects.CurrentEffect = -1;
         }
@@ -1467,8 +1338,7 @@ public class ModernWiredRuntimeTests
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
         ((RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new NotSupportedException(method.Name);
 
-        try
-        {
+        try {
             databaseField.SetValue(null, database);
             Assert.True(fixture.Room.GetRoomItemHandler().SetFloorItem(null!, counter, 2, 2, 0, true, false, false));
             Assert.True(fixture.Room.GetWired().TryUseCounter(counter, 0));
@@ -1476,7 +1346,9 @@ public class ModernWiredRuntimeTests
             Assert.Null(fixture.Room.GetRoomItemHandler().GetItem(counter.Id));
             Assert.False(fixture.Room.GetWired().TryUseCounter(counter, 0));
         }
-        finally { databaseField.SetValue(null, original); }
+        finally {
+            databaseField.SetValue(null, original);
+        }
     }
 
     private static ConcurrentDictionary<int, RoomUser> RoomUsers(Room room) =>
@@ -1536,10 +1408,7 @@ public class ModernWiredRuntimeTests
                 clientsForText ?? TestWiredClients.Empty, TestGroupManager.Empty,
                 new TestWiredDefinitions(() => DefinitionManager?.Items ?? throw new InvalidOperationException("No test definitions installed.")),
                 TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
-            Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new()
-            {
-                MaxPendingStacks = cap
-            });
+            Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Room, wired);
@@ -1550,11 +1419,7 @@ public class ModernWiredRuntimeTests
             Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
                 evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
-            Action.TryValidateConfiguration(new()
-            {
-                IntParams = [0, 100, 0],
-                SelectedItems = [1]
-            }, out var config, out _);
+            Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _);
             Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item;
             Items[100] = Action.Item;
@@ -1668,16 +1533,10 @@ public class ModernWiredRuntimeTests
         var (room, _, _) = World();
         var user = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         user.SetStatus("sit");
-        var context = Context(room, new(WiredEventKind.ClickUser)
-        {
-            TargetUser = user
-        }, [], [user]);
+        var context = Context(room, new(WiredEventKind.ClickUser) { TargetUser = user }, [], [user]);
         var box = new WiredModernCondition(room, MakeItem(100, "wf_cnd_user_performs_action"), Descriptor("wf_cnd_user_performs_action"),
             TestGroupManager.Empty, _ => null, () => DateTimeOffset.UtcNow);
-        Assert.True(box.TryValidateConfiguration(new()
-        {
-            IntParams = [6, 0, 0, 0, 1, 11, 0]
-        }, out var config, out _));
+        Assert.True(box.TryValidateConfiguration(new() { IntParams = [6, 0, 0, 0, 1, 11, 0] }, out var config, out _));
         box.ApplyConfiguration(config);
         Assert.True(box.Execute(context));
         user.RemoveStatus("sit");
@@ -1719,26 +1578,12 @@ public class ModernWiredRuntimeTests
         var (room, _, _) = World();
         var item = MakeItem(1, "test");
         var box = new WiredModernTrigger(room, MakeItem(100, "wf_trg_state_changed"), Descriptor("wf_trg_state_changed"));
-        box.TryValidateConfiguration(new()
-        {
-            IntParams = [1, 100],
-            SelectedItems = [1],
-            Snapshots = [WiredRoomOperations.Capture(item)]
-        }, out var config, out _);
+        box.TryValidateConfiguration(new() { IntParams = [1, 100], SelectedItems = [1], Snapshots = [WiredRoomOperations.Capture(item)] }, out var config, out _);
         box.ApplyConfiguration(config);
-        Assert.False(box.Execute(Context(room, new(WiredEventKind.Use)
-        {
-            EventItem = item
-        }, [item], [])));
-        Assert.True(box.Execute(Context(room, new(WiredEventKind.StateChanged)
-        {
-            EventItem = item
-        }, [item], [])));
+        Assert.False(box.Execute(Context(room, new(WiredEventKind.Use) { EventItem = item }, [item], [])));
+        Assert.True(box.Execute(Context(room, new(WiredEventKind.StateChanged) { EventItem = item }, [item], [])));
         item.LegacyDataString = "1";
-        Assert.False(box.Execute(Context(room, new(WiredEventKind.StateChanged)
-        {
-            EventItem = item
-        }, [item], [])));
+        Assert.False(box.Execute(Context(room, new(WiredEventKind.StateChanged) { EventItem = item }, [item], [])));
     }
 
     [Fact]
@@ -1746,10 +1591,7 @@ public class ModernWiredRuntimeTests
     {
         var (room, _, _) = World();
         var box = new WiredModernTimedTrigger(room, MakeItem(100, "wf_trg_at_time_long"), Descriptor("wf_trg_at_time_long"));
-        box.TryValidateConfiguration(new()
-        {
-            IntParams = [1]
-        }, out var config, out _);
+        box.TryValidateConfiguration(new() { IntParams = [1] }, out var config, out _);
         box.ApplyConfiguration(config);
         box.Reset(1000);
         Assert.Null(box.Poll(5999));
@@ -1776,10 +1618,7 @@ public class ModernWiredRuntimeTests
         WiredModernTimedTrigger Timer(uint id, string name, int units, int x)
         {
             var box = new WiredModernTimedTrigger(room, Place(id, name, x), Descriptor(name));
-            Assert.True(box.TryValidateConfiguration(new()
-            {
-                IntParams = [units]
-            }, out var config, out _));
+            Assert.True(box.TryValidateConfiguration(new() { IntParams = [units] }, out var config, out _));
             box.ApplyConfiguration(config);
             Assert.True(engine.Add(box));
 
@@ -1822,10 +1661,7 @@ public class ModernWiredRuntimeTests
             item.SetState(i - 1, 0, 0, Gamemap.GetAffectedTiles(1, 1, i - 1, 0, 0));
             items[item.Id] = item;
             var box = new WiredModernTimedTrigger(room, item, Descriptor("wf_trg_at_given_time"));
-            Assert.True(box.TryValidateConfiguration(new()
-            {
-                IntParams = [1]
-            }, out var config, out _));
+            Assert.True(box.TryValidateConfiguration(new() { IntParams = [1] }, out var config, out _));
             box.ApplyConfiguration(config);
             Assert.True(engine.Add(box));
 
@@ -1906,17 +1742,11 @@ public class ModernWiredRuntimeTests
         RoomUsers(room)[8] = occupant;
         room.GetGameMap().AddUserToMap(occupant, new(1, 0));
         var action = ActionBox(room, "wf_act_move_rotate_user");
-        Assert.True(action.TryValidateConfiguration(new()
-        {
-            IntParams = [2, -1, 0]
-        }, out var config, out _));
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [2, -1, 0] }, out var config, out _));
         action.ApplyConfiguration(config);
         WiredRuntimeContext Firing()
         {
-            var c = Context(room, new(WiredEventKind.Enter)
-            {
-                Actor = actor
-            }, fixture.Items.Values.ToArray(), RoomUsers(room).Values.ToArray());
+            var c = Context(room, new(WiredEventKind.Enter) { Actor = actor }, fixture.Items.Values.ToArray(), RoomUsers(room).Values.ToArray());
             c.Triggering.UserIds.Add(actor.VirtualId);
             c.Policy.Addons.DisableAnimation = true;
 
@@ -1950,32 +1780,19 @@ public class ModernWiredRuntimeTests
         var config = new WiredConfiguration { IntParams = [2, 0, 0], Text = "" };
         Assert.True(action.TryValidateConfiguration(config, out var valid, out _));
         action.ApplyConfiguration(valid);
-        var context = Context(fixture.Room, new(WiredEventKind.Enter)
-        {
-            Actor = fixture.User
-        }, fixture.Items.Values.ToArray(), [fixture.User]);
+        var context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = fixture.User }, fixture.Items.Values.ToArray(), [fixture.User]);
         context.Triggering.UserIds.Add(fixture.User.VirtualId);
         Assert.True(action.Execute(context));
         Assert.Equal(2, fixture.User.CarryItemId);
-        Assert.True(action.TryValidateConfiguration(config with
-        {
-            IntParams = [3, 0, 100],
-            Text = "missing"
-        }, out valid, out _));
+        Assert.True(action.TryValidateConfiguration(config with { IntParams = [3, 0, 100], Text = "missing" }, out valid, out _));
         action.ApplyConfiguration(valid);
         Assert.False(action.Execute(context));
         Assert.Equal(2, fixture.User.CarryItemId);
         var bot = Bot(fixture.Room, 8);
         RoomUsers(fixture.Room)[8] = bot;
-        Assert.True(action.TryValidateConfiguration(config with
-        {
-            IntParams = [4, 200, 0]
-        }, out valid, out _));
+        Assert.True(action.TryValidateConfiguration(config with { IntParams = [4, 200, 0] }, out valid, out _));
         action.ApplyConfiguration(valid);
-        context = Context(fixture.Room, new(WiredEventKind.Enter)
-        {
-            Actor = bot
-        }, fixture.Items.Values.ToArray(), [fixture.User, bot]);
+        context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = bot }, fixture.Items.Values.ToArray(), [fixture.User, bot]);
         context.SelectorPool.UserIds.Add(fixture.User.VirtualId);
         Assert.True(action.Execute(context));
         Assert.Equal(4, fixture.User.CarryItemId);
@@ -1993,8 +1810,7 @@ public class ModernWiredRuntimeTests
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
         ((RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new InvalidOperationException("Temporary path opened SQL: " + method.Name);
 
-        try
-        {
+        try {
             databaseField.SetValue(null, database);
             var item = Assert.IsType<Item>(handler.PlaceTemporaryFloorItem(definition, 1, 0, 0, 0, 0, "1"));
             Assert.True(item.IsTemporary);
@@ -2018,7 +1834,9 @@ public class ModernWiredRuntimeTests
             handler.UpdateItem(replacement);
             handler.Dispose(); // No temporary extra-data or coordinate SQL during unload.
         }
-        finally { databaseField.SetValue(null, original); }
+        finally {
+            databaseField.SetValue(null, original);
+        }
     }
 
     [Theory]
@@ -2041,13 +1859,11 @@ public class ModernWiredRuntimeTests
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
         ((RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new NotSupportedException(method.Name);
 
-        try
-        {
+        try {
             databaseField.SetValue(null, database);
             Item placed;
 
-            if (wall)
-            {
+            if (wall) {
                 placed = MakeItem(50, "wall");
                 placed.Definition.Type = ItemType.Wall;
                 placed.WallCoordinates = ":w=1,1 l=10,20 l";
@@ -2055,8 +1871,7 @@ public class ModernWiredRuntimeTests
                 typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(placed, f.Room);
                 Assert.True(f.Room.GetRoomItemHandler().SetWallItem(f.Habbo.Client, placed));
             }
-            else
-            {
+            else {
                 placed = Assert.IsType<Item>(f.Room.GetRoomItemHandler().PlaceTemporaryFloorItem(MakeItem(50, "floor").Definition, 1, 2, 2, 0));
             }
 
@@ -2064,7 +1879,9 @@ public class ModernWiredRuntimeTests
             var ready = Assert.Single(f.Room.GetWired().CaptureFxViewers()).ReadyHolders;
             Assert.Equal(enqueue, ready.Contains(WiredVariableRuntimeFrames.FurniHolder(placed)));
         }
-        finally { databaseField.SetValue(null, original); }
+        finally {
+            databaseField.SetValue(null, original);
+        }
     }
 
     [Fact]
@@ -2086,8 +1903,7 @@ public class ModernWiredRuntimeTests
         Assert.Null(handler.PlaceTemporaryFloorItem(definition, 1, 0, 0, 0, 80));
         definition.Height = 0;
 
-        for (var i = 0; i < RoomItemHandling.TemporaryItemLimit; i++)
-        {
+        for (var i = 0; i < RoomItemHandling.TemporaryItemLimit; i++) {
             Assert.NotNull(handler.PlaceTemporaryFloorItem(definition, 1, 0, 0, 0, 0));
         }
 
@@ -2109,10 +1925,7 @@ public class ModernWiredRuntimeTests
         var item = Assert.IsType<Item>(handler.PlaceTemporaryFloorItem(def, 1, 2, 2, 0));
         Assert.Equal(-2, unchecked((int)item.Id)); // A real permanent high-uint item owns the -1 bit pattern.
         var action = ActionBox(f.Room, "wf_act_remove_furni");
-        Assert.True(action.TryValidateConfiguration(new()
-        {
-            IntParams = [mode, 0]
-        }, out var config, out _));
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [mode, 0] }, out var config, out _));
         action.ApplyConfiguration(config);
         var ctx = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
         ctx.Triggering.FurniIds.UnionWith([permanent.Id, item.Id]);
@@ -2146,8 +1959,7 @@ public class ModernWiredRuntimeTests
             IntParams = [55, 2, 1, 2, 2, 0]
         };
 
-        if (snapshot)
-        {
+        if (snapshot) {
             proposed = proposed with
             {
                 TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude),
@@ -2160,12 +1972,13 @@ public class ModernWiredRuntimeTests
         var global = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
         var previous = global.GetValue(null);
 
-        try
-        {
+        try {
             global.SetValue(null, null);
             Assert.True(action.Execute(Context(fixture.Room, new(WiredEventKind.Use), fixture.Items.Values.ToArray(), [fixture.User])));
         }
-        finally { global.SetValue(null, previous); }
+        finally {
+            global.SetValue(null, previous);
+        }
 
         var placed = fixture.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray();
         Assert.Equal(snapshot ? 1 : 2, placed.Length);
@@ -2176,8 +1989,7 @@ public class ModernWiredRuntimeTests
         });
         Assert.Equal(snapshot ? 2 : 1, reads);
 
-        if (snapshot)
-        {
+        if (snapshot) {
             Assert.Equal("1", Assert.Single(placed).LegacyDataString);
         }
     }
@@ -2208,11 +2020,7 @@ public class ModernWiredRuntimeTests
         Assert.Equal(2, copies.Length);
         Assert.Equal((1, 1, 1.25, "1"), (copies[0].GetX, copies[0].GetY, copies[0].GetZ, copies[0].LegacyDataString));
         Assert.Equal((2, 1, 1.25, 2), (copies[1].GetX, copies[1].GetY, copies[1].GetZ, copies[1].Rotation));
-        var prepared = WiredRoomOperations.PrepareSnapshots(action, proposed with
-        {
-            SelectedItems = [copies[0].Id],
-            SecondarySelectedItems = [copies[1].Id]
-        });
+        var prepared = WiredRoomOperations.PrepareSnapshots(action, proposed with { SelectedItems = [copies[0].Id], SecondarySelectedItems = [copies[1].Id] });
         Assert.Empty(prepared.SelectedItems);
         Assert.Empty(prepared.SecondarySelectedItems);
         var template = Assert.Single(prepared.Snapshots);
@@ -2220,10 +2028,7 @@ public class ModernWiredRuntimeTests
         Assert.Equal("1", template.State);
         Assert.Equal(prepared.Snapshots, WiredRoomOperations.PrepareSnapshots(action, prepared).Snapshots);
         Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[0]));
-        Assert.True(action.TryValidateConfiguration(prepared with
-        {
-            TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude)
-        }, out config, out _));
+        Assert.True(action.TryValidateConfiguration(prepared with { TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude) }, out config, out _));
         action.ApplyConfiguration(config);
         Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
     }
@@ -2239,10 +2044,7 @@ public class ModernWiredRuntimeTests
         ((RecordingProxy)(object)manager).InvokeMethod = (m, _) => m.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = def } : null;
         f.DefinitionManager = manager;
         var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
-        Assert.True(action.TryValidateConfiguration(new()
-        {
-            IntParams = [5, 3, 1, 2, 1, 2]
-        }, out var config, out _));
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [5, 3, 1, 2, 1, 2] }, out var config, out _));
         action.ApplyConfiguration(config);
         Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
         var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray();
@@ -2270,12 +2072,7 @@ public class ModernWiredRuntimeTests
         firstPicked.SetState(2, 1, 0, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0));
         f.Items[20] = firstPicked;
         var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
-        var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with
-        {
-            SelectedItems = [20, 10],
-            SecondarySelectedItems = [1],
-            TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation)
-        };
+        var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with { SelectedItems = [20, 10], SecondarySelectedItems = [1], TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation) };
         var captured = WiredRoomOperations.PrepareSnapshots(action, proposed);
         Assert.Equal(new uint[] { 20, 10 }, captured.Snapshots.Select(snapshot => snapshot.ItemId));
         f.Items.TryRemove(10, out _);
@@ -2293,29 +2090,18 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void RewardValidationRejectsUnsupportedCurrenciesAndKeepsActualIntervals()
     {
-        var config = WiredRewards.Defaults() with
-        {
-            Text = "1,furni#5,100;0,ABC,50"
-        };
+        var config = WiredRewards.Defaults() with { Text = "1,furni#5,100;0,ABC,50" };
         Assert.True(WiredRewards.TryValidate(config, out _, out _));
 
-        foreach (var code in new[] { "credits#5", "pixels#5", "diamonds#5", "points5#5" })
-        {
-            Assert.False(WiredRewards.TryValidate(config with
-            {
-                Text = "1," + code + ",100"
-            }, out _, out _));
+        foreach (var code in new[] { "credits#5", "pixels#5", "diamonds#5", "points5#5" }) {
+            Assert.False(WiredRewards.TryValidate(config with { Text = "1," + code + ",100" }, out _, out _));
         }
 
-        Assert.False(WiredRewards.TryValidate(config with
-        {
-            Text = string.Join(';', Enumerable.Repeat("0,A,100", 21))
-        }, out _, out _));
+        Assert.False(WiredRewards.TryValidate(config with { Text = string.Join(';', Enumerable.Repeat("0,A,100", 21)) }, out _, out _));
         var claim = new WiredRewardClaim { Count = 1, LastClaimAt = DateTimeOffset.FromUnixTimeSeconds(100) };
         Assert.False(WiredRewards.IntervalOpen(claim, 0, 1, DateTimeOffset.MaxValue));
 
-        foreach (var pair in new[] { (1, 86400), (2, 3600), (3, 60) })
-        {
+        foreach (var pair in new[] { (1, 86400), (2, 3600), (3, 60) }) {
             Assert.False(WiredRewards.IntervalOpen(claim, pair.Item1, 2, DateTimeOffset.FromUnixTimeSeconds(100 + 2 * pair.Item2 - 1)));
             Assert.True(WiredRewards.IntervalOpen(claim, pair.Item1, 2, DateTimeOffset.FromUnixTimeSeconds(100 + 2 * pair.Item2)));
         }
@@ -2325,26 +2111,16 @@ public class ModernWiredRuntimeTests
     public void RewardActionDatabaseFailureEmitsNoInventoryOrResultPacket()
     {
         using var f = new TeleportFixture();
-        f.Habbo.Inventory = new()
-        {
-            Furniture = new([], []),
-            Badges = new(new())
-        };
+        f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
         var sent = 0;
         ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
         ((RecordingProxy)(object)database).InvokeMethod = (_, _) => throw new InvalidOperationException("Injected SQL failure");
         var rewards = new WiredRewardService(new WiredRewardStore(database), DispatchProxy.Create<IItemDataManager, RecordingProxy>(), TimeProvider.System, TestLogging.Rewards);
         var action = ActionBox(f.Room, "wf_act_give_reward", rewards: rewards);
-        Assert.True(action.TryValidateConfiguration(WiredRewards.Defaults() with
-        {
-            Text = "1,furni#5,100"
-        }, out var config, out _));
+        Assert.True(action.TryValidateConfiguration(WiredRewards.Defaults() with { Text = "1,furni#5,100" }, out var config, out _));
         action.ApplyConfiguration(config);
-        var ctx = Context(f.Room, new(WiredEventKind.Enter)
-        {
-            Actor = f.User
-        }, f.Items.Values.ToArray(), [f.User]);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]);
         ctx.Triggering.UserIds.Add(f.User.VirtualId);
         Assert.False(action.Execute(ctx));
         Assert.Equal(0, sent);
@@ -2355,25 +2131,15 @@ public class ModernWiredRuntimeTests
     public void RewardServiceReadsOneInjectedClockAndPublishesOnlyAfterStoreCommit()
     {
         using var f = new TeleportFixture();
-        f.Habbo.Inventory = new()
-        {
-            Furniture = new([], []),
-            Badges = new(new())
-        };
+        f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
         var sent = 0;
         ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
         var clock = new RewardClock(DateTimeOffset.FromUnixTimeSeconds(1234));
         var store = new RecordingRewardStore(() => sent, new(4, "BADGE1"));
         var rewards = new WiredRewardService(store, DispatchProxy.Create<IItemDataManager, RecordingProxy>(), clock, TestLogging.Rewards);
-        var ctx = Context(f.Room, new(WiredEventKind.Enter)
-        {
-            Actor = f.User
-        }, f.Items.Values.ToArray(), [f.User]);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]);
         ctx.Triggering.UserIds.Add(f.User.VirtualId);
-        Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with
-        {
-            Text = "0,BADGE1,100"
-        }, out var config, out _));
+        Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with { Text = "0,BADGE1,100" }, out var config, out _));
         Assert.True(rewards.Execute(MakeItem(100, "wf_act_give_reward"), ctx, config));
         Assert.Equal(new[] { DateTimeOffset.FromUnixTimeSeconds(1234) }, store.Times);
         Assert.Equal(1, clock.Reads);
@@ -2386,25 +2152,15 @@ public class ModernWiredRuntimeTests
     public void RewardServiceStoreFailureLogsAndPublishesNothing()
     {
         using var f = new TeleportFixture();
-        f.Habbo.Inventory = new()
-        {
-            Furniture = new([], []),
-            Badges = new(new())
-        };
+        f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
         var sent = 0;
         ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
         var clock = new RewardClock(DateTimeOffset.FromUnixTimeSeconds(1234));
         var store = new RecordingRewardStore(() => sent, null, new InvalidOperationException("Injected commit failure"));
         var rewards = new WiredRewardService(store, DispatchProxy.Create<IItemDataManager, RecordingProxy>(), clock, TestLogging.Rewards);
-        var ctx = Context(f.Room, new(WiredEventKind.Enter)
-        {
-            Actor = f.User
-        }, f.Items.Values.ToArray(), [f.User]);
+        var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]);
         ctx.Triggering.UserIds.Add(f.User.VirtualId);
-        Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with
-        {
-            Text = "0,BADGE1,100"
-        }, out var config, out _));
+        Assert.True(WiredRewards.TryValidate(WiredRewards.Defaults() with { Text = "0,BADGE1,100" }, out var config, out _));
         Assert.False(rewards.Execute(MakeItem(100, "wf_act_give_reward"), ctx, config));
         Assert.Equal(new[] { DateTimeOffset.FromUnixTimeSeconds(1234) }, store.Times);
         Assert.Equal(0, sent);
@@ -2415,10 +2171,7 @@ public class ModernWiredRuntimeTests
 
     private sealed class RewardClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
@@ -2437,8 +2190,7 @@ public class ModernWiredRuntimeTests
             Times.Add(now);
             SentAtClaim.Add(sent());
 
-            if (failure != null)
-            {
+            if (failure != null) {
                 throw failure;
             }
 
@@ -2459,46 +2211,20 @@ public class ModernWiredRuntimeTests
         var boxId = 0u;
         var badgeCode = "WR" + Guid.NewGuid().ToString("N")[..10];
 
-        try
-        {
-            userId = ModernWiredDatabaseProbe.Insert(admin, "users", new()
-            {
-                ["username"] = badgeCode,
-                ["password"] = "unused",
-                ["mail"] = badgeCode + "@invalid"
-            });
-            roomId = ModernWiredDatabaseProbe.Insert(admin, "rooms", new()
-            {
-                ["owner"] = userId.ToString(),
-                ["caption"] = "Disposable atomic reward probe",
-                ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1")
-            });
+        try {
+            userId = ModernWiredDatabaseProbe.Insert(admin, "users", new() { ["username"] = badgeCode, ["password"] = "unused", ["mail"] = badgeCode + "@invalid" });
+            roomId = ModernWiredDatabaseProbe.Insert(admin, "rooms", new() { ["owner"] = userId.ToString(), ["caption"] = "Disposable atomic reward probe", ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1") });
             var baseId = admin.QueryFirst<uint>("SELECT id FROM furniture WHERE type='s' LIMIT 1");
-            boxId = ModernWiredDatabaseProbe.Insert(admin, "items", new()
-            {
-                ["user_id"] = userId,
-                ["room_id"] = roomId,
-                ["base_item"] = baseId,
-                ["extra_data"] = "",
-                ["wall_pos"] = ""
-            });
+            boxId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
             var loadedRows = new DataTable();
 
-            using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@boxId", new
-            {
-                boxId
-            }))
-            {
+            using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@boxId", new { boxId })) {
                 loadedRows.Load(reader);
             }
 
             var box = ItemLoader.ReadRoomItem(Assert.Single(loadedRows.Rows.Cast<DataRow>()), roomId, MakeItem(boxId, "wf_act_give_reward").Definition);
             f.Habbo.Id = checked((int)userId);
-            f.Habbo.Inventory = new()
-            {
-                Furniture = new([], []),
-                Badges = new(new())
-            };
+            f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
             var sent = 0;
             ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
             var definition = MakeItem(baseId, "probe_product").Definition;
@@ -2507,152 +2233,71 @@ public class ModernWiredRuntimeTests
             ((RecordingProxy)(object)definitions).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [baseId] = definition } : method.Name == "GetItemByName" ? definition : null;
             var database = new ModernWiredDatabaseProbe.ProbeDatabase(connectionString);
             var store = new WiredRewardStore(database);
-            var config = WiredRewards.Defaults() with
-            {
-                Text = $"1,furni#{baseId},100"
-            };
+            var config = WiredRewards.Defaults() with { Text = $"1,furni#{baseId},100" };
             var loadedOwner = box.OwnerId;
             box.OwnerId = userId + 1;
             Assert.Equal(8, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(100)).Reason);
-            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
             box.OwnerId = loadedOwner;
             var grant = store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(100));
             Assert.Equal(5, grant.Reason);
             Assert.Equal(0, sent);
             Assert.Empty(f.Habbo.Inventory.Furniture.GetItems);
-            Assert.Equal(1, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE id=@id AND user_id=@user AND room_id=0", new
-            {
-                id = grant.Furniture!.Id,
-                user = userId
-            }));
+            Assert.Equal(1, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE id=@id AND user_id=@user AND room_id=0", new { id = grant.Furniture!.Id, user = userId }));
             WiredRewards.Publish(f.Habbo, grant);
             Assert.True(sent > 0);
             Assert.Single(f.Habbo.Inventory.Furniture.GetItems);
             Assert.Equal(2, new WiredRewardStore(database).ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(200)).Reason);
-            config = config with
-            {
-                IntParams = [3, 0, 0, 1, 0]
-            };
+            config = config with { IntParams = [3, 0, 0, 1, 0] };
             Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(159)).Reason);
             Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(160)).Reason);
-            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            });
-            config = config with
-            {
-                IntParams = [3, 0, 1, 1, 0]
-            };
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            config = config with { IntParams = [3, 0, 1, 1, 0] };
             var tasks = Enumerable.Range(0, 4).Select(_ => Task.Run(() => new WiredRewardStore(database).ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(1000))));
             var results = await Task.WhenAll(tasks);
             Assert.Single(results, result => result.Reason == 5);
             Assert.Equal(3, results.Count(result => result.Reason == 1));
-            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            });
-            var unique = config with
-            {
-                IntParams = [3, 1, 0, 1, 0],
-                Text = $"1,furni#{baseId},100;1,probe_product,100"
-            };
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            var unique = config with { IntParams = [3, 1, 0, 1, 0], Text = $"1,furni#{baseId},100;1,probe_product,100" };
             Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, At(1000)).Reason);
             Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, At(1060)).Reason);
             Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, At(1120)).Reason);
-            var state = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, WiredRewardClaim>>(admin.QuerySingle<string>("SELECT claims FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            }))!;
+            var state = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, WiredRewardClaim>>(admin.QuerySingle<string>("SELECT claims FROM wired_reward_state WHERE item_id=@boxId", new { boxId }))!;
             Assert.Equal(2, state[f.Habbo.Id].Count);
             Assert.Contains("probe_product", state[f.Habbo.Id].ReceivedCodes);
             Assert.Contains($"furni#{baseId}", state[f.Habbo.Id].ReceivedCodes);
-            unique = unique with
-            {
-                Text = "1,new_product_after_edit,100"
-            };
+            unique = unique with { Text = "1,new_product_after_edit,100" };
             Assert.Equal(5, store.ClaimAndGrant(box, roomId, f.Habbo, unique, definitions, At(1120)).Reason); // Existing claims survive edits; new codes become available.
-            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            });
-            var before = admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE user_id=@user", new
-            {
-                user = userId
-            });
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            var before = admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE user_id=@user", new { user = userId });
             database.FailSqlPrefix = "UPDATE wired_reward_state";
             Assert.Throws<ModernWiredDatabaseProbe.InjectedCommandFailure>(() => store.ClaimAndGrant(box, roomId, f.Habbo, config, definitions, At(2000)));
-            Assert.Equal(before, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE user_id=@user", new
-            {
-                user = userId
-            }));
-            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            }));
+            Assert.Equal(before, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE user_id=@user", new { user = userId }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
             database.FailSqlPrefix = null;
-            admin.Execute("INSERT INTO badge_definitions(code,required_right) VALUES (@badgeCode,'')", new
-            {
-                badgeCode
-            });
-            var badgeConfig = WiredRewards.Defaults() with
-            {
-                Text = "0," + badgeCode + ",100"
-            };
+            admin.Execute("INSERT INTO badge_definitions(code,required_right) VALUES (@badgeCode,'')", new { badgeCode });
+            var badgeConfig = WiredRewards.Defaults() with { Text = "0," + badgeCode + ",100" };
             database.FailSqlPrefix = "UPDATE wired_reward_state";
             Assert.Throws<ModernWiredDatabaseProbe.InjectedCommandFailure>(() => store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, At(2000)));
-            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM user_badges WHERE user_id=@userId", new
-            {
-                userId
-            }));
-            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM user_badges WHERE user_id=@userId", new { userId }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
             database.FailSqlPrefix = null;
             var badgeGrant = store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, At(2000));
             Assert.Equal(4, badgeGrant.Reason);
             Assert.False(f.Habbo.Inventory.Badges.HasBadge(badgeCode));
             WiredRewards.Publish(f.Habbo, badgeGrant);
             Assert.True(f.Habbo.Inventory.Badges.HasBadge(badgeCode));
-            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            });
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
             Assert.Equal(2, store.ClaimAndGrant(box, roomId, f.Habbo, badgeConfig, definitions, At(2100)).Reason);
-            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_reward_state WHERE item_id=@boxId", new { boxId }));
         }
-        finally
-        {
-            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new
-            {
-                boxId
-            });
-            admin.Execute("DELETE FROM user_badges WHERE user_id=@userId", new
-            {
-                userId
-            });
-            admin.Execute("DELETE FROM badge_definitions WHERE code=@badgeCode", new
-            {
-                badgeCode
-            });
-            admin.Execute("DELETE FROM items WHERE user_id=@userId", new
-            {
-                userId
-            });
-            admin.Execute("DELETE FROM rooms WHERE id=@roomId", new
-            {
-                roomId
-            });
-            admin.Execute("DELETE FROM users WHERE id=@userId", new
-            {
-                userId
-            });
+        finally {
+            admin.Execute("DELETE FROM wired_reward_state WHERE item_id=@boxId", new { boxId });
+            admin.Execute("DELETE FROM user_badges WHERE user_id=@userId", new { userId });
+            admin.Execute("DELETE FROM badge_definitions WHERE code=@badgeCode", new { badgeCode });
+            admin.Execute("DELETE FROM items WHERE user_id=@userId", new { userId });
+            admin.Execute("DELETE FROM rooms WHERE id=@roomId", new { roomId });
+            admin.Execute("DELETE FROM users WHERE id=@userId", new { userId });
         }
     }
 
@@ -2668,35 +2313,13 @@ public class ModernWiredRuntimeTests
         var variableId = 0u;
         var operandId = 0u;
 
-        try
-        {
+        try {
             var suffix = "WT" + Guid.NewGuid().ToString("N")[..10];
-            userId = ModernWiredDatabaseProbe.Insert(admin, "users", new()
-            {
-                ["username"] = suffix,
-                ["password"] = "unused",
-                ["mail"] = suffix + "@invalid"
-            });
-            roomId = ModernWiredDatabaseProbe.Insert(admin, "rooms", new()
-            {
-                ["owner"] = userId.ToString(),
-                ["caption"] = "Disposable temporary variable probe",
-                ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1")
-            });
+            userId = ModernWiredDatabaseProbe.Insert(admin, "users", new() { ["username"] = suffix, ["password"] = "unused", ["mail"] = suffix + "@invalid" });
+            roomId = ModernWiredDatabaseProbe.Insert(admin, "rooms", new() { ["owner"] = userId.ToString(), ["caption"] = "Disposable temporary variable probe", ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1") });
             var baseId = admin.QueryFirst<uint>("SELECT id FROM furniture WHERE type='s' LIMIT 1");
-            variableId = ModernWiredDatabaseProbe.Insert(admin, "items", new()
-            {
-                ["user_id"] = userId,
-                ["room_id"] = roomId,
-                ["base_item"] = baseId,
-                ["extra_data"] = "",
-                ["wall_pos"] = ""
-            });
-            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@variableId,'wf_var_furni',1,@config)", new
-            {
-                variableId,
-                config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 1], Text = "spawnvalue" })
-            });
+            variableId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
+            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@variableId,'wf_var_furni',1,@config)", new { variableId, config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 1], Text = "spawnvalue" }) });
             f.Room.Id = roomId;
             f.Room.OwnerId = (int)userId;
             f.Target.Definition.Stackable = true;
@@ -2706,21 +2329,10 @@ public class ModernWiredRuntimeTests
             var definitions = DispatchProxy.Create<IItemDataManager, RecordingProxy>();
             ((RecordingProxy)(object)definitions).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [baseId] = definition } : null;
             f.DefinitionManager = definitions;
-            var spawnId = ModernWiredDatabaseProbe.Insert(admin, "items", new()
-            {
-                ["user_id"] = userId,
-                ["room_id"] = roomId,
-                ["base_item"] = baseId,
-                ["extra_data"] = "",
-                ["wall_pos"] = ""
-            });
+            var spawnId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
             var loadedRows = new DataTable();
 
-            using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@spawnId", new
-            {
-                spawnId
-            }))
-            {
+            using (var reader = admin.ExecuteReader("SELECT items.*,users.username FROM items JOIN users ON users.id=items.user_id WHERE items.id=@spawnId", new { spawnId })) {
                 loadedRows.Load(reader);
             }
 
@@ -2732,17 +2344,13 @@ public class ModernWiredRuntimeTests
             {
                 var packet = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
 
-                if (FlashGameClient.DecodeInt16(packet.AsMemory(4, 2)) == ServerPacketHeader.ObjectRemoveComposer)
-                {
+                if (FlashGameClient.DecodeInt16(packet.AsMemory(4, 2)) == ServerPacketHeader.ObjectRemoveComposer) {
                     removals.Add(packet);
                 }
 
                 return true;
             };
-            Assert.True(action.TryValidateConfiguration(new()
-            {
-                IntParams = [(int)baseId, 1, 1, 1, 2, 0]
-            }, out var raw, out _));
+            Assert.True(action.TryValidateConfiguration(new() { IntParams = [(int)baseId, 1, 1, 1, 2, 0] }, out var raw, out _));
             action.ApplyConfiguration(raw);
             Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
             var literal = Assert.Single(f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary));
@@ -2775,39 +2383,17 @@ public class ModernWiredRuntimeTests
             var module = f.Room.GetWired().Variables.Module;
             var reference = new WiredVariableReference(WiredVariableTarget.Furni, $"custom:{variableId}");
             Assert.All(holders, holder => Assert.Equal(37, module.Read(reference, holder, frame)!.Value));
-            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@variableId", new
-            {
-                variableId
-            }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@variableId", new { variableId }));
             Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[0]));
             Assert.Null(module.Read(reference, holders[0], frame));
             Assert.Equal(37, module.Read(reference, holders[1], frame)!.Value);
             Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[1]));
             Assert.Empty(module.GetStoredHolders(variableId));
-            operandId = ModernWiredDatabaseProbe.Insert(admin, "items", new()
-            {
-                ["user_id"] = userId,
-                ["room_id"] = roomId,
-                ["base_item"] = baseId,
-                ["extra_data"] = "",
-                ["wall_pos"] = ""
-            });
-            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@operandId,'wf_var_context',1,@config)", new
-            {
-                operandId,
-                config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1], Text = "operand" })
-            });
+            operandId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
+            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@operandId,'wf_var_context',1,@config)", new { operandId, config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1], Text = "operand" }) });
             var operandFrame = new WiredVariableFrame(roomId, []);
             Assert.True(module.Mutate(new(WiredVariableTarget.Context, $"custom:{operandId}"), new(WiredVariableTarget.Context, 0, 0), WiredVariableMutation.Give, 42, operandFrame));
-            config = config with
-            {
-                TemporaryPlacement = config.TemporaryPlacement! with
-                {
-                    ValueIsVariable = true,
-                    ValueTarget = 2
-                },
-                VariableIds = [$"custom:{variableId}", $"custom:{operandId}"]
-            };
+            config = config with { TemporaryPlacement = config.TemporaryPlacement! with { ValueIsVariable = true, ValueTarget = 2 }, VariableIds = [$"custom:{variableId}", $"custom:{operandId}"] };
             Assert.True(action.TryValidateConfiguration(config, out config, out _));
             action.ApplyConfiguration(config);
             context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
@@ -2817,38 +2403,18 @@ public class ModernWiredRuntimeTests
             holders = copies.Select(WiredVariableRuntimeFrames.FurniHolder).ToArray();
             frame = new(roomId, holders);
             Assert.All(holders, holder => Assert.Equal(42, module.Read(reference, holder, frame)!.Value));
-            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@variableId", new
-            {
-                variableId
-            }));
+            Assert.Equal(0, admin.ExecuteScalar<int>("SELECT COUNT(*) FROM wired_variable_values WHERE definition_id=@variableId", new { variableId }));
             f.Room.GetRoomItemHandler().Dispose();
             Assert.Empty(module.GetStoredHolders(variableId));
 
         }
-        finally
-        {
+        finally {
             f.Engine.Clear();
-            admin.Execute("DELETE FROM wired_variable_values WHERE definition_id=@variableId", new
-            {
-                variableId
-            });
-            admin.Execute("DELETE FROM wired_item_configurations WHERE item_id IN (@variableId,@operandId)", new
-            {
-                variableId,
-                operandId
-            });
-            admin.Execute("DELETE FROM items WHERE user_id=@userId", new
-            {
-                userId
-            });
-            admin.Execute("DELETE FROM rooms WHERE id=@roomId", new
-            {
-                roomId
-            });
-            admin.Execute("DELETE FROM users WHERE id=@userId", new
-            {
-                userId
-            });
+            admin.Execute("DELETE FROM wired_variable_values WHERE definition_id=@variableId", new { variableId });
+            admin.Execute("DELETE FROM wired_item_configurations WHERE item_id IN (@variableId,@operandId)", new { variableId, operandId });
+            admin.Execute("DELETE FROM items WHERE user_id=@userId", new { userId });
+            admin.Execute("DELETE FROM rooms WHERE id=@roomId", new { roomId });
+            admin.Execute("DELETE FROM users WHERE id=@userId", new { userId });
         }
     }
 
@@ -2924,10 +2490,7 @@ public class ModernWiredRuntimeTests
         ctx.Policy.Addons.Projectile = new(new HashSet<uint> { 999 }, null, 0, null, Plus.HabboHotel.Items.Wired.Modern.Addons.WiredProjectileDistance.Normal, 0);
         Assert.True(movement.MoveFurniture(ctx, mover, 1, 2, 0, null));
         Assert.Null(flights.Read(mover, "@projectile.animation.tiles_traveled", 1000));
-        ctx.Policy.Addons.Projectile = ctx.Policy.Addons.Projectile with
-        {
-            ItemIds = new HashSet<uint> { mover.Id }
-        };
+        ctx.Policy.Addons.Projectile = ctx.Policy.Addons.Projectile with { ItemIds = new HashSet<uint> { mover.Id } };
         Assert.True(movement.MoveFurniture(ctx, mover, 2, 2, 0, null));
         Assert.Null(flights.Read(mover, "@projectile.animation.is_traveling", 1000));
         Assert.Equal(2, flights.Read(mover, "@projectile.animation.position.x", 1000));
@@ -3019,10 +2582,7 @@ public class ModernWiredRuntimeTests
     }
     private sealed class ResetOperations : IWiredRuntimeOperations
     {
-        public int Resets
-        {
-            get; private set;
-        }
+        public int Resets { get; private set; }
         public List<Item> Targets { get; } = [];
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => throw new NotSupportedException();
@@ -3034,10 +2594,7 @@ public class ModernWiredRuntimeTests
     }
     private sealed class CountingClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {
-        public int Calls
-        {
-            get; private set;
-        }
+        public int Calls { get; private set; }
         public override TimeZoneInfo LocalTimeZone => zone;
         public override DateTimeOffset GetUtcNow()
         {

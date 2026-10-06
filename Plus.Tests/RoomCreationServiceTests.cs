@@ -110,15 +110,13 @@ public sealed class RoomCreationServiceTests
         var roomManagerState = new RoomManagerState();
         var roomManager = Proxy<IRoomManager>((method, args) =>
         {
-            if (method == nameof(IRoomManager.TryGetModel))
-            {
+            if (method == nameof(IRoomManager.TryGetModel)) {
                 args[1] = model;
 
                 return true;
             }
 
-            if (method == nameof(IRoomManager.CreateRoom))
-            {
+            if (method == nameof(IRoomManager.CreateRoom)) {
                 var request = ((string)args[1], (string)args[2], (int)args[3], (int)args[4], (int)args[5], ((RoomModel)args[6]).Id);
                 roomManagerState.Created.Add(request);
 
@@ -131,8 +129,7 @@ public sealed class RoomCreationServiceTests
         var category = new SearchResultList(17, "category", "rooms", "Rooms", false, 0, "", NavigatorViewMode.Regular, "category", "nothing", 0);
         var navigator = Proxy<INavigatorManager>((method, args) =>
         {
-            if (method != nameof(INavigatorManager.TryGetSearchResultList))
-            {
+            if (method != nameof(INavigatorManager.TryGetSearchResultList)) {
                 throw new NotSupportedException(method);
             }
 
@@ -145,8 +142,7 @@ public sealed class RoomCreationServiceTests
             : throw new NotSupportedException(method));
         var rewards = Proxy<IRewardTrackManager>((method, _) =>
         {
-            if (method != nameof(IRewardTrackManager.Progress))
-            {
+            if (method != nameof(IRewardTrackManager.Progress)) {
                 throw new NotSupportedException(method);
             }
 
@@ -180,14 +176,8 @@ public sealed class RoomCreationServiceTests
 
     private sealed class RecordingService : IRoomCreationService
     {
-        public bool AvailabilityRequested
-        {
-            get; private set;
-        }
-        public RoomCreationRequest? Request
-        {
-            get; private set;
-        }
+        public bool AvailabilityRequested { get; private set; }
+        public RoomCreationRequest? Request { get; private set; }
         public Task SendCreationAvailability(GameClient session)
         {
             AvailabilityRequested = true;
@@ -204,10 +194,7 @@ public sealed class RoomCreationServiceTests
 
     private sealed class RecordingLoader(int count, RoomModel model) : IRoomDataLoader
     {
-        public int LastOwnerId
-        {
-            get; private set;
-        }
+        public int LastOwnerId { get; private set; }
         public bool TryGetData(uint roomId, out RoomData? data)
         {
             data = null;

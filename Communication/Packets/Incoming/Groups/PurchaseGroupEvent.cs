@@ -16,15 +16,13 @@ internal sealed class PurchaseGroupEvent(IGroupPurchaseService purchases) : IPac
         var valueCount = packet.ReadInt();
 
         if (valueCount is < 3 or > 15 || valueCount % 3 != 0 ||
-            packet.Buffer.Length != valueCount * sizeof(int))
-        {
+            packet.Buffer.Length != valueCount * sizeof(int)) {
             return Task.CompletedTask;
         }
 
         var parts = ImmutableArray.CreateBuilder<GroupPurchaseBadgePart>(valueCount / 3);
 
-        for (var index = 0; index < valueCount / 3; index++)
-        {
+        for (var index = 0; index < valueCount / 3; index++) {
             parts.Add(new(packet.ReadInt(), packet.ReadInt(), packet.ReadInt()));
         }
 

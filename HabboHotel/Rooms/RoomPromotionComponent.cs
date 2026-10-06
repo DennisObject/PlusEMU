@@ -21,10 +21,7 @@ public sealed class RoomPromotionLoader(IDatabase database, TimeProvider clock) 
         var row = connection.QuerySingleOrDefault<PromotionRow>("""
             SELECT title, description, timestamp_start AS StartsAt, timestamp_expire AS ExpiresAt, category_id AS CategoryId
             FROM room_promotions WHERE room_id = @roomId AND timestamp_expire > UTC_TIMESTAMP(6) LIMIT 1
-            """, new
-        {
-            roomId
-        });
+            """, new { roomId });
 
         return row == null ? null : new(row.Title, row.Description, row.StartsAt, row.ExpiresAt, row.CategoryId, clock);
     }

@@ -13,18 +13,9 @@ public sealed record WiredVariableValue
         UpdatedAt = updatedAt?.ToUniversalTime();
     }
 
-    public int Value
-    {
-        get; init;
-    }
-    public DateTimeOffset? CreatedAt
-    {
-        get => _createdAt; init => _createdAt = value?.ToUniversalTime();
-    }
-    public DateTimeOffset? UpdatedAt
-    {
-        get => _updatedAt; init => _updatedAt = value?.ToUniversalTime();
-    }
+    public int Value { get; init; }
+    public DateTimeOffset? CreatedAt { get => _createdAt; init => _createdAt = value?.ToUniversalTime(); }
+    public DateTimeOffset? UpdatedAt { get => _updatedAt; init => _updatedAt = value?.ToUniversalTime(); }
 }
 public sealed record WiredVariableWrite(WiredVariableValue? Before, WiredVariableValue? After)
 {
@@ -33,10 +24,7 @@ public sealed record WiredVariableWrite(WiredVariableValue? Before, WiredVariabl
 public sealed record WiredVariableChange(uint RoomId, WiredVariableKey Key, WiredVariableChangeKind Kind,
     WiredVariableValue? Before, WiredVariableValue? After, int EntityId, int Depth)
 {
-    public int Origin
-    {
-        get; init;
-    } // 0 Wired, 1 API, 2 creator tools; active editor mask bits.
+    public int Origin { get; init; } // 0 Wired, 1 API, 2 creator tools; active editor mask bits.
     public string InternalKey { get; init; } = "";
 }
 

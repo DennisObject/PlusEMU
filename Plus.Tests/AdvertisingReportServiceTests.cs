@@ -122,10 +122,7 @@ public sealed class AdvertisingReportServiceTests
 
     private sealed class FixedClock : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
@@ -136,10 +133,7 @@ public sealed class AdvertisingReportServiceTests
 
     private sealed class RecordingService : IAdvertisingReportService
     {
-        public int TargetId
-        {
-            get; private set;
-        }
+        public int TargetId { get; private set; }
         public void Submit(GameClient reporter, int targetId) => TargetId = targetId;
     }
 }

@@ -55,8 +55,7 @@ public static class Program
         services.AddDefaultRules(typeof(Program).Assembly);
         services.AddSingleton(TimeProvider.System);
 
-        foreach (var plugin in pluginDefinitions)
-        {
+        foreach (var plugin in pluginDefinitions) {
             plugin.OnServicesConfigured();
         }
 
@@ -75,8 +74,7 @@ public static class Program
         ExceptionLogger.Configure(loggerFactory);
         ConsoleCommands.Configure(loggerFactory);
 
-        foreach (var plugin in pluginDefinitions)
-        {
+        foreach (var plugin in pluginDefinitions) {
             plugin.OnServiceProviderBuild(serviceProvider);
         }
 
@@ -88,8 +86,7 @@ public static class Program
         var environment = serviceProvider.GetRequiredService<IPlusEnvironment>();
         var started = await environment.Start();
 
-        if (!started)
-        {
+        if (!started) {
             Environment.Exit(1);
 
             return;
@@ -100,25 +97,21 @@ public static class Program
         using var sigterm = PosixSignalRegistration.Create(PosixSignal.SIGTERM, OnStopSignal);
         using var sigint = PosixSignalRegistration.Create(PosixSignal.SIGINT, OnStopSignal);
 
-        if (Console.IsInputRedirected)
-        {
+        if (Console.IsInputRedirected) {
             await Task.Delay(Timeout.Infinite);
 
             return;
         }
 
-        while (true)
-        {
-            if (Console.ReadKey(true).Key != ConsoleKey.Enter)
-            {
+        while (true) {
+            if (Console.ReadKey(true).Key != ConsoleKey.Enter) {
                 continue;
             }
 
             Console.Write("plus> ");
             var input = Console.ReadLine();
 
-            if (string.IsNullOrEmpty(input))
-            {
+            if (string.IsNullOrEmpty(input)) {
                 continue;
             }
 
@@ -141,13 +134,11 @@ public static class Program
 
     private static IServiceCollection AddDefaultRules(this IServiceCollection services, Assembly assembly)
     {
-        foreach (var type in assembly.GetTypes().Where(t => t.IsInterface && t.GetCustomAttributes<SingletonAttribute>().Any()).Concat(_defaultTypes[ServiceLifetime.Singleton]).Distinct())
-        {
+        foreach (var type in assembly.GetTypes().Where(t => t.IsInterface && t.GetCustomAttributes<SingletonAttribute>().Any()).Concat(_defaultTypes[ServiceLifetime.Singleton]).Distinct()) {
             services.AddAssignableTo(assembly, type, ServiceLifetime.Singleton);
         }
 
-        foreach (var type in assembly.GetTypes().Where(t => t.IsInterface && t.GetCustomAttributes<ScopedAttribute>().Any()).Concat(_defaultTypes[ServiceLifetime.Scoped]).Distinct())
-        {
+        foreach (var type in assembly.GetTypes().Where(t => t.IsInterface && t.GetCustomAttributes<ScopedAttribute>().Any()).Concat(_defaultTypes[ServiceLifetime.Scoped]).Distinct()) {
             services.AddAssignableTo(assembly, type, ServiceLifetime.Scoped);
         }
 
@@ -164,25 +155,21 @@ public static class Program
     {
         var pluginDefinitions = new List<IPluginDefinition>();
 
-        try
-        {
+        try {
             services.AddDefaultRules(pluginAssembly);
 
             foreach (var pluginDefinition in pluginAssembly.DefinedTypes.Where(t =>
-                         t.ImplementedInterfaces.Contains(typeof(IPluginDefinition))))
-            {
+                         t.ImplementedInterfaces.Contains(typeof(IPluginDefinition)))) {
                 var plugin = (IPluginDefinition?)Activator.CreateInstance(pluginDefinition);
 
-                if (plugin != null)
-                {
+                if (plugin != null) {
                     plugin.ConfigureServices(services);
                     services.AddSingleton(plugin);
                     pluginDefinitions.Add(plugin);
                 }
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             Console.WriteLine($"Failed to load plugin assembly {pluginAssembly.FullName}. Possibly outdated. {e.Message}");
         }
 
@@ -202,8 +189,7 @@ public static class Program
     {
         context.Cancel = true;
 
-        if (Interlocked.Exchange(ref _stopRequested, 1) == 0)
-        {
+        if (Interlocked.Exchange(ref _stopRequested, 1) == 0) {
             new Thread(PlusEnvironment.PerformShutDown) { Name = "Shutdown" }.Start();
         }
     }

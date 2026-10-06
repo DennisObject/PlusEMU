@@ -16,49 +16,23 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
     {
         Instance = room;
         Item = item;
-        Descriptor = descriptor with
-        {
-            Support = WiredBoxSupport.Implemented
-        };
+        Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
         _variables = variables;
         _textConnector = textConnector;
         Configuration = descriptor.CanonicalName == "wf_xtra_text_output_variable"
-            ? new()
-            {
-                IntParams = [0, 1, 1, 0, 0],
-                Text = "\tvalue\t, "
-            }
-            : new()
-            {
-                IntParams = [0, 0, 1, 0, 0, 0],
-                Text = "\t"
-            };
+            ? new() { IntParams = [0, 1, 1, 0, 0], Text = "\tvalue\t, " }
+            : new() { IntParams = [0, 0, 1, 0, 0, 0], Text = "\t" };
     }
     public static bool Supports(string name) => name is "wf_xtra_filter_furni_by_var" or "wf_xtra_filter_users_by_var" or "wf_xtra_text_output_variable";
-    public Room Instance
-    {
-        get; set;
-    }
-    public Item Item
-    {
-        get; set;
-    }
-    public WiredBoxDescriptor Descriptor
-    {
-        get;
-    }
-    public WiredConfiguration Configuration
-    {
-        get; private set;
-    }
+    public Room Instance { get; set; }
+    public Item Item { get; set; }
+    public WiredBoxDescriptor Descriptor { get; }
+    public WiredConfiguration Configuration { get; private set; }
     public WiredBoxType Type => WiredBoxType.None;
     public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
     public string StringData { get; set; } = "";
     public string ItemsData { get; set; } = "";
-    public bool BoolData
-    {
-        get; set;
-    }
+    public bool BoolData { get; set; }
     public bool AfterConditions => false;
     public void Reset()
     {
@@ -78,24 +52,20 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
         var p = proposed.IntParams;
         var tokens = proposed.Text.Split('\t');
 
-        if (proposed.Version != 1 || proposed.Text.Length > 5000 || !Token(tokens[0]))
-        {
+        if (proposed.Version != 1 || proposed.Text.Length > 5000 || !Token(tokens[0])) {
             return false;
         }
 
-        if (Descriptor.CanonicalName == "wf_xtra_text_output_variable")
-        {
+        if (Descriptor.CanonicalName == "wf_xtra_text_output_variable") {
             if (p.Length != 5 || !Enum.IsDefined((WiredVariableTarget)p[0]) || p[1] is not (1 or 2) || p[2] is not (1 or 2)
                 || !Source(p[3]) || !Source(p[4]) || tokens.Length != 3 || tokens[1].Length is < 1 or > 32 || tokens[2].Length > 16
-                || tokens[1].Contains('\n') || tokens[1].Contains('\r') || tokens[2].Contains('\n') || tokens[2].Contains('\r'))
-            {
+                || tokens[1].Contains('\n') || tokens[1].Contains('\r') || tokens[2].Contains('\n') || tokens[2].Contains('\r')) {
                 return false;
             }
         }
         else if (p.Length != 6 || p[0] is < 0 or > 5 || p[1] is not (0 or 1) || p[2] is < 0 or > 10000
             || !Enum.IsDefined((WiredVariableTarget)p[3]) || !Source(p[4]) || !Source(p[5])
-            || tokens.Length != 2 || p[1] == 1 && !Token(tokens[1]))
-        {
+            || tokens.Length != 2 || p[1] == 1 && !Token(tokens[1])) {
             return false;
         }
 
@@ -107,13 +77,11 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
     {
         var configuration = context.ConfigurationOf(this);
 
-        if (!ReferenceEquals(context.Room, Instance) || !TryValidateConfiguration(configuration, out _, out _))
-        {
+        if (!ReferenceEquals(context.Room, Instance) || !TryValidateConfiguration(configuration, out _, out _)) {
             return false;
         }
 
-        if (Descriptor.CanonicalName == "wf_xtra_text_output_variable")
-        {
+        if (Descriptor.CanonicalName == "wf_xtra_text_output_variable") {
             context.Policy.TextFormatters.Add((current, text) => Format(current, configuration, text));
 
             return true;
@@ -126,8 +94,7 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
         var target = Descriptor.CanonicalName == "wf_xtra_filter_users_by_var" ? WiredVariableTarget.User : WiredVariableTarget.Furni;
         var count = p[2];
 
-        if (p[1] == 1)
-        {
+        if (p[1] == 1) {
             using var queries = new WiredVariableQueries(_variables, frame);
             count = (int)Math.Clamp(queries.ReadOperand((WiredVariableTarget)p[3], tokens[1], p[4], p[5], configuration) ?? 0, 0, 10000);
         }
@@ -136,13 +103,11 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
             ? context.Selected.UserIds.Contains(holder.EntityId) : context.Selected.FurniIds.Contains(unchecked((uint)holder.EntityId))));
         var kept = WiredVariablePredicates.Filter(_variables, new(target, tokens[0]), candidates, frame, p[0], count);
 
-        if (target == WiredVariableTarget.User)
-        {
+        if (target == WiredVariableTarget.User) {
             context.Selected.UserIds.Clear();
             context.Selected.UserIds.UnionWith(kept.Select(x => x.EntityId));
         }
-        else
-        {
+        else {
             context.Selected.FurniIds.Clear();
             context.Selected.FurniIds.UnionWith(kept.Select(x => unchecked((uint)x.EntityId)));
         }
@@ -155,8 +120,7 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
         var tokens = configuration.Text.Split('\t');
         var placeholder = "$(" + tokens[1] + ")";
 
-        if (!text.Contains(placeholder, StringComparison.Ordinal))
-        {
+        if (!text.Contains(placeholder, StringComparison.Ordinal)) {
             return text;
         }
 

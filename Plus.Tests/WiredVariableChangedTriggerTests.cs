@@ -21,30 +21,14 @@ public sealed class WiredVariableChangedTriggerTests
         var reference = new WiredVariableReference(WiredVariableTarget.User, "custom:10");
         Assert.True(WiredBoxRegistry.TryGet("wf_trg_var_changed", out var descriptor));
         var trigger = new WiredVariableChangedTrigger(room, new Item { Id = 20 }, descriptor);
-        Assert.True(trigger.TryValidateConfiguration(new()
-        {
-            IntParams = [0, 1, 1, 1, 0, 0, 1, 4],
-            Text = "custom:10"
-        }, out var config, out _));
+        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 1, 1, 1, 0, 0, 1, 4], Text = "custom:10" }, out var config, out _));
         trigger.ApplyConfiguration(config);
-        bool Matches(WiredVariableChange change) => trigger.Execute(new WiredRuntimeContext(room, new(WiredEventKind.Variable)
-        {
-            VariableChange = change
-        }, new(() => [], () => []), new Operations()));
+        bool Matches(WiredVariableChange change) => trigger.Execute(new WiredRuntimeContext(room, new(WiredEventKind.Variable) { VariableChange = change }, new(() => [], () => []), new Operations()));
         Assert.True(module.Mutate(reference, holder, WiredVariableMutation.Give, 10, frame, origin: 2));
         var created = Assert.Single(module.DrainChanges());
         Assert.True(Matches(created));
-        Assert.False(Matches(created with
-        {
-            Origin = 0
-        }));
-        Assert.False(Matches(created with
-        {
-            Key = created.Key with
-            {
-                Target = WiredVariableTarget.Furni
-            }
-        }));
+        Assert.False(Matches(created with { Origin = 0 }));
+        Assert.False(Matches(created with { Key = created.Key with { Target = WiredVariableTarget.Furni } }));
         Assert.True(module.Mutate(reference, holder, WiredVariableMutation.Set, 20, frame, origin: 2));
         Assert.True(Matches(Assert.Single(module.DrainChanges())));
         Assert.True(module.Mutate(reference, holder, WiredVariableMutation.Set, 5, frame, origin: 2));
@@ -53,11 +37,7 @@ public sealed class WiredVariableChangedTriggerTests
         Assert.True(Matches(Assert.Single(module.DrainChanges())));
         Assert.False(module.Mutate(reference, holder, WiredVariableMutation.Set, 99, frame));
         Assert.Empty(module.DrainChanges());
-        Assert.False(trigger.Execute(new WiredRuntimeContext(room, new(WiredEventKind.Variable)
-        {
-            Code = 10,
-            Value = 42
-        }, new(() => [], () => []), new Operations())));
+        Assert.False(trigger.Execute(new WiredRuntimeContext(room, new(WiredEventKind.Variable) { Code = 10, Value = 42 }, new(() => [], () => []), new Operations())));
     }
     [Fact]
     public void SuccessfulBuiltinWritesEmitActualDeltaAndFailedOrEqualWritesEmitNothing()
@@ -86,8 +66,7 @@ public sealed class WiredVariableChangedTriggerTests
         public WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame) => new(_value, null, null);
         public bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame)
         {
-            if (!Accept)
-            {
+            if (!Accept) {
                 return false;
             }
 

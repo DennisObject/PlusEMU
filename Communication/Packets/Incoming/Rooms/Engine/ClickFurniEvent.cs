@@ -10,15 +10,15 @@ public sealed class ClickFurniEvent(IFurnitureUseService furniture) : RoomPacket
     {
         int wireId, category;
 
-        try
-        {
+        try {
             wireId = packet.ReadInt();
             category = packet.ReadInt();
         }
-        catch (ArgumentException) { return Task.CompletedTask; }
+        catch (ArgumentException) {
+            return Task.CompletedTask;
+        }
 
-        if (wireId == 0 || category is not (10 or 20) || packet.HasDataRemaining())
-        {
+        if (wireId == 0 || category is not (10 or 20) || packet.HasDataRemaining()) {
             return Task.CompletedTask;
         }
 

@@ -8,26 +8,11 @@ public enum ClaimKind : byte
 public sealed class ClaimMember(RoomUser actor)
 {
     public RoomUser Actor { get; } = actor;
-    public long GroupId
-    {
-        get; internal set;
-    }
-    public int? Slot
-    {
-        get; internal set;
-    }
-    public int Tile
-    {
-        get; internal set;
-    }
-    public bool Walking
-    {
-        get; internal set;
-    }
-    public ClaimMember? Next
-    {
-        get; internal set;
-    }
+    public long GroupId { get; internal set; }
+    public int? Slot { get; internal set; }
+    public int Tile { get; internal set; }
+    public bool Walking { get; internal set; }
+    public ClaimMember? Next { get; internal set; }
     internal List<(int Slot, ClaimKind Kind)> Claims { get; } = new(4);
 }
 
@@ -47,26 +32,11 @@ public sealed class ClaimLedger
     }
     // Lifetime ids are positive, so this group excludes nobody (roller cargo belongs to no actor).
     public const long NoGroup = long.MinValue;
-    public ClaimMember?[] Head
-    {
-        get; private set;
-    }
-    public ClaimMember?[] OffGraphHead
-    {
-        get;
-    }
-    public int[] Count
-    {
-        get; private set;
-    }
-    public int[] StationaryCount
-    {
-        get; private set;
-    }
-    public int[] TileCount
-    {
-        get;
-    }
+    public ClaimMember?[] Head { get; private set; }
+    public ClaimMember?[] OffGraphHead { get; }
+    public int[] Count { get; private set; }
+    public int[] StationaryCount { get; private set; }
+    public int[] TileCount { get; }
 
     public ClaimLedger(int slotCapacity, int tileCount)
     {
@@ -85,8 +55,7 @@ public sealed class ClaimLedger
     // Overflow slots only grow; existing slot-indexed state keeps its index (§5.3).
     internal void EnsureCapacity(int slots)
     {
-        if (slots <= Head.Length)
-        {
+        if (slots <= Head.Length) {
             return;
         }
 
@@ -100,12 +69,9 @@ public sealed class ClaimLedger
 
     public ClaimMember Move(RoomUser actor, int? slot, int tile, bool walking, long groupId)
     {
-        if (_members.TryGetValue(actor, out var member))
-        {
-            if (member.Slot == slot && member.Tile == tile)
-            {
-                if (slot is { } current && member.Walking != walking)
-                {
+        if (_members.TryGetValue(actor, out var member)) {
+            if (member.Slot == slot && member.Tile == tile) {
+                if (slot is { } current && member.Walking != walking) {
                     StationaryCount[current] += walking ? -1 : 1;
                 }
 
@@ -117,8 +83,7 @@ public sealed class ClaimLedger
 
             Unlink(member);
         }
-        else
-        {
+        else {
             member = new(actor);
             _members.Add(actor, member);
         }
@@ -134,8 +99,7 @@ public sealed class ClaimLedger
 
     public void Remove(RoomUser actor)
     {
-        if (!_members.TryGetValue(actor, out var member))
-        {
+        if (!_members.TryGetValue(actor, out var member)) {
             return;
         }
 
@@ -148,8 +112,7 @@ public sealed class ClaimLedger
     {
         var snapshot = new PlanningOccupancy(Head.Length);
 
-        for (var slot = 0; slot < Head.Length; slot++)
-        {
+        for (var slot = 0; slot < Head.Length; slot++) {
             snapshot.Targets[slot] = OccupancyAt(slot, excludingGroup);
         }
 
@@ -160,22 +123,18 @@ public sealed class ClaimLedger
     public bool TryClaim(RoomUser actor, int slot, ClaimKind kind, TargetOccupancy blockingMask,
         IReadOnlySet<RoomUser>? departing = null)
     {
-        if (!_members.TryGetValue(actor, out var member))
-        {
+        if (!_members.TryGetValue(actor, out var member)) {
             return false;
         }
 
-        if ((OccupancyAt(slot, member.GroupId, departing) & blockingMask) != 0)
-        {
+        if ((OccupancyAt(slot, member.GroupId, departing) & blockingMask) != 0) {
             return false;
         }
 
         var claims = _claims[slot] ??= new(4);
 
-        foreach (var existing in claims)
-        {
-            if (ReferenceEquals(existing.Owner, member) && existing.Kind == kind)
-            {
+        foreach (var existing in claims) {
+            if (ReferenceEquals(existing.Owner, member) && existing.Kind == kind) {
                 return true;
             }
         }
@@ -192,15 +151,12 @@ public sealed class ClaimLedger
     {
         var moved = new List<(Claim Claim, SurfaceRef Surface)>();
 
-        foreach (var (slot, surface) in released)
-        {
-            if (slot >= _claims.Length || _claims[slot] is not { Count: > 0 } claims)
-            {
+        foreach (var (slot, surface) in released) {
+            if (slot >= _claims.Length || _claims[slot] is not { Count: > 0 } claims) {
                 continue;
             }
 
-            foreach (var claim in claims)
-            {
+            foreach (var claim in claims) {
                 claim.Owner.Claims.RemoveAll(owned => owned.Slot == slot);
                 moved.Add((claim, surface));
             }
@@ -208,20 +164,17 @@ public sealed class ClaimLedger
             claims.Clear();
         }
 
-        foreach (var (claim, surface) in moved)
-        {
+        foreach (var (claim, surface) in moved) {
             var slot = liveSlot(surface);
 
-            if (slot < 0)
-            {
+            if (slot < 0) {
                 continue;
             }
 
             EnsureCapacity(slot + 1);
             var claims = _claims[slot] ??= new(4);
 
-            if (claims.Contains(claim))
-            {
+            if (claims.Contains(claim)) {
                 continue;
             }
 
@@ -232,29 +185,25 @@ public sealed class ClaimLedger
 
     public void Release(RoomUser actor)
     {
-        if (_members.TryGetValue(actor, out var member))
-        {
+        if (_members.TryGetValue(actor, out var member)) {
             ReleaseClaims(member, ReleaseMode.All);
         }
     }
 
     public void ReleaseBatch(RoomUser actor)
     {
-        if (_members.TryGetValue(actor, out var member))
-        {
+        if (_members.TryGetValue(actor, out var member)) {
             ReleaseClaims(member, ReleaseMode.Batch);
         }
     }
 
     public void ReleaseRollers()
     {
-        foreach (var member in _members.Values)
-        {
+        foreach (var member in _members.Values) {
             ReleaseClaims(member, ReleaseMode.Roller);
         }
 
-        foreach (var tile in _cargoTiles)
-        {
+        foreach (var tile in _cargoTiles) {
             _cargoReservations[tile] = 0;
         }
 
@@ -264,16 +213,13 @@ public sealed class ClaimLedger
     // Cargo excludes a whole destination tile, so its reservation is keyed by tile and never follows a slot.
     public bool TryReserveCargo(int tile, TargetOccupancy blockingMask, IReadOnlySet<RoomUser>? departing)
     {
-        foreach (var slot in TileSlots(tile))
-        {
-            if ((OccupancyAt(slot, NoGroup, departing) & blockingMask) != 0)
-            {
+        foreach (var slot in TileSlots(tile)) {
+            if ((OccupancyAt(slot, NoGroup, departing) & blockingMask) != 0) {
                 return false;
             }
         }
 
-        if (_cargoReservations[tile]++ == 0)
-        {
+        if (_cargoReservations[tile]++ == 0) {
             _cargoTiles.Add(tile);
         }
 
@@ -282,8 +228,7 @@ public sealed class ClaimLedger
 
     public void ReleaseCargo(int tile)
     {
-        if (_cargoReservations[tile] > 0 && --_cargoReservations[tile] == 0)
-        {
+        if (_cargoReservations[tile] > 0 && --_cargoReservations[tile] == 0) {
             _cargoTiles.Remove(tile);
         }
     }
@@ -293,15 +238,12 @@ public sealed class ClaimLedger
     {
         yield return tile;
 
-        if (_grid == null)
-        {
+        if (_grid == null) {
             yield break;
         }
 
-        for (var ordinal = 0; ordinal < _grid.SurfaceCount(tile); ordinal++)
-        {
-            if (_grid.SurfaceAt(tile, ordinal) != tile && _grid.SurfaceAt(tile, ordinal) < Head.Length)
-            {
+        for (var ordinal = 0; ordinal < _grid.SurfaceCount(tile); ordinal++) {
+            if (_grid.SurfaceAt(tile, ordinal) != tile && _grid.SurfaceAt(tile, ordinal) < Head.Length) {
                 yield return _grid.SurfaceAt(tile, ordinal);
             }
         }
@@ -309,8 +251,7 @@ public sealed class ClaimLedger
 
     public void ReleaseRollers(RoomUser actor)
     {
-        if (_members.TryGetValue(actor, out var member))
-        {
+        if (_members.TryGetValue(actor, out var member)) {
             ReleaseClaims(member, ReleaseMode.Roller);
         }
     }
@@ -321,40 +262,31 @@ public sealed class ClaimLedger
     {
         var result = TargetOccupancy.None;
 
-        for (var member = Head[slot]; member != null; member = member.Next)
-        {
-            if (Counts(member, excludingGroup, departing))
-            {
+        for (var member = Head[slot]; member != null; member = member.Next) {
+            if (Counts(member, excludingGroup, departing)) {
                 result |= member.Walking ? TargetOccupancy.Walking : TargetOccupancy.Stationary;
             }
         }
 
         var tile = _grid?.TileOf(slot) ?? slot;
 
-        if (tile < OffGraphHead.Length)
-        {
-            for (var member = OffGraphHead[tile]; member != null; member = member.Next)
-            {
-                if (Counts(member, excludingGroup, departing))
-                {
+        if (tile < OffGraphHead.Length) {
+            for (var member = OffGraphHead[tile]; member != null; member = member.Next) {
+                if (Counts(member, excludingGroup, departing)) {
                     result |= TargetOccupancy.OffGraph;
                 }
             }
         }
 
-        if (_claims[slot] is { } claims)
-        {
-            foreach (var claim in claims)
-            {
-                if (Counts(claim.Owner, excludingGroup, departing))
-                {
+        if (_claims[slot] is { } claims) {
+            foreach (var claim in claims) {
+                if (Counts(claim.Owner, excludingGroup, departing)) {
                     result |= ClaimBit(claim.Kind);
                 }
             }
         }
 
-        if (tile < _cargoReservations.Length && _cargoReservations[tile] != 0)
-        {
+        if (tile < _cargoReservations.Length && _cargoReservations[tile] != 0) {
             result |= TargetOccupancy.RollerClaim;
         }
 
@@ -366,19 +298,16 @@ public sealed class ClaimLedger
 
     private void Link(ClaimMember member)
     {
-        if (member.Slot is { } slot)
-        {
+        if (member.Slot is { } slot) {
             member.Next = Head[slot];
             Head[slot] = member;
             Count[slot]++;
 
-            if (!member.Walking)
-            {
+            if (!member.Walking) {
                 StationaryCount[slot]++;
             }
         }
-        else
-        {
+        else {
             member.Next = OffGraphHead[member.Tile];
             OffGraphHead[member.Tile] = member;
         }
@@ -391,30 +320,24 @@ public sealed class ClaimLedger
         var head = member.Slot is { } slot ? Head[slot] : OffGraphHead[member.Tile];
         ClaimMember? previous = null;
 
-        for (var current = head; current != null && !ReferenceEquals(current, member); current = current.Next)
-        {
+        for (var current = head; current != null && !ReferenceEquals(current, member); current = current.Next) {
             previous = current;
         }
 
-        if (previous != null)
-        {
+        if (previous != null) {
             previous.Next = member.Next;
         }
-        else if (member.Slot is { } firstSlot)
-        {
+        else if (member.Slot is { } firstSlot) {
             Head[firstSlot] = member.Next;
         }
-        else
-        {
+        else {
             OffGraphHead[member.Tile] = member.Next;
         }
 
-        if (member.Slot is { } oldSlot)
-        {
+        if (member.Slot is { } oldSlot) {
             Count[oldSlot]--;
 
-            if (!member.Walking)
-            {
+            if (!member.Walking) {
                 StationaryCount[oldSlot]--;
             }
         }
@@ -425,22 +348,18 @@ public sealed class ClaimLedger
 
     private void ReleaseClaims(ClaimMember member, ReleaseMode mode)
     {
-        for (var index = member.Claims.Count - 1; index >= 0; index--)
-        {
+        for (var index = member.Claims.Count - 1; index >= 0; index--) {
             var (slot, kind) = member.Claims[index];
 
             if (mode == ReleaseMode.Batch && kind == ClaimKind.Roller
-                || mode == ReleaseMode.Roller && kind != ClaimKind.Roller)
-            {
+                || mode == ReleaseMode.Roller && kind != ClaimKind.Roller) {
                 continue;
             }
 
             var claims = _claims[slot]!;
 
-            for (var entry = claims.Count - 1; entry >= 0; entry--)
-            {
-                if (ReferenceEquals(claims[entry].Owner, member) && claims[entry].Kind == kind)
-                {
+            for (var entry = claims.Count - 1; entry >= 0; entry--) {
+                if (ReferenceEquals(claims[entry].Owner, member) && claims[entry].Kind == kind) {
                     claims.RemoveAt(entry);
                 }
             }

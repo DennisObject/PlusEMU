@@ -22,8 +22,7 @@ public class IntArrayDataFormat : FurniObjectData
     {
         Data.Clear();
 
-        if (data == string.Empty)
-        {
+        if (data == string.Empty) {
             data = "0";
         }
 
@@ -32,20 +31,17 @@ public class IntArrayDataFormat : FurniObjectData
 
     public void UpdateRange(List<int> data, int offset = 0)
     {
-        if (offset < 0)
-        {
+        if (offset < 0) {
             throw new IndexOutOfRangeException("Offset must be positive");
         }
 
         var minimumCapacity = data.Count + offset;
 
-        if (minimumCapacity > Data.Count)
-        {
+        if (minimumCapacity > Data.Count) {
             Data.AddRange(Enumerable.Repeat(0, minimumCapacity - Data.Count));
         }
 
-        for (var i = 0; i < data.Count; i++)
-        {
+        for (var i = 0; i < data.Count; i++) {
             Data[i + offset] = data[i];
         }
 

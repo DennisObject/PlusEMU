@@ -4,18 +4,9 @@ namespace Plus.Plugins;
 
 public interface IPluginDefinition
 {
-    string Name
-    {
-        get;
-    }
-    string Author
-    {
-        get;
-    }
-    Version Version
-    {
-        get;
-    }
+    string Name { get; }
+    string Author { get; }
+    Version Version { get; }
 
     void ConfigureServices(IServiceCollection serviceCollection)
     {
@@ -27,8 +18,5 @@ public interface IPluginDefinition
     {
     }
 
-    Type PluginClass
-    {
-        get;
-    }
+    Type PluginClass { get; }
 }

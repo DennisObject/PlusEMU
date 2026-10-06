@@ -41,12 +41,9 @@ public class TradingComponent
 
     public void Cleanup()
     {
-        foreach (var trade in _activeTrades.Values)
-        {
-            foreach (var user in trade.Users)
-            {
-                if (user == null || user.RoomUser == null)
-                {
+        foreach (var trade in _activeTrades.Values) {
+            foreach (var user in trade.Users) {
+                if (user == null || user.RoomUser == null) {
                     continue;
                 }
 

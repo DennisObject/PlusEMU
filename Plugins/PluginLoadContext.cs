@@ -24,12 +24,10 @@ public class PluginLoadContext : AssemblyLoadContext
         _resolver = new(pluginPath);
         _assemblies = Directory.GetFiles(pluginPath).Where(f => f.EndsWith(".dll")).Select(f =>
         {
-            try
-            {
+            try {
                 return Assembly.LoadFrom(f);
             }
-            catch (Exception)
-            {
+            catch (Exception) {
                 // Ignored
                 return null;
             }
@@ -47,8 +45,7 @@ public class PluginLoadContext : AssemblyLoadContext
     {
         var existingAssembly = Default.Assemblies.FirstOrDefault(a => a.GetName().Equals(assemblyName)) ?? Default.Assemblies.FirstOrDefault(a => a.GetName(true).Name!.Equals(assemblyName.Name));
 
-        if (existingAssembly != null)
-        {
+        if (existingAssembly != null) {
             return existingAssembly;
         }
 

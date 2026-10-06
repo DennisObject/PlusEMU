@@ -10,8 +10,7 @@ public static class WiredVariableArithmetic
     public static bool IsUnary(int operation) => operation is 60 or 103 or 110;
     public static int Apply(int operation, int current, int operand, Random? random = null)
     {
-        if (!IsSupported(operation))
-        {
+        if (!IsSupported(operation)) {
             throw new ArgumentOutOfRangeException(nameof(operation));
         }
 
@@ -46,8 +45,7 @@ public static class WiredVariableArithmetic
     }
     private static long Power(int current, int operand)
     {
-        if (operand < 0)
-        {
+        if (operand < 0) {
             return 0;
         }
 
@@ -61,10 +59,8 @@ public static class WiredVariableArithmetic
         var high = operation is 112 or 114 or 120 or 122;
         var start = (long)operand + (operation >= 119 ? (forward ? 1 : -1) : 0);
 
-        for (var bit = start; bit is >= 0 and < 32; bit += forward ? 1 : -1)
-        {
-            if ((((uint)current >> (int)bit & 1) != 0) == high)
-            {
+        for (var bit = start; bit is >= 0 and < 32; bit += forward ? 1 : -1) {
+            if ((((uint)current >> (int)bit & 1) != 0) == high) {
                 return (int)bit;
             }
         }

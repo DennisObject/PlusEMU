@@ -20,8 +20,7 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
 {
     public void ShowCatalogHash(Room room, GameClient session)
     {
-        if (!room.GetWired().Settings.CanInspect(session))
-        {
+        if (!room.GetWired().Settings.CanInspect(session)) {
             return;
         }
 
@@ -30,21 +29,18 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
 
     public void ShowCatalogDiff(Room room, GameClient session, IReadOnlyDictionary<string, int> known)
     {
-        if (!room.GetWired().Settings.CanInspect(session))
-        {
+        if (!room.GetWired().Settings.CanInspect(session)) {
             return;
         }
 
-        foreach (var diff in room.GetWired().Variables.Catalog().Diff(known))
-        {
+        foreach (var diff in room.GetWired().Variables.Catalog().Diff(known)) {
             session.Send(new WiredAllVariablesDiffComposer(diff));
         }
     }
 
     public void ShowSnapshot(Room room, GameClient session)
     {
-        if (!room.GetWired().Settings.CanInspect(session))
-        {
+        if (!room.GetWired().Settings.CanInspect(session)) {
             return;
         }
 
@@ -53,38 +49,33 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
 
     public void ShowHolders(Room room, GameClient session, string id)
     {
-        if (!room.GetWired().Settings.CanInspect(session))
-        {
+        if (!room.GetWired().Settings.CanInspect(session)) {
             return;
         }
 
         var menu = Menu(room);
 
-        if (menu.Catalog().Find(id) is { } variable)
-        {
+        if (menu.Catalog().Find(id) is { } variable) {
             session.Send(new WiredVariableHoldersComposer(room.Id, variable, menu.Live(variable)));
         }
     }
 
     public void ShowHolderPage(Room room, GameClient session, string id, int page, int size, int users, int sort)
     {
-        if (!room.GetWired().Settings.CanInspect(session))
-        {
+        if (!room.GetWired().Settings.CanInspect(session)) {
             return;
         }
 
         var menu = Menu(room);
 
-        if (menu.Catalog().Find(id) is { } variable)
-        {
+        if (menu.Catalog().Find(id) is { } variable) {
             session.Send(new WiredVariableHoldersPageComposer(id, menu.Page(variable, page, size, users, sort), users, sort));
         }
     }
 
     public void Write(Room room, GameClient session, WiredVariableMenuWrite request)
     {
-        if (!room.GetWired().Settings.CanModify(session))
-        {
+        if (!room.GetWired().Settings.CanModify(session)) {
             return;
         }
 
@@ -98,22 +89,18 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
     {
         var settings = room.GetWired().Settings;
 
-        if (!settings.CanModify(session))
-        {
+        if (!settings.CanModify(session)) {
             return;
         }
 
         var menu = Menu(room);
 
-        if (request.Action == 2)
-        {
-            if (settings.CanManage(session))
-            {
+        if (request.Action == 2) {
+            if (settings.CanManage(session)) {
                 menu.Clear(request.Target, request.DefinitionId);
             }
         }
-        else
-        {
+        else {
             menu.Write(request.Target, request.TargetId, request.DefinitionId, request.Value,
             request.Action == 1 ? WiredVariableMutation.Remove : WiredVariableMutation.Replace);
         }

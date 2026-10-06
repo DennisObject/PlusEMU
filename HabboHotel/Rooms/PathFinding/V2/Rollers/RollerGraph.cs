@@ -12,12 +12,10 @@ internal sealed class RollerGraph
     {
         Loads = loads;
 
-        foreach (var load in loads)
-        {
+        foreach (var load in loads) {
             _byOrigin[load.Origin] = load;
 
-            if (!_feeders.TryGetValue(load.Destination, out var feeders))
-            {
+            if (!_feeders.TryGetValue(load.Destination, out var feeders)) {
                 _feeders[load.Destination] = feeders = new();
             }
 
@@ -25,10 +23,7 @@ internal sealed class RollerGraph
         }
     }
 
-    internal IReadOnlyList<RollerLoad> Loads
-    {
-        get;
-    }
+    internal IReadOnlyList<RollerLoad> Loads { get; }
 
     internal RollerLoad? At(Point tile) => _byOrigin.GetValueOrDefault(tile);
 
@@ -40,20 +35,17 @@ internal sealed class RollerGraph
         var loops = new List<IReadOnlyList<RollerLoad>>();
         var done = new HashSet<RollerLoad>(ReferenceEqualityComparer.Instance);
 
-        foreach (var start in Loads)
-        {
+        foreach (var start in Loads) {
             var path = new List<RollerLoad>();
 
-            for (var load = start; load != null && done.Add(load); load = At(load.Destination))
-            {
+            for (var load = start; load != null && done.Add(load); load = At(load.Destination)) {
                 path.Add(load);
             }
 
             var last = path.Count == 0 ? null : At(path[^1].Destination);
             var entry = last == null ? -1 : path.IndexOf(last);
 
-            if (entry >= 0)
-            {
+            if (entry >= 0) {
                 loops.Add(path.GetRange(entry, path.Count - entry));
             }
         }

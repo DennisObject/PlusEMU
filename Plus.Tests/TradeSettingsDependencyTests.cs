@@ -15,10 +15,7 @@ public sealed class TradeSettingsDependencyTests
     [InlineData(true)]
     public void CompletionUsesInjectedLiveRedemptionSettingWithGlobalUnavailable(bool redeem)
     {
-        var settings = new TestRoomSettings(new()
-        {
-            ["trading.auto_exchange_redeemables"] = redeem ? "0" : "1"
-        });
+        var settings = new TestRoomSettings(new() { ["trading.auto_exchange_redeemables"] = redeem ? "0" : "1" });
         using var fixture = new TradeConfirmationServiceTests.TradeFixture(settings);
         var alice = fixture.Join(1, 7);
         var bob = fixture.Join(2, 8);
@@ -44,26 +41,25 @@ public sealed class TradeSettingsDependencyTests
         var global = typeof(PlusEnvironment).GetField("_settingsManager", BindingFlags.Static | BindingFlags.NonPublic)!;
         var previous = global.GetValue(null);
 
-        try
-        {
+        try {
             global.SetValue(null, null);
             trade.Finish();
         }
-        finally { global.SetValue(null, previous); }
+        finally {
+            global.SetValue(null, previous);
+        }
 
         Assert.Null(alice.Habbo.Inventory.Furniture.GetItem(voucher.Id));
         Assert.Equal(redeem ? 17 : 7, bob.Habbo.Credits);
 
-        if (redeem)
-        {
+        if (redeem) {
             Assert.Null(bob.Habbo.Inventory.Furniture.GetItem(voucher.Id));
             Assert.Equal(new uint[] { ServerPacketHeader.CreditBalanceComposer, ServerPacketHeader.TradingFinishComposer }, bob.Sent);
             var packet = new FlashIncomingPacket { Buffer = bob.Packets[0].Payload };
             Assert.Equal("17.0", packet.ReadString());
             Assert.False(packet.HasDataRemaining());
         }
-        else
-        {
+        else {
             Assert.Same(voucher, bob.Habbo.Inventory.Furniture.GetItem(voucher.Id));
             Assert.Equal(new uint[] { ServerPacketHeader.FurniListAddComposer, ServerPacketHeader.FurniListNotificationComposer,
                 ServerPacketHeader.TradingFinishComposer }, bob.Sent);

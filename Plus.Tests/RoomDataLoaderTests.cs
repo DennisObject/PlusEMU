@@ -80,8 +80,7 @@ public sealed class RoomDataLoaderTests
         var schema = "room_data_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             connection.Execute($"USE `{schema}`");
             connection.Execute("""
                 CREATE TABLE users (id INT PRIMARY KEY, username VARCHAR(100) NULL);
@@ -135,9 +134,7 @@ public sealed class RoomDataLoaderTests
             var promotions = new RecordingPromotionLoader();
             var loader = new RoomDataLoader(new ProbeDatabase(new MySqlConnectionStringBuilder(
                 Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
-            {
-                Database = schema
-            }.ConnectionString),
+            { Database = schema }.ConnectionString),
                 manager, groups, promotions);
 
             Assert.False(loader.TryGetData(404, out _));
@@ -163,8 +160,7 @@ public sealed class RoomDataLoaderTests
             Assert.Equal(["Alpha", "Zulu"], owned.Select(roomData => roomData.Name).ToArray());
             Assert.Equal([2u, 1u], promotions.Loaded);
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
@@ -207,10 +203,7 @@ public sealed class RoomDataLoaderTests
 
     private sealed class RecordingPromotionLoader : IRoomPromotionLoader
     {
-        public RoomPromotion Promotion
-        {
-            get;
-        } = new("promotion", "details",
+        public RoomPromotion Promotion { get; } = new("promotion", "details",
             new DateTimeOffset(2039, 1, 1, 0, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2039, 1, 1, 1, 0, 0, TimeSpan.Zero), 1, TimeProvider.System);
         public List<uint> Loaded { get; } = [];

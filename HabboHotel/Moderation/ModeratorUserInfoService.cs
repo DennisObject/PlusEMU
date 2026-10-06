@@ -15,8 +15,7 @@ public sealed class ModeratorUserInfoService(IModerationUserStore users, IGameCl
     {
         var user = users.Find(userId);
 
-        if (user == null)
-        {
+        if (user == null) {
             session.SendNotification(language.TryGetValue("user.not_found"));
 
             return;

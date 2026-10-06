@@ -17,8 +17,7 @@ public static class WiredVariablePredicates
     public static IReadOnlyList<WiredVariableHolder> Filter(WiredVariableModule variables, WiredVariableReference reference,
         IEnumerable<WiredVariableHolder> holders, WiredVariableFrame frame, int sort, int count)
     {
-        if (sort is < 0 or > 5)
-        {
+        if (sort is < 0 or > 5) {
             return [];
         }
 

@@ -37,12 +37,10 @@ public partial class PlacedFurniRoomTests
         var actor = GeometrySeatedActor();
         events.Clear();
 
-        if (blocker)
-        {
+        if (blocker) {
             GeometryMoveBlockerThroughActor(actor);
         }
-        else
-        {
+        else {
             Add(11, 1, 1, type: InteractionType.WalkMagicTile);
         }
 
@@ -51,12 +49,10 @@ public partial class PlacedFurniRoomTests
         Assert.False(actor.HasStatus("sit"));
         Assert.False(actor.HasStatus("lay"));
 
-        if (blocker)
-        {
+        if (blocker) {
             Assert.Null(actor.Movement.CurrentRef);
         }
-        else
-        {
+        else {
             Assert.Equal(SurfaceKind.WalkMagic, actor.Movement.CurrentRef!.Value.Kind);
         }
 
@@ -77,8 +73,7 @@ public partial class PlacedFurniRoomTests
         var observed = new List<long>();
         ExecutorObserveLanding((user, item) =>
         {
-            if (item != landing)
-            {
+            if (item != landing) {
                 return;
             }
 
@@ -157,8 +152,7 @@ public partial class PlacedFurniRoomTests
     {
         ExecutorObserveLanding((_, item) =>
         {
-            if (item != landing)
-            {
+            if (item != landing) {
                 return;
             }
 

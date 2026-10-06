@@ -9,15 +9,13 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
     {
         var state = actor.Movement;
 
-        if (state.PendingCount == 0)
-        {
+        if (state.PendingCount == 0) {
             context.Geometry.FinishInvalidation(actor);
 
             return false;
         }
 
-        if (ReplacedSeatGoal(actor))
-        {
+        if (ReplacedSeatGoal(actor)) {
             cancellation.Cancel(actor);
 
             return false;
@@ -29,28 +27,24 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
         state.PendingCount = 0;
         actor.SetStep = false;
 
-        if (accepted > 0)
-        {
+        if (accepted > 0) {
             LandPending(actor, accepted);
         }
 
         context.Claims.ReleaseBatch(actor);
 
-        if (state.State != NavState.Active || state.LocationRevision != revision)
-        {
+        if (state.State != NavState.Active || state.LocationRevision != revision) {
             return accepted > 0;
         }
 
-        if (accepted > 0)
-        {
+        if (accepted > 0) {
             state.WaitTicks = state.BlockReplans = state.StallTicks = 0;
         }
 
         var arrived = Advance(actor, accepted, count);
         context.Geometry.FinishInvalidation(actor);
 
-        if (arrived)
-        {
+        if (arrived) {
             approaches.Complete(actor, revision);
         }
 
@@ -60,11 +54,12 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
     {
         actor.Movement.LandingInProgress = true;
 
-        try
-        {
+        try {
             _landing.Land(actor, actor.Movement.Pending[accepted - 1], actor.Movement.PendingView);
         }
-        finally { actor.Movement.LandingInProgress = false; }
+        finally {
+            actor.Movement.LandingInProgress = false;
+        }
     }
     private bool ReplacedSeatGoal(RoomUser actor)
     {
@@ -82,15 +77,13 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
         var state = actor.Movement;
         state.Cursor += accepted;
 
-        if (accepted != count)
-        {
+        if (accepted != count) {
             fallback.OnRouteBlocked(actor);
 
             return false;
         }
 
-        if (state.Cursor < state.Route.Count || !fallback.RouteFinished(state))
-        {
+        if (state.Cursor < state.Route.Count || !fallback.RouteFinished(state)) {
             return false;
         }
 
@@ -105,20 +98,17 @@ internal sealed class CommitService(Room room, RoomNavigation navigation, Moveme
         var from = new NavPosition(actor.X, actor.Y, state.SupportZ);
         var accepted = 0;
 
-        for (var i = 0; i < state.PendingCount; i++)
-        {
+        for (var i = 0; i < state.PendingCount; i++) {
             var step = state.Pending[i];
 
-            if (!context.Graph.IsValid(step, state.PendingView))
-            {
+            if (!context.Graph.IsValid(step, state.PendingView)) {
                 break;
             }
 
             var to = context.Graph.Position(step, state.PendingView);
             var purpose = state.PendingPurpose[i];
 
-            if (!_rules.CanStep(profile, from, to, purpose, OccupancyView.Execution, context.OccupancyAt(actor, to.Slot)).Ok)
-            {
+            if (!_rules.CanStep(profile, from, to, purpose, OccupancyView.Execution, context.OccupancyAt(actor, to.Slot)).Ok) {
                 break;
             }
 

@@ -6,8 +6,7 @@ public static class ItemTeleporterFinder
 {
     public static uint GetTeleRoomId(uint teleId, Room pRoom, IItemTravelStore store)
     {
-        if (pRoom.GetRoomItemHandler().GetItem(teleId) != null)
-        {
+        if (pRoom.GetRoomItemHandler().GetItem(teleId) != null) {
             return pRoom.RoomId;
         }
 
@@ -18,22 +17,19 @@ public static class ItemTeleporterFinder
     {
         var linkId = store.FindLinkedTeleporter(teleId);
 
-        if (linkId == 0)
-        {
+        if (linkId == 0) {
             return false;
         }
 
         var item = pRoom.GetRoomItemHandler().GetItem(linkId);
 
-        if (item != null && item.Definition.InteractionType == InteractionType.Teleport)
-        {
+        if (item != null && item.Definition.InteractionType == InteractionType.Teleport) {
             return true;
         }
 
         var roomId = GetTeleRoomId(linkId, pRoom, store);
 
-        if (roomId == 0)
-        {
+        if (roomId == 0) {
             return false;
         }
 

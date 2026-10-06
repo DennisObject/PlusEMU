@@ -23,16 +23,13 @@ public sealed class GroupSettingsService(
 {
     public Task Update(GameClient session, GroupSettingsRequest request)
     {
-        if (!groups.TryGetGroup(request.GroupId, out var group))
-        {
+        if (!groups.TryGetGroup(request.GroupId, out var group)) {
             return Task.CompletedTask;
         }
 
-        lock (group)
-        {
+        lock (group) {
             if (!groups.TryGetGroup(group.Id, out var current) || !ReferenceEquals(current, group) ||
-                group.CreatorId != session.GetHabbo().Id)
-            {
+                group.CreatorId != session.GetHabbo().Id) {
                 return Task.CompletedTask;
             }
 
@@ -46,15 +43,13 @@ public sealed class GroupSettingsService(
                 ? ImmutableArray<int>.Empty
                 : group.GetRequests.ToImmutableArray();
 
-            if (!store.Update(group.Id, type, request.FurniOptions == 1, request.ForumEnabled, requests))
-            {
+            if (!store.Update(group.Id, type, request.FurniOptions == 1, request.ForumEnabled, requests)) {
                 return Task.CompletedTask;
             }
 
             group.Type = type;
 
-            foreach (var userId in requests)
-            {
+            foreach (var userId in requests) {
                 group.HandleRequest(userId, false);
             }
 
@@ -70,26 +65,21 @@ public sealed class GroupSettingsService(
 
     private void PublishRoomRights(Group group, int furniOptions)
     {
-        if (!rooms.TryGetRoom(group.RoomId, out var room))
-        {
+        if (!rooms.TryGetRoom(group.RoomId, out var room)) {
             return;
         }
 
-        foreach (var user in room.GetRoomUserManager().GetRoomUsers().ToList())
-        {
-            if (room.OwnerId == user.UserId || group.IsAdmin(user.UserId) || !group.IsMember(user.UserId))
-            {
+        foreach (var user in room.GetRoomUserManager().GetRoomUsers().ToList()) {
+            if (room.OwnerId == user.UserId || group.IsAdmin(user.UserId) || !group.IsMember(user.UserId)) {
                 continue;
             }
 
-            if (furniOptions == 1)
-            {
+            if (furniOptions == 1) {
                 user.RemoveStatus("flatctrl 1");
                 user.UpdateNeeded = true;
                 user.GetClient()?.Send(new YouAreControllerComposer(0));
             }
-            else if (furniOptions == 0 && !user.Statusses.ContainsKey("flatctrl 1"))
-            {
+            else if (furniOptions == 0 && !user.Statusses.ContainsKey("flatctrl 1")) {
                 user.SetStatus("flatctrl 1");
                 user.UpdateNeeded = true;
                 user.GetClient()?.Send(new YouAreControllerComposer(1));

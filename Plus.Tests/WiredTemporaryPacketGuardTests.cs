@@ -107,12 +107,10 @@ public class WiredTemporaryPacketGuardTests
         var handler = (IPacketEvent)constructor.Invoke(arguments);
         var packet = Packet(name);
 
-        if (handler is RoomPacketEvent roomHandler)
-        {
+        if (handler is RoomPacketEvent roomHandler) {
             await roomHandler.Parse(room, client, packet);
         }
-        else
-        {
+        else {
             await handler.Parse(client, packet);
         }
 
@@ -167,8 +165,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var item = new Item { Id = uint.MaxValue - 1, IsTemporary = true, Definition = new() { Type = ItemType.Floor } };
 
-        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(item)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)) })
-        {
+        foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(item)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)) }) {
             using var stream = PlusMemoryStream.GetStream();
             var output = new FlashOutgoingPacket(stream);
             composer.Compose(output);
@@ -186,8 +183,7 @@ public class WiredTemporaryPacketGuardTests
         var wall = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
         wall.TryAdd(item.Id, item);
 
-        if (existingState)
-        {
+        if (existingState) {
             room.MoodlightData = (MoodlightData)RuntimeHelpers.GetUninitializedObject(typeof(MoodlightData));
             room.MoodlightData.ItemId = item.Id;
         }
@@ -195,8 +191,7 @@ public class WiredTemporaryPacketGuardTests
         await new Plus.Communication.Packets.Incoming.Rooms.Furni.Moodlight.GetMoodlightConfigEvent(
             new MoodlightService(TestRoomItemMetadataStore.Instance)).Parse(room, client, new FlashIncomingPacket());
 
-        if (!existingState)
-        {
+        if (!existingState) {
             Assert.Null(room.MoodlightData);
         }
 
@@ -224,79 +219,62 @@ public class WiredTemporaryPacketGuardTests
         using var stream = PlusMemoryStream.GetStream();
         var output = new FlashOutgoingPacket(stream);
 
-        if (name.Contains("PickupObject"))
-        {
+        if (name.Contains("PickupObject")) {
             output.WriteInteger(0);
         }
 
         output.WriteUInteger(7);
 
-        if (name == "Rooms.Engine.MoveObjectEvent")
-        {
+        if (name == "Rooms.Engine.MoveObjectEvent") {
             output.WriteInteger(4);
             output.WriteInteger(5);
             output.WriteInteger(2);
         }
 
-        if (name.Contains("UpdateMagicTile"))
-        {
+        if (name.Contains("UpdateMagicTile")) {
             output.WriteInteger(350);
         }
 
-        if (name.Contains("Gnome"))
-        {
+        if (name.Contains("Gnome")) {
             output.WriteString("Pixel");
         }
-        else if (name.Contains("MoveWall"))
-        {
+        else if (name.Contains("MoveWall")) {
             output.WriteString(":w=1,1 l=1,1 l");
         }
-        else if (name.Contains("UseFurniture") || name.Contains("UseWallItem") || name.Contains("ThrowDice"))
-        {
+        else if (name.Contains("UseFurniture") || name.Contains("UseWallItem") || name.Contains("ThrowDice")) {
             output.WriteInteger(0);
         }
-        else if (name.Contains("SetToner"))
-        {
+        else if (name.Contains("SetToner")) {
             output.WriteInteger(10);
             output.WriteInteger(20);
             output.WriteInteger(30);
         }
-        else if (name.Contains("MoodlightUpdate"))
-        {
+        else if (name.Contains("MoodlightUpdate")) {
             output.WriteInteger(2);
             output.WriteString("#000000");
             output.WriteInteger(255);
         }
-        else if (name.Contains("UpdateStickyNote"))
-        {
+        else if (name.Contains("UpdateStickyNote")) {
             output.WriteString("FFFF33");
             output.WriteString("changed");
         }
-        else if (name.Contains("SetMannequinName"))
-        {
+        else if (name.Contains("SetMannequinName")) {
             output.WriteString("changed");
         }
-        else if (name.Contains("FriendFurni"))
-        {
+        else if (name.Contains("FriendFurni")) {
             output.WriteBoolean(true);
         }
-        else if (name.Contains("ApplyHorse"))
-        {
+        else if (name.Contains("ApplyHorse")) {
             output.WriteInteger(42);
         }
-        else if (name.Contains("GetGroupFurni"))
-        {
+        else if (name.Contains("GetGroupFurni")) {
             output.WriteInteger(0);
         }
-        else if (name.Contains("UpdateMagicTile"))
-        {
+        else if (name.Contains("UpdateMagicTile")) {
             output.WriteInteger(500);
         }
 
-        return new()
-        {
-            Buffer = stream.ToArray().AsMemory(6)
-        };
+        return new() { Buffer = stream.ToArray().AsMemory(6) };
     }
 
     private static (Room, FlashGameClient) Room()

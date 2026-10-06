@@ -17,8 +17,7 @@ internal class Game2GetWeeklyLeaderboardEvent : IPacketEvent
     {
         var gameId = packet.ReadInt();
 
-        if (_gameDataManager.TryGetGame(gameId, out var gameData))
-        {
+        if (_gameDataManager.TryGetGame(gameId, out var gameData)) {
             //Code
         }
 

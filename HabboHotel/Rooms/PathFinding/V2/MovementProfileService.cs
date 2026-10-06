@@ -4,7 +4,9 @@ public sealed class MovementProfileService(Room room, NavGrid grid, PathfindingS
     ActorAccessResolver access)
 {
     public MovementProfileService(Room room, NavGrid grid, PathfindingSettings settings, Func<int, int, bool> isMember)
-        : this(room, grid, settings, new ActorAccessResolver(isMember)) { }
+        : this(room, grid, settings, new ActorAccessResolver(isMember))
+    {
+    }
 
     private int _groupVersion = -1;
     private int[] _groups = [];
@@ -19,13 +21,11 @@ public sealed class MovementProfileService(Room room, NavGrid grid, PathfindingS
         profile.Walkthrough = room.RoomBlockingEnabled;
         profile.DiagonalEnabled = room.GetGameMap().DiagonalEnabled;
 
-        if (_groupVersion != grid.Version)
-        {
+        if (_groupVersion != grid.Version) {
             RefreshGroups();
         }
 
-        if (_groups.Length == 0)
-        {
+        if (_groups.Length == 0) {
             return profile;
         }
 

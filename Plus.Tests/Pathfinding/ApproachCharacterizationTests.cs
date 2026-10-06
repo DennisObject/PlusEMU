@@ -15,8 +15,7 @@ public partial class PlacedFurniRoomTests
     {
         var item = InteractionItem(10, 1, 1, kind);
 
-        if (kind == InteractionType.VendingMachine)
-        {
+        if (kind == InteractionType.VendingMachine) {
             item.Definition.VendingIds.Add(DrinkId);
         }
 
@@ -38,8 +37,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         Assert.Equal(item.SquareInFront, actor.Coordinate);
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 

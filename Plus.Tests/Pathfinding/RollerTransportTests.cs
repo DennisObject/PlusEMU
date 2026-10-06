@@ -107,15 +107,13 @@ public partial class PlacedFurniRoomTests
     {
         ExecutorRoller(10, 0, 1);
 
-        if (guildGate)
-        {
+        if (guildGate) {
             Add(11, 1, 1, type: InteractionType.GuildGate);
         }
 
         var actor = ExecutorRollerActor(0, 1, 0.5);
 
-        if (!guildGate)
-        {
+        if (!guildGate) {
             _room.GetGameMap().SetFloorStatus(1, 1, 0);
         }
 
@@ -223,24 +221,21 @@ public partial class PlacedFurniRoomTests
     private (int FromX, int FromY, int ToX, int ToY, uint Roller, string FromZ, string ToZ)
         ExecutorAvatarSlide(RoomUser actor)
     {
-        foreach (var sent in _client.Packets.Where(p => p.Header == ServerPacketHeader.SlideObjectBundleComposer))
-        {
+        foreach (var sent in _client.Packets.Where(p => p.Header == ServerPacketHeader.SlideObjectBundleComposer)) {
             var packet = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
             var fromX = packet.ReadInt();
             var fromY = packet.ReadInt();
             var toX = packet.ReadInt();
             var toY = packet.ReadInt();
 
-            if (packet.ReadInt() != 0)
-            {
+            if (packet.ReadInt() != 0) {
                 continue;
             }
 
             var roller = packet.ReadUInt();
             Assert.Equal(2, packet.ReadInt());
 
-            if (packet.ReadInt() != actor.VirtualId)
-            {
+            if (packet.ReadInt() != actor.VirtualId) {
                 continue;
             }
 
@@ -261,20 +256,17 @@ public partial class PlacedFurniRoomTests
 
     private static bool ExecutorIsAvatarSlide((uint Header, byte[] Body) sent, int virtualId)
     {
-        if (sent.Header != ServerPacketHeader.SlideObjectBundleComposer)
-        {
+        if (sent.Header != ServerPacketHeader.SlideObjectBundleComposer) {
             return false;
         }
 
         var packet = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
 
-        for (var field = 0; field < 4; field++)
-        {
+        for (var field = 0; field < 4; field++) {
             packet.ReadInt();
         }
 
-        if (packet.ReadInt() != 0)
-        {
+        if (packet.ReadInt() != 0) {
             return false;
         }
 
@@ -287,16 +279,14 @@ public partial class PlacedFurniRoomTests
     private (int FromX, int FromY, int ToX, int ToY, string FromZ, string ToZ, uint Roller)
         ExecutorCargoSlide(Item cargo)
     {
-        foreach (var sent in _client.Packets.Where(p => p.Header == ServerPacketHeader.SlideObjectBundleComposer))
-        {
+        foreach (var sent in _client.Packets.Where(p => p.Header == ServerPacketHeader.SlideObjectBundleComposer)) {
             var packet = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
             var fromX = packet.ReadInt();
             var fromY = packet.ReadInt();
             var toX = packet.ReadInt();
             var toY = packet.ReadInt();
 
-            if (packet.ReadInt() != 1 || packet.ReadUInt() != cargo.Id)
-            {
+            if (packet.ReadInt() != 1 || packet.ReadUInt() != cargo.Id) {
                 continue;
             }
 
@@ -313,16 +303,12 @@ public partial class PlacedFurniRoomTests
         public WiredBoxType Type => WiredBoxType.TriggerWalkOnFurni;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData
-        {
-            get; set;
-        }
+        public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
         public bool Execute(params object[] arguments)
         {
-            if (((Item)arguments[1]).Id == 11)
-            {
+            if (((Item)arguments[1]).Id == 11) {
                 observed.Add(Instance.GetGameMap().Navigation!.Executor.Claims.OccupancyAt(5, 0));
             }
 

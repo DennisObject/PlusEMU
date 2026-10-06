@@ -18,8 +18,7 @@ public class CatalogIndexComposer : IServerPacket
     {
         WriteRootIndex(packet);
 
-        foreach (var node in _index.Roots)
-        {
+        foreach (var node in _index.Roots) {
             WriteNode(packet, node);
         }
 
@@ -49,15 +48,13 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteString(node.Caption);
         packet.WriteInteger(node.OfferIds.Length);
 
-        foreach (var offerId in node.OfferIds)
-        {
+        foreach (var offerId in node.OfferIds) {
             packet.WriteInteger(offerId);
         }
 
         packet.WriteInteger(node.Children.Length);
 
-        foreach (var child in node.Children)
-        {
+        foreach (var child in node.Children) {
             WriteNode(packet, child);
         }
     }

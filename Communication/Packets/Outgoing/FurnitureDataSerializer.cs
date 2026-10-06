@@ -9,8 +9,7 @@ internal static class FurnitureDataSerializer
     {
         packet.WriteInt((int)data.Structure | (uniqueSeries > 0 ? 0xFF00 : 0));
 
-        switch (data)
-        {
+        switch (data) {
             case FurnitureDataSnapshot.Empty:
                 break;
             case FurnitureDataSnapshot.Legacy legacy:
@@ -19,8 +18,7 @@ internal static class FurnitureDataSerializer
             case FurnitureDataSnapshot.Map map:
                 packet.WriteInt(map.Values.Length);
 
-                foreach (var pair in map.Values)
-                {
+                foreach (var pair in map.Values) {
                     packet.WriteString(pair.Key);
                     packet.WriteString(pair.Value);
                 }
@@ -29,8 +27,7 @@ internal static class FurnitureDataSerializer
             case FurnitureDataSnapshot.Strings strings:
                 packet.WriteInt(strings.Values.Length);
 
-                foreach (var value in strings.Values)
-                {
+                foreach (var value in strings.Values) {
                     packet.WriteString(value);
                 }
 
@@ -42,8 +39,7 @@ internal static class FurnitureDataSerializer
             case FurnitureDataSnapshot.Integers integers:
                 packet.WriteInt(integers.Values.Length);
 
-                foreach (var value in integers.Values)
-                {
+                foreach (var value in integers.Values) {
                     packet.WriteInt(value);
                 }
 
@@ -63,8 +59,7 @@ internal static class FurnitureDataSerializer
                 throw new ArgumentOutOfRangeException(nameof(data));
         }
 
-        if (uniqueSeries > 0)
-        {
+        if (uniqueSeries > 0) {
             packet.WriteUInt(uniqueNumber);
             packet.WriteUInt(uniqueSeries);
         }

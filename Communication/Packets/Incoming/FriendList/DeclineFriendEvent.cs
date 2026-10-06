@@ -11,12 +11,10 @@ internal class DeclineFriendEvent(IMessengerFriendMutationService friends) : IPa
         packet.ReadInt(); //amount
         var requestId = declineAll ? 0 : packet.ReadInt();
 
-        if (declineAll)
-        {
+        if (declineAll) {
             await friends.DeclineAllRequestsAsync(session.GetHabbo());
         }
-        else
-        {
+        else {
             await friends.DeclineRequestAsync(session.GetHabbo(), requestId);
         }
     }

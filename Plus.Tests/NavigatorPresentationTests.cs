@@ -110,10 +110,7 @@ public class NavigatorPresentationTests
     // The first two reads are before the grant expires and later reads are after it, so per-row checks would see the grant lapse mid-batch.
     private sealed class ExpiringClock(DateTimeOffset expiry) : TimeProvider
     {
-        public int Reads
-        {
-            get; private set;
-        }
+        public int Reads { get; private set; }
 
         public override DateTimeOffset GetUtcNow()
         {
@@ -222,8 +219,7 @@ public class NavigatorPresentationTests
         var count = reader.ReadInt();
         var rows = new (int, string, bool)[count];
 
-        for (var index = 0; index < count; index++)
-        {
+        for (var index = 0; index < count; index++) {
             rows[index] = (reader.ReadInt(), reader.ReadString(), reader.ReadBool());
             reader.ReadBool();
             reader.ReadString();

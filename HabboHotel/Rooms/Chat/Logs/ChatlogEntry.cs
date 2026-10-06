@@ -14,36 +14,22 @@ public sealed class ChatlogEntry
         Message = message;
         CreatedAt = createdAt.ToUniversalTime();
 
-        if (player != null)
-        {
+        if (player != null) {
             _playerReference = new(player);
         }
 
-        if (instance != null)
-        {
+        if (instance != null) {
             _roomReference = new(instance);
         }
     }
 
-    public int PlayerId
-    {
-        get;
-    }
+    public int PlayerId { get; }
 
-    public uint RoomId
-    {
-        get;
-    }
+    public uint RoomId { get; }
 
-    public string Message
-    {
-        get;
-    }
+    public string Message { get; }
 
-    public DateTimeOffset CreatedAt
-    {
-        get;
-    }
+    public DateTimeOffset CreatedAt { get; }
 
     public Habbo? PlayerNullable() => _playerReference != null && _playerReference.TryGetTarget(out var player) ? player : null;
 

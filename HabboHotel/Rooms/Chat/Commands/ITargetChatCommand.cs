@@ -8,10 +8,7 @@ public interface ITargetChatCommand : ICommandBase
     /// <summary>
     /// The target must be in the same room as the executing Habbo
     /// </summary>
-    bool MustBeInSameRoom
-    {
-        get;
-    }
+    bool MustBeInSameRoom { get; }
 
     /// <summary>
     /// Execute the command.

@@ -118,8 +118,7 @@ public class EditorPermissionTests
         Assert.Equal(28, handlers.Count);
         var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json"))).RootElement;
 
-        foreach (var handler in handlers)
-        {
+        foreach (var handler in handlers) {
             var permission = handler.GetCustomAttribute<Plus.Communication.Attributes.RequiresPermissionAttribute>();
             Assert.NotNull(permission);
             string[] expected = handler.Name switch
@@ -137,8 +136,7 @@ public class EditorPermissionTests
         foreach (var composer in new[] { "CatalogAdminResultComposer", "CatalogAdminOfferDetailsComposer", "CatalogAdminPageDetailsComposer",
                      "CatalogStudioSessionComposer", "CatalogStudioHistoryComposer",
                      "CatalogStudioOperationComposer", "FurniEditorSearchResultComposer", "FurniEditorDetailResultComposer",
-                     "FurniEditorInteractionsResultComposer", "FurniEditorResultComposer", "FurnitureDataReloadComposer", "FurniEditorImportTextResultComposer" })
-        {
+                     "FurniEditorInteractionsResultComposer", "FurniEditorResultComposer", "FurnitureDataReloadComposer", "FurniEditorImportTextResultComposer" }) {
             var header = typeof(Plus.Communication.Packets.Outgoing.ServerPacketHeader).GetField(composer);
             Assert.Equal((uint)header!.GetValue(null)!, revision.GetProperty("OutgoingHeaders").GetProperty(composer).GetUInt32());
         }
@@ -159,8 +157,7 @@ public class EditorPermissionTests
             field => incoming.Contains(field.Name) || (field.GetRawConstantValue() is uint id && wireIds.Contains(id)));
         Assert.DoesNotContain(typeof(Plus.Communication.Packets.Outgoing.ServerPacketHeader).GetFields(), field => outgoing.Contains(field.Name));
 
-        foreach (var file in new[] { "OCTANE-3-6-0-FLOOR-20260909.json", "1.6.6.json", "3.6.0.json" })
-        {
+        foreach (var file in new[] { "OCTANE-3-6-0-FLOOR-20260909.json", "1.6.6.json", "3.6.0.json" }) {
             var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo($"Resources/Revisions/{file}"))).RootElement;
             var incomingHeaders = revision.GetProperty("IncomingHeaders").EnumerateObject().ToList();
             Assert.DoesNotContain(incomingHeaders, header => incoming.Contains(header.Name) || wireIds.Contains(header.Value.GetUInt32()));

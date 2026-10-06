@@ -25,8 +25,7 @@ public sealed class WiredRewardStoreDatabaseTests
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
 
-        try
-        {
+        try {
             options.Database = schema;
             var database = new HabbiconDatabaseTests.TestDatabase(options.ConnectionString);
             using var connection = database.Connection();
@@ -46,16 +45,9 @@ public sealed class WiredRewardStoreDatabaseTests
             var store = new WiredRewardStore(database);
             var box = new Item { Id = 100, OwnerId = 7, RoomId = 42 };
             var habbo = new Habbo { Id = 7, Access = UserAccess.Empty };
-            var config = WiredRewards.Defaults() with
-            {
-                IntParams = [0, 0, 1, 1, 0],
-                Text = "0,TEST_BADGE,100"
-            };
+            var config = WiredRewards.Defaults() with { IntParams = [0, 0, 1, 1, 0], Text = "0,TEST_BADGE,100" };
             const string malformed = "{\"7\":{\"Count\":1,\"ReceivedCodes\":[\"OLD\",2]}}";
-            connection.Execute("INSERT INTO wired_reward_state VALUES (100,@malformed)", new
-            {
-                malformed
-            });
+            connection.Execute("INSERT INTO wired_reward_state VALUES (100,@malformed)", new { malformed });
             Assert.Throws<InvalidDataException>(() => store.ClaimAndGrant(box, 42, habbo, config, null!,
                 DateTimeOffset.FromUnixTimeSeconds(2208988800)));
             Assert.Equal(malformed, connection.QuerySingle<string>("SELECT claims FROM wired_reward_state WHERE item_id=100"));
@@ -63,10 +55,7 @@ public sealed class WiredRewardStoreDatabaseTests
             connection.Execute("DELETE FROM wired_reward_state WHERE item_id=100");
 
             const string legacy = "{\"7\":{\"Count\":1,\"LastClaimUnix\":2208988700.5,\"ReceivedCodes\":[\"OLD\"]}}";
-            connection.Execute("INSERT INTO wired_reward_state VALUES (100,@legacy)", new
-            {
-                legacy
-            });
+            connection.Execute("INSERT INTO wired_reward_state VALUES (100,@legacy)", new { legacy });
             Assert.Equal(1, store.ClaimAndGrant(box, 42, habbo, config, null!,
                 DateTimeOffset.FromUnixTimeSeconds(2208988800)).Reason);
             Assert.Equal(legacy, connection.QuerySingle<string>("SELECT claims FROM wired_reward_state WHERE item_id=100"));
@@ -92,8 +81,7 @@ public sealed class WiredRewardStoreDatabaseTests
             Assert.Equal(1, store.ClaimAndGrant(box, 42, habbo, config, null!, now.AddSeconds(100)).Reason);
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_badges"));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE `{schema}`");
         }
     }

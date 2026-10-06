@@ -11,28 +11,13 @@ public class PetRace
         HasSecondaryColour = hasSecondaryColour;
     }
 
-    public int RaceId
-    {
-        get; set;
-    }
+    public int RaceId { get; set; }
 
-    public int PrimaryColour
-    {
-        get; set;
-    }
+    public int PrimaryColour { get; set; }
 
-    public int SecondaryColour
-    {
-        get; set;
-    }
+    public int SecondaryColour { get; set; }
 
-    public bool HasPrimaryColour
-    {
-        get; set;
-    }
+    public bool HasPrimaryColour { get; set; }
 
-    public bool HasSecondaryColour
-    {
-        get; set;
-    }
+    public bool HasSecondaryColour { get; set; }
 }

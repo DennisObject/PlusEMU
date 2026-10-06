@@ -30,20 +30,15 @@ internal sealed class RouteGraph(NavGrid grid)
         => PostureService.RiderOffset(actor, grid.Reference(slot));
     internal LandingSurface ResolveLanding(SurfaceRef step, GraphView view, double plannedZ)
     {
-        if (grid.Layered)
-        {
+        if (grid.Layered) {
             return ResolveLayeredLanding(step, view, plannedZ);
         }
 
         var tile = step.Tile;
         var position = grid.Position(tile, view == GraphView.LegacyTile);
 
-        if (view == GraphView.Surface && !grid.Active(tile))
-        {
-            position = position with
-            {
-                Z = plannedZ
-            };
+        if (view == GraphView.Surface && !grid.Active(tile)) {
+            position = position with { Z = plannedZ };
         }
 
         var support = grid.Active(tile) && Math.Abs(grid.WalkZ[tile] - position.Z) <= .001
@@ -56,32 +51,23 @@ internal sealed class RouteGraph(NavGrid grid)
     // if a just-applied rebuild removed it, it lands as a rebind would: highest at or below, else highest.
     private LandingSurface ResolveLayeredLanding(SurfaceRef step, GraphView view, double plannedZ)
     {
-        if (view == GraphView.LegacyTile)
-        {
+        if (view == GraphView.LegacyTile) {
             var position = grid.Position(step.Tile, true);
             var exact = SurfaceSelection.Select(grid, step.Tile, position.Z, ForceResolution.ExactZ);
 
-            return exact < 0 ? new(position, null) : new(position with
-            {
-                Slot = exact
-            }, grid.Reference(exact));
+            return exact < 0 ? new(position, null) : new(position with { Slot = exact }, grid.Reference(exact));
         }
 
         var slot = grid.SlotOf(step);
 
-        if (slot < 0 || !grid.Active(slot))
-        {
+        if (slot < 0 || !grid.Active(slot)) {
             slot = SurfaceSelection.Select(grid, step.Tile, plannedZ, ForceResolution.NearestAtOrBelow);
         }
 
-        if (slot < 0)
-        {
+        if (slot < 0) {
             slot = SurfaceSelection.Select(grid, step.Tile, plannedZ, ForceResolution.Highest);
         }
 
-        return slot < 0 ? new(grid.Position(step.Tile) with
-        {
-            Z = plannedZ
-        }, null) : new(grid.Position(slot), grid.Reference(slot));
+        return slot < 0 ? new(grid.Position(step.Tile) with { Z = plannedZ }, null) : new(grid.Position(slot), grid.Reference(slot));
     }
 }

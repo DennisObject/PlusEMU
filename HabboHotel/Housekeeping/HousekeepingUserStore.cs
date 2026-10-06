@@ -9,39 +9,18 @@ namespace Plus.HabboHotel.Housekeeping;
 /// <summary>Persisted account fields; online users' live values are overlaid by the caller.</summary>
 public sealed class HousekeepingUserRecord
 {
-    public int Id
-    {
-        get; set;
-    }
+    public int Id { get; set; }
     public string Username { get; set; } = string.Empty;
     public string Motto { get; set; } = string.Empty;
     public string Look { get; set; } = string.Empty;
-    public DateTimeOffset? LastOnlineAt
-    {
-        get; set;
-    }
-    public int Credits
-    {
-        get; set;
-    }
-    public int Duckets
-    {
-        get; set;
-    }
-    public int Diamonds
-    {
-        get; set;
-    }
+    public DateTimeOffset? LastOnlineAt { get; set; }
+    public int Credits { get; set; }
+    public int Duckets { get; set; }
+    public int Diamonds { get; set; }
     public string Mail { get; set; } = string.Empty;
     public string IpLast { get; set; } = string.Empty;
-    public double TimeMuted
-    {
-        get; set;
-    }
-    public DateTimeOffset? TradingLockExpiresAt
-    {
-        get; set;
-    }
+    public double TimeMuted { get; set; }
+    public DateTimeOffset? TradingLockExpiresAt { get; set; }
 }
 
 public interface IHousekeepingUserStore
@@ -65,32 +44,24 @@ public sealed class HousekeepingUserStore : IHousekeepingUserStore
 
     public HousekeepingUserRecord? Find(int userId)
     {
-        if (userId <= 0)
-        {
+        if (userId <= 0) {
             return null;
         }
 
         using var connection = _database.Connection();
 
-        return connection.QuerySingleOrDefault<HousekeepingUserRecord>(Select + "WHERE u.`id` = @userId LIMIT 1", new
-        {
-            userId
-        });
+        return connection.QuerySingleOrDefault<HousekeepingUserRecord>(Select + "WHERE u.`id` = @userId LIMIT 1", new { userId });
     }
 
     public HousekeepingUserRecord? Find(string username)
     {
-        if (string.IsNullOrEmpty(username))
-        {
+        if (string.IsNullOrEmpty(username)) {
             return null;
         }
 
         using var connection = _database.Connection();
 
-        return connection.QuerySingleOrDefault<HousekeepingUserRecord>(Select + "WHERE u.`username` = @username LIMIT 1", new
-        {
-            username
-        });
+        return connection.QuerySingleOrDefault<HousekeepingUserRecord>(Select + "WHERE u.`username` = @username LIMIT 1", new { username });
     }
 }
 
@@ -101,21 +72,18 @@ public static class HousekeepingUserTargets
     {
         user = null!;
 
-        if (userId <= 0)
-        {
+        if (userId <= 0) {
             return HousekeepingOutcome.Invalid(HousekeepingTarget.User(0));
         }
 
         var found = users.Find(userId);
 
-        if (found == null)
-        {
+        if (found == null) {
             return HousekeepingOutcome.Fail(HousekeepingErrors.UserNotFound, HousekeepingTarget.User(userId));
         }
 
         // Equal ranks are refused too, which also stops staff acting on themselves.
-        if (actor.Id == found.Id || !access.Outranks(actor.Id, found.Id))
-        {
+        if (actor.Id == found.Id || !access.Outranks(actor.Id, found.Id)) {
             return HousekeepingOutcome.Fail(HousekeepingErrors.RankTooHigh, Label(found), $"targetUserId={found.Id}");
         }
 

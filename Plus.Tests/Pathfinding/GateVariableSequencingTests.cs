@@ -48,8 +48,7 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(notices);
         Assert.Empty(module.DrainChanges());
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Gates.Drain();
         }
 
@@ -73,8 +72,7 @@ public partial class PlacedFurniRoomTests
         var frame = new WiredVariableFrame(_room.Id, [holder]);
         Assert.True(Task.Run(() => module.Mutate(StateReference, holder, WiredVariableMutation.Set, 0, frame, origin: 2)).Result);
 
-        using (RoomOwnerScope.Enter(_room))
-        {
+        using (RoomOwnerScope.Enter(_room)) {
             Gates.Drain();
         }
 
@@ -236,13 +234,14 @@ public partial class PlacedFurniRoomTests
         Func<int, int> slowIncrement = value => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return value + 1; };
         var first = Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, slowIncrement, frame));
 
-        try
-        {
+        try {
             Assert.True(evaluating.Wait(TimeSpan.FromSeconds(5)));
             var second = Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, value => value + 1, frame));
             Assert.True(second.Wait(TimeSpan.FromSeconds(5)));
         }
-        finally { proceed.Set(); }
+        finally {
+            proceed.Set();
+        }
 
         Assert.True(first.Wait(TimeSpan.FromSeconds(5)));
         DrainOnOwner();
@@ -287,12 +286,13 @@ public partial class PlacedFurniRoomTests
         Func<int, int> slowClose = _ => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return 0; };
         var first = Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, slowClose, frame));
 
-        try
-        {
+        try {
             Assert.True(evaluating.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(GateTransition.Queued, Task.Run(() => GateTransitionService.Apply(gate, "1", GateCloseReason.Wired, persist: false)).Result);
         }
-        finally { proceed.Set(); }
+        finally {
+            proceed.Set();
+        }
 
         Assert.True(first.Result);
         DrainOnOwner();
@@ -356,10 +356,7 @@ public partial class PlacedFurniRoomTests
 
     private sealed class RetargetDirectory(uint roomId) : IWiredVariableDirectory
     {
-        public bool ToState
-        {
-            get; set;
-        }
+        public bool ToState { get; set; }
         public uint? GetRoomOwner(uint id) => id == roomId ? 7u : null;
         public WiredVariableDefinition? Find(uint itemId) => itemId switch
         {
@@ -393,7 +390,12 @@ public partial class PlacedFurniRoomTests
         ActorOn(new Point(0, 2));
         var (module, directory, holder, frame, notices) = RetargetWorld(gate, toState: false);
         ClickFromPacketThread(gate);
-        module.ResolutionHook = attempt => { if (attempt == 1) { directory.ToState = true; } };
+        module.ResolutionHook = attempt =>
+        {
+            if (attempt == 1) {
+                directory.ToState = true;
+            }
+        };
         var calls = 0;
         Assert.True(Task.Run(() => module.Change(AliasReference, holder, WiredVariableMutation.Set, _ => { calls++; return 1; }, frame)).Result);
         Assert.Equal(2, Gates.PendingCount);
@@ -412,7 +414,12 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate();
         ActorOn(new Point(0, 2));
         var (module, directory, holder, frame, notices) = RetargetWorld(gate, toState: true);
-        module.ResolutionHook = attempt => { if (attempt == 1) { directory.ToState = false; } };
+        module.ResolutionHook = attempt =>
+        {
+            if (attempt == 1) {
+                directory.ToState = false;
+            }
+        };
         var calls = 0;
         Assert.True(Task.Run(() => module.Change(AliasReference, holder, WiredVariableMutation.Set, _ => { calls++; return 1; }, frame)).Result);
         Assert.Equal(1, module.Read(PointsReference, holder, frame)!.Value);

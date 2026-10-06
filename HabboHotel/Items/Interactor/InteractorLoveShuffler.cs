@@ -17,13 +17,11 @@ public class InteractorLoveShuffler : IFurniInteractor
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (!hasRights)
-        {
+        if (!hasRights) {
             return;
         }
 
-        if (item.LegacyDataString != "0")
-        {
+        if (item.LegacyDataString != "0") {
             item.LegacyDataString = "0";
             item.UpdateState(false, true);
             item.RequestUpdate(10, true);
@@ -32,8 +30,7 @@ public class InteractorLoveShuffler : IFurniInteractor
 
     public void OnWiredTrigger(Item item)
     {
-        if (item.LegacyDataString != "0")
-        {
+        if (item.LegacyDataString != "0") {
             item.LegacyDataString = "0";
             item.UpdateState(false, true);
             item.RequestUpdate(10, true);

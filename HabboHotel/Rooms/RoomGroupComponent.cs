@@ -9,8 +9,7 @@ public sealed class RoomGroupComponent(IGroupManager groups) : IRoomComponent
     public void Initiate(Room room) => _room = room;
     public void Initiated()
     {
-        if (_room.Data.GroupId > 0 && groups.TryGetGroup(_room.Data.GroupId, out var group))
-        {
+        if (_room.Data.GroupId > 0 && groups.TryGetGroup(_room.Data.GroupId, out var group)) {
             _room.Group = group;
         }
     }

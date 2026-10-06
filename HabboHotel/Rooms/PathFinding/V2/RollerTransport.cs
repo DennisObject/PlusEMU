@@ -28,14 +28,11 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
         var candidates = context.Room.GetGameMap().GetRoomItemForSquare(roller.GetX, roller.GetY, roller.GetZ);
         bool grew;
 
-        do
-        {
+        do {
             grew = false;
 
-            foreach (var item in candidates)
-            {
-                if (!items.Contains(item.Id) && levels.Any(level => Math.Abs(item.GetZ - level) <= SurfaceSelection.Tolerance))
-                {
+            foreach (var item in candidates) {
+                if (!items.Contains(item.Id) && levels.Any(level => Math.Abs(item.GetZ - level) <= SurfaceSelection.Tolerance)) {
                     items.Add(item.Id);
                     levels.Add(item.TotalHeight);
                     grew = true;
@@ -48,8 +45,7 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
 
     public void RefreshCapabilities(IEnumerable<RoomUser> actors)
     {
-        foreach (var actor in actors)
-        {
+        foreach (var actor in actors) {
             context.Profiles.Refresh(actor);
         }
     }
@@ -58,8 +54,7 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
     {
         var to = move.Destination;
 
-        if (!Grid.InBounds(to.X, to.Y))
-        {
+        if (!Grid.InBounds(to.X, to.Y)) {
             return false;
         }
 
@@ -89,18 +84,15 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
     {
         var reserved = new List<Action>();
 
-        foreach (var (tile, landing) in LandingTiles(group))
-        {
+        foreach (var (tile, landing) in LandingTiles(group)) {
             var release = TryReserve(tile, landing, group.At(tile), Riders(group));
 
-            if (release != null)
-            {
+            if (release != null) {
                 reserved.Add(release);
                 continue;
             }
 
-            foreach (var undo in reserved)
-            {
+            foreach (var undo in reserved) {
                 undo();
             }
 
@@ -112,8 +104,7 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
 
     public void CommitActors(IReadOnlyList<RollerMove> moves)
     {
-        foreach (var move in moves)
-        {
+        foreach (var move in moves) {
             var actor = move.Actor!;
             placement.Relocate(actor, move.Destination.X, move.Destination.Y, move.CarriedZ,
                 actor.Movement.Commands.Read()?.Sequence ?? 0);
@@ -126,13 +117,11 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
     {
         navigation.ApplyDirty();
 
-        foreach (var move in moves)
-        {
+        foreach (var move in moves) {
             placement.Bind(move.Actor!, move.CarriedZ, ForceResolution.ExactZ);
             context.RefreshMembership(move.Actor!);
 
-            if (Grid.Layered)
-            {
+            if (Grid.Layered) {
                 RebindRollerClaim(move);
             }
         }
@@ -170,13 +159,11 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
 
     private Action? TryReserve(Point tile, RollerMove? landing, RollerDepartures departing, IReadOnlySet<RoomUser> riders)
     {
-        if (!Grid.InBounds(tile.X, tile.Y))
-        {
+        if (!Grid.InBounds(tile.X, tile.Y)) {
             return () => { };
         }
 
-        if (landing?.Actor is not { } actor)
-        {
+        if (landing?.Actor is not { } actor) {
             return TryReserveCargo(tile, departing, riders);
         }
 
@@ -211,10 +198,8 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
         var index = Grid.Tile(tile.X, tile.Y);
         yield return index;
 
-        for (var ordinal = 0; ordinal < Grid.SurfaceCount(index); ordinal++)
-        {
-            if (Grid.SurfaceAt(index, ordinal) != index)
-            {
+        for (var ordinal = 0; ordinal < Grid.SurfaceCount(index); ordinal++) {
+            if (Grid.SurfaceAt(index, ordinal) != index) {
                 yield return Grid.SurfaceAt(index, ordinal);
             }
         }

@@ -13,8 +13,7 @@ internal sealed class GetGuestRoomEvent(IGuestRoomInfoService guestRooms) : IPac
         var checkEntry = packet.ReadInt() == 1;
         var snapshot = guestRooms.Capture(roomId, session.GetHabbo(), isLoading, checkEntry);
 
-        if (snapshot != null)
-        {
+        if (snapshot != null) {
             session.Send(new GetGuestRoomResultComposer(snapshot));
         }
 

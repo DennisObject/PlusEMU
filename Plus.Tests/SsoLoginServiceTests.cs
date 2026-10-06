@@ -92,10 +92,8 @@ public class SsoLoginServiceTests
 
         var pending = service.Login(client, "valid");
 
-        try
-        {
-            if (pending.IsFaulted)
-            {
+        try {
+            if (pending.IsFaulted) {
                 await pending;
             }
 
@@ -117,15 +115,15 @@ public class SsoLoginServiceTests
             await pending;
             Assert.Equal("tracks", calls[^1]);
         }
-        finally
-        {
+        finally {
             rewardCompletion.TrySetResult();
 
-            try
-            {
+            try {
                 await pending;
             }
-            finally { ProcessOf(habbo)?.Dispose(); }
+            finally {
+                ProcessOf(habbo)?.Dispose();
+            }
         }
     }
 
@@ -137,14 +135,8 @@ public class SsoLoginServiceTests
     private sealed class PendingLogin : ISsoLoginService
     {
         public TaskCompletionSource Completed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public string? Ticket
-        {
-            get; private set;
-        }
-        public GameClient? Client
-        {
-            get; private set;
-        }
+        public string? Ticket { get; private set; }
+        public GameClient? Client { get; private set; }
         public Task Login(GameClient session, string sso)
         {
             Client = session;

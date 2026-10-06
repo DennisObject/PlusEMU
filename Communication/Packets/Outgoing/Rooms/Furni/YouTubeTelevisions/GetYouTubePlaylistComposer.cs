@@ -13,8 +13,7 @@ public class GetYouTubePlaylistComposer(int itemId, ImmutableArray<TelevisionVid
         packet.WriteInteger(itemId);
         packet.WriteInteger(videos.Length);
 
-        foreach (var video in videos)
-        {
+        foreach (var video in videos) {
             packet.WriteString(video.YouTubeId);
             packet.WriteString(video.Title); //Title
             packet.WriteString(video.Description); //Description

@@ -51,12 +51,10 @@ public class MagicTileHeightTests
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
 
-        while (dir != null)
-        {
+        while (dir != null) {
             var candidate = Path.Combine(dir.FullName, "Resources", "Revisions", fileName);
 
-            if (File.Exists(candidate))
-            {
+            if (File.Exists(candidate)) {
                 return candidate;
             }
 

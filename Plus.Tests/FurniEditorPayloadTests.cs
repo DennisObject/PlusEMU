@@ -118,18 +118,9 @@ public class FurniEditorPayloadTests
     [Fact]
     public void PublicNameIsBoundedAndPlain()
     {
-        Assert.Equal("public_name", Validate(new()
-        {
-            ["publicName"] = "Chair"
-        }).Changes.Single().Column);
-        Assert.NotNull(Validate(new()
-        {
-            ["publicName"] = new string('a', 57)
-        }).Error);
-        Assert.NotNull(Validate(new()
-        {
-            ["publicName"] = "a\nb"
-        }).Error);
+        Assert.Equal("public_name", Validate(new() { ["publicName"] = "Chair" }).Changes.Single().Column);
+        Assert.NotNull(Validate(new() { ["publicName"] = new string('a', 57) }).Error);
+        Assert.NotNull(Validate(new() { ["publicName"] = "a\nb" }).Error);
     }
 
     [Fact]

@@ -37,8 +37,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         _http.Dispose();
 
-        if (_server != null)
-        {
+        if (_server != null) {
             await _server.Stop();
         }
     }
@@ -65,13 +64,11 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
 
-        if (forwardedFor != null)
-        {
+        if (forwardedFor != null) {
             request.Headers.Add("X-Forwarded-For", forwardedFor);
         }
 
-        if (bearer != null)
-        {
+        if (bearer != null) {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
         }
 
@@ -117,10 +114,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         await Start();
 
-        var response = await Post("/api/auth/change-password", new
-        {
-            password = "x"
-        });
+        var response = await Post("/api/auth/change-password", new { password = "x" });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.Equal("Not found.", (await Json(response)).GetProperty("error").GetString());
@@ -133,12 +127,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var row = _accounts.Add("Dennis", Hasher.Hash("correct horse"));
         await Start();
 
-        var response = await Post("/api/auth/login", new
-        {
-            username = " dennis ",
-            password = "correct horse",
-            remember = true
-        });
+        var response = await Post("/api/auth/login", new { username = " dennis ", password = "correct horse", remember = true });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var body = await Json(response);
@@ -154,40 +143,17 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
         await Start();
 
-        var wrong = await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "nope"
-        });
-        var unknown = await Post("/api/auth/login", new
-        {
-            username = "Nobody",
-            password = "nope"
-        });
+        var wrong = await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
+        var unknown = await Post("/api/auth/login", new { username = "Nobody", password = "nope" });
         Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, unknown.StatusCode);
         Assert.Equal(await wrong.Content.ReadAsStringAsync(), await unknown.Content.ReadAsStringAsync());
         Assert.Equal(AuthErrorCode.InvalidCredentials, (await Json(wrong)).GetProperty("code").GetString());
-        Assert.Equal(HttpStatusCode.BadRequest, (await Post("/api/auth/login", new
-        {
-            username = "Dennis"
-        })).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, (await Post("/api/auth/login", new { username = "Dennis" })).StatusCode);
 
-        await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "nope"
-        });
-        await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "nope"
-        });
-        var locked = await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "correct horse"
-        });
+        await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
+        await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
+        var locked = await Post("/api/auth/login", new { username = "Dennis", password = "correct horse" });
 
         Assert.Equal(HttpStatusCode.TooManyRequests, locked.StatusCode);
         Assert.Equal(AuthEndpoints.TooManyAttempts, (await Json(locked)).GetProperty("error").GetString());
@@ -202,33 +168,10 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         _accounts.Add("Taken", "x");
         await Start();
 
-        var created = await Post("/api/auth/register", new
-        {
-            username = "NewHabbo",
-            email = "new@example.com",
-            password = "long enough",
-            figure = "hd-180-1",
-            gender = "M",
-            templateId = 3
-        });
-        var taken = await Post("/api/auth/register", new
-        {
-            username = "taken",
-            email = "other@example.com",
-            password = "long enough"
-        });
-        var emailTaken = await Post("/api/auth/register", new
-        {
-            username = "Another",
-            email = "NEW@example.com",
-            password = "long enough"
-        });
-        var invalid = await Post("/api/auth/register", new
-        {
-            username = "Mod",
-            email = "x@example.com",
-            password = "long enough"
-        });
+        var created = await Post("/api/auth/register", new { username = "NewHabbo", email = "new@example.com", password = "long enough", figure = "hd-180-1", gender = "M", templateId = 3 });
+        var taken = await Post("/api/auth/register", new { username = "taken", email = "other@example.com", password = "long enough" });
+        var emailTaken = await Post("/api/auth/register", new { username = "Another", email = "NEW@example.com", password = "long enough" });
+        var invalid = await Post("/api/auth/register", new { username = "Mod", email = "x@example.com", password = "long enough" });
 
         Assert.Equal(HttpStatusCode.OK, created.StatusCode);
         var session = await Json(created);
@@ -255,33 +198,15 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         _accounts.Emails.Add("taken@example.com");
         await Start();
 
-        Assert.True((await Json(await Post("/api/auth/check-username", new
-        {
-            username = "Fresh"
-        }))).GetProperty("available").GetBoolean());
-        var takenName = await Json(await Post("/api/auth/check-username", new
-        {
-            username = "TAKEN"
-        }));
+        Assert.True((await Json(await Post("/api/auth/check-username", new { username = "Fresh" }))).GetProperty("available").GetBoolean());
+        var takenName = await Json(await Post("/api/auth/check-username", new { username = "TAKEN" }));
         Assert.False(takenName.GetProperty("available").GetBoolean());
         Assert.Equal("That Habbo name is already taken.", takenName.GetProperty("error").GetString());
         Assert.Equal(AuthErrorCode.NameTaken, takenName.GetProperty("code").GetString());
-        Assert.Equal(AuthErrorCode.Validation, (await Json(await Post("/api/auth/check-username", new
-        {
-            username = "x"
-        }))).GetProperty("code").GetString());
-        Assert.Equal(AuthErrorCode.EmailTaken, (await Json(await Post("/api/auth/check-email", new
-        {
-            email = "taken@example.com"
-        }))).GetProperty("code").GetString());
-        Assert.False((await Json(await Post("/api/auth/check-email", new
-        {
-            email = "taken@example.com"
-        }))).GetProperty("available").GetBoolean());
-        Assert.True((await Json(await Post("/api/auth/check-email", new
-        {
-            email = "fresh@example.com"
-        }))).GetProperty("available").GetBoolean());
+        Assert.Equal(AuthErrorCode.Validation, (await Json(await Post("/api/auth/check-username", new { username = "x" }))).GetProperty("code").GetString());
+        Assert.Equal(AuthErrorCode.EmailTaken, (await Json(await Post("/api/auth/check-email", new { email = "taken@example.com" }))).GetProperty("code").GetString());
+        Assert.False((await Json(await Post("/api/auth/check-email", new { email = "taken@example.com" }))).GetProperty("available").GetBoolean());
+        Assert.True((await Json(await Post("/api/auth/check-email", new { email = "fresh@example.com" }))).GetProperty("available").GetBoolean());
     }
 
     [Fact]
@@ -290,14 +215,8 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         _accounts.Emails.Add("taken@example.com");
         await Start();
 
-        var known = await Post("/api/auth/forgot-password", new
-        {
-            email = "taken@example.com"
-        });
-        var unknown = await Post("/api/auth/forgot-password", new
-        {
-            email = "nobody@example.com"
-        });
+        var known = await Post("/api/auth/forgot-password", new { email = "taken@example.com" });
+        var unknown = await Post("/api/auth/forgot-password", new { email = "nobody@example.com" });
 
         Assert.Equal(HttpStatusCode.NotImplemented, known.StatusCode);
         Assert.Equal(AuthErrorCode.NotImplemented, (await Json(known)).GetProperty("code").GetString());
@@ -310,31 +229,19 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         await Start();
         var ticket = await _tickets.Issue(42);
 
-        var response = await Post("/api/auth/sso-token", new
-        {
-            ssoTicket = ticket.Value
-        });
+        var response = await Post("/api/auth/sso-token", new { ssoTicket = ticket.Value });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var token = (await Json(response)).GetProperty("accessToken").GetString()!;
         Assert.NotEqual(ticket.Value, token);
         Assert.Equal(42, _tokens.Live[token]);
-        var again = await Post("/api/auth/sso-token", new
-        {
-            ssoTicket = ticket.Value
-        });
+        var again = await Post("/api/auth/sso-token", new { ssoTicket = ticket.Value });
         Assert.Equal(HttpStatusCode.Unauthorized, again.StatusCode);
         Assert.Equal(AuthErrorCode.InvalidTicket, (await Json(again)).GetProperty("code").GetString());
         Assert.Single(_tokens.Live);
         Assert.Equal(42, await _tickets.Consume(ticket.Value));
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new
-        {
-            ssoTicket = ticket.Value
-        })).StatusCode);
-        var empty = await Post("/api/auth/sso-token", new
-        {
-            ssoTicket = ""
-        });
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new { ssoTicket = ticket.Value })).StatusCode);
+        var empty = await Post("/api/auth/sso-token", new { ssoTicket = "" });
         Assert.Equal(HttpStatusCode.Unauthorized, empty.StatusCode);
         Assert.Equal(AuthErrorCode.InvalidTicket, (await Json(empty)).GetProperty("code").GetString());
     }
@@ -345,11 +252,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         await Start();
         var token = await _tokens.Issue(7);
 
-        var response = await Post("/api/auth/logout", new
-        {
-            ssoTicket = "",
-            rememberToken = ""
-        }, bearer: token.Value);
+        var response = await Post("/api/auth/logout", new { ssoTicket = "", rememberToken = "" }, bearer: token.Value);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.True((await Json(response)).GetProperty("ok").GetBoolean());
@@ -385,17 +288,9 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
             c.MaxQueuedPasswordChecks = 0;
         });
 
-        var first = Post("/api/auth/login", new
-        {
-            username = "Nobody",
-            password = "x"
-        });
+        var first = Post("/api/auth/login", new { username = "Nobody", password = "x" });
         await held.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        var refused = await Post("/api/auth/login", new
-        {
-            username = "Other",
-            password = "x"
-        }).WaitAsync(TimeSpan.FromSeconds(5));
+        var refused = await Post("/api/auth/login", new { username = "Other", password = "x" }).WaitAsync(TimeSpan.FromSeconds(5));
         held.Release.Set();
 
         Assert.Equal(HttpStatusCode.TooManyRequests, refused.StatusCode);
@@ -416,11 +311,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         await stream.WriteAsync(partial);
         await Task.Delay(200);
 
-        var normal = await Post("/api/auth/login", new
-        {
-            username = "Nobody",
-            password = "x"
-        }).WaitAsync(TimeSpan.FromSeconds(3));
+        var normal = await Post("/api/auth/login", new { username = "Nobody", password = "x" }).WaitAsync(TimeSpan.FromSeconds(3));
 
         Assert.Equal(HttpStatusCode.Unauthorized, normal.StatusCode);
     }
@@ -431,11 +322,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         _accounts.FailLookupsWith = new InvalidOperationException("Server=db;Password=secret");
         await Start();
 
-        var response = await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "x"
-        });
+        var response = await Post("/api/auth/login", new { username = "Dennis", password = "x" });
 
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
@@ -449,21 +336,12 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
         await Start();
-        var session = await Json(await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "correct horse"
-        }));
+        var session = await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse" }));
         var ticket = session.GetProperty("ssoTicket").GetString()!;
 
-        await Post("/api/auth/logout", new
-        {
-        }, bearer: session.GetProperty("accessToken").GetString());
+        await Post("/api/auth/logout", new { }, bearer: session.GetProperty("accessToken").GetString());
 
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new
-        {
-            ssoTicket = ticket
-        })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/sso-token", new { ssoTicket = ticket })).StatusCode);
         Assert.Null(await _tickets.Consume(ticket));
         Assert.Empty(_tokens.Live);
     }
@@ -474,11 +352,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         await Start();
         var ticket = await _tickets.Issue(42);
 
-        var response = await Post("/api/auth/logout", new
-        {
-            ssoTicket = ticket.Value,
-            rememberToken = ""
-        });
+        var response = await Post("/api/auth/logout", new { ssoTicket = ticket.Value, rememberToken = "" });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Null(await _tickets.Consume(ticket.Value));
@@ -490,12 +364,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         _accounts.RevokeOnCreate = userId => _sessions!.RevokeAll(userId);
         await Start();
 
-        var response = await Post("/api/auth/register", new
-        {
-            username = "NewHabbo",
-            email = "new@example.com",
-            password = "long enough"
-        });
+        var response = await Post("/api/auth/register", new { username = "NewHabbo", email = "new@example.com", password = "long enough" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         var body = await Json(response);
@@ -510,18 +379,8 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         _accounts.Add("Dennis", Hasher.Hash("correct horse"));
         await Start();
 
-        var remembered = await Json(await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "correct horse",
-            remember = true
-        }));
-        var plain = await Json(await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "correct horse",
-            remember = false
-        }));
+        var remembered = await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse", remember = true }));
+        var plain = await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse", remember = false }));
 
         Assert.True(_remember.IsLive(remembered.GetProperty("rememberToken").GetString()!));
         Assert.Equal(3000, remembered.GetProperty("rememberExpiresAt").GetInt64());
@@ -534,17 +393,9 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         var row = _accounts.Add("Dennis", Hasher.Hash("correct horse"));
         await Start();
-        var first = (await Json(await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "correct horse",
-            remember = true
-        }))).GetProperty("rememberToken").GetString()!;
+        var first = (await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse", remember = true }))).GetProperty("rememberToken").GetString()!;
 
-        var resumed = await Post("/api/auth/remember", new
-        {
-            rememberToken = first
-        });
+        var resumed = await Post("/api/auth/remember", new { rememberToken = first });
 
         Assert.Equal(HttpStatusCode.OK, resumed.StatusCode);
         var session = await Json(resumed);
@@ -556,16 +407,10 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.NotEqual(first, second);
         Assert.Equal(3000, session.GetProperty("rememberExpiresAt").GetInt64());
 
-        var replay = await Post("/api/auth/remember", new
-        {
-            rememberToken = first
-        });
+        var replay = await Post("/api/auth/remember", new { rememberToken = first });
         Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
         Assert.Equal(AuthErrorCode.InvalidRememberToken, (await Json(replay)).GetProperty("code").GetString());
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/remember", new
-        {
-            rememberToken = second
-        })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/remember", new { rememberToken = second })).StatusCode);
     }
 
     [Fact]
@@ -575,10 +420,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         await Start();
         var token = await _remember.Issue(row.Id);
 
-        var refreshed = await Post("/api/auth/refresh", new
-        {
-            rememberToken = token.Value
-        });
+        var refreshed = await Post("/api/auth/refresh", new { rememberToken = token.Value });
 
         Assert.Equal(HttpStatusCode.OK, refreshed.StatusCode);
         var body = await Json(refreshed);
@@ -596,13 +438,8 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         await Start();
 
-        var unknown = await Post("/api/auth/refresh", new
-        {
-            rememberToken = SecureToken.Generate()
-        });
-        var missing = await Post("/api/auth/remember", new
-        {
-        });
+        var unknown = await Post("/api/auth/refresh", new { rememberToken = SecureToken.Generate() });
+        var missing = await Post("/api/auth/remember", new { });
 
         Assert.Equal(HttpStatusCode.Unauthorized, unknown.StatusCode);
         Assert.Equal(AuthErrorCode.InvalidRememberToken, (await Json(unknown)).GetProperty("code").GetString());
@@ -618,10 +455,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var token = await _remember.Issue(row.Id);
         var otherDevice = await _remember.Issue(row.Id);
 
-        var response = await Post("/api/auth/remember", new
-        {
-            rememberToken = token.Value
-        });
+        var response = await Post("/api/auth/remember", new { rememberToken = token.Value });
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.Equal(AuthErrorCode.Banned, (await Json(response)).GetProperty("code").GetString());
@@ -637,16 +471,9 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         await Start();
         var token = await _remember.Issue(row.Id);
 
-        await Post("/api/auth/logout", new
-        {
-            ssoTicket = "",
-            rememberToken = token.Value
-        });
+        await Post("/api/auth/logout", new { ssoTicket = "", rememberToken = token.Value });
 
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/remember", new
-        {
-            rememberToken = token.Value
-        })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/remember", new { rememberToken = token.Value })).StatusCode);
     }
 
     [Fact]
@@ -654,11 +481,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         await Start();
 
-        var oversized = await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = new string('x', (int)AuthHttpServer.MaxRequestBodyBytes)
-        });
+        var oversized = await Post("/api/auth/login", new { username = "Dennis", password = new string('x', (int)AuthHttpServer.MaxRequestBodyBytes) });
         var malformed = await _http.PostAsync("/api/auth/login", new StringContent("{\"username\":", Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.RequestEntityTooLarge, oversized.StatusCode);
@@ -673,18 +496,11 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         await Start(c => c.RequestsPerMinute = 3);
 
-        for (var i = 0; i < 3; i++)
-        {
-            Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/check-username", new
-            {
-                username = "Fresh" + i
-            })).StatusCode);
+        for (var i = 0; i < 3; i++) {
+            Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/check-username", new { username = "Fresh" + i })).StatusCode);
         }
 
-        var limited = await Post("/api/auth/check-email", new
-        {
-            email = "a@example.com"
-        });
+        var limited = await Post("/api/auth/check-email", new { email = "a@example.com" });
 
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
         Assert.Equal(AuthEndpoints.TooManyAttempts, (await Json(limited)).GetProperty("error").GetString());
@@ -700,16 +516,8 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         _bans.ByUsernameOrAddress["Dennis"] = new LoginBan("Scamming", DateTimeOffset.FromUnixTimeSeconds(2_000_000_000));
         await Start();
 
-        var wrong = await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "nope"
-        });
-        var banned = await Post("/api/auth/login", new
-        {
-            username = "Dennis",
-            password = "correct horse"
-        });
+        var wrong = await Post("/api/auth/login", new { username = "Dennis", password = "nope" });
+        var banned = await Post("/api/auth/login", new { username = "Dennis", password = "correct horse" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, banned.StatusCode);
@@ -730,12 +538,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         await Start(c => c.TrustedProxies = trusted.Length == 0 ? [] : [trusted]);
 
-        await Post("/api/auth/register", new
-        {
-            username = "ViaProxy",
-            email = "proxy@example.com",
-            password = "long enough"
-        }, forwardedFor: "203.0.113.7");
+        await Post("/api/auth/register", new { username = "ViaProxy", email = "proxy@example.com", password = "long enough" }, forwardedFor: "203.0.113.7");
 
         Assert.Equal(expectedAddress, Assert.Single(_accounts.Created).Address);
         Assert.Equal(expectedAddress, _accounts.LastAddress[_accounts.Rows.Single(r => r.Username == "ViaProxy").Id]);

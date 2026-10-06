@@ -19,15 +19,13 @@ public sealed class RoomBannedUsersService(ICacheManager cache) : IRoomBannedUse
     {
         var room = client.GetHabbo().CurrentRoom;
 
-        if (room == null || !room.CheckRights(client, true))
-        {
+        if (room == null || !room.CheckRights(client, true)) {
             return;
         }
 
         var ids = room.GetBans().BannedUsers().ToArray();
 
-        if (ids.Length == 0)
-        {
+        if (ids.Length == 0) {
             return;
         }
 

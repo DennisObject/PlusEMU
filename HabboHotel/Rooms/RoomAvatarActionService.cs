@@ -30,37 +30,26 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
 
-        if (!habbo.InRoom || room == null)
-        {
+        if (!habbo.InRoom || room == null) {
             return;
         }
 
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
 
-        if (user == null || !room.GetGameMap().ValidTile(x, y))
-        {
+        if (user == null || !room.GetGameMap().ValidTile(x, y)) {
             return;
         }
 
-        if (!user.IsBot)
-        {
-            room.GetWired().Dispatch(new(WiredEventKind.ClickTile)
-            {
-                Actor = user,
-                X = x,
-                Y = y
-            });
+        if (!user.IsBot) {
+            room.GetWired().Dispatch(new(WiredEventKind.ClickTile) { Actor = user, X = x, Y = y });
         }
 
-        if (!user.CanWalk)
-        {
+        if (!user.CanWalk) {
             return;
         }
 
-        if (room.UsesV2Movement)
-        {
-            if (!user.SetStep && x == user.X && y == user.Y)
-            {
+        if (room.UsesV2Movement) {
+            if (!user.SetStep && x == user.X && y == user.Y) {
                 return;
             }
 
@@ -69,17 +58,14 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             return;
         }
 
-        if (x == user.X && y == user.Y)
-        {
+        if (x == user.X && y == user.Y) {
             return;
         }
 
-        if (user.RidingHorse)
-        {
+        if (user.RidingHorse) {
             var horse = room.GetRoomUserManager().GetRoomUserByVirtualId(user.HorseId);
 
-            if (horse != null)
-            {
+            if (horse != null) {
                 horse.MoveTo(x, y);
             }
         }
@@ -91,8 +77,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
     {
         var habbo = session.GetHabbo();
 
-        if (!ReferenceEquals(habbo.CurrentRoom, room))
-        {
+        if (!ReferenceEquals(habbo.CurrentRoom, room)) {
             return;
         }
 
@@ -100,24 +85,20 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
         var actor = users.GetRoomUserByHabbo(habbo.Id);
         var target = users.GetRoomUserByHabbo(userId);
 
-        if (actor == null || target == null)
-        {
+        if (actor == null || target == null) {
             return;
         }
 
         if ((Math.Abs(actor.X - target.X) >= 3 || Math.Abs(actor.Y - target.Y) >= 3)
-            && !habbo.Access.Can(PermissionKeys.ModerationTool))
-        {
+            && !habbo.Access.Can(PermissionKeys.ModerationTool)) {
             return;
         }
 
-        if (actor.CarryItemId <= 0 || actor.CarryTimer <= 0)
-        {
+        if (actor.CarryItemId <= 0 || actor.CarryTimer <= 0) {
             return;
         }
 
-        if (actor.CarryItemId == 8)
-        {
+        if (actor.CarryItemId == 8) {
             questManager.ProgressUserQuest(session, QuestType.GiveCoffee);
         }
 
@@ -130,26 +111,22 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
-        if (user.DanceId > 0)
-        {
+        if (user.DanceId > 0) {
             user.DanceId = 0;
         }
 
-        if (session.GetHabbo().Effects.CurrentEffect > 0)
-        {
+        if (session.GetHabbo().Effects.CurrentEffect > 0) {
             room.SendPacket(new AvatarEffectComposer(user.VirtualId, 0));
         }
 
         user.UnIdle();
         room.SendPacket(new ActionComposer(user.VirtualId, action));
 
-        if (action == 5)
-        {
+        if (action == 5) {
             user.IsAsleep = true;
             room.SendPacket(new SleepComposer(user.VirtualId, true));
         }
@@ -164,18 +141,12 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             _ => (WiredAvatarAction)0
         };
 
-        if (wiredAction != 0)
-        {
+        if (wiredAction != 0) {
             room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
-            {
-                Actor = user,
-                Action = (int)wiredAction,
-                Code = -1
-            });
+            { Actor = user, Action = (int)wiredAction, Code = -1 });
         }
 
-        if (action == 1)
-        {
+        if (action == 1) {
             rewards.Progress(session, RewardTrackActions.Wave);
         }
 
@@ -186,25 +157,21 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
         user.UnIdle();
 
-        if (danceId < 0 || danceId > 4 || danceId > 1 && ClubAccess.LevelFor(session.GetHabbo().Access) == 0)
-        {
+        if (danceId < 0 || danceId > 4 || danceId > 1 && ClubAccess.LevelFor(session.GetHabbo().Access) == 0) {
             danceId = 0;
         }
 
-        if (danceId > 0 && user.CarryItemId > 0)
-        {
+        if (danceId > 0 && user.CarryItemId > 0) {
             user.CarryItem(0);
         }
 
-        if (session.GetHabbo().Effects.CurrentEffect > 0)
-        {
+        if (session.GetHabbo().Effects.CurrentEffect > 0) {
             room.SendPacket(new AvatarEffectComposer(user.VirtualId, 0));
         }
 
@@ -212,50 +179,39 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
         user.DanceId = danceId;
         room.SendPacket(new DanceComposer(user.VirtualId, danceId));
 
-        if (danceId > 0)
-        {
+        if (danceId > 0) {
             room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
-            {
-                Actor = user,
-                Action = (int)WiredAvatarAction.Dance,
-                Code = danceId
-            });
+            { Actor = user, Action = (int)WiredAvatarAction.Dance, Code = danceId });
         }
 
-        if (danceId >= 1 && danceId <= 4 && danceId != previousDance)
-        {
+        if (danceId >= 1 && danceId <= 4 && danceId != previousDance) {
             rewards.Progress(session, RewardTrackActions.Dance);
         }
 
         questManager.ProgressUserQuest(session, QuestType.SocialDance);
 
-        if (room.GetRoomUserManager().GetRoomUsers().Count > 19)
-        {
+        if (room.GetRoomUserManager().GetRoomUsers().Count > 19) {
             questManager.ProgressUserQuest(session, QuestType.MassDance);
         }
     }
 
     public void SetPosture(GameClient session, int posture)
     {
-        if (!session.GetHabbo().InRoom || posture is not (0 or 1))
-        {
+        if (!session.GetHabbo().InRoom || posture is not (0 or 1)) {
             return;
         }
 
         var room = session.GetHabbo().CurrentRoom;
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null || user.Statusses.ContainsKey("lie") || user.IsLying || user.RidingHorse || user.IsWalking)
-        {
+        if (user == null || user.Statusses.ContainsKey("lie") || user.IsLying || user.RidingHorse || user.IsWalking) {
             return;
         }
 
         var wasSitting = user.IsSitting;
 
-        if (posture == 1 && !user.Statusses.ContainsKey("sit"))
-        {
-            if (user.RotBody % 2 != 0)
-            {
+        if (posture == 1 && !user.Statusses.ContainsKey("sit")) {
+            if (user.RotBody % 2 != 0) {
                 user.RotBody--;
             }
 
@@ -264,8 +220,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             user.IsSitting = true;
             user.UpdateNeeded = true;
         }
-        else if (posture == 0 && user.IsSitting)
-        {
+        else if (posture == 0 && user.IsSitting) {
             user.Z += 0.35;
             user.Statusses.Remove("sit");
             user.Statusses.Remove("1.0");
@@ -273,8 +228,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             user.UpdateNeeded = true;
         }
 
-        if (wasSitting != user.IsSitting)
-        {
+        if (wasSitting != user.IsSitting) {
             room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
             {
                 Actor = user,
@@ -288,15 +242,13 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null || user.IsAsleep)
-        {
+        if (user == null || user.IsAsleep) {
             return;
         }
 
         user.UnIdle();
 
-        if (x == user.X && y == user.Y || user.IsWalking || user.RidingHorse)
-        {
+        if (x == user.X && y == user.Y || user.IsWalking || user.RidingHorse) {
             return;
         }
 
@@ -307,22 +259,19 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
 
     public void SetTyping(GameClient session, bool typing)
     {
-        if (!session.GetHabbo().InRoom)
-        {
+        if (!session.GetHabbo().InRoom) {
             return;
         }
 
         var room = session.GetHabbo().CurrentRoom;
 
-        if (room == null)
-        {
+        if (room == null) {
             return;
         }
 
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Username);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
@@ -331,22 +280,19 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
 
     public void ApplySign(Room room, GameClient session, int signId)
     {
-        if (signId is < 0 or > 17)
-        {
+        if (signId is < 0 or > 17) {
             return;
         }
 
         var habbo = session.GetHabbo();
 
-        if (habbo.CurrentRoom != room)
-        {
+        if (habbo.CurrentRoom != room) {
             return;
         }
 
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
 
-        if (user == null)
-        {
+        if (user == null) {
             return;
         }
 
@@ -356,10 +302,6 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
         user.UpdateNeeded = true;
         user.SignExpiresAt = now + SignDuration;
         room.GetWired().Dispatch(new(WiredEventKind.AvatarAction)
-        {
-            Actor = user,
-            Action = (int)WiredAvatarAction.Sign,
-            Code = signId
-        });
+        { Actor = user, Action = (int)WiredAvatarAction.Sign, Code = signId });
     }
 }

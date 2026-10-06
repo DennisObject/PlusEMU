@@ -24,16 +24,11 @@ public partial class PlacedFurniRoomTests
     {
         var map = _room.GetGameMap();
         var navigation = new RoomNavigation(_room, map.StaticModel,
-            new()
-            {
-                Engine = PathfindingEngine.V2,
-                ApproachAutoInteract = autoInteract
-            }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
+            new() { Engine = PathfindingEngine.V2, ApproachAutoInteract = autoInteract }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
 
-        foreach (var item in _room.GetRoomItemHandler().GetFloor)
-        {
+        foreach (var item in _room.GetRoomItemHandler().GetFloor) {
             navigation.Inputs.Attach(item);
         }
 
@@ -58,8 +53,7 @@ public partial class PlacedFurniRoomTests
 
     private void WalkToLanding(RoomUser actor, int ticks)
     {
-        for (var i = 0; i < ticks; i++)
-        {
+        for (var i = 0; i < ticks; i++) {
             ExecutorTick();
         }
     }
@@ -89,14 +83,12 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(7, item.InteractingUser);
         Assert.Null(Approaches.Peek(actor));
 
-        if (kind == InteractionType.VendingMachine)
-        {
+        if (kind == InteractionType.VendingMachine) {
             Assert.Equal("1", item.LegacyDataString);
             Assert.False(actor.CanWalk);
             Assert.Equal(2, item.UpdateCounter);
         }
-        else
-        {
+        else {
             Assert.Equal(2, actor.TeleDelay);
             Assert.True(actor.CanWalk);
         }
@@ -137,8 +129,7 @@ public partial class PlacedFurniRoomTests
         WalkToLanding(actor, 3);
         Assert.Equal(item.SquareInFront, actor.Coordinate);
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 
@@ -161,8 +152,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(7, item.InteractingUser);
         Assert.Null(actor.Movement.Commands.Read());
 
-        if (kind == InteractionType.VendingMachine)
-        {
+        if (kind == InteractionType.VendingMachine) {
             Assert.Equal(2, item.UpdateCounter);
             Assert.False(actor.CanWalk);
             ExecutorTick();
@@ -171,8 +161,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal("0", item.LegacyDataString);
             Assert.Equal(DrinkId, actor.CarryItemId);
         }
-        else
-        {
+        else {
             Assert.Equal(2, actor.TeleDelay);
             ExecutorTick();
             Assert.Contains("/mv 1,1,0/", ExecutorUpdate(actor).Status);
@@ -228,8 +217,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(actor.Movement.GoalRevision > goalRevision);
         Assert.Same(bound, Approaches.Peek(actor));
 
-        for (var i = 0; i < 6 && item.InteractingUser == 0; i++)
-        {
+        for (var i = 0; i < 6 && item.InteractingUser == 0; i++) {
             ExecutorTick();
         }
 
@@ -319,8 +307,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(_client, item, item.GetX, item.GetY, item.Rotation, false, false, true));
         Assert.Equal("0", item.LegacyDataString);
 
-        for (var i = 0; i < 8; i++)
-        {
+        for (var i = 0; i < 8; i++) {
             ExecutorTick();
             Assert.Equal(0, item.InteractingUser);
         }
@@ -346,8 +333,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         Assert.Null(Approaches.Peek(actor));
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 
@@ -362,15 +348,13 @@ public partial class PlacedFurniRoomTests
         var actor = ApproachActor(3, 0);
         ExecutorObserveLanding((user, landed) =>
         {
-            if (landed.Id == 20)
-            {
+            if (landed.Id == 20) {
                 user.SetPos(3, 3, 0);
             }
         });
         item.Interactor.OnTrigger(_client, item, 0, true);
 
-        for (var i = 0; i < 5; i++)
-        {
+        for (var i = 0; i < 5; i++) {
             ExecutorTick();
         }
 
@@ -383,8 +367,7 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void UnreachableApproachFiresNothingAndLeavesNoRegisteredIntent()
     {
-        foreach (var (id, x, y) in new[] { (30u, 0, 0), (31u, 0, 1), (32u, 2, 0), (33u, 2, 1) })
-        {
+        foreach (var (id, x, y) in new[] { (30u, 0, 0), (31u, 0, 1), (32u, 2, 0), (33u, 2, 1) }) {
             Add(id, x, y, height: 4, stackable: false);
         }
 
@@ -392,8 +375,7 @@ public partial class PlacedFurniRoomTests
         var actor = ApproachActor(3, 0);
         item.Interactor.OnTrigger(_client, item, 0, true);
 
-        for (var i = 0; i < 6; i++)
-        {
+        for (var i = 0; i < 6; i++) {
             ExecutorTick();
         }
 
@@ -414,8 +396,7 @@ public partial class PlacedFurniRoomTests
         _room.GetRoomItemHandler().RemoveFurniture(_client, item.Id);
         Assert.Null(Approaches.Peek(actor));
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 
@@ -433,8 +414,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(item, 2, 2, 0));
         Assert.Null(Approaches.Peek(actor));
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 
@@ -451,8 +431,7 @@ public partial class PlacedFurniRoomTests
         item.UpdateState(false, true);
         Assert.Null(Approaches.Peek(actor));
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 
@@ -470,8 +449,7 @@ public partial class PlacedFurniRoomTests
         item.LegacyDataString = "1";
         item.InteractingUser = 99;
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 
@@ -515,8 +493,7 @@ public partial class PlacedFurniRoomTests
         Approaches.Cancel(actor);
         Approaches.Cancel(actor);
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 
@@ -552,8 +529,7 @@ public partial class PlacedFurniRoomTests
         ExecutorTick();
         _client.GetHabbo().CurrentRoom = null;
 
-        for (var i = 0; i < 4; i++)
-        {
+        for (var i = 0; i < 4; i++) {
             ExecutorTick();
         }
 
@@ -666,8 +642,7 @@ public partial class PlacedFurniRoomTests
 
     private void BreakRecheck(string failure, Item item, RoomUser actor, ref long revision)
     {
-        switch (failure)
-        {
+        switch (failure) {
             case "inactive":
                 actor.Movement.State = NavState.Removing;
                 break;

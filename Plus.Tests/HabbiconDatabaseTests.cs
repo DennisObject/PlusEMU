@@ -12,8 +12,7 @@ public sealed class HabbiconDatabaseFactAttribute : FactAttribute
 {
     public HabbiconDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_HABBICONS_TEST_CONNECTION_STRING")))
-        {
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_HABBICONS_TEST_CONNECTION_STRING"))) {
             Skip = "Set PLUS_HABBICONS_TEST_CONNECTION_STRING to a disposable task_habicons_tests_ database.";
         }
     }
@@ -33,10 +32,8 @@ public class HabbiconDatabaseTests
     // The pristine dump takes minutes to load, so each disposable schema gets it once per process before any fixture state is written.
     private static void ImportPristineSchemaOnce(string connectionString)
     {
-        lock (PristineImportLock)
-        {
-            if (_importedConnectionString == connectionString)
-            {
+        lock (PristineImportLock) {
+            if (_importedConnectionString == connectionString) {
                 return;
             }
 
@@ -53,8 +50,7 @@ public class HabbiconDatabaseTests
         _database = new(connectionString);
         var builder = new MySqlConnectionStringBuilder(connectionString);
 
-        if (!builder.Database.StartsWith("task_habicons_tests_", StringComparison.Ordinal))
-        {
+        if (!builder.Database.StartsWith("task_habicons_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Habicon database tests require a disposable task_habicons_tests_ schema.");
         }
 
@@ -62,8 +58,7 @@ public class HabbiconDatabaseTests
         Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/14_Habbicons.sql")));
         Execute("DELETE FROM users_habbicons; DELETE FROM users WHERE id = 910001");
 
-        using (var connection = _database.Connection())
-        {
+        using (var connection = _database.Connection()) {
             bool hasTicket = connection.QuerySingle<int>("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'auth_ticket'") > 0;
             Execute(hasTicket
                 ? "INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (910001, 'habicon_tests', '', 100, 20, 20)"
@@ -144,8 +139,7 @@ public class HabbiconDatabaseTests
         _service.Change(UserId, HabbiconAction.BuyCollection, 6);
         _service.Change(UserId, HabbiconAction.Favorite, 61);
 
-        for (int id = 61; id <= 70; id++)
-        {
+        for (int id = 61; id <= 70; id++) {
             Assert.True(_service.Use(UserId, id));
         }
 
@@ -253,20 +247,21 @@ public class HabbiconDatabaseTests
         var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20 };
         var outcomes = await Task.WhenAll(Enumerable.Range(0, 12).Select(index => Task.Run(() =>
         {
-            try
-            {
-                if (index % 2 == 0)
-                {
+            try {
+                if (index % 2 == 0) {
                     _service.Change(habbo, HabbiconAction.Buy, 61);
                 }
-                else
-                {
+                else {
                     _service.BuyCatalog(habbo, 61, 5, 0, 0);
                 }
 
                 return true;
             }
-            catch (HabbiconRejected rejected) { Assert.Equal(4, rejected.Code); return false; }
+            catch (HabbiconRejected rejected) {
+                Assert.Equal(4, rejected.Code);
+
+                return false;
+            }
         })));
         Assert.Equal(1, outcomes.Count(success => success));
         Assert.Equal(95, habbo.Credits);
@@ -282,14 +277,15 @@ public class HabbiconDatabaseTests
         var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20 };
         Execute("CREATE TRIGGER habicon_test_failure BEFORE INSERT ON users_habbicons FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected ownership failure'");
 
-        try
-        {
+        try {
             Assert.Throws<MySqlException>(() => _service.Change(habbo, HabbiconAction.Buy, 61));
             Assert.Equal(100, habbo.Credits);
             Assert.Equal(100, Scalar("SELECT credits FROM users WHERE id = 910001"));
             Assert.False(_service.Load(UserId).RequireItem(61).Owned);
         }
-        finally { Execute("DROP TRIGGER habicon_test_failure"); }
+        finally {
+            Execute("DROP TRIGGER habicon_test_failure");
+        }
     }
 
     [HabbiconDatabaseFact]
@@ -330,12 +326,13 @@ public class HabbiconDatabaseTests
         Assert.True(enteredPurchase.Wait(TimeSpan.FromSeconds(5)));
         var award = Task.Run(async () => { startedAward.Set(); return await give.TryExecute(new[] { UserId.ToString(), "credits", "10" }); });
 
-        try
-        {
+        try {
             Assert.True(startedAward.Wait(TimeSpan.FromSeconds(5)));
             Assert.False(award.Wait(TimeSpan.FromMilliseconds(100))); // It cannot read the pre-purchase wallet.
         }
-        finally { releasePurchase.Set(); }
+        finally {
+            releasePurchase.Set();
+        }
 
         await purchase;
         Assert.True(await award);
@@ -366,13 +363,7 @@ public class HabbiconDatabaseTests
         {
             Id = UserId,
             Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(
-            new()
-            {
-                [910002] = new()
-                {
-                    Id = 910002
-                }
-            }, new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch))
+            new() { [910002] = new() { Id = 910002 } }, new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch))
         };
         var recipient = new Habbo
         {
@@ -433,12 +424,13 @@ public class HabbiconDatabaseTests
         Assert.True(enteredPurchase.Wait(TimeSpan.FromSeconds(5)));
         var syncing = Task.Run(async () => { startedSync.Set(); return await sync.TryExecute(new[] { UserId.ToString(), "credits" }); });
 
-        try
-        {
+        try {
             Assert.True(startedSync.Wait(TimeSpan.FromSeconds(5)));
             Assert.False(syncing.Wait(TimeSpan.FromMilliseconds(100)));
         }
-        finally { releasePurchase.Set(); }
+        finally {
+            releasePurchase.Set();
+        }
 
         await purchase;
         Assert.True(await syncing);
@@ -516,10 +508,7 @@ public class HabbiconDatabaseTests
     internal sealed class TestDatabase(string connectionString) : IDatabase
     {
         public bool IsConnected() => true;
-        public Action? BeforeConnection
-        {
-            get; set;
-        }
+        public Action? BeforeConnection { get; set; }
         public IDbConnection Connection()
         {
             BeforeConnection?.Invoke();
@@ -530,10 +519,7 @@ public class HabbiconDatabaseTests
 
     private sealed class CountingTimeProvider(DateTimeOffset now) : TimeProvider
     {
-        public int Calls
-        {
-            get; private set;
-        }
+        public int Calls { get; private set; }
         public override DateTimeOffset GetUtcNow()
         {
             Calls++;

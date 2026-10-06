@@ -97,8 +97,7 @@ public class NavGridCompilerTests
             (1.0, true, false, InteractionType.None, "0"),
             (1.0, false, false, InteractionType.Bed, "0"),
             (0.5, false, false, InteractionType.Gate, "0"),
-            (0.5, false, false, InteractionType.Gate, "1") })
-        {
+            (0.5, false, false, InteractionType.Gate, "1") }) {
             floor.Clear();
             var item = NavTest.Item();
             item.GetX = item.GetY = 1;
@@ -125,17 +124,12 @@ public class NavGridCompilerTests
         var (grid, inputs, compiler) = NavTest.Create(12, 12);
         var random = new Random(173);
 
-        for (var i = 1; i <= 500; i++)
-        {
+        for (var i = 1; i <= 500; i++) {
             var id = (uint)random.Next(1, 21);
             var record = NavTest.Record(id, i, [random.Next(144), random.Next(144)], z: random.Next(5), h: random.Next(3), walkable: random.Next(3) != 0, seat: random.Next(5) == 0);
 
-            if (random.Next(8) == 0)
-            {
-                record = record with
-                {
-                    Removed = true
-                };
+            if (random.Next(8) == 0) {
+                record = record with { Removed = true };
             }
 
             inputs.Publish(record);
@@ -151,8 +145,7 @@ public class NavGridCompilerTests
 
         var other = NavTest.Create(12, 12);
 
-        foreach (var record in inputs.AppliedRecords.Values.Reverse())
-        {
+        foreach (var record in inputs.AppliedRecords.Values.Reverse()) {
             other.Inputs.Publish(record);
         }
 
@@ -182,8 +175,7 @@ public class NavGridCompilerTests
     [Fact]
     public void StacktoolCompatibilitySwitchIsExplicit()
     {
-        foreach (var collision in new[] { true, false })
-        {
+        foreach (var collision in new[] { true, false }) {
             var settings = new PathfindingSettings { StacktoolLegacyCollision = collision };
             var (grid, inputs, compiler) = NavTest.Create(2, 1, settings);
             inputs.Publish(NavTest.Record(1, 1, [1], z: 3, h: 1, walkable: false, interaction: InteractionType.Stacktool));
@@ -206,26 +198,15 @@ public class NavGridCompilerTests
         inputs.Publish(NavTest.Record(5, 5, [5], z: 20, walkable: false, interaction: InteractionType.Gate));
         var low = NavTest.Record(100, 6, [0, 1, 2, 3, 4, 5, 6], z: 1, h: 100,
             walkable: false, interaction: InteractionType.WalkMagicTile);
-        var high = low with
-        {
-            ItemId = 10,
-            Version = 7,
-            Z = 1.5004,
-            Height = 0
-        };
-        var tie = high with
-        {
-            ItemId = 11,
-            Version = 8
-        };
+        var high = low with { ItemId = 10, Version = 7, Z = 1.5004, Height = 0 };
+        var tie = high with { ItemId = 11, Version = 8 };
         inputs.Publish(high);
         inputs.Publish(tie);
         inputs.Publish(low);
         grid.FloorLocks[5] = 1;
         compiler.ApplyNow();
 
-        for (var tile = 0; tile < 6; tile++)
-        {
+        for (var tile = 0; tile < 6; tile++) {
             Assert.Equal(SurfaceKind.WalkMagic, grid.Kind[tile]);
             Assert.Equal(NavFlags.Transit | (tile == 5 ? NavFlags.FloorLocked : NavFlags.None), grid.Flags[tile]);
             Assert.Equal(1.5004, grid.WalkZ[tile]);
@@ -239,18 +220,10 @@ public class NavGridCompilerTests
         Assert.Equal(NavFlags.Door, grid.Flags[6]);
         Assert.Equal(7, grid.ActiveNodeCount);
         Assert.Equal(7, grid.SlotCapacity);
-        inputs.Publish(tie with
-        {
-            Version = 9,
-            Removed = true
-        });
+        inputs.Publish(tie with { Version = 9, Removed = true });
         compiler.ApplyNow();
         Assert.Equal((uint)10, grid.SupportItem[1]);
-        inputs.Publish(high with
-        {
-            Version = 10,
-            Removed = true
-        });
+        inputs.Publish(high with { Version = 10, Removed = true });
         compiler.ApplyNow();
         Assert.Equal(1, grid.WalkZ[1]);
         Assert.Equal((uint)100, grid.SupportItem[1]);

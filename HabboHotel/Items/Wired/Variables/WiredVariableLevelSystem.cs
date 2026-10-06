@@ -8,10 +8,7 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 public sealed class WiredVariableLevelSystem
 {
     private readonly int[] _thresholds;
-    public int SubvariableMask
-    {
-        get;
-    }
+    public int SubvariableMask { get; }
     private WiredVariableLevelSystem(int[] thresholds, int mask)
     {
         _thresholds = thresholds;
@@ -21,73 +18,61 @@ public sealed class WiredVariableLevelSystem
     {
         result = null;
 
-        if (text.Length > 8192)
-        {
+        if (text.Length > 8192) {
             return false;
         }
 
-        try
-        {
+        try {
             using var document = JsonDocument.Parse(text);
             var root = document.RootElement;
             int Number(string name, int fallback) => root.TryGetProperty(name, out var value) ? value.GetInt32() : fallback;
             int NonNegative(string name, int fallback) => Math.Max(0, Number(name, fallback));
             var mode = Number("mode", 1);
 
-            if (mode is < 1 or > 3)
-            {
+            if (mode is < 1 or > 3) {
                 return false;
             }
 
             var maxLevel = Math.Clamp(Number("maxLevel", 10), 1, 10000);
             var thresholds = new int[maxLevel];
 
-            if (mode == 1)
-            {
+            if (mode == 1) {
                 var step = NonNegative("stepSize", 100);
 
-                for (var i = 1; i < thresholds.Length; i++)
-                {
+                for (var i = 1; i < thresholds.Length; i++) {
                     thresholds[i] = Clamp((long)i * step);
                 }
             }
-            else if (mode == 2)
-            {
+            else if (mode == 2) {
                 var increment = NonNegative("firstLevelXp", 100);
                 var factor = NonNegative("increaseFactor", 100);
                 long threshold = 0;
 
-                for (var i = 1; i < thresholds.Length; i++)
-                {
+                for (var i = 1; i < thresholds.Length; i++) {
                     threshold += increment;
                     thresholds[i] = Clamp(threshold);
                     increment = Clamp(Math.Floor(increment * (100d + factor) / 100d + 0.5));
                 }
             }
-            else
-            {
+            else {
                 var manual = root.TryGetProperty("interpolationText", out var value) ? value.GetString() ?? "" : "";
 
-                if (manual.Length > 4096)
-                {
+                if (manual.Length > 4096) {
                     return false;
                 }
 
                 var anchors = new SortedDictionary<int, int>();
 
-                foreach (var line in manual.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
-                {
+                foreach (var line in manual.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)) {
                     var separator = line.IndexOf('=');
 
-                    if (separator < 0)
-                    {
+                    if (separator < 0) {
                         separator = line.IndexOf(',');
                     }
 
                     if (separator <= 0 || !int.TryParse(line[..separator].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var level)
                         || !int.TryParse(line[(separator + 1)..].Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var xp)
-                        || level is < 1 or > 10000 || xp < 0)
-                    {
+                        || level is < 1 or > 10000 || xp < 0) {
                         return false;
                     }
 
@@ -99,10 +84,8 @@ public sealed class WiredVariableLevelSystem
                 var previous = anchors.First();
                 thresholds[0] = previous.Value;
 
-                foreach (var next in anchors.Skip(1))
-                {
-                    for (var level = previous.Key + 1; level <= next.Key; level++)
-                    {
+                foreach (var next in anchors.Skip(1)) {
+                    for (var level = previous.Key + 1; level <= next.Key; level++) {
                         var ratio = (double)(level - previous.Key) / (next.Key - previous.Key);
                         thresholds[level - 1] = Clamp(Math.Floor(previous.Value + ((double)next.Value - previous.Value) * ratio + 0.5));
                     }
@@ -113,16 +96,13 @@ public sealed class WiredVariableLevelSystem
 
             var mask = 3;
 
-            if (root.TryGetProperty("subvariables", out var selected))
-            {
+            if (root.TryGetProperty("subvariables", out var selected)) {
                 mask = 0;
 
-                foreach (var value in selected.EnumerateArray())
-                {
+                foreach (var value in selected.EnumerateArray()) {
                     var index = value.GetInt32();
 
-                    if (index is < 0 or > 7)
-                    {
+                    if (index is < 0 or > 7) {
                         return false;
                     }
 
@@ -134,8 +114,7 @@ public sealed class WiredVariableLevelSystem
 
             return true;
         }
-        catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException or OverflowException)
-        {
+        catch (Exception exception) when (exception is JsonException or InvalidOperationException or FormatException or OverflowException) {
             return false;
         }
     }
@@ -147,10 +126,8 @@ public sealed class WiredVariableLevelSystem
         var next = 0;
 
         // Manual thresholds need not be monotonic; Polaris stops at the first unreached entry.
-        for (var i = 0; i < _thresholds.Length; i++)
-        {
-            if (xp < _thresholds[i])
-            {
+        for (var i = 0; i < _thresholds.Length; i++) {
+            if (xp < _thresholds[i]) {
                 next = _thresholds[i];
                 break;
             }
