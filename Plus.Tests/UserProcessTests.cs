@@ -184,6 +184,56 @@ public class UserProcessTests
         Assert.Single(sent);
     }
 
+    [Fact]
+    public void FailedDisconnectSaveStillReleasesTheUserAndReportsTheFailure()
+    {
+        var clock = new ManualClock();
+        var (habbo, _) = Player(clock);
+        using var process = Process(clock, new Store((_, _, _, _) => { }));
+        var saves = 0;
+        using var disconnect = new DisconnectContext(habbo, process, Proxy<IUserPersistenceService>((_, _) =>
+        {
+            saves++;
+            throw new InvalidOperationException("Save failed");
+        }));
+        var disposed = 0;
+        habbo.Disposed += (_, _) => disposed++;
+
+        var exception = Assert.Throws<InvalidOperationException>(habbo.OnDisconnect);
+        habbo.OnDisconnect();
+
+        Assert.Equal("Save failed", exception.Message);
+        Assert.Equal(1, saves);
+        Assert.Equal(1, disconnect.Unregisters);
+        Assert.Equal(1, disposed);
+        Assert.True(clock.TimerDisposed);
+        Assert.Null(habbo.Client);
+    }
+
+    [Fact]
+    public void TransportDisconnectContainsAndLogsAFailedUserSave()
+    {
+        var clock = new ManualClock();
+        var (habbo, _) = Player(clock);
+        var logger = new Logger<GameClient>();
+        var client = new Plus.Communication.Flash.FlashGameClient(TestGameServer.Instance,
+            new Plus.Communication.Flash.FlashPacketFactory(), logger);
+        client.SetHabbo(habbo);
+        habbo.Client = client;
+        using var process = Process(clock, new Store((_, _, _, _) => { }));
+        using var disconnect = new DisconnectContext(habbo, process, Proxy<IUserPersistenceService>((_, _) =>
+            throw new InvalidOperationException("Save failed")));
+
+        client.OnDisconnected();
+        client.OnDisconnected();
+
+        Assert.Equal(1, logger.Errors);
+        Assert.Equal(1, disconnect.Unregisters);
+        Assert.True(clock.TimerDisposed);
+        Assert.Null(habbo.Client);
+        Assert.False(client.IsAuthenticated);
+    }
+
     [RoomComponentDatabaseFact]
     public async Task DisconnectSavesTheCommittedDailyResetBeforeUnregistering()
     {

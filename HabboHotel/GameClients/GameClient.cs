@@ -72,7 +72,14 @@ public abstract class GameClient
         }
         IsAuthenticated = false;
         EndCameraContext();
-        habbo?.OnDisconnect();
+        try
+        {
+            habbo?.OnDisconnect();
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError(exception, "Failed to clean up disconnected user {UserId}", habbo?.Id);
+        }
     }
 
     /// <summary>

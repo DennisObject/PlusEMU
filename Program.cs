@@ -185,7 +185,7 @@ public static class Program
     private static void OnUnhandledException(object sender, UnhandledExceptionEventArgs args)
     {
         var e = (Exception)args.ExceptionObject;
-        //Logger.LogCriticalException("SYSTEM CRITICAL EXCEPTION: " + e);
+        ExceptionLogger.LogCriticalException(e);
         PlusEnvironment.PerformShutDown();
     }
 }
