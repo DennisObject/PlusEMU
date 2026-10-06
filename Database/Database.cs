@@ -2,8 +2,6 @@
 using Microsoft.Extensions.Options;
 using MySqlConnector;
 using Dapper;
-using Plus.Core;
-using Plus.Database.Interfaces;
 
 namespace Plus.Database;
 
@@ -49,22 +47,6 @@ public sealed class Database : IDatabase
             return false;
         }
         return true;
-    }
-
-    [Obsolete("Use IDatabase.Connection instead")]
-    public IQueryAdapter GetQueryReactor()
-    {
-        try
-        {
-            IDatabaseClient dbConnection = new DatabaseConnection(_connectionStr);
-            dbConnection.Connect();
-            return dbConnection.GetQueryReactor();
-        }
-        catch (Exception e)
-        {
-            ExceptionLogger.LogException(e);
-            return null;
-        }
     }
 
     public IDbConnection Connection() => new MySqlConnection(_connectionStr);

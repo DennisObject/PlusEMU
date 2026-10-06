@@ -1,26 +1,21 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
+using System.Collections.Immutable;
+using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog;
 
-public class PromotableRoomsComposer : IServerPacket
+public sealed class PromotableRoomsComposer(ImmutableArray<PromotableRoomSnapshot> rooms) : IServerPacket
 {
-    private readonly ICollection<RoomData> _rooms;
     public uint MessageId => ServerPacketHeader.PromotableRoomsComposer;
-
-    public PromotableRoomsComposer(ICollection<RoomData> rooms)
-    {
-        _rooms = rooms;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteBoolean(true);
-        packet.WriteInteger(_rooms.Count);
-        foreach (var data in _rooms)
+        packet.WriteInteger(rooms.Length);
+        foreach (var room in rooms)
         {
-            packet.WriteUInteger(data.Id);
-            packet.WriteString(data.Name);
+            packet.WriteUInteger(room.Id);
+            packet.WriteString(room.Name);
             packet.WriteBoolean(false);
         }
     }

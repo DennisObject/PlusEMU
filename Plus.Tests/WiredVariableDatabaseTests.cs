@@ -12,7 +12,6 @@ using Plus.HabboHotel.Users;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -129,7 +128,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             var roomVariables = new WiredRoomVariables(liveRoom, atomicDb, () => 5000);
             var itemHandler = new RoomItemHandling(liveRoom, TestRoomItemStore.Instance);
             typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, itemHandler);
-            var roomUsers = new RoomUserManager(liveRoom);
+            var roomUsers = new RoomUserManager(liveRoom, TestRoomUserStore.Instance, TimeProvider.System);
             typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, roomUsers);
             var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(itemHandler)!;
             var userDefinitionItem = new Item { Id = items[0], OwnerId = owner, Definition = new() { InteractionName = "wf_var_user" } };
@@ -180,7 +179,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             output.WriteLine("Actual room FX binding/composition: initial configs/status, unchanged flush zero SQL, enqueue-failure retry, and moved-off-variable removal passed.");
             // Exercise production readiness and cycle entry with the same actual SQL module, not FlushFx directly.
             roomVariables.Fx.RemoveViewer(fxPlayer.Id); // End the preceding module-only simulated viewer session.
-            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger);
+            var nativeWired = new WiredComponent(liveRoom, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
             typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(liveRoom, nativeWired);
             typeof(WiredComponent).GetField("_variables", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nativeWired, new Lazy<WiredRoomVariables>(() => roomVariables));
             Assert.Same(roomVariables, nativeWired.Variables);
@@ -188,7 +187,7 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
                 new Gamemap(liveRoom, new RoomModel("wired-sql-probe", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation));
             fxPlayer.Username = "probe-viewer"; fxPlayer.Motto = ""; fxPlayer.Look = "test"; fxPlayer.Gender = "M";
             fxPlayer.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
-            fxPlayer.Effects = new(); fxPlayer.Access = EditorTestSupport.Access([]);
+            fxPlayer.Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch)); fxPlayer.Access = EditorTestSupport.Access([]);
             fxClient.Revision.InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
                 .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Distinct().ToDictionary(id => id, id => id);
             var failSnapshot = false; var failFx = false; var failedFx = false;
@@ -468,7 +467,6 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
         public Action? BeforeConnection;
         public string? FailSqlPrefix;
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection()
         {
             var action = BeforeConnection; BeforeConnection = null; action?.Invoke();

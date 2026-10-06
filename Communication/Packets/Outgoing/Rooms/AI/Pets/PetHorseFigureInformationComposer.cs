@@ -1,51 +1,32 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 
-public class PetHorseFigureInformationComposer : IServerPacket
+public sealed class PetHorseFigureInformationComposer(HorseAppearanceSnapshot data) : IServerPacket
 {
-    private readonly RoomUser _petUser;
     public uint MessageId => ServerPacketHeader.PetHorseFigureInformationComposer;
-
-    public PetHorseFigureInformationComposer(RoomUser petUser)
-    {
-        _petUser = petUser;
-    }
-
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_petUser.PetData.VirtualId);
-        packet.WriteInteger(_petUser.PetData.PetId);
-        packet.WriteInteger(_petUser.PetData.Type);
-        packet.WriteInteger(int.Parse(_petUser.PetData.Race));
-        packet.WriteString(_petUser.PetData.Color.ToLower());
-        if (_petUser.PetData.Saddle > 0)
+        packet.WriteInteger(data.VirtualId);
+        packet.WriteInteger(data.PetId);
+        packet.WriteInteger(data.Type);
+        packet.WriteInteger(data.Race);
+        packet.WriteString(data.Color);
+        if (data.Saddle > 0)
         {
-            packet.WriteInteger(4);
-            packet.WriteInteger(3);
-            packet.WriteInteger(3);
-            packet.WriteInteger(_petUser.PetData.PetHair);
-            packet.WriteInteger(_petUser.PetData.HairDye);
-            packet.WriteInteger(2);
-            packet.WriteInteger(_petUser.PetData.PetHair);
-            packet.WriteInteger(_petUser.PetData.HairDye);
-            packet.WriteInteger(4);
-            packet.WriteInteger(_petUser.PetData.Saddle);
-            packet.WriteInteger(0);
+            packet.WriteInteger(4); packet.WriteInteger(3); packet.WriteInteger(3);
+            packet.WriteInteger(data.Hair); packet.WriteInteger(data.HairDye);
+            packet.WriteInteger(2); packet.WriteInteger(data.Hair); packet.WriteInteger(data.HairDye);
+            packet.WriteInteger(4); packet.WriteInteger(data.Saddle); packet.WriteInteger(0);
         }
         else
         {
-            packet.WriteInteger(1);
-            packet.WriteInteger(2);
-            packet.WriteInteger(2);
-            packet.WriteInteger(_petUser.PetData.PetHair);
-            packet.WriteInteger(_petUser.PetData.HairDye);
-            packet.WriteInteger(3);
-            packet.WriteInteger(_petUser.PetData.PetHair);
-            packet.WriteInteger(_petUser.PetData.HairDye);
+            packet.WriteInteger(1); packet.WriteInteger(2); packet.WriteInteger(2);
+            packet.WriteInteger(data.Hair); packet.WriteInteger(data.HairDye);
+            packet.WriteInteger(3); packet.WriteInteger(data.Hair); packet.WriteInteger(data.HairDye);
         }
-        packet.WriteBoolean(_petUser.PetData.Saddle > 0);
-        packet.WriteBoolean(_petUser.RidingHorse);
+        packet.WriteBoolean(data.Saddle > 0);
+        packet.WriteBoolean(data.Riding);
     }
 }

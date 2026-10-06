@@ -7,17 +7,16 @@ namespace Plus.Tests;
 
 public class CatalogAdminValidationTests
 {
-    private static readonly CatalogPageRow Root = new() { Id = 1, ParentId = -1, Caption = "Shop", RequiredPermission = null, CatalogMode = CatalogModes.Normal };
-    private static readonly CatalogPageRow Child = new() { Id = 2, ParentId = 1, Caption = "Child", RequiredPermission = null, CatalogMode = CatalogModes.Normal };
-    private static readonly CatalogPageRow Staff = new() { Id = 3, ParentId = -1, Caption = "Staff", RequiredPermission = EditorTestSupport.RestrictedPagePermission, CatalogMode = CatalogModes.Normal };
-    private static readonly CatalogPageRow Builder = new() { Id = 4, ParentId = -1, Caption = "BC", RequiredPermission = null, CatalogMode = CatalogModes.BuildersClub };
+    private static readonly CatalogPageRow Root = new() { Id = 1, ParentId = -1, Caption = "Shop", RequiredPermission = null };
+    private static readonly CatalogPageRow Child = new() { Id = 2, ParentId = 1, Caption = "Child", RequiredPermission = null };
+    private static readonly CatalogPageRow Staff = new() { Id = 3, ParentId = -1, Caption = "Staff", RequiredPermission = EditorTestSupport.RestrictedPagePermission };
 
     private static readonly CatalogAdminPage Valid = new("NORMAL", 0, 1, "new_page", "New page", "default_3x3", 1, 10, "", 0, true, true, false,
         "NORMAL", "header", "", "", "text", "", "", "", 0, "");
 
     private static readonly CatalogAdminOffer Offer = new("NORMAL", 0, "10", 1, "chair", 3, 0, 0, 1, 0, -1, -1, 0, "", true, false);
 
-    private static CatalogPageRow? Find(int id) => new[] { Root, Child, Staff, Builder }.FirstOrDefault(page => page.Id == id);
+    private static CatalogPageRow? Find(int id) => new[] { Root, Child, Staff }.FirstOrDefault(page => page.Id == id);
 
     private static Dictionary<string, string> Check(CatalogAdminPage page, CatalogPageRow? existing = null, UserAccess? access = null) =>
         CatalogAdminValidation.Page(page, existing, access ?? EditorTestSupport.Staff().Access, Find);
@@ -81,7 +80,6 @@ public class CatalogAdminValidationTests
     public void ParentMustExistStayInTheCatalogAndNotBeADescendant()
     {
         Assert.Contains("parentId", Check(Valid with { ParentId = 99 }).Keys);
-        Assert.Contains("parentId", Check(Valid with { ParentId = 4 }).Keys);
         Assert.Contains("parentId", Check(Valid with { PageId = 1, ParentId = 2 }, Root).Keys);
         Assert.Contains("parentId", Check(Valid with { PageId = 1, ParentId = 1 }, Root).Keys);
         Assert.Empty(Check(Valid with { ParentId = -1 }));
@@ -122,16 +120,16 @@ public class CatalogAdminValidationTests
     public void PageStringsKeepPositionsTheEditorDoesNotKnow()
     {
         var row = new CatalogPageRow { Id = 9, ParentId = -1, Caption = "Old", PageLink = "old", PageLayout = "default_3x3", RequiredPermission = EditorTestSupport.RestrictedPagePermission,
-            PageStrings1 = "head|teaser", PageStrings2 = "one|two|details|teaser text|fifth", CatalogMode = CatalogModes.BuildersClub };
+            PageStrings1 = "head|teaser", PageStrings2 = "one|two|details|teaser text|fifth" };
 
         var page = CatalogAdminMapping.ToPage(row);
-        Assert.Equal(("BUILDER", "head", "teaser", "", "one", "two", "details", "teaser text", EditorTestSupport.RestrictedPagePermission),
+        Assert.Equal(("NORMAL", "head", "teaser", "", "one", "two", "details", "teaser text", EditorTestSupport.RestrictedPagePermission),
             (page.CatalogType, page.PageHeadline, page.PageTeaser, page.PageSpecial, page.PageText1, page.PageText2, page.PageTextDetails, page.PageTextTeaser, page.RequiredPermission));
 
         var saved = CatalogAdminMapping.Apply(page with { PageText1 = "new one", OrderNum = -1 }, row);
         Assert.Equal("head|teaser", saved.PageStrings1);
         Assert.Equal("new one|two|details|teaser text|fifth", saved.PageStrings2);
-        Assert.Equal((EditorTestSupport.RestrictedPagePermission, CatalogModes.BuildersClub, 0), (saved.RequiredPermission, saved.CatalogMode, saved.OrderNum));
+        Assert.Equal((EditorTestSupport.RestrictedPagePermission, 0), (saved.RequiredPermission, saved.OrderNum));
         Assert.Equal("new|teaser", CatalogAdminMapping.WithImages(row, "new", "teaser").PageStrings1);
         Assert.Null(CatalogAdminMapping.Apply(page with { RequiredPermission = "" }, row).RequiredPermission);
     }

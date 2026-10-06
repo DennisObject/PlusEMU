@@ -1,42 +1,13 @@
-﻿using System.Data;
-using Plus.Communication.Packets.Outgoing.Inventory.Purse;
-using Plus.Database;
+﻿using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Marketplace;
 
-internal class RedeemOfferCreditsEvent : IPacketEvent
+internal class RedeemOfferCreditsEvent(IMarketplaceRedemptionService redemption) : IPacketEvent
 {
-    private readonly IDatabase _database;
-
-    public RedeemOfferCreditsEvent(IDatabase database)
-    {
-        _database = database;
-    }
-
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        var creditsOwed = 0;
-        DataTable table;
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.SetQuery($"SELECT `asking_price` FROM `catalog_marketplace_offers` WHERE `user_id` = '{session.GetHabbo().Id}' AND `state` = '2'");
-            table = dbClient.GetTable();
-        }
-        if (table != null)
-        {
-            foreach (DataRow row in table.Rows) creditsOwed += Convert.ToInt32(row["asking_price"]);
-            if (creditsOwed >= 1)
-            {
-                lock (session.GetHabbo().WalletSync)
-                {
-                    session.GetHabbo().Credits += creditsOwed;
-                    session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
-                }
-            }
-            using var dbClient = _database.GetQueryReactor();
-            dbClient.RunQuery($"DELETE FROM `catalog_marketplace_offers` WHERE `user_id` = '{session.GetHabbo().Id}' AND `state` = '2'");
-        }
+        redemption.Redeem(session);
         return Task.CompletedTask;
     }
 }

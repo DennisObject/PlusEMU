@@ -249,7 +249,7 @@ public sealed class EditorDatabaseTests : IDisposable
 
         var updated = furni.Update(staff, chair, "{\"width\":2,\"allowStack\":true,\"interactionType\":\"gate\",\"vendingIds\":\"1,2\"}");
         Assert.True(updated.Success, updated.Message);
-        Assert.Equal((2, "1", "gate", "1,2"), Scalar<(int, string, string, string)>("SELECT width, can_stack, interaction_type, vending_ids FROM furniture WHERE id = @id", (int)chair));
+        Assert.Equal((2, true, "gate", "1,2"), Scalar<(int, bool, string, string)>("SELECT width, can_stack, interaction_type, vending_ids FROM furniture WHERE id = @id", (int)chair));
         Assert.False(furni.Update(staff, chair, "{\"vendingIds\":\"1;2\"}").Success);
 
         Assert.Equal("Cannot delete: still used by 1 placed or owned items", furni.Delete(staff, placed).Message);

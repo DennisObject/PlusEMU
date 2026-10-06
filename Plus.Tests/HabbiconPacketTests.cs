@@ -145,7 +145,7 @@ public class HabbiconPacketTests
         var item = new CatalogItem { Id = 10, OfferId = 12, CatalogName = "toast_toast", HabbiconId = 61,
             CostCredits = 5, Amount = 1, HaveOffer = haveOffer, Badge = "ignored", Definition = null! };
         var packet = new RecordingPacket();
-        new CatalogOfferComposer(item).Compose(packet);
+        new CatalogOfferComposer(CatalogSnapshotTestSupport.Snapshots().CaptureOffer(item)).Compose(packet);
         Assert.Equal(new object[] { 12, "toast_toast", false, 5, 0, 0, false, 1,
             "habbicon", 61, "61", 1, false, 0, false, false, "", "", haveOffer }, packet.Writes);
         Assert.False(ItemUtility.CanGiftItem(item));
@@ -175,10 +175,11 @@ public class HabbiconPacketTests
     public async Task InvalidDirectMessengerRequestsFailWithoutRecentUse(int conversation, int recipient, int type, string text, string metadata, int error)
     {
         var service = new Service();
-        var habbo = new Habbo { Id = 1, Messenger = new HabboHotel.Users.Messenger.HabboMessenger(new(), new(), new()) };
+        var habbo = new Habbo { Id = 1, Messenger = new HabboHotel.Users.Messenger.HabboMessenger(new(), new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         var (client, sent) = Client(habbo);
-        var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(service, null!, null!,
-            NullLogger<Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent>.Instance);
+        var handler = new Plus.Communication.Packets.Incoming.FriendList.SendMessengerMessageEvent(new Plus.HabboHotel.Friends.HabbiconMessengerService(service, null!,
+            new Plus.HabboHotel.Friends.HabbiconMessengerStore(null!), NullLogger<Plus.HabboHotel.Friends.HabbiconMessengerService>.Instance,
+            new FixedTimeProvider(FixedTimeProvider.Epoch)));
         await handler.Parse(client, Incoming(conversation, recipient, 7, type, text, metadata));
         Assert.Equal(ServerPacketHeader.MessengerMessageFailedComposer, Assert.Single(sent).Header);
         var payload = new Communication.Flash.FlashIncomingPacket { Buffer = sent[0].Payload };

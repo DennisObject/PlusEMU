@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
@@ -46,7 +45,8 @@ public sealed class ModernWiredDatabaseCollection;
 public class ModernWiredRuntimeTests
 {
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null) =>
-        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger);
+        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
+            TimeProvider.System);
 
     [Fact]
     public void AllImplementedEditorsHaveValidatedDefaults()
@@ -117,8 +117,8 @@ public class ModernWiredRuntimeTests
         f.Room.OwnerName = "Alice"; f.Room.Type = "private"; f.Room.UsersWithRights = [];
         var store = new MonitorSettingsStore();
         var settings = new WiredRoomSettings(f.Room, store);
-        ((ConditionalWeakTable<Room, WiredRoomSettings>)typeof(WiredRoomSettings).GetField("Instances", BindingFlags.NonPublic | BindingFlags.Static)!
-            .GetValue(null)!).Add(f.Room, settings);
+        typeof(WiredComponent).GetField("<Settings>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(f.Room.GetWired(), settings);
         var item = MakeItem(102, "wf_act_log");
         var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
         Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
@@ -538,8 +538,7 @@ public class ModernWiredRuntimeTests
         var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
         var original = databaseField.GetValue(null);
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
-        var adapter = DispatchProxy.Create<IQueryAdapter, RecordingProxy>();
-        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => method.Name == "GetQueryReactor" ? adapter : null;
+        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new NotSupportedException(method.Name);
         try
         {
             databaseField.SetValue(null, database);
@@ -582,11 +581,11 @@ public class ModernWiredRuntimeTests
                 SendCallback = _ => true
             };
             Habbo = (Habbo)RuntimeHelpers.GetUninitializedObject(typeof(Habbo)); Habbo.Id = 1; Habbo.Username = "Alice"; Habbo.CurrentRoom = Room;
-            Habbo.Client = client; Habbo.Effects = new(); typeof(EffectsComponent).GetField("_habbo", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Habbo.Effects, Habbo);
+            Habbo.Client = client; Habbo.Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch)); typeof(EffectsComponent).GetField("_habbo", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Habbo.Effects, Habbo);
             Habbo.Effects.CurrentEffect = 8; client.SetHabbo(Habbo); clients.RegisterClient(client, 1, "Alice");
             User = new(1, 0, 7, Room); RoomUsers(Room)[7] = User;
             Room.GetGameMap().AddUserToMap(User, new(0, 0));
-            var wired = new WiredComponent(Room, TestLogging.Logger);
+            var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
             Engine = new(() => _now, box => Items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, Errors.Add, new() { MaxPendingStacks = cap });
             Engine.BindRuntime(Room, new(() => Items.Values, () => RoomUsers(Room).Values), wired);
             typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, Engine);
@@ -594,7 +593,7 @@ public class ModernWiredRuntimeTests
             Target = MakeItem(1, "test"); Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0)); Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room")); Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
             Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
-                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger);
+                evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System);
             Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _); Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item; Items[100] = Action.Item; Engine.Add(Trigger); Engine.Add(Action);
         }
@@ -766,7 +765,7 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void FullPlacementHonoursScopedUsersAndPreservesOrdinaryRejection()
     {
-        var store = new RecordingRoomItemStore();
+        var store = new RecordingPlacementStore();
         var (room, map, items) = World(store);
         var mover = MakeItem(1, "test");
         mover.SetState(0, 0, 0, Gamemap.GetAffectedTiles(1, 1, 0, 0, 0));
@@ -779,11 +778,13 @@ public class ModernWiredRuntimeTests
         Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: new(new HashSet<uint>(), new HashSet<int> { 8 }, new HashSet<uint>())));
         var allowed = new WiredCollisionPolicy(new HashSet<uint>(), new HashSet<int> { 7 }, new HashSet<uint>());
         Assert.True(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: allowed));
+        Assert.Empty(store.FloorPlacements);
         Assert.True(room.GetRoomItemHandler().SetFloorItem(null!, mover, 1, 1, 0, false, false, false, wiredCollision: allowed));
         Assert.Equal(new Point(1, 1), new Point(mover.GetX, mover.GetY));
         Assert.DoesNotContain(mover, map.GetCoordinatedItems(new(0, 0)));
         Assert.Contains(mover, map.GetCoordinatedItems(new(1, 1)));
-        Assert.Equal([(1u, room.RoomId, 1, 1, 0d, 0)], store.FloorPlacements);
+        Assert.Equal((mover.Id, room.Id, 1, 1, mover.GetZ, 0), Assert.Single(store.FloorPlacements));
+
     }
 
     [Fact]
@@ -884,9 +885,8 @@ public class ModernWiredRuntimeTests
         f.Habbo.Client.SendCallback = _ => enqueue ? true : throw new IOException("placement enqueue failed");
         var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
         var original = databaseField.GetValue(null);
-        var query = DispatchProxy.Create<IQueryAdapter, RecordingProxy>();
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
-        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => method.Name == "GetQueryReactor" ? query : null;
+        ((RecordingProxy)(object)database).InvokeMethod = (method, _) => throw new NotSupportedException(method.Name);
         try
         {
             databaseField.SetValue(null, database);
@@ -1270,13 +1270,24 @@ public class ModernWiredRuntimeTests
         var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
+        TestRoomUserSnapshots.Install(room);
         typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
         typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
         return (room, map, (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!);
     }
     private static WiredRuntimeContext Context(Room room, WiredRuntimeEvent @event, Item[] items, RoomUser[] users) =>
         new(room, @event, new(() => items, () => users), new UnusedOperations());
+    private sealed class RecordingPlacementStore : IRoomItemStore
+    {
+        public List<(uint Id, uint Room, int X, int Y, double Z, int Rotation)> FloorPlacements { get; } = [];
+        public void AssignOwner(uint itemId, int userId) => throw new NotSupportedException();
+        public void ClearRoom(uint itemId) => throw new NotSupportedException();
+        public void SaveWallPosition(uint itemId, string wallPosition) => throw new NotSupportedException();
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) => throw new NotSupportedException();
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) => FloorPlacements.Add((itemId, roomId, x, y, z, rotation));
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) => throw new NotSupportedException();
+    }
     private sealed class UnusedOperations : IWiredRuntimeOperations
     {
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => throw new NotSupportedException();
@@ -1284,16 +1295,5 @@ public class ModernWiredRuntimeTests
         public void ResetTimers(IEnumerable<Item> targets) => throw new NotSupportedException();
     }
 
-    private sealed class RecordingRoomItemStore : IRoomItemStore
-    {
-        public List<(uint ItemId, uint RoomId, int X, int Y, double Z, int Rotation)> FloorPlacements { get; } = [];
-        public void AssignOwner(uint itemId, int userId) => throw new NotSupportedException();
-        public void ClearRoom(uint itemId) => throw new NotSupportedException();
-        public void SaveWallPosition(uint itemId, string wallPosition) => throw new NotSupportedException();
-        public void SaveMoved(IReadOnlyList<RoomItemSave> items) => throw new NotSupportedException();
-        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) =>
-            FloorPlacements.Add((itemId, roomId, x, y, z, rotation));
-        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) =>
-            throw new NotSupportedException();
-    }
+
 }

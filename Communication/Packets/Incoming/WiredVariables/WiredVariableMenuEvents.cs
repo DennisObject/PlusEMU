@@ -11,7 +11,7 @@ public sealed class WiredAllVariablesRequestEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredRoomSettings.For(room).CanInspect(session) || packet.HasDataRemaining()) return Task.CompletedTask;
+        if (!room.GetWired().Settings.CanInspect(session) || packet.HasDataRemaining()) return Task.CompletedTask;
         session.Send(new WiredAllVariablesHashComposer(room.GetWired().Variables.Catalog().Hash));
         return Task.CompletedTask;
     }
@@ -21,7 +21,7 @@ public sealed class WiredVariableHashesEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredRoomSettings.For(room).CanInspect(session)) return Task.CompletedTask;
+        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         if (!TryReadHashes(packet, out var hashes)) return Task.CompletedTask;
         foreach (var diff in room.GetWired().Variables.Catalog().Diff(hashes)) session.Send(new WiredAllVariablesDiffComposer(diff));
         return Task.CompletedTask;
@@ -47,7 +47,7 @@ public sealed class WiredVariableHoldersRequestEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredRoomSettings.For(room).CanInspect(session)) return Task.CompletedTask;
+        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         string id;
         try { id = packet.ReadString(); } catch (ArgumentException) { return Task.CompletedTask; }
         if (id.Length is < 1 or > 64 || packet.HasDataRemaining()) return Task.CompletedTask;
@@ -61,7 +61,7 @@ public sealed class WiredVariableHoldersPageEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredRoomSettings.For(room).CanInspect(session)) return Task.CompletedTask;
+        if (!room.GetWired().Settings.CanInspect(session)) return Task.CompletedTask;
         string id; int page, size, users, sort;
         try { id = packet.ReadString(); page = packet.ReadInt(); size = packet.ReadInt(); users = packet.ReadInt(); sort = packet.ReadInt(); }
         catch (ArgumentException) { return Task.CompletedTask; }

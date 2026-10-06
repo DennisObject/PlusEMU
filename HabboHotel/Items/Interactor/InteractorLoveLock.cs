@@ -1,5 +1,5 @@
 ﻿using System.Drawing;
-using Plus.Communication.Packets.Outgoing.Rooms.Furni.LoveLocks;
+using Plus.Communication.Packets.Outgoing.FriendFurni;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -53,8 +53,8 @@ public class InteractorLoveLock : IFurniInteractor
                     userTwo.CanWalk = false;
                     item.InteractingUser = clientOne.GetHabbo().Id;
                     item.InteractingUser2 = clientTwo.GetHabbo().Id;
-                    clientOne.Send(new LoveLockDialogueComposer(item.Id));
-                    clientTwo.Send(new LoveLockDialogueComposer(item.Id));
+                    clientOne.Send(new FriendFurniStartConfirmationComposer(item.Id));
+                    clientTwo.Send(new FriendFurniStartConfirmationComposer(item.Id));
                 }
             }
             else

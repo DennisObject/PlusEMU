@@ -20,8 +20,6 @@ using Plus.HabboHotel.Rooms.PathFinding;
 using Plus.HabboHotel.Rooms.Trading;
 using Plus.Utilities;
 
-using Dapper;
-
 namespace Plus.HabboHotel.Rooms;
 
 public class RoomUserManager
@@ -37,14 +35,18 @@ public class RoomUserManager
 
     private int _primaryPrivateUserId;
     private Room _room;
+    private readonly IRoomUserStore _store;
+    private readonly TimeProvider _clock;
     private ConcurrentDictionary<int, RoomUser> _users;
 
     public int UserCount;
 
 
-    public RoomUserManager(Room room)
+    public RoomUserManager(Room room, IRoomUserStore store, TimeProvider clock)
     {
         _room = room;
+        _store = store;
+        _clock = clock;
         _users = new();
         _pets = new();
         _bots = new();
@@ -171,7 +173,7 @@ public class RoomUserManager
                 _bots[user.BotData.BotId] = user;
             else
                 _bots.TryAdd(user.BotData.Id, user);
-            _room.SendPacket(new DanceComposer(user, user.BotData.DanceId));
+            _room.SendPacket(new DanceComposer(user.VirtualId, user.BotData.DanceId));
         }
         return user;
     }
@@ -381,23 +383,7 @@ public class RoomUserManager
 
                 //Session.GetHabbo().CurrentRoomId = 0;
                     session.GetHabbo().Messenger?.NotifyChangesToFriends();
-                using (var dbClient = PlusEnvironment.DatabaseManager.Connection())
-                {
-                    dbClient.Execute("UPDATE user_roomvisits SET exit_timestamp = @exitTimestamp WHERE room_id = @roomId AND user_id = @userId ORDER BY exit_timestamp DESC LIMIT 1",
-                        new
-                        {
-                            userId = session.GetHabbo().Id,
-                            roomId = _room.RoomId,
-                            exitTimestamp = UnixTimestamp.GetNow(),
-                        });
-
-                    dbClient.Execute("UPDATE `rooms` SET `users_now` = @usersNow WHERE `id` = @roomId LIMIT 1",
-                        new
-                        {
-                            usersNow = _room.UsersNow,
-                            roomId = _room.RoomId
-                        });
-                }
+                _store.RecordExit(_room.RoomId, session.GetHabbo().Id, _clock.GetUtcNow(), _room.UsersNow);
                 if (user != null)
                     user.Dispose();
             }
@@ -505,8 +491,7 @@ public class RoomUserManager
     {
         UserCount = count;
         _room.UsersNow = count;
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
-        dbClient.RunQuery($"UPDATE `rooms` SET `users_now` = '{count}' WHERE `id` = '{_room.RoomId}' LIMIT 1");
+        _store.UpdateUserCount(_room.RoomId, count);
     }
 
     public RoomUser? GetRoomUserByVirtualId(int virtualId)
@@ -560,29 +545,21 @@ public class RoomUserManager
 
     public void UpdatePets()
     {
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         foreach (var pet in GetPets().ToList())
         {
             if (pet == null || pet.PetId <= 0)
                 continue;
             if (pet.DbState == PetDatabaseUpdateState.NeedsInsert)
             {
-                dbClient.SetQuery($"INSERT INTO `bots` (`id`,`user_id`,`room_id`,`name`,`x`,`y`,`z`) VALUES ('{pet.PetId}','{pet.OwnerId}','{pet.RoomId}',@name,'0','0','0')");
-                dbClient.AddParameter("name", pet.Name);
-                dbClient.RunQuery();
-                dbClient.SetQuery(
-                    $"INSERT INTO `bots_petdata` (`type`,`race`,`color`,`experience`,`energy`,`createstamp`,`nutrition`,`respect`) VALUES ('{pet.Type}',@race,@color,'0','100','{pet.CreationStamp}','0','0')");
-                dbClient.AddParameter($"{pet.PetId}race", pet.Race);
-                dbClient.AddParameter($"{pet.PetId}color", pet.Color);
-                dbClient.RunQuery();
+                _store.SavePet(new(pet.PetId, pet.OwnerId, pet.RoomId, pet.Name, pet.Type, pet.Race, pet.Color,
+                    pet.CreatedAt, 0, 0, 0, 0, 100, 0, 0, true));
             }
             else if (pet.DbState == PetDatabaseUpdateState.NeedsUpdate)
             {
                 //Surely this can be *99 better? // TODO
                 var user = GetRoomUserByVirtualId(pet.VirtualId);
-                dbClient.RunQuery($"UPDATE `bots` SET room_id = {pet.RoomId}, x = {(user?.X ?? 0)}, Y = {(user?.Y ?? 0)}, Z = {(user?.Z ?? 0)} WHERE `id` = '{pet.PetId}' LIMIT 1");
-                dbClient.RunQuery(
-                    $"UPDATE `bots_petdata` SET `experience` = '{pet.Experience}', `energy` = '{pet.Energy}', `nutrition` = '{pet.Nutrition}', `respect` = '{pet.Respect}' WHERE `id` = '{pet.PetId}' LIMIT 1");
+                _store.SavePet(new(pet.PetId, pet.OwnerId, pet.RoomId, pet.Name, pet.Type, pet.Race, pet.Color,
+                    pet.CreatedAt, user?.X ?? 0, user?.Y ?? 0, user?.Z ?? 0, pet.Experience, pet.Energy, pet.Nutrition, pet.Respect, false));
             }
             pet.DbState = PetDatabaseUpdateState.Updated;
         }
@@ -590,22 +567,13 @@ public class RoomUserManager
 
     private void UpdateBots()
     {
-        using var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor();
         foreach (var user in GetRoomUsers().ToList())
         {
             if (user == null || !user.IsBot || user.BotData.IsTemporary)
                 continue;
             if (user.IsBot)
             {
-                dbClient.SetQuery("UPDATE bots SET x=@x, y=@y, z=@z, name=@name, look=@look, rotation=@rotation WHERE id=@id LIMIT 1;");
-                dbClient.AddParameter("name", user.BotData.Name);
-                dbClient.AddParameter("look", user.BotData.Look);
-                dbClient.AddParameter("rotation", user.BotData.Rot);
-                dbClient.AddParameter("x", user.X);
-                dbClient.AddParameter("y", user.Y);
-                dbClient.AddParameter("z", user.Z);
-                dbClient.AddParameter("id", user.BotData.BotId);
-                dbClient.RunQuery();
+                _store.SaveBot(new(user.BotData.BotId, user.X, user.Y, user.Z, user.BotData.Name, user.BotData.Look, user.BotData.Rot));
             }
         }
     }
@@ -637,7 +605,7 @@ public class RoomUserManager
             users.Add(user);
         }
         if (users.Count > 0)
-            _room.SendPacket(new UserUpdateComposer(users));
+            _room.SendPacket(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(users)));
     }
 
     public void UpdateUserStatusses()
@@ -711,7 +679,7 @@ public class RoomUserManager
                 if (!user.IsBot && !user.IsAsleep && user.IdleTime >= 600)
                 {
                     user.IsAsleep = true;
-                    _room.SendPacket(new SleepComposer(user, true));
+                    _room.SendPacket(new SleepComposer(user.VirtualId, true));
                 }
                 if (user.CarryItemId > 0)
                 {
@@ -996,14 +964,7 @@ public class RoomUserManager
             var isBot = user.IsBot;
             if (isBot)
                 cyclegameitems = false;
-            if (UnixTimestamp.GetNow() > UnixTimestamp.GetNow() + user.SignTime)
-            {
-                if (user.Statusses.ContainsKey("sign"))
-                {
-                    user.Statusses.Remove("sign");
-                    user.UpdateNeeded = true;
-                }
-            }
+            UpdateSignStatus(user);
             var itemsOnSquare = _room.GetGameMap().GetAllRoomItemForSquare(user.X, user.Y);
             var model = _room.GetGameMap().Model;
             var walkMagic = _room.GetGameMap().WalkMagicAt(user.X, user.Y);
@@ -1266,6 +1227,18 @@ public class RoomUserManager
         }
     }
 
+    internal void UpdateSignStatus(RoomUser user)
+    {
+        if (user.SignExpiresAt is not { } deadline)
+            return;
+        var now = _clock.GetUtcNow();
+        if (now < deadline)
+            return;
+        user.SignExpiresAt = null;
+        user.Statusses.Remove("sign");
+        user.UpdateNeeded = true;
+    }
+
     private void UpdateUserEffect(RoomUser user, int x, int y)
     {
         if (user == null || user.IsBot)
@@ -1372,13 +1345,14 @@ public class RoomUserManager
     {
         if (UsesV2Movement) _room.GetGameMap()?.Navigation?.Shutdown();
         foreach (var user in _users.Values.ToArray()) _room.GetWired()?.BeforeActorLeaves(user);
-        UpdatePets();
-        UpdateBots();
+        // Keep each save independent so a failed write cannot skip the remaining teardown.
+        try { UpdatePets(); }
+        catch (Exception e) { ExceptionLogger.LogCriticalException(e); }
+        try { UpdateBots(); }
+        catch (Exception e) { ExceptionLogger.LogCriticalException(e); }
         _room.UsersNow = 0;
-        using (var dbClient = PlusEnvironment.DatabaseManager.GetQueryReactor())
-        {
-            dbClient.RunQuery($"UPDATE `rooms` SET `users_now` = '0' WHERE `id` = '{_room.Id}' LIMIT 1");
-        }
+        try { _store.UpdateUserCount(_room.Id, 0); }
+        catch (Exception e) { ExceptionLogger.LogCriticalException(e); }
         _users.Clear();
         _pets.Clear();
         _bots.Clear();

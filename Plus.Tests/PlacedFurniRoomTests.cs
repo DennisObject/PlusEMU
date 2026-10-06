@@ -12,7 +12,6 @@ using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Revisions;
 using Plus.Database;
 using Plus.Core.Settings;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
@@ -48,6 +47,9 @@ public partial class PlacedFurniRoomTests : IDisposable
     private readonly Room _room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
     private readonly TestClient _client = new();
     private readonly IDatabase _database;
+    private readonly InteractionTimeProvider _interactionClock = new(
+        new DateTimeOffset(2040, 2, 3, 4, 5, 6, TimeSpan.Zero),
+        TimeZoneInfo.CreateCustomTimeZone("interaction-plus-nine", TimeSpan.FromHours(9), "test", "test"));
 
     public PlacedFurniRoomTests()
     {
@@ -57,10 +59,12 @@ public partial class PlacedFurniRoomTests : IDisposable
         _room.OwnerId = 7;
         _room.OwnerName = "owner";
         _room.Type = "private";
+        Set("_interactionClock", _interactionClock);
         Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false), TestLogging.Navigation));
         Set("_roomItemHandling", new RoomItemHandling(_room, TestRoomItemStore.Instance));
-        Set("_roomUserManager", new RoomUserManager(_room));
-        var wired = new WiredComponent(_room, TestLogging.Logger);
+        Set("_roomUserManager", new RoomUserManager(_room, TestRoomUserStore.Instance, TimeProvider.System));
+        TestRoomUserSnapshots.Install(_room);
+        var wired = new WiredComponent(_room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
         typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(wired, new EmptyConfigurationStore());
         Set("_wiredComponent", wired);
         _room.GetGameMap().GenerateMaps();
@@ -81,10 +85,8 @@ public partial class PlacedFurniRoomTests : IDisposable
             "get_ClientManager" => clients,
             _ => throw new InvalidOperationException(method)
         }));
-        var query = Proxy<IQueryAdapter>((_, _) => null);
         _database = Proxy<IDatabase>((method, _) => method switch
         {
-            "GetQueryReactor" => query,
             "Connection" => new NoOpConnection(),
             _ => throw new InvalidOperationException(method)
         });
@@ -140,7 +142,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
 
         _client.Sent.Clear();
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 30));
 
         Assert.Null(_room.GetRoomItemHandler().GetItem(30));
@@ -228,8 +230,20 @@ public partial class PlacedFurniRoomTests : IDisposable
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
+    private PickupObjectEvent PickupObject() => new(new RoomItemPickupService(
+        Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null),
+        new RoomItemPickupStore(_database)));
+
     private void Set(string field, object value) =>
         typeof(Room).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_room, value);
+
+    private sealed class InteractionTimeProvider(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+        public int Calls { get; set; }
+        public override TimeZoneInfo LocalTimeZone => zone;
+        public override DateTimeOffset GetUtcNow() { Calls++; return Now; }
+    }
 
     private static T Proxy<T>(Func<string, object?[], object?> call) where T : class
     {
@@ -257,8 +271,16 @@ public partial class PlacedFurniRoomTests : IDisposable
         public override void ChangeDatabase(string databaseName) { }
         public override void Close() => _state = ConnectionState.Closed;
         public override void Open() => _state = ConnectionState.Open;
-        protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => throw new NotSupportedException();
+        protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => new NoOpTransaction(this);
         protected override DbCommand CreateDbCommand() => new NoOpCommand(read, write) { Connection = this };
+    }
+
+    private sealed class NoOpTransaction(DbConnection connection) : DbTransaction
+    {
+        public override IsolationLevel IsolationLevel => IsolationLevel.ReadCommitted;
+        protected override DbConnection DbConnection => connection;
+        public override void Commit() { }
+        public override void Rollback() { }
     }
 
     private sealed class NoOpCommand(Func<string, DataTable>? read = null, Action<string, DbParameterCollection>? write = null) : DbCommand

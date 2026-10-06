@@ -10,11 +10,15 @@ using Plus.Communication.Packets.Incoming.Rooms.Furni;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.HabboHotel.Items.Data.Moodlight;
 using Plus.HabboHotel.Items.Data.Toner;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Instance;
+using Plus.HabboHotel.Rooms.AI;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
@@ -44,7 +48,7 @@ public class WiredTemporaryPacketGuardTests
     {
         var (room, client) = Room();
         // A positive id proves the guard uses the immutable marker, independently of wire sign.
-        var item = new Item { Id = 7, IsTemporary = true, UserId = 42, RoomId = 1,
+        var item = new Item { Id = 7, IsTemporary = true, UserId = 42, OwnerId = 42, RoomId = 1,
             ExtraData = new LegacyDataFormat { Data = "original" }, Definition = new() { Type = ItemType.Floor, BehaviourData = 100,
                 InteractionType = Interaction(name) } };
         item.SetState(1, 2, 3.5, new());
@@ -57,8 +61,31 @@ public class WiredTemporaryPacketGuardTests
         room.TonerData.ItemId = 7;
         var type = typeof(MoveObjectEvent).Assembly.GetType("Plus.Communication.Packets.Incoming." + name)!;
         var constructor = type.GetConstructors().Single();
+        var database = EditorTestSupport.UntouchableDatabase();
         var arguments = constructor.GetParameters().Select(parameter => parameter.ParameterType == typeof(ISettingsManager)
-            ? (object)new EnabledExchangeSettings() : null).ToArray();
+            ? (object)new EnabledExchangeSettings()
+            : parameter.ParameterType == typeof(Plus.HabboHotel.Catalog.IGnomePackageService)
+                ? new Plus.HabboHotel.Catalog.GnomePackageService(new Plus.HabboHotel.Catalog.GnomePackageStore(database, Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.HabboHotel.Catalog.GnomePackageStore>.Instance), null!, null!, TimeProvider.System)
+            : parameter.ParameterType == typeof(IRoomItemPickupService)
+                ? new RoomItemPickupService(null!, null!, new RoomItemPickupStore(database))
+            : parameter.ParameterType == typeof(IGroupPresentationService)
+                ? new GroupPresentationService(null!, null!, null!, null!, null!)
+            : parameter.ParameterType == typeof(IFurnitureUseService)
+                ? new FurnitureUseService(new FurnitureUseStore(database), null!)
+                : parameter.ParameterType == typeof(IGiftOpeningService)
+                    ? new GiftOpeningService(new GiftStore(database), null!, null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<GiftOpeningService>.Instance)
+                : parameter.ParameterType == typeof(IRoomItemMetadataService)
+                    ? new RoomItemMetadataService(new RoomItemMetadataStore(database))
+                    : parameter.ParameterType == typeof(IRoomInteractionService)
+                        ? new RoomInteractionService(new RoomInteractionStore(database))
+                        : parameter.ParameterType == typeof(ILoveLockService)
+                            ? new LoveLockService(new LoveLockStore(database), TimeProvider.System)
+                            : parameter.ParameterType == typeof(IItemRedemptionService)
+                                ? new ItemRedemptionService(new ItemRedemptionStore(database), new EnabledExchangeSettings(), null!)
+                                : parameter.ParameterType == typeof(IHorseCustomizationService)
+                                    ? new HorseCustomizationService(null!, null!, null!, new HorseCustomizationStore(database),
+                                        new PetInformationService(TimeProvider.System))
+                                    : null).ToArray();
         var handler = (IPacketEvent)constructor.Invoke(arguments);
         var packet = Packet(name);
         if (handler is RoomPacketEvent roomHandler) await roomHandler.Parse(room, client, packet);
@@ -155,9 +182,13 @@ public class WiredTemporaryPacketGuardTests
         using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
         if (name.Contains("PickupObject")) output.WriteInteger(0);
         output.WriteUInteger(7);
-        if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
+        if (name.Contains("Gnome")) output.WriteString("Pixel");
+        else if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
+        else if (name.Contains("UseFurniture")) output.WriteInteger(0);
+        else if (name.Contains("SetToner")) { output.WriteInteger(10); output.WriteInteger(20); output.WriteInteger(30); }
         else if (name.Contains("SetMannequinName")) output.WriteString("changed");
         else if (name.Contains("FriendFurni")) output.WriteBoolean(true);
+        else if (name.Contains("ApplyHorse")) output.WriteInteger(42);
         else if (name.Contains("GetGroupFurni")) output.WriteInteger(0);
         else if (name.Contains("UpdateMagicTile")) output.WriteInteger(500);
         return new() { Buffer = stream.ToArray().AsMemory(6) };
@@ -168,7 +199,9 @@ public class WiredTemporaryPacketGuardTests
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance));
-        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room));
+        typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System));
+        typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room,
+            new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance));
         var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         client.SetHabbo(new Habbo { Id = 42, Username = "owner", CurrentRoom = room, Credits = 10,
             Access = EditorTestSupport.Access(["room.item_save_branding_items"]) });

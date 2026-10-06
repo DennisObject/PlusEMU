@@ -23,8 +23,8 @@ public sealed class ModeratorTargetHierarchyTests
             new ForceSitCommand(), new UnFreezeCommand(null!), new AlertCommand(),
             new GiveCommand(), new GiveBadgeCommand(null!), new FreezeCommand(null!),
             new KickCommand(), new SummonCommand(null!), new MuteCommand(null!),
-            new UnmuteCommand(null!), new TradeBanCommand(null!), new BanCommand(null!),
-            new IpBanCommand(null!), new MipCommand(null!) })
+            new UnmuteCommand(null!), new TradeBanCommand(null!), new BanCommand(null!, TimeProvider.System),
+            new IpBanCommand(null!, TimeProvider.System), new MipCommand(null!, TimeProvider.System) })
         {
             yield return [command, 50];
             yield return [command, 90];
@@ -71,7 +71,7 @@ public sealed class ModeratorTargetHierarchyTests
         var target = new Habbo { Id = 2, Access = EditorTestSupport.Access([PermissionKeys.ModerationMakeSayAny], 50), CurrentRoom = room };
         var (session, _) = HabbiconTestSupport.Client(actor);
         var (targetSession, sent) = HabbiconTestSupport.Client(target);
-        var manager = new RoomUserManager(room);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
         typeof(Room).GetField("_roomUserManager", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(room, manager);
         var user = new RoomUser(2, 1, 2, room);
         typeof(RoomUser).GetField("_mClient", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(user, targetSession);

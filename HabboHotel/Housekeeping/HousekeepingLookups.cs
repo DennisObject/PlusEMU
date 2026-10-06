@@ -1,5 +1,6 @@
 using Dapper;
 using Plus.Database;
+using Plus.Core;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
@@ -22,14 +23,19 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
     private readonly IModerationManager _moderation;
     private readonly IRoomManager _rooms;
     private readonly IDatabase _database;
+    private readonly TimeProvider _clock;
+    private readonly IServerUptime _uptime;
 
-    public HousekeepingLookups(IGameClientManager clients, IAccessControl permissions, IModerationManager moderation, IRoomManager rooms, IDatabase database)
+    public HousekeepingLookups(IGameClientManager clients, IAccessControl permissions, IModerationManager moderation, IRoomManager rooms,
+        IDatabase database, TimeProvider clock, IServerUptime uptime)
     {
         _clients = clients;
         _permissions = permissions;
         _moderation = moderation;
         _rooms = rooms;
         _database = database;
+        _clock = clock;
+        _uptime = uptime;
     }
 
     public HousekeepingUserDetail? User(Habbo actor, HousekeepingUserRecord? record)
@@ -37,7 +43,7 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
         if (record == null) return null;
         var online = _clients.Online(record.Id)?.GetHabbo();
         var role = (online?.Access ?? _permissions.Resolve(record.Id)).PrimaryRole;
-        var now = DateTimeOffset.UtcNow;
+        var now = _clock.GetUtcNow();
         // Email and IP are personal data; only ranks granted the private-data right see them.
         var showPrivate = actor.Access.Can(HousekeepingRights.PrivateData);
         return new(record.Id, record.Username, online?.Motto ?? record.Motto, online?.Look ?? record.Look, role?.Id ?? 0,
@@ -50,20 +56,22 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
 
     public HousekeepingDashboard Dashboard()
     {
-        var since = PlusEnvironment.GetUnixTimestamp() - 86400;
+        var now = _clock.GetUtcNow();
+        var sinceUtc = now.AddDays(-1).UtcDateTime;
+        var sinceEpoch = now.AddDays(-1).ToUnixTimeSeconds();
         using var connection = _database.Connection();
         var counts = connection.QuerySingle<DashboardCounts>(
             "SELECT (SELECT COUNT(*) FROM `users`) AS TotalUsers, (SELECT COUNT(*) FROM `rooms`) AS TotalRooms, " +
             "(SELECT COALESCE(MAX(`peak`), 0) FROM `housekeeping_online_peaks` WHERE `day` = UTC_DATE()) AS PeakToday, " +
             "(SELECT COALESCE(MAX(`peak`), 0) FROM `housekeeping_online_peaks`) AS PeakAllTime, " +
-            "(SELECT COUNT(*) FROM `bans` WHERE CAST(`added_date` AS DECIMAL(20, 3)) > @since) + " +
-            "(SELECT COUNT(*) FROM `housekeeping_log` WHERE `timestamp` > @since AND `success` = 1 AND `action` IN ('user.mute', 'user.trade_lock')) AS Sanctions",
-            new { since });
+            "(SELECT COUNT(*) FROM `bans` WHERE `added_date` > @sinceUtc) + " +
+            "(SELECT COUNT(*) FROM `housekeeping_log` WHERE `timestamp` > @sinceEpoch AND `success` = 1 AND `action` IN ('user.mute', 'user.trade_lock')) AS Sanctions",
+            new { sinceUtc, sinceEpoch });
         var online = _clients.Count;
         return new(online, counts.TotalUsers, _rooms.GetRooms().Count(room => room.UsersNow > 0), counts.TotalRooms,
             Math.Max(online, counts.PeakToday), Math.Max(online, counts.PeakAllTime),
             _moderation.GetTickets.Count(ticket => !ticket.Answered), counts.Sanctions,
-            (int)Math.Clamp((DateTime.Now - PlusEnvironment.ServerStarted).TotalSeconds, 0, int.MaxValue), $"{PlusEnvironment.PrettyVersion} {PlusEnvironment.PrettyBuild}");
+            (int)Math.Clamp(_uptime.Elapsed.TotalSeconds, 0, int.MaxValue), $"{PlusEnvironment.PrettyVersion} {PlusEnvironment.PrettyBuild}");
     }
 
     private sealed class DashboardCounts

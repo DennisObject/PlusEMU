@@ -13,7 +13,7 @@ public interface IGameClientManager
     GameClient? GetClientByUserId(int userId);
     GameClient? GetClientByUsername(string username);
     bool TryGetClient(Guid clientId, [NotNullWhen(true)] out GameClient? client);
-    bool UpdateClientUsername(GameClient client, string oldUsername, string newUsername);
+    bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist);
     Task<string> GetNameById(int id);
     IEnumerable<GameClient> GetClientsById(Dictionary<int, MessengerBuddy>.KeyCollection users);
     void StaffAlert(IServerPacket message, int exclude = 0);

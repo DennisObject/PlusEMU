@@ -7,9 +7,11 @@ using Plus.Communication.Packets.Incoming.Navigator;
 using Plus.Database;
 using Plus.HabboHotel.Navigator;
 using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Messenger;
 using Xunit;
 
@@ -104,7 +106,15 @@ public sealed class RoomModelAccessTests
         try
         {
             var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7001, Access = Access(staffModels) });
-            await new CreateFlatEvent(Filter(), rooms, navigator, Proxy<Plus.Core.Settings.ISettingsManager>((_, _) => null)).Parse(client, Request());
+            var service = new RoomCreationService(
+                Proxy<IRoomDataLoader>((method, _) => throw new InvalidOperationException(method)),
+                rooms,
+                Proxy<Plus.Core.Settings.ISettingsManager>((_, _) => null),
+                navigator,
+                Filter(),
+                Proxy<IRewardTrackManager>((method, _) => throw new InvalidOperationException(method)),
+                new AccountSessionGate());
+            await new CreateFlatEvent(service).Parse(client, Request());
 
             Assert.Equal(1, modelReads);
             Assert.Empty(sent);
@@ -138,14 +148,29 @@ public sealed class RoomModelAccessTests
         });
         var navigator = Proxy<INavigatorManager>((method, _) => method == "TryGetSearchResultList" ? false : throw new InvalidOperationException(method));
         var database = ReaderDatabase(new DataTable(), () => databaseReads++);
-        var habbo = new Habbo { Id = 7001, Access = Access(staffModels), Messenger = new HabboMessenger(new(), new(), new()) };
+        var habbo = new Habbo { Id = 7001, Access = Access(staffModels), Messenger = new HabboMessenger(new(), new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         habbo.Messenger.StatusUpdated += (_, _) => friendUpdates++;
         var previousDatabase = DatabaseField.GetValue(null);
         DatabaseField.SetValue(null, database);
         try
         {
             var (client, _) = HabbiconTestSupport.Client(habbo);
-            await new CreateFlatEvent(Filter(), rooms, navigator, Proxy<Plus.Core.Settings.ISettingsManager>((_, _) => null)).Parse(client, Request());
+            var loader = Proxy<IRoomDataLoader>((method, arguments) =>
+            {
+                Assert.Equal(nameof(IRoomDataLoader.GetRoomsDataByOwnerSortByName), method);
+                Assert.Equal(habbo.Id, arguments[0]);
+                databaseReads++;
+                return new List<RoomData>();
+            });
+            var service = new RoomCreationService(
+                loader,
+                rooms,
+                Proxy<Plus.Core.Settings.ISettingsManager>((_, _) => null),
+                navigator,
+                Filter(),
+                Proxy<IRewardTrackManager>((method, _) => throw new InvalidOperationException(method)),
+                new AccountSessionGate());
+            await new CreateFlatEvent(service).Parse(client, Request());
 
             Assert.Equal(1, creationCalls);
             Assert.Equal(1, databaseReads);

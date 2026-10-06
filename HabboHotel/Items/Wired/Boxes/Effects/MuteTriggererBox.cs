@@ -4,16 +4,18 @@ using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
-using Plus.Utilities;
 
 namespace Plus.HabboHotel.Items.Wired.Boxes.Effects;
 
 internal class MuteTriggererBox : IWiredItem
 {
-    public MuteTriggererBox(Room instance, Item item)
+    private readonly TimeProvider _clock;
+
+    public MuteTriggererBox(Room instance, Item item, TimeProvider clock)
     {
         Instance = instance;
         Item = item;
+        _clock = clock;
         SetItems = new();
         if (SetItems.Count > 0)
             SetItems.Clear();
@@ -56,14 +58,11 @@ internal class MuteTriggererBox : IWiredItem
         var message = StringData != null ? StringData.Split(';')[1] : "No message!";
         if (time > 0)
         {
+            var now = _clock.GetUtcNow();
+            if (!RoomMuteDeadline.TryCreate(now, time, out var mutedUntil))
+                return false;
             player.Client.Send(new WhisperComposer(user.VirtualId, $"Wired Mute: Muted for {time}! Message: {message}", 0, 0));
-            if (!Instance.MutedUsers.ContainsKey(player.Id))
-                Instance.MutedUsers.Add(player.Id, UnixTimestamp.GetNow() + time * 60);
-            else
-            {
-                Instance.MutedUsers.Remove(player.Id);
-                Instance.MutedUsers.Add(player.Id, UnixTimestamp.GetNow() + time * 60);
-            }
+            Instance.MutedUsers[player.Id] = mutedUntil;
         }
         return true;
     }

@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
+﻿using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 
 namespace Plus.HabboHotel.Users.Effects;
 
@@ -32,46 +32,44 @@ public sealed class AvatarEffect
 
     public int Quantity { get; set; }
 
-    public double TimeUsed => ActivatedAt is { } activatedAt ? (DateTimeOffset.UtcNow - activatedAt).TotalSeconds : 0;
-
-    public double TimeLeft
+    // Remaining time is measured against an instant the caller captured, never the wall clock.
+    public double TimeLeftAt(DateTimeOffset now)
     {
-        get
-        {
-            var tl = Activated ? Duration - TimeUsed : Duration;
-            if (tl < 0) tl = 0;
-            return tl;
-        }
+        // A timestamp in the future or missing counts as no time used yet, so the remaining time never exceeds the duration.
+        var used = ActivatedAt is { } activatedAt ? Math.Max(0, (now - activatedAt).TotalSeconds) : 0;
+        var remaining = Activated ? Duration - used : Duration;
+        return Math.Max(0, remaining);
     }
 
-    public bool HasExpired => Activated && TimeLeft <= 0;
+    public bool HasExpiredAt(DateTimeOffset now) => Activated && TimeLeftAt(now) <= 0;
 
     /// <summary>
-    /// Activates the AvatarEffect
+    /// Persists the activation at the captured UTC instant, then changes the model.
     /// </summary>
-    public bool Activate()
+    public void Activate(DateTimeOffset utcNow)
     {
-        var tsNow = DateTimeOffset.UtcNow;
-        Store.Activate(Id, tsNow);
+        Store.Activate(Id, utcNow);
         Activated = true;
-        ActivatedAt = tsNow;
-        return true;
+        ActivatedAt = utcNow;
     }
 
     public void HandleExpiration(Habbo habbo)
     {
-        Quantity--;
+        // The lower quantity is persisted before the model or the packet changes.
+        var quantity = Quantity - 1;
+        Store.SaveQuantity(Id, quantity, false, null);
+        Quantity = quantity;
         Activated = false;
         ActivatedAt = null;
-        Store.SaveQuantity(Id, Quantity, false, null);
-        habbo.Client.Send(new AvatarEffectExpiredComposer(this));
+        habbo.Client.Send(new AvatarEffectExpiredComposer(new AvatarEffectExpiry(SpriteId)));
         // reset fx if in room?
     }
 
     public void AddToQuantity()
     {
-        Quantity++;
-        Store.SaveQuantity(Id, Quantity, Activated, ActivatedAt);
+        var quantity = Quantity + 1;
+        Store.SaveQuantity(Id, quantity, Activated, ActivatedAt);
+        Quantity = quantity;
     }
 
     private IAvatarEffectStore Store => _store ?? throw new InvalidOperationException("Avatar effect persistence is not configured.");

@@ -1,33 +1,21 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Items;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Furni;
 
-public class OpenGiftComposer : IServerPacket
+public sealed record OpenGiftWireData(string Type, int SpriteId, string ItemName, uint ItemId, bool IsInRoom, string ExtraData);
+
+public sealed class OpenGiftComposer(OpenGiftWireData data) : IServerPacket
 {
-    private readonly ItemDefinition _definition;
-    private readonly string _text;
-    private readonly Item _item;
-    private readonly bool _itemIsInRoom;
-
     public uint MessageId => ServerPacketHeader.OpenGiftComposer;
-
-    public OpenGiftComposer(ItemDefinition definition, string text, Item item, bool itemIsInRoom)
-    {
-        _definition = definition;
-        _text = text;
-        _item = item;
-        _itemIsInRoom = itemIsInRoom;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteString(_definition.Type.ToString());
-        packet.WriteInteger(_definition.SpriteId);
-        packet.WriteString(_definition.ItemName);
-        packet.WriteUInteger(_item.Id);
-        packet.WriteString(_definition.Type.ToString());
-        packet.WriteBoolean(_itemIsInRoom); //Is it in the room?
-        packet.WriteString(_text);
+        packet.WriteString(data.Type);
+        packet.WriteInteger(data.SpriteId);
+        packet.WriteString(data.ItemName);
+        packet.WriteUInteger(data.ItemId);
+        packet.WriteString(data.Type);
+        packet.WriteBoolean(data.IsInRoom);
+        packet.WriteString(data.ExtraData);
     }
 }

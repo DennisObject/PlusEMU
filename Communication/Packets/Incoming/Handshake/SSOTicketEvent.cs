@@ -1,8 +1,8 @@
 ﻿using Plus.HabboHotel.Subscriptions;
 ﻿using Plus.Communication.Attributes;
-using Plus.Communication.Packets.Outgoing.BuildersClub;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Inventory.Achievements;
+using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Communication.Packets.Outgoing.Navigator;
@@ -20,6 +20,7 @@ using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rewards;
 using Plus.HabboHotel.Users.Authentication;
+using Plus.HabboHotel.Users.Effects;
 using Plus.HabboHotel.Users.Messenger.FriendBar;
 using Plus.HabboHotel.Users.Process;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,8 @@ public class SSOTicketEvent : IPacketEvent
     private readonly IAuthenticator _authenticate;
     private readonly IBadgeManager _badgeManager;
     private readonly IModerationManager _moderationManager;
-    private readonly IAchievementManager _achievementManager;
+    private readonly IModeratorTicketService _tickets;
+    private readonly IAchievementShowcaseService _achievementShowcase;
     private readonly ICacheManager _cacheManager;
     private readonly IFigureDataManager _figureManager;
     private readonly ILanguageManager _languageManager;
@@ -41,22 +43,25 @@ public class SSOTicketEvent : IPacketEvent
     private readonly IRewardManager _rewardManager;
     private readonly ClubLifecycle _clubLifecycle;
     private readonly ILogger<ProcessComponent> _processLogger;
+    private readonly IAvatarEffectService _avatarEffects;
 
     public SSOTicketEvent(IAuthenticator authenticate,
         IBadgeManager badgeManager,
         IModerationManager moderationManager,
-        IAchievementManager achievementManager,
+        IAchievementShowcaseService achievementShowcase,
         ICacheManager cacheManager,
         IFigureDataManager figureManager,
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
         IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists,
-        ILogger<ProcessComponent> processLogger)
+        ILogger<ProcessComponent> processLogger, IModeratorTicketService tickets, IAvatarEffectService avatarEffects)
     {
         _authenticate = authenticate;
+        _avatarEffects = avatarEffects;
         _badgeManager = badgeManager;
         _moderationManager = moderationManager;
-        _achievementManager = achievementManager;
+        _tickets = tickets;
+        _achievementShowcase = achievementShowcase;
         _cacheManager = cacheManager;
         _figureManager = figureManager;
         _languageManager = languageManager;
@@ -76,7 +81,7 @@ public class SSOTicketEvent : IPacketEvent
             session.Send(new AuthenticationOkComposer());
 
             // TODO @80O: Move to individual incoming message handlers.
-            session.Send(new AvatarEffectsComposer(session.GetHabbo().Effects.GetAllEffects));
+            session.Send(new AvatarEffectsComposer(_avatarEffects.Capture(session.GetHabbo())));
             session.Send(new NavigatorSettingsComposer(session.GetHabbo().HomeRoom));
             session.Send(new FavouritesComposer(session.GetHabbo().FavoriteRooms));
             session.Send(new FigureSetIdsComposer(session.GetHabbo().Clothing.GetClothingParts));
@@ -84,9 +89,8 @@ public class SSOTicketEvent : IPacketEvent
             _clientAccessLists.Send(session.GetHabbo());
             session.Send(new AvailabilityStatusComposer());
             session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
-            session.Send(new BuildersClubMembershipComposer());
-            session.Send(new CfhTopicsInitComposer(_moderationManager.UserActionPresets));
-            session.Send(new BadgeDefinitionsComposer(_achievementManager.Achievements));
+            session.Send(new CfhTopicsInitComposer(CfhTopicCategorySnapshot.Capture(_moderationManager.UserActionPresets)));
+            _achievementShowcase.ShowDefinitions(session);
             session.Send(new SoundSettingsComposer(session.GetHabbo().ClientVolume, session.GetHabbo().ChatPreference, session.GetHabbo().AllowMessengerInvites,
                 session.GetHabbo().FocusPreference,
                 FriendBarStateUtility.GetInt(session.GetHabbo().FriendbarState)));
@@ -104,10 +108,7 @@ public class SSOTicketEvent : IPacketEvent
             session.GetHabbo().InitProcess(_processLogger);
             if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
             {
-                session.Send(new ModeratorInitComposer(
-                    _moderationManager.UserMessagePresets,
-                    _moderationManager.RoomMessagePresets,
-                    _moderationManager.GetTickets));
+                _tickets.SendInitialization(session);
             }
             if (_settingsManager.TryGetValue("user.login.message.enabled") == "1")
                 session.Send(new MOTDNotificationComposer(_languageManager.TryGetValue("user.login.message")));

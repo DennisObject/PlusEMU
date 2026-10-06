@@ -3,7 +3,7 @@ namespace Plus.Communication.Packets.Outgoing;
 public static class ServerPacketHeader
 {
     // Handshake
-    public const uint InitCryptoComposer = 3531; //675
+    public const uint InitDiffieHandshakeComposer = 3531; //675
     public const uint SecretKeyComposer = 696; //3179
     public const uint AuthenticationOkComposer = 1079; //1442
     public const uint UserObjectComposer = 845; //1823
@@ -236,7 +236,6 @@ public static class ServerPacketHeader
     public const uint FavouritesComposer = 3267; //604
     public const uint TalentLevelUpComposer = 3150; //3538
 
-    public const uint BcBorrowedItemsComposer = 1043; //3424
     public const uint UserTagsComposer = 940; //774
     public const uint CampaignComposer = 2394; //3234
     public const uint RoomEventComposer = 1587; //2274
@@ -244,7 +243,7 @@ public static class ServerPacketHeader
     public const uint HabboSearchResultComposer = 2823; //214
     public const uint PetHorseFigureInformationComposer = 2926; //560
     public const uint PetInventoryComposer = 1988; //3528
-    public const uint PongComposer = 1240; //624
+    public const uint PingComposer = 1240; //624
     public const uint RentableSpaceComposer = 2323; //2660
     public const uint GetYouTubePlaylistComposer = 1354; //763
     public const uint RespectNotificationComposer = 1818; //474
@@ -258,7 +257,7 @@ public static class ServerPacketHeader
     public const uint PetBreedingComposer = 528; //616
     public const uint SubmitBullyReportComposer = 47; //453
     public const uint UserNameChangeComposer = 574; //2587
-    public const uint LoveLockDialogueComposer = 1157; //173
+    public const uint FriendFurniStartConfirmationComposer = 1157; //173
     public const uint SendBullyReportComposer = 39; //2094
     public const uint VoucherRedeemErrorComposer = 2279; //3670
     public const uint PurchaseErrorComposer = 1331; //3016
@@ -269,7 +268,6 @@ public static class ServerPacketHeader
     public const uint UpdateFreezeLivesComposer = 2998; //1395
     public const uint UnbanUserFromRoomComposer = 3710; //3472
     public const uint PetTrainingPanelComposer = 546; //1067
-    public const uint BuildersClubMembershipComposer = 820; //2357
     public const uint FlatAccessDeniedComposer = 797; //1582
     public const uint LatencyPingResponseComposer = 942; //3014
     public const uint HabboUserBadgesComposer = 3269; //1123
@@ -326,8 +324,8 @@ public static class ServerPacketHeader
     public const uint GameListComposer = 1220; //2481
     public const uint RoomMuteSettingsComposer = 1117; //257
     public const uint RoomInviteComposer = 2138; //3942
-    public const uint LoveLockDialogueSetLockedComposer = 1767; //1534
-    public const uint LoveLockDialogueCloseComposer = 0; //TODO @80O: Same header defined as LoveLockDialogueSetLockedComposer 1767; //1534
+    public const uint FriendFurniOtherLockConfirmedComposer = 1767; //1534
+    public const uint FriendFurniCancelLockComposer = 770;
     public const uint BroadcastMessageAlertComposer = 1751; //1279
     public const uint MarketplaceCancelOfferResultComposer = 0; // TODO @80O: Same header defined as MarketPlaceOwnOffersComposer 1892; //202
     public const uint NavigatorSettingsComposer = 2477; //3175

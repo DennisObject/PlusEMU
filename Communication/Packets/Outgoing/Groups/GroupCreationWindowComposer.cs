@@ -1,25 +1,23 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Groups;
 
 namespace Plus.Communication.Packets.Outgoing.Groups;
 
 public class GroupCreationWindowComposer : IServerPacket
 {
-    private readonly ICollection<RoomData> _rooms;
-    private readonly int _price;
+    private readonly GroupCreationPresentation _presentation;
     public uint MessageId => ServerPacketHeader.GroupCreationWindowComposer;
 
-    public GroupCreationWindowComposer(ICollection<RoomData> rooms, int price)
+    public GroupCreationWindowComposer(GroupCreationPresentation presentation)
     {
-        _rooms = rooms;
-        _price = price;
+        _presentation = presentation;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_price);
-        packet.WriteInteger(_rooms.Count); //Room count that the user has.
-        foreach (var room in _rooms)
+        packet.WriteInteger(_presentation.Price);
+        packet.WriteInteger(_presentation.Rooms.Length); //Room count that the user has.
+        foreach (var room in _presentation.Rooms)
         {
             packet.WriteUInteger(room.Id); //Room Id
             packet.WriteString(room.Name); //Room Name

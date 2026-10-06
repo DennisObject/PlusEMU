@@ -43,13 +43,13 @@ public sealed partial class CatalogAdminService
         foreach (var sibling in after.Siblings)
         {
             var current = store.Page(sibling.PageId);
-            // A sibling that moved elsewhere since may keep the same order number; its place is parent, catalog and order.
-            if (current == null || current.ParentId != sibling.ParentId || current.CatalogMode != sibling.CatalogMode || current.OrderNum != sibling.OrderNum)
+            // A sibling that moved elsewhere since may keep the same order number; its place is parent and order.
+            if (current == null || current.ParentId != sibling.ParentId || current.OrderNum != sibling.OrderNum)
                 throw ChangedSince();
             if (!CatalogAdminValidation.Available(current.RequiredPermission, actor.Access))
                 throw new CatalogAdminRejected(CatalogAdminCodes.Forbidden, "This move reordered pages requiring a permission you do not have.");
         }
-        Reject(CatalogAdminValidation.Move(existing.Id, before.Page.ParentId, CatalogAdminTypes.FromMode(existing.CatalogMode), actor.Access, store.Page));
+        Reject(CatalogAdminValidation.Move(existing.Id, before.Page.ParentId, CatalogAdminTypes.Normal, actor.Access, store.Page));
         var restored = existing.Copy();
         restored.ParentId = before.Page.ParentId;
         restored.OrderNum = before.Page.OrderNum;

@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Users.Inventory.Badges;
 using Plus.Core;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -13,13 +14,13 @@ namespace Plus.HabboHotel.Badges;
 public class BadgeManager : IBadgeManager, IStartable
 {
     private readonly IDatabase _database;
-    private readonly GameClientManager _gameClientManager;
+    private readonly IGameClientManager _gameClientManager;
     private readonly ILogger<BadgeManager> _logger;
 
     private Dictionary<string, BadgeDefinition> _badges;
     public IReadOnlyDictionary<string, BadgeDefinition> Badges => _badges;
 
-    public BadgeManager(IDatabase database, GameClientManager gameClientManager, ILogger<BadgeManager> logger)
+    public BadgeManager(IDatabase database, IGameClientManager gameClientManager, ILogger<BadgeManager> logger)
     {
         _database = database;
         _gameClientManager = gameClientManager;
@@ -53,7 +54,7 @@ public class BadgeManager : IBadgeManager, IStartable
         });
         habbo.Inventory.Badges.AddBadge(new Badge(code, 0));
 
-        habbo.Client.Send(new BadgesComposer(habbo.Id, habbo.Inventory.Badges.Badges));
+        habbo.Client.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
         habbo.Client.Send(new FurniListNotificationComposer(1, 4));
     }
 
@@ -89,38 +90,45 @@ public class BadgeManager : IBadgeManager, IStartable
         return (await connection.QueryAsync<Badge>("SELECT badge_id as code, badge_slot as slot FROM user_badges WHERE user_id = @userId AND badge_slot > 0", new { userId })).ToList();
     }
 
-    public async Task UpdateUserBadges(Habbo habbo, List<(int slot, string badge)> badgeUpdates)
+    public async Task<BadgeEquipmentChange?> UpdateUserBadges(Habbo habbo, List<(int slot, string badge)> badgeUpdates)
     {
         if (habbo?.Inventory?.Badges == null)
         {
             _logger.LogWarning("Attempted to update badges for a user with null inventory or badges collection.");
-            return;
+            return null;
         }
-
-        habbo.Inventory.Badges.ClearWearingBadges();
-
-        foreach (var (slot, badgeCode) in badgeUpdates)
+        var inventory = habbo.Inventory.Badges;
+        await inventory.EquipmentGate.WaitAsync();
+        try
         {
-            var badge = habbo.Inventory.Badges.GetBadge(badgeCode);
-            if (badge != null)
+            var worn = new HashSet<string>(inventory.EquippedBadges.Select(badge => badge.Code), StringComparer.OrdinalIgnoreCase);
+            var prepared = new Dictionary<Badge, int>();
+            foreach (var (slot, code) in badgeUpdates)
             {
+                var badge = inventory.GetBadge(code);
+                if (badge != null)
+                    prepared[badge] = slot;
+                else
+                    _logger.LogWarning("Badge {Badge} not found for user {UserId} during update.", code, habbo.Id);
+            }
+            using var connection = _database.Connection();
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+            await connection.ExecuteAsync("UPDATE user_badges SET badge_slot = 0 WHERE user_id = @userId",
+                new { userId = habbo.Id }, transaction);
+            foreach (var (badge, slot) in prepared)
+                await connection.ExecuteAsync("UPDATE user_badges SET badge_slot = @slot WHERE badge_id = @code AND user_id = @userId LIMIT 1",
+                    new { slot, code = badge.Code, userId = habbo.Id }, transaction);
+            transaction.Commit();
+            inventory.ClearWearingBadges();
+            foreach (var (badge, slot) in prepared)
                 badge.Slot = slot;
-            }
-            else
-            {
-                _logger.LogWarning($"Badge {badgeCode} not found for user {habbo.Id} during update.");
-            }
+            var equipped = BadgeInventorySnapshot.Capture(inventory.EquippedBadges).Equipped;
+            return new(equipped, equipped.Count(badge => !worn.Contains(badge.Code)));
         }
-
-        using var connection = _database.Connection();
-        var userIdParam = new { userId = habbo.Id };
-        await connection.ExecuteAsync("UPDATE `user_badges` SET `badge_slot` = '0' WHERE `user_id` = @userId", userIdParam);
-
-        foreach (var (slot, badge) in badgeUpdates)
+        finally
         {
-            await connection.ExecuteAsync(
-                "UPDATE `user_badges` SET `badge_slot` = @Slot WHERE `badge_id` = @Badge AND `user_id` = @userId LIMIT 1",
-                new { slot, Badge = badge, userId = habbo.Id });
+            inventory.EquipmentGate.Release();
         }
     }
 }

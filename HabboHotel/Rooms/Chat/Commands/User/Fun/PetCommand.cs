@@ -29,7 +29,7 @@ internal class PetCommand : IChatCommand
                 room.SendPacket(new UserRemoveComposer(roomUser.VirtualId));
 
                 //Add the new one, they won't even notice a thing!!11 8-)
-                room.SendPacket(new UsersComposer(roomUser));
+                room.SendUser(roomUser);
             }
             return;
         }
@@ -57,7 +57,7 @@ internal class PetCommand : IChatCommand
         room.SendPacket(new UserRemoveComposer(roomUser.VirtualId));
 
         //Add the new one, they won't even notice a thing!!11 8-)
-        room.SendPacket(new UsersComposer(roomUser));
+        room.SendUser(roomUser);
 
         //Tell them a quick message.
         if (session.GetHabbo().PetId > 0)

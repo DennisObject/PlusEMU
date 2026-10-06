@@ -4,11 +4,10 @@ using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Habbicons;
 using Plus.HabboHotel.Quests;
-using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Incoming.Habbicons;
 
-public sealed class TriggerHabbiconEvent(IHabbiconService service) : IPacketEvent
+public sealed class TriggerHabbiconEvent(IHabbiconService service, TimeProvider clock) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
@@ -17,10 +16,11 @@ public sealed class TriggerHabbiconEvent(IHabbiconService service) : IPacketEven
         var user = room?.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
         int id = packet.ReadInt();
         if (room == null || user == null || id <= 0 || id > 1000000) return Task.CompletedTask;
+        var now = clock.GetUtcNow();
         if (Environment.TickCount64 - habbo.LastHabbiconTrigger < 1000) return Task.CompletedTask;
-        if (UnixTimestamp.GetNow() < habbo.FloodTime || habbo.TimeMuted > 0 ||
-            (!habbo.Access.Can(PermissionKeys.RoomIgnoreMute) && room.CheckMute(session))) return Task.CompletedTask;
-        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && user.IncrementAndCheckFlood(out var muteTime))
+        if ((habbo.FloodUntil is { } floodUntil && now < floodUntil) || habbo.TimeMuted > 0 ||
+            (!habbo.Access.Can(PermissionKeys.RoomIgnoreMute) && room.CheckMute(session, now))) return Task.CompletedTask;
+        if (!habbo.Access.Can(PermissionKeys.ModerationTool) && user.IncrementAndCheckFlood(now, out var muteTime))
         {
             session.Send(new FloodControlComposer(muteTime));
             return Task.CompletedTask;

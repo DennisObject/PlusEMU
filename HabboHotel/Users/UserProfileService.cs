@@ -1,4 +1,6 @@
+using System.Data;
 using Dapper;
+using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
@@ -12,12 +14,19 @@ using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Subscriptions;
 using Plus.Utilities;
 
+using Plus.HabboHotel.Rooms;
+
 namespace Plus.HabboHotel.Users;
 
 public sealed record FigureUpdateRequest(string Gender, string Figure);
+public sealed record SoundVolumeRequest(int System, int Furni, int Music);
 
 public interface IUserProfileService
 {
+    void ShowUserObject(GameClient session);
+    Task SetChatPreference(GameClient session, bool enabled);
+    Task SetMessengerInvitePreference(GameClient session, bool enabled);
+    Task SetSoundVolumes(GameClient session, SoundVolumeRequest request);
     void UpdateFigure(GameClient session, FigureUpdateRequest request);
     void ChangeMotto(GameClient session, string motto);
     void SetFocusPreference(GameClient session, bool enabled);
@@ -28,8 +37,53 @@ public sealed class UserProfileService(
     IAchievementManager achievementManager,
     IQuestManager questManager,
     IWordFilterManager wordFilterManager,
-    IDatabase database) : IUserProfileService
+    IDatabase database, TimeProvider clock) : IUserProfileService
 {
+    public void ShowUserObject(GameClient session)
+    {
+        session.Send(new UserObjectComposer(UserObjectSnapshot.Capture(session.GetHabbo())));
+        session.Send(new UserPerksComposer());
+    }
+
+    public async Task SetChatPreference(GameClient session, bool enabled)
+    {
+        var habbo = session.GetHabbo();
+        using var connection = database.Connection();
+        var updated = await connection.ExecuteAsync(
+            "UPDATE users_settings SET chat_preference = @enabled WHERE user_id = @userId LIMIT 1",
+            new { enabled, userId = habbo.Id });
+        if (updated != 1)
+            throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
+        habbo.ChatPreference = enabled;
+    }
+
+    public async Task SetMessengerInvitePreference(GameClient session, bool enabled)
+    {
+        var habbo = session.GetHabbo();
+        using var connection = database.Connection();
+        var updated = await connection.ExecuteAsync(
+            "UPDATE users_settings SET ignore_invites = @enabled WHERE user_id = @userId LIMIT 1",
+            new { enabled, userId = habbo.Id });
+        if (updated != 1)
+            throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
+        habbo.AllowMessengerInvites = enabled;
+    }
+
+    public async Task SetSoundVolumes(GameClient session, SoundVolumeRequest request)
+    {
+        var habbo = session.GetHabbo();
+        var volumes = new[] { NormalizeVolume(request.System), NormalizeVolume(request.Furni), NormalizeVolume(request.Music) };
+        using var connection = database.Connection();
+        var updated = await connection.ExecuteAsync(
+            "UPDATE users_settings SET volume = @volume WHERE user_id = @userId LIMIT 1",
+            new { volume = string.Join(",", volumes), userId = habbo.Id });
+        if (updated != 1)
+            throw new DBConcurrencyException($"Settings for user {habbo.Id} no longer exist.");
+        habbo.ClientVolume = volumes.ToList();
+    }
+
+    private static int NormalizeVolume(int value) => value is >= 0 and <= 100 ? value : 100;
+
     public void UpdateFigure(GameClient session, FigureUpdateRequest request)
     {
         var habbo = session.GetHabbo();
@@ -37,14 +91,15 @@ public sealed class UserProfileService(
         var look = figureManager.ProcessFigure(request.Figure, gender, habbo.Clothing.GetClothingParts,
             ClubAccess.LevelFor(habbo.Access));
         if (look == habbo.Look) return;
-        if ((DateTime.Now - habbo.LastClothingUpdateTime).TotalSeconds <= 2.0)
+        var now = clock.GetUtcNow();
+        if (habbo.LastClothingUpdatedAt is { } lastUpdate && (now - lastUpdate).TotalSeconds <= 2.0)
         {
             habbo.ClothingUpdateWarnings++;
             if (habbo.ClothingUpdateWarnings >= 25) habbo.SessionClothingBlocked = true;
             return;
         }
         if (habbo.SessionClothingBlocked) return;
-        habbo.LastClothingUpdateTime = DateTime.Now;
+        habbo.LastClothingUpdatedAt = now;
         if (gender is not ("M" or "F"))
         {
             session.Send(new BroadcastMessageAlertComposer("Sorry, you chose an invalid gender."));
@@ -64,8 +119,8 @@ public sealed class UserProfileService(
         if (!habbo.InRoom) return;
         var roomUser = habbo.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
         if (roomUser == null) return;
-        session.Send(new UserChangeComposer(roomUser, true));
-        habbo.CurrentRoom.SendPacket(new UserChangeComposer(roomUser, false));
+        session.Send(new UserChangeComposer(AvatarChangeSnapshot.Capture(roomUser, true)));
+        habbo.CurrentRoom.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(roomUser, false)));
     }
 
     public void ChangeMotto(GameClient session, string motto)
@@ -76,14 +131,15 @@ public sealed class UserProfileService(
             session.SendNotification("Oops, you're currently muted - you cannot change your motto.");
             return;
         }
-        if ((DateTime.Now - habbo.LastMottoUpdateTime).TotalSeconds <= 2.0)
+        var now = clock.GetUtcNow();
+        if (habbo.LastMottoUpdatedAt is { } lastUpdate && (now - lastUpdate).TotalSeconds <= 2.0)
         {
             habbo.MottoUpdateWarnings++;
             if (habbo.MottoUpdateWarnings >= 25) habbo.SessionMottoBlocked = true;
             return;
         }
         if (habbo.SessionMottoBlocked) return;
-        habbo.LastMottoUpdateTime = DateTime.Now;
+        habbo.LastMottoUpdatedAt = now;
         var newMotto = StringCharFilter.Escape(motto.Trim());
         if (newMotto.Length > 38) newMotto = newMotto[..38];
         if (newMotto == habbo.Motto) return;
@@ -99,15 +155,15 @@ public sealed class UserProfileService(
         if (room == null) return;
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
         if (user?.GetClient() == null) return;
-        room.SendPacket(new UserChangeComposer(user, false));
+        room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
     }
 
     public void SetFocusPreference(GameClient session, bool enabled)
     {
         var habbo = session.GetHabbo();
-        habbo.FocusPreference = enabled;
         using var connection = database.Connection();
         connection.Execute("UPDATE users_settings SET focus_preference=@enabled WHERE user_id=@userId LIMIT 1",
             new { enabled, userId = habbo.Id });
+        habbo.FocusPreference = enabled;
     }
 }

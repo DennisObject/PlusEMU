@@ -1,34 +1,34 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Users;
+﻿using Plus.HabboHotel.Users;
 using System.Globalization;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Handshake;
 
 public class UserObjectComposer : IServerPacket
 {
-    private readonly Habbo _habbo;
+    private readonly UserObjectSnapshot _user;
     public uint MessageId => ServerPacketHeader.UserObjectComposer;
 
-    public UserObjectComposer(Habbo habbo)
+    public UserObjectComposer(UserObjectSnapshot user)
     {
-        _habbo = habbo;
+        _user = user;
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_habbo.Id);
-        packet.WriteString(_habbo.Username);
-        packet.WriteString(_habbo.Look);
-        packet.WriteString(_habbo.Gender.ToUpper());
-        packet.WriteString(_habbo.Motto);
+        packet.WriteInteger(_user.Id);
+        packet.WriteString(_user.Username);
+        packet.WriteString(_user.Look);
+        packet.WriteString(_user.Gender);
+        packet.WriteString(_user.Motto);
         packet.WriteString("");
         packet.WriteBoolean(false);
-        packet.WriteInteger(_habbo.HabboStats.Respect);
-        packet.WriteInteger(_habbo.HabboStats.DailyRespectPoints);
-        packet.WriteInteger(_habbo.HabboStats.DailyPetRespectPoints);
+        packet.WriteInteger(_user.Respect);
+        packet.WriteInteger(_user.DailyRespectPoints);
+        packet.WriteInteger(_user.DailyPetRespectPoints);
         packet.WriteBoolean(false); // Friends stream active
-        packet.WriteString((_habbo.LastOnlineAt?.ToUnixTimeSeconds() ?? 0).ToString(CultureInfo.InvariantCulture)); // last online?
-        packet.WriteBoolean(_habbo.ChangingName); // Can change name
+        packet.WriteString((_user.LastOnlineAt?.ToUnixTimeSeconds() ?? 0).ToString(CultureInfo.InvariantCulture)); // last online?
+        packet.WriteBoolean(_user.ChangingName); // Can change name
         packet.WriteBoolean(false);
     }
 }

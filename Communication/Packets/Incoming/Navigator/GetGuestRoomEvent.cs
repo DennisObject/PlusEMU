@@ -4,16 +4,16 @@ using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Navigator;
 
-internal class GetGuestRoomEvent : IPacketEvent
+internal sealed class GetGuestRoomEvent(IGuestRoomInfoService guestRooms) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var roomId = packet.ReadUInt();
-        if (!RoomFactory.TryGetData(roomId, out var data))
-            return Task.CompletedTask;
-        var enter = packet.ReadInt() == 1;
-        var forward = packet.ReadInt() == 1;
-        session.Send(new GetGuestRoomResultComposer(session, data, enter, forward));
+        var isLoading = packet.ReadInt() == 1;
+        var checkEntry = packet.ReadInt() == 1;
+        var snapshot = guestRooms.Capture(roomId, session.GetHabbo(), isLoading, checkEntry);
+        if (snapshot != null)
+            session.Send(new GetGuestRoomResultComposer(snapshot));
         return Task.CompletedTask;
     }
 }

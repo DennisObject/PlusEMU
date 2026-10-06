@@ -176,12 +176,12 @@ public class WiredClickPacketHookTests
         public World(string trigger, int[] parameters)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.Id = 1;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room);
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System);
             Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
             var map = new Gamemap(Room, new RoomModel("click-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
             Set(Room, "_gamemap", map); typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
-            _wired = new WiredComponent(Room, TestLogging.Logger); Set(Room, "_wiredComponent", _wired);
+            _wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance); Set(Room, "_wiredComponent", _wired);
             Set(Get(_wired, "_engine"), "_now", (Func<long>)(() => Clock));
             Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {

@@ -61,7 +61,7 @@ public class RoomUser
     public bool IsSitting = false;
     public bool IsWalking;
     public int LastBubble = 0;
-    public double LastInteraction;
+    public DateTimeOffset? LastInteractionAt;
     public Item LastItem = null;
 
     public int LlPartner = 0;
@@ -86,7 +86,7 @@ public class RoomUser
     public double SetZ;
     public bool ShieldActive;
     public int ShieldCounter;
-    public double SignTime;
+    public DateTimeOffset? SignExpiresAt;
     public byte SqState;
     public bool SuperFastWalking = false;
     public Team Team;
@@ -126,7 +126,7 @@ public class RoomUser
         FreezeLives = 0;
         InteractingGate = false;
         GateId = 0;
-        LastInteraction = 0;
+        LastInteractionAt = null;
         LockedTilesCount = 0;
         IsJumping = false;
         TimeInRoom = 0;
@@ -278,7 +278,7 @@ public class RoomUser
         if (IsAsleep)
         {
             IsAsleep = false;
-            GetRoom().SendPacket(new SleepComposer(this, false));
+            GetRoom().SendPacket(new SleepComposer(VirtualId, false));
             GetRoom().GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = this, Action = (int)WiredAvatarAction.Awake });
         }
     }
@@ -322,7 +322,7 @@ public class RoomUser
         }
     }
 
-    public bool IncrementAndCheckFlood(out int muteTime)
+    public bool IncrementAndCheckFlood(DateTimeOffset now, out int muteTime)
     {
         muteTime = 0;
         ChatSpamCount++;
@@ -331,7 +331,7 @@ public class RoomUser
         else if (ChatSpamCount >= 6)
         {
             muteTime = Math.Clamp(21 - GetClient().GetHabbo().Access.Limit("limit.flood_tolerance", 1), 1, 20);
-            GetClient().GetHabbo().FloodTime = UnixTimestamp.GetNow() + muteTime;
+            GetClient().GetHabbo().FloodUntil = now.AddSeconds(muteTime);
             ChatSpamCount = 0;
             return true;
         }

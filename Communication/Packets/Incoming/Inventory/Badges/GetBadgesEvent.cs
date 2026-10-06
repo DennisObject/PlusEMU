@@ -1,13 +1,13 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.Badges;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Inventory;
 
 namespace Plus.Communication.Packets.Incoming.Inventory.Badges;
 
-internal class GetBadgesEvent : IPacketEvent
+internal sealed class GetBadgesEvent(IInventoryShowcaseService inventory) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        session.Send(new BadgesComposer(session.GetHabbo().Id, session.GetHabbo().Inventory.Badges.Badges));
+        inventory.ShowBadges(session);
         return Task.CompletedTask;
     }
 }

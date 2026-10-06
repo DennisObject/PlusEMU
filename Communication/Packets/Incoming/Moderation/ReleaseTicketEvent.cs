@@ -1,33 +1,19 @@
-﻿using Plus.Communication.Attributes;
-using Plus.HabboHotel.Permissions;
-using Plus.Communication.Packets.Outgoing.Moderation;
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
+using Plus.HabboHotel.Permissions;
 
 namespace Plus.Communication.Packets.Incoming.Moderation;
 
 [RequiresPermission(PermissionKeys.ModerationTool)]
-internal class ReleaseTicketEvent : IPacketEvent
+internal sealed class ReleaseTicketEvent(IModeratorTicketService tickets) : IPacketEvent
 {
-    public readonly IModerationManager _moderationManager;
-    public readonly IGameClientManager _clientManager;
-
-    public ReleaseTicketEvent(IModerationManager moderationManager, IGameClientManager clientManager)
-    {
-        _moderationManager = moderationManager;
-        _clientManager = clientManager;
-    }
-
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        var amount = packet.ReadInt();
-        for (var i = 0; i < amount; i++)
-        {
-            if (!_moderationManager.TryGetTicket(packet.ReadInt(), out var ticket))
-                continue;
-            ticket.Moderator = null;
-            _clientManager.SendPacket(new ModeratorSupportTicketComposer(session.GetHabbo().Id, ticket), PermissionKeys.Definition(PermissionKeys.ModerationTool));
-        }
+        var count = packet.ReadInt();
+        var ids = new List<int>();
+        for (var index = 0; index < count; index++) ids.Add(packet.ReadInt());
+        tickets.Release(session, ids);
         return Task.CompletedTask;
     }
 }

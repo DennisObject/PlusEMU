@@ -9,7 +9,7 @@ internal sealed class OpenWiredEvent : RoomPacketEvent
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!WiredRoomSettings.For(room).CanInspect(session))
+        if (!room.GetWired().Settings.CanInspect(session))
             return Task.CompletedTask;
         uint id;
         try

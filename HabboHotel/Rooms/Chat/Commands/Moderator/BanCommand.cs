@@ -2,7 +2,7 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users;
-using Plus.Utilities;
+using System.Globalization;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 
@@ -17,9 +17,12 @@ internal class BanCommand : ITargetChatCommand
 
     public bool MustBeInSameRoom => false;
 
-    public BanCommand(IModerationManager moderationManager)
+    private readonly TimeProvider _clock;
+
+    public BanCommand(IModerationManager moderationManager, TimeProvider clock)
     {
         _moderationManager = moderationManager;
+        _clock = clock;
     }
 
     public async Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
@@ -30,19 +33,27 @@ internal class BanCommand : ITargetChatCommand
             session.SendWhisper("Oops, you cannot ban that user.");
             return;
         }
-        double expire = 0;
+        var now = _clock.GetUtcNow();
         var hours = parameters[0];
+        DateTimeOffset expiresAt;
         if (string.IsNullOrEmpty(hours) || hours == "perm")
-            expire = BanClock.Now() + 78892200;
+        {
+            if (!ModerationBanDuration.TryGetExpiry(now, TimeSpan.FromSeconds(78892200), out expiresAt))
+                return;
+        }
         else
-            expire = BanClock.Now() + Convert.ToDouble(hours) * 3600;
+        {
+            if (!double.TryParse(hours, NumberStyles.Float, CultureInfo.CurrentCulture, out var duration) ||
+                !ModerationBanDuration.TryGetExpiry(now, duration, out expiresAt))
+                return;
+        }
         string reason;
         if (parameters.Length >= 2)
             reason = CommandManager.MergeParams(parameters, 1);
         else
             reason = "No reason specified.";
         var username = target.Username;
-        await _moderationManager.BanAccount(session.GetHabbo().Username, target.Id, target.Username, reason, expire, deadline.Token);
+        await _moderationManager.BanAccount(session.GetHabbo().Username, target.Id, target.Username, reason, expiresAt, deadline.Token);
         target.Client?.Disconnect();
         session.SendWhisper($"Success, you have account banned the user '{username}' for {hours} hour(s) with the reason '{reason}'!");
     }

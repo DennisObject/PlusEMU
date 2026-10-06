@@ -9,12 +9,17 @@ public sealed class EffectsComponent
     /// Effects stored by ID > Effect.
     /// </summary>
     private readonly ConcurrentDictionary<int, AvatarEffect> _effects = new();
+    private readonly TimeProvider _time;
     private Habbo _habbo;
 
-    public EffectsComponent() { }
-
-    internal EffectsComponent(IEnumerable<AvatarEffect> effects, Habbo habbo)
+    public EffectsComponent(TimeProvider time)
     {
+        _time = time;
+    }
+
+    internal EffectsComponent(IEnumerable<AvatarEffect> effects, Habbo habbo, TimeProvider time)
+    {
+        _time = time;
         foreach (var effect in effects) _effects.TryAdd(effect.Id, effect);
         _habbo = habbo;
     }
@@ -45,7 +50,11 @@ public sealed class EffectsComponent
     /// <param name="activatedOnly"></param>
     /// <param name="unactivatedOnly"></param>
     /// <returns></returns>
-    public bool HasEffect(int spriteId, bool activatedOnly = false, bool unactivatedOnly = false) => GetEffectNullable(spriteId, activatedOnly, unactivatedOnly) != null;
+    public bool HasEffect(int spriteId, bool activatedOnly = false, bool unactivatedOnly = false) =>
+        HasEffectAt(spriteId, _time.GetUtcNow(), activatedOnly, unactivatedOnly);
+
+    public bool HasEffectAt(int spriteId, DateTimeOffset now, bool activatedOnly = false, bool unactivatedOnly = false) =>
+        GetEffectNullableAt(spriteId, now, activatedOnly, unactivatedOnly) != null;
 
     /// <summary>
     /// 
@@ -54,10 +63,13 @@ public sealed class EffectsComponent
     /// <param name="activatedOnly"></param>
     /// <param name="unactivatedOnly"></param>
     /// <returns></returns>
-    public AvatarEffect? GetEffectNullable(int spriteId, bool activatedOnly = false, bool unactivatedOnly = false)
+    public AvatarEffect? GetEffectNullable(int spriteId, bool activatedOnly = false, bool unactivatedOnly = false) =>
+        GetEffectNullableAt(spriteId, _time.GetUtcNow(), activatedOnly, unactivatedOnly);
+
+    public AvatarEffect? GetEffectNullableAt(int spriteId, DateTimeOffset now, bool activatedOnly = false, bool unactivatedOnly = false)
     {
         foreach (var effect in _effects.Values.ToList())
-            if (!effect.HasExpired && effect.SpriteId == spriteId && (!activatedOnly || effect.Activated) && (!unactivatedOnly || !effect.Activated))
+            if (effect.Quantity > 0 && !effect.HasExpiredAt(now) && effect.SpriteId == spriteId && (!activatedOnly || effect.Activated) && (!unactivatedOnly || !effect.Activated))
                 return effect;
         return null;
     }
@@ -68,9 +80,14 @@ public sealed class EffectsComponent
     /// <param name="habbo"></param>
     public void CheckEffectExpiry(Habbo habbo)
     {
+        var now = _time.GetUtcNow();
         foreach (var effect in _effects.Values.ToList())
-            if (effect.HasExpired)
-                effect.HandleExpiration(habbo);
+        {
+            if (!effect.HasExpiredAt(now)) continue;
+            effect.HandleExpiration(habbo);
+            // A consumed last quantity is gone from the store, so it leaves the component too; a failed expiry keeps it.
+            if (effect.Quantity <= 0) _effects.TryRemove(effect.Id, out _);
+        }
     }
 
     public void ApplyEffect(int effectId)
@@ -82,7 +99,7 @@ public sealed class EffectsComponent
             return;
         CurrentEffect = effectId;
         if (user.IsDancing)
-            _habbo.CurrentRoom.SendPacket(new DanceComposer(user, 0));
+            _habbo.CurrentRoom.SendPacket(new DanceComposer(user.VirtualId, 0));
         _habbo.CurrentRoom.SendPacket(new AvatarEffectComposer(user.VirtualId, effectId));
     }
 

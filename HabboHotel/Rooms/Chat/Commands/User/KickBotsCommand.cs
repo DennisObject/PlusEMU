@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Users.Inventory.Bots;
 ﻿using Plus.Communication.Packets.Outgoing.Inventory.Bots;
 using Dapper;
 using Plus.Database;
@@ -37,7 +38,7 @@ internal class KickBotsCommand : IChatCommand
             connection.Execute("UPDATE bots SET room_id=0 WHERE id=@id LIMIT 1", new { user.BotData.Id });
             session.GetHabbo().Inventory.Bots.AddBot(new(Convert.ToInt32(botUser.BotData.Id), Convert.ToInt32(botUser.BotData.OwnerId), botUser.BotData.Name, botUser.BotData.Motto,
                 botUser.BotData.Look, botUser.BotData.Gender));
-            session.Send(new BotInventoryComposer(session.GetHabbo().Inventory.Bots.Bots.Values.ToList()));
+            session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
             room.GetRoomUserManager().RemoveBot(botUser.VirtualId, false);
         }
         session.SendWhisper("Success, removed all bots.");

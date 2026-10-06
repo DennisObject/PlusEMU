@@ -413,7 +413,7 @@ public partial class PlacedFurniRoomTests
     {
         var gate = ClosableGate(); ActorOn(new Point(0, 2)); _client.GetHabbo().Gender = "M"; _client.GetHabbo().Look = "hd-180-1.ch-210-66"; _client.GetHabbo().Clothing = new();
         var packet = figure ? ClientPacket((int)gate.Id) : ClientPacket((int)gate.Id, "renamed");
-        IPacketEvent handler = figure ? new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])) : new SetMannequinNameEvent(_database);
+        IPacketEvent handler = figure ? new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])) : new SetMannequinNameEvent(new RoomItemMetadataService(Proxy<IRoomItemMetadataStore>((_, _) => null)));
         handler.Parse(_client, packet).Wait();
         Assert.Equal("1", gate.LegacyDataString);
     }
@@ -426,7 +426,7 @@ public partial class PlacedFurniRoomTests
         var mannequin = ClosableGate(InteractionType.Mannequin, state: $"m{(char)5}.ch-1{(char)5}Default");
         _client.GetHabbo().Gender = "F"; _client.GetHabbo().Look = "hd-180-1.ch-210-66"; _client.GetHabbo().Clothing = new();
         var packet = figure ? ClientPacket((int)mannequin.Id) : ClientPacket((int)mannequin.Id, "renamed");
-        IPacketEvent handler = figure ? new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])) : new SetMannequinNameEvent(_database);
+        IPacketEvent handler = figure ? new SetMannequinFigureEvent(Proxy<Plus.Core.FigureData.IFigureDataManager>((_, args) => args[0])) : new SetMannequinNameEvent(new RoomItemMetadataService(Proxy<IRoomItemMetadataStore>((_, _) => null)));
         handler.Parse(_client, packet).Wait();
         Assert.NotEqual($"m{(char)5}.ch-1{(char)5}Default", mannequin.LegacyDataString);
     }
@@ -560,7 +560,7 @@ public partial class PlacedFurniRoomTests
         var box = Furni(40, InteractionType.WiredEffect, WiredBoxType.None);
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_toggle_state"),
-            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger);
+            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System);
         Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [gate.Id] }, out var config, out var error), error);
         action.ApplyConfiguration(config);
         var items = _room.GetRoomItemHandler().GetFloor.ToArray(); var users = _room.GetRoomUserManager().GetUserList().ToArray();
@@ -824,7 +824,7 @@ public partial class PlacedFurniRoomTests
         var box = Furni(41, InteractionType.WiredEffect, WiredBoxType.None);
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_match_to_sshot"),
-            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger);
+            new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System);
         var proposed = new Plus.HabboHotel.Items.Wired.Configuration.WiredConfiguration
         {
             IntParams = [1, 0, 0, 0, 100], SelectedItems = [gate.Id],

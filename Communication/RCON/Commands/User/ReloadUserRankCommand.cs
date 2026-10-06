@@ -1,5 +1,4 @@
 ﻿using Plus.HabboHotel.Permissions;
-using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 
@@ -9,17 +8,17 @@ internal class ReloadUserRankCommand : IRconCommand
 {
     private readonly IAccessControl _accessControl;
     private readonly IGameClientManager _gameClientManager;
-    private readonly IModerationManager _moderationManager;
+    private readonly IModeratorTicketService _tickets;
     public string Description => "This command is used to reload a users rank and permissions.";
 
     public string Key => "reload_user_rank";
     public string Parameters => "%userId%";
 
-    public ReloadUserRankCommand(IAccessControl accessControl, IGameClientManager gameClientManager, IModerationManager moderationManager)
+    public ReloadUserRankCommand(IAccessControl accessControl, IGameClientManager gameClientManager, IModeratorTicketService tickets)
     {
         _accessControl = accessControl;
         _gameClientManager = gameClientManager;
-        _moderationManager = moderationManager;
+        _tickets = tickets;
     }
 
     public Task<bool> TryExecute(string[] parameters)
@@ -32,10 +31,7 @@ internal class ReloadUserRankCommand : IRconCommand
         _accessControl.Refresh(userId);
         if (client.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
         {
-            client.Send(new ModeratorInitComposer(
-                _moderationManager.UserMessagePresets,
-                _moderationManager.RoomMessagePresets,
-                _moderationManager.GetTickets));
+            _tickets.SendInitialization(client);
         }
         return Task.FromResult(true);
     }

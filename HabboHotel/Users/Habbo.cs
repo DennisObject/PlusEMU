@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.Communication.Packets.Outgoing.Navigator;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Communication.Packets.Outgoing.Rooms.Session;
@@ -29,6 +30,7 @@ namespace Plus.HabboHotel.Users;
 
 public class Habbo
 {
+    private IRoomVisitRecorder _roomVisits = null!;
     internal uint WiredRoomNetworkDestination { get; set; }
     public HabboStats HabboStats { get; set; }
 
@@ -130,7 +132,7 @@ public class Habbo
 
     public bool ChangingName { get; set; }
 
-    public double FloodTime { get; set; }
+    public DateTimeOffset? FloodUntil { get; set; }
 
     public int BannedPhraseCount { get; set; }
 
@@ -165,7 +167,7 @@ public class Habbo
 
     public bool HasSpoken { get; set; }
 
-    public double LastAdvertiseReport { get; set; }
+    public DateTimeOffset? AdvertisingReportAvailableAt { get; set; }
 
     public bool AdvertisingReported { get; set; }
 
@@ -183,11 +185,12 @@ public class Habbo
 
     public ICommandBase ChatCommand { get; set; }
 
-    public DateTime LastGiftPurchaseTime { get; set; }
+    internal object GiftPurchaseSync { get; } = new();
+    public DateTimeOffset? LastGiftPurchasedAt { get; set; }
 
-    public DateTime LastMottoUpdateTime { get; set; }
+    public DateTimeOffset? LastMottoUpdatedAt { get; set; }
 
-    public DateTime LastClothingUpdateTime { get; set; }
+    public DateTimeOffset? LastClothingUpdatedAt { get; set; }
 
     public int GiftPurchasingWarnings { get; set; }
 
@@ -322,14 +325,6 @@ public class Habbo
         return achievement;
     }
 
-    public void ChangeName(string username)
-    {
-        LastNameChangedAt = DateTimeOffset.UtcNow;
-        Username = username;
-        SaveKey("username", username);
-        Persistence.SetProfileValue(Id, "last_change", LastNameChangedAt.Value.UtcDateTime);
-    }
-
     public void SaveChatBubble(string customBubbleId) => SaveKey("bubble_id", customBubbleId);
 
     public void SaveKey(string key, string value)
@@ -425,17 +420,7 @@ public class Habbo
             Client.Send(new RoomPropertyComposer("floor", room.Floor));
         Client.Send(new RoomPropertyComposer("landscape", room.Landscape));
         Client.Send(new RoomRatingComposer(room.Score, !(Client.GetHabbo().RatedRooms.Contains(room.RoomId) || room.OwnerId == Client.GetHabbo().Id)));
-        using (var dbClient = PlusEnvironment.DatabaseManager.Connection())
-        {
-            dbClient.Execute("INSERT INTO user_roomvisits (user_id,room_id,entry_timestamp,exit_timestamp) VALUES (@userId, @roomId, @entryTimestamp, @exitTimestamp)",
-                new
-                {
-                    userId = Client.GetHabbo().Id,
-                    roomId = Client.GetHabbo().CurrentRoom.RoomId,
-                    entryTimestamp = UnixTimestamp.GetNow(),
-                    exitTimestamp = 0,
-                });
-        }
+        _roomVisits.RecordEntry(Client.GetHabbo().Id, Client.GetHabbo().CurrentRoom.RoomId);
 
         if (room.OwnerId != Id)
         {
@@ -444,4 +429,6 @@ public class Habbo
         }
         return true;
     }
+
+    internal void SetRoomVisitRecorder(IRoomVisitRecorder roomVisits) => _roomVisits = roomVisits;
 }

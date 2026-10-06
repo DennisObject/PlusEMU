@@ -4,7 +4,6 @@ using Microsoft.Extensions.Options;
 using MySqlConnector;
 using Plus.Communication.Http;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Users.Authentication;
@@ -36,7 +35,6 @@ internal sealed class AuthTestDatabase : IDatabase
     public static readonly string ConnectionString = Environment.GetEnvironmentVariable(AuthDatabaseFactAttribute.Variable) ?? "";
 
     public bool IsConnected() => true;
-    public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
     public IDbConnection Connection() => new MySqlConnection(ConnectionString);
 
     public static int InsertUser(string username, string password = "", string mail = "probe@invalid")

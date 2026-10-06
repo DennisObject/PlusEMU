@@ -97,7 +97,7 @@ public sealed class ProcessComponent
                 _player.HabboStats.DailyRespectPoints = _player.Access.Limit("limit.daily_respects", 10);
                 _player.HabboStats.DailyPetRespectPoints = _player.Access.Limit("limit.daily_pet_respects", 10);
                 if (_player.Client != null)
-                    _player.Client.Send(new UserObjectComposer(_player));
+                    _player.Client.Send(new UserObjectComposer(UserObjectSnapshot.Capture(_player)));
             }
             if (_player.GiftPurchasingWarnings < 15)
                 _player.GiftPurchasingWarnings = 0;

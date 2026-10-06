@@ -21,9 +21,15 @@ public sealed class ChatlogManager : IChatlogManager
     public void StoreChatlog(ChatlogEntry entry)
     {
         _lock.EnterUpgradeableReadLock();
-        _chatlogs.Add(entry);
-        OnChatlogStore();
-        _lock.ExitUpgradeableReadLock();
+        try
+        {
+            _chatlogs.Add(entry);
+            OnChatlogStore();
+        }
+        finally
+        {
+            _lock.ExitUpgradeableReadLock();
+        }
     }
 
     private void OnChatlogStore()
@@ -39,13 +45,22 @@ public sealed class ChatlogManager : IChatlogManager
         {
             if (_chatlogs.Count == 0)
                 return;
-
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
-            connection.Execute(
-                "INSERT INTO chatlogs (`user_id`, `room_id`, `timestamp`, `message`) VALUES (@PlayerId, @RoomId, @Timestamp, @Message)",
-                _chatlogs, transaction);
+            foreach (var entry in _chatlogs)
+            {
+                connection.Execute("""
+                    INSERT INTO chatlogs (user_id, room_id, `timestamp`, message)
+                    VALUES (@PlayerId, @RoomId, @CreatedAt, @Message)
+                    """, new
+                {
+                    entry.PlayerId,
+                    entry.RoomId,
+                    CreatedAt = entry.CreatedAt.UtcDateTime,
+                    entry.Message
+                }, transaction);
+            }
             transaction.Commit();
             _chatlogs.Clear();
         }

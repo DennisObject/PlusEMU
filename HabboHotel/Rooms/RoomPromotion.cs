@@ -1,38 +1,46 @@
-﻿using Plus.Utilities;
-
-namespace Plus.HabboHotel.Rooms;
+﻿namespace Plus.HabboHotel.Rooms;
 
 public class RoomPromotion
 {
-    public RoomPromotion(string name, string description, int categoryId)
+    private readonly TimeProvider _clock;
+
+    public RoomPromotion(string name, string description, int categoryId, DateTimeOffset startedAt, DateTimeOffset expiresAt, TimeProvider clock)
+        : this(name, description, (DateTimeOffset?)startedAt, expiresAt, categoryId, clock)
     {
-        Name = name;
-        Description = description;
-        TimestampStarted = UnixTimestamp.GetNow();
-        TimestampExpires = UnixTimestamp.GetNow() + Convert.ToInt32(PlusEnvironment.SettingsManager.TryGetValue("room.promotion.lifespan")) * 60;
-        CategoryId = categoryId;
     }
 
-    public RoomPromotion(string name, string description, double started, double expires, int categoryId)
+    public RoomPromotion(string name, string description, DateTimeOffset? startedAt, DateTimeOffset? expiresAt, int categoryId, TimeProvider clock)
     {
         Name = name;
         Description = description;
-        TimestampStarted = started;
-        TimestampExpires = expires;
+        StartedAt = startedAt?.ToUniversalTime();
+        ExpiresAt = expiresAt?.ToUniversalTime();
         CategoryId = categoryId;
+        _clock = clock;
     }
 
     public string Name { get; set; }
 
     public string Description { get; set; }
 
-    public double TimestampStarted { get; }
+    public DateTimeOffset? StartedAt { get; }
 
-    public double TimestampExpires { get; set; }
+    public DateTimeOffset? ExpiresAt { get; private set; }
 
-    public bool HasExpired => TimestampExpires - UnixTimestamp.GetNow() < 0;
+    public bool HasExpired => HasExpiredAt(_clock.GetUtcNow());
 
-    public int MinutesLeft => Convert.ToInt32(Math.Ceiling((TimestampExpires - UnixTimestamp.GetNow()) / 60));
+    public int MinutesLeft => MinutesLeftAt(_clock.GetUtcNow());
 
     public int CategoryId { get; set; }
+
+    public void Extend(TimeSpan duration) => ExpiresAt = (ExpiresAt ?? _clock.GetUtcNow()) + duration;
+
+    internal bool HasExpiredAt(DateTimeOffset now) => ExpiresAt is not { } expiresAt || expiresAt <= now;
+
+    internal int MinutesLeftAt(DateTimeOffset now)
+    {
+        if (HasExpiredAt(now))
+            return 0;
+        return (int)Math.Min(int.MaxValue, Math.Ceiling((ExpiresAt!.Value - now).TotalMinutes));
+    }
 }

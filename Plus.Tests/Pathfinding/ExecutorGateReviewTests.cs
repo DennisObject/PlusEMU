@@ -56,7 +56,8 @@ public partial class PlacedFurniRoomTests
 
     private Item ReviewGuildGate(bool member)
     {
-        var group = new Group(23, "gate", "", "", RoomId, 7, 0, 0, 1, 1, 0, false);
+        var group = new Group(23, "gate", "", "", RoomId, 7, DateTimeOffset.UnixEpoch, 0, 1, 1, 0, false,
+            GroupMembershipSnapshot.Empty);
         if (member)
             ((List<int>)typeof(Group).GetField("_members", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(group)!).Add(7);

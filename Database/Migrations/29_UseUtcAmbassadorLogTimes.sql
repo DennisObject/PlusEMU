@@ -1,0 +1,12 @@
+ALTER TABLE `ambassador_logs`
+  ADD COLUMN `timestamp_datetime` DATETIME(6) NULL AFTER `timestamp`;
+
+UPDATE `ambassador_logs`
+SET `timestamp_datetime` = CASE
+      WHEN `timestamp` IS NULL OR `timestamp` <= 0 THEN NULL
+      ELSE DATE_ADD(CAST('1970-01-01 00:00:00.000000' AS DATETIME(6)), INTERVAL ROUND(`timestamp` * 1000000) MICROSECOND)
+    END;
+
+ALTER TABLE `ambassador_logs`
+  DROP COLUMN `timestamp`,
+  CHANGE COLUMN `timestamp_datetime` `timestamp` DATETIME(6) NULL;

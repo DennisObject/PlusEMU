@@ -6,6 +6,7 @@ namespace Plus.HabboHotel.Users.Inventory.Badges;
 public class BadgesInventoryComponent
 {
     private readonly ConcurrentDictionary<string, Badge> _badges;
+    internal SemaphoreSlim EquipmentGate { get; } = new(1, 1);
 
     public IReadOnlyDictionary<string, Badge> Badges => _badges;
 

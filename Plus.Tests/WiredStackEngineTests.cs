@@ -179,7 +179,7 @@ public class WiredStackEngineTests
     public void PendingActorCannotExecuteAfterLeavingOrChangingRoom(bool changeRoom)
     {
         var room = EmptyRoom();
-        var wired = new WiredComponent(room, TestLogging.Logger);
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent);
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 1);
@@ -514,7 +514,7 @@ public class WiredStackEngineTests
     [Fact]
     public void EveryPreviouslyConstructibleBoxRetainsItsTypeAndConfigurationShape()
     {
-        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger);
+        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
         WiredBoxType[] unsupported = [WiredBoxType.None, WiredBoxType.EffectMoveFurniFromNearestUser,
             WiredBoxType.EffectBotCommunicatesToUserBox, WiredBoxType.ConditionFurniTypeMatches,
             WiredBoxType.ConditionFurniTypeDoesntMatch];
@@ -550,7 +550,7 @@ public class WiredStackEngineTests
     public void KickWarningPrecedesGraceAndProtectedActorsAreNeverScheduled(bool protectedActor)
     {
         var actor = ActorRoom(protectedActor);
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var kick = fixture.Add(new KickUserBox(actor.Room,
@@ -572,7 +572,7 @@ public class WiredStackEngineTests
     public void TeleportGlowBeginsWhenFiringIsAcceptedBeforeItsDelay()
     {
         var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var teleport = fixture.Add(new TeleportUserBox(actor.Room,
@@ -633,7 +633,7 @@ public class WiredStackEngineTests
     public void LeavingAndReenteringTheSameRoomCancelsThePreviousVisit()
     {
         var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger);
+        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance);
         var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 4);
@@ -770,7 +770,7 @@ public class WiredStackEngineTests
     private static (Room Room, Habbo Player, ConcurrentDictionary<int, RoomUser> Users, List<uint> Packets) ActorRoom(bool protectedActor = false)
     {
         var room = EmptyRoom();
-        var manager = new RoomUserManager(room);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
         SetPrivate(room, "_roomUserManager", manager);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
@@ -787,7 +787,7 @@ public class WiredStackEngineTests
             SendCallback = args => { packets.Add(BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2))); return true; }
         };
         var player = new Habbo { Id = 1, Username = "actor", CurrentRoom = room, Client = client,
-            Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []), Effects = new EffectsComponent() };
+            Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)) };
         client.SetHabbo(player);
         SetPrivate(player.Effects, "_habbo", player);
         var visit = new RoomUser(player.Id, 0, 0, room);

@@ -1,22 +1,17 @@
-﻿using Plus.HabboHotel.GameClients;
+using System.Collections.Immutable;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Inventory.Bots;
 
 namespace Plus.Communication.Packets.Outgoing.Inventory.Bots;
 
-public class BotInventoryComposer : IServerPacket
+public sealed class BotInventoryComposer(ImmutableArray<BotInventorySnapshot> bots) : IServerPacket
 {
-    private readonly ICollection<Bot> _bots;
     public uint MessageId => ServerPacketHeader.BotInventoryComposer;
-
-    public BotInventoryComposer(ICollection<Bot> bots)
-    {
-        _bots = bots;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_bots.Count);
-        foreach (var bot in _bots.ToList())
+        packet.WriteInteger(bots.Length);
+        foreach (var bot in bots)
         {
             packet.WriteInteger(bot.Id);
             packet.WriteString(bot.Name);

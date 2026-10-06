@@ -5,22 +5,16 @@ namespace Plus.Communication.Packets.Outgoing.Groups;
 
 public class UpdateFavouriteGroupComposer : IServerPacket
 {
-    private readonly Group? _group;
-    private readonly int _virtualId;
-
+    private readonly FavouriteGroupSnapshot _snapshot;
     public uint MessageId => ServerPacketHeader.UpdateFavouriteGroupComposer;
 
-    public UpdateFavouriteGroupComposer(Group? group, int virtualId)
-    {
-        _group = group;
-        _virtualId = virtualId;
-    }
+    public UpdateFavouriteGroupComposer(FavouriteGroupSnapshot snapshot) => _snapshot = snapshot;
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_virtualId); //Sends 0 on .COM
-        packet.WriteInteger(_group?.Id ?? 0);
+        packet.WriteInteger(_snapshot.VirtualId); //Sends 0 on .COM
+        packet.WriteInteger(_snapshot.GroupId);
         packet.WriteInteger(3);
-        packet.WriteString(_group?.Name ?? string.Empty);
+        packet.WriteString(_snapshot.Name);
     }
 }

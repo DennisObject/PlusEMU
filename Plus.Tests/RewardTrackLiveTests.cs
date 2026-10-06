@@ -9,7 +9,6 @@ using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Revisions;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Quests;
@@ -36,6 +35,22 @@ public class RewardTrackLiveTests
 
         manager.SendTracks(client);
 
+        Assert.Equal(new uint[] { 2327 }, client.Sent);
+    }
+
+    [Fact]
+    public async Task SendTracksReadsTheInjectedClockOnceAtANonUtcOffset()
+    {
+        var clock = new CountingClock(new DateTimeOffset(2025, 1, 1, 12, 0, 0, TimeSpan.FromHours(5)));
+        var client = new TestClient(await Profile("OCTANE-3-6-0-FLOOR-20260909"));
+        client.SetHabbo(new Habbo { Id = 7 });
+        var manager = new RewardTrackManager(NullLogger<RewardTrackManager>.Instance, new FakeDatabase(), new BadgeDefinitions(), clock);
+        await manager.Start();
+        clock.Reads = 0;
+
+        manager.SendTracks(client);
+
+        Assert.Equal(1, clock.Reads);
         Assert.Equal(new uint[] { 2327 }, client.Sent);
     }
 
@@ -143,7 +158,7 @@ public class RewardTrackLiveTests
 
     private static async Task<RewardTrackManager> Manager(FakeDatabase database, IBadgeManager badges)
     {
-        var manager = new RewardTrackManager(NullLogger<RewardTrackManager>.Instance, database, badges);
+        var manager = new RewardTrackManager(NullLogger<RewardTrackManager>.Instance, database, badges, new FixedTimeProvider(FixedTimeProvider.Epoch));
         await manager.Start();
         return manager;
     }
@@ -167,7 +182,7 @@ public class RewardTrackLiveTests
     {
         var database = new FakeDatabase();
         database.Tables["FROM reward_tracks "] = Table(
-            ("Id", "introduction"), ("Theme", "blue"), ("SortOrder", 0), ("StartsAt", 0), ("EndsAt", 0), ("HasPremium", 1),
+            ("Id", "introduction"), ("Theme", "blue"), ("SortOrder", 0), ("StartsAt", DBNull.Value), ("EndsAt", DBNull.Value), ("HasPremium", 1),
             ("Boost", 1.0), ("InstantPoints", 0), ("CostDiamonds", 0), ("CostCredits", 25));
         database.Tables["FROM reward_track_prizes"] = Table(
             ("TrackId", "introduction"), ("Id", "track_champ"), ("RequiredPoints", 50), ("ProductItemTypeId", 4), ("RewardType", "badge"),
@@ -180,7 +195,7 @@ public class RewardTrackLiveTests
     {
         var table = new DataTable();
         foreach (var (column, value) in row)
-            table.Columns.Add(column, value.GetType());
+            table.Columns.Add(column, value is DBNull ? typeof(DateTimeOffset) : value.GetType());
         table.Rows.Add(row.Select(cell => cell.Value).ToArray());
         return table;
     }
@@ -207,6 +222,16 @@ public class RewardTrackLiveTests
     }
 
     /// <summary>Serves canned SELECT results and records each committed transaction's statements.</summary>
+    private sealed class CountingClock(DateTimeOffset now) : TimeProvider
+    {
+        public int Reads { get; set; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+            return now;
+        }
+    }
+
     private sealed class FakeDatabase : IDatabase
     {
         public Dictionary<string, DataTable> Tables { get; } = new();
@@ -214,7 +239,6 @@ public class RewardTrackLiveTests
         public int RolledBack { get; set; }
         public string? FailOn { get; set; }
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection() => new FakeConnection(this);
 
         public DataTable Select(string sql) => Tables.FirstOrDefault(entry => sql.Contains(entry.Key)).Value?.Copy() ?? new DataTable();

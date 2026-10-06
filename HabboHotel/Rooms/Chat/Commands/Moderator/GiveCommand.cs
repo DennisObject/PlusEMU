@@ -1,5 +1,6 @@
 using Plus.HabboHotel.Permissions;
 ﻿using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+﻿using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 

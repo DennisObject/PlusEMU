@@ -287,13 +287,13 @@ public class RoomManager : IRoomManager, IStartable
 
     public List<Room> GetOnGoingRoomPromotions(int mode, int amount = 50)
     {
-        if (mode == 17) return _rooms.Values.Where(x => x.HasActivePromotion && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.Promotion.TimestampStarted).Take(amount).ToList();
+        if (mode == 17) return _rooms.Values.Where(x => x.HasActivePromotion && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.Promotion.StartedAt).Take(amount).ToList();
         return _rooms.Values.Where(x => x.HasActivePromotion && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.UsersNow).Take(amount).ToList();
     }
 
     public List<Room> GetPromotedRooms(int categoryId, int amount = 50)
     {
-        return _rooms.Values.Where(x => x.HasActivePromotion && x.Promotion.CategoryId == categoryId && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.Promotion.TimestampStarted)
+        return _rooms.Values.Where(x => x.HasActivePromotion && x.Promotion.CategoryId == categoryId && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.Promotion.StartedAt)
             .Take(amount).ToList();
     }
 

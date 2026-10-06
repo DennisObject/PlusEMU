@@ -7,12 +7,12 @@ public sealed class ChatlogEntry
     private readonly WeakReference<Habbo>? _playerReference;
     private readonly WeakReference<Room>? _roomReference;
 
-    public ChatlogEntry(int playerId, uint roomId, string message, double timestamp, Habbo? player = null, Room? instance = null)
+    public ChatlogEntry(int playerId, uint roomId, string message, DateTimeOffset createdAt, Habbo? player = null, Room? instance = null)
     {
         PlayerId = playerId;
         RoomId = roomId;
         Message = message;
-        Timestamp = timestamp;
+        CreatedAt = createdAt.ToUniversalTime();
         if (player != null)
             _playerReference = new(player);
         if (instance != null)
@@ -25,7 +25,7 @@ public sealed class ChatlogEntry
 
     public string Message { get; }
 
-    public double Timestamp { get; }
+    public DateTimeOffset CreatedAt { get; }
 
     public Habbo? PlayerNullable() => _playerReference != null && _playerReference.TryGetTarget(out var player) ? player : null;
 

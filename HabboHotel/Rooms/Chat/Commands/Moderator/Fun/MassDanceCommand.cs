@@ -37,7 +37,7 @@ internal class MassDanceCommand : IChatCommand
                 if (u.CarryItemId > 0)
                     u.CarryItemId = 0;
                 u.DanceId = danceId;
-                room.SendPacket(new DanceComposer(u, danceId));
+                room.SendPacket(new DanceComposer(u.VirtualId, danceId));
             }
         }
     }

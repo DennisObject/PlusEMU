@@ -11,7 +11,6 @@ using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Groups;
 using Plus.Core.Settings;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Cache;
 using Plus.HabboHotel.Cache.Type;
@@ -20,6 +19,7 @@ using Plus.HabboHotel.Groups;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Permissions;
 using Xunit;
 
@@ -28,6 +28,12 @@ namespace Plus.Tests;
 [Collection("Group purchase")]
 public class GroupManagementTests : IDisposable
 {
+    private GroupRemovalService Removal(IGroupManager groups, IRoomManager rooms, ISettingsManager? settings = null) =>
+        new(groups, rooms, settings ?? Proxy<ISettingsManager>((_, _) => "50"),
+            Proxy<IGameClientManager>((method, args) => method == "GetClientByUserId"
+                ? _clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method)),
+            GroupInfo(), new GroupRemovalStore(_database), new AccountSessionGate());
+
     private readonly FieldInfo _gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
     private readonly FieldInfo _databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
     private readonly object? _previousGame;
@@ -53,7 +59,9 @@ public class GroupManagementTests : IDisposable
     {
         var group = NewGroup(hasForum: true);
         var packet = new HabbiconTestSupport.RecordingPacket();
-        new ManageGroupComposer(group, group.Badge.Replace("b", "").Split('s')).Compose(packet);
+        Assert.True(GroupManagementSnapshotService.TryParseBadge(group.Badge, out var pieces));
+        new ManageGroupComposer(new(true, group.RoomId, "HQ", group.Id, group.Name, group.Description,
+            group.Colour1, group.Colour2, 0, group.AdminOnlyDeco, pieces, group.Badge, group.MemberCount, group.ForumEnabled)).Compose(packet);
 
         var reader = new ValueReader(packet.Writes);
         Assert.Equal(1, reader.ReadInt());
@@ -98,8 +106,7 @@ public class GroupManagementTests : IDisposable
         var group = NewGroup(hasForum: false);
         group.Badge = "b05114s06114";
         var (client, sent) = Client(Owner());
-        var groups = GroupSource(group);
-        await new UpdateGroupBadgeEvent(groups, _database).Parse(client, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
+        await new UpdateGroupBadgeEvent(Appearance(group)).Parse(client, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
 
         Assert.Equal("b01014s02024", group.Badge);
         Assert.Contains("UPDATE `groups` SET `badge`", string.Join("\n", _database.Statements));
@@ -107,12 +114,12 @@ public class GroupManagementTests : IDisposable
 
         group.Badge = "b05114s06114";
         var written = _database.Statements.Count;
-        await new UpdateGroupBadgeEvent(groups, _database).Parse(client, Packet(group.Id, 4, 1, 1, 4));
+        await new UpdateGroupBadgeEvent(Appearance(group)).Parse(client, Packet(group.Id, 4, 1, 1, 4));
         Assert.Equal("b05114s06114", group.Badge);
         Assert.Equal(written, _database.Statements.Count);
 
         var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Access = Rights() });
-        await new UpdateGroupBadgeEvent(groups, _database).Parse(member, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
+        await new UpdateGroupBadgeEvent(Appearance(group)).Parse(member, Packet(group.Id, 6, 1, 1, 4, 2, 2, 4));
         Assert.Equal("b05114s06114", group.Badge);
         Assert.Empty(memberSent);
     }
@@ -128,7 +135,8 @@ public class GroupManagementTests : IDisposable
             args[1] = null;
             return false;
         });
-        await new UpdateGroupSettingsEvent(GroupSource(group), rooms, _database).Parse(client, Packet(group.Id, 1, 0, true));
+        var settings = new GroupSettingsService(GroupSource(group), rooms, GroupInfo(), new GroupSettingsStore(_database));
+        await new UpdateGroupSettingsEvent(settings).Parse(client, Packet(group.Id, 1, 0, true));
 
         Assert.Equal(GroupType.Locked, group.Type);
         Assert.Equal(0, group.AdminOnlyDeco);
@@ -145,15 +153,15 @@ public class GroupManagementTests : IDisposable
     public async Task MemberPagesAreFourteenAndPendingStaysWithAdmins()
     {
         var group = NewGroup(hasForum: false);
-        for (var id = 2; id <= 21; id++) group.AddMember(id);
+        for (var id = 2; id <= 21; id++) group.PublishJoin(id);
         group.Type = GroupType.Locked;
-        group.AddMember(30);
+        group.PublishJoin(30);
         var cache = Proxy<ICacheManager>((method, args) =>
         {
             var id = (int)args[0]!;
             return new CachedUser { Id = id, Username = id == 30 ? "Pending" : "Member" + id, Look = "hr-1" };
         });
-        var handler = new GetGroupMembersEvent(GroupSource(group), cache);
+        var handler = new GetGroupMembersEvent(new GroupPresentationService(GroupSource(group), cache, Proxy<IRoomDataLoader>((_, _) => throw new NotSupportedException()), Proxy<ISettingsManager>((_, _) => throw new NotSupportedException()), GroupInfo()));
         var (member, memberSent) = Client(new Habbo { Id = 2, Username = "Member2", Access = Rights() });
         await handler.Parse(member, Packet(group.Id, 0, "", 0));
         var firstPage = DecodeMembers(memberSent[0].Payload);
@@ -221,7 +229,7 @@ public class GroupManagementTests : IDisposable
         });
         var settings = Proxy<ISettingsManager>((_, _) => "50");
         var (stranger, strangerSent) = Client(new Habbo { Id = 8, Username = "Stranger", Access = Rights() });
-        var handler = new DeleteGroupEvent(groups, _database, rooms, settings);
+        var handler = new DeleteGroupEvent(Removal(groups, rooms, settings));
         await handler.Parse(stranger, Packet(group.Id));
         Assert.Empty(deleted);
         Assert.NotEmpty(strangerSent);
@@ -240,10 +248,10 @@ public class GroupManagementTests : IDisposable
     {
         var group = NewGroup(hasForum: false);
         group.Type = GroupType.Locked;
-        group.AddMember(8);
+        group.PublishJoin(8);
         var (target, _) = Client(new Habbo { Id = 8, Username = "Bob", Look = "hr-1", Access = Rights() });
         var (owner, sent) = Client(Owner());
-        await new AcceptGroupMembershipEvent(GroupSource(group)).Parse(owner, Packet(group.Id, 8));
+        await new AcceptGroupMembershipEvent(Mutations(group, UnloadedRooms())).Parse(owner, Packet(group.Id, 8));
 
         Assert.True(group.IsMember(8));
         Assert.False(group.HasRequest(8));
@@ -272,10 +280,10 @@ public class GroupManagementTests : IDisposable
     public async Task ConfirmCountsFurnitureWithoutRemovingTheMember()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(8);
+        group.PublishJoin(8);
         _database.Scalar = 4;
         var (owner, sent) = Client(Owner());
-        await new ConfirmRemoveGroupMemberEvent(GroupSource(group), _database).Parse(owner, Packet(group.Id, 8));
+        await new ConfirmRemoveGroupMemberEvent(Removal(GroupSource(group), UnloadedRooms())).Parse(owner, Packet(group.Id, 8));
 
         Assert.True(group.IsMember(8));
         Assert.Contains("SELECT COUNT(*) FROM `items`", string.Join("\n", _database.Statements));
@@ -288,10 +296,10 @@ public class GroupManagementTests : IDisposable
     public async Task KickRefreshDoesNotDependOnTheMembersPage()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(8);
+        group.PublishJoin(8);
         var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8, true));
+        await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(owner, Packet(group.Id, 8, true));
 
         Assert.False(group.IsMember(8));
         var body = sent.Single(item => item.Header == ServerPacketHeader.UnknownGroupComposer).Payload;
@@ -303,13 +311,13 @@ public class GroupManagementTests : IDisposable
     public async Task KickClearsFavouriteAndHomeroomRights()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(8);
+        group.PublishJoin(8);
         group.MakeAdmin(8);
         var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, group.Id, "", 0);
         var targetHabbo = new Habbo { Id = 8, Username = "Target", Access = Rights(), HabboStats = stats };
         var (_, targetSent) = Client(targetHabbo);
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        var manager = new RoomUserManager(room);
+        var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         var roomUser = new RoomUser(8, group.RoomId, 3, room);
         roomUser.SetStatus("flatctrl 1", "");
@@ -325,7 +333,7 @@ public class GroupManagementTests : IDisposable
             return true;
         });
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8, true));
+        await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(owner, Packet(group.Id, 8, true));
 
         Assert.False(group.IsAdmin(8));
         Assert.False(group.IsMember(8));
@@ -349,10 +357,10 @@ public class GroupManagementTests : IDisposable
     public async Task LegacyRemovalPayloadStillRemovesAMember()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(8);
+        group.PublishJoin(8);
         var rooms = UnloadedRooms();
         var (owner, sent) = Client(Owner());
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(owner, Packet(group.Id, 8));
+        await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(owner, Packet(group.Id, 8));
 
         Assert.False(group.IsMember(8));
         Assert.Contains(ServerPacketHeader.UnknownGroupComposer, sent.Select(item => item.Header));
@@ -362,25 +370,25 @@ public class GroupManagementTests : IDisposable
     public async Task ConfirmAndRemovalRefuseTheOwnerAndOtherAdmins()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(7);
-        group.AddMember(4);
-        group.AddMember(5);
+        group.PublishJoin(7);
+        group.PublishJoin(4);
+        group.PublishJoin(5);
         group.MakeAdmin(4);
         group.MakeAdmin(5);
         var rooms = UnloadedRooms();
         var groups = GroupSource(group);
         var (admin, adminSent) = Client(new Habbo { Id = 4, Username = "Admin", Access = Rights() });
-        await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 7));
-        await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(admin, Packet(group.Id, 5));
-        await new RemoveGroupMemberEvent(groups, rooms, _database).Parse(admin, Packet(group.Id, 7));
-        await new RemoveGroupMemberEvent(groups, rooms, _database).Parse(admin, Packet(group.Id, 5));
+        await new ConfirmRemoveGroupMemberEvent(Removal(groups, UnloadedRooms())).Parse(admin, Packet(group.Id, 7));
+        await new ConfirmRemoveGroupMemberEvent(Removal(groups, UnloadedRooms())).Parse(admin, Packet(group.Id, 5));
+        await new RemoveGroupMemberEvent(Removal(groups, rooms)).Parse(admin, Packet(group.Id, 7));
+        await new RemoveGroupMemberEvent(Removal(groups, rooms)).Parse(admin, Packet(group.Id, 5));
         Assert.DoesNotContain(adminSent, item => item.Header == ServerPacketHeader.GroupConfirmRemoveMemberComposer || item.Header == ServerPacketHeader.UnknownGroupComposer);
         Assert.True(group.IsMember(7));
         Assert.True(group.IsAdmin(5));
 
         var (member, memberSent) = Client(new Habbo { Id = 8, Username = "Member", Access = Rights() });
-        group.AddMember(8);
-        await new ConfirmRemoveGroupMemberEvent(groups, _database).Parse(member, Packet(group.Id, 4));
+        group.PublishJoin(8);
+        await new ConfirmRemoveGroupMemberEvent(Removal(groups, UnloadedRooms())).Parse(member, Packet(group.Id, 4));
         Assert.Empty(memberSent);
         Assert.True(group.IsAdmin(4));
     }
@@ -389,7 +397,7 @@ public class GroupManagementTests : IDisposable
     public async Task AdminCanLeaveWhileTheHomeroomIsUnloaded()
     {
         var group = NewGroup(hasForum: false);
-        group.AddMember(11);
+        group.PublishJoin(11);
         group.MakeAdmin(11);
         Client(Owner());
         var leaver = new Habbo
@@ -406,7 +414,7 @@ public class GroupManagementTests : IDisposable
             args[1] = null;
             return false;
         });
-        await new RemoveGroupMemberEvent(GroupSource(group), rooms, _database).Parse(client, Packet(group.Id, 11));
+        await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(client, Packet(group.Id, 11));
 
         Assert.False(group.IsMember(11));
         Assert.False(group.IsAdmin(11));
@@ -419,15 +427,16 @@ public class GroupManagementTests : IDisposable
     {
         var group = NewGroup(hasForum: false);
         group.Type = GroupType.Locked;
-        group.AddMember(8);
+        group.PublishJoin(8);
         var (owner, sent) = Client(Owner());
-        var groups = GroupSource(group);
-        await new AcceptGroupMembershipEvent(groups).Parse(owner, Packet(group.Id, 8));
+        var rooms = UnloadedRooms();
+        var mutations = Mutations(group, rooms, identities: false);
+        await new AcceptGroupMembershipEvent(mutations).Parse(owner, Packet(group.Id, 8));
         Assert.True(group.IsMember(8));
         Assert.False(group.HasRequest(8));
-        await new GiveAdminRightsEvent(groups, UnloadedRooms()).Parse(owner, Packet(group.Id, 8));
+        await new GiveAdminRightsEvent(mutations).Parse(owner, Packet(group.Id, 8));
         Assert.True(group.IsAdmin(8));
-        await new TakeAdminRightsEvent(groups, UnloadedRooms()).Parse(owner, Packet(group.Id, 8));
+        await new TakeAdminRightsEvent(mutations).Parse(owner, Packet(group.Id, 8));
         Assert.False(group.IsAdmin(8));
         Assert.Equal(3, sent.Count(item => item.Header == ServerPacketHeader.UnknownGroupComposer));
     }
@@ -441,11 +450,9 @@ public class GroupManagementTests : IDisposable
 
     private Group NewGroup(bool hasForum)
     {
-        var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7, 1_700_000_000, 0, 3, 4, 0, hasForum);
-        var room = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
-        room.Id = 42;
-        room.Name = "HQ";
-        typeof(Group).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(group, room);
+        var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7,
+            DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), 0, 3, 4, 0,
+            hasForum, GroupMembershipSnapshot.Empty);
         return group;
     }
 
@@ -467,6 +474,38 @@ public class GroupManagementTests : IDisposable
         args[1] = group;
         return true;
     });
+
+    private IGroupMembershipMutationService Mutations(Group group, IRoomManager rooms, bool identities = true) =>
+        new GroupMembershipMutationService(
+            GroupSource(group),
+            rooms,
+            Proxy<IGroupMemberIdentityLookup>((method, args) => method == nameof(IGroupMemberIdentityLookup.Find) && identities && _clients.TryGetValue((int)args[0]!, out var client)
+                ? new GroupMemberIdentity(client.GetHabbo().Id, client.GetHabbo().Username, client.GetHabbo().Look)
+                : null),
+            new SuccessfulMutationStore());
+
+    private IGroupInfoSnapshotService GroupInfo()
+    {
+        var clients = Proxy<IGameClientManager>((method, args) =>
+            method == "GetClientByUserId" ? _clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method));
+        var cache = Proxy<ICacheManager>((method, _) => method == "GenerateUser" ? null : throw new InvalidOperationException(method));
+        return new GroupInfoSnapshotService(clients, cache, _database,
+            Proxy<IRoomDataLoader>((method, args) =>
+            {
+                Assert.Equal(nameof(IRoomDataLoader.TryGetData), method);
+                var data = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
+                data.Id = (uint)args[0]!;
+                data.Name = "HQ";
+                args[1] = data;
+                return true;
+            }));
+    }
+
+    private IGroupAppearanceService Appearance(Group group) => new GroupAppearanceService(
+        GroupSource(group),
+        Proxy<IWordFilterManager>((method, args) => method == nameof(IWordFilterManager.CheckMessage) ? args[0] : throw new InvalidOperationException(method)),
+        GroupInfo(),
+        new GroupAppearanceStore(_database));
 
     private static MembersPage DecodeMembers(byte[] body)
     {
@@ -543,6 +582,13 @@ public class GroupManagementTests : IDisposable
 
     private sealed record MembersPage(int Total, int Count, int PageSize, int Page, int Level, List<string> Names);
 
+    private sealed class SuccessfulMutationStore : IGroupMembershipMutationStore
+    {
+        public bool Accept(int groupId, int userId) => true;
+        public bool Decline(int groupId, int userId) => true;
+        public bool SetAdmin(int groupId, int userId, bool isAdmin) => true;
+    }
+
     private sealed class ValueReader(List<object> values)
     {
         private int _index;
@@ -572,30 +618,20 @@ public class GroupManagementTests : IDisposable
         }
     }
 
-    private sealed class RecordingDatabase : IDatabase
+    internal sealed class RecordingDatabase : IDatabase
     {
         public List<string> Statements { get; } = new();
         public int Scalar { get; set; }
+        public string? Username { get; set; }
+        public DataTable? OfferRows { get; set; }
+        public List<string> Transactions { get; } = new();
+        public List<(string Sql, Dictionary<string, object?> Parameters)> Writes { get; } = new();
+        public bool FailInsert { get; set; }
+        public List<(string Sql, Dictionary<string, object?> Parameters)> OfferQueries { get; } = new();
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => new EmptyAdapter();
         public IDbConnection Connection() => new RecordingConnection(this);
 
-        private sealed class EmptyAdapter : IQueryAdapter
-        {
-            public void AddParameter(string name, object query) { }
-            public bool FindsResult() => false;
-            public int GetInteger() => 0;
-            public DataRow? GetRow() => null;
-            public string GetString() => "";
-            public DataTable GetTable() => new();
-            public void RunQuery(string query) { }
-            public void SetQuery(string query) { }
-            public long InsertQuery() => 1;
-            public void RunQuery() { }
-            public int RunQueryRequired() => 1;
-            public bool RunTransaction(Func<bool> operation) => operation();
-            public void Dispose() { }
-        }
+
     }
 
     private sealed class RecordingConnection(RecordingDatabase database) : IDbConnection
@@ -604,8 +640,8 @@ public class GroupManagementTests : IDisposable
         public int ConnectionTimeout => 1;
         public string Database => "";
         public ConnectionState State { get; private set; } = ConnectionState.Open;
-        public IDbTransaction BeginTransaction() => new RecordingTransaction(this);
-        public IDbTransaction BeginTransaction(IsolationLevel il) => new RecordingTransaction(this, il);
+        public IDbTransaction BeginTransaction() => new RecordingTransaction(this, database);
+        public IDbTransaction BeginTransaction(IsolationLevel il) => new RecordingTransaction(this, database, il);
         public void ChangeDatabase(string databaseName) { }
         public void Close() => State = ConnectionState.Closed;
         public IDbCommand CreateCommand() => new RecordingCommand(database);
@@ -613,13 +649,13 @@ public class GroupManagementTests : IDisposable
         public void Dispose() { }
     }
 
-    private sealed class RecordingTransaction(IDbConnection connection, IsolationLevel isolationLevel = IsolationLevel.Unspecified) : IDbTransaction
+    private sealed class RecordingTransaction(IDbConnection connection, RecordingDatabase database, IsolationLevel isolationLevel = IsolationLevel.Unspecified) : IDbTransaction
     {
         public IDbConnection Connection { get; } = connection;
         public IsolationLevel IsolationLevel { get; } = isolationLevel;
-        public void Commit() { }
-        public void Rollback() { }
-        public void Dispose() { }
+        public void Commit() => database.Transactions.Add("commit");
+        public void Rollback() => database.Transactions.Add("rollback");
+        public void Dispose() => database.Transactions.Add("dispose");
     }
 
     private sealed class RecordingCommand(RecordingDatabase database) : IDbCommand
@@ -637,16 +673,31 @@ public class GroupManagementTests : IDisposable
         public int ExecuteNonQuery()
         {
             database.Statements.Add(CommandText);
+            database.Writes.Add((CommandText, Parameters.Cast<RecordingParameter>().ToDictionary(parameter => parameter.ParameterName, parameter => parameter.Value)));
+            if (database.FailInsert && CommandText.Contains("INSERT INTO `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("forced insert failure");
+            // A claim delete removes one row per expanded id, as the database would for rows that exist.
+            if (CommandText.StartsWith("DELETE FROM `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
+                return Parameters.Cast<RecordingParameter>().Count(parameter => parameter.ParameterName.Contains("offerIds", StringComparison.Ordinal));
             return 1;
         }
         public IDataReader ExecuteReader() => ExecuteReader(CommandBehavior.Default);
         public IDataReader ExecuteReader(CommandBehavior behavior)
         {
             database.Statements.Add(CommandText);
+            if (CommandText.Contains("FROM `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
+            {
+                database.OfferQueries.Add((CommandText, Parameters.Cast<RecordingParameter>().ToDictionary(parameter => parameter.ParameterName, parameter => parameter.Value)));
+                return (database.OfferRows ?? new DataTable()).CreateDataReader();
+            }
             if (CommandText.Contains("FROM group_memberships", StringComparison.OrdinalIgnoreCase))
                 return EmptyReader(("UserId", typeof(int)), ("Rank", typeof(int)));
             if (CommandText.Contains("FROM group_requests", StringComparison.OrdinalIgnoreCase))
                 return EmptyReader(("user_id", typeof(int)));
+            if (CommandText.Contains("SELECT username FROM users", StringComparison.OrdinalIgnoreCase))
+                return database.Username is { } name ? SingleValueReader("username", name) : EmptyReader(("username", typeof(string)));
+            if (CommandText.Contains("INNER JOIN `rooms`", StringComparison.OrdinalIgnoreCase))
+                return EmptyReader();
             return new ScalarReader(database.Scalar);
         }
         public object? ExecuteScalar()
@@ -655,6 +706,14 @@ public class GroupManagementTests : IDisposable
             return database.Scalar;
         }
         public void Prepare() { }
+
+        private static IDataReader SingleValueReader(string column, string value)
+        {
+            var table = new DataTable();
+            table.Columns.Add(column, typeof(string));
+            table.Rows.Add(value);
+            return table.CreateDataReader();
+        }
 
         private static IDataReader EmptyReader(params (string Name, Type Type)[] columns)
         {

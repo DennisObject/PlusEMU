@@ -5,6 +5,8 @@ using Plus.Core.FigureData;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
 
+using Plus.HabboHotel.Rooms;
+
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User.Fun;
 
 internal class FacelessCommand : IChatCommand
@@ -47,7 +49,7 @@ internal class FacelessCommand : IChatCommand
         using var connection = _database.Connection();
         connection.Execute("UPDATE users SET look=@look WHERE id=@userId LIMIT 1",
             new { look = session.GetHabbo().Look, userId = session.GetHabbo().Id });
-        session.Send(new UserChangeComposer(user, true));
-        session.GetHabbo().CurrentRoom.SendPacket(new UserChangeComposer(user, false));
+        session.Send(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true)));
+        session.GetHabbo().CurrentRoom.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
     }
 }

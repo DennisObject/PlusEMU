@@ -11,16 +11,16 @@ public class HabbiconFloodTests
         var clock = new ManualTimeProvider();
         var messenger = new HabboMessenger(new(), new(), new(), clock);
         var friend = new MessengerBuddy { Id = 2 };
-        for (int i = 0; i < 10; i++) Assert.True(messenger.TrySendHabbicon());
+        for (int i = 0; i < 10; i++) Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
         Assert.Null(messenger.SendMessage(friend, "eleventh"));
-        Assert.False(messenger.TrySendHabbicon());
+        Assert.False(messenger.TrySendHabbicon(clock.GetUtcNow()));
         Assert.Equal(MessageError.Flooding, messenger.SendMessage(friend, "blocked"));
         clock.Advance(TimeSpan.FromSeconds(21));
-        Assert.False(messenger.TrySendHabbicon());
+        Assert.False(messenger.TrySendHabbicon(clock.GetUtcNow()));
         clock.Advance(TimeSpan.FromSeconds(38));
-        Assert.False(messenger.TrySendHabbicon());
+        Assert.False(messenger.TrySendHabbicon(clock.GetUtcNow()));
         clock.Advance(TimeSpan.FromSeconds(1));
-        Assert.True(messenger.TrySendHabbicon());
+        Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
         Assert.Null(messenger.SendMessage(friend, "after cooldown"));
     }
 
@@ -31,12 +31,12 @@ public class HabbiconFloodTests
         var messenger = new HabboMessenger(new(), new(), new(), clock);
         for (int i = 0; i < 25; i++)
         {
-            Assert.True(messenger.TrySendHabbicon());
+            Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
             clock.Advance(TimeSpan.FromSeconds(6));
         }
-        for (int i = 0; i < 9; i++) Assert.True(messenger.TrySendHabbicon());
+        for (int i = 0; i < 9; i++) Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
         clock.Advance(TimeSpan.FromSeconds(21));
-        Assert.True(messenger.TrySendHabbicon());
+        Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
     }
 
     private sealed class ManualTimeProvider : TimeProvider

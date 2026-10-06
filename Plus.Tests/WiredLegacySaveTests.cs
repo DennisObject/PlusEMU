@@ -52,6 +52,28 @@ public class WiredLegacySaveTests
     [InlineData(2)]
     [InlineData(3)]
     [InlineData(4)]
+    public void TypedLegacyPreparationPreservesTheExistingFieldMappings(int shape)
+    {
+        var original = Original(shape);
+        Assert.True(WiredLegacyProtocol.TryRead(Payload(shape), Envelope(shape), out var proposed));
+
+        Assert.True(WiredLegacySave.TryPrepare(original, proposed, Envelope(shape),
+            source => Create(shape, source.Item), out var candidate, out var error));
+
+        Assert.Empty(error);
+        Assert.Equal(shape switch { 1 or 4 => "1;0;1", 2 => "NEW_BADGE", 3 => "5", _ => "previous" }, candidate!.StringData);
+        if (candidate is IWiredCycle cycle) Assert.Equal(shape == 0 ? 9 : 8, cycle.Delay);
+        Assert.Equal(shape == 2 ? 1 : 0, candidate.SetItems.Count);
+        Assert.Equal("previous", original.StringData);
+        Assert.Single(original.SetItems);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
     public void TruncatedLegacyEnvelopesNeverReachTheFactoryOrPersistence(int shape)
     {
         var original = Original(shape);

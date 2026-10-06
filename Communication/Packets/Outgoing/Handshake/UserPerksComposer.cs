@@ -10,7 +10,7 @@ public class UserPerksComposer : IServerPacket
     {
         // TODO @80O: Pass perks via constructor.
         // TODO @80O: Store perks in the database.
-        packet.WriteInteger(15); // Count
+        packet.WriteInteger(14); // Count
         packet.WriteString("USE_GUIDE_TOOL");
         packet.WriteString("");
         packet.WriteBoolean(false);
@@ -39,9 +39,6 @@ public class UserPerksComposer : IServerPacket
         packet.WriteString("requirement.unfulfilled.helper_level_2");
         packet.WriteBoolean(true);
         packet.WriteString("EXPERIMENTAL_TOOLBAR");
-        packet.WriteString(""); // ??
-        packet.WriteBoolean(true);
-        packet.WriteString("BUILDER_AT_WORK");
         packet.WriteString(""); // ??
         packet.WriteBoolean(true);
         packet.WriteString("NAVIGATOR_PHASE_ONE_2014");

@@ -1,6 +1,4 @@
 using Plus.HabboHotel.Permissions;
-using System.Runtime.CompilerServices;
-using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -9,13 +7,9 @@ namespace Plus.HabboHotel.Items.Wired.Settings;
 /// <summary>One room-scoped snapshot; successful storage precedes every live settings publication.</summary>
 public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, Func<TimeZoneInfo>? hotelTimeZone = null)
 {
-    private static readonly ConditionalWeakTable<Room, WiredRoomSettings> Instances = new();
     private readonly object _gate = new();
     private bool _loaded;
     private WiredRoomSettingsSnapshot? _saved;
-
-    public static WiredRoomSettings For(Room room, IDatabase? database = null) =>
-        Instances.GetValue(room, key => new(key, new DatabaseWiredRoomSettingsStore(database ?? PlusEnvironment.DatabaseManager)));
 
     public WiredRoomSettingsSnapshot Snapshot { get { lock (_gate) { EnsureLoaded(); return _saved ?? new(); } } }
     public TimeZoneInfo? ExplicitTimeZone => Snapshot.TimeZoneId is { Length: > 0 } timezone
@@ -33,7 +27,12 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
     public bool CanModify(GameClient session) => Permitted(session, true);
     public WiredRoomSettingsView View(GameClient session)
     {
-        lock (_gate) return new(Snapshot, CanInspect(session), CanModify(session), CanManage(session));
+        lock (_gate)
+        {
+            var saved = Snapshot;
+            return new(room.Id, saved.InspectMask, saved.ModifyMask, CanInspect(session), CanModify(session),
+                CanManage(session), saved.TimeZoneId);
+        }
     }
 
     public bool TrySave(GameClient session, int inspect, int modify, string? timezone, out string error)

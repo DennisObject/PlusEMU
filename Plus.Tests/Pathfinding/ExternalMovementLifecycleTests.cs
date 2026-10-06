@@ -4,10 +4,12 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Packets.Incoming.Rooms.AI.Pets;
 using Plus.Communication.Packets.Incoming.Rooms.AI.Pets.Horse;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Database;
+using Plus.Core.Settings;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Modern;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
@@ -129,8 +131,12 @@ public partial class PlacedFurniRoomTests
         rider.MoveTo(2, 1); ExecutorTick();
         var inventory = _client.GetHabbo().Inventory;
         _client.GetHabbo().Inventory = new InventoryComponent { Furniture = inventory.Furniture, Pets = new([]) };
-        var database = Proxy<IDatabase>((method, _) => method == "Connection" ? new PetPickupConnection() : _database.GetQueryReactor());
-        new PickUpPetEvent(Proxy<IGameClientManager>((_, _) => _client), database)
+        var database = Proxy<IDatabase>((method, _) => method == "Connection" ? new PetPickupConnection() : throw new NotSupportedException(method));
+        var service = new PetPlacementService(
+            new PetRoomStore(database, NullLogger<PetRoomStore>.Instance),
+            Proxy<IGameClientManager>((_, _) => _client),
+            Proxy<ISettingsManager>((method, _) => throw new NotSupportedException(method)));
+        new PickUpPetEvent(service)
             .Parse(_room, _client, ClientPacket(horse.PetData.PetId)).GetAwaiter().GetResult();
         Assert.Equal(NavState.Removing, horse.Movement.State);
         Assert.True(rider.RidingHorse);

@@ -155,6 +155,46 @@ public class ClubMembershipDatabaseTests : IDisposable
     }
 
     [ClubDatabaseFact]
+    public async Task PermissionRefreshAndWalletWriteAcquireAccountIndexesInTheSameOrder()
+    {
+        using var account = (MySqlConnection)_database.Connection();
+        await account.OpenAsync();
+        using var transaction = await account.BeginTransactionAsync();
+        await account.ExecuteAsync("SELECT id FROM users FORCE INDEX(PRIMARY) WHERE id=@userId FOR UPDATE",
+            new { userId = User }, transaction);
+        var refresh = Task.Run(() => _access.Refresh(User));
+        try
+        {
+            using var observer = _database.Connection();
+            var deadline = DateTime.UtcNow.AddSeconds(5);
+            var waiting = false;
+            while (DateTime.UtcNow < deadline)
+            {
+                waiting = await observer.ExecuteScalarAsync<bool>("""
+                    SELECT EXISTS(SELECT 1 FROM information_schema.INNODB_LOCK_WAITS w
+                    JOIN information_schema.INNODB_TRX t ON t.trx_id=w.requesting_trx_id
+                    WHERE t.trx_query LIKE 'UPDATE users%`rank`%' AND t.trx_query LIKE '%957001%')
+                    """);
+                if (waiting) break;
+                await Task.Delay(10);
+            }
+            Assert.True(waiting, "Permission refresh must reach its account row lock before the wallet write.");
+            // With the old secondary-index-first refresh, this write deadlocks while holding PRIMARY.
+            await account.ExecuteAsync("UPDATE users SET credits=999 WHERE id=@userId",
+                new { userId = User }, transaction);
+            await transaction.CommitAsync();
+            await refresh.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(999, Scalar("SELECT credits FROM users WHERE id=957001"));
+        }
+        finally
+        {
+            if (transaction.Connection != null)
+                await transaction.RollbackAsync();
+            await refresh.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+    }
+
+    [ClubDatabaseFact]
     public async Task ConcurrentPurchasesSerializeWalletAndExtendWithoutLostTime()
     {
         var results = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ => Task.Run(() => _memberships.Purchase(_habbo, Month))));

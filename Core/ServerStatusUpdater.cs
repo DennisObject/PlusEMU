@@ -13,13 +13,15 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
     private readonly IDatabase _database;
     private readonly IGameClientManager _gameClientManager;
     private readonly IRoomManager _roomManager;
+    private readonly IServerUptime _uptime;
 
-    public ServerStatusUpdater(ILogger<ServerStatusUpdater> logger, IDatabase database, IGameClientManager gameClientManager, IRoomManager roomManager)
+    public ServerStatusUpdater(ILogger<ServerStatusUpdater> logger, IDatabase database, IGameClientManager gameClientManager, IRoomManager roomManager, IServerUptime uptime)
     {
         _logger = logger;
         _database = database;
         _gameClientManager = gameClientManager;
         _roomManager = roomManager;
+        _uptime = uptime;
     }
 
     private Timer? _timer;
@@ -53,7 +55,7 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
 
     private void UpdateOnlineUsers()
     {
-        var uptime = DateTime.Now - PlusEnvironment.ServerStarted;
+        var uptime = _uptime.Elapsed;
         var usersOnline = _gameClientManager.Count;
         var roomCount = _roomManager.Count;
         Console.Title = $"Plus Emulator - {usersOnline} users online - {roomCount} rooms loaded - {uptime.Days} day(s) {uptime.Hours} hour(s) uptime";

@@ -45,10 +45,8 @@ public static partial class CatalogAdminValidation
             errors["orderNum"] = "Order cannot be negative.";
         var type = CatalogAdminTypes.Parse(page.CatalogMode);
         if (type == null)
-            errors["catalogMode"] = "Pages belong to the normal or the builders club catalog.";
-        else if (existing != null && CatalogAdminTypes.FromMode(existing.CatalogMode) != type)
-            errors["catalogMode"] = "A page cannot move to the other catalog.";
-        Parent(errors, page.PageId, page.ParentId, type, access, findPage);
+            errors["catalogMode"] = "Only the normal catalog is supported.";
+        Parent(errors, page.PageId, page.ParentId, access, findPage);
         PageString(errors, "pageHeadline", page.PageHeadline, MaxImageLength);
         PageString(errors, "pageTeaser", page.PageTeaser, MaxImageLength);
         PageString(errors, "pageSpecial", page.PageSpecial, MaxImageLength);
@@ -107,7 +105,9 @@ public static partial class CatalogAdminValidation
     public static Dictionary<string, string> Move(int pageId, int parentId, string catalogType, UserAccess access, Func<int, CatalogPageRow?> findPage)
     {
         var errors = new Dictionary<string, string>();
-        Parent(errors, pageId, parentId, catalogType, access, findPage);
+        if (CatalogAdminTypes.Parse(catalogType) == null)
+            errors["catalogMode"] = "Only the normal catalog is supported.";
+        Parent(errors, pageId, parentId, access, findPage);
         return errors;
     }
 
@@ -120,7 +120,7 @@ public static partial class CatalogAdminValidation
     }
 
     // Walks up from the new parent; reaching the page itself would make it its own ancestor.
-    private static void Parent(Dictionary<string, string> errors, int pageId, int parentId, string? type, UserAccess access, Func<int, CatalogPageRow?> findPage)
+    private static void Parent(Dictionary<string, string> errors, int pageId, int parentId, UserAccess access, Func<int, CatalogPageRow?> findPage)
     {
         if (parentId == RootParentId)
             return;
@@ -135,8 +135,6 @@ public static partial class CatalogAdminValidation
             errors["parentId"] = "You cannot use a page requiring a permission you do not have as parent.";
             return;
         }
-        if (type != null && CatalogAdminTypes.FromMode(parent.CatalogMode) != type)
-            errors["parentId"] = "The parent page is in the other catalog.";
         for (int depth = 0; parent != null && depth < MaxDepth; depth++)
         {
             if (pageId > 0 && parent.Id == pageId)

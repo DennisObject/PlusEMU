@@ -1,5 +1,6 @@
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 using Xunit;
@@ -8,6 +9,62 @@ namespace Plus.Tests;
 
 public partial class PlacedFurniRoomTests
 {
+    [Fact]
+    public void TeleporterTriggerAndApproachEachCaptureOneUtcInstant()
+    {
+        var item = InteractionItem(10, 1, 1, InteractionType.Teleport);
+        var actor = ExecutorActor(1, 0);
+        var interactor = Assert.IsType<InteractorTeleport>(item.Interactor);
+
+        _interactionClock.Calls = 0;
+        interactor.OnTrigger(_client, item, 0, true);
+        Assert.Equal(_interactionClock.Now, actor.LastInteractionAt);
+        Assert.Equal(TimeSpan.Zero, actor.LastInteractionAt!.Value.Offset);
+        Assert.Equal(1, _interactionClock.Calls);
+
+        item.InteractingUser = 0;
+        _interactionClock.Calls = 0;
+        Assert.True(interactor.StartFromApproach(item, actor));
+        Assert.Equal(_interactionClock.Now, actor.LastInteractionAt);
+        Assert.Equal(1, _interactionClock.Calls);
+    }
+
+    [Fact]
+    public void TeleporterInteractionWindowAcceptsTheExactDeadlineOnly()
+    {
+        var interactionAt = _interactionClock.Now;
+
+        Assert.True(InteractorTeleport.IsInteractionCurrent(interactionAt, interactionAt.AddSeconds(2).AddTicks(-1)));
+        Assert.True(InteractorTeleport.IsInteractionCurrent(interactionAt, interactionAt.AddSeconds(2)));
+        Assert.False(InteractorTeleport.IsInteractionCurrent(interactionAt, interactionAt.AddSeconds(2).AddTicks(1)));
+        Assert.True(InteractorTeleport.IsInteractionCurrent(DateTimeOffset.MaxValue, interactionAt));
+        Assert.False(InteractorTeleport.IsInteractionCurrent(null, interactionAt));
+    }
+
+    [Fact]
+    public void OneWayGateClearsInteractionOnlyAfterTheCapturedUtcInstant()
+    {
+        var gate = InteractionItem(10, 1, 1, InteractionType.OneWayGate);
+        var actor = ExecutorActor(1, 0);
+        gate.InteractingUser = 99;
+
+        void Trigger(DateTimeOffset interactionAt, bool expectedInteracting)
+        {
+            actor.LastInteractionAt = interactionAt;
+            actor.InteractingGate = true;
+            actor.GateId = gate.Id;
+            _interactionClock.Calls = 0;
+            gate.Interactor.OnTrigger(_client, gate, 0, true);
+            Assert.Equal(expectedInteracting, actor.InteractingGate);
+            Assert.Equal(expectedInteracting ? gate.Id : 0u, actor.GateId);
+            Assert.Equal(1, _interactionClock.Calls);
+        }
+
+        Trigger(_interactionClock.Now.AddTicks(1), true);
+        Trigger(_interactionClock.Now, true);
+        Trigger(_interactionClock.Now.AddTicks(-1), false);
+    }
+
     [Theory]
     [InlineData(InteractionType.Teleport)]
     [InlineData(InteractionType.Hopper)]

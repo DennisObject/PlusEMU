@@ -95,7 +95,11 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 Assert.NotNull(habbo.IgnoresComponent);
                 Assert.Equal(10, Assert.Single(habbo.Inventory.Bots.Bots).Key);
                 Assert.Equal(11, Assert.Single(habbo.Inventory.Pets.Pets).Key);
-                Assert.Equal("smoke_owner", habbo.Inventory.Pets.Pets[11].OwnerName);
+                var inventoryPet = habbo.Inventory.Pets.Pets[11];
+                Assert.Equal("smoke_owner", inventoryPet.OwnerName);
+                var createdAt = new DateTimeOffset(2017, 2, 19, 3, 13, 54, TimeSpan.Zero).AddTicks(1234560);
+                Assert.Equal(createdAt, inventoryPet.CreatedAt);
+                Assert.Equal(TimeSpan.Zero, inventoryPet.CreatedAt!.Value.Offset);
                 Assert.Equal(321, Assert.Single(habbo.Clothing.GetClothingParts).PartId);
                 Assert.Equal(2, habbo.Effects.GetAllEffects.Count);
                 var effect = Assert.Single(habbo.Effects.GetAllEffects, row => row.SpriteId == 1);
@@ -120,7 +124,10 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 Assert.Equal("room bot", bot!.BotData.Name);
                 Assert.True(bot.BotData.AutomaticChat);
                 Assert.True(bot.BotData.MixSentences);
-                Assert.Equal(13, Assert.Single(room.GetRoomUserManager().GetPets()).PetId);
+                var roomPet = Assert.Single(room.GetRoomUserManager().GetPets());
+                Assert.Equal(13, roomPet.PetId);
+                Assert.Equal(createdAt, roomPet.CreatedAt);
+                Assert.Equal(TimeSpan.Zero, roomPet.CreatedAt!.Value.Offset);
                 Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roomvisits WHERE user_id=7 AND room_id=42"));
 
                 output.WriteLine("Admitting the avatar through the public room-entry packet handler.");
@@ -175,7 +182,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
             (12, 7, 42, 'generic', 'room bot', '', 'hd-180-1', 1, 1, 0, 'true', TRUE),
             (13, 7, 42, 'pet', 'room pet', '', '', 2, 1, 0, 'false', FALSE);
         INSERT INTO bots_petdata (id, type, race, color, createstamp) VALUES
-            (11, 0, '0', 'ffffff', 1487474034), (13, 0, '0', 'ffffff', 1487474034);
+            (11, 0, '0', 'ffffff', '2017-02-19 03:13:54.123456'), (13, 0, '0', 'ffffff', '2017-02-19 03:13:54.123456');
         INSERT INTO bots_speech (bot_id, text) VALUES (12, 'hello');
         INSERT INTO user_clothing (user_id, part_id, part) VALUES (7, '321', 'smoke');
         INSERT INTO user_effects (user_id, effect_id, total_duration, is_activated, activated_stamp, quantity)

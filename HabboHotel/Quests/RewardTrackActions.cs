@@ -28,7 +28,6 @@ public static class RewardTrackActions
     public const string WearBadge = "wear_badge";
     public const string ReplenishRespect = "replenish_respect";
     public const string FriendFurniLocked = "friend_furni_locked";
-    public const string PlaceBuildersClubFurni = "place_builders_club_furni";
     public const string Swim = "swim";
     public const string PetEat = "pet_eat";
     public const string FollowFriend = "follow_friend";

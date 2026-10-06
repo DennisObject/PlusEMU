@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Data;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Users.Permissions;
 using Microsoft.Extensions.Options;
@@ -78,6 +77,21 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         _access.Init();
         _actor = new() { Id = Actor, Access = _access.Resolve(Actor) };
         _target.Access = _access.Resolve(Target);
+    }
+
+    [AccessControlDatabaseFact]
+    public async Task AwaitedStartupAndAdministrativeReloadPublishWithoutHoldingAnAsyncContinuation()
+    {
+        await _access.Start().WaitAsync(TimeSpan.FromSeconds(10));
+        var revision = _access.AdminSnapshot(_actor).Revision;
+        var result = await Task.Run(() => _access.Apply(_actor, revision,
+            new SaveAccessRole(LimitedRole, "acl_limited", "Reloaded role", "", 20, 2, "", false, false)))
+            .WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.True(result.Ok);
+        Assert.True(_access.TryGetRole(LimitedRole, out var role));
+        Assert.Equal("Reloaded role", role.Name);
+        Assert.Contains(_sent, packet => packet.Header == ServerPacketHeader.UserRightsComposer);
     }
 
     [AccessControlDatabaseFact]
@@ -352,12 +366,13 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         field.SetValue(null, game);
         try
         {
-            await new SubmitNewTicketEvent(moderation, manager, _database).Parse(reporter, HabbiconTestSupport.Incoming("help", 1, Peer, 1, 0));
-            await new PickTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
-            await new ReleaseTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(1, 1));
-            await new PickTicketEvent(moderation, manager).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
-            await new CloseTicketEvent(moderation, manager, _database).Parse(moderator, HabbiconTestSupport.Incoming(3, 0, 1));
-            await new CallForHelpPendingCallsDeletedEvent(moderation, manager).Parse(reporter, HabbiconTestSupport.Incoming());
+            var ticketService = new ModeratorTicketService(moderation, manager, new ModeratorUserLookup(), new ModeratorTicketStore(_database), _clock);
+            await new SubmitNewTicketEvent(ticketService).Parse(reporter, HabbiconTestSupport.Incoming("help", 1, Peer, 1, 0));
+            await new PickTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
+            await new ReleaseTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(1, 1));
+            await new PickTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
+            await new CloseTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(3, 0, 1));
+            await new CallForHelpPendingCallsDeletedEvent(ticketService).Parse(reporter, HabbiconTestSupport.Incoming());
             Assert.Equal(6, updates.Count);
             Assert.All(updates, update => Assert.Equal(ServerPacketHeader.ModeratorSupportTicketComposer, update.Header));
             Assert.Equal(ServerPacketHeader.ModeratorSupportTicketResponseComposer, Assert.Single(_sent).Header);
@@ -469,7 +484,6 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         public int Connections { get; set; }
         public bool IsConnected() => inner.IsConnected();
 #pragma warning disable CS0612
-        public IQueryAdapter GetQueryReactor() => inner.GetQueryReactor();
 #pragma warning restore CS0612
         public IDbConnection Connection()
         {

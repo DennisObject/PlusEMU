@@ -147,7 +147,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         var target = Online(Target, "cr_target");
         var neighbour = Online(Neighbour, "cr_neighbour");
         var moderation = Moderation();
-        await moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam", BanClock.Now() + 3600);
+        await moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam", DateTimeOffset.UtcNow.AddHours(1));
         AssertSignedOut(Target);
         Assert.True(target.Closed.IsCancellationRequested);
         Assert.Equal(1, LiveAccessTokens(Neighbour));
@@ -155,14 +155,14 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
 
         // An IP ban reaches the accounts last seen at that address, and no others.
         await Login().Login("cr_moderator", OldPassword, "10.94.0.3");
-        await moderation.BanUser("cr_staff", ModerationBanType.Ip, "10.94.0.4", "spam", BanClock.Now() + 3600);
+        await moderation.BanUser("cr_staff", ModerationBanType.Ip, "10.94.0.4", "spam", DateTimeOffset.UtcNow.AddHours(1));
         AssertSignedOut(Neighbour);
         Assert.True(neighbour.Closed.IsCancellationRequested);
         Assert.Equal(1, LiveAccessTokens(Moderator));
 
         // A machine ban reaches the sessions online with that machine id.
         var device = Online(Moderator, "cr_moderator", machineId: "cr-machine");
-        await moderation.BanUser("cr_staff", ModerationBanType.Machine, "cr-machine", "spam", BanClock.Now() + 3600);
+        await moderation.BanUser("cr_staff", ModerationBanType.Machine, "cr-machine", "spam", DateTimeOffset.UtcNow.AddHours(1));
         Assert.Equal(0, LiveAccessTokens(Moderator));
         Assert.True(device.Closed.IsCancellationRequested);
     }
@@ -173,7 +173,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         Execute($"UPDATE users SET ip_last = '10.94.0.9' WHERE id IN ({Target}, {Neighbour})");
         var first = Online(Target, "cr_target");
         var second = Online(Neighbour, "cr_neighbour");
-        await Moderation().BanUser("cr_staff", ModerationBanType.Ip, "10.94.0.9", "spam", BanClock.Now() + 3600);
+        await Moderation().BanUser("cr_staff", ModerationBanType.Ip, "10.94.0.9", "spam", DateTimeOffset.UtcNow.AddHours(1));
         Assert.True(first.Closed.IsCancellationRequested);
         Assert.True(second.Closed.IsCancellationRequested);
     }
@@ -187,7 +187,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         var (session, _) = HabbiconTestSupport.Client(null!);
         var login = Authenticator(factory).AuthenticateUsingSSO(session, await Ticket());
         Assert.True(factory.Loaded.Task.Wait(TimeSpan.FromSeconds(10)));
-        var ban = Task.Run(() => Moderation().BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam", BanClock.Now() + 3600));
+        var ban = Task.Run(() => Moderation().BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam", DateTimeOffset.UtcNow.AddHours(1)));
         await Task.Delay(300);
         release.SetResult();
         Assert.Null(await login);
@@ -202,7 +202,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     {
         var moderation = Moderation();
         var tickets = new AfterConsume(_tickets, () => moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_target", "spam",
-            BanClock.Now() + 3600).GetAwaiter().GetResult());
+            DateTimeOffset.UtcNow.AddHours(1)).GetAwaiter().GetResult());
         var (session, _) = HabbiconTestSupport.Client(null!);
         var result = await Authenticator(new SlowLogin(Task.CompletedTask), tickets).AuthenticateUsingSSO(session, await Ticket());
         Assert.Equal(AuthenticationError.LoginProhibited, result);
@@ -224,7 +224,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         try
         {
             locker.Execute($"SELECT id FROM users WHERE id = {Locked} FOR UPDATE", transaction: transaction);
-            var ban = Task.Run(() => Moderation().BanUser("System", ModerationBanType.Username, "cr_locked", "auto-ban", BanClock.Now() + 3600));
+            var ban = Task.Run(() => Moderation().BanUser("System", ModerationBanType.Username, "cr_locked", "auto-ban", DateTimeOffset.UtcNow.AddHours(1)));
             await Task.Delay(500);
             Assert.True(target.Closed.IsCancellationRequested);
             await ban.WaitAsync(TimeSpan.FromSeconds(4.5));
@@ -246,7 +246,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     {
         var (moderator, _) = HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.ModerationBanSoft, PermissionKeys.ModerationBan, PermissionKeys.ModerationIpBan, PermissionKeys.ModerationMachineBan) });
         Online(Target, "cr_target", machineId: "cr-device-1");
-        var handler = new Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent(_clients, Moderation());
+        var handler = ModTool();
         await handler.Parse(moderator, HabbiconTestSupport.Incoming(Target, "spam", 2, "", "", true, false));
         Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'ip' AND value = '10.94.0.2'"));
         Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM bans WHERE bantype = 'user' AND value = 'cr_target'"));
@@ -264,7 +264,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         var moderation = Moderation();
         await WithLockedRow($"SELECT id FROM users WHERE id = {Unbanned} FOR UPDATE", async () =>
         {
-            await moderation.BanUser("System", ModerationBanType.Username, "cr_unbanned", "auto-ban", BanClock.Now() + 3600)
+            await moderation.BanUser("System", ModerationBanType.Username, "cr_unbanned", "auto-ban", DateTimeOffset.UtcNow.AddHours(1))
                 .WaitAsync(TimeSpan.FromSeconds(4.5));
             Assert.True(moderation.UnbanUser("cr_unbanned"));
         });
@@ -319,7 +319,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     {
         await Login().Login("cr_moderator", OldPassword, "10.0.0.1", remember: true);
         var device = Online(Moderator, "cr_moderator", machineId: "cr-machine-x");
-        await Moderation().BanUser("cr_staff", ModerationBanType.Machine, "cr-machine-x", "spam", BanClock.Now() + 3600);
+        await Moderation().BanUser("cr_staff", ModerationBanType.Machine, "cr-machine-x", "spam", DateTimeOffset.UtcNow.AddHours(1));
         Assert.True(device.Closed.IsCancellationRequested);
         AssertSignedOut(Moderator);
     }
@@ -329,7 +329,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     public async Task ARetryOfAnExpiredBanLeavesAFreshSessionAlone()
     {
         await WithLockedRow($"SELECT id FROM users WHERE id = {Unbanned} FOR UPDATE", () =>
-            Moderation().BanUser("System", ModerationBanType.Username, "cr_unbanned", "auto-ban", BanClock.Now() + 2).WaitAsync(TimeSpan.FromSeconds(4.5)));
+            Moderation().BanUser("System", ModerationBanType.Username, "cr_unbanned", "auto-ban", DateTimeOffset.UtcNow.AddSeconds(2)).WaitAsync(TimeSpan.FromSeconds(4.5)));
         await Task.Delay(TimeSpan.FromSeconds(0.5));
         var fresh = Online(Unbanned, "cr_unbanned");
         Assert.Equal(LoginStatus.Success, (await Login().Login("cr_unbanned", OldPassword, "10.0.0.1")).Status);
@@ -342,7 +342,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public async Task TheIpBanCommandReturnsWithinTheBudgetWhenItsCounterRowIsLocked()
     {
-        var command = new Plus.HabboHotel.Rooms.Chat.Commands.Moderator.IpBanCommand(Moderation());
+        var command = new Plus.HabboHotel.Rooms.Chat.Commands.Moderator.IpBanCommand(Moderation(), TimeProvider.System);
         var target = new Habbo { Id = Target, Username = "cr_target", Access = HousekeepingPolicyTests.Access(10) };
         await WithLockedRow($"SELECT user_id FROM user_info WHERE user_id = {Target} FOR UPDATE", async () =>
         {
@@ -362,21 +362,21 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         await WithLockedRow($"SELECT id FROM user_access_tokens WHERE user_id = {Target} FOR UPDATE", async () =>
         {
             var started = DateTime.UtcNow;
-            await Moderation().BanUser("System", ModerationBanType.Username, "cr_target", "auto-ban", BanClock.Now() + 3600).WaitAsync(TimeSpan.FromSeconds(10));
+            await Moderation().BanUser("System", ModerationBanType.Username, "cr_target", "auto-ban", DateTimeOffset.UtcNow.AddHours(1)).WaitAsync(TimeSpan.FromSeconds(10));
             Assert.InRange(DateTime.UtcNow - started, TimeSpan.Zero, TimeSpan.FromSeconds(4));
         });
         await Eventually(() => LiveAccessTokens(Target) == 0);
     }
 
-    // Ban expiries are on the emulator's ban clock (local wall clock); the HTTP ban check must read them the same way.
+    // The HTTP ban check reads the same native UTC expiry as the moderation manager.
     [HousekeepingDatabaseFact]
-    public async Task TheHttpBanCheckReadsExpiriesOnTheBanClock()
+    public async Task TheHttpBanCheckReadsNativeUtcExpiries()
     {
-        Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES ('user', 'cr_target', 'old', @expire, 'probe', '0')",
-            new { expire = UnixTimestamp.GetNow() - 60 });
+        Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES ('user', 'cr_target', 'old', @expire, 'probe', NULL)",
+            new { expire = DateTime.UtcNow.AddMinutes(-1) });
         Assert.Null(await new BanLookup(_database, TimeProvider.System).Find("cr_target", "192.0.2.1"));
-        Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES ('user', 'cr_target', 'live', @expire, 'probe', '0')",
-            new { expire = UnixTimestamp.GetNow() + 60 });
+        Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES ('user', 'cr_target', 'live', @expire, 'probe', NULL)",
+            new { expire = DateTime.UtcNow.AddMinutes(1) });
         Assert.Equal("live", (await new BanLookup(_database, TimeProvider.System).Find("cr_target", "192.0.2.1"))?.Reason);
     }
 
@@ -393,7 +393,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
             unban = Task.Run(() => moderation.UnbanUser("cr_unbanned"));
             await Task.Delay(300);
         };
-        await moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_unbanned", "spam", BanClock.Now() + 3600);
+        await moderation.BanUser("cr_staff", ModerationBanType.Username, "cr_unbanned", "spam", DateTimeOffset.UtcNow.AddHours(1));
         Assert.True(await unban!);
         Assert.False(moderation.IsBanned("cr_unbanned", out _));
         Assert.Equal(0, Scalar<int>("SELECT COUNT(*) FROM bans WHERE value = 'cr_unbanned'"));
@@ -423,7 +423,8 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         Assert.True(condition());
     }
 
-    private Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent ModTool() => new(_clients, Moderation());
+    private Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent ModTool() =>
+        new(new ModerationSanctionService(_clients, new ModeratorUserLookup(), Moderation(), TimeProvider.System));
 
     private static Plus.HabboHotel.GameClients.GameClient ModeratorSession() =>
         HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.ModerationBanSoft, PermissionKeys.ModerationBan, PermissionKeys.ModerationIpBan, PermissionKeys.ModerationMachineBan) }).Client;
@@ -504,7 +505,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         new(new AccountStore(_database, TimeProvider.System, _options), hasher ?? _hasher, new LoginThrottle(TimeProvider.System, _options), _sessions,
             new BanLookup(_database, TimeProvider.System));
 
-    private ModerationManager Moderation(ISessionIssuer? sessions = null) => new(_database, NullLogger<ModerationManager>.Instance, sessions ?? _sessions, _clients, _gate);
+    private ModerationManager Moderation(ISessionIssuer? sessions = null) => new(_database, NullLogger<ModerationManager>.Instance, sessions ?? _sessions, _clients, _gate, TimeProvider.System);
 
     private AccessControl Access()
     {
@@ -515,7 +516,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     }
 
     private HousekeepingUserActions Actions(ISessionIssuer? sessions = null) =>
-        new(new HousekeepingUserStore(_database), _clients, Moderation(sessions), Access(), _hasher, _database, _gate, sessions ?? _sessions, new TradingLockService(_database, _clients, _gate, TimeProvider.System));
+        new(new HousekeepingUserStore(_database), _clients, Moderation(sessions), Access(), _hasher, _database, _gate, sessions ?? _sessions, new TradingLockService(_database, _clients, _gate, TimeProvider.System), TimeProvider.System);
 
     private static Habbo StaffHabbo() => new() { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.HousekeepingRolesManage) };
 

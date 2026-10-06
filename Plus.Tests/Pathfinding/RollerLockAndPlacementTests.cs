@@ -105,7 +105,8 @@ public partial class PlacedFurniRoomTests
     // A guild gate away from the rollers makes every capability refresh consult group membership.
     private void PlannerObserveMembership(Action observe)
     {
-        var group = new Group(23, "gate", "", "", RoomId, 7, 0, 0, 1, 1, 0, false);
+        var group = new Group(23, "gate", "", "", RoomId, 7, DateTimeOffset.UnixEpoch, 0, 1, 1, 0, false,
+            GroupMembershipSnapshot.Empty);
         var groups = Proxy<IGroupManager>((method, args) =>
         {
             observe(); args[1] = group; return (int)args[0]! == group.Id;

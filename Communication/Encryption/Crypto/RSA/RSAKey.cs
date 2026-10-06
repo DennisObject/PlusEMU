@@ -81,9 +81,9 @@ public class RsaKey
 
     public static RsaKey ParsePrivateKey(string n, string e,
         string d,
-        string p = null, string q = null,
-        string dmp1 = null, string dmq1 = null,
-        string coeff = null)
+        string? p = null, string? q = null,
+        string? dmp1 = null, string? dmq1 = null,
+        string? coeff = null)
     {
         if (p == null)
             return new(new(n, 16), Convert.ToInt32(e, 16), new(d, 16), 0, 0, 0, 0, 0);
@@ -93,15 +93,15 @@ public class RsaKey
 
     public int GetBlockSize() => (N.bitCount() + 7) / 8;
 
-    public byte[] Encrypt(byte[] src) => DoEncrypt(DoPublic, src, Pkcs1PadType.FullByte);
+    public byte[]? Encrypt(byte[] src) => DoEncrypt(DoPublic, src, Pkcs1PadType.FullByte);
 
-    public byte[] Decrypt(byte[] src) => DoDecrypt(DoPublic, src, Pkcs1PadType.FullByte);
+    public byte[]? Decrypt(byte[] src) => DoDecrypt(DoPublic, src, Pkcs1PadType.FullByte);
 
-    public byte[] Sign(byte[] src) => DoEncrypt(DoPrivate, src, Pkcs1PadType.FullByte);
+    public byte[]? Sign(byte[] src) => DoEncrypt(DoPrivate, src, Pkcs1PadType.FullByte);
 
-    public byte[] Verify(byte[] src) => DoDecrypt(DoPrivate, src, Pkcs1PadType.FullByte);
+    public byte[]? Verify(byte[] src) => DoDecrypt(DoPrivate, src, Pkcs1PadType.FullByte);
 
-    private byte[] DoEncrypt(DoCalculateionDelegate method, byte[] src, Pkcs1PadType type)
+    private byte[]? DoEncrypt(DoCalculateionDelegate method, byte[] src, Pkcs1PadType type)
     {
         try
         {
@@ -119,7 +119,7 @@ public class RsaKey
         }
     }
 
-    private byte[] DoDecrypt(DoCalculateionDelegate method, byte[] src, Pkcs1PadType type)
+    private byte[]? DoDecrypt(DoCalculateionDelegate method, byte[] src, Pkcs1PadType type)
     {
         try
         {
@@ -161,7 +161,7 @@ public class RsaKey
         return bytes;
     }
 
-    private byte[] Pkcs1Unpad(byte[] src, int n, Pkcs1PadType type)
+    private byte[]? Pkcs1Unpad(byte[] src, int n, Pkcs1PadType type)
     {
         var i = 0;
         while (i < src.Length && src[i] == 0) ++i;

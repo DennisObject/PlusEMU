@@ -9,11 +9,13 @@ public class GetCatalogPageEvent : IPacketEvent
 {
     private readonly ICatalogManager _catalogManager;
     private readonly ICatalogAdminService _catalogAdmin;
+    private readonly ICatalogSnapshotService _snapshots;
 
-    public GetCatalogPageEvent(ICatalogManager catalogManager, ICatalogAdminService catalogAdmin)
+    public GetCatalogPageEvent(ICatalogManager catalogManager, ICatalogAdminService catalogAdmin, ICatalogSnapshotService snapshots)
     {
         _catalogManager = catalogManager;
         _catalogAdmin = catalogAdmin;
+        _snapshots = snapshots;
     }
 
     public Task Parse(GameClient session, IIncomingPacket packet)
@@ -26,7 +28,7 @@ public class GetCatalogPageEvent : IPacketEvent
         if (!page.CanOpen(session.GetHabbo()))
             return Task.CompletedTask;
         _catalogAdmin.RecordViewedPage(session.GetHabbo(), page.Id);
-        session.Send(new CatalogPageComposer(page, page.CatalogMode, page.Offers.ContainsKey(offerId) ? offerId : -1));
+        session.Send(new CatalogPageComposer(_snapshots.CapturePage(page, page.Offers.ContainsKey(offerId) ? offerId : -1)));
         return Task.CompletedTask;
     }
 }

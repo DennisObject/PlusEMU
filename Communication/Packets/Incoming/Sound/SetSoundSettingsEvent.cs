@@ -1,32 +1,10 @@
-﻿using Plus.Database;
-using Plus.HabboHotel.GameClients;
-using Dapper;
+﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users;
 
 namespace Plus.Communication.Packets.Incoming.Sound;
 
-internal class SetSoundSettingsEvent : IPacketEvent
+internal class SetSoundSettingsEvent(IUserProfileService profiles) : IPacketEvent
 {
-    private readonly IDatabase _database;
-
-    public SetSoundSettingsEvent(IDatabase database)
-    {
-        _database = database;
-    }
-
-    public Task Parse(GameClient session, IIncomingPacket packet)
-    {
-        var volume = "";
-        for (var i = 0; i < 3; i++)
-        {
-            var vol = packet.ReadInt();
-            if (vol < 0 || vol > 100) vol = 100;
-            if (i < 2)
-                volume += $"{vol},";
-            else
-                volume += vol;
-        }
-        using var connection = _database.Connection();
-        connection.Execute("UPDATE users SET volume = @volume WHERE id = @id LIMIT 1", new { volume = volume, id = session.GetHabbo().Id });
-        return Task.CompletedTask;
-    }
+    public Task Parse(GameClient session, IIncomingPacket packet) =>
+        profiles.SetSoundVolumes(session, new SoundVolumeRequest(packet.ReadInt(), packet.ReadInt(), packet.ReadInt()));
 }

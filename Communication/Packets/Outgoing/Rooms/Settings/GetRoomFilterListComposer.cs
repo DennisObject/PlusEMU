@@ -1,22 +1,19 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Rooms;
+﻿using System.Collections.Immutable;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Settings;
 
-public class GetRoomFilterListComposer : IServerPacket
+public sealed class GetRoomFilterListComposer : IServerPacket
 {
-    private readonly Room _instance;
+    private readonly ImmutableArray<string> _words;
 
     public uint MessageId => ServerPacketHeader.GetRoomFilterListComposer;
 
-    public GetRoomFilterListComposer(Room instance)
-    {
-        _instance = instance;
-    }
+    public GetRoomFilterListComposer(IEnumerable<string> words) => _words = [.. words];
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_instance.WordFilterList.Count);
-        foreach (var word in _instance.WordFilterList) packet.WriteString(word);
+        packet.WriteInteger(_words.Length);
+        foreach (var word in _words) packet.WriteString(word);
     }
 }

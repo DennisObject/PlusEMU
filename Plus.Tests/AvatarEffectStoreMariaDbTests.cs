@@ -31,7 +31,7 @@ public sealed class AvatarEffectStoreMariaDbTests
             Assert.False(effect.Activated);
             Assert.Null(effect.ActivatedAt);
             var instant = new DateTimeOffset(2042, 1, 1, 0, 0, 0, TimeSpan.Zero);
-            store.Activate(effect.Id, instant);
+            effect.Activate(instant);
             var loaded = Assert.Single(store.Load(7));
             Assert.True(loaded.Activated);
             Assert.Equal(instant, loaded.ActivatedAt);
@@ -39,9 +39,10 @@ public sealed class AvatarEffectStoreMariaDbTests
             Assert.Equal(2, Assert.Single(store.Load(7)).Quantity);
 
             connection.Execute("DELETE FROM user_effects WHERE id=@id", new { id = effect.Id });
-            Assert.Throws<DBConcurrencyException>(() => effect.Activate());
-            Assert.Null(effect.ActivatedAt);
-            Assert.False(effect.Activated);
+            Assert.Throws<DBConcurrencyException>(() => effect.Activate(instant.AddHours(1)));
+            Assert.Equal(instant, effect.ActivatedAt);
+            Assert.Throws<DBConcurrencyException>(() => effect.AddToQuantity());
+            Assert.Equal(1, effect.Quantity);
             Assert.Throws<DBConcurrencyException>(() => store.SaveQuantity(effect.Id, 0, false, null));
         }
         finally
@@ -54,6 +55,5 @@ public sealed class AvatarEffectStoreMariaDbTests
     {
         public IDbConnection Connection() => new MySqlConnection(connectionString);
         public bool IsConnected() => true;
-        public Plus.Database.Interfaces.IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
     }
 }

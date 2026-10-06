@@ -1,34 +1,31 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using System.Collections.Immutable;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Messenger;
 
 namespace Plus.Communication.Packets.Outgoing.FriendList;
 
 public class FriendListUpdateComposer : IServerPacket
 {
-    private readonly Dictionary<MessengerBuddy, BuddyModificationType> _friends;
+    private readonly ImmutableArray<MessengerBuddyModification> _modifications;
+
     public uint MessageId => ServerPacketHeader.FriendListUpdateComposer;
 
-    public FriendListUpdateComposer(MessengerBuddy friend, BuddyModificationType modificationType)
+    public FriendListUpdateComposer(IReadOnlyList<MessengerBuddyModification> modifications)
     {
-        _friends = new() { { friend, modificationType } };
-    }
-
-    public FriendListUpdateComposer(Dictionary<MessengerBuddy, BuddyModificationType> friends)
-    {
-        _friends = friends;
+        _modifications = modifications.ToImmutableArray();
     }
 
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(0);
-        packet.WriteInteger(_friends.Count);
-        foreach (var (friend, modificationType) in _friends)
+        packet.WriteInteger(_modifications.Length);
+        foreach (var modification in _modifications)
         {
-            packet.WriteInteger((int)modificationType);
-            if (modificationType == BuddyModificationType.Added || modificationType == BuddyModificationType.Updated)
-                friend.Serialize(packet);
+            packet.WriteInteger((int)modification.Type);
+            if (modification.Type == BuddyModificationType.Added || modification.Type == BuddyModificationType.Updated)
+                MessengerBuddyWire.Write(packet, modification.Buddy!);
             else
-                packet.WriteInteger(friend.Id);
+                packet.WriteInteger(modification.BuddyId);
         }
     }
 }

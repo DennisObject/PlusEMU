@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Users.Inventory.Badges;
 using System.Data;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -5,6 +6,7 @@ using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Inventory.Badges;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.Communication.Packets.Outgoing.Quests;
 using Plus.Core;
 using Plus.Database;
@@ -12,7 +14,6 @@ using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Badges;
-using Plus.Utilities;
 
 namespace Plus.HabboHotel.Quests;
 
@@ -23,6 +24,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
     private readonly ILogger<RewardTrackManager> _logger;
     private readonly IDatabase _database;
     private readonly IBadgeManager _badgeManager;
+    private readonly TimeProvider _clock;
     private readonly object _definitions = new();
     private readonly object _gates = new();
     private readonly Dictionary<int, object> _userGates = new();
@@ -30,11 +32,12 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
     private readonly HashSet<int> _loaded = new();
     private List<RewardTrack> _tracks = new();
 
-    public RewardTrackManager(ILogger<RewardTrackManager> logger, IDatabase database, IBadgeManager badgeManager)
+    public RewardTrackManager(ILogger<RewardTrackManager> logger, IDatabase database, IBadgeManager badgeManager, TimeProvider clock)
     {
         _logger = logger;
         _database = database;
         _badgeManager = badgeManager;
+        _clock = clock;
         Current = this;
     }
 
@@ -67,14 +70,14 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         var tracks = Snapshot();
         if (tracks.Count == 0)
             return;
-        var now = (int)UnixTimestamp.GetNow();
+        var now = _clock.GetUtcNow();
         lock (Gate(habbo.Id))
         {
             if (!EnsureUser(habbo.Id))
                 return;
             foreach (var track in tracks)
             {
-                if (!track.IsActive(now))
+                if (!track.IsActiveAt(now))
                     continue;
                 var state = StateFor(habbo.Id, track.Id);
                 foreach (var task in track.Tasks)
@@ -102,19 +105,19 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         if (habbo == null)
             return;
         var tracks = Snapshot();
-        var now = (int)UnixTimestamp.GetNow();
+        var now = _clock.GetUtcNow();
         lock (Gate(habbo.Id))
         {
             if (tracks.Count > 0 && !EnsureUser(habbo.Id))
                 return;
-            var views = new List<RewardTrackView>();
+            var wire = new List<RewardTrackWireTrack>();
             foreach (var track in tracks)
             {
-                if (!track.IsActive(now))
+                if (!track.IsActiveAt(now))
                     continue;
-                views.Add(new RewardTrackView(track, StateFor(habbo.Id, track.Id)));
+                wire.Add(RewardTrackWireSnapshot.Capture(track, StateFor(habbo.Id, track.Id)));
             }
-            SendTrackPacket(session, new RewardTracksComposer(false, views, false));
+            SendTrackPacket(session, new RewardTracksComposer(false, System.Collections.Immutable.ImmutableArray.CreateRange(wire), false));
         }
     }
 
@@ -132,7 +135,8 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 _logger.LogError("Reward track claim load failed for user {UserId}", habbo.Id);
                 return Task.CompletedTask;
             }
-            var track = FindActive(Snapshot(), trackId);
+            var now = _clock.GetUtcNow();
+            var track = FindActive(Snapshot(), trackId, now);
             var state = track == null ? null : StateFor(habbo.Id, track.Id);
             var result = RewardTrackRules.PreviewClaim(track, state, prizeId);
             if (result != RewardTrackResults.Ok || track == null || state == null)
@@ -175,7 +179,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 SendTrackPacket(session, new RewardTrackClaimResultComposer(trackId, prizeId, RewardTrackResults.Unknown));
                 return Task.CompletedTask;
             }
-            if (!StoreClaim(habbo, track.Id, prize.Id, credits, duckets, diamonds, badge))
+            if (!StoreClaim(habbo, track.Id, prize.Id, credits, duckets, diamonds, badge, now))
             {
                 // Nothing was committed; the prize stays claimable so the player can retry.
                 LogClaim(habbo.Id, trackId, prizeId, RewardTrackResults.Unknown);
@@ -186,7 +190,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             if (badge != null && !habbo.Inventory.Badges.HasBadge(badge))
             {
                 habbo.Inventory.Badges.AddBadge(new Badge(badge, 0));
-                session.Send(new BadgesComposer(habbo.Id, habbo.Inventory.Badges.Badges));
+                session.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
                 session.Send(new FurniListNotificationComposer(1, 4));
             }
             LogClaim(habbo.Id, trackId, prizeId, RewardTrackResults.Ok);
@@ -215,7 +219,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 _logger.LogError("Reward track premium load failed for user {UserId}", habbo.Id);
                 return;
             }
-            var track = FindActive(Snapshot(), trackId);
+            var track = FindActive(Snapshot(), trackId, _clock.GetUtcNow());
             var state = track == null ? null : StateFor(habbo.Id, track.Id);
             lock (habbo.WalletSync)
             {
@@ -265,7 +269,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         return true;
     }
 
-    private bool StoreClaim(Habbo habbo, string trackId, string prizeId, int credits, int duckets, int diamonds, string? badge)
+    private bool StoreClaim(Habbo habbo, string trackId, string prizeId, int credits, int duckets, int diamonds, string? badge, DateTimeOffset claimedAt)
     {
         var currency = credits != 0 || duckets != 0 || diamonds != 0;
         if (currency)
@@ -277,7 +281,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                     _logger.LogError("Reward track claim skipped because the wallet is closed for user {UserId}", habbo.Id);
                     return false;
                 }
-                if (!InsertClaim(habbo.Id, trackId, prizeId, credits, duckets, diamonds, badge))
+                if (!InsertClaim(habbo.Id, trackId, prizeId, credits, duckets, diamonds, badge, claimedAt))
                     return false;
                 if (credits != 0)
                     habbo.Credits += credits;
@@ -288,10 +292,10 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 return true;
             }
         }
-        return InsertClaim(habbo.Id, trackId, prizeId, 0, 0, 0, badge);
+        return InsertClaim(habbo.Id, trackId, prizeId, 0, 0, 0, badge, claimedAt);
     }
 
-    private bool InsertClaim(int userId, string trackId, string prizeId, int credits, int duckets, int diamonds, string? badge)
+    private bool InsertClaim(int userId, string trackId, string prizeId, int credits, int duckets, int diamonds, string? badge, DateTimeOffset claimedAt)
     {
         try
         {
@@ -300,7 +304,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             using var transaction = connection.BeginTransaction();
             connection.Execute(
                 "INSERT INTO users_reward_track_prizes (user_id, track_id, prize_id, claimed_at) VALUES (@userId, @trackId, @prizeId, @claimedAt)",
-                new { userId, trackId, prizeId, claimedAt = (int)UnixTimestamp.GetNow() }, transaction);
+                new { userId, trackId, prizeId, claimedAt = claimedAt.UtcDateTime }, transaction);
             if (credits != 0 || duckets != 0 || diamonds != 0)
             {
                 connection.Execute(
@@ -504,12 +508,11 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             return _tracks;
     }
 
-    private static RewardTrack? FindActive(List<RewardTrack> tracks, string trackId)
+    private static RewardTrack? FindActive(List<RewardTrack> tracks, string trackId, DateTimeOffset now)
     {
-        var now = (int)UnixTimestamp.GetNow();
         foreach (var track in tracks)
         {
-            if (track.Id == trackId && track.IsActive(now))
+            if (track.Id == trackId && track.IsActiveAt(now))
                 return track;
         }
         return null;
@@ -562,8 +565,8 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         public string Id { get; set; } = "";
         public string Theme { get; set; } = "";
         public int SortOrder { get; set; }
-        public int StartsAt { get; set; }
-        public int EndsAt { get; set; }
+        public DateTimeOffset? StartsAt { get; set; }
+        public DateTimeOffset? EndsAt { get; set; }
         public int HasPremium { get; set; }
         public double Boost { get; set; }
         public int InstantPoints { get; set; }

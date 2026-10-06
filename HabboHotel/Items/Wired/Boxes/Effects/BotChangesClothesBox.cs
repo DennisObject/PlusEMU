@@ -46,7 +46,7 @@ internal class BotChangesClothesBox : IWiredItem
         if (user == null)
             return false;
         var figure = stuff[1];
-        var userChangeComposer = new UserChangeComposer(user.BotData);
+        var userChangeComposer = new UserChangeComposer(AvatarChangeSnapshot.Capture(user.BotData));
         Instance.SendPacket(userChangeComposer);
         user.BotData.Look = figure;
         user.BotData.Gender = "M";

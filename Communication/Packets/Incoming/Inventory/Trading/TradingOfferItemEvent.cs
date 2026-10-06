@@ -1,5 +1,6 @@
 ﻿using Plus.Communication.Packets.Outgoing.Inventory.Trading;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms.Trading;
 
 namespace Plus.Communication.Packets.Incoming.Inventory.Trading;
 
@@ -43,7 +44,7 @@ internal class TradingOfferItemEvent : IPacketEvent
             if (totalLtDs < 9)
                 tradeUser.OfferedItems.Add(item.Id, item);
         }
-        trade.SendPacket(new TradingUpdateComposer(trade));
+        trade.SendPacket(new TradingUpdateComposer(TradeOfferSnapshot.Capture(trade)));
         return Task.CompletedTask;
     }
 }

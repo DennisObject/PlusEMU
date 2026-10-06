@@ -8,19 +8,19 @@ namespace Plus.Tests;
 [Collection(AuthDatabaseFactAttribute.Collection)]
 public sealed class BanLookupDatabaseTests : IDisposable
 {
+    private static readonly DateTimeOffset Now = new(2040, 2, 3, 4, 5, 6, TimeSpan.Zero);
     private readonly string _value = "ban" + Guid.NewGuid().ToString("N")[..12];
     private readonly string _address = $"198.18.{Random.Shared.Next(0, 255)}.{Random.Shared.Next(1, 255)}";
-    private readonly BanLookup _lookup = new(new AuthTestDatabase(), TimeProvider.System);
+    private readonly BanLookup _lookup = new(new AuthTestDatabase(), new FixedClock(Now));
 
-    private void Ban(string type, string value, string reason, long expire)
+    private void Ban(string type, string value, string reason, DateTimeOffset expire)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES (@type, @value, @reason, @expire, 'probe', '0')",
-            new { type, value, reason, expire });
+        connection.Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES (@type, @value, @reason, @expire, 'probe', NULL)",
+            new { type, value, reason, expire = expire.UtcDateTime });
     }
 
-    // Ban expiries are on the emulator's ban clock (local wall clock).
-    private static long In(TimeSpan span) => (long)(BanClock.Now() + span.TotalSeconds);
+    private static DateTimeOffset In(TimeSpan span) => Now + span;
 
     [AuthDatabaseFact]
     public async Task FindsAnActiveIpBanForTheCallersAddress()
@@ -30,7 +30,7 @@ public sealed class BanLookupDatabaseTests : IDisposable
         var ban = await _lookup.Find(_value, _address);
 
         Assert.Equal("Botting", ban?.Reason);
-        Assert.InRange(ban!.ExpiresAt, In(TimeSpan.FromDays(1)) - 5, In(TimeSpan.FromDays(1)));
+        Assert.Equal(In(TimeSpan.FromDays(1)), ban!.ExpiresAt);
     }
 
     [AuthDatabaseFact]
@@ -55,5 +55,10 @@ public sealed class BanLookupDatabaseTests : IDisposable
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
         connection.Execute("DELETE FROM bans WHERE value IN (@_value, @_address)", new { _value, _address });
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 }

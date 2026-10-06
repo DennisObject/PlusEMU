@@ -4,7 +4,6 @@ using System.Text.Json;
 using Dapper;
 using MySqlConnector;
 using Plus.Database;
-using Plus.Database.Interfaces;
 using Xunit;
 namespace Plus.Tests;
 
@@ -58,7 +57,6 @@ internal static class ModernWiredDatabaseProbe
         public Action? BeforeConnection;
         public string? FailSqlPrefix;
         public bool IsConnected() => true;
-        public IQueryAdapter GetQueryReactor() => throw new NotSupportedException();
         public IDbConnection Connection()
         {
             var action = BeforeConnection; BeforeConnection = null; action?.Invoke();

@@ -1,7 +1,4 @@
-using System.Buffers.Binary;
 using System.Globalization;
-using System.Text;
-using Plus.Communication.Flash;
 using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 
@@ -69,15 +66,9 @@ public static class WiredLegacyCustomEditor
                 error = "Command Wired supports the existing command match and hidden feedback settings only.";
                 return false;
             }
-            var commandText = Encoding.UTF8.GetBytes(proposed.Text);
-            var commandBuffer = new byte[4 + 4 + 2 + commandText.Length + 4 + 4];
-            BinaryPrimitives.WriteInt32BigEndian(commandBuffer, 1);
-            BinaryPrimitives.WriteInt32BigEndian(commandBuffer.AsSpan(4), proposed.IntParams[2]);
-            BinaryPrimitives.WriteUInt16BigEndian(commandBuffer.AsSpan(8, 2), (ushort)commandText.Length);
-            commandText.CopyTo(commandBuffer.AsSpan(10));
-            using var commandStream = PlusMemoryStream.GetStream(commandBuffer);
-            return WiredLegacySave.TryPrepare(original, new FlashIncomingPacket(commandStream),
-                WiredBoxCategory.Trigger, createCandidate, out candidate, out error);
+            var legacy = new WiredConfiguration { IntParams = [proposed.IntParams[2]], Text = proposed.Text };
+            return WiredLegacySave.TryPrepare(original, legacy, WiredBoxCategory.Trigger,
+                createCandidate, out candidate, out error);
         }
         string text;
         if (original.Type == WiredBoxType.EffectSetRollerSpeed)
@@ -104,13 +95,7 @@ public static class WiredLegacyCustomEditor
                 text = original.StringData ?? string.Empty;
             }
         }
-        // Translate the validated active fields into the established legacy text schema, then use detached replay.
-        var bytes = Encoding.UTF8.GetBytes(text);
-        var buffer = new byte[4 + 2 + bytes.Length + 4 + 4 + 4];
-        BinaryPrimitives.WriteUInt16BigEndian(buffer.AsSpan(4, 2), (ushort)bytes.Length);
-        bytes.CopyTo(buffer.AsSpan(6));
-        using var actionStream = PlusMemoryStream.GetStream(buffer);
-        return WiredLegacySave.TryPrepare(original, new FlashIncomingPacket(actionStream), WiredBoxCategory.Action,
+        return WiredLegacySave.TryPrepare(original, new WiredConfiguration { Text = text }, WiredBoxCategory.Action,
             createCandidate, out candidate, out error);
     }
 }

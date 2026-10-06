@@ -21,4 +21,5 @@ public interface IMessengerDataLoader
     Task<(int userId, bool blockFriendRequests)> CanReceiveFriendRequests(string name);
     Task<Dictionary<int, List<(string Message, int SecondsAgo)>>> GetAndDeleteOfflineMessages(int userId);
     Task<int> GetFriendCount(int userId);
+    Task<Dictionary<int, (MessengerBuddy buddy, int count)>> GetRelationshipsForUserAsync(int userId);
 }

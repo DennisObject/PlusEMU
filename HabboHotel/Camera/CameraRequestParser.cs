@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Camera;
 
@@ -78,8 +77,6 @@ internal static class CameraRequestParser
         "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
         RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
-    private static readonly byte[] PngMagic = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
-
     private static readonly HashSet<string> PixelKeys = new(StringComparer.OrdinalIgnoreCase)
     {
         "pixels", "pixel", "bitmap", "png", "image", "sprite", "figure", "tilemap"
@@ -90,37 +87,17 @@ internal static class CameraRequestParser
         "url", "imageurl", "clickurl", "href", "src"
     };
 
-    public static CameraParseResult Parse(IIncomingPacket packet, CameraChannel channel, IReadOnlyDictionary<string, int> catalogue, int photoLevel)
+    public static CameraParseResult Parse(CameraRequestPayload payload, CameraChannel channel, IReadOnlyDictionary<string, int> catalogue, int photoLevel)
     {
-        ArgumentNullException.ThrowIfNull(packet);
+        ArgumentNullException.ThrowIfNull(payload);
         ArgumentNullException.ThrowIfNull(catalogue);
-        var buffer = packet.Buffer;
-        if (buffer.Length >= PngMagic.Length && buffer.Span.StartsWith(PngMagic))
-            return Malformed(CameraRejectReason.Pixels);
-        if (buffer.Length < 2)
+        if (payload.FrameError != CameraRejectReason.None)
+            return Malformed(payload.FrameError);
+        if (payload.Json == null)
             return Malformed(CameraRejectReason.Schema);
-
-        int declared = (buffer.Span[0] << 8) | buffer.Span[1];
-        if (declared > MaxJsonBytes)
+        if (Encoding.UTF8.GetByteCount(payload.Json) > MaxJsonBytes)
             return Malformed(CameraRejectReason.Oversized);
-        if (buffer.Length < declared + 2)
-            return Malformed(CameraRejectReason.Schema);
-        if (buffer.Length > declared + 2)
-            return Malformed(CameraRejectReason.Trailing);
-
-        string json;
-        try
-        {
-            json = packet.ReadString();
-        }
-        catch (Exception)
-        {
-            return Malformed(CameraRejectReason.Schema);
-        }
-
-        if (Encoding.UTF8.GetByteCount(json) > MaxJsonBytes)
-            return Malformed(CameraRejectReason.Oversized);
-        return ParseJson(json, channel, catalogue, photoLevel);
+        return ParseJson(payload.Json, channel, catalogue, photoLevel);
     }
 
     private static CameraParseResult ParseJson(string json, CameraChannel channel, IReadOnlyDictionary<string, int> catalogue, int photoLevel)

@@ -180,7 +180,7 @@ public class AuthEndpoints
         error = "This account is banned.",
         code = AuthErrorCode.Banned,
         banReason = ban.Reason,
-        banExpiresAt = ban.ExpiresAt
+        banExpiresAt = ban.ExpiresAt?.ToUnixTimeSeconds() ?? 0
     }, statusCode: StatusCodes.Status403Forbidden);
 
     private static IResult Availability(Availability result) => result.Available

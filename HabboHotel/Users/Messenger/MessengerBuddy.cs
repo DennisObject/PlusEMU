@@ -38,22 +38,4 @@ public class MessengerBuddy
     public bool InRoom => CurrentRoom != null;
 
     public Room? CurrentRoom { get; set; }
-
-    public void Serialize(IOutgoingPacket message)
-    {
-        message.WriteInteger(Id);
-        message.WriteString(Username);
-        message.WriteInteger(Gender);
-        message.WriteBoolean(!AppearOffline);
-        message.WriteBoolean(!HideInRoom);
-        message.WriteString(Look);
-        message.WriteInteger(0); // categoryid
-        message.WriteString(Motto);
-        message.WriteString(string.Empty); // Facebook username
-        message.WriteString(string.Empty);
-        message.WriteBoolean(true); // Allows offline messaging
-        message.WriteBoolean(false); // ?
-        message.WriteBoolean(false); // Uses phone
-        message.WriteShort((short)Relationship);
-    }
 }

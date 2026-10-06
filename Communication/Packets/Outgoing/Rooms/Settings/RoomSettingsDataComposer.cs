@@ -1,46 +1,39 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Settings;
 
-public class RoomSettingsDataComposer : IServerPacket
+public sealed class RoomSettingsDataComposer(RoomSettingsSnapshot data) : IServerPacket
 {
-    private readonly Room _room;
-
     public uint MessageId => ServerPacketHeader.RoomSettingsDataComposer;
-
-    public RoomSettingsDataComposer(Room room)
-    {
-        _room = room;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteUInteger(_room.RoomId);
-        packet.WriteString(_room.Name);
-        packet.WriteString(_room.Description);
-        packet.WriteInteger(RoomAccessUtility.GetRoomAccessPacketNum(_room.Access));
-        packet.WriteInteger(_room.Category);
-        packet.WriteInteger(_room.UsersMax);
-        packet.WriteInteger(_room.Model.MapSizeX * _room.Model.MapSizeY > 100 ? 50 : 25);
-        packet.WriteInteger(_room.Tags.Count);
-        foreach (var tag in _room.Tags.ToArray()) packet.WriteString(tag);
-        packet.WriteInteger(_room.TradeSettings); //Trade
-        packet.WriteInteger(_room.AllowPets ? 1 : 0); // allows pets in room - pet system lacking, so always off
-        packet.WriteInteger(_room.AllowPetsEating ? 1 : 0); // allows pets to eat your food - pet system lacking, so always off
-        packet.WriteInteger(_room.RoomBlockingEnabled ? 1 : 0);
-        packet.WriteInteger(_room.Hidewall ? 1 : 0);
-        packet.WriteInteger(_room.WallThickness);
-        packet.WriteInteger(_room.FloorThickness);
-        packet.WriteInteger(_room.ChatMode); //Chat mode
-        packet.WriteInteger(_room.ChatSize); //Chat size
-        packet.WriteInteger(_room.ChatSpeed); //Chat speed
-        packet.WriteInteger(_room.ChatDistance); //Hearing Distance
-        packet.WriteInteger(_room.ExtraFlood); //Additional Flood
+        packet.WriteUInteger(data.RoomId);
+        packet.WriteString(data.Name);
+        packet.WriteString(data.Description);
+        packet.WriteInteger(data.Access);
+        packet.WriteInteger(data.Category);
+        packet.WriteInteger(data.UsersMax);
+        packet.WriteInteger(data.CapacityLimit);
+        packet.WriteInteger(data.Tags.Length);
+        foreach (var tag in data.Tags.ToArray()) packet.WriteString(tag);
+        packet.WriteInteger(data.TradeSettings); //Trade
+        packet.WriteInteger(data.AllowPets ? 1 : 0); // allows pets in room - pet system lacking, so always off
+        packet.WriteInteger(data.AllowPetsEating ? 1 : 0); // allows pets to eat your food - pet system lacking, so always off
+        packet.WriteInteger(data.RoomBlockingEnabled ? 1 : 0);
+        packet.WriteInteger(data.Hidewall ? 1 : 0);
+        packet.WriteInteger(data.WallThickness);
+        packet.WriteInteger(data.FloorThickness);
+        packet.WriteInteger(data.ChatMode); //Chat mode
+        packet.WriteInteger(data.ChatSize); //Chat size
+        packet.WriteInteger(data.ChatSpeed); //Chat speed
+        packet.WriteInteger(data.ChatDistance); //Hearing Distance
+        packet.WriteInteger(data.ExtraFlood); //Additional Flood
         packet.WriteBoolean(true);
-        packet.WriteInteger(_room.WhoCanMute); // who can mute
-        packet.WriteInteger(_room.WhoCanKick); // who can kick
-        packet.WriteInteger(_room.WhoCanBan); // who can ban
+        packet.WriteInteger(data.WhoCanMute); // who can mute
+        packet.WriteInteger(data.WhoCanKick); // who can kick
+        packet.WriteInteger(data.WhoCanBan); // who can ban
 
     }
 }

@@ -39,6 +39,8 @@ public class Room
     private RoomItemHandling _roomItemHandling;
 
     private RoomUserManager _roomUserManager;
+    private TimeProvider? _interactionClock;
+    private IRoomUserSnapshotService _userSnapshots;
     private Soccer _soccer;
 
     public bool IsCrashed;
@@ -47,7 +49,7 @@ public class Room
     public bool MDisposed;
     public MoodlightData MoodlightData;
 
-    public Dictionary<int, double> MutedUsers;
+    public Dictionary<int, DateTimeOffset> MutedUsers;
 
     public Task ProcessTask;
     private bool _usesV2Movement;
@@ -91,7 +93,7 @@ public class Room
     }
 
     internal void SetRuntime(Gamemap gamemap, RoomItemHandling items, RoomUserManager users,
-        FilterComponent filter, WiredComponent wired)
+        WiredComponent wired, IRoomUserSnapshotService userSnapshots, TimeProvider interactionClock)
     {
         IsLagging = 0;
         Unloaded = false;
@@ -102,16 +104,20 @@ public class Room
         _gamemap = gamemap;
         _roomItemHandling = items;
         _roomUserManager = users;
-        _filterComponent = filter;
         _wiredComponent = wired;
+        _userSnapshots = userSnapshots;
+        _interactionClock = interactionClock;
         LastRegeneration = DateTime.Now;
     }
 
     internal void SetBans(BansComponent bans) => _bansComponent = bans;
+    internal void SetFilter(FilterComponent filter) => _filterComponent = filter;
     internal void SetTrading(TradingComponent trading) => _tradingComponent = trading;
 
     internal ILogger<RoomNavigation> NavigationLogger => _navigationLogger;
     internal ILogger WiredLogger => _wiredLogger;
+    internal TimeProvider InteractionClock => _interactionClock
+        ?? throw new InvalidOperationException("The room interaction clock has not been initialized.");
 
     public uint Id { get => Data.Id; set => Data.Id = value; }
     public string Name { get => Data.Name; set => Data.Name = value; }
@@ -507,11 +513,11 @@ public class Room
     }
 
 
-    public bool CheckMute(GameClient session)
+    public bool CheckMute(GameClient session, DateTimeOffset now)
     {
-        if (MutedUsers.ContainsKey(session.GetHabbo().Id))
+        if (MutedUsers.TryGetValue(session.GetHabbo().Id, out var mutedUntil))
         {
-            if (MutedUsers[session.GetHabbo().Id] < UnixTimestamp.GetNow())
+            if (now >= mutedUntil)
                 MutedUsers.Remove(session.GetHabbo().Id);
             else
                 return true;
@@ -530,19 +536,21 @@ public class Room
         {
             if (user == null)
                 continue;
-            session.Send(new UsersComposer(user));
+            var userSnapshot = _userSnapshots.Capture(user);
+            if (userSnapshot != null)
+                session.Send(new UsersComposer(userSnapshot));
             if (user.IsBot && user.BotData.DanceId > 0)
-                session.Send(new DanceComposer(user, user.BotData.DanceId));
+                session.Send(new DanceComposer(user.VirtualId, user.BotData.DanceId));
             else if (!user.IsBot && !user.IsPet && user.IsDancing)
-                session.Send(new DanceComposer(user, user.DanceId));
+                session.Send(new DanceComposer(user.VirtualId, user.DanceId));
             if (user.IsAsleep)
-                session.Send(new SleepComposer(user, true));
+                session.Send(new SleepComposer(user.VirtualId, true));
             if (user.CarryItemId > 0 && user.CarryTimer > 0)
                 session.Send(new CarryObjectComposer(user.VirtualId, user.CarryItemId));
             if (!user.IsBot && !user.IsPet && user.CurrentEffect > 0)
                 session.Send(new AvatarEffectComposer(user.VirtualId, user.CurrentEffect));
         }
-        session.Send(new UserUpdateComposer(_roomUserManager.GetUserList().ToList()));
+        session.Send(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(_roomUserManager.GetUserList())));
         var snapshotFurniture = GetRoomItemHandler().GetFloor.ToArray();
         session.Send(new ObjectsComposer(RoomFurnitureSnapshot.Capture(snapshotFurniture, OwnerId, OwnerName)));
         var snapshotWalls = GetRoomItemHandler().GetWall.ToArray();
@@ -614,8 +622,12 @@ public class Room
     public void SendObject(Item item) => SendPacket(item.IsWallItem ? new ItemAddComposer(RoomItemSnapshot.Capture(item)) : new ObjectAddComposer(RoomItemSnapshot.Capture(item)), false,
         viewer => _wiredComponent?.ObjectEnqueued(viewer, item, null));
 
-    public void SendUser(RoomUser user) => SendPacket(new UsersComposer(user), false,
-        viewer => _wiredComponent?.ObjectEnqueued(viewer, null, user));
+    public void SendUser(RoomUser user)
+    {
+        var snapshot = _userSnapshots.Capture(user);
+        if (snapshot != null)
+            SendPacket(new UsersComposer(snapshot), false, viewer => _wiredComponent?.ObjectEnqueued(viewer, null, user));
+    }
 
     private void SendPacket(IServerPacket packet, bool withRightsOnly, Action<RoomUser>? enqueued)
     {

@@ -15,7 +15,7 @@ namespace Plus.HabboHotel.Camera;
 [Singleton]
 public interface ICameraService
 {
-    Task Handle(GameClient session, IIncomingPacket packet, bool thumbnail);
+    Task Handle(GameClient session, CameraRequestPayload payload, bool thumbnail);
     CameraCheckoutResult Checkout(GameClient session, Guid mediaId, Func<CameraCheckoutMedia, CameraCheckoutResult> operation);
 }
 
@@ -77,7 +77,7 @@ public sealed class CameraService : ICameraService, IDisposable
             return new(false, "unavailable");
         }
     }
-    public async Task Handle(GameClient session, IIncomingPacket packet, bool thumbnail)
+    public async Task Handle(GameClient session, CameraRequestPayload payload, bool thumbnail)
     {
         CameraParseResult? parsed = null;
         bool quotaHit = false;
@@ -85,7 +85,7 @@ public sealed class CameraService : ICameraService, IDisposable
         {
             var configured = _options.Effects.ToDictionary(effect => effect.Name, effect => effect.MinLevel, StringComparer.Ordinal);
             var level = session.GetHabbo()?.GetAchievementData("ACH_CameraPhotoCount")?.Level ?? 0;
-            parsed = CameraRequestParser.Parse(packet, thumbnail ? CameraChannel.Thumbnail : CameraChannel.Photo, configured, level);
+            parsed = CameraRequestParser.Parse(payload, thumbnail ? CameraChannel.Thumbnail : CameraChannel.Photo, configured, level);
             if (parsed.Status != CameraParseStatus.Accepted || parsed.Command == null) { Failure(session, parsed, thumbnail, false); return; }
             var state = Session(session);
             var room = session.GetHabbo()?.CurrentRoom;

@@ -4,7 +4,7 @@ public static class ClientPacketHeader
 {
     // Handshake
     public const uint InitDiffieHandshakeEvent = 3392; //316
-    public const uint GenerateSecretKeyEvent = 3622; //3847
+    public const uint CompleteDiffieHandshakeEvent = 3622; //3847
     public const uint UniqueIdEvent = 3521; //1471
     public const uint SSOTicketEvent = 1989; //1778
     public const uint InfoRetrieveEvent = 2629; //186
@@ -349,9 +349,6 @@ public static class ClientPacketHeader
 
     //catalog
     //public const uint GetBonusRareInfoEvent =;
-    //public const uint BuildersClubQueryFurniCountEvent =;
-    //public const uint BuildersClubPlaceWallItemEvent =;
-    //public const uint BuildersClubPlaceRoomItemEvent =;
     //public const uint GetBundleDiscountRulesetEvent =;
     //public const uint GetCatalogPageExpirationEvent =;
     //public const uint GetCatalogPageWithEarliestExpiryEvent =;

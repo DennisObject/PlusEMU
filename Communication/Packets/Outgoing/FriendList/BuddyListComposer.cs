@@ -1,28 +1,19 @@
-﻿using Plus.HabboHotel.GameClients;
+﻿using System.Collections.Immutable;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Messenger;
 
 namespace Plus.Communication.Packets.Outgoing.FriendList;
 
-public class BuddyListComposer : IServerPacket
+public class BuddyListComposer(ImmutableArray<MessengerBuddySnapshot> friends, int pages, int page) : IServerPacket
 {
-    private readonly ICollection<MessengerBuddy> _friends;
-    private readonly int _pages;
-    private readonly int _page;
     public uint MessageId => ServerPacketHeader.BuddyListComposer;
-
-    public BuddyListComposer(ICollection<MessengerBuddy> friends, int pages, int page)
-    {
-        _friends = friends;
-        _pages = pages;
-        _page = page;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_pages); // Pages
-        packet.WriteInteger(_page); // Page
-        packet.WriteInteger(_friends.Count);
-        foreach (var friend in _friends.ToList())
-            friend.Serialize(packet);
+        packet.WriteInteger(pages); // Pages
+        packet.WriteInteger(page); // Page
+        packet.WriteInteger(friends.Length);
+        foreach (var friend in friends)
+            MessengerBuddyWire.Write(packet, friend);
     }
 }

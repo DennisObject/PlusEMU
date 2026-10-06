@@ -1,9 +1,10 @@
 ﻿using Dapper;
 using Plus.Core;
 using System.Data;
+using System.Collections.Immutable;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Incoming;
-using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.Communication.Packets.Outgoing.Quests;
 using Plus.Database;
 using Plus.HabboHotel.Friends;
@@ -16,16 +17,18 @@ public class QuestManager : IQuestManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly IMessengerDataLoader _messengerDataLoader;
+    private readonly IQuestProgressStore _progressStore;
     private readonly ILogger<QuestManager> _logger;
     private readonly Dictionary<string, int> _questCount;
 
     private readonly Dictionary<int, Quest> _quests;
 
-    public QuestManager(IDatabase database, IMessengerDataLoader messengerDataLoader, ILogger<QuestManager> logger)
+    public QuestManager(IDatabase database, IMessengerDataLoader messengerDataLoader, ILogger<QuestManager> logger, IQuestProgressStore progressStore)
     {
         _database = database;
         _messengerDataLoader = messengerDataLoader;
         _logger = logger;
+        _progressStore = progressStore;
         _quests = new();
         _questCount = new();
     }
@@ -38,12 +41,14 @@ public class QuestManager : IQuestManager, IStartable
     private async Task Load()
     {
         using var connection = _database.Connection();
-        var quests = await connection.QueryAsync<QuestRow>("SELECT id, type AS Category, level_num AS Number, goal_type AS GoalType, goal_data AS GoalData, action AS Name, pixel_reward AS Reward, data_bit AS DataBit, reward_type AS RewardType, timestamp_unlock AS TimeUnlock, timestamp_lock AS TimeLock FROM quests");
+        var quests = await connection.QueryAsync<QuestRow>("SELECT id, type AS Category, level_num AS Number, goal_type AS GoalType, goal_data AS GoalData, action AS Name, pixel_reward AS Reward, data_bit AS DataBit, reward_type AS RewardType, timestamp_unlock AS UnlocksAt, timestamp_lock AS LocksAt FROM quests");
         _quests.Clear();
         _questCount.Clear();
         foreach (var quest in quests)
         {
-            _quests.Add(quest.Id, new(quest.Id, quest.Category, quest.Number, (QuestType)quest.GoalType, quest.GoalData, quest.Name, quest.Reward, quest.DataBit, quest.RewardType, quest.TimeUnlock, quest.TimeLock));
+            _quests.Add(quest.Id, new(quest.Id, quest.Category, quest.Number, (QuestType)quest.GoalType,
+                quest.GoalData, quest.Name, quest.Reward, quest.DataBit, quest.RewardType,
+                quest.UnlocksAt, quest.LocksAt));
             AddToCounter(quest.Category);
         }
         _logger.LogInformation("Quest Manager -> LOADED");
@@ -60,9 +65,10 @@ public class QuestManager : IQuestManager, IStartable
         public int Reward { get; set; }
         public string DataBit { get; set; } = string.Empty;
         public int RewardType { get; set; }
-        public int TimeUnlock { get; set; }
-        public int TimeLock { get; set; }
+        public DateTimeOffset? UnlocksAt { get; set; }
+        public DateTimeOffset? LocksAt { get; set; }
     }
+
 
     private void AddToCounter(string category)
     {
@@ -123,20 +129,15 @@ public class QuestManager : IQuestManager, IStartable
                 completeQuest = true;
                 break;
         }
-        using (var dbClient = _database.GetQueryReactor())
-        {
-            dbClient.RunQuery($"UPDATE `user_quests` SET `progress` = '{totalProgress}' WHERE `user_id` = '{session.GetHabbo().Id}' AND `quest_id` = '{quest.Id}' LIMIT 1");
-            if (completeQuest)
-                dbClient.RunQuery($"UPDATE `user_statistics` SET `quest_id` = '0' WHERE `id` = '{session.GetHabbo().Id}' LIMIT 1");
-        }
+        _progressStore.SaveProgress(session.GetHabbo().Id, quest.Id, totalProgress, completeQuest);
         session.GetHabbo().Quests[session.GetHabbo().HabboStats.QuestId] = totalProgress;
-        session.Send(new QuestStartedComposer(session, quest));
+        session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category))));
         if (completeQuest)
         {
             _messengerDataLoader.BroadcastStatusUpdate(session.GetHabbo(), MessengerEventTypes.QuestCompleted, $"{quest.Category}.{quest.Name}");
             session.GetHabbo().HabboStats.QuestId = 0;
             session.GetHabbo().QuestLastCompleted = quest.Id;
-            session.Send(new QuestCompletedComposer(session, quest));
+            session.Send(new QuestCompletedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category), QuestWireKind.Completed)));
             lock (session.GetHabbo().WalletSync)
             {
                 if (!session.GetHabbo().WalletClosed)
@@ -189,7 +190,11 @@ public class QuestManager : IQuestManager, IStartable
                 }
             }
         }
-        session.Send(new QuestListComposer(session, message != null, userQuests));
+        var wireQuests = userQuests.Where(entry => entry.Value != null)
+            .Select(entry => QuestWireDataFactory.Create(session, entry.Value, GetAmountOfQuestsInCategory(entry.Key)))
+            .Concat(userQuests.Where(entry => entry.Value == null).Select(entry => QuestWireDataFactory.Empty(entry.Key)))
+            .ToImmutableArray();
+        session.Send(new QuestListComposer(new(message != null, wireQuests)));
     }
 
     public void QuestReminder(GameClient session, int questId)
@@ -197,6 +202,6 @@ public class QuestManager : IQuestManager, IStartable
         var quest = GetQuest(questId);
         if (quest == null)
             return;
-        session.Send(new QuestStartedComposer(session, quest));
+        session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category))));
     }
 }

@@ -8,6 +8,8 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 
+using Plus.HabboHotel.Users.Inventory.Furniture;
+
 namespace Plus.HabboHotel.Rooms;
 
 [Obsolete("Everything in here is bad and whoever wrote this must've been high on some crack or something")]
@@ -141,7 +143,7 @@ public class RoomItemHandling
         }
     }
 
-    public void LoadFurniture()
+    public void LoadFurniture(IReadOnlyList<Item> items)
     {
         if (_floorItems.Count > 0)
         {
@@ -155,7 +157,6 @@ public class RoomItemHandling
         if (_wallItems.Count > 0)
             _wallItems.Clear();
         _temporaryItems.Clear();
-        var items = ItemLoader.GetItemsForRoom(_room.Id, _room);
         foreach (var item in items.ToList())
         {
             if (item == null)
@@ -761,6 +762,8 @@ public class RoomItemHandling
     // that transaction shares NavSync; callbacks do not.
     internal bool AdmitFloorItem(Item item)
     {
+        if (item.Definition.InteractionType is InteractionType.Teleport or InteractionType.OneWayGate)
+            item.BindInteractionClock(_room.InteractionClock);
         var inputs = _room.GetGameMap().Navigation?.Inputs;
         if (inputs == null) return _floorItems.TryAdd(item.Id, item);
         item.EnableNavigationSynchronization();
@@ -806,7 +809,7 @@ public class RoomItemHandling
                 session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
                 _room.SendPacket(new ItemRemoveComposer(item, item.UserId));
             }
-            session.Send(new FurniListAddComposer(item.ToInventoryItem()));
+            session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item.ToInventoryItem())));
         }
         _rollers.Clear();
         _room.GetGameMap().GenerateMaps();

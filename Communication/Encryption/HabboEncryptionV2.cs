@@ -23,7 +23,7 @@ public static class HabboEncryptionV2
         {
             var m = Encoding.Default.GetBytes(message);
             var c = _rsa.Sign(m);
-            return Converter.BytesToHexString(c);
+            return c == null ? "0" : Converter.BytesToHexString(c);
         }
         catch
         {
@@ -55,6 +55,8 @@ public static class HabboEncryptionV2
         {
             var cbytes = Converter.HexStringToBytes(publicKey);
             var publicKeyBytes = _rsa.Verify(cbytes);
+            if (publicKeyBytes == null)
+                return 0;
             var publicKeyString = Encoding.Default.GetString(publicKeyBytes);
             return _diffieHellman.CalculateSharedKey(new(publicKeyString, 10));
         }

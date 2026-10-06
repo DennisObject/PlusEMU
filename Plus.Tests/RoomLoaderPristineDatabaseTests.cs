@@ -1,5 +1,6 @@
 using Dapper;
 using MySqlConnector;
+using Plus.Database;
 using Plus.HabboHotel.Rooms;
 using Xunit;
 
@@ -7,9 +8,10 @@ namespace Plus.Tests;
 
 public sealed class RoomLoaderPristineDatabaseTests
 {
-    [RoomComponentDatabaseFact]
+    [FoundationSchemaDatabaseFact]
     public void PristineBotAndPetRowsMaterializeWithTheirDomainTypes()
     {
+        SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"))
         {
             Pooling = false,
@@ -24,6 +26,8 @@ public sealed class RoomLoaderPristineDatabaseTests
         {
             connection.Execute($"USE `{schema}`");
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+            connection.Execute(CreateTable(pristine, "users"));
+            connection.Execute("INSERT INTO users(id,username,auth_ticket) VALUES (9,'owner','ticket')");
             connection.Execute(CreateTable(pristine, "bots"));
             connection.Execute(CreateTable(pristine, "bots_petdata"));
 
@@ -32,6 +36,7 @@ public sealed class RoomLoaderPristineDatabaseTests
                 () => Assert.Empty(RoomPetsComponent.Load(connection, 42)),
                 () => Assert.Null(RoomPetsComponent.LoadData(connection, 12)));
 
+            connection.Execute("ALTER TABLE bots_petdata MODIFY createstamp INT NULL");
             connection.Execute("""
                 INSERT INTO bots (id, user_id, room_id, name, motto, look, x, y, z, rotation,
                                   ai_type, walk_mode, automatic_chat, speaking_interval, mix_sentences, chat_bubble) VALUES
@@ -45,6 +50,7 @@ public sealed class RoomLoaderPristineDatabaseTests
                     (12, 2, '3', 'ffffff', 4, 5, 6, 7, 1487474034, 1, 0, 9, 10, 'hat'),
                     (14, 3, NULL, NULL, 0, 0, 0, 0, 1487474000, 0, 1, 1, -1, NULL);
                 """);
+            connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/20_UseUtcPetCreationTime.sql")));
 
             Assert.Collection(RoomBotsComponent.Load(connection, 42).OrderBy(bot => bot.Id),
                 bot =>
@@ -64,9 +70,12 @@ public sealed class RoomLoaderPristineDatabaseTests
                 });
             var pet = Assert.Single(RoomPetsComponent.Load(connection, 42));
             Assert.Equal((12, 9, 42u, "pet", 4, 5, 2d), (pet.Id, pet.UserId, pet.RoomId, pet.Name, pet.X, pet.Y, pet.Z));
+            Assert.Equal("owner", pet.OwnerName);
+            connection.Execute("DELETE FROM users WHERE id=9");
+            Assert.Equal("", Assert.Single(RoomPetsComponent.Load(connection, 42)).OwnerName);
             var data = Assert.IsType<RoomPetsComponent.PetData>(RoomPetsComponent.LoadData(connection, pet.Id));
             Assert.Equal((2, "3", "ffffff", 4, 5, 6, 7), (data.Type, data.Race, data.Color, data.Experience, data.Energy, data.Nutrition, data.Respect));
-            Assert.Equal((1487474034d, 1, 0, 9, 10, "hat"), (data.Createstamp, data.HaveSaddle, data.AnyoneRide, data.Hairdye, data.Pethair, data.GnomeClothing));
+            Assert.Equal(((DateTimeOffset?)DateTimeOffset.FromUnixTimeSeconds(1487474034), 1, 0, 9, 10, "hat"), (data.CreatedAt, data.HaveSaddle, data.AnyoneRide, data.Hairdye, data.Pethair, data.GnomeClothing));
             var nullableData = Assert.IsType<RoomPetsComponent.PetData>(RoomPetsComponent.LoadData(connection, 14));
             Assert.Equal(("", "", ""), (nullableData.Race, nullableData.Color, nullableData.GnomeClothing));
             Assert.Null(RoomPetsComponent.LoadData(connection, 15));

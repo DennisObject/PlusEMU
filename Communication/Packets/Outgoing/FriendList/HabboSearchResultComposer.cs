@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.Collections.Immutable;
+using System.Globalization;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Messenger;
 
@@ -6,19 +7,19 @@ namespace Plus.Communication.Packets.Outgoing.FriendList;
 
 public class HabboSearchResultComposer : IServerPacket
 {
-    private readonly IReadOnlyList<HabboSearchEntry> _friends;
-    private readonly IReadOnlyList<HabboSearchEntry> _otherUsers;
+    private readonly ImmutableArray<HabboSearchEntry> _friends;
+    private readonly ImmutableArray<HabboSearchEntry> _otherUsers;
     public uint MessageId => ServerPacketHeader.HabboSearchResultComposer;
 
     public HabboSearchResultComposer(IReadOnlyList<HabboSearchEntry> friends, IReadOnlyList<HabboSearchEntry> otherUsers)
     {
-        _friends = friends;
-        _otherUsers = otherUsers;
+        _friends = friends.ToImmutableArray();
+        _otherUsers = otherUsers.ToImmutableArray();
     }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_friends.Count);
+        packet.WriteInteger(_friends.Length);
         foreach (var entry in _friends)
         {
             var friend = entry.User;
@@ -33,7 +34,7 @@ public class HabboSearchResultComposer : IServerPacket
             packet.WriteString(online ? friend.Figure : "");
             packet.WriteString(friend.LastOnlineAt?.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture) ?? "0");
         }
-        packet.WriteInteger(_otherUsers.Count);
+        packet.WriteInteger(_otherUsers.Length);
         foreach (var entry in _otherUsers)
         {
             var otherUser = entry.User;

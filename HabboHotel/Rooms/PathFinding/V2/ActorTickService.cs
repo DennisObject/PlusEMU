@@ -10,7 +10,7 @@ public sealed class ActorTickService(Room room)
         actor.IdleTime++; actor.HandleSpamTicks();
         if (!actor.IsBot && !actor.IsAsleep && actor.IdleTime >= 600)
         {
-            actor.IsAsleep = true; room.SendPacket(new SleepComposer(actor, true));
+            actor.IsAsleep = true; room.SendPacket(new SleepComposer(actor.VirtualId, true));
         }
         if (actor.CarryItemId > 0 && --actor.CarryTimer <= 0) actor.CarryItem(0);
         if (room.GotFreeze()) room.GetFreeze().CycleUser(actor);

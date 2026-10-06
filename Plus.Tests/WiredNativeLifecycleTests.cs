@@ -317,7 +317,7 @@ public sealed class WiredNativeLifecycleTests
     public void NativeTimezoneOverrideBindsCalendarAndVariablesWhileDefaultsRemainDistinct()
     {
         var f = new World(); var store = new SettingsStore();
-        Set(f.Wired, "_settings", new WiredRoomSettings(f.Room, store));
+        Set(f.Wired, "<Settings>k__BackingField", new WiredRoomSettings(f.Room, store));
         Assert.Equal(DateTimeOffset.Now.Offset, f.Wired.CalendarTime.Offset);
         Assert.Equal(TimeZoneInfo.Utc, f.Wired.Variables.TimeZone());
         f.Human(); f.Room.Type = "private"; f.Room.OwnerName = "viewer";
@@ -356,12 +356,13 @@ public sealed class WiredNativeLifecycleTests
             Map = new(Room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation);
             var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance);
             Set(Room, "_gamemap", Map); Set(Room, "_roomItemHandling", handler);
-            var users = new RoomUserManager(Room); Set(Room, "_roomUserManager", users);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System); Set(Room, "_roomUserManager", users);
+            TestRoomUserSnapshots.Install(Room);
             typeof(Gamemap).GetProperty("GameMap")!.SetValue(Map, new byte[3, 3]);
             typeof(Gamemap).GetProperty("EffectMap")!.SetValue(Map, new byte[3, 3]);
             _items = (ConcurrentDictionary<uint, Item>)Get(handler, "_floorItems");
             _users = (ConcurrentDictionary<int, RoomUser>)Get(users, "_users");
-            Wired = new(Room, TestLogging.Logger); Set(Room, "_wiredComponent", Wired);
+            Wired = new(Room, TestLogging.Logger, TimeProvider.System, TestWiredRoomSettingsFactory.Instance); Set(Room, "_wiredComponent", Wired);
         }
         public void PrepareVariables()
         {
@@ -390,7 +391,7 @@ public sealed class WiredNativeLifecycleTests
                 SendCallback = _ => true
             };
             var habbo = new Habbo { Id = 42, Username = "viewer", Motto = "", Look = "test", Gender = "M", CurrentRoom = Room, Client = client,
-                HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(), Access = EditorTestSupport.Access([]) };
+                HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)), Access = EditorTestSupport.Access([]) };
             client.SetHabbo(habbo);
             var user = new RoomUser(42, 1, 1, Room); Set(user, "_mClient", client); _users[user.VirtualId] = user; return user;
         }

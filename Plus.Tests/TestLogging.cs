@@ -11,6 +11,7 @@ internal static class TestLogging
     [System.Runtime.CompilerServices.ModuleInitializer]
     internal static void Configure()
     {
+        Dapper.SqlMapper.AddTypeHandler(new Plus.Database.UtcDateTimeOffsetHandler());
         Plus.Core.ExceptionLogger.Configure(Factory);
         Plus.Core.ConsoleCommands.Configure(Factory);
     }
@@ -37,4 +38,13 @@ internal sealed class TestRoomItemStore : IRoomItemStore
     public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
     public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
     public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
+}
+
+internal sealed class TestRoomUserStore : IRoomUserStore
+{
+    internal static TestRoomUserStore Instance { get; } = new();
+    public void UpdateUserCount(uint roomId, int count) { }
+    public void SavePet(RoomPetSave pet) { }
+    public void SaveBot(RoomBotSave bot) { }
+    public void RecordExit(uint roomId, int userId, DateTimeOffset exitedAt, int usersNow) { }
 }

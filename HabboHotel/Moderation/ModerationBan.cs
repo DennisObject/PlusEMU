@@ -1,29 +1,19 @@
-﻿using Plus.Utilities;
-
-namespace Plus.HabboHotel.Moderation;
+﻿namespace Plus.HabboHotel.Moderation;
 
 public class ModerationBan
 {
-    public ModerationBan(ModerationBanType type, string value, string reason, double expire)
+    public ModerationBan(ModerationBanType type, string value, string reason, DateTimeOffset? expiresAt)
     {
         Type = type;
         Value = value;
         Reason = reason;
-        Expire = expire;
+        ExpiresAt = expiresAt?.ToUniversalTime();
     }
 
     public string Value { get; set; }
-    public double Expire { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
     public string Reason { get; set; }
     public ModerationBanType Type { get; set; }
 
-    public bool Expired
-    {
-        get
-        {
-            if (BanClock.Now() >= Expire)
-                return true;
-            return false;
-        }
-    }
+    public bool IsExpiredAt(DateTimeOffset now) => ExpiresAt is not { } expiresAt || expiresAt <= now;
 }

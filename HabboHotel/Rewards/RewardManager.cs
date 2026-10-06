@@ -3,6 +3,7 @@ using Plus.Core;
 using System.Collections.Concurrent;
 using System.Data;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
+using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.Database;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
@@ -13,13 +14,15 @@ public class RewardManager : IRewardManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly IBadgeManager _badgeManager;
+    private readonly TimeProvider _clock;
     private readonly ConcurrentDictionary<int, List<int>> _rewardLogs;
     private readonly ConcurrentDictionary<int, Reward> _rewards;
 
-    public RewardManager(IDatabase database, IBadgeManager badgeManager)
+    public RewardManager(IDatabase database, IBadgeManager badgeManager, TimeProvider clock)
     {
         _database = database;
         _badgeManager = badgeManager;
+        _clock = clock;
         _rewards = new();
         _rewardLogs = new();
     }
@@ -49,12 +52,13 @@ public class RewardManager : IRewardManager, IStartable
     private sealed class RewardRow
     {
         public int Id { get; set; }
-        public double Start { get; set; }
-        public double End { get; set; }
+        public DateTimeOffset? Start { get; set; }
+        public DateTimeOffset? End { get; set; }
         public string Type { get; set; } = string.Empty;
         public string Data { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
     }
+
 
     private bool HasReward(int id, int rewardId)
     {
@@ -79,13 +83,14 @@ public class RewardManager : IRewardManager, IStartable
     {
         if (session == null || session.GetHabbo() == null)
             return;
+        var now = _clock.GetUtcNow();
         foreach (var entry in _rewards)
         {
             var id = entry.Key;
             var reward = entry.Value;
             if (HasReward(session.GetHabbo().Id, id))
                 continue;
-            if (reward.Active)
+            if (reward.IsActiveAt(now))
             {
                 switch (reward.Type)
                 {

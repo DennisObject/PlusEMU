@@ -1,31 +1,23 @@
-﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Users;
+using Plus.Communication.Packets;
+using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Groups;
 
 namespace Plus.Communication.Packets.Outgoing.Groups;
 
 public class GroupMemberUpdatedComposer : IServerPacket
 {
-    private readonly int _groupId;
-    private readonly Habbo _habbo;
-    private readonly int _type;
+    private readonly GroupMemberUpdateSnapshot _snapshot;
     public uint MessageId => ServerPacketHeader.GroupMemberUpdatedComposer;
 
-    public GroupMemberUpdatedComposer(int groupId, Habbo habbo, int type)
-    {
-        _groupId = groupId;
-        _habbo = habbo;
-        _type = type;
-    }
+    public GroupMemberUpdatedComposer(GroupMemberUpdateSnapshot snapshot) => _snapshot = snapshot;
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_groupId); //GroupId
-        packet.WriteInteger(_type); //Type?
-        {
-            packet.WriteInteger(_habbo.Id); //UserId
-            packet.WriteString(_habbo.Username);
-            packet.WriteString(_habbo.Look);
-            packet.WriteString(string.Empty);
-        }
+        packet.WriteInteger(_snapshot.GroupId);
+        packet.WriteInteger(_snapshot.Role);
+        packet.WriteInteger(_snapshot.UserId);
+        packet.WriteString(_snapshot.Username);
+        packet.WriteString(_snapshot.Look);
+        packet.WriteString(string.Empty);
     }
 }

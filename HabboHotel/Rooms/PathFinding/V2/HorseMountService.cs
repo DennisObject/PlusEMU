@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Rooms.AI;
 using Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
@@ -16,7 +17,7 @@ internal sealed class HorseMountService(Room room, RoomNavigation navigation, Mo
             if (!Attached(horse, lifetime)) return;
             if (mount) TryMount(actor, horse, discardThrough, sequence, locale);
             else TryDismount(actor, horse, discardThrough, sequence);
-            room.SendPacket(new PetHorseFigureInformationComposer(horse));
+            room.SendPacket(new PetHorseFigureInformationComposer(PetAppearanceSnapshots.Horse(horse)));
         });
     }
 

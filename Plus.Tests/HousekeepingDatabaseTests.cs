@@ -182,8 +182,8 @@ public class HousekeepingDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public async Task BansUseParametersAndUnbanRemovesTheRow()
     {
-        var moderation = new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate());
-        await moderation.BanUser("hk_owner", ModerationBanType.Username, "hk_o'brien", "it's spam", UnixTimestamp.GetNow() + 3600);
+        var moderation = new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate(), TimeProvider.System);
+        await moderation.BanUser("hk_owner", ModerationBanType.Username, "hk_o'brien", "it's spam", DateTimeOffset.UtcNow.AddHours(1));
         Assert.True(moderation.IsBanned("hk_o'brien", out _));
         Assert.Equal("it's spam", Scalar<string>("SELECT reason FROM bans WHERE value = 'hk_o''brien'"));
         Assert.True(moderation.UnbanUser("hk_o'brien"));
@@ -195,7 +195,7 @@ public class HousekeepingDatabaseTests : IDisposable
     public void PasswordResetStoresOnlyAHashAndRevokesTheSsoTicket()
     {
         var hasher = new Argon2idPasswordHasher();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, new AccountSessionGate(), Sessions(), TradeLocks());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, new AccountSessionGate(), Sessions(), TradeLocks(), TimeProvider.System);
         var outcome = actions.ResetPassword(Staff(), Target);
         Assert.True(outcome.Ok);
         var stored = Scalar<string>($"SELECT password FROM users WHERE id = {Target}");
@@ -209,7 +209,7 @@ public class HousekeepingDatabaseTests : IDisposable
     [HousekeepingDatabaseFact]
     public void OfflineSanctionsPersistMuteAndTradeLock()
     {
-        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, null!, _database, new AccountSessionGate(), null!, TradeLocks());
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, null!, _database, new AccountSessionGate(), null!, TradeLocks(), TimeProvider.System);
         Assert.True(actions.Mute(Staff(), Target, "", 15).Ok);
         Assert.Equal(900, Scalar<double>($"SELECT time_muted FROM users WHERE id = {Target}"));
         Assert.True(actions.TradeLock(Staff(), Target, 2, "").Ok);
@@ -238,8 +238,8 @@ public class HousekeepingDatabaseTests : IDisposable
     {
         Execute("INSERT INTO housekeeping_online_peaks (day, peak) VALUES (UTC_DATE(), 12), (UTC_DATE() - INTERVAL 3 DAY, 40)");
         new HousekeepingAuditLog(_database).Write(Owner, "hk_owner", "user.mute", HousekeepingOutcome.Success(HousekeepingTarget.User(Target), "minutes=5"));
-        new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate()).BanUser("hk_owner", ModerationBanType.Username, "hk_peer", "x", PlusEnvironment.GetUnixTimestamp() + 60).GetAwaiter().GetResult();
-        var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate()), NoLoadedRooms(), _database);
+        new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate(), TimeProvider.System).BanUser("hk_owner", ModerationBanType.Username, "hk_peer", "x", DateTimeOffset.UtcNow.AddMinutes(1)).GetAwaiter().GetResult();
+        var lookups = new HousekeepingLookups(_clients, null!, new ModerationManager(_database, NullLogger<ModerationManager>.Instance, Sessions(), _clients, new AccountSessionGate(), TimeProvider.System), NoLoadedRooms(), _database, TimeProvider.System, new Plus.Core.ServerUptime(TimeProvider.System));
         var dashboard = lookups.Dashboard();
         Assert.Equal((12, 40, 2), (dashboard.PeakOnlineToday, dashboard.PeakOnlineAllTime, dashboard.SanctionsLast24h));
         Assert.Equal(Scalar<int>("SELECT COUNT(*) FROM users"), dashboard.TotalUsers);
@@ -268,7 +268,7 @@ public class HousekeepingDatabaseTests : IDisposable
         var (login, release, session, gate) = StartLogin();
         var disconnected = false;
         session.DisconnectRequested = () => disconnected = true;
-        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions(), TradeLocks(gate));
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions(), TradeLocks(gate), TimeProvider.System);
         var reset = Task.Run(() => actions.ResetPassword(Staff(), Target));
         await Task.Delay(300);
         Assert.False(reset.IsCompleted);
@@ -282,7 +282,7 @@ public class HousekeepingDatabaseTests : IDisposable
     public async Task PasswordResetAfterTheTicketResolvedRejectsTheLogin()
     {
         var gate = new AccountSessionGate();
-        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions(), TradeLocks(gate));
+        var actions = new HousekeepingUserActions(_users, _clients, null!, _permissions, Hasher, _database, gate, Sessions(), TradeLocks(gate), TimeProvider.System);
         HousekeepingOutcome? reset = null;
         // The staff reset lands right after the login has used up its ticket, before it reaches the gate.
         var authenticator = Authenticator(new SlowLogin(_users, Task.CompletedTask), gate, afterConsume: () => reset = actions.ResetPassword(Staff(), Target));

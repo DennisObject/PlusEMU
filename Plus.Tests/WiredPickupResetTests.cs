@@ -194,8 +194,7 @@ public partial class PlacedFurniRoomTests
     }
 
     private Task Pickup(uint id) =>
-        new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
-            .Parse(_client, ClientPacket(0, (int)id));
+        PickupObject().Parse(_client, ClientPacket(0, (int)id));
 
     /// <summary>Saved settings per box, as the database would hold them.</summary>
     private sealed class ResettableConfigurationStore : IWiredConfigurationStore

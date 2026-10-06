@@ -43,7 +43,7 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser Viewer(int x = 3, int y = 3)
     {
-        _client.GetHabbo().Effects = new Plus.HabboHotel.Users.Effects.EffectsComponent();
+        _client.GetHabbo().Effects = new Plus.HabboHotel.Users.Effects.EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch));
         _client.GetHabbo().HabboStats = new Plus.HabboHotel.Users.HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
         _client.GetHabbo().Inventory ??= new Plus.HabboHotel.Users.Inventory.InventoryComponent { Furniture = new Plus.HabboHotel.Users.Inventory.Furniture.FurnitureInventoryComponent([], []) };
         var user = new RoomUser(7, RoomId, 1, _room) { X = x, Y = y };
@@ -187,7 +187,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(map.CanRollItemHere(1, 1));
         await MoveObject().Parse(_room, _client, ClientPacket(11, 2, 2, 0));
         // The floor opened by ordinary furniture stays open, as on master.
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 12));
         Assert.True(map.ResolvePlacement(1, 1).CanStack);
         Assert.Equal(SquareState.Open, map.Model.SqState[1, 1]);
@@ -319,12 +319,12 @@ public partial class PlacedFurniRoomTests
         var width = full.ReadInt(); var count = full.ReadInt();
         for (var index = 0; index < count; index++)
             Assert.Equal(_room.GetGameMap().PlacementHeightMap()[index % width, index / width], full.ReadShort());
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 10));
         Assert.Equal((short)0, DeltaAt(2, 2));
         Add(11, 1, 1, height: 2, stackable: false);
         Assert.Equal((short)(512 | 0x4000), DeltaAt(1, 1));
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 11));
         Assert.Equal((short)0, DeltaAt(1, 1));
     }
@@ -345,7 +345,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((short)(1152 | 0x4000), DeltaAt(1, 1));
         await new UpdateMagicTileEvent().Parse(_client, ClientPacket(11, 225));
         Assert.Equal((short)576, DeltaAt(2, 2));
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, 11));
         Assert.Equal((short)0, DeltaAt(2, 2));
     }
@@ -363,7 +363,7 @@ public partial class PlacedFurniRoomTests
         _room.GetRoomUserManager().OnCycle();
         Assert.Equal("1,1,0.75", user.Statusses["mv"]);
         Assert.Equal(0.75, user.SetZ);
-        var status = Body(new UserUpdateComposer([user]));
+        var status = Body(new UserUpdateComposer(RoomUserStatusSnapshot.Capture([user])));
         Assert.Equal(1, status.ReadInt());
         status.ReadInt(); status.ReadInt(); status.ReadInt(); status.ReadString(); status.ReadInt(); status.ReadInt();
         Assert.Contains("/mv 1,1,0.75/", status.ReadString());
@@ -397,27 +397,7 @@ public partial class PlacedFurniRoomTests
         definition.Height = 0;
         var store = new RecordingRoomItemStore();
         Set("_roomItemHandling", new RoomItemHandling(_room, store));
-        var query = Proxy<Plus.Database.Interfaces.IQueryAdapter>((method, args) =>
-        {
-            return method == "GetTable" ? row.Table : null;
-        });
-        _databaseField.SetValue(null, Proxy<Plus.Database.IDatabase>((method, _) => method switch
-        {
-            "GetQueryReactor" => query,
-            "Connection" => new NoOpConnection(_ =>
-            {
-                var loaded = row.Table.Copy();
-                foreach (var (source, alias) in new[] { ("base_item", "BaseItem"), ("user_id", "UserId"), ("extra_data", "ExtraData"),
-                             ("limited_number", "LimitedNumber"), ("limited_stack", "LimitedStack"), ("wall_pos", "WallPos") })
-                    loaded.Columns[source]!.ColumnName = alias;
-                loaded.Columns.Add("GroupId", typeof(int)); loaded.Rows[0]["GroupId"] = 0;
-                return loaded;
-            }),
-            _ => throw new NotSupportedException(method)
-        }));
-        var definitions = Proxy<IItemDataManager>((method, _) => method == "get_Items" ? new Dictionary<uint, ItemDefinition> { [10] = definition } : null);
-        _gameField.SetValue(null, Proxy<Plus.HabboHotel.IGame>((method, _) => method == "get_ItemManager" ? definitions : null));
-        _room.GetRoomItemHandler().LoadFurniture();
+        _room.GetRoomItemHandler().LoadFurniture([ItemLoader.ReadRoomItem(row, RoomId, definition)]);
         var tile = _room.GetRoomItemHandler().GetItem(10);
         Assert.Equal("200;1", tile.LegacyDataString);
         typeof(RoomItemHandling).GetMethod("SaveFurniture", BindingFlags.Instance | BindingFlags.NonPublic)!
@@ -427,7 +407,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(2, saved.Z);
         // The persistent prefix and physical altitude survive another real room load.
         row["extra_data"] = saved.ExtraData!;
-        _room.GetRoomItemHandler().LoadFurniture();
+        _room.GetRoomItemHandler().LoadFurniture([ItemLoader.ReadRoomItem(row, RoomId, definition)]);
         Assert.Equal("200;1", _room.GetRoomItemHandler().GetItem(10).LegacyDataString);
     }
 
@@ -522,7 +502,7 @@ public partial class PlacedFurniRoomTests
         var support = Add(10, 1, 1, height: 3);
         var item = await Drop(11, 1, 1, InteractionType.None);
         Assert.Equal(3, item!.GetZ);
-        await new PickupObjectEvent(Proxy<IGameClientManager>((_, _) => null), Proxy<IQuestManager>((_, _) => null), _database)
+        await PickupObject()
             .Parse(_client, ClientPacket(0, (int)support.Id));
         await MoveObject().Parse(_room, _client, ClientPacket(11, 1, 1, 2));
         Assert.Equal(3, item.GetZ);
@@ -1026,7 +1006,7 @@ public partial class PlacedFurniRoomTests
     {
         var nextRoom = (Room)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(Room));
         nextRoom.Id = RoomId + 1;
-        var nextUsers = new RoomUserManager(nextRoom);
+        var nextUsers = new RoomUserManager(nextRoom, TestRoomUserStore.Instance, TimeProvider.System);
         var nextMap = new Gamemap(nextRoom, new RoomModel("next", 0, 0, 0, 0, "1111\r1111\r1111\r1111", 0, 0, false), TestLogging.Navigation);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, nextUsers);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(nextRoom, new RoomItemHandling(nextRoom, TestRoomItemStore.Instance));

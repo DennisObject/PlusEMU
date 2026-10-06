@@ -8,7 +8,7 @@ internal sealed class CatalogAdminStore
 {
     private const string PageColumns = "id AS Id, parent_id AS ParentId, caption AS Caption, page_link AS PageLink, icon_image AS IconImage, " +
         "visible = 1 AS Visible, enabled = 1 AS Enabled, required_permission AS RequiredPermission, required_club_level AS RequiredClubLevel, order_num AS OrderNum, " +
-        "page_layout AS PageLayout, page_strings_1 AS PageStrings1, page_strings_2 AS PageStrings2, catalog_mode AS CatalogMode";
+        "page_layout AS PageLayout, page_strings_1 AS PageStrings1, page_strings_2 AS PageStrings2";
 
     private const string OfferColumns = "id AS Id, page_id AS PageId, item_id AS ItemId, catalog_name AS CatalogName, cost_credits AS CostCredits, " +
         "cost_pixels AS CostPixels, cost_diamonds AS CostDiamonds, amount AS Amount, limited_sells AS LimitedSells, limited_stack AS LimitedStack, " +
@@ -36,9 +36,9 @@ internal sealed class CatalogAdminStore
     public CatalogPageRow? Page(int id) =>
         _connection.QuerySingleOrDefault<CatalogPageRow>($"SELECT {PageColumns} FROM catalog_pages WHERE id = @id", new { id }, _transaction);
 
-    public List<CatalogPageRow> Children(int parentId, string catalogMode) =>
-        _connection.Query<CatalogPageRow>($"SELECT {PageColumns} FROM catalog_pages WHERE parent_id = @parentId AND catalog_mode = @catalogMode ORDER BY order_num, id",
-            new { parentId, catalogMode }, _transaction).ToList();
+    public List<CatalogPageRow> Children(int parentId) =>
+        _connection.Query<CatalogPageRow>($"SELECT {PageColumns} FROM catalog_pages WHERE parent_id = @parentId ORDER BY order_num, id",
+            new { parentId }, _transaction).ToList();
 
     public CatalogOfferRow? Offer(int id) =>
         _connection.QuerySingleOrDefault<CatalogOfferRow>($"SELECT {OfferColumns} FROM catalog_items WHERE id = @id", new { id }, _transaction);
@@ -58,20 +58,20 @@ internal sealed class CatalogAdminStore
     public int NextOfferOrder(int pageId) =>
         _connection.QuerySingle<int>("SELECT CAST(COALESCE(MAX(order_num) + 1, 0) AS SIGNED) FROM catalog_items WHERE page_id = @pageId", new { pageId }, _transaction);
 
-    public int NextPageOrder(int parentId, string catalogMode) =>
-        _connection.QuerySingle<int>("SELECT CAST(COALESCE(MAX(order_num) + 1, 0) AS SIGNED) FROM catalog_pages WHERE parent_id = @parentId AND catalog_mode = @catalogMode",
-            new { parentId, catalogMode }, _transaction);
+    public int NextPageOrder(int parentId) =>
+        _connection.QuerySingle<int>("SELECT CAST(COALESCE(MAX(order_num) + 1, 0) AS SIGNED) FROM catalog_pages WHERE parent_id = @parentId",
+            new { parentId }, _transaction);
 
     public int InsertPage(CatalogPageRow row) => _connection.QuerySingle<int>("""
-        INSERT INTO catalog_pages (parent_id, caption, page_link, icon_image, visible, enabled, required_permission, required_club_level, order_num, page_layout, page_strings_1, page_strings_2, catalog_mode)
-        VALUES (@ParentId, @Caption, @PageLink, @IconImage, @Visible, @Enabled, @RequiredPermission, @RequiredClubLevel, @OrderNum, @PageLayout, @PageStrings1, @PageStrings2, @CatalogMode);
+        INSERT INTO catalog_pages (parent_id, caption, page_link, icon_image, visible, enabled, required_permission, required_club_level, order_num, page_layout, page_strings_1, page_strings_2)
+        VALUES (@ParentId, @Caption, @PageLink, @IconImage, @Visible, @Enabled, @RequiredPermission, @RequiredClubLevel, @OrderNum, @PageLayout, @PageStrings1, @PageStrings2);
         SELECT CAST(LAST_INSERT_ID() AS SIGNED);
         """, row, _transaction);
 
     public void UpdatePage(CatalogPageRow row) => _connection.Execute("""
         UPDATE catalog_pages SET parent_id = @ParentId, caption = @Caption, page_link = @PageLink, icon_image = @IconImage, visible = @Visible,
         enabled = @Enabled, required_permission = @RequiredPermission, required_club_level = @RequiredClubLevel, order_num = @OrderNum, page_layout = @PageLayout,
-        page_strings_1 = @PageStrings1, page_strings_2 = @PageStrings2, catalog_mode = @CatalogMode WHERE id = @Id
+        page_strings_1 = @PageStrings1, page_strings_2 = @PageStrings2 WHERE id = @Id
         """, row, _transaction);
 
     public void SetPageOrder(int id, int orderNum) =>

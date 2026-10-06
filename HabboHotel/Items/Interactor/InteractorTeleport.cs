@@ -1,11 +1,10 @@
 ﻿using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
-using Plus.Utilities;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
-public class InteractorTeleport : IFurniInteractor, IApproachInteractor
+public class InteractorTeleport(TimeProvider clock) : IFurniInteractor, IApproachInteractor
 {
     public int ActionKind => ApproachActionKind.Teleporter;
 
@@ -69,34 +68,39 @@ public class InteractorTeleport : IFurniInteractor, IApproachInteractor
         var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
         if (user == null)
             return;
-        user.LastInteraction = UnixTimestamp.GetNow();
+        var now = clock.GetUtcNow();
+        user.LastInteractionAt = now;
 
         // Alright. But is this user in the right position?
-        if (AtEntry(user, item)) TryEnter(item, user, session.GetHabbo());
+        if (AtEntry(user, item)) TryEnter(item, user, session.GetHabbo(), now);
         else if (user.CanWalk) user.ApproachItem(item, ActionKind);
     }
 
     public bool StartFromApproach(Item item, RoomUser user)
     {
         if (user.GetClient()?.GetHabbo() is not { } habbo) return false;
-        user.LastInteraction = UnixTimestamp.GetNow();
-        return AtEntry(user, item) && TryEnter(item, user, habbo);
+        var now = clock.GetUtcNow();
+        user.LastInteractionAt = now;
+        return AtEntry(user, item) && TryEnter(item, user, habbo, now);
     }
 
     private static bool AtEntry(RoomUser user, Item item)
         => user.Coordinate == item.Coordinate || user.Coordinate == item.SquareInFront;
 
     // Fine. But is this tele even free?
-    private static bool TryEnter(Item item, RoomUser user, Plus.HabboHotel.Users.Habbo habbo)
+    private static bool TryEnter(Item item, RoomUser user, Plus.HabboHotel.Users.Habbo habbo, DateTimeOffset now)
     {
         if (item.InteractingUser != 0) return false;
         if (!user.CanWalk || habbo.IsTeleporting || habbo.TeleporterId != 0 ||
-            user.LastInteraction + 2 - UnixTimestamp.GetNow() < 0)
+            !IsInteractionCurrent(user.LastInteractionAt, now))
             return false;
         user.TeleDelay = 2;
         item.InteractingUser = user.GetClient().GetHabbo().Id;
         return true;
     }
+
+    internal static bool IsInteractionCurrent(DateTimeOffset? interactionAt, DateTimeOffset now)
+        => interactionAt is { } timestamp && now - timestamp <= TimeSpan.FromSeconds(2);
 
     public void OnWiredTrigger(Item item) { }
 }

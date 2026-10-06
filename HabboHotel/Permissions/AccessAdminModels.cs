@@ -41,7 +41,7 @@ public sealed class AccessMember
 {
     public int Id { get; set; }
     public string Username { get; set; } = "";
-    public int? ExpiresAt { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
 }
 public sealed record AccessMemberPage(int RoleId, int Offset, int Total, IReadOnlyList<AccessMember> Members);
 public sealed class AccessOverride
@@ -49,7 +49,7 @@ public sealed class AccessOverride
     public string Key { get; set; } = "";
     public string Effect { get; set; } = "";
     public string Reason { get; set; } = "";
-    public int? ExpiresAt { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
 }
 public sealed record AccessOverridePage(int UserId, string Username, IReadOnlyList<AccessOverride> Overrides);
 public sealed class AccessAuditEntry
