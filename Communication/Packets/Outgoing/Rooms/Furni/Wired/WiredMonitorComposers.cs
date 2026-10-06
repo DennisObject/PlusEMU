@@ -7,7 +7,7 @@ using Plus.HabboHotel.Rooms.Instance;
 namespace Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 
 /// <summary>
-/// The monitor tab. Usage is the busiest pass of the last window against the per-pass budget,
+/// The monitor tab. Usage is every execution in the last window against the per-pass budget,
 /// times are whole milliseconds per pass and recursion is the deepest chain. Plus has no heavy,
 /// overload or kill state, so heavy is false, killed is 0 and their six thresholds are 0.
 /// </summary>
@@ -18,7 +18,7 @@ public sealed class WiredMonitorDataComposer(WiredMonitorSnapshot snapshot) : IS
     public void Compose(IOutgoingPacket packet)
     {
         var engine = _captured.Engine;
-        packet.WriteInteger(engine.PeakExecutions);
+        packet.WriteInteger(engine.Executions);
         packet.WriteInteger(_captured.ExecutionsPerPass);
         packet.WriteBoolean(false);
         packet.WriteInteger(engine.Pending);
