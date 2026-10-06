@@ -57,14 +57,17 @@ public class InteractorGenericSwitch(IQuestManager quests, IRewardTrackManager r
         item.UpdateState();
     }
 
-    // v2 only: gate states are written through the per-gate sequencer.
+    // v2 only: gate states are written through the per-gate sequencer; a queued write reports its state change when it lands.
     private void ToggleSequenced(GameClient session, Item item, int modes)
     {
         var before = item.LegacyDataString;
+        var room = item.GetRoom();
+        var actor = room == null ? null : FurnitureStateEvents.Actor(room, session);
         GateTransitionService.ToggleState(item, current => NextMode(current, modes).ToString(), GateCloseReason.Click, afterWrite: changed =>
         {
             if (!string.Equals(before, changed.LegacyDataString, StringComparison.Ordinal))
                 rewards.Progress(session, RewardTrackActions.SwitchItemState);
+            if (room != null) FurnitureStateEvents.PublishFollowed(room, actor, changed);
         });
     }
 

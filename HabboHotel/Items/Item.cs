@@ -42,6 +42,9 @@ public class Item
     private long _stateGeneration;
     // Bumped when the stored state value changes and by every UpdateState; lets queued approach intents notice state changes that never reach a nav record.
     internal long StateGeneration => Volatile.Read(ref _stateGeneration);
+    private long _placement;
+    // Changes on every attach and detach, so writes from an earlier placement of this instance are never reported.
+    internal long Placement => Volatile.Read(ref _placement);
 
     public uint Id { get; set; }
     public bool IsTemporary { get; internal init; }
@@ -78,7 +81,7 @@ public class Item
         {
             if (!Volatile.Read(ref _navigationSynchronized))
             {
-                if (_extraData is LegacyDataFormat data) { var changed = data.Data != value; data.Data = value; if (changed) MarkInteractionStateChanged(); }
+                if (_extraData is LegacyDataFormat data) { var before = data.Data; var changed = before != value; data.Data = value; if (changed) { MarkInteractionStateChanged(); NoteStateWrite(); } }
                 return;
             }
             SetNavigationState(value);
@@ -94,9 +97,10 @@ public class Item
         {
             if (_extraData is LegacyDataFormat data)
             {
-                var different = data.Data != value;
+                var before = data.Data;
+                var different = before != value;
                 data.StoreWithoutNotification(value);
-                if (different) MarkInteractionStateChanged();
+                if (different) { MarkInteractionStateChanged(); NoteStateWrite(); }
                 changed = data;
             }
             if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
@@ -110,9 +114,10 @@ public class Item
         if (!Volatile.Read(ref _navigationSynchronized))
         {
             if (_extraData is not LegacyDataFormat plain) return null;
-            var different = plain.Data != value;
+            var before = plain.Data;
+            var different = before != value;
             plain.StoreWithoutNotification(value);
-            if (different) MarkInteractionStateChanged();
+            if (different) { MarkInteractionStateChanged(); NoteStateWrite(); }
             return plain;
         }
         LegacyDataFormat? changed = null;
@@ -120,9 +125,10 @@ public class Item
         {
             if (_extraData is LegacyDataFormat data)
             {
-                var different = data.Data != value;
+                var before = data.Data;
+                var different = before != value;
                 data.StoreWithoutNotification(value);
-                if (different) MarkInteractionStateChanged();
+                if (different) { MarkInteractionStateChanged(); NoteStateWrite(); }
                 changed = data;
             }
             if (NavigationInputs is { } inputs && NavItemRecord.StateRelevant(Definition)) inputs.PublishCurrent(this);
@@ -133,12 +139,23 @@ public class Item
     private void StoreExtraData(IFurniObjectData value)
     {
         var replaced = !ReferenceEquals(_extraData, value);
+        var previous = _extraData;
         _extraData = value;
-        if (replaced) MarkInteractionStateChanged();
+        if (!replaced) return;
+        MarkInteractionStateChanged();
+        // Only a legacy state replaced by another legacy state is a state change; format swaps are not.
+        if (previous is LegacyDataFormat before && value is LegacyDataFormat after
+            && !string.Equals(before.Data, after.Data, StringComparison.Ordinal)) NoteStateWrite();
     }
 
     // Store first, then bump: a click that captured the old generation can only be invalidated, never wrongly kept.
     private void MarkInteractionStateChanged() => Interlocked.Increment(ref _stateGeneration);
+
+    // Every actual legacy state write, for Wired to report once. Callers may hold NavSync: this only enqueues.
+    private void NoteStateWrite()
+    {
+        if (_room is { } room) FurnitureStateEvents.Record(room, this);
+    }
 
     /// TODO @80O: Cleanup shit below
     private Room? _room;
@@ -1289,6 +1306,7 @@ public class Item
         if (RoomId != room.RoomId) throw new InvalidOperationException("Item room id does not match the admitting room.");
         if (_room != null && !ReferenceEquals(_room, room)) throw new InvalidOperationException("Item is already attached to another room.");
         _room = room;
+        Interlocked.Increment(ref _placement);
         _interactionClock = room.InteractionClock;
         _interactors = interactors;
         _travelStore = travelStore;
@@ -1299,6 +1317,7 @@ public class Item
     {
         if (!ReferenceEquals(_room, room)) throw new InvalidOperationException("Item cannot be detached from a room that does not own it.");
         _room = null;
+        Interlocked.Increment(ref _placement);
         _interactionClock = null;
         _interactors = null;
         _travelStore = null;

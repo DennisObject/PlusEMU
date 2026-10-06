@@ -143,13 +143,23 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 (user, target, slide, fast, walkMode) => slide
                     ? _movement.MoveAvatar(context, user, target.GetX, target.GetY, true, walkMode)
                     : Teleport(context, user, target, fast),
-                (item, state) => { item.LegacyDataString = state; item.UpdateState(); _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }); },
-                (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height, blockOnUserCollision: true),
+                (item, state) =>
+                {
+                    var mark = FurnitureStateEvents.Mark();
+                    item.LegacyDataString = state; item.UpdateState();
+                    if (FurnitureStateEvents.TakeWriteSince(item, mark))
+                        _publish(new(WiredEventKind.StateChanged) { Actor = FurnitureStateEvents.Present(context.Room, context.Event.Actor), EventItem = item });
+                },
                 // v2 only: state toggles and snapshot restores go through the per-gate sequencer.
                 GateTransitionService.For(Instance) == null ? null : (item, nextState) => GateTransitionService.ToggleState(item, nextState, GateCloseReason.Wired,
-                    afterWrite: _ => _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }))
-                    is GateTransition.Applied or GateTransition.Queued);
-        var items = config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
+                    afterWrite: _ =>
+                    {
+                        // A queued write can land after the triggering user left: the change is still reported.
+                        if (FurnitureStateEvents.TakeFollowedWrite(item))
+                            _publish(new(WiredEventKind.StateChanged) { Actor = FurnitureStateEvents.Present(context.Room, context.Event.Actor), EventItem = item });
+                    }) is GateTransition.Applied or GateTransition.Queued);
+        // Reset timers always covers the whole room, unlimited, so it resolves its own targets.
+        var items = name != "wf_act_reset_timers" && config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
         var changed = false;
         switch (name)
         {
@@ -214,7 +224,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
             case "wf_act_move_to_dir":
                 _directions.Retain(context.Targets.AllFurni());
                 foreach (var item in items)
-                    changed |= _directions.MoveHeading(item, Param(config, 0), Param(config, 1), Param(config, 3) == 1,
+                    changed |= _directions.MoveHeading(item, Param(config, 0), HeadingTurnRule(Param(config, 1)), Param(config, 3) == 1,
                         (x, y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null),
                         (x, y) => context.Room.GetGameMap().ValidTile(x, y) ? context.Room.GetGameMap().GetRoomUsers(new(x, y)).ToArray() : [],
                         (furni, actor) => _publish(new(WiredEventKind.Collision) { Actor = actor, EventItem = furni }));
@@ -241,7 +251,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 return changed;
             case "wf_act_reset_timers":
                 context.Room.LastTimerResetAt = _clock.GetUtcNow();
-                context.Operations.ResetTimers(items); return true;
+                // The room timer belongs to the whole room; a furni limit add-on must not pick which timers restart.
+                context.Operations.ResetTimers(context.Targets.ResolveFurni(context, [], WiredSources.AllRoom, raw: true)); return true;
             case "wf_act_call_stacks": case "wf_act_neg_call_stacks":
                 return context.Operations.CallStacks(context, items.Where(item => item.GetX != Item.GetX || item.GetY != Item.GetY), IsNegative);
             case "wf_act_send_signal": case "wf_act_neg_send_signal":
@@ -279,6 +290,13 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
             default: throw new InvalidOperationException("Action has no executor.");
         }
     }
+
+    // The current editor orders Wait/right/left/back/random differently from Turbo's heading rules.
+    private static int HeadingTurnRule(int choice) => choice switch
+    {
+        0 => 6, 1 => 3, 2 => 1, 3 => 4, 4 => 2, 5 => 0, 6 => 5,
+        _ => throw new ArgumentOutOfRangeException(nameof(choice))
+    };
 
     private bool Teleport(WiredRuntimeContext context, RoomUser user, Item target, bool fast)
     {

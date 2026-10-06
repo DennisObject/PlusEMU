@@ -25,7 +25,6 @@ internal sealed partial class WiredStackEngine
     private readonly Dictionary<uint, (int X, int Y, double Z)> _runtimePositions = [];
     private int _fastWork;
     private Action<bool>? _fastWorkObserver;
-    private long _lastTimerPoll = -1;
     private int _timerCursor;
 
     public void BindRuntime(Room room, WiredTargetResolver targets, IWiredRuntimeOperations operations,
@@ -196,15 +195,16 @@ internal sealed partial class WiredStackEngine
 
     public void ResetTimers(IEnumerable<Item> targets) => Pass(() =>
     {
-        var visited = new HashSet<uint>();
+        // One instant for the whole reset, and each stack once however many of its boxes are targeted.
+        var now = _now();
+        var tiles = new HashSet<(int X, int Y)>();
         foreach (var target in targets)
         {
-            if (!_items.TryGetValue(target.Id, out var source) || !ReferenceEquals(source.Item, target)) continue;
-            foreach (var box in GetStack(source).Where(x => visited.Add(x.Item.Id)))
-            {
-                if (box is IWiredTimedTrigger timer) timer.Reset(_now());
-                else if (box is IWiredCycle cycle && IsKind(box, InteractionType.WiredTrigger)) cycle.TickCount = cycle.Delay;
-            }
+            if (!_items.TryGetValue(target.Id, out var source) || !ReferenceEquals(source.Item, target)
+                || !IsAttached(source) || !tiles.Add((source.Item.GetX, source.Item.GetY))) continue;
+            // The room timer only: repeaters, legacy ones included, keep their period (Turbo RoomWiredSystem.ResetTimers).
+            foreach (var box in GetStack(source))
+                if (box is IWiredTimedTrigger timer) timer.ResetElapsed(now);
         }
         return true;
     });
@@ -350,30 +350,27 @@ internal sealed partial class WiredStackEngine
             if (_dispatches.TryPeek(out var head) && ReferenceEquals(head, pending)) RemoveDispatchHead();
         }
         _pollExternal?.Invoke(now);
-        if (_lastTimerPoll < 0 || now - _lastTimerPoll >= 50)
+        // Every pass polls: the room paces passes, and each timer keeps its own deadlines.
+        WiredRuntimeContext? snapshot = null;
+        var timers = _items.Values.OfType<IWiredTimedTrigger>().Where(RuntimeSupported)
+            .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
+        for (var polled = 0; polled < timers.Length && !OutOfBudget(); polled++)
         {
-            _lastTimerPoll = now;
-            WiredRuntimeContext? snapshot = null;
-            var timers = _items.Values.OfType<IWiredTimedTrigger>().Where(RuntimeSupported)
-                .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
-            for (var polled = 0; polled < timers.Length && !OutOfBudget(); polled++)
+            _timerCursor %= timers.Length;
+            var timer = timers[_timerCursor];
+            _timerCursor = (_timerCursor + 1) % timers.Length;
+            if (!IsAttached(timer)) continue;
+            _remaining--;
+            try
             {
-                _timerCursor %= timers.Length;
-                var timer = timers[_timerCursor];
-                _timerCursor = (_timerCursor + 1) % timers.Length;
-                if (!IsAttached(timer)) continue;
-                _remaining--;
-                try
-                {
-                    if (timer.Poll(now) is not { } @event) continue;
-                    snapshot ??= CreateContext(@event, 0);
-                    var context = snapshot.Fork(@event, 0);
-                    context.Trigger = timer;
-                    SeedEvent(context);
-                    if (RunRuntimeStack(timer, context, null)) Flash(timer);
-                }
-                catch (Exception error) { _error(error); }
+                if (timer.Poll(now) is not { } @event) continue;
+                snapshot ??= CreateContext(@event, 0);
+                var context = snapshot.Fork(@event, 0);
+                context.Trigger = timer;
+                SeedEvent(context);
+                if (RunRuntimeStack(timer, context, null)) Flash(timer);
             }
+            catch (Exception error) { _error(error); }
         }
     }
 

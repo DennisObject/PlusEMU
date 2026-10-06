@@ -21,17 +21,21 @@ internal class RepeaterBox : IWiredItem, IWiredCycle
         set
         {
             _delay = value;
-            TickCount = value;
+            TickCount = TicksToWait;
         }
     }
 
     public int TickCount { get; set; }
 
+    // The room ticks every half second and fires the repeater on the tick that finds it at zero, so a delay of
+    // N half-seconds waits N - 1 ticks in between.
+    private int TicksToWait => Math.Max(0, _delay - 1);
+
     public bool OnCycle()
     {
         // The timer always resets, including a blocked stack; a failed condition does not
         // turn this into a trigger that polls on every room cycle.
-        TickCount = Delay;
+        TickCount = TicksToWait;
         var actors = Instance.GetRoomUserManager().GetRoomUsers()
             .Select(user => user?.GetClient()?.GetHabbo())
             .OfType<Plus.HabboHotel.Users.Habbo>()
@@ -53,7 +57,6 @@ internal class RepeaterBox : IWiredItem, IWiredCycle
         var unknown = packet.ReadInt();
         var delay = packet.ReadInt();
         Delay = delay;
-        TickCount = delay;
     }
 
     public bool Execute(params object[] @params) => true;

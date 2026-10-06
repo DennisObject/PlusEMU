@@ -1,5 +1,4 @@
 ﻿using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Interactor;
@@ -17,9 +16,12 @@ public class InteractorGate : IFurniInteractor
 
         if (GateTransitionService.For(item) != null)
         {
+            // The use itself is raised by the caller; a queued write reports its own state change when it lands.
             if (hasRights)
-                Toggle(item, GateCloseReason.Click,
-                    changed => changed.GetRoom().GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), changed));
+            {
+                var actor = FurnitureStateEvents.Actor(itemRoom, session);
+                Toggle(item, GateCloseReason.Click, changed => FurnitureStateEvents.PublishFollowed(itemRoom, actor, changed));
+            }
             return;
         }
         var modes = item.Definition.Modes - 1;
@@ -41,7 +43,6 @@ public class InteractorGate : IFurniInteractor
         item.LegacyDataString = newMode.ToString();
         item.UpdateState();
         itemRoom.GetGameMap().UpdateMapForItem(item);
-        itemRoom.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), item);
         //Item.GetRoom().GenerateMaps();
     }
 

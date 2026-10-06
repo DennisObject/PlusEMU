@@ -77,7 +77,9 @@ public sealed class WiredModernCondition : WiredModernBox
             case "wf_cnd_match_date": return WiredTimeConditions.MatchesDate(config, now);
             case "wf_cnd_date_rng_active": return WiredTimeConditions.MatchesRange(config, now);
             case "wf_cnd_time_less_than": case "wf_cnd_time_more_than":
-                var elapsed = context.Room.LastTimerResetAt is { } resetAt ? now.ToUniversalTime() - resetAt : TimeSpan.MaxValue;
+                // Like Turbo's room timer, the first elapsed check starts a shared epoch.
+                var resetAt = context.Room.LastTimerResetAt ??= now.ToUniversalTime();
+                var elapsed = now.ToUniversalTime() - resetAt;
                 return WiredTimeConditions.MatchesElapsed(config, Math.Max(0, (long)elapsed.TotalMilliseconds), name == "wf_cnd_time_more_than");
             case "wf_cnd_team_has_rank": case "wf_cnd_team_has_score":
                 var scores = context.Room.GetGameManager().Points;

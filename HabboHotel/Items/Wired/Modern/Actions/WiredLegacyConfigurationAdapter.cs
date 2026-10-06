@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Globalization;
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -40,7 +41,7 @@ public static class WiredLegacyConfigurationAdapter
                 parameters = [0, 0, 0, 1, 0]; break;
             case "wf_trg_says_something": parameters = [0, 1, original.BoolData ? 1 : 0]; break;
             case "wf_trg_enter_room": parameters = []; break;
-            case "wf_trg_periodically": parameters = [Math.Max(1, delay)]; text = ""; delay = 0; break;
+            case "wf_trg_periodically": parameters = [Math.Clamp(delay, 1, WiredTriggerConfiguration.MaxTimedUnits(descriptor.CanonicalName))]; text = ""; delay = 0; break;
             case "wf_trg_stuff_state": parameters = [0, source]; text = ""; break;
             case "wf_trg_walks_on_furni": case "wf_trg_walks_off_furni": parameters = [source]; text = ""; break;
             case "wf_trg_game_starts": case "wf_trg_game_ends": case "wf_trg_collision": parameters = []; text = ""; break;

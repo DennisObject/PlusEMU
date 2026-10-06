@@ -168,14 +168,12 @@ public partial class PlacedFurniRoomTests
     {
         var gate = ClosableGate(width: 2);
         ActorOn(new Point(0, 2));
-        var triggered = new List<uint>();
-        var observer = Furni(21, InteractionType.WiredTrigger, WiredBoxType.TriggerStateChanges);
-        observer.Definition.Height = 0; observer.Definition.Width = observer.Definition.Length = 1;
-        Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, observer, 3, 3, 0, true, false, false));
-        Assert.True(_room.GetWired().AddBox(new GateStateObserver(_room, observer, triggered)));
+        WatchState(gate);
         using (RoomOwnerScope.Enter(_room)) new InteractorGate().OnTrigger(_client, gate, 0, true);
+        _room.GetWired().OnFastCycle(); _room.GetWired().OnCycle();
         Assert.Equal("0", gate.LegacyDataString);
-        Assert.Equal(new[] { gate.Id }, triggered);
+        // The follow-up reports the written state; the use itself belongs to the caller.
+        Assert.Equal((0, 1), StateLines());
     }
 
     [Fact]
@@ -303,22 +301,6 @@ public partial class PlacedFurniRoomTests
         _room.GetGameMap().RemoveUserFromMap(user, gate.Coordinate);
         gate.ProcessUpdates(); gate.ProcessUpdates();
         Assert.Equal("0", gate.LegacyDataString);
-    }
-
-    private sealed class GateStateObserver(Room room, Item item, List<uint> seen) : IWiredItem
-    {
-        public Room Instance { get; set; } = room;
-        public Item Item { get; set; } = item;
-        public WiredBoxType Type => WiredBoxType.TriggerStateChanges;
-        public System.Collections.Concurrent.ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
-        public string StringData { get; set; } = "";
-        public bool BoolData { get; set; }
-        public string ItemsData { get; set; } = "";
-        public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
-        public bool Execute(params object[] arguments)
-        {
-            seen.Add(((Item)arguments[1]).Id); return false;
-        }
     }
 
     [Fact]

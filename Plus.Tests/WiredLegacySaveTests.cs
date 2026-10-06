@@ -29,8 +29,21 @@ public class WiredLegacySaveTests
         Assert.Empty(typedError);
         var packetCycle = Assert.IsAssignableFrom<IWiredCycle>(packetCandidate);
         var typedCycle = Assert.IsAssignableFrom<IWiredCycle>(typedCandidate);
-        Assert.Equal((9, 9), (packetCycle.Delay, packetCycle.TickCount));
+        // Nine half-seconds: the room fires it on the ninth tick, after waiting eight.
+        Assert.Equal((9, 8), (packetCycle.Delay, packetCycle.TickCount));
         Assert.Equal((packetCycle.Delay, packetCycle.TickCount), (typedCycle.Delay, typedCycle.TickCount));
+    }
+
+    [Theory]
+    [InlineData(0, false)]
+    [InlineData(1, true)]
+    [InlineData(120, true)]
+    [InlineData(121, false)]
+    public void LegacyRepeaterSavesOnlyItsEditorRange(int delay, bool accepted)
+    {
+        var original = new RepeaterBox(null!, new Item { Id = 7, Definition = new() }) { Delay = 3 };
+        Assert.Equal(accepted, WiredLegacySave.TryPrepare(original, Incoming(1, delay, "", 0, 0), WiredBoxCategory.Trigger,
+            source => new RepeaterBox(null!, source.Item), out _, out _));
     }
 
     [Theory]
