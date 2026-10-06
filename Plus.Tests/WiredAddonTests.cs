@@ -112,7 +112,7 @@ public sealed class WiredAddonTests
     [Theory]
     [InlineData(0, 2, 2, true)]
     [InlineData(1, 0, 2, false)]
-    [InlineData(2, 0, 2, false)]
+    [InlineData(2, 0, 2, true)]
     [InlineData(2, 1, 2, true)]
     [InlineData(2, 2, 2, false)]
     [InlineData(3, 0, 2, true)]
@@ -121,6 +121,27 @@ public sealed class WiredAddonTests
     [InlineData(6, 2, 2, true)]
     public void ConditionModesCountLogicalRequirements(int mode, int matched, int total, bool expected) =>
         Assert.Equal(expected, WiredConditionPolicyEvaluator.Matches((WiredConditionEvaluation)mode, matched, total, 1));
+
+    [Fact]
+    public void ConditionEvaluationAcceptsCountsUpToOneThousand()
+    {
+        Assert.Equal(1000, new WiredAddonModule("wf_xtra_or_eval", Config([6, 100, 1000])).Configuration.IntParams[2]);
+        Assert.Equal(1000, new WiredAddonModule("wf_xtra_or_eval", Config([6, 100, 5000])).Configuration.IntParams[2]);
+        Assert.Equal(0, new WiredAddonModule("wf_xtra_or_eval", Config([4, 100, 0])).Configuration.IntParams[2]);
+        Assert.True(WiredConditionPolicyEvaluator.Matches(WiredConditionEvaluation.Exactly, 1000, 1000, 1000));
+        Assert.False(WiredConditionPolicyEvaluator.Matches(WiredConditionEvaluation.MoreThan, 1000, 1000, 1000));
+    }
+
+    [Fact]
+    public void ConditionEvaluationScopeUsesTheWholePickedSelection()
+    {
+        var policy = new WiredAddonPolicy();
+        var limited = Input() with { ResolveFurni = (_, _) => [7] };
+        new WiredAddonModule("wf_xtra_or_eval", Config([1, 100, 1], [7, 8])).Apply(limited, policy);
+        Assert.Equal(new uint[] { 7, 8 }, policy.Conditions!.ConditionIds.Order());
+        new WiredAddonModule("wf_xtra_or_eval", Config([1, 100, 1])).Apply(Input(), policy);
+        Assert.Empty(policy.Conditions!.ConditionIds);
+    }
 
     [Fact]
     public void MovementScopesAreResolvedFromTheirSeparateSourceFields()

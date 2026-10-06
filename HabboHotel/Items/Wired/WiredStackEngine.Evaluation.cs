@@ -315,6 +315,12 @@ internal sealed partial class WiredStackEngine
         var conditions = stack.Where(x => IsKind(x, InteractionType.WiredCondition)).ToArray();
         var scoped = context.Policy.Addons.Conditions;
         var grouped = scoped == null ? [] : conditions.Where(c => scoped.ConditionIds.Contains(c.Item.Id)).ToArray();
+
+        // An evaluation add-on that selects none of this stack's conditions applies to all of them.
+        if (scoped != null && grouped.Length == 0) {
+            grouped = conditions;
+        }
+
         var ordinary = scoped == null ? conditions : conditions.Except(grouped).ToArray();
         var matched = 0;
 
