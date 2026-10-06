@@ -194,7 +194,7 @@ internal sealed partial class WiredStackEngine
 
             if (InvokeRuntime(trigger, context, () => context.Event.Kind == WiredEventKind.Speech
                     ? CaptureSpeech?.Invoke(context, trigger) ?? trigger.Execute(context) : trigger.Execute(context))) {
-                pending.Current = BeginFiring(trigger, context, pending.Signal?.Negative);
+                pending.Current = BeginFiring(trigger, context, pending.Signal?.Negative, trigger: trigger);
             }
             else {
                 CompleteDispatchSlot(pending);
@@ -202,11 +202,12 @@ internal sealed partial class WiredStackEngine
         }
     }
 
-    private RuntimeFiring BeginFiring(IWiredItem source, WiredRuntimeContext context, bool? negative, object[][]? actors = null)
+    private RuntimeFiring BeginFiring(IWiredItem source, WiredRuntimeContext context, bool? negative, object[][]? actors = null,
+        IWiredContextualTrigger? trigger = null)
     {
         var firing = new RuntimeFiring(source, GetStack(source), context, _now());
         context.Capture(firing.Stack);
-        firing.Steps = EvaluateFiring(firing, negative, actors).GetEnumerator();
+        firing.Steps = EvaluateFiring(firing, negative, actors, trigger).GetEnumerator();
 
         return firing;
     }
@@ -266,7 +267,8 @@ internal sealed partial class WiredStackEngine
         }
     }
 
-    private IEnumerable<EvaluationStep> EvaluateFiring(RuntimeFiring firing, bool? negative, object[][]? actors)
+    private IEnumerable<EvaluationStep> EvaluateFiring(RuntimeFiring firing, bool? negative, object[][]? actors,
+        IWiredContextualTrigger? trigger)
     {
         var context = firing.Context;
         var stack = firing.Stack;
@@ -310,6 +312,11 @@ internal sealed partial class WiredStackEngine
         if (context.SelectorKinds.HasFlag(WiredSelectionKind.Users)) {
             context.SelectorPool.UserIds.Clear();
             context.SelectorPool.UserIds.UnionWith(filtered.UserIds);
+        }
+
+        // A trigger reading the selector pool is matched against it here, before any condition or action runs.
+        if (trigger != null && !trigger.CanTrigger(context)) {
+            yield break;
         }
 
         var conditions = stack.Where(x => IsKind(x, InteractionType.WiredCondition)).ToArray();

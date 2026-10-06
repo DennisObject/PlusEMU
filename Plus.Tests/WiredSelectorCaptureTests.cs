@@ -6,6 +6,7 @@ using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Addons;
 using Plus.HabboHotel.Items.Wired.Modern.Selectors;
+using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Rooms;
@@ -141,6 +142,55 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         Assert.Empty(f.Errors);
     }
 
+    [Fact]
+    public void WalkOnFromSelectorMatchesTheFilledPoolAndKeepsTheTriggeringUserAndFurni()
+    {
+        var f = new Fixture();
+        var user = f.User(1);
+        var inside = f.Furni(x: 6);
+        var outside = f.Furni(x: 15);
+        f.ModernTrigger("wf_trg_walks_on_furni", new() { IntParams = [WiredSources.Selector] });
+        f.Selector("wf_slc_furni_area", new() { IntParams = [5, 0, 3, 1, 0, 0] });
+        var fired = new List<(uint[] Furni, RoomUser[] Users)>();
+        f.Action(ctx =>
+        {
+            fired.Add((ctx.Triggering.FurniIds.ToArray(), ctx.Targets.ResolveUsers(ctx, [], WiredSources.Trigger)));
+
+            return true;
+        });
+
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = inside }));
+        var (furni, users) = Assert.Single(fired);
+        Assert.Equal([inside.Id], furni);
+        Assert.Same(user, Assert.Single(users));
+
+        Assert.False(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = outside }));
+        Assert.Single(fired);
+        // The rejected firing left nothing pending: the next matching walk still fires.
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = inside }));
+        Assert.Equal(2, fired.Count);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void WalkOnFromPicksStillRejectsOtherFurniBeforeRunningSelectors()
+    {
+        var f = new Fixture();
+        var user = f.User(1);
+        var picked = f.Furni(x: 6);
+        var other = f.Furni(x: 7);
+        f.ModernTrigger("wf_trg_walks_on_furni", new() { IntParams = [WiredSources.Selected], SelectedItems = [picked.Id] });
+        f.Selector("wf_slc_furni_area", new() { IntParams = [5, 0, 3, 1, 0, 0] });
+        var fired = 0;
+        f.Action(_ => { fired++; return true; });
+
+        Assert.False(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = other }));
+        Assert.Equal(0, f.WorldCaptures);
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = picked }));
+        Assert.Equal(1, fired);
+        Assert.Empty(f.Errors);
+    }
+
     private static WiredConfiguration Configuration(string name) => name switch
     {
         "wf_slc_users_area" or "wf_slc_furni_area" => new() { IntParams = [0, 0, 20, 20, 0, 0] },
@@ -206,6 +256,13 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
             return user;
         }
         public void Trigger() => Add(new Trigger { Item = Furni(), Instance = Room });
+        public void ModernTrigger(string name, WiredConfiguration c)
+        {
+            Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
+            var box = new WiredModernTrigger(Room, Furni(name), descriptor);
+            Configure(box, c);
+            Add(box);
+        }
         public void Action(Func<WiredRuntimeContext, bool> body, int delay = 0) => Add(new Box(WiredBoxCategory.Action)
         { Item = Furni(), Instance = Room, Body = body, Configuration = new() { Delay = delay } });
         public IWiredContextualSelector Selector(string name, WiredConfiguration c, int x = 0)
