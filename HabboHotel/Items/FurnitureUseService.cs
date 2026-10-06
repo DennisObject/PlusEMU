@@ -71,8 +71,9 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
         var actor = FurnitureStateEvents.Actor(room, session);
         var before = item.LegacyDataString;
         item.Interactor.OnTrigger(session, item, request.Parameter, room.CheckRights(session, false, true));
-        room.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), item);
+        // The write is reported before the use runs its stacks, which may write the state again.
         FurnitureStateEvents.PublishIfChanged(room, actor, item, before);
+        room.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), item);
         quests.ProgressUserQuest(session, QuestType.ExploreFindItem, (int)item.Definition.Id);
     }
 
@@ -129,8 +130,8 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
         var actor = FurnitureStateEvents.Actor(room, session);
         var before = item.LegacyDataString;
         item.Interactor.OnTrigger(session, item, request.Parameter, hasRights);
-        if (toggle) room.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, habbo, item);
         FurnitureStateEvents.PublishIfChanged(room, actor, item, before);
+        if (toggle) room.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, habbo, item);
         quests.ProgressUserQuest(session, QuestType.ExploreFindItem, (int)item.Definition.Id);
     }
 }

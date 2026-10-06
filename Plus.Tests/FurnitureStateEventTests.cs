@@ -27,6 +27,22 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
+    public void ManualChangeIsReportedEvenWhenTheUseStackTogglesItBack()
+    {
+        var lamp = Toggle(30);
+        WatchState(lamp);
+        var revert = WiredBox(106, "wf_act_toggle_state", 2, 0); // joins the stuff_state stack
+        Assert.True(revert.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [lamp.Id] }, out var config, out var error), error);
+        revert.ApplyConfiguration(config); Assert.True(_room.GetWired().AddBox(revert));
+        Viewer(0, 0);
+
+        UseItem(lamp);
+
+        Assert.Equal("0", lamp.LegacyDataString);
+        Assert.Equal((1, 2), StateLines()); // the user's write and the effect's write back
+    }
+
+    [Fact]
     public void UseWithoutRightsRaisesTheUseButNoStateChange()
     {
         var lamp = Toggle(30);
