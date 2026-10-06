@@ -22,7 +22,7 @@ public sealed class WiredMovementActions
 
     public bool Execute(string name, WiredConfiguration configuration, IReadOnlyList<Item> movers,
         IReadOnlyList<Item> targets, IReadOnlyList<RoomUser> users,
-        MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState, MoveFurniture? moveBlockingUsers = null,
+        MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState,
         Func<Item, Func<string, string?>, bool>? toggleState = null)
     {
         if (!WiredMovementConfiguration.TryValidate(name, configuration, out configuration, out _))
@@ -54,13 +54,11 @@ public sealed class WiredMovementActions
                     var offset = WiredRoomOperations.Offset(direction);
                     var rotation = Param(1) switch
                     {
-                        1 => (item.Rotation + 1) % 8, 2 => (item.Rotation + 2) % 8,
-                        3 => (item.Rotation + 7) % 8, 4 => (item.Rotation + 6) % 8,
-                        5 => (item.Rotation + 4) % 8,
+                        2 => (item.Rotation + 2) % 8, 4 => (item.Rotation + 6) % 8,
                         6 => (item.Rotation + Random.Shared.Next(1, 8)) % 8,
                         _ => item.Rotation
                     };
-                    affected |= (Param(3) == 1 ? moveBlockingUsers ?? move : move)(item, item.GetX + offset.X, item.GetY + offset.Y, rotation, null);
+                    affected |= move(item, item.GetX + offset.X, item.GetY + offset.Y, rotation, null);
                 }
                 break;
             case "wf_act_move_furni_as_group":

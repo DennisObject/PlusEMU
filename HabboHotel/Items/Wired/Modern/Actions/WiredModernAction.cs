@@ -144,7 +144,6 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                     ? _movement.MoveAvatar(context, user, target.GetX, target.GetY, true, walkMode)
                     : Teleport(context, user, target, fast),
                 (item, state) => { item.LegacyDataString = state; item.UpdateState(); _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }); },
-                (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height, blockOnUserCollision: true),
                 // v2 only: state toggles and snapshot restores go through the per-gate sequencer.
                 GateTransitionService.For(Instance) == null ? null : (item, nextState) => GateTransitionService.ToggleState(item, nextState, GateCloseReason.Wired,
                     afterWrite: _ => _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }))

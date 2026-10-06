@@ -20,7 +20,7 @@ public static class WiredMovementConfiguration
         var p = stored.IntParams;
         var movement = Array.IndexOf(EditorMovement, p[0]);
         var rotation = Array.IndexOf(EditorRotation, p[1]);
-        // Runtime-only turns and the user-blocking flag have no editor control; send those settings as stored.
+        // Validation admits only values the editor can show; anything else is sent as stored.
         if (movement < 0 || rotation < 0 || p[3] != 0)
             return stored;
         return stored with { IntParams = [movement, rotation, p[2]] };
@@ -61,10 +61,13 @@ public static class WiredMovementConfiguration
                 furni["movers"] = p[1];
                 break;
             case "wf_act_move_rotate":
-                if (p.Length is not (3 or 4) || !Range(0, -1, p.Length == 3 ? 11 : 10) || !Source(2)
-                    || !Range(1, 0, p.Length == 3 ? 3 : 6) || p.Length == 4 && !Range(3, 0, 1)) return false;
+                // Stored form is [direction, turn, source, 0]; it holds only what the three-field editor can show.
+                if (p.Length == 3 ? !Range(0, -1, 11) || !Range(1, -1, 3)
+                    : p.Length != 4 || !Range(0, -1, 10) || !EditorRotation.Contains(p[1]) || p[3] != 0) return false;
+                if (!Source(2)) return false;
+                // Rows saved before the stored form could hold rotation -1 (none picked), which always meant no rotation.
                 if (p.Length == 3)
-                    proposed = proposed with { IntParams = [p[0] < 0 ? -1 : EditorMovement[p[0]], EditorRotation[p[1]], p[2], 0] };
+                    proposed = proposed with { IntParams = [p[0] < 0 ? -1 : EditorMovement[p[0]], p[1] < 0 ? 0 : EditorRotation[p[1]], p[2], 0] };
                 furni["movers"] = p[2];
                 break;
             case "wf_act_move_furni_as_group":

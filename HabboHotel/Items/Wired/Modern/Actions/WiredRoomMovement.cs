@@ -8,12 +8,10 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 /// <summary>Mutates the actual room and emits the active renderer's animation format.</summary>
 public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition)
 {
-    public bool MoveFurniture(WiredRuntimeContext context, Item item, int x, int y, int rotation, double? height, bool blockOnUserCollision = false)
+    public bool MoveFurniture(WiredRuntimeContext context, Item item, int x, int y, int rotation, double? height)
     {
         var policy = context.Policy.Addons;
         var room = context.Room;
-        if (blockOnUserCollision && WiredRoomOperations.Footprint(item, x, y, rotation)
-            .Any(point => room.GetGameMap().GetRoomUsers(point).Count > 0)) return false;
         var source = Furniture(item);
         var targetHeight = height ?? room.GetGameMap().Model.SqFloorHeight[Math.Clamp(x, 0, room.GetGameMap().Model.MapSizeX - 1), Math.Clamp(y, 0, room.GetGameMap().Model.MapSizeY - 1)];
         var options = WiredMovementPolicy.Resolve(policy, source, x, y, targetHeight, rotation, explicitHeight: height.HasValue);

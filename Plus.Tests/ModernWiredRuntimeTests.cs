@@ -630,7 +630,7 @@ public class ModernWiredRuntimeTests
     [Theory]
     [InlineData(0, 0, -1)] [InlineData(1, 1, -1)] [InlineData(2, 1, 0)] [InlineData(3, 1, 1)]
     [InlineData(4, 0, 1)] [InlineData(5, -1, 1)] [InlineData(6, -1, 0)] [InlineData(7, -1, -1)]
-    public void CurrentFourFieldMoveEditorUsesActualDirectionGrid(int direction, int dx, int dy)
+    public void StoredMoveDirectionsUseActualDirectionGrid(int direction, int dx, int dy)
     {
         var item = MakeItem(1, "test"); var moved = Point.Empty;
         Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [direction, 0, 100, 0] }, [item], [], [],
@@ -639,13 +639,12 @@ public class ModernWiredRuntimeTests
     }
 
     [Theory]
-    [InlineData(0, 0)] [InlineData(1, 1)] [InlineData(2, 2)] [InlineData(3, 7)] [InlineData(4, 6)] [InlineData(5, 4)]
-    public void CurrentFourFieldMoveEditorUsesActualTurnLabels(int option, int expected)
+    [InlineData(0, 0)] [InlineData(2, 2)] [InlineData(4, 6)]
+    public void StoredMoveTurnsRotateAsTheEditorLabels(int turn, int expected)
     {
-        var item = MakeItem(1, "test"); var rotation = -1;
-        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [-1, option, 100, 1] }, [item], [], [],
-            (_, _, _, _, _) => throw new Exception("Flag must select occupied-user blocking path"), (_, _, _, _, _) => false, (_, _) => { },
-            (_, _, _, value, _) => { rotation = value; return true; }));
+        var item = MakeItem(1, "test"); item.Rotation = 0; var rotation = -1;
+        Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [-1, turn, 100, 0] }, [item], [], [],
+            (_, _, _, value, _) => { rotation = value; return true; }, (_, _, _, _, _) => false, (_, _) => { }));
         Assert.Equal(expected, rotation);
     }
 
@@ -701,14 +700,54 @@ public class ModernWiredRuntimeTests
             }
     }
 
+    [Fact]
+    public void FreshMoveRotateOpensAsNoMovementAndKeepsThatOnUnchangedSave()
+    {
+        var (room, _, _) = World();
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+        var box = Assert.IsType<WiredModernAction>(wired.CreateConfiguredBox(MakeItem(100, "wf_act_move_rotate")));
+        Assert.Equal(new[] { -1, 0, 100, 0 }, box.Configuration.IntParams);
+        var editor = EditorFields(WiredEditorSnapshot.Capture(box));
+        Assert.Equal(new[] { 0, 0, 100 }, editor.Ints);
+        Assert.True(WiredConfigurationSave.TrySave(box, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out var error), error);
+        Assert.Equal(new[] { -1, 0, 100, 0 }, box.Configuration.IntParams);
+    }
+
     [Theory]
-    [InlineData(0, 1, 0)] [InlineData(0, 3, 0)] [InlineData(0, 5, 0)] [InlineData(0, 0, 1)] [InlineData(2, 6, 1)]
-    public void MoveRotateSettingsWithoutAnEditorControlReopenAsStored(int direction, int turn, int blocking)
+    [InlineData(6, -1, 0, 0, 6, 0)] [InlineData(-1, -1, -1, 0, 0, 0)] [InlineData(0, 2, -1, 4, 0, 2)] [InlineData(4, 3, 4, 6, 4, 3)]
+    public void SavedThreeFieldRowsLoadAsTheSameMoveAndReopenInEditorOrder(int movement, int rotation, int direction, int turn, int shownMovement, int shownRotation)
     {
         var (room, _, _) = World();
         var box = ActionBox(room, "wf_act_move_rotate");
-        Assert.True(WiredConfigurationSave.TrySave(box, SavePacket([direction, turn, 100, blocking], [8], 0), TestWiredConfigurationStore.Instance, out var error), error);
-        Assert.Equal(new[] { direction, turn, 100, blocking }, EditorFields(WiredEditorSnapshot.Capture(box)).Ints);
+        Assert.Same(box, WiredBoxLoading.Select(null, box, new() { IntParams = [movement, rotation, 100], SelectedItems = [8], Delay = 2 }));
+        var loaded = box.Configuration;
+        Assert.Equal(new[] { direction, turn, 100, 0 }, loaded.IntParams);
+        var editor = EditorFields(WiredEditorSnapshot.Capture(box));
+        Assert.Equal(new[] { shownMovement, shownRotation, 100 }, editor.Ints);
+        Assert.True(WiredConfigurationSave.TrySave(box, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out var error), error);
+        Assert.Equal(loaded.IntParams.AsEnumerable(), box.Configuration.IntParams);
+        Assert.Equal(new uint[] { 8 }, box.Configuration.SelectedItems);
+        Assert.Equal(2, box.Configuration.Delay);
+    }
+
+    [Theory]
+    [InlineData(new[] { 0, 1, 100, 0 })] [InlineData(new[] { 0, 3, 100, 0 })] [InlineData(new[] { 0, 5, 100, 0 })]
+    [InlineData(new[] { 0, 0, 100, 1 })] [InlineData(new[] { 11, 0, 100, 0 })] [InlineData(new[] { 0, 7, 100, 0 })]
+    [InlineData(new[] { 12, 0, 100 })] [InlineData(new[] { 0, 4, 100 })] [InlineData(new[] { 0, -2, 100 })] [InlineData(new[] { 0, 0 })]
+    public void MoveRotateRejectsSettingsTheEditorCannotShow(int[] ints)
+    {
+        var (room, _, _) = World();
+        var box = ActionBox(room, "wf_act_move_rotate");
+        Assert.True(WiredConfigurationSave.TrySave(box, SavePacket([5, 1, 100], [8], 0), TestWiredConfigurationStore.Instance, out var error), error);
+        var saved = box.Configuration;
+        Assert.False(WiredConfigurationSave.TrySave(box, SavePacket(ints, [8], 0), TestWiredConfigurationStore.Instance, out _));
+        Assert.Same(saved, box.Configuration);
+        Assert.Equal(new[] { 5, 1, 100 }, EditorFields(WiredEditorSnapshot.Capture(box)).Ints);
+        // A stored row like this fails to load as any invalid row does, and never runs.
+        var stored = saved with { IntParams = [.. ints] };
+        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, ActionBox(room, "wf_act_move_rotate"), stored));
+        Assert.False(new WiredMovementActions().Execute("wf_act_move_rotate", stored, [MakeItem(1, "test")], [], [],
+            (_, _, _, _, _) => throw new Exception(), (_, _, _, _, _) => throw new Exception(), (_, _) => throw new Exception()));
     }
 
     private static WiredConfiguration SavePacket(int[] ints, uint[] selected, int delay)
@@ -731,17 +770,6 @@ public class ModernWiredRuntimeTests
         Assert.Equal(4, (int)fields[at + 1]);
         Assert.Equal(at + 4, fields.Count);
         return (ints, selected, (int)fields[at + 2]);
-    }
-
-    [Fact]
-    public void CurrentMoveCollisionFlagOverridesScopedThroughUsersInActualRoom()
-    {
-        var (room, map, items) = World(); var mover = MakeItem(1, "test"); items[1] = mover; map.AddToMap(mover);
-        var occupant = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 1 }; map.AddUserToMap(occupant, new(1, 1));
-        var context = Context(room, new(WiredEventKind.Enter), [mover], [occupant]);
-        context.Policy.Addons.Physics = new(false, new HashSet<uint>(), new HashSet<int> { 7 }, new HashSet<uint>());
-        Assert.False(new WiredRoomMovement((_, _, _) => { }).MoveFurniture(context, mover, 1, 1, 0, null, blockOnUserCollision: true));
-        Assert.Equal(Point.Empty, mover.Coordinate);
     }
 
     [Fact]
