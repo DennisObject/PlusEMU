@@ -6,6 +6,8 @@ using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Users.Inventory.Furniture;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Subscriptions;
 using Plus.HabboHotel.Users;
@@ -69,6 +71,10 @@ public sealed class CatalogBrowsingSnapshotTests
         await new GetCatalogPageEvent(service).Parse(null!, page);
         await new GetCatalogIndexEvent(service).Parse(null!, index);
         await new GetCatalogModeEvent(service).Parse(null!, mode);
+        var offer = HabbiconTestSupport.Incoming(44);
+        await new GetClubOffersEvent(service).Parse(null!, offer);
+        Assert.Equal(44, service.OfferId);
+        Assert.False(offer.HasDataRemaining());
         Assert.Equal("pet", service.Type);
         Assert.True(service.PromotableRequested);
         Assert.Equal(new CatalogPageRequest(12, 34, "BUILDERS_CLUB"), service.PageRequest);
@@ -168,6 +174,47 @@ public sealed class CatalogBrowsingSnapshotTests
             sent.Select(packet => packet.Header));
     }
 
+    [Fact]
+    public void OfferBrowsingCapturesOnlyAnOfferAllowedByTheCanonicalCatalog()
+    {
+        var item = new CatalogItem { Id = 1, OfferId = 44, Amount = 1,
+            Definition = new ItemDefinition { ItemName = "chair", SpriteId = 3, Type = ItemType.Floor } };
+        var found = true;
+        var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
+        var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, args) =>
+        {
+            Assert.Equal(nameof(ICatalogManager.TryGetOffer), method);
+            Assert.Equal(44, args[0]);
+            Assert.Same(client.GetHabbo(), args[1]);
+            args[2] = found ? new CatalogPage() : null;
+            args[3] = found ? item : null;
+            return found;
+        });
+        var snapshots = new RecordingSnapshots(CatalogSnapshotTestSupport.Snapshots());
+        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, null!, snapshots);
+
+        service.ShowOffer(client, 44);
+
+        Assert.Equal(1, snapshots.OfferCaptures);
+        Assert.Equal(ServerPacketHeader.CatalogOfferComposer, Assert.Single(sent).Header);
+        var (expectedClient, expectedSent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
+        expectedClient.Send(new CatalogOfferComposer(CatalogSnapshotTestSupport.Snapshots().CaptureOffer(item)));
+        Assert.Equal(expectedSent[0].Payload, sent[0].Payload);
+
+        found = false;
+        service.ShowOffer(client, 44);
+        Assert.Equal(1, snapshots.OfferCaptures);
+        Assert.Single(sent);
+    }
+
+    [Fact]
+    public async Task OfferHandlerDoesNotDelegateATruncatedIdentifier()
+    {
+        var service = new RecordingBrowsing();
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new GetClubOffersEvent(service).Parse(null!, HabbiconTestSupport.Incoming()));
+        Assert.Null(service.OfferId);
+    }
+
     private static bool TryPage(object?[] args, CatalogPage? page)
     {
         args[1] = page;
@@ -196,6 +243,8 @@ public sealed class CatalogBrowsingSnapshotTests
         public bool PromotableRequested { get; private set; }
         public CatalogPageRequest? PageRequest { get; private set; }
         public List<string> Modes { get; } = [];
+        public int? OfferId { get; private set; }
+        public void ShowOffer(GameClient session, int offerId) => OfferId = offerId;
         public void ShowPetPalettes(GameClient session, string type) => Type = type;
         public void ShowPromotableRooms(GameClient session) => PromotableRequested = true;
         public void ShowPage(GameClient session, CatalogPageRequest request) => PageRequest = request;
@@ -207,7 +256,8 @@ public sealed class CatalogBrowsingSnapshotTests
     {
         public List<int> PageOffers { get; } = [];
         public int IndexCaptures { get; private set; }
-        public CatalogOfferSnapshot CaptureOffer(CatalogItem item) => inner.CaptureOffer(item);
+        public int OfferCaptures { get; private set; }
+        public CatalogOfferSnapshot CaptureOffer(CatalogItem item) { OfferCaptures++; return inner.CaptureOffer(item); }
         public CatalogPageSnapshot CapturePage(CatalogPage page, int preselectOfferId)
         {
             PageOffers.Add(preselectOfferId);

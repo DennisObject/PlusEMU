@@ -39,33 +39,16 @@ public class HabboMessenger
         return null;
     }
 
-    public FriendRequestError? SendFriendRequest(int toId)
-    {
-        if (_outstandingFriendRequests.Contains(toId))
-            return FriendRequestError.AlreadyOutstandingFriendRequest;
-        if (_requests.ContainsKey(toId))
-            return AcceptFriendRequest(toId);
-        FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Sent, new() { ToId = toId }));
-        return null;
-    }
-
     public Func<int> FriendLimit { get; set; } = () => 300;
 
-    public FriendRequestError? AcceptFriendRequest(int fromId)
-    {
-        if (_friends.Count >= FriendLimit()) return FriendRequestError.FriendLimitReached;
-        if (!_requests.TryRemove(fromId, out var request))
-            return FriendRequestError.NoFriendRequest;
-        FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Accepted, request));
-        return null;
-    }
+    // Called only after the request has been consumed in storage; no persistence event is raised.
+    public void RemoveRequest(int fromId) => _requests.TryRemove(fromId, out _);
 
-    public FriendRequestError? DeclineFriendRequest(int fromId)
+    // Called only after the outgoing request has been stored; refusals were decided before the store, so this only records and publishes.
+    public void RecordOutgoingFriendRequest(int toId)
     {
-        if (!_requests.TryRemove(fromId, out var request))
-            return FriendRequestError.NoFriendRequest;
-        FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Declined, request));
-        return null;
+        if (!_outstandingFriendRequests.Contains(toId)) _outstandingFriendRequests.Add(toId);
+        FriendRequestUpdated?.Invoke(this, new(FriendRequestModificationType.Sent, new() { ToId = toId }));
     }
 
     public void ReceiveRoomInvite(MessengerBuddy friend, string message)

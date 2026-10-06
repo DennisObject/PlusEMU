@@ -308,9 +308,31 @@ public sealed class MessengerCommunicationServiceTests
         }
 
         public MessengerCommunicationService ServiceWithRealOutput() =>
-            new(Filter, LoaderProxy(), Quests, Rewards, new MessengerCommunicationOutput());
+            new(Filter, LoaderProxy(), Quests, Rewards, new MessengerCommunicationOutput(), Friends);
 
-        public MessengerCommunicationService Service() => new(Filter, LoaderProxy(), Quests, Rewards, Output);
+        public MessengerCommunicationService Service() => new(Filter, LoaderProxy(), Quests, Rewards, Output, Friends);
+
+        // Memory-only stand-in for the persisted workflow: these tests check reward and quest ordering around the result.
+        public readonly MemoryFriendMutations Friends = new();
+
+        public sealed class MemoryFriendMutations : IMessengerFriendMutationService
+        {
+            public Task<FriendRequestError?> AcceptRequestAsync(Habbo habbo, int fromId)
+            {
+                habbo.Messenger.RemoveRequest(fromId);
+                return Task.FromResult<FriendRequestError?>(null);
+            }
+            public Task<FriendRequestError?> DeclineRequestAsync(Habbo habbo, int fromId) => throw new NotSupportedException();
+            public Task DeclineAllRequestsAsync(Habbo habbo) => throw new NotSupportedException();
+            public async Task<FriendRequestOutcome> SendRequestAsync(Habbo habbo, int toId)
+            {
+                if (habbo.Messenger.Requests.ContainsKey(toId)) return new(await AcceptRequestAsync(habbo, toId), Accepted: true);
+                if (habbo.Messenger.OutstandingFriendRequests.Contains(toId)) return new(FriendRequestError.AlreadyOutstandingFriendRequest);
+                habbo.Messenger.RecordOutgoingFriendRequest(toId);
+                return new(null);
+            }
+            public Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds) => throw new NotSupportedException();
+        }
 
         private IMessengerDataLoader LoaderProxy()
         {

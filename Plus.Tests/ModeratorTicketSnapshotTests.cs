@@ -5,6 +5,10 @@ using Plus.Communication.Packets.Incoming.Moderation;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
+using Plus.HabboHotel.Rooms;
+using Plus.Communication.Flash;
+using Plus.Communication.Packets.Outgoing;
+using Microsoft.IO;
 using Plus.HabboHotel.Users;
 using Xunit;
 
@@ -54,13 +58,48 @@ public sealed class ModeratorTicketSnapshotTests
         Assert.Equal(expected, ModeratorTicketService.Capture(ticket, 3, Now).AgeMilliseconds);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ChatlogsUseCanonicalRoomDataAndRefuseMissingRooms(bool exists)
+    {
+        var ticket = Ticket();
+        ticket.Room = new RoomData { Id = 42, Name = "stale" };
+        var manager = Proxy<IModerationManager>((method, args) =>
+        {
+            Assert.Equal("TryGetTicket", method);
+            args[1] = ticket;
+            return true;
+        });
+        var rooms = Proxy<IRoomDataLoader>((method, args) =>
+        {
+            Assert.Equal("TryGetData", method);
+            Assert.Equal(42u, args[0]);
+            args[1] = exists ? new RoomData { Id = 42, Name = "current" } : null;
+            return exists;
+        });
+        var (actor, sent) = HabbiconTestSupport.Client(ticket.Moderator!);
+        var service = new ModeratorTicketService(manager, null!, null!, new FailingStore(), TimeProvider.System, rooms);
+
+        service.SendChatlogs(actor, ticket.Id);
+
+        if (!exists) { Assert.Empty(sent); return; }
+        var actual = Assert.Single(sent);
+        using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
+        var expected = new FlashOutgoingPacket(stream);
+        new ModeratorTicketChatlogComposer(new(ticket.Id, ticket.Sender.Id, ticket.Reported!.Id,
+            42, "current", ticket.CreatedAt, ticket.Reported.Username, ["chat"])).Compose(expected);
+        Assert.Equal(ServerPacketHeader.ModeratorTicketChatlogComposer, actual.Header);
+        Assert.Equal(stream.GetBuffer().AsSpan(6, checked((int)stream.Length - 6)).ToArray(), actual.Payload);
+    }
+
     [Fact]
     public void FailedAbusePersistenceCannotCloseTicketOrSendResponse()
     {
         var ticket = Ticket();
         var manager = Proxy<IModerationManager>((method, args) => { Assert.Equal("TryGetTicket", method); args[1] = ticket; return true; });
         var (actor, sent) = HabbiconTestSupport.Client(ticket.Moderator!);
-        var service = new ModeratorTicketService(manager, null!, null!, new FailingStore(), TimeProvider.System);
+        var service = new ModeratorTicketService(manager, null!, null!, new FailingStore(), TimeProvider.System, null!);
         Assert.Throws<InvalidOperationException>(() => service.Close(actor, 10, SupportTicketResult.Abusive));
         Assert.False(ticket.Answered); Assert.Empty(sent);
         ticket.Moderator = null;
@@ -73,7 +112,7 @@ public sealed class ModeratorTicketSnapshotTests
     {
         var manager = Proxy<IModerationManager>((method, _) => method == "UserHasTickets" ? false : throw new InvalidOperationException("unexpected publication"));
         var users = Proxy<IModeratorUserLookup>((_, _) => new Habbo { Id = 2 });
-        var service = new ModeratorTicketService(manager, null!, users, new FailingStore(), TimeProvider.System);
+        var service = new ModeratorTicketService(manager, null!, users, new FailingStore(), TimeProvider.System, null!);
         var (actor, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1 });
         Assert.Throws<InvalidOperationException>(() => service.Submit(actor, new(" help ", 6, 2, 5, ["chat"])));
         Assert.Empty(sent);

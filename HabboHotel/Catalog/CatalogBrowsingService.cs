@@ -24,6 +24,7 @@ public interface ICatalogBrowsingService
     void ShowPage(GameClient session, CatalogPageRequest request);
     void ShowIndex(GameClient session, string mode);
     void ShowMode(GameClient session, string mode);
+    void ShowOffer(GameClient session, int offerId);
 }
 
 public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManager races, IRoomDataLoader rooms,
@@ -60,6 +61,12 @@ public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManag
 
     public void ShowMode(GameClient session, string mode) =>
         session.Send(new CatalogIndexComposer(snapshots.CaptureIndex(session.GetHabbo(), catalog.Pages)));
+
+    public void ShowOffer(GameClient session, int offerId)
+    {
+        if (catalog.TryGetOffer(offerId, session.GetHabbo(), out _, out var item))
+            session.Send(new CatalogOfferComposer(snapshots.CaptureOffer(item)));
+    }
 
     internal ImmutableArray<PromotableRoomSnapshot> CapturePromotableRooms(int ownerId)
     {

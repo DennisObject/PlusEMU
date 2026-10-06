@@ -27,7 +27,7 @@ public sealed class UserPreferencePersistenceTests
     {
         var user = new Habbo { Id = 7, HomeRoom = 20, ChatPreference = false, ClientVolume = [20,30,40] };
         var (session, sent) = HabbiconTestSupport.Client(user);
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
         var navigator = new NavigatorManager(new FailingDatabase(), TestLogging.For<NavigatorManager>(), new Rooms());
         await Assert.ThrowsAsync<InvalidOperationException>(() => new SetChatPreferenceEvent(profiles).Parse(session, HabbiconTestSupport.Incoming(true)));
         await Assert.ThrowsAsync<InvalidOperationException>(() => new UpdateNavigatorSettingsEvent(navigator).Parse(session, HabbiconTestSupport.Incoming(42)));
@@ -48,7 +48,7 @@ public sealed class UserPreferencePersistenceTests
         var user = new Habbo { Id = 7, CustomBubbleId = 3, Access = UserAccess.Empty };
         var (session, sent) = HabbiconTestSupport.Client(user);
         var styles = new Styles(new ChatStyle(7, "Restricted", "chat.style.special"));
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, styles);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, styles, null!, null!);
 
         await profiles.SetChatStylePreference(session, bubbleId);
 
@@ -61,7 +61,7 @@ public sealed class UserPreferencePersistenceTests
     {
         var user = new Habbo { Id = 7, CustomBubbleId = 3 };
         var (session, sent) = HabbiconTestSupport.Client(user);
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => profiles.SetChatStylePreference(session, 0));
 
@@ -76,7 +76,7 @@ public sealed class UserPreferencePersistenceTests
             Persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((_, _) => null) };
         var (session, sent) = HabbiconTestSupport.Client(user);
         user.Save();
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
 
         await profiles.SetChatStylePreference(session, 0);
 
@@ -115,7 +115,7 @@ public sealed class UserPreferencePersistenceTests
                 Persistence = new UserPersistenceService(database, TimeProvider.System) };
             var (session, sent) = HabbiconTestSupport.Client(user);
             var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System,
-                new Styles(new ChatStyle(5, "Public", "")));
+                new Styles(new ChatStyle(5, "Public", "")), null!, null!);
             using var enteredWrite = new ManualResetEventSlim();
             using var releaseWrite = new ManualResetEventSlim();
             using var startedSave = new ManualResetEventSlim();
@@ -165,7 +165,7 @@ public sealed class UserPreferencePersistenceTests
         var user = new Habbo { Id = 7, ClientVolume = [20, 30, 40], ChatPreference = true,
             AllowMessengerInvites = false, FocusPreference = true };
         var (session, sent) = HabbiconTestSupport.Client(user);
-        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!);
+        var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
 
         profiles.SetFriendBarState(session, input);
 
@@ -197,7 +197,7 @@ public sealed class UserPreferencePersistenceTests
             var user = new Habbo { Id = 7, CustomBubbleId = 3, Access = UserAccess.Empty };
             var (session, sent) = HabbiconTestSupport.Client(user);
             var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System,
-                new Styles(new ChatStyle(5, "Public", "")));
+                new Styles(new ChatStyle(5, "Public", "")), null!, null!);
 
             await profiles.SetChatStylePreference(session, 5);
             Assert.Equal(5, user.CustomBubbleId);
@@ -228,7 +228,7 @@ public sealed class UserPreferencePersistenceTests
                 connection.Execute("CREATE TABLE users_settings(user_id INT PRIMARY KEY, home_room INT UNSIGNED NOT NULL, chat_preference BOOL NOT NULL, ignore_invites BOOL NOT NULL, volume VARCHAR(15) NOT NULL); INSERT INTO users_settings VALUES(7,20,false,false,'20,30,40')");
             var user = new Habbo { Id = 7, HomeRoom = 20 };
             var (session, sent) = HabbiconTestSupport.Client(user);
-            var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System, null!);
+            var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System, null!, null!, null!);
             var navigator = new NavigatorManager(database, TestLogging.For<NavigatorManager>(), new Rooms());
             await new SetChatPreferenceEvent(profiles).Parse(session, HabbiconTestSupport.Incoming(true));
             await new UpdateNavigatorSettingsEvent(navigator).Parse(session, HabbiconTestSupport.Incoming(42));
