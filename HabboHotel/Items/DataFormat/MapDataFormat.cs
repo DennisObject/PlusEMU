@@ -19,9 +19,7 @@ public class MapDataFormat : FurniObjectData
 
     public override FurniDataStructure StructureType => FurniDataStructure.Map;
 
-    public MapDataFormat()
-    {
-    }
+    public MapDataFormat() { }
 
     public MapDataFormat(Dictionary<string, string> data) => Data = data;
 

@@ -184,9 +184,7 @@ public class WiredLegacyCommandEditorTests
             Assert.Equal(0, packet.ReadInt());
         }
 
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
         private static void Set(object value, string field, object data) => value.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(value, data);
         private static object Get(object value, string field) => value.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(value)!;
     }
@@ -196,8 +194,6 @@ public class WiredLegacyCommandEditorTests
         public string Key => key;
         public string Parameters => "";
         public string Description => "Command editor regression fixture";
-        public void Execute(GameClient session, Room room, string[] parameters)
-        {
-        }
+        public void Execute(GameClient session, Room room, string[] parameters) { }
     }
 }

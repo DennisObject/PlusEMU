@@ -19,9 +19,7 @@ public sealed class RoomTradingComponent(IDatabase database, TimeProvider clock,
     {
         room.SetTrading(new TradingComponent(room, this, settings));
     }
-    public void Initiated()
-    {
-    }
+    public void Initiated() { }
 
     void ITradeStore.DeleteItem(uint itemId)
     {

@@ -151,9 +151,7 @@ public sealed class QuestProgressServiceTests
         }
         public void GetList(GameClient session, ClientPacket message) => ListRequests++;
         public int GetAmountOfQuestsInCategory(string category) => _quests.Values.Count(quest => quest.Category == category);
-        public void Init()
-        {
-        }
+        public void Init() { }
         public void ProgressUserQuest(GameClient session, QuestType type, int data = 0) => throw new NotSupportedException();
         public void QuestReminder(GameClient session, int questId) => throw new NotSupportedException();
     }

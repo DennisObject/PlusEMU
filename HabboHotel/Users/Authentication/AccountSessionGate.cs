@@ -35,9 +35,7 @@ public sealed class AccountSessionGate : IAccountSessionGate
     private readonly ConcurrentDictionary<int, long> _revoked = new();
     private readonly TimeSpan _timeout;
 
-    public AccountSessionGate() : this(TimeSpan.FromSeconds(10))
-    {
-    }
+    public AccountSessionGate() : this(TimeSpan.FromSeconds(10)) { }
 
     internal AccountSessionGate(TimeSpan timeout) => _timeout = timeout;
 

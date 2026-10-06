@@ -223,9 +223,7 @@ public class TelevisionPresentationTests
     {
         public Dictionary<int, TelevisionItem> Televisions { get; } = new();
         public ICollection<TelevisionItem> TelevisionList => Televisions.Values;
-        public void Init()
-        {
-        }
+        public void Init() { }
         public bool TryGet(int itemId, out TelevisionItem? televisionItem) => Televisions.TryGetValue(itemId, out televisionItem);
     }
 }

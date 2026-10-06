@@ -196,9 +196,7 @@ public sealed class RoomMuteServiceTests
     {
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => false;
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => false;
-        public void ResetTimers(IEnumerable<Item> targets)
-        {
-        }
+        public void ResetTimers(IEnumerable<Item> targets) { }
     }
 
     private static object Get(object target, string name) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;

@@ -116,8 +116,6 @@ public class FloorPlanSaveLifecycleTests
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
             (false, false, 0, 0, 0);
 
-        public override void CreateHeader(Memory<byte> memory, uint messageId)
-        {
-        }
+        public override void CreateHeader(Memory<byte> memory, uint messageId) { }
     }
 }

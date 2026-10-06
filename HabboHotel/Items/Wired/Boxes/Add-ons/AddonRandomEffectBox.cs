@@ -25,9 +25,7 @@ internal class AddonRandomEffectBox : IWiredItem
     public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
-    public void HandleSave(IIncomingPacket packet)
-    {
-    }
+    public void HandleSave(IIncomingPacket packet) { }
 
     public bool Execute(params object[] @params) => true;
 }

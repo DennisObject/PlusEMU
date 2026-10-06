@@ -298,9 +298,7 @@ public sealed class GroupAppearanceServiceTests
     private sealed class RecordingFilter(Func<string, string> filter) : IWordFilterManager
     {
         public string CheckMessage(string message) => filter(message);
-        public void Init()
-        {
-        }
+        public void Init() { }
         public bool CheckBannedWords(string message) => false;
         public bool IsFiltered(string message) => false;
     }

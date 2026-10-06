@@ -4,9 +4,7 @@ public class Vector2D
 {
     public static Vector2D Zero = new(0, 0);
 
-    public Vector2D()
-    {
-    }
+    public Vector2D() { }
 
     public Vector2D(int x, int y)
     {

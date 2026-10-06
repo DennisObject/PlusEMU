@@ -1,5 +1,3 @@
 namespace Plus.Communication.Flash;
 
-public interface IFlashServer : IGameServer
-{
-}
+public interface IFlashServer : IGameServer { }

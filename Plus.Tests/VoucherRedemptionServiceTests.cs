@@ -73,9 +73,7 @@ public sealed class VoucherRedemptionServiceTests
 
     private sealed class VoucherManagerFake(Voucher voucher) : IVoucherManager
     {
-        public void Init()
-        {
-        }
+        public void Init() { }
         public bool TryGetVoucher(string code, out Voucher found)
         {
             found = voucher;

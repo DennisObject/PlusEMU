@@ -53,9 +53,7 @@ public abstract class WiredConfiguredBehaviorBox : IWiredConfiguredItem
         ConfigurationChanged();
     }
 
-    protected virtual void ConfigurationChanged()
-    {
-    }
+    protected virtual void ConfigurationChanged() { }
     public void HandleSave(IIncomingPacket packet) => throw new InvalidOperationException("Modern boxes require the configured save adapter");
     public bool Execute(params object[] @params) => false;
 }

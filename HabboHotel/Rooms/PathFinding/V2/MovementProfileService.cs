@@ -4,9 +4,7 @@ public sealed class MovementProfileService(Room room, NavGrid grid, PathfindingS
     ActorAccessResolver access)
 {
     public MovementProfileService(Room room, NavGrid grid, PathfindingSettings settings, Func<int, int, bool> isMember)
-        : this(room, grid, settings, new ActorAccessResolver(isMember))
-    {
-    }
+        : this(room, grid, settings, new ActorAccessResolver(isMember)) { }
 
     private int _groupVersion = -1;
     private int[] _groups = [];

@@ -34,9 +34,7 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
     public string ItemsData { get; set; } = "";
     public bool BoolData { get; set; }
     public bool AfterConditions => false;
-    public void Reset()
-    {
-    }
+    public void Reset() { }
     public bool Execute(params object[] arguments) => false;
     public void HandleSave(IIncomingPacket packet) => throw new InvalidOperationException("Variable addons require validated persistence.");
     public void ApplyConfiguration(WiredConfiguration validated)

@@ -99,7 +99,5 @@ public class InteractorHopper(IItemTravelStore travelStore) : IFurniInteractor, 
         return true;
     }
 
-    public void OnWiredTrigger(Item item)
-    {
-    }
+    public void OnWiredTrigger(Item item) { }
 }

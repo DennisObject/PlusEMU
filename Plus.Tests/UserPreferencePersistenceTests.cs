@@ -414,9 +414,7 @@ public sealed class UserPreferencePersistenceTests
 
     private sealed class Styles(ChatStyle style) : IChatStyleManager
     {
-        public void Init()
-        {
-        }
+        public void Init() { }
         public IReadOnlyList<int> GetAllowedStyleIds(UserAccess access) => [];
         public bool TryGetStyle(int id, [NotNullWhen(true)] out ChatStyle? found)
         {

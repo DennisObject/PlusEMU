@@ -62,9 +62,7 @@ public class PetBot : BotAi
         }
     }
 
-    public override void OnSelfLeaveRoom(bool kicked)
-    {
-    }
+    public override void OnSelfLeaveRoom(bool kicked) { }
 
 
     public override void OnUserEnterRoom(RoomUser user)
@@ -94,13 +92,9 @@ public class PetBot : BotAi
         }
     }
 
-    public override void OnUserLeaveRoom(GameClient client)
-    {
-    }
+    public override void OnUserLeaveRoom(GameClient client) { }
 
-    public override void OnUserShout(RoomUser user, string message)
-    {
-    }
+    public override void OnUserShout(RoomUser user, string message) { }
 
     public override void OnTimerTick()
     {

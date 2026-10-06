@@ -187,9 +187,7 @@ public sealed class CacheLifetimeTests
     {
         public Action? Sweep { get; private set; }
         public void Init(Action sweep) => Sweep = sweep;
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
     }
 
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider

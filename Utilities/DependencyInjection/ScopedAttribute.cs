@@ -1,5 +1,3 @@
 namespace Plus.Utilities.DependencyInjection;
 
-public class ScopedAttribute : Attribute
-{
-}
+public class ScopedAttribute : Attribute { }

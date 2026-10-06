@@ -6,9 +6,7 @@ namespace Plus.Communication.Flash;
 
 public class FlashIncomingPacket : IIncomingPacket
 {
-    public FlashIncomingPacket() : this(PlusMemoryStream.GetStream())
-    {
-    }
+    public FlashIncomingPacket() : this(PlusMemoryStream.GetStream()) { }
     public FlashIncomingPacket(RecyclableMemoryStream stream) => Stream = stream;
 
     public RecyclableMemoryStream Stream { get; }

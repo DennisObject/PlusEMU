@@ -316,9 +316,7 @@ public sealed class RoomComponentDatabaseTests
 
     private sealed class TestItemDataManager(Plus.HabboHotel.Items.ItemDefinition definition) : Plus.HabboHotel.Items.IItemDataManager
     {
-        public void Init()
-        {
-        }
+        public void Init() { }
         public Plus.HabboHotel.Items.ItemDefinition GetItemByName(string name) => definition;
         public Dictionary<int, uint> Gifts { get; } = [];
         public Dictionary<uint, Plus.HabboHotel.Items.ItemDefinition> Items { get; } = new() { [definition.Id] = definition };
@@ -336,11 +334,7 @@ public sealed class RoomComponentDatabaseTests
 
     private sealed class TestChatlogManager : Plus.HabboHotel.Rooms.Chat.Logs.IChatlogManager
     {
-        public void StoreChatlog(Plus.HabboHotel.Rooms.Chat.Logs.ChatlogEntry entry)
-        {
-        }
-        public void FlushAndSave()
-        {
-        }
+        public void StoreChatlog(Plus.HabboHotel.Rooms.Chat.Logs.ChatlogEntry entry) { }
+        public void FlushAndSave() { }
     }
 }

@@ -21,9 +21,7 @@ public class InteractorBanzaiScoreCounter : IFurniInteractor
         item.UpdateState(false, true);
     }
 
-    public void OnRemove(GameClient? session, Item item)
-    {
-    }
+    public void OnRemove(GameClient? session, Item item) { }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
@@ -40,7 +38,5 @@ public class InteractorBanzaiScoreCounter : IFurniInteractor
         }
     }
 
-    public void OnWiredTrigger(Item item)
-    {
-    }
+    public void OnWiredTrigger(Item item) { }
 }

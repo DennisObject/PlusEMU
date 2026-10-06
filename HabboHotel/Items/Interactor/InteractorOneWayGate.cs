@@ -125,7 +125,5 @@ public class InteractorOneWayGate(TimeProvider clock) : IFurniInteractor
         }
     }
 
-    public void OnWiredTrigger(Item item)
-    {
-    }
+    public void OnWiredTrigger(Item item) { }
 }

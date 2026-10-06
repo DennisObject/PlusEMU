@@ -7,13 +7,9 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 internal class InteractorMannequin(IUserProfileService profiles) : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item)
-    {
-    }
+    public void OnPlace(GameClient? session, Item item) { }
 
-    public void OnRemove(GameClient? session, Item item)
-    {
-    }
+    public void OnRemove(GameClient? session, Item item) { }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
@@ -51,7 +47,5 @@ internal class InteractorMannequin(IUserProfileService profiles) : IFurniInterac
         }
     }
 
-    public void OnWiredTrigger(Item item)
-    {
-    }
+    public void OnWiredTrigger(Item item) { }
 }

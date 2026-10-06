@@ -675,15 +675,11 @@ public class GroupManagementTests : IDisposable
         public ConnectionState State { get; private set; } = ConnectionState.Open;
         public IDbTransaction BeginTransaction() => new RecordingTransaction(this, database);
         public IDbTransaction BeginTransaction(IsolationLevel il) => new RecordingTransaction(this, database, il);
-        public void ChangeDatabase(string databaseName)
-        {
-        }
+        public void ChangeDatabase(string databaseName) { }
         public void Close() => State = ConnectionState.Closed;
         public IDbCommand CreateCommand() => new RecordingCommand(database);
         public void Open() => State = ConnectionState.Open;
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
     }
 
     private sealed class RecordingTransaction(IDbConnection connection, RecordingDatabase database, IsolationLevel isolationLevel = IsolationLevel.Unspecified) : IDbTransaction
@@ -704,13 +700,9 @@ public class GroupManagementTests : IDisposable
         public IDataParameterCollection Parameters { get; } = new RecordingParameters();
         public IDbTransaction? Transaction { get; set; }
         public UpdateRowSource UpdatedRowSource { get; set; }
-        public void Cancel()
-        {
-        }
+        public void Cancel() { }
         public IDbDataParameter CreateParameter() => new RecordingParameter();
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
         public int ExecuteNonQuery()
         {
             database.Statements.Add(CommandText);
@@ -762,9 +754,7 @@ public class GroupManagementTests : IDisposable
 
             return database.Scalar;
         }
-        public void Prepare()
-        {
-        }
+        public void Prepare() { }
 
         private static IDataReader SingleValueReader(string column, string value)
         {
@@ -818,12 +808,8 @@ public class GroupManagementTests : IDisposable
             return 1;
         }
         public bool NextResult() => false;
-        public void Close()
-        {
-        }
-        public void Dispose()
-        {
-        }
+        public void Close() { }
+        public void Dispose() { }
         public int Depth => 0;
         public bool IsClosed => false;
         public int RecordsAffected => 1;

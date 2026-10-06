@@ -325,27 +325,13 @@ public partial class PlacedFurniRoomTests
 
     private sealed class ExternalLifecycleBotAi : BotAi
     {
-        public override void OnSelfEnterRoom()
-        {
-        }
-        public override void OnSelfLeaveRoom(bool kicked)
-        {
-        }
-        public override void OnUserEnterRoom(RoomUser user)
-        {
-        }
-        public override void OnUserLeaveRoom(GameClient client)
-        {
-        }
-        public override void OnUserSay(RoomUser user, string message)
-        {
-        }
-        public override void OnUserShout(RoomUser user, string message)
-        {
-        }
-        public override void OnTimerTick()
-        {
-        }
+        public override void OnSelfEnterRoom() { }
+        public override void OnSelfLeaveRoom(bool kicked) { }
+        public override void OnUserEnterRoom(RoomUser user) { }
+        public override void OnUserLeaveRoom(GameClient client) { }
+        public override void OnUserSay(RoomUser user, string message) { }
+        public override void OnUserShout(RoomUser user, string message) { }
+        public override void OnTimerTick() { }
     }
 
     private sealed class PetPickupConnection : DbConnection
@@ -358,9 +344,7 @@ public partial class PlacedFurniRoomTests
         public override ConnectionState State => _state;
         public override void Open() => _state = ConnectionState.Open;
         public override void Close() => _state = ConnectionState.Closed;
-        public override void ChangeDatabase(string databaseName)
-        {
-        }
+        public override void ChangeDatabase(string databaseName) { }
         protected override DbCommand CreateDbCommand() => new NoOpCommand { Connection = this };
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => new PetPickupTransaction(this, isolationLevel);
     }
@@ -369,11 +353,7 @@ public partial class PlacedFurniRoomTests
     {
         protected override DbConnection DbConnection => connection;
         public override IsolationLevel IsolationLevel => isolation;
-        public override void Commit()
-        {
-        }
-        public override void Rollback()
-        {
-        }
+        public override void Commit() { }
+        public override void Rollback() { }
     }
 }

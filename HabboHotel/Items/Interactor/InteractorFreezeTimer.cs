@@ -10,9 +10,7 @@ internal class InteractorFreezeTimer : IFurniInteractor
         item.UpdateState();
     }
 
-    public void OnRemove(GameClient? session, Item item)
-    {
-    }
+    public void OnRemove(GameClient? session, Item item) { }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {

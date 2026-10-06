@@ -6,13 +6,9 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 internal class InteractorSwitch(IQuestManager quests, IRewardTrackManager rewards) : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item)
-    {
-    }
+    public void OnPlace(GameClient? session, Item item) { }
 
-    public void OnRemove(GameClient? session, Item item)
-    {
-    }
+    public void OnRemove(GameClient? session, Item item) { }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
@@ -68,7 +64,5 @@ internal class InteractorSwitch(IQuestManager quests, IRewardTrackManager reward
         }
     }
 
-    public void OnWiredTrigger(Item item)
-    {
-    }
+    public void OnWiredTrigger(Item item) { }
 }

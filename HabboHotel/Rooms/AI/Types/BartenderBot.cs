@@ -21,17 +21,11 @@ internal class BartenderBot : BotAi
         _wordFilter = wordFilter;
     }
 
-    public override void OnSelfEnterRoom()
-    {
-    }
+    public override void OnSelfEnterRoom() { }
 
-    public override void OnSelfLeaveRoom(bool kicked)
-    {
-    }
+    public override void OnSelfLeaveRoom(bool kicked) { }
 
-    public override void OnUserEnterRoom(RoomUser user)
-    {
-    }
+    public override void OnUserEnterRoom(RoomUser user) { }
 
     public override void OnUserLeaveRoom(GameClient client)
     {

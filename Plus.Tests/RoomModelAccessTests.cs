@@ -245,12 +245,8 @@ public sealed class RoomModelAccessTests
         protected override DbTransaction? DbTransaction { get; set; }
         protected override DbParameterCollection DbParameterCollection => _parameters;
         protected override DbParameter CreateDbParameter() => new MySqlParameter();
-        public override void Cancel()
-        {
-        }
-        public override void Prepare()
-        {
-        }
+        public override void Cancel() { }
+        public override void Prepare() { }
         public override int ExecuteNonQuery() => throw new NotSupportedException();
         public override object? ExecuteScalar() => throw new NotSupportedException();
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)

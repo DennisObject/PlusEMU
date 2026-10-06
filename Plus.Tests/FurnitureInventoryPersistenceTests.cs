@@ -313,9 +313,7 @@ public sealed class FurnitureInventoryPersistenceTests
 
             return new Release(events);
         }
-        public void Revoke(int userId)
-        {
-        }
+        public void Revoke(int userId) { }
         public bool IsRevoked(int userId, long loginStarted) => false;
     }
 
@@ -328,9 +326,7 @@ public sealed class FurnitureInventoryPersistenceTests
     {
         public Dictionary<uint, ItemDefinition> Items { get; } = definitions.ToDictionary(definition => definition.Id);
         public Dictionary<int, uint> Gifts { get; } = [];
-        public void Init()
-        {
-        }
+        public void Init() { }
         public ItemDefinition? GetItemByName(string name) => null;
     }
 

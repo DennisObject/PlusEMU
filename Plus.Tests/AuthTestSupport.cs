@@ -316,9 +316,7 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
 
 internal sealed class FakeWordFilter(params string[] words) : IWordFilterManager
 {
-    public void Init()
-    {
-    }
+    public void Init() { }
     public string CheckMessage(string message) => message;
     public bool CheckBannedWords(string message) => false;
     public bool IsFiltered(string message) => words.Any(message.Contains);

@@ -314,9 +314,7 @@ public class CameraCheckoutTests
         public Dictionary<uint, ItemDefinition> Items { get; } = new() { [123] = new() { Id = 123, SpriteId = 4597, Type = ItemType.Wall, InteractionType = InteractionType.CameraPicture } };
         public Dictionary<int, uint> Gifts { get; } = new();
         public ItemDefinition GetItemByName(string name) => Items[123];
-        public void Init()
-        {
-        }
+        public void Init() { }
     }
     private sealed class CountingClock(DateTimeOffset start) : TimeProvider
     {

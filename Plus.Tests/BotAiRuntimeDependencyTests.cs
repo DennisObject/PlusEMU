@@ -91,9 +91,7 @@ public partial class PlacedFurniRoomTests
     private sealed class RecordingFilter : IWordFilterManager
     {
         public List<string> Messages { get; } = [];
-        public void Init()
-        {
-        }
+        public void Init() { }
         public string CheckMessage(string message)
         {
             Messages.Add(message);
@@ -118,18 +116,14 @@ public partial class PlacedFurniRoomTests
 
     private sealed class RecordingCommands(int result) : IPetCommandManager
     {
-        public void Init()
-        {
-        }
+        public void Init() { }
         public int TryInvoke(string input) => result;
     }
 
     private sealed class RecordingLocale : IPetLocale
     {
         public List<string> Keys { get; } = [];
-        public void Init()
-        {
-        }
+        public void Init() { }
         public string[] GetValue(string key)
         {
             Keys.Add(key);

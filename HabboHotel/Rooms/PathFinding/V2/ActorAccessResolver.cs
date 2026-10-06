@@ -14,14 +14,10 @@ public class ActorAccessResolver(Func<int, int, GroupStanding> source)
     public static ActorAccessResolver Cached { get; } = new((_, _) => GroupStanding.Unresolved);
 
     public ActorAccessResolver(Func<int, int, bool> isMember)
-        : this((groupId, habboId) => isMember(groupId, habboId) ? GroupStanding.Member : GroupStanding.Outsider)
-    {
-    }
+        : this((groupId, habboId) => isMember(groupId, habboId) ? GroupStanding.Member : GroupStanding.Outsider) { }
 
     public ActorAccessResolver(IGroupManager groups)
-        : this((groupId, habboId) => LookUp(groups, groupId, habboId))
-    {
-    }
+        : this((groupId, habboId) => LookUp(groups, groupId, habboId)) { }
 
     // Check 6 of CanStep, CanFlank and goal acceptance read the cached set refreshed by `Refresh`.
     public virtual bool CanEnterGuildGate(ActorProfile actor, int groupId) => actor.Access.IsMember(groupId);

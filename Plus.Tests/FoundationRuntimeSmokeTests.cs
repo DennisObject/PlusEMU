@@ -297,9 +297,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
     {
         public ConcurrentQueue<string> Errors { get; } = new();
         public ILogger CreateLogger(string categoryName) => new ErrorLogger(Errors);
-        public void Dispose()
-        {
-        }
+        public void Dispose() { }
     }
 
     private sealed class ErrorLogger(ConcurrentQueue<string> errors) : ILogger

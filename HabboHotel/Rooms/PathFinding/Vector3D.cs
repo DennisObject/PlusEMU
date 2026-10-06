@@ -2,9 +2,7 @@ namespace Plus.HabboHotel.Rooms.PathFinding;
 
 internal sealed class Vector3D
 {
-    public Vector3D()
-    {
-    }
+    public Vector3D() { }
 
     public Vector3D(int x, int y, double z)
     {

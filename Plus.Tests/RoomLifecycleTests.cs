@@ -128,9 +128,7 @@ public sealed class RoomLifecycleTests
     {
         public Probe Probe { get; } = probe;
         public void Initiate(Room room) => initiate();
-        public void Initiated()
-        {
-        }
+        public void Initiated() { }
     }
 
     private static RoomData Data(uint id)
@@ -163,11 +161,7 @@ public sealed class RoomLifecycleTests
     private sealed class ScopedProbeComponent(Probe probe) : IRoomComponent
     {
         public Probe Probe { get; } = probe;
-        public void Initiate(Room room)
-        {
-        }
-        public void Initiated()
-        {
-        }
+        public void Initiate(Room room) { }
+        public void Initiated() { }
     }
 }

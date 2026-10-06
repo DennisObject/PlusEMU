@@ -147,18 +147,10 @@ public sealed class GiftOpeningServiceTests
     private sealed class FailingPlacement : IRoomItemStore
     {
         public int Attempts { get; private set; }
-        public void AssignOwner(uint itemId, int userId)
-        {
-        }
-        public void ClearRoom(uint itemId)
-        {
-        }
-        public void SaveWallPosition(uint itemId, string wallPosition)
-        {
-        }
-        public void SaveMoved(IReadOnlyList<RoomItemSave> items)
-        {
-        }
+        public void AssignOwner(uint itemId, int userId) { }
+        public void ClearRoom(uint itemId) { }
+        public void SaveWallPosition(uint itemId, string wallPosition) { }
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
         public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation)
         {
             Attempts++;
@@ -220,9 +212,7 @@ public sealed class GiftOpeningServiceTests
     {
         public Dictionary<int, uint> Gifts { get; } = [];
         public Dictionary<uint, ItemDefinition> Items { get; } = new() { [(uint)definition.Id] = definition };
-        public void Init()
-        {
-        }
+        public void Init() { }
         public ItemDefinition GetItemByName(string name) => definition;
     }
     private sealed class Cache : ICacheManager
@@ -242,8 +232,6 @@ public sealed class GiftOpeningServiceTests
             return true;
         }
         public ICollection<CachedUser> GetUserCache() => [];
-        public void Init()
-        {
-        }
+        public void Init() { }
     }
 }

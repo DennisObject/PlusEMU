@@ -146,7 +146,5 @@ public class AchievementManager : IAchievementManager, IStartable
         return achievements;
     }
 
-    public void BroadcastAchievement(Habbo habbo, MessengerEventTypes eventType, string level)
-    {
-    }
+    public void BroadcastAchievement(Habbo habbo, MessengerEventTypes eventType, string level) { }
 }
