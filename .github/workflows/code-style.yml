@@ -16,5 +16,5 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet run --project tools/Plus.CodeStyle -- check
-      - run: dotnet build "Plus Emulator.sln" --configuration Release --property:Platform="Any CPU" --no-restore --maxcpucount:1
+      - run: dotnet build "Plus Emulator.sln" --configuration Release --property:Platform="Any CPU" --maxcpucount:1
       - run: dotnet test Plus.Tests --configuration Release --no-build
