@@ -587,7 +587,9 @@ public class RoomItemHandling
         // Effects, Wired hooks, networking and persistence run only after the map commit.
         if (!newItem) map.RemoveItemEffects(item);
         map.AddItemEffects(item);
-        if (!onRoller && session != null) item.Interactor.OnPlace(session, item);
+        // A newly admitted item's placement normalization is its initial state; a moved item's is a change.
+        if (!onRoller && session != null)
+            using (newItem ? FurnitureStateEvents.Placing(_room, item) : null) item.Interactor.OnPlace(session, item);
         if (sendMessage)
         {
             if (newItem) _room.SendObject(item);
@@ -742,7 +744,7 @@ public class RoomItemHandling
         item.Attach(_room, _interactors, _travelStore, _rewards);
         try
         {
-            item.Interactor.OnPlace(session, item);
+            using (FurnitureStateEvents.Placing(_room, item)) item.Interactor.OnPlace(session, item);
         }
         catch
         {

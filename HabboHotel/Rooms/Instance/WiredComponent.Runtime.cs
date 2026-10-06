@@ -154,8 +154,9 @@ public partial class WiredComponent
     {
         if (!WiredCounterController.Recognizes(item) || !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)) return false;
         AttachRoomItem(item);
+        var mark = FurnitureStateEvents.Mark();
         var changed = _counters.Use(item, parameter, _engine.NowMilliseconds);
-        PublishCounterChanges(_counters.TakeChanges());
+        PublishCounterChanges(_counters.TakeChanges(), mark);
         return changed;
     });
 
@@ -168,7 +169,8 @@ public partial class WiredComponent
     private void PollCounters(long now)
     {
         foreach (var stale in _counterItems.Values.Where(item => !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)).ToArray()) DetachRoomItem(stale);
-        PublishCounterChanges(_counters.Poll(now));
+        var mark = FurnitureStateEvents.Mark();
+        PublishCounterChanges(_counters.Poll(now), mark);
         if (WiredBotTargets.For(_room).HasTargets)
             foreach (var arrival in WiredBotTargets.For(_room).Poll(_room))
                 QueueRuntimeEvent(arrival);
@@ -177,7 +179,8 @@ public partial class WiredComponent
 
     private void FlushExternalChanges()
     {
-        PublishCounterChanges(_counters.TakeChanges());
+        // Display writes made by boxes are already queued; they are reported by the room's pass.
+        PublishCounterChanges(_counters.TakeChanges(), FurnitureStateEvents.Mark());
         if (_variables?.IsValueCreated != true) return;
         foreach (var change in _variables.Value.DrainChanges())
             QueueRuntimeEvent(new(WiredEventKind.Variable)
@@ -195,7 +198,8 @@ public partial class WiredComponent
             _logger.LogWarning("Wired {EventKind} event rejected by room queue/depth limits in room {RoomId}", @event.Kind, _room.Id);
     }
 
-    private void PublishCounterChanges(IEnumerable<WiredCounterChange> changes)
+    // A display change is reported only for a display write this thread made after the mark.
+    private void PublishCounterChanges(IEnumerable<WiredCounterChange> changes, long mark)
     {
         foreach (var change in changes)
         {
@@ -203,6 +207,8 @@ public partial class WiredComponent
             if (change.Event.Kind == WiredEventKind.GameStart)
             { _room.GetGameManager().Reset(); WiredGameState.For(_room).ResetQuotas(); }
             if (change.DisplayChanged) change.Item.UpdateState();
+            if (change.Event.Kind == WiredEventKind.StateChanged
+                && (!change.DisplayChanged || !FurnitureStateEvents.TakeWriteSince(change.Item, mark))) continue;
             QueueRuntimeEvent(change.Event);
         }
     }

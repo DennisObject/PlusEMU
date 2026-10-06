@@ -85,9 +85,10 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
         if (IsGate(item) && For(item) is { } gates)
             return gates.Toggle(item, nextState, reason, persist, afterWrite);
         if (nextState(item.LegacyDataString) is not { } state) return GateTransition.Unchanged;
+        var mark = FurnitureStateEvents.Mark();
         item.LegacyDataString = state;
         item.UpdateState(persist, true);
-        afterWrite?.Invoke(item);
+        using (FurnitureStateEvents.FollowWrite(mark)) afterWrite?.Invoke(item);
         return GateTransition.Applied;
     }
 
@@ -115,6 +116,7 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
         var operation = Admit(item, run => RunState(write, run));
         if (operation == null) return GateTransition.Queued;
         Outcome outcome;
+        var mark = 0L;
         try
         {
             var state = nextState(item.LegacyDataString);
@@ -125,10 +127,11 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
                 Requeue(operation, run => RunState(prepared, run));
                 return GateTransition.Queued;
             }
+            mark = FurnitureStateEvents.Mark();
             outcome = CommitWith(operation, state);
         }
         catch { End(operation); throw; }
-        try { if (outcome.Result == GateTransition.Applied) Publish(item, outcome, persist, afterWrite); }
+        try { if (outcome.Result == GateTransition.Applied) Publish(item, outcome, persist, afterWrite, mark); }
         finally { End(operation); }
         return outcome.Result;
     }
@@ -268,9 +271,10 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
     {
         var item = write.Item;
         var state = StillInRoom(item) ? write.Next(item.LegacyDataString) : null;
+        var mark = FurnitureStateEvents.Mark();
         var outcome = state is null ? new Outcome(GateTransition.Unchanged) : CommitWith(operation, state);
         if (outcome.Result == GateTransition.Refused && write.Reason == GateCloseReason.Automatic) _retained[item.Id] = write;
-        else if (outcome.Result == GateTransition.Applied) Publish(item, outcome, write.Persist, write.After);
+        else if (outcome.Result == GateTransition.Applied) Publish(item, outcome, write.Persist, write.After, mark);
     }
 
     private void RunReplay(Action replay, GateOperation operation)
@@ -285,8 +289,9 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
 
     private GateTransition CommitWith(GateOperation operation, string state, bool persist)
     {
+        var mark = FurnitureStateEvents.Mark();
         var outcome = CommitWith(operation, state);
-        if (outcome.Result == GateTransition.Applied) Publish(operation.Item, outcome, persist, null);
+        if (outcome.Result == GateTransition.Applied) Publish(operation.Item, outcome, persist, null, mark);
         return outcome.Result;
     }
 
@@ -314,13 +319,14 @@ public sealed class GateTransitionService(Room room, Func<IGateOccupancy> occupa
         }
     }
 
-    // Notifications, persistence, broadcast, ApplyDirty and follow-ups: never under a lock.
-    private void Publish(Item item, Outcome outcome, bool persist, Action<Item>? after)
+    // Notifications, persistence, broadcast, ApplyDirty and follow-ups: never under a lock. The follow-up runs on
+    // the writing thread and can report the write made after the mark taken just before the commit.
+    private void Publish(Item item, Outcome outcome, bool persist, Action<Item>? after, long mark)
     {
         outcome.Data?.NotifyDataUpdated();
         item.UpdateState(persist, true);
         if (outcome.Closed) room.GetGameMap().Navigation?.ApplyDirty();
-        after?.Invoke(item);
+        using (FurnitureStateEvents.FollowWrite(mark)) after?.Invoke(item);
     }
 
     private sealed class Scope : IDisposable

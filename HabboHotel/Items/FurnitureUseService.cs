@@ -47,34 +47,48 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
     {
         var item = FindPermanent(room, session, itemId);
         if (item == null) return;
-        item.Interactor.OnTrigger(session, item, -1, room.CheckRights(session));
+        Trigger(room, session, item, -1, room.CheckRights(session));
     }
 
     public void RollDice(Room room, GameClient session, FurnitureUseRequest request)
     {
         var item = FindPermanent(room, session, request.ItemId);
         if (item == null) return;
-        item.Interactor.OnTrigger(session, item, request.Parameter, room.CheckRights(session, false, true));
+        Trigger(room, session, item, request.Parameter, room.CheckRights(session, false, true));
     }
 
     public void UseOneWayGate(Room room, GameClient session, uint itemId)
     {
         var item = FindPermanent(room, session, itemId);
         if (item?.Definition.InteractionType != InteractionType.OneWayGate) return;
-        item.Interactor.OnTrigger(session, item, -1, room.CheckRights(session));
+        Trigger(room, session, item, -1, room.CheckRights(session));
     }
 
     public void UseWall(Room room, GameClient session, FurnitureUseRequest request)
     {
         var item = FindPermanent(room, session, request.ItemId);
         if (item == null) return;
-        var actor = FurnitureStateEvents.Actor(room, session);
-        var before = item.LegacyDataString;
-        item.Interactor.OnTrigger(session, item, request.Parameter, room.CheckRights(session, false, true));
-        // The write is reported before the use runs its stacks, which may write the state again.
-        FurnitureStateEvents.PublishIfChanged(room, actor, item, before);
+        // The writes are reported before the use runs its stacks, which may write the state again.
+        Trigger(room, session, item, request.Parameter, room.CheckRights(session, false, true));
         room.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, session.GetHabbo(), item);
         quests.ProgressUserQuest(session, QuestType.ExploreFindItem, (int)item.Definition.Id);
+    }
+
+    // The state writes the interactor makes for this request are the user's, reported once each, in order,
+    // also when the interactor then fails: its exception still propagates.
+    private static void Trigger(Room room, GameClient session, Item item, int request, bool hasRights)
+    {
+        var actor = FurnitureStateEvents.Actor(room, session);
+        var capture = FurnitureStateEvents.Capture(room);
+        try
+        {
+            item.Interactor.OnTrigger(session, item, request, hasRights);
+        }
+        finally
+        {
+            capture.Dispose();
+            FurnitureStateEvents.Publish(room, actor, capture.Transitions);
+        }
     }
 
     private static Item? FindPermanent(Room room, GameClient session, uint itemId)
@@ -127,10 +141,7 @@ public sealed class FurnitureUseService(IFurnitureUseStore store, IQuestManager 
             if (user == null) return;
             toggle = Gamemap.TilesTouching(item.GetX, item.GetY, user.X, user.Y);
         }
-        var actor = FurnitureStateEvents.Actor(room, session);
-        var before = item.LegacyDataString;
-        item.Interactor.OnTrigger(session, item, request.Parameter, hasRights);
-        FurnitureStateEvents.PublishIfChanged(room, actor, item, before);
+        Trigger(room, session, item, request.Parameter, hasRights);
         if (toggle) room.GetWired().TriggerEvent(WiredBoxType.TriggerStateChanges, habbo, item);
         quests.ProgressUserQuest(session, QuestType.ExploreFindItem, (int)item.Definition.Id);
     }

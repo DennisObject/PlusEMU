@@ -96,12 +96,14 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public void OnCycle()
     {
+        PublishStateWrites();
         _engine.OnCycle();
         FlushVariableFx();
     }
 
     internal void OnFastCycle()
     {
+        PublishStateWrites();
         _engine.OnFastCycle();
         if (_variables?.IsValueCreated == true && _variables.Value.FxDirty) FlushVariableFx();
     }
@@ -518,5 +520,6 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _counterItems.Clear();
         _fxViewers.Clear();
         _roomLog.Clear();
+        ClearStateWrites();
     }
 }

@@ -16,11 +16,11 @@ public class InteractorGate : IFurniInteractor
 
         if (GateTransitionService.For(item) != null)
         {
-            // The use itself is raised by the caller; a sequenced write reports its own state change when it lands.
+            // The use itself is raised by the caller; a queued write reports its own state change when it lands.
             if (hasRights)
             {
                 var actor = FurnitureStateEvents.Actor(itemRoom, session);
-                Toggle(item, GateCloseReason.Click, changed => FurnitureStateEvents.Publish(itemRoom, actor, changed));
+                Toggle(item, GateCloseReason.Click, changed => FurnitureStateEvents.PublishFollowed(itemRoom, actor, changed));
             }
             return;
         }

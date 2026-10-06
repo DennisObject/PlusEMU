@@ -120,6 +120,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             var item = FindItem(holder);
             if (item is null || value < 0 || item.Definition.Modes <= value
                 || !int.TryParse(item.LegacyDataString, out var previous) || previous == value) return false;
+            var mark = FurnitureStateEvents.Mark();
             if (GateTransitionService.For(item) != null)
             {
                 if (!WriteGateState(item, value)) return false;
@@ -129,7 +130,8 @@ public sealed class RoomWiredBuiltinVariables(Room room,
                 item.LegacyDataString = value.ToString(CultureInfo.InvariantCulture);
                 item.UpdateState();
             }
-            if (stateChanged is not null) completed = () => stateChanged(item, frame);
+            // The completion reports this write only; a write the room's pass already reported stays reported.
+            if (stateChanged is not null && FurnitureStateEvents.TakeWriteSince(item, mark)) completed = () => stateChanged(item, frame);
             return true;
         }
         return engineWrite?.Invoke(reference with { Token = $"internal:{key}" }, holder, value, frame) == true;

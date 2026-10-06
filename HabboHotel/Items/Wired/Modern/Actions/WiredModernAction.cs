@@ -143,11 +143,21 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 (user, target, slide, fast, walkMode) => slide
                     ? _movement.MoveAvatar(context, user, target.GetX, target.GetY, true, walkMode)
                     : Teleport(context, user, target, fast),
-                (item, state) => { item.LegacyDataString = state; item.UpdateState(); _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }); },
+                (item, state) =>
+                {
+                    var mark = FurnitureStateEvents.Mark();
+                    item.LegacyDataString = state; item.UpdateState();
+                    if (FurnitureStateEvents.TakeWriteSince(item, mark))
+                        _publish(new(WiredEventKind.StateChanged) { Actor = FurnitureStateEvents.Present(context.Room, context.Event.Actor), EventItem = item });
+                },
                 // v2 only: state toggles and snapshot restores go through the per-gate sequencer.
                 GateTransitionService.For(Instance) == null ? null : (item, nextState) => GateTransitionService.ToggleState(item, nextState, GateCloseReason.Wired,
-                    afterWrite: _ => _publish(new(WiredEventKind.StateChanged) { Actor = context.Event.Actor, EventItem = item }))
-                    is GateTransition.Applied or GateTransition.Queued);
+                    afterWrite: _ =>
+                    {
+                        // A queued write can land after the triggering user left: the change is still reported.
+                        if (FurnitureStateEvents.TakeFollowedWrite(item))
+                            _publish(new(WiredEventKind.StateChanged) { Actor = FurnitureStateEvents.Present(context.Room, context.Event.Actor), EventItem = item });
+                    }) is GateTransition.Applied or GateTransition.Queued);
         // Reset timers always covers the whole room, unlimited, so it resolves its own targets.
         var items = name != "wf_act_reset_timers" && config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
         var changed = false;
