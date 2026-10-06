@@ -14,6 +14,12 @@ public sealed class UserProcessStore(IDatabase database) : IUserProcessStore
     {
         using var connection = database.Connection();
         connection.Execute("UPDATE `user_statistics` SET `dailyRespectPoints` = @respects, `dailyPetRespectPoints` = @petRespects, `respectsTimestamp` = @timestamp WHERE `id` = @id",
-            new { respects, petRespects, timestamp = day, id = userId });
+            new
+            {
+                respects,
+                petRespects,
+                timestamp = day,
+                id = userId
+            });
     }
 }

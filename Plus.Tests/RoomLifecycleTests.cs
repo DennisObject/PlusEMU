@@ -104,7 +104,11 @@ public sealed class RoomLifecycleTests
         var replacing = false;
         services.AddScoped<IRoomComponent>(provider => new ReplacingComponent(provider.GetRequiredService<Probe>(), () =>
         {
-            if (replacing) return;
+            if (replacing)
+            {
+                return;
+            }
+
             replacing = true;
             factory!.Dispose(1);
             replacement = factory.Create(Data(1));
@@ -125,13 +129,16 @@ public sealed class RoomLifecycleTests
     {
         public Probe Probe { get; } = probe;
         public void Initiate(Room room) => initiate();
-        public void Initiated() { }
+        public void Initiated()
+        {
+        }
     }
 
     private static RoomData Data(uint id)
     {
         var data = (RoomData)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
         data.Id = id;
+
         return data;
     }
 
@@ -150,14 +157,21 @@ public sealed class RoomLifecycleTests
 
     private sealed class Probe : IDisposable
     {
-        public bool Disposed { get; private set; }
+        public bool Disposed
+        {
+            get; private set;
+        }
         public void Dispose() => Disposed = true;
     }
 
     private sealed class ScopedProbeComponent(Probe probe) : IRoomComponent
     {
         public Probe Probe { get; } = probe;
-        public void Initiate(Room room) { }
-        public void Initiated() { }
+        public void Initiate(Room room)
+        {
+        }
+        public void Initiated()
+        {
+        }
     }
 }

@@ -25,6 +25,7 @@ public sealed class HousekeepingUserOverridesComposer : IServerPacket
         packet.WriteInteger(_userId);
         packet.WriteString(_username);
         packet.WriteInteger(_overrides.Length);
+
         foreach (var row in _overrides)
         {
             packet.WriteString(row.Key);

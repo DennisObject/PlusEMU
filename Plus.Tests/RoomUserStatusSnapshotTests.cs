@@ -16,6 +16,7 @@ public sealed class RoomUserStatusSnapshotTests
         user.Statusses.Add("sit", "0.5");
         var source = new List<RoomUser> { user };
         var previousCulture = CultureInfo.CurrentCulture;
+
         try
         {
             CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
@@ -55,22 +56,43 @@ public sealed class RoomUserStatusSnapshotTests
     public void ChangedBotStatusesAreClearedWithOrWithoutAViewer(bool withViewer)
     {
         var fixture = RoomPerformanceFixture.Create(2, withViewer ? 1 : 0);
-        foreach (var user in fixture.Users) user.UpdateNeeded = false;
-        foreach (var bot in fixture.Bots) bot.UpdateNeeded = true;
+
+        foreach (var user in fixture.Users)
+        {
+            user.UpdateNeeded = false;
+        }
+
+        foreach (var bot in fixture.Bots)
+        {
+            bot.UpdateNeeded = true;
+        }
+
         var packets = new List<byte[]>();
+
         if (withViewer)
+        {
             fixture.Clients[0].SendCallback = args =>
             {
                 packets.Add(args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray());
+
                 return true;
             };
+        }
 
         fixture.Manager.SerializeStatusUpdates();
 
         Assert.All(fixture.Bots, bot => Assert.False(bot.UpdateNeeded));
-        if (!withViewer) { Assert.Empty(packets); return; }
+
+        if (!withViewer)
+        {
+            Assert.Empty(packets);
+
+            return;
+        }
+
         var incoming = new FlashIncomingPacket { Buffer = Assert.Single(packets)[6..] };
         Assert.Equal(2, incoming.ReadInt());
+
         foreach (var bot in fixture.Bots)
         {
             Assert.Equal(bot.VirtualId, incoming.ReadInt());

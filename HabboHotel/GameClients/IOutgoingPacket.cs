@@ -1,9 +1,15 @@
-﻿namespace Plus.HabboHotel.GameClients;
+namespace Plus.HabboHotel.GameClients;
 
 public interface IOutgoingPacket
 {
-    int MessageId { get; set; }
-    ReadOnlyMemory<byte> Buffer { get; }
+    int MessageId
+    {
+        get; set;
+    }
+    ReadOnlyMemory<byte> Buffer
+    {
+        get;
+    }
     void WriteByte(byte value);
     void WriteShort(short value);
     void WriteInt(int value);

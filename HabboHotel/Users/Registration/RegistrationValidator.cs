@@ -22,29 +22,47 @@ public static partial class RegistrationValidator
     public static string? UsernameError(string username, IEnumerable<string> reservedNames, Func<string, bool> isFiltered)
     {
         if (username.Length < MinUsernameLength || username.Length > MaxUsernameLength)
+        {
             return $"Your Habbo name must be {MinUsernameLength} to {MaxUsernameLength} characters long.";
+        }
+
         if (username.AsSpan().IndexOfAnyExcept(UsernameCharacters) >= 0)
+        {
             return "Your Habbo name can only use letters, numbers and . , _ - ; : ? !";
+        }
 
         var lower = username.ToLowerInvariant();
+
         if (StaffFragments.Concat(reservedNames).Any(fragment => fragment.Length > 0 && lower.Contains(fragment.ToLowerInvariant())) || isFiltered(lower))
+        {
             return "That Habbo name is not allowed.";
+        }
+
         return null;
     }
 
     public static string? EmailError(string email)
     {
         if (email.Length > MaxEmailLength || !EmailPattern().IsMatch(email))
+        {
             return "Please enter a valid email address.";
+        }
+
         return null;
     }
 
     public static string? PasswordError(string password, string username)
     {
         if (password.Length < MinPasswordLength || password.Length > MaxPasswordLength)
+        {
             return $"Your password must be {MinPasswordLength} to {MaxPasswordLength} characters long.";
+        }
+
         if (string.Equals(password, username, StringComparison.OrdinalIgnoreCase))
+        {
             return "Your password cannot be your Habbo name.";
+        }
+
         return null;
     }
 

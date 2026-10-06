@@ -16,11 +16,18 @@ public sealed class UtcMigrationRangeGuardTests
     public void NullableUtcMigrationsGuardUnrepresentableValuesInEverySqlMode()
     {
         SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
+
         foreach (var sqlMode in new[] { "", "STRICT_ALL_TABLES" })
-        foreach (var migration in Cases())
         {
-            Verify(migration, sqlMode, widened: false);
-            if (migration.Widen != null) Verify(migration, sqlMode, widened: true);
+            foreach (var migration in Cases())
+            {
+                Verify(migration, sqlMode, widened: false);
+
+                if (migration.Widen != null)
+                {
+                    Verify(migration, sqlMode, widened: true);
+                }
+            }
         }
     }
 
@@ -32,18 +39,27 @@ public sealed class UtcMigrationRangeGuardTests
         using var admin = new MySqlConnection(adminBuilder.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4");
+
         try
         {
             var builder = new MySqlConnectionStringBuilder(root)
             {
-                Database = schema, Pooling = false, AllowZeroDateTime = true,
-                ConvertZeroDateTime = true, SslMode = MySqlSslMode.None
+                Database = schema,
+                Pooling = false,
+                AllowZeroDateTime = true,
+                ConvertZeroDateTime = true,
+                SslMode = MySqlSslMode.None
             };
             using var connection = new MySqlConnection(builder.ConnectionString);
             connection.Open();
             connection.Execute($"SET SESSION sql_mode = '{sqlMode}'");
             connection.Execute(migration.Setup);
-            if (widened) connection.Execute(migration.Widen!);
+
+            if (widened)
+            {
+                connection.Execute(migration.Widen!);
+            }
+
             connection.Execute(widened ? migration.WideSeed : migration.ActualSeed);
             var before = migration.Targets.Select(target => target.Table).Distinct().ToDictionary(table => table,
                 table => connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM `{table}`"));
@@ -54,6 +70,7 @@ public sealed class UtcMigrationRangeGuardTests
             {
                 Assert.Equal(before[target.Table], connection.ExecuteScalar<int>($"SELECT COUNT(*) FROM `{target.Table}`"));
                 var values = connection.Query<DateTimeOffset?>($"SELECT `{target.Column}` FROM `{target.Table}` ORDER BY {target.OrderBy}").ToArray();
+
                 for (var index = 0; index < values.Length; index++)
                 {
                     var expected = index == 1 ? (widened ? target.WideValidAt : target.ActualValidAt)
@@ -68,18 +85,29 @@ public sealed class UtcMigrationRangeGuardTests
                     SELECT COLUMN_TYPE AS Type, IS_NULLABLE AS Nullable, ORDINAL_POSITION AS Ordinal
                     FROM information_schema.COLUMNS
                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @Table AND COLUMN_NAME = @Column
-                    """, new { target.Table, target.Column });
+                    """, new
+                {
+                    target.Table,
+                    target.Column
+                });
                 Assert.Equal("datetime(6)", metadata.Type);
                 Assert.Equal("YES", metadata.Nullable);
                 Assert.True(target.Ordinal == metadata.Ordinal,
                     $"{migration.File}:{target.Table}.{target.Column} expected ordinal {target.Ordinal}, got {metadata.Ordinal}");
             }
+
             foreach (var index in migration.Indexes)
+            {
                 Assert.Equal(index.Columns, connection.QuerySingle<string>("""
                     SELECT GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX)
                     FROM information_schema.STATISTICS
                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @Table AND INDEX_NAME = @Name
-                    """, new { index.Table, index.Name }));
+                    """, new
+                {
+                    index.Table,
+                    index.Name
+                }));
+            }
         }
         finally
         {
@@ -115,6 +143,7 @@ public sealed class UtcMigrationRangeGuardTests
         var actualValid = type.StartsWith("INT", StringComparison.Ordinal) ? "2147483647" : "2200000000.123456";
         var actualSeed = $"INSERT INTO `{table}` (id,`{column}`) VALUES (1,0),(2,{actualValid})" +
             (supportsOverflow ? $",(3,{FirstUnrepresentableSecond}),(4,1e100)" : "") + ";";
+
         return new(number, file,
             $"CREATE TABLE `{table}` (id INT PRIMARY KEY{PrefixColumns(ordinal)}, `{column}` {type}{IndexSql(indexes)}) ENGINE=InnoDB",
             actualSeed,
@@ -129,6 +158,7 @@ public sealed class UtcMigrationRangeGuardTests
         var actualValid = type.StartsWith("INT", StringComparison.Ordinal) ? "2147483647" : "2200000000.123456";
         var rows = $"(1,0,0),(2,{actualValid},{actualValid})" +
             (supportsOverflow ? $",(3,{FirstUnrepresentableSecond},{FirstUnrepresentableSecond}),(4,1e100,1e100)" : "");
+
         return new(number, file,
             $"CREATE TABLE `{table}` (id INT PRIMARY KEY{PrefixColumns(firstOrdinal)}, `{first}` {type}, `{second}` {type}{IndexSql(indexes)}) ENGINE=InnoDB",
             $"INSERT INTO `{table}` (id,`{first}`,`{second}`) VALUES {rows}",
@@ -184,6 +214,7 @@ public sealed class UtcMigrationRangeGuardTests
     private static Target TargetFor(string table, string column, int ordinal, string type, bool actualSupportsOverflow = false)
     {
         var integer = type.StartsWith("INT", StringComparison.Ordinal);
+
         return new(table, column, "id", ordinal,
             DateTimeOffset.FromUnixTimeSeconds(integer ? 2147483647 : 2200000000).AddTicks(integer ? 0 : 1_234_560),
             DateTimeOffset.FromUnixTimeSeconds(2200000000).AddTicks(1_234_560), actualSupportsOverflow);
@@ -199,5 +230,11 @@ public sealed class UtcMigrationRangeGuardTests
     private sealed record Target(string Table, string Column, string OrderBy, int Ordinal,
         DateTimeOffset ActualValidAt, DateTimeOffset WideValidAt, bool ActualSupportsOverflow = false);
     private sealed record IndexExpectation(string Table, string Name, string Columns);
-    private sealed class ColumnMetadata { public string Type { get; set; } = ""; public string Nullable { get; set; } = ""; public int Ordinal { get; set; } }
+    private sealed class ColumnMetadata
+    {
+        public string Type { get; set; } = ""; public string Nullable { get; set; } = ""; public int Ordinal
+        {
+            get; set;
+        }
+    }
 }

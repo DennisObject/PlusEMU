@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.AI;
 
@@ -10,6 +10,7 @@ internal class RespectPetEvent(IPetRespectService respects) : RoomPacketEvent
     {
         var petId = packet.ReadInt();
         respects.Respect(room, session, petId);
+
         return Task.CompletedTask;
     }
 }

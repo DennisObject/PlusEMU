@@ -33,6 +33,7 @@ public sealed class CatalogStudioOperationComposer : IServerPacket
         packet.WriteString(_message);
         packet.WriteInteger(_revision);
         packet.WriteInteger(_changed.Count);
+
         foreach (var (entityType, entityId) in _changed)
         {
             packet.WriteString(entityType);

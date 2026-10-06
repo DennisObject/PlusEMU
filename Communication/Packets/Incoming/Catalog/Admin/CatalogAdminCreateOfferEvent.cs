@@ -16,6 +16,7 @@ public class CatalogAdminCreateOfferEvent : IPacketEvent
     {
         var (offer, envelope) = CatalogAdminPacketReader.Offer(packet, hasOfferId: false);
         CatalogAdminResponder.Send(session, "createOffer", envelope, _catalogAdmin.CreateOffer(session.GetHabbo(), envelope, offer));
+
         return Task.CompletedTask;
     }
 }

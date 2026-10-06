@@ -47,9 +47,11 @@ public sealed class AmbassadorUtcTests
         var schema = "task_refactor_tests_ambassadors_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(connectionString);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
+
             using (var connection = database.Connection())
             {
                 connection.Execute("CREATE TABLE ambassador_logs(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT,target VARCHAR(50),sanctions_type TEXT,`timestamp` DECIMAL(20,6) NULL)");
@@ -60,6 +62,7 @@ public sealed class AmbassadorUtcTests
                 Assert.Equal("datetime", connection.ExecuteScalar<string>("SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ambassador_logs' AND COLUMN_NAME='timestamp'"));
                 Assert.Equal(6, connection.ExecuteScalar<int>("SELECT DATETIME_PRECISION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='ambassador_logs' AND COLUMN_NAME='timestamp'"));
             }
+
             var now = new DateTimeOffset(2040, 12, 31, 20, 0, 0, TimeSpan.FromHours(2)).AddTicks(1234560);
             var clock = new CountingClock(now);
             var ambassador = AuthorizedAmbassador();
@@ -107,6 +110,7 @@ public sealed class AmbassadorUtcTests
     {
         var clients = DispatchProxy.Create<IGameClientManager, ClientProxy>();
         ((ClientProxy)(object)clients).Lookup = lookup;
+
         return clients;
     }
     public class ClientProxy : DispatchProxy
@@ -121,6 +125,7 @@ public sealed class AmbassadorUtcTests
         public Task Warn(GameClient session, int targetId, string message)
         {
             Calls.Add((targetId, message));
+
             return Task.CompletedTask;
         }
     }
@@ -132,8 +137,16 @@ public sealed class AmbassadorUtcTests
     };
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {

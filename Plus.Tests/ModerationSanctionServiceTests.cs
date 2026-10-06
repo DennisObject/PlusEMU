@@ -179,6 +179,7 @@ public sealed class ModerationSanctionServiceTests
         var effective = permissions.Length == 0
             ? new[] { PermissionKeys.ModerationBanSoft, PermissionKeys.ModerationIpBan, PermissionKeys.ModerationMachineBan }
             : permissions;
+
         return HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "moderator", Access = EditorTestSupport.Access(effective, 90) }).Client;
     }
 
@@ -188,6 +189,7 @@ public sealed class ModerationSanctionServiceTests
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).Call = call;
+
         return proxy;
     }
 
@@ -199,31 +201,62 @@ public sealed class ModerationSanctionServiceTests
 
     private sealed class RecordingSanctions : IModerationSanctionService
     {
-        public GameClient? Actor { get; private set; }
-        public ModerationBanRequest? Request { get; private set; }
-        public Task Ban(GameClient actor, ModerationBanRequest request) { Actor = actor; Request = request; return Task.CompletedTask; }
+        public GameClient? Actor
+        {
+            get; private set;
+        }
+        public ModerationBanRequest? Request
+        {
+            get; private set;
+        }
+        public Task Ban(GameClient actor, ModerationBanRequest request)
+        {
+            Actor = actor;
+            Request = request;
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
 
     private sealed class RecordingModeration
     {
         public List<Call> Calls { get; } = [];
-        public Action? BeforeCall { get; init; }
-        public IModerationManager Proxy { get; }
+        public Action? BeforeCall
+        {
+            get; init;
+        }
+        public IModerationManager Proxy
+        {
+            get;
+        }
 
         public RecordingModeration()
         {
             Proxy = ModerationSanctionServiceTests.Proxy<IModerationManager>((method, args) =>
             {
-                if (method != nameof(IModerationManager.BanAccount)) throw new NotSupportedException(method);
+                if (method != nameof(IModerationManager.BanAccount))
+                {
+                    throw new NotSupportedException(method);
+                }
+
                 BeforeCall?.Invoke();
                 Calls.Add(new((string)args[0]!, (int)args[1]!, (string)args[2]!, (string)args[3]!,
                     (DateTimeOffset?)args[4], (CancellationToken)args[5]!, (bool)args[6]!, (string?)args[7]));
+
                 return Task.CompletedTask;
             });
         }

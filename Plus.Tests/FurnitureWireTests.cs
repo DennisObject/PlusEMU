@@ -52,8 +52,12 @@ public class FurnitureWireTests
     public void RoomRowKeepsOwnerNameAndGiftWrap()
     {
         var table = new DataTable();
+
         foreach (var column in new[] { "id", "user_id", "x", "y", "rot", "limited_number", "limited_stack" })
+        {
             table.Columns.Add(column, typeof(int));
+        }
+
         table.Columns.Add("z", typeof(double));
         table.Columns.Add("extra_data", typeof(string));
         table.Columns.Add("wall_pos", typeof(string));
@@ -76,8 +80,10 @@ public class FurnitureWireTests
         var missingUser = ItemLoader.ReadRoomItem(table.Rows[1], 3, definition);
 
         Assert.Equal("bob", gift.Username);
-        Assert.Equal(5u, gift.OwnerId); Assert.Equal(5, gift.UserId);
-        Assert.Equal(6u, missingUser.OwnerId); Assert.Equal(6, missingUser.UserId);
+        Assert.Equal(5u, gift.OwnerId);
+        Assert.Equal(5, gift.UserId);
+        Assert.Equal(6u, missingUser.OwnerId);
+        Assert.Equal(6, missingUser.UserId);
         Assert.Equal(4004, RoomItemSnapshot.Capture(gift).FloorExtra);
         Assert.Equal("", missingUser.Username);
         Assert.Equal(":w=1,1 l=1,1 r", gift.WallCoordinates);
@@ -103,6 +109,7 @@ public class FurnitureWireTests
     {
         var packet = new RecordingPacket();
         packet.Serialize(RoomItemSnapshot.Capture(item));
+
         return (int)packet.Writes[7];
     }
 
@@ -127,15 +134,22 @@ public class FurnitureWireTests
                 AdjustableHeights = new List<double>()
             }
         };
+
         if (legacy != null)
+        {
             item.ExtraData = new LegacyDataFormat { Data = legacy };
+        }
+
         return item;
     }
 
     private sealed class RecordingPacket : IOutgoingPacket
     {
         public List<object> Writes { get; } = new();
-        public int MessageId { get; set; }
+        public int MessageId
+        {
+            get; set;
+        }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

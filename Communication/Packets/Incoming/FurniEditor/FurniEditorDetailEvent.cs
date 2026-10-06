@@ -17,6 +17,7 @@ public class FurniEditorDetailEvent : IPacketEvent
     {
         uint id = packet.ReadUInt();
         FurniEditorResponder.Read(session, () => new FurniEditorDetailResultComposer(_furniEditor.Detail(session.GetHabbo(), id)));
+
         return Task.CompletedTask;
     }
 }

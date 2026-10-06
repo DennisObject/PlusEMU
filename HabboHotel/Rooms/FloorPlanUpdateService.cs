@@ -30,24 +30,36 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
     {
         var room = session.GetHabbo().CurrentRoom;
         var model = room?.GetGameMap().Model;
-        if (model != null) session.Send(new RoomEntryTileComposer(model.DoorX, model.DoorY, model.DoorOrientation));
+
+        if (model != null)
+        {
+            session.Send(new RoomEntryTileComposer(model.DoorX, model.DoorY, model.DoorOrientation));
+        }
     }
 
     public void ShowOccupiedTiles(GameClient session)
     {
         var room = session.GetHabbo().CurrentRoom;
-        if (room != null) session.Send(new RoomOccupiedTilesComposer(FloorPlanSave.OccupiedTiles(FloorItems(room))));
+
+        if (room != null)
+        {
+            session.Send(new RoomOccupiedTilesComposer(FloorPlanSave.OccupiedTiles(FloorItems(room))));
+        }
     }
 
     public void Update(Room room, GameClient session, FloorPlanUpdateRequest body)
     {
         if (session.GetHabbo().CurrentRoom != room || !room.CheckRights(session, true))
+        {
             return;
+        }
 
         var model = room.GetGameMap().Model;
+
         if (model?.SqState == null || model.SqFloorHeight == null)
         {
             Notify(session, FloorPlanSave.ErrorTitle);
+
             return;
         }
 
@@ -59,17 +71,23 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
             room.FloorThickness,
             room.GetGameMap().StaticModel.WallHeight);
         var layout = FloorPlanSave.Resolve(body.DoorFieldsPresent, body.WallHeightPresent, body.Requested, existing);
+
         if (Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access) == 0 && (layout.WallThickness != 0 || layout.FloorThickness != 0))
+        {
             return;
+        }
 
         var decision = FloorPlanSave.Evaluate(body.Map, layout.DoorX, layout.DoorY, layout.DoorDirection, layout.WallThickness, layout.FloorThickness, layout.WallHeight, FloorItems(room), CurrentTiles(model));
+
         if (decision.Error != null)
         {
             Notify(session, decision.Error);
+
             return;
         }
 
         var modelName = $"model_bc_{room.Id}";
+
         try
         {
             _store.Save(room.Id, modelName, decision);
@@ -77,6 +95,7 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         catch (Exception)
         {
             Notify(session, FloorPlanSave.ErrorTitle);
+
             return;
         }
 
@@ -86,11 +105,16 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         // Clear CurrentRoom while this manager is alive. UnloadRoom then disposes it.
         var userManager = room.GetRoomUserManager();
         var connectedClients = new List<GameClient>();
+
         foreach (var user in userManager.GetRoomUsers())
         {
             var client = user?.GetClient();
+
             if (client == null)
+            {
                 continue;
+            }
+
             connectedClients.Add(client);
         }
 
@@ -101,6 +125,7 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
             () => _roomManager.ReloadModel(modelName),
             () => _roomManager.UnloadRoom(roomId),
             client => client.Send(new RoomForwardComposer(roomId)));
+
         return;
     }
 
@@ -109,7 +134,9 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         try
         {
             if (writeModel() < 1)
+            {
                 return false;
+            }
         }
         catch (Exception)
         {
@@ -117,7 +144,9 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         }
 
         if (!modelVisible())
+        {
             return false;
+        }
 
         try
         {
@@ -154,14 +183,19 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         unloadRoom();
 
         foreach (var client in connectedClients)
+        {
             forward(client);
+        }
     }
 
     private static void ClearCurrentRoom(GameClient client)
     {
         Habbo? habbo = client.GetHabbo();
+
         if (habbo != null)
+        {
             habbo.CurrentRoom = null;
+        }
     }
 
     private static void Notify(GameClient session, string error) =>
@@ -170,14 +204,19 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
     private static List<FloorPlanSave.FloorPlanItem> FloorItems(Room room)
     {
         var items = new List<FloorPlanSave.FloorPlanItem>();
+
         foreach (var item in room.GetRoomItemHandler().GetFloor)
         {
             if (item?.Definition == null)
+            {
                 continue;
+            }
+
             var width = item.Definition.Width < 1 ? 1 : item.Definition.Width;
             var length = item.Definition.Length < 1 ? 1 : item.Definition.Length;
             items.Add(new FloorPlanSave.FloorPlanItem(item.Id, item.GetX, item.GetY, item.Rotation, width, length));
         }
+
         return items;
     }
 
@@ -186,6 +225,7 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
         var tiles = new Dictionary<(int X, int Y), FloorPlanSave.FloorTile>();
         var width = Math.Min(model.MapSizeX, model.SqState.GetLength(0));
         var height = Math.Min(model.MapSizeY, model.SqState.GetLength(1));
+
         for (var y = 0; y < height; y++)
         {
             for (var x = 0; x < width; x++)
@@ -193,6 +233,7 @@ public sealed class FloorPlanUpdateService : IFloorPlanUpdateService
                 tiles[(x, y)] = new FloorPlanSave.FloorTile(model.SqFloorHeight[x, y], model.SqState[x, y] != SquareState.Blocked);
             }
         }
+
         return tiles;
     }
 }

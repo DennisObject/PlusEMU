@@ -218,7 +218,10 @@ public static class PermissionKeys
 
     public const string CommandGiveGotw = "command.give_gotw";
 
-    public static IReadOnlyList<PermissionDefinition> All { get; } = typeof(PermissionKeys)
+    public static IReadOnlyList<PermissionDefinition> All
+    {
+        get;
+    } = typeof(PermissionKeys)
         .GetFields(BindingFlags.Public | BindingFlags.Static)
         .Where(field => field.IsLiteral && field.FieldType == typeof(string))
         .Select(field => Describe((string)field.GetRawConstantValue()!)).OrderBy(permission => permission.Key, StringComparer.Ordinal).ToArray();

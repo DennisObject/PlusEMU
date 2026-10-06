@@ -20,6 +20,7 @@ internal class HousekeepingListActionLogEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         session.Send(new HousekeepingActionLogComposer(_auditLog.List(packet.ReadInt())));
+
         return Task.CompletedTask;
     }
 }

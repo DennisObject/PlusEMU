@@ -15,6 +15,7 @@ public static class ClubOfferSnapshotFactory
     public static ClubOffersSnapshot Capture(IEnumerable<ClubOffer> offers, int windowId, DateTimeOffset membershipEnd, DateTimeOffset now)
     {
         var end = membershipEnd > now ? membershipEnd : now;
+
         return new(offers.Select(offer => Capture(offer, end, now)).ToImmutableArray(), windowId);
     }
 
@@ -23,6 +24,7 @@ public static class ClubOfferSnapshotFactory
         now = now.ToUniversalTime();
         membershipEnd = membershipEnd.ToUniversalTime();
         var endsAt = membershipEnd.AddDays(offer.Days);
+
         return new(offer.Id, offer.Name, offer.Credits, offer.Points, offer.PointsType, offer.Months,
             offer.ExtraDays, offer.Giftable, (int)Math.Ceiling((endsAt - now).TotalDays),
             endsAt.Year, endsAt.Month, endsAt.Day);
@@ -47,10 +49,17 @@ public sealed class ClubOfferSnapshotService(ICatalogManager catalog, TimeProvid
     public void ShowExtension(GameClient session)
     {
         if (!catalog.Pages.Any(page => page.CanOpen(session.GetHabbo()) && page.Layout is "club_buy" or "vip_buy" or "loyalty_vip_buy"))
+        {
             return;
+        }
+
         var offer = catalog.ClubOffers.Where(offer => offer.Days > 0 && offer.Days <= 36500).OrderBy(offer => offer.Days).FirstOrDefault();
+
         if (offer == null)
+        {
             return;
+        }
+
         var now = clock.GetUtcNow();
         var end = MembershipEnd(session, now);
         var snapshot = new ClubExtensionSnapshot(ClubOfferSnapshotFactory.Capture(offer, end, now),
@@ -63,6 +72,7 @@ public sealed class ClubOfferSnapshotService(ICatalogManager catalog, TimeProvid
     private static DateTimeOffset MembershipEnd(GameClient session, DateTimeOffset now)
     {
         var expiry = session.GetHabbo().Access.Membership.ExpiresAt;
+
         return expiry is { } end && end > now ? end : now;
     }
 }

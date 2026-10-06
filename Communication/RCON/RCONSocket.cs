@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.RCON.Commands;
@@ -21,7 +21,12 @@ public class RconSocket : IRconSocket
     public void Init(string host, int port, IEnumerable<string> allowedConnections)
     {
         _allowedConnections = new();
-        foreach (var ipAddress in allowedConnections) _allowedConnections.Add(ipAddress);
+
+        foreach (var ipAddress in allowedConnections)
+        {
+            _allowedConnections.Add(ipAddress);
+        }
+
         try
         {
             _musSocket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -41,15 +46,21 @@ public class RconSocket : IRconSocket
         {
             var socket = ((Socket)iAr.AsyncState).EndAccept(iAr);
             var ip = socket.RemoteEndPoint.ToString().Split(':')[0];
+
             if (_allowedConnections.Contains(ip))
+            {
                 new RconConnection(socket, _connectionLogger);
+            }
             else
+            {
                 socket.Close();
+            }
         }
         catch (Exception)
         {
             // ignored
         }
+
         _musSocket.BeginAccept(OnCallBack, _musSocket);
     }
 

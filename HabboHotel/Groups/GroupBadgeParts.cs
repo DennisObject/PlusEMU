@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Groups;
+namespace Plus.HabboHotel.Groups;
 
 public class GroupBadgeParts
 {
@@ -9,7 +9,16 @@ public class GroupBadgeParts
         AssetTwo = assetTwo;
     }
 
-    public int Id { get; }
-    public string AssetOne { get; }
-    public string AssetTwo { get; }
+    public int Id
+    {
+        get;
+    }
+    public string AssetOne
+    {
+        get;
+    }
+    public string AssetTwo
+    {
+        get;
+    }
 }

@@ -89,6 +89,7 @@ public sealed class RoomGameTimeTests
         Set(room, "_gameManager", new GameManager(room, clock));
         Set(room, "_banzai", new BattleBanzai(room, clock, TestRoomAchievements.Unused));
         room.GetGameMap().GenerateMaps();
+
         return room;
     }
 
@@ -114,9 +115,17 @@ public sealed class RoomGameTimeTests
     private sealed class CountingClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {
         private DateTimeOffset _now = now;
-        public int Reads { get; private set; }
+        public int Reads
+        {
+            get; private set;
+        }
         public override TimeZoneInfo LocalTimeZone => zone;
-        public override DateTimeOffset GetUtcNow() { Reads++; return _now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return _now;
+        }
         public void SetUtcNow(DateTimeOffset value) => _now = value;
         public void ResetReads() => Reads = 0;
     }

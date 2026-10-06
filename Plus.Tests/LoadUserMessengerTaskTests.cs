@@ -42,6 +42,7 @@ public sealed class LoadUserMessengerTaskTests
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             Assert.Equal(1, Assert.Single(args!));
+
             return targetMethod!.Name switch
             {
                 nameof(IMessengerDataLoader.GetBuddiesForUser) => Task.FromResult(new List<MessengerBuddy> { new() { Id = 2 } }),

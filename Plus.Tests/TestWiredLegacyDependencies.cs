@@ -21,13 +21,17 @@ internal sealed class TestWiredCommands : ICommandManager
 
 internal static class TestWiredAccess
 {
-    public static IAccessControl Unused { get; } = Create((method, _) =>
+    public static IAccessControl Unused
+    {
+        get;
+    } = Create((method, _) =>
         throw new InvalidOperationException("Unexpected access lookup: " + method.Name));
 
     public static IAccessControl Create(Func<MethodInfo, object?[]?, object?> handler)
     {
         var access = DispatchProxy.Create<IAccessControl, Proxy>();
         ((Proxy)(object)access).Handler = handler;
+
         return access;
     }
 

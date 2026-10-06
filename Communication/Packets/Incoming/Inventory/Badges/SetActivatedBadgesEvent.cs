@@ -10,11 +10,13 @@ internal sealed class SetActivatedBadgesEvent(IBadgeEquipmentService badges) : I
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var requested = ImmutableArray.CreateBuilder<BadgeSlotSnapshot>(5);
+
         for (var index = 0; index < 5; index++)
         {
             var slot = packet.ReadInt();
             requested.Add(new(packet.ReadString(), slot));
         }
+
         return badges.Set(session, requested.MoveToImmutable());
     }
 }

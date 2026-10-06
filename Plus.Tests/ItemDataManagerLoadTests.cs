@@ -65,10 +65,14 @@ public class ItemDataManagerLoadTests
         {
             "can_stack", "is_walkable", "can_sit", "allow_recycle", "allow_trade", "allow_marketplace_sell", "allow_gift", "allow_inventory_stack", "is_rare", "extra_rot"
         };
+
         foreach (var column in new[] { "id", "sprite_id", "item_name", "public_name", "type", "width", "length", "stack_height", "can_stack", "is_walkable",
                      "can_sit", "allow_recycle", "allow_trade", "allow_marketplace_sell", "allow_gift", "allow_inventory_stack", "interaction_type", "wired_id",
                      "behaviour_data", "interaction_modes_count", "vending_ids", "height_adjustable", "effect_id", "is_rare", "extra_rot" })
+        {
             table.Columns.Add(column, booleanColumns.Contains(column) ? booleanColumnType : typeof(string));
+        }
+
         return table;
     }
 

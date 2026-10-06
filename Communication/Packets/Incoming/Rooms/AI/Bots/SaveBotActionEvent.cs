@@ -9,6 +9,7 @@ internal sealed class SaveBotActionEvent(IBotManagementService bots) : IPacketEv
     {
         var request = new BotActionRequest(packet.ReadInt(), (BotAction)packet.ReadInt(), packet.ReadString());
         bots.SaveAction(session, request);
+
         return Task.CompletedTask;
     }
 }

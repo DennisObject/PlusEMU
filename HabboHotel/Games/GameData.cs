@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Games;
+namespace Plus.HabboHotel.Games;
 
 public class GameData
 {
@@ -19,16 +19,52 @@ public class GameData
         Enabled = enabled;
     }
 
-    public int Id { get; }
-    public string Name { get; }
-    public string ColourOne { get; }
-    public string ColourTwo { get; }
-    public string ResourcePath { get; }
-    public string StringThree { get; }
-    public string Swf { get; }
-    public string Assets { get; }
-    public string ServerHost { get; }
-    public string ServerPort { get; }
-    public string SocketPolicyPort { get; }
-    public bool Enabled { get; }
+    public int Id
+    {
+        get;
+    }
+    public string Name
+    {
+        get;
+    }
+    public string ColourOne
+    {
+        get;
+    }
+    public string ColourTwo
+    {
+        get;
+    }
+    public string ResourcePath
+    {
+        get;
+    }
+    public string StringThree
+    {
+        get;
+    }
+    public string Swf
+    {
+        get;
+    }
+    public string Assets
+    {
+        get;
+    }
+    public string ServerHost
+    {
+        get;
+    }
+    public string ServerPort
+    {
+        get;
+    }
+    public string SocketPolicyPort
+    {
+        get;
+    }
+    public bool Enabled
+    {
+        get;
+    }
 }

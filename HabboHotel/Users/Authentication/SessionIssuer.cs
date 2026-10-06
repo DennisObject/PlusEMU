@@ -88,6 +88,7 @@ public class SessionIssuer : ISessionIssuer
                 await _accessTokens.IssueAt(userId, sessionId, instant, scope),
                 remember ? await _rememberTokens.ContinueAt(userId, sessionId, instant, scope) : null);
         });
+
         return session;
     }
 
@@ -97,18 +98,25 @@ public class SessionIssuer : ISessionIssuer
         // A live token used twice means someone else holds it: the account is suspect, so it is
         // signed out everywhere in the same transaction that detects the reuse.
         var rotation = await _rememberTokens.RotateAt(rememberToken, instant, RevokeEverything);
+
         if (rotation.Status != RememberRotationStatus.Rotated)
+        {
             return new(ResumeStatus.Invalid);
+        }
 
         var userId = rotation.UserId;
+
         if (await _accounts.UsernameById(userId) is not { } username)
         {
             await RevokeAll(userId);
+
             return new(ResumeStatus.Invalid);
         }
+
         if (await _bans.FindAt(username, address, instant.UtcNow) is { } ban)
         {
             await RevokeAll(userId);
+
             return new(ResumeStatus.Banned, Ban: ban);
         }
 
@@ -121,22 +129,31 @@ public class SessionIssuer : ISessionIssuer
                 await _accessTokens.IssueAt(userId, sessionId, instant, scope),
                 await _rememberTokens.ContinueAt(userId, sessionId, instant, scope));
         });
+
         return session == null ? new(ResumeStatus.Invalid) : new(ResumeStatus.Resumed, session);
     }
 
     public async Task<IssuedToken?> ExchangeTicket(string ticket)
     {
         var instant = CredentialInstant.Capture(_time);
+
         if (string.IsNullOrEmpty(ticket) || await _ssoTickets.FindUserAt(ticket, instant) is not { } userId)
+        {
             return null;
+        }
+
         var generation = await _generations.Current(userId);
+
         // Exchange always hands back a session (it gives a CMS-written ticket one), so logout can end it.
         if (await _ssoTickets.ExchangeAt(ticket, instant) is not { SessionId: { } sessionId } owner || owner.UserId != userId)
+        {
             return null;
+        }
 
         IssuedToken? token = null;
         await _generations.WriteInSession(userId, generation, sessionId,
             async scope => token = await _accessTokens.IssueAt(userId, sessionId, instant, scope));
+
         return token;
     }
 
@@ -146,26 +163,42 @@ public class SessionIssuer : ISessionIssuer
         // the pre-lock read only names the user to lock; the ticket is withdrawn and whatever session
         // it carries at that moment is ended in one transaction under the lock Exchange also takes.
         if (!string.IsNullOrEmpty(ssoTicket) && await _ssoTickets.FindOwner(ssoTicket) is { } byTicket)
+        {
             await _generations.Locked(byTicket.UserId, async scope =>
             {
                 if (await _ssoTickets.Withdraw(byTicket.UserId, ssoTicket, scope) is { SessionId: { } sessionId })
+                {
                     await EndSession(byTicket.UserId, sessionId, scope);
+                }
             });
+        }
 
         // Access tokens and remember families never change session, so their owners stay valid.
         var sessions = new HashSet<CredentialOwner>();
+
         if (!string.IsNullOrEmpty(accessToken) && await _accessTokens.FindOwner(accessToken) is { } byToken)
+        {
             sessions.Add(byToken);
+        }
+
         if (!string.IsNullOrEmpty(rememberToken) && await _rememberTokens.FindOwner(rememberToken) is { } byRemember)
+        {
             sessions.Add(byRemember);
+        }
+
         foreach (var (userId, sessionId) in sessions)
         {
             if (sessionId != null)
+            {
                 await _generations.Locked(userId, scope => EndSession(userId, sessionId, scope));
+            }
         }
+
         // Tokens without a session still end with their own logout.
         if (!string.IsNullOrEmpty(accessToken))
+        {
             await _accessTokens.Revoke(accessToken);
+        }
     }
 
     public Task RevokeAll(int userId, CancellationToken cancellationToken = default) =>

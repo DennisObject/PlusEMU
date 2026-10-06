@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 
 namespace Plus.Communication.Packets.Outgoing.Moderation;
@@ -18,7 +18,12 @@ public class ModeratorRoomInfoComposer(ModeratorRoomInfoSnapshot snapshot) : ISe
         packet.WriteString(snapshot.Name);
         packet.WriteString(snapshot.Description);
         packet.WriteInteger(snapshot.Tags.Length);
-        foreach (var tag in snapshot.Tags) packet.WriteString(tag);
+
+        foreach (var tag in snapshot.Tags)
+        {
+            packet.WriteString(tag);
+        }
+
         packet.WriteBoolean(false);
     }
 }

@@ -54,7 +54,12 @@ public class UserProcessTests
         var fail = true;
         var logger = new Logger<ProcessComponent>();
         using var process = Process(clock, new Store((_, _, _, _) =>
-        { if (fail) throw new InvalidOperationException("forced"); }), logger);
+        {
+            if (fail)
+            {
+                throw new InvalidOperationException("forced");
+            }
+        }), logger);
         process.Init(habbo);
         clock.Fire();
         Assert.Equal("old", habbo.HabboStats.RespectsTimestamp);
@@ -84,6 +89,7 @@ public class UserProcessTests
         Assert.True(process.Init(habbo));
         Assert.False(process.Init(habbo));
         var first = Task.Run(clock.Fire);
+
         try
         {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
@@ -95,6 +101,7 @@ public class UserProcessTests
             release.Set();
             await first;
         }
+
         process.Dispose();
         process.Dispose();
         clock.Fire(); // Simulate an already-queued timer callback even after timer disposal.
@@ -133,12 +140,14 @@ public class UserProcessTests
         using var process = Process(clock, new Store((_, _, _, _) => Interlocked.Increment(ref writes)));
         using var disconnect = new DisconnectContext(habbo, process, Proxy<IUserPersistenceService>((_, _) => null));
         Task tick;
+
         lock (habbo.WalletSync)
         {
             tick = Task.Run(clock.Fire);
             Assert.True(admitted.Wait(TimeSpan.FromSeconds(5)));
             habbo.OnDisconnect();
         }
+
         await tick.WaitAsync(TimeSpan.FromSeconds(5));
 
         Assert.True(clock.TimerDisposed);
@@ -162,6 +171,7 @@ public class UserProcessTests
             saved = (habbo.HabboStats.RespectsTimestamp, habbo.HabboStats.DailyRespectPoints,
                 habbo.HabboStats.DailyPetRespectPoints);
             saves++;
+
             return null;
         }));
         var send = habbo.Client.SendCallback;
@@ -169,6 +179,7 @@ public class UserProcessTests
         {
             var result = send(args);
             habbo.OnDisconnect();
+
             return result;
         };
 
@@ -241,14 +252,18 @@ public class UserProcessTests
         var schema = "task_user_process_shutdown_" + Guid.NewGuid().ToString("N");
         using var admin = new MySqlConnection(root);
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new HabbiconDatabaseTests.TestDatabase(new MySqlConnectionStringBuilder(root)
             {
-                Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+                Database = schema,
+                AllowZeroDateTime = true,
+                ConvertZeroDateTime = true
             }.ConnectionString);
             using var connection = database.Connection();
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+
             foreach (var table in new[] { "users", "users_settings", "user_stats" })
             {
                 var definition = System.Text.RegularExpressions.Regex.Match(pristine,
@@ -256,6 +271,7 @@ public class UserProcessTests
                 Assert.NotEmpty(definition);
                 connection.Execute(definition);
             }
+
             connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/5_RenameUserStatsTable.sql")));
             connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0");
             connection.Execute("INSERT INTO users(id,username,auth_ticket) VALUES(7,'user','ticket'); " +
@@ -279,6 +295,7 @@ public class UserProcessTests
             var tick = Task.Run(clock.Fire);
             Task? logout = null;
             bool savedBeforeResetPublished;
+
             try
             {
                 Assert.True(committed.Wait(TimeSpan.FromSeconds(5)));
@@ -294,7 +311,11 @@ public class UserProcessTests
             {
                 release.Set();
                 await tick.WaitAsync(TimeSpan.FromSeconds(5));
-                if (logout != null) await logout.WaitAsync(TimeSpan.FromSeconds(5));
+
+                if (logout != null)
+                {
+                    await logout.WaitAsync(TimeSpan.FromSeconds(5));
+                }
             }
 
             Assert.Equal((10, 10, "01/02"), StoredRespects());
@@ -309,7 +330,11 @@ public class UserProcessTests
 
             (int, int, string) StoredRespects() => connection.QuerySingle<(int, int, string)>(
                 "SELECT DailyRespectPoints,DailyPetRespectPoints,respectsTimestamp FROM user_statistics WHERE id=7");
-            void Disconnect() { disconnectStarted.Signal(); habbo.OnDisconnect(); }
+            void Disconnect()
+            {
+                disconnectStarted.Signal();
+                habbo.OnDisconnect();
+            }
         }
         finally { admin.Execute($"DROP DATABASE `{schema}`"); }
     }
@@ -324,11 +349,16 @@ public class UserProcessTests
         var writes = 0;
         var statistics = Proxy<IHabboStatsService>((method, args) =>
         {
-            if (method == "LoadHabboStats") return Task.FromResult(stats);
+            if (method == "LoadHabboStats")
+            {
+                return Task.FromResult(stats);
+            }
+
             Assert.Equal("UpdateDailyRespectsAndTimestamp", method);
             Assert.Equal(new object[] { 7, 10, "01/02" }, args);
             Assert.Null(habbo.HabboStats);
             writes++;
+
             return Task.CompletedTask;
         });
         await new LoadStatisticsLoginTask(statistics, Proxy<IGroupManager>((_, _) => false),
@@ -348,6 +378,7 @@ public class UserProcessTests
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             options.Database = schema;
@@ -365,11 +396,21 @@ public class UserProcessTests
 
     private static (Habbo Habbo, List<(uint Header, byte[] Payload)> Sent) Player(TimeProvider clock)
     {
-        var habbo = new Habbo { Id = 7, Username = "user", Gender = "M", Look = "look", Motto = "", Access = UserAccess.Empty,
+        var habbo = new Habbo
+        {
+            Id = 7,
+            Username = "user",
+            Gender = "M",
+            Look = "look",
+            Motto = "",
+            Access = UserAccess.Empty,
             HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
-            Effects = new EffectsComponent(clock), CreditsUpdateTick = 100 };
+            Effects = new EffectsComponent(clock),
+            CreditsUpdateTick = 100
+        };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
+
         return (habbo, sent);
     }
 
@@ -379,14 +420,19 @@ public class UserProcessTests
 
     private static T Proxy<T>(Func<string, object?[]?, object?> invoke) where T : class => CatalogSnapshotTestSupport.Proxy<T>(invoke);
     private sealed class Store(Action<int, int, int, string> save) : IUserProcessStore
-    { public void ResetDailyRespects(int userId, int respects, int petRespects, string day) => save(userId, respects, petRespects, day); }
+    {
+        public void ResetDailyRespects(int userId, int respects, int petRespects, string day) => save(userId, respects, petRespects, day);
+    }
 
     private sealed class DisconnectContext : IDisposable
     {
         private readonly System.Reflection.FieldInfo _game = typeof(PlusEnvironment).GetField("_game",
             System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
         private readonly object? _previous;
-        public int Unregisters { get; private set; }
+        public int Unregisters
+        {
+            get; private set;
+        }
 
         public DisconnectContext(Habbo habbo, ProcessComponent process, IUserPersistenceService persistence)
         {
@@ -397,6 +443,7 @@ public class UserProcessTests
             {
                 Assert.Equal("UnregisterClient", method);
                 Unregisters++;
+
                 return null;
             });
             _game.SetValue(null, Proxy<IGame>((method, _) => method == "get_ClientManager"
@@ -410,28 +457,66 @@ public class UserProcessTests
     {
         private TimerCallback? _callback;
         private object? _state;
-        public int Reads { get; private set; }
-        public TimeSpan Period { get; private set; }
-        public bool TimerDisposed { get; private set; }
-        public Action? OnRead { get; set; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public TimeSpan Period
+        {
+            get; private set;
+        }
+        public bool TimerDisposed
+        {
+            get; private set;
+        }
+        public Action? OnRead
+        {
+            get; set;
+        }
         public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.CreateCustomTimeZone("plus-nine", TimeSpan.FromHours(9), "test", "test");
-        public override DateTimeOffset GetUtcNow() { Reads++; OnRead?.Invoke(); return new(2040, 1, 1, 23, 30, 0, TimeSpan.Zero); }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+            OnRead?.Invoke();
+
+            return new(2040, 1, 1, 23, 30, 0, TimeSpan.Zero);
+        }
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
-        { _callback = callback; _state = state; Period = period; Assert.Equal(dueTime, period); return new Timer(this); }
+        {
+            _callback = callback;
+            _state = state;
+            Period = period;
+            Assert.Equal(dueTime, period);
+
+            return new Timer(this);
+        }
         public void Fire() => _callback!(_state);
         private sealed class Timer(ManualClock owner) : ITimer
         {
             public bool Change(TimeSpan dueTime, TimeSpan period) => !owner.TimerDisposed;
             public void Dispose() => owner.TimerDisposed = true;
-            public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+
+                return ValueTask.CompletedTask;
+            }
         }
     }
     private sealed class Logger<T> : ILogger<T>
     {
-        public int Errors { get; private set; }
+        public int Errors
+        {
+            get; private set;
+        }
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel level) => true;
         public void Log<TState>(LogLevel level, EventId id, TState state, Exception? error, Func<TState, Exception?, string> format)
-        { if (level == LogLevel.Error) Errors++; }
+        {
+            if (level == LogLevel.Error)
+            {
+                Errors++;
+            }
+        }
     }
 }

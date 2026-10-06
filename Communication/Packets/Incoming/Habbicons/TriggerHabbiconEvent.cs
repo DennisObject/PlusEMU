@@ -9,6 +9,7 @@ public sealed class TriggerHabbiconEvent(IRoomHabbiconService habbicons) : IPack
     {
         var id = packet.ReadInt();
         habbicons.Trigger(session, id);
+
         return Task.CompletedTask;
     }
 }

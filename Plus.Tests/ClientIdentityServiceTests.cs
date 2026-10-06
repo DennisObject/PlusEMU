@@ -42,6 +42,7 @@ public sealed class ClientIdentityServiceTests
             Assert.Equal("machine", client.MachineId);
             Assert.False(disconnected);
             Assert.Empty(sent);
+
             return banned;
         });
 
@@ -49,7 +50,11 @@ public sealed class ClientIdentityServiceTests
 
         Assert.Equal(banned, disconnected);
         Assert.Equal(banned, client.Closed.IsCancellationRequested);
-        if (banned) Assert.Empty(sent);
+
+        if (banned)
+        {
+            Assert.Empty(sent);
+        }
         else
         {
             var response = Assert.Single(sent);

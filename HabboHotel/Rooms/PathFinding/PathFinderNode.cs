@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.PathFinding;
+namespace Plus.HabboHotel.Rooms.PathFinding;
 
 public sealed class PathFinderNode : IComparable<PathFinderNode>
 {

@@ -33,13 +33,16 @@ public sealed class PetRoomStore(IDatabase database, ILogger<PetRoomStore> logge
             using var connection = database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
+
             if (connection.Execute("""
                     UPDATE bots
                     SET room_id = @RoomId, x = @X, y = @Y, z = @Z
                     WHERE id = @PetId AND ai_type = 'pet' AND user_id = @OwnerId AND room_id = @PreviousRoomId
                     LIMIT 1
                     """, move, transaction) != 1)
+            {
                 return false;
+            }
 
             if (connection.Execute("""
                     UPDATE bots_petdata
@@ -47,15 +50,19 @@ public sealed class PetRoomStore(IDatabase database, ILogger<PetRoomStore> logge
                     WHERE id = @PetId
                     LIMIT 1
                     """, move, transaction) != 1)
+            {
                 return false;
+            }
 
             transaction.Commit();
+
             return true;
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "Could not move pet {PetId} from room {PreviousRoomId} to room {RoomId}",
                 move.PetId, move.PreviousRoomId, move.RoomId);
+
             return false;
         }
     }

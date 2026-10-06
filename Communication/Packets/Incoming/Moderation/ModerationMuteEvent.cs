@@ -16,6 +16,7 @@ internal sealed class ModerationMuteEvent(IModeratorActionService moderation) : 
         packet.ReadString();
         packet.ReadString();
         moderation.Mute(session, userId, minutes);
+
         return Task.CompletedTask;
     }
 }

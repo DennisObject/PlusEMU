@@ -20,6 +20,7 @@ internal static class InventoryFurnitureSerializer
         packet.WriteInteger(-1);
         packet.WriteBoolean(false);
         packet.WriteInteger(-1);
+
         if (!item.IsWallItem)
         {
             packet.WriteString(string.Empty);

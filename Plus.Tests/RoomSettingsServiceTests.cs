@@ -38,15 +38,19 @@ public sealed class RoomSettingsServiceTests
             Proxy<INavigatorManager>((method, a) => { Assert.Equal("TryGetSearchResultList", method); a[1] = null; return false; }),
             Proxy<IAchievementManager>((method, _) => method == "ProgressAchievement" ? true : throw new NotSupportedException(method)),
             store, Proxy<ISettingsManager>((_, _) => null));
+
         if (fail)
         {
             Assert.Throws<InvalidOperationException>(() => service.Save(client, Request()));
-            Assert.Equal("Original", room.Name); Assert.Equal(0, room.WhoCanKick); Assert.Empty(sent);
+            Assert.Equal("Original", room.Name);
+            Assert.Equal(0, room.WhoCanKick);
+            Assert.Empty(sent);
         }
         else
         {
             service.Save(client, Request());
-            Assert.Equal("Updated", room.Name); Assert.Equal(2, room.WhoCanKick);
+            Assert.Equal("Updated", room.Name);
+            Assert.Equal(2, room.WhoCanKick);
             Assert.Equal(RoomAccess.Open, room.Access); // Empty password opens password mode.
             Assert.Equal(new[] { "one" }, room.Tags);
             Assert.Equal(3, sent.Count);
@@ -63,9 +67,12 @@ public sealed class RoomSettingsServiceTests
         await new SaveRoomSettingsEvent(target).Parse(client, HabbiconTestSupport.Incoming(42, "Name", "Desc", 2, "secret", 25, 36,
             2, "ONE", "two", 1, true, false, true, false, -1, 1, 1, 2, 0, 1, 2, 0, 50, 2));
         var request = Assert.IsType<RoomSettingsRequest>(target.Request);
-        Assert.Equal((uint)42, request.RoomId); Assert.Equal("secret", request.Password);
+        Assert.Equal((uint)42, request.RoomId);
+        Assert.Equal("secret", request.Password);
         Assert.Equal(new[] { "ONE", "two" }, request.Tags.ToArray());
-        Assert.Equal(2, request.WhoKick); Assert.Equal(50, request.ChatDistance); Assert.Equal(2, request.ExtraFlood);
+        Assert.Equal(2, request.WhoKick);
+        Assert.Equal(50, request.ChatDistance);
+        Assert.Equal(2, request.ExtraFlood);
     }
 
     [Fact]
@@ -96,17 +103,25 @@ public sealed class RoomSettingsServiceTests
     private static Room Room()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 42; room.OwnerId = 7; room.OwnerName = "owner"; room.Type = "private"; room.Name = "Original";
+        room.Id = 42;
+        room.OwnerId = 7;
+        room.OwnerName = "owner";
+        room.Type = "private";
+        room.Name = "Original";
         Set("_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         Set("_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         Set("_gamemap", new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "00\r00", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
+
         return room;
         void Set(string field, object value) => typeof(Room).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, value);
     }
     private static IRoomManager Rooms(Room room) => Proxy<IRoomManager>((method, args) => { Assert.Equal("TryLoadRoom", method); args[1] = room; return true; });
     private static T Proxy<T>(Func<string, object?[], object?> call) where T : class
     {
-        var proxy = DispatchProxy.Create<T, TestProxy>(); ((TestProxy)(object)proxy).Call = call; return proxy;
+        var proxy = DispatchProxy.Create<T, TestProxy>();
+        ((TestProxy)(object)proxy).Call = call;
+
+        return proxy;
     }
     public class TestProxy : DispatchProxy
     {
@@ -115,9 +130,26 @@ public sealed class RoomSettingsServiceTests
     }
     private sealed class Store : IRoomSettingsStore
     {
-        public bool Fail { get; init; } public Action? Before { get; init; } public RoomSettingsRequest? Saved;
+        public bool Fail
+        {
+            get; init;
+        }
+        public Action? Before
+        {
+            get; init;
+        }
+        public RoomSettingsRequest? Saved;
         public void Save(RoomSettingsRequest values, int ownerId, RoomAccess access)
-        { Before?.Invoke(); if (Fail) throw new InvalidOperationException("forced failure"); Saved = values; }
+        {
+            Before?.Invoke();
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
+
+            Saved = values;
+        }
     }
     private sealed class RecordingService : IRoomSettingsService
     {

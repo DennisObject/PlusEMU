@@ -30,27 +30,45 @@ public sealed class PlayerIgnoreService(
         var habbo = session.GetHabbo();
         using var held = await accounts.EnterAsync(habbo.Id);
         var room = habbo.CurrentRoom;
+
         if (room == null)
+        {
             return;
+        }
 
         var target = clients.GetClientByUsername(username)?.GetHabbo();
+
         if (target == null || (ignored && target.Access.Can(PermissionKeys.ModerationTool)))
+        {
             return;
+        }
 
         if (habbo.IgnoresComponent.IsIgnored(target.Id) == ignored)
+        {
             return;
+        }
 
         var name = await clients.GetNameById(target.Id);
+
         if (habbo.CurrentRoom != room || !await store.SetIgnored(habbo.Id, target.Id, ignored))
+        {
             return;
+        }
 
         if (ignored)
+        {
             habbo.IgnoresComponent.PublishIgnore(target.Id);
+        }
         else
+        {
             habbo.IgnoresComponent.PublishUnignore(target.Id);
+        }
 
         session.Send(new IgnoreStatusComposer(ignored ? IgnoreStatus.Added : IgnoreStatus.Removed, name));
+
         if (ignored)
+        {
             achievements.ProgressAchievement(session, "ACH_SelfModIgnoreSeen", 1);
+        }
     }
 }

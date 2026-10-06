@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 
 namespace Plus.Communication.Packets.Incoming.Groups;
@@ -9,8 +9,12 @@ internal class RemoveGroupMemberEvent(IGroupRemovalService groups) : IPacketEven
     {
         var groupId = packet.ReadInt();
         var userId = packet.ReadInt();
+
         if (packet.HasDataRemaining())
+        {
             packet.ReadBool();
+        }
+
         return groups.Remove(session, groupId, userId);
     }
 }

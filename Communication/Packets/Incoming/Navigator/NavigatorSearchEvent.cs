@@ -9,6 +9,7 @@ internal sealed class NavigatorSearchEvent(INavigatorSearchService searches) : I
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         session.Send(new NavigatorSearchResultSetComposer(searches.Search(session, packet.ReadString(), packet.ReadString())));
+
         return Task.CompletedTask;
     }
 }

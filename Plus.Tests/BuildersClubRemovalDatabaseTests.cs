@@ -13,6 +13,7 @@ public sealed class BuildersClubRemovalDatabaseTests
         connection.Open();
         var schema = "builders_club_removal_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
+
         try
         {
             connection.Execute($"USE `{schema}`");
@@ -89,6 +90,7 @@ public sealed class BuildersClubRemovalDatabaseTests
         connection.Open();
         var schema = "builders_club_pristine_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4");
+
         try
         {
             connection.Execute($"USE `{schema}`");

@@ -82,7 +82,12 @@ public class FlashFramingTests
         release.TrySetResult();
 
         var deadline = DateTime.UtcNow.AddSeconds(2);
-        while (server.Count < 2 && DateTime.UtcNow < deadline) await Task.Delay(10);
+
+        while (server.Count < 2 && DateTime.UtcNow < deadline)
+        {
+            await Task.Delay(10);
+        }
+
         Assert.Equal(0, disconnected);
         Assert.Equal(new uint[] { 1, 2 }, server.MessageIds);
     }
@@ -113,7 +118,12 @@ public class FlashFramingTests
         var sends = 0;
         client.DisconnectRequested = () => disconnected++;
         client.SendCallback = _ => { sends++; return false; };
-        if (afterHandshake) client.OnReceived(new byte[] { 0, 0, 0, 2, 0, 1 }, 0, 6);
+
+        if (afterHandshake)
+        {
+            client.OnReceived(new byte[] { 0, 0, 0, 2, 0, 1 }, 0, 6);
+        }
+
         var key = new byte[] { 64 };
         client.ActivateLegacyCrypto(key);
         var encrypted = new byte[] { 0, 0, 0, 2, 0, 2 };
@@ -223,7 +233,10 @@ public class FlashFramingTests
         var client = Client(server, 1u, 2u);
         server.Receive = (messageId, _) =>
         {
-            if (messageId == 1) client.ActivateLegacyCrypto(key);
+            if (messageId == 1)
+            {
+                client.ActivateLegacyCrypto(key);
+            }
         };
         var encrypted = new byte[] { 0, 0, 0, 2, 0, 2 };
         new Arc4(key).Encrypt(ref encrypted);
@@ -296,17 +309,30 @@ public class FlashFramingTests
             },
             DisconnectRequested = () => { }
         };
+
         return client;
     }
 
     private sealed class FakeServer : IGameServer
     {
-        public Task? Hold { get; init; }
+        public Task? Hold
+        {
+            get; init;
+        }
         public int Count => MessageIds.Count;
         public List<uint> MessageIds { get; } = new();
-        public Action<IOutgoingPacket>? Modify { get; init; }
-        public Action<uint, IIncomingPacket>? Receive { get; set; }
-        public bool RejectModification { get; init; }
+        public Action<IOutgoingPacket>? Modify
+        {
+            get; init;
+        }
+        public Action<uint, IIncomingPacket>? Receive
+        {
+            get; set;
+        }
+        public bool RejectModification
+        {
+            get; init;
+        }
 
         public bool Start() => true;
         public bool Stop() => true;
@@ -315,12 +341,14 @@ public class FlashFramingTests
         {
             MessageIds.Add(messageId);
             Receive?.Invoke(messageId, packet);
+
             return Hold ?? Task.CompletedTask;
         }
 
         public bool ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet)
         {
             Modify?.Invoke(packet);
+
             return !RejectModification;
         }
         public bool HasOutgoingPacketInjectors(uint messageId) => Modify != null;

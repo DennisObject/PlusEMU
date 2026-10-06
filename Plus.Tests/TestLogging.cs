@@ -45,7 +45,10 @@ internal static class TestItemRuntime
     internal static IRewardTrackManager Rewards { get; } = Empty<IRewardTrackManager>();
     internal static IAchievementManager Achievements { get; } = Empty<IAchievementManager>();
     internal static IUserProfileService Profiles { get; } = Empty<IUserProfileService>();
-    internal static IItemInteractorFactory Interactors { get; } =
+    internal static IItemInteractorFactory Interactors
+    {
+        get;
+    } =
         new ItemInteractorFactory(Travel, Profiles, Quests, Rewards, Achievements);
 
     private static T Empty<T>() where T : class => DispatchProxy.Create<T, EmptyProxy>();
@@ -55,12 +58,24 @@ internal static class TestItemRuntime
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             var type = targetMethod?.ReturnType;
-            if (type == null || type == typeof(void)) return null;
-            if (type == typeof(Task)) return Task.CompletedTask;
+
+            if (type == null || type == typeof(void))
+            {
+                return null;
+            }
+
+            if (type == typeof(Task))
+            {
+                return Task.CompletedTask;
+            }
+
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Task<>))
+            {
                 return typeof(Task).GetMethod(nameof(Task.FromResult))!
                     .MakeGenericMethod(type.GenericTypeArguments[0])
                     .Invoke(null, [type.GenericTypeArguments[0].IsValueType ? Activator.CreateInstance(type.GenericTypeArguments[0]) : null]);
+            }
+
             return type.IsValueType ? Activator.CreateInstance(type) : null;
         }
     }
@@ -71,15 +86,21 @@ internal static class TestItemRuntime
         public uint FindHopper(uint roomId) => 0;
         public uint FindLinkedTeleporter(uint itemId) => 0;
         public uint FindItemRoom(uint itemId) => 0;
-        public void RegisterHopper(uint itemId, uint roomId) { }
-        public void RemoveHopper(uint itemId, uint roomId) { }
+        public void RegisterHopper(uint itemId, uint roomId)
+        {
+        }
+        public void RemoveHopper(uint itemId, uint roomId)
+        {
+        }
     }
 }
 
 internal sealed class TestRoomFactory : IRoomFactory
 {
     public Room Create(RoomData data) => throw new NotSupportedException();
-    public void Dispose(uint roomId) { }
+    public void Dispose(uint roomId)
+    {
+    }
 }
 
 internal sealed class TestGameClientManager(Func<int, GameClient?> lookup) : IGameClientManager
@@ -107,7 +128,10 @@ internal sealed class TestGameClientManager(Func<int, GameClient?> lookup) : IGa
 
 internal sealed class TestLanguageManager(IReadOnlyDictionary<string, string> values) : ILanguageManager
 {
-    internal static TestLanguageManager RoomItems { get; } = new(new Dictionary<string, string>
+    internal static TestLanguageManager RoomItems
+    {
+        get;
+    } = new(new Dictionary<string, string>
     {
         ["room.item.already_placed"] = "room.item.already_placed"
     });
@@ -120,12 +144,24 @@ internal sealed class TestLanguageManager(IReadOnlyDictionary<string, string> va
 internal sealed class TestRoomItemStore : IRoomItemStore
 {
     internal static TestRoomItemStore Instance { get; } = new();
-    public void AssignOwner(uint itemId, int userId) { }
-    public void ClearRoom(uint itemId) { }
-    public void SaveWallPosition(uint itemId, string wallPosition) { }
-    public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
-    public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
-    public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
+    public void AssignOwner(uint itemId, int userId)
+    {
+    }
+    public void ClearRoom(uint itemId)
+    {
+    }
+    public void SaveWallPosition(uint itemId, string wallPosition)
+    {
+    }
+    public void SaveMoved(IReadOnlyList<RoomItemSave> items)
+    {
+    }
+    public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation)
+    {
+    }
+    public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition)
+    {
+    }
 }
 
 internal sealed class TestRoomItemMetadataStore : IRoomItemMetadataStore
@@ -143,10 +179,18 @@ internal sealed class TestRoomItemMetadataStore : IRoomItemMetadataStore
 internal sealed class TestRoomUserStore : IRoomUserStore
 {
     internal static TestRoomUserStore Instance { get; } = new();
-    public void UpdateUserCount(uint roomId, int count) { }
-    public void SavePet(RoomPetSave pet) { }
-    public void SaveBot(RoomBotSave bot) { }
-    public void RecordExit(uint roomId, int userId, DateTimeOffset exitedAt, int usersNow) { }
+    public void UpdateUserCount(uint roomId, int count)
+    {
+    }
+    public void SavePet(RoomPetSave pet)
+    {
+    }
+    public void SaveBot(RoomBotSave bot)
+    {
+    }
+    public void RecordExit(uint roomId, int userId, DateTimeOffset exitedAt, int usersNow)
+    {
+    }
 }
 
 internal sealed class TestRoomDataLoaderFactory : IRoomDataLoaderFactory

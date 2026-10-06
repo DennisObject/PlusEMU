@@ -37,17 +37,23 @@ public sealed class MessengerPermissionLockDatabaseTests(MessengerFriendSchema s
         barrier.BeforeFirstResolve = () =>
         {
             refresh = Task.Run(() => access.Refresh(9981));
+
             // On the broken path the accept owns the users rows and Refresh waits while holding _sync.
             // On the fixed path Refresh finishes because permission resolution precedes the transaction.
             for (var attempt = 0; attempt < 25 && !refresh.IsCompleted; attempt++)
             {
                 Thread.Sleep(200); // INNODB_TRX / LOCK_WAITS snapshots are cached for 100ms.
-                if (observer.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS") > 0) break;
+
+                if (observer.ExecuteScalar<int>("SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS") > 0)
+                {
+                    break;
+                }
             }
         };
         var settings = DispatchProxy.Create<ISettingsManager, OptionalSettings>();
         var loader = new MessengerDataLoader(database, clients, proxy, settings, TimeProvider.System);
         var accept = Task.Run(() => loader.AcceptFriendRequest(9981, 9982));
+
         try
         {
             var result = await accept.WaitAsync(TimeSpan.FromSeconds(15));
@@ -59,8 +65,21 @@ public sealed class MessengerPermissionLockDatabaseTests(MessengerFriendSchema s
         }
         finally
         {
-            try { await accept.WaitAsync(TimeSpan.FromSeconds(15)); } catch { }
-            if (refresh != null) { try { await refresh.WaitAsync(TimeSpan.FromSeconds(15)); } catch { } }
+            try
+            {
+                await accept.WaitAsync(TimeSpan.FromSeconds(15));
+            }
+            catch { }
+
+            if (refresh != null)
+            {
+                try
+                {
+                    await refresh.WaitAsync(TimeSpan.FromSeconds(15));
+                }
+                catch { }
+            }
+
             ((ITimer?)typeof(AccessControl).GetField("_expiryTimer", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(access))?.Dispose();
         }
     }
@@ -77,9 +96,16 @@ public sealed class MessengerPermissionLockDatabaseTests(MessengerFriendSchema s
                 _entered = true;
                 BeforeFirstResolve();
             }
-            try { return method.Invoke(Access, args); }
+
+            try
+            {
+                return method.Invoke(Access, args);
+            }
             catch (TargetInvocationException exception) when (exception.InnerException != null)
-            { ExceptionDispatchInfo.Capture(exception.InnerException).Throw(); throw; }
+            {
+                ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+                throw;
+            }
         }
     }
     public class OptionalSettings : DispatchProxy

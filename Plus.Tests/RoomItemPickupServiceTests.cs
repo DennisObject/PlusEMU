@@ -22,6 +22,7 @@ public partial class PlacedFurniRoomTests
         var service = Proxy<IRoomItemPickupService>((_, args) =>
         {
             calls.Add((uint)args[1]!);
+
             return Task.CompletedTask;
         });
         var packet = ClientPacket(123, 456);
@@ -44,6 +45,7 @@ public partial class PlacedFurniRoomTests
             Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
             Assert.Empty(_client.Sent);
             Assert.False(progressed);
+
             return true;
         });
         var quests = Proxy<IQuestManager>((_, _) => { progressed = true; return null; });
@@ -87,6 +89,7 @@ public partial class PlacedFurniRoomTests
         var store = new PickupStore(request =>
         {
             Assert.Equal((99, 7), (request.OwnerId, request.RecipientId));
+
             return true;
         });
         await new RoomItemPickupService(Proxy<IGameClientManager>((_, _) => null),
@@ -105,6 +108,7 @@ public partial class PlacedFurniRoomTests
         var store = new PickupStore(request =>
         {
             Assert.Equal((99, 99), (request.OwnerId, request.RecipientId));
+
             return true;
         });
         await new RoomItemPickupService(Proxy<IGameClientManager>((_, _) => null),
@@ -140,6 +144,7 @@ public partial class PlacedFurniRoomTests
         public bool PickUp(RoomItemPickup request)
         {
             Calls.Add(request);
+
             return persist(request);
         }
     }
@@ -155,6 +160,7 @@ public class RoomItemPickupStoreTests
         server.Open();
         var schema = "task_refactor_tests_pickup_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var builder = new MySqlConnectionStringBuilder(root) { Database = schema };
@@ -175,8 +181,14 @@ public class RoomItemPickupStoreTests
             Assert.Equal((42, 99), connection.QuerySingle<(int, int)>("SELECT room_id,user_id FROM items"));
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM room_items_moodlight"));
             connection.Execute("DROP TRIGGER reject_cleanup");
-            Assert.False(store.PickUp(request with { RoomId = 43 }));
-            Assert.False(store.PickUp(request with { OwnerId = 98 }));
+            Assert.False(store.PickUp(request with
+            {
+                RoomId = 43
+            }));
+            Assert.False(store.PickUp(request with
+            {
+                OwnerId = 98
+            }));
             Assert.True(store.PickUp(request));
             Assert.False(store.PickUp(request));
             Assert.Equal((0, 7), connection.QuerySingle<(int, int)>("SELECT room_id,user_id FROM items"));

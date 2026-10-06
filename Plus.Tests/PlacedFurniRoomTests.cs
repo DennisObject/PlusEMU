@@ -76,9 +76,14 @@ public partial class PlacedFurniRoomTests : IDisposable
         var rooms = Proxy<IRoomManager>((method, args) =>
         {
             Assert.Equal("TryGetRoom", method);
+
             if ((uint)args[0]! != RoomId)
+            {
                 return false;
+            }
+
             args[1] = _room;
+
             return true;
         });
         var clients = Proxy<IGameClientManager>((method, args) => method == "GetClientByUserId" && (int)args[0]! == 7 ? _client : null);
@@ -215,10 +220,13 @@ public partial class PlacedFurniRoomTests : IDisposable
     private static FlashIncomingPacket ClientPacket(params object[] values)
     {
         using var stream = new MemoryStream();
+
         foreach (var value in values)
         {
             if (value is bool flag)
+            {
                 stream.WriteByte(flag ? (byte)1 : (byte)0);
+            }
             else if (value is string text)
             {
                 var bytes = Encoding.UTF8.GetBytes(text);
@@ -234,6 +242,7 @@ public partial class PlacedFurniRoomTests : IDisposable
                 stream.Write(bytes);
             }
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
@@ -247,15 +256,24 @@ public partial class PlacedFurniRoomTests : IDisposable
     private sealed class InteractionTimeProvider(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = now;
-        public int Calls { get; set; }
+        public int Calls
+        {
+            get; set;
+        }
         public override TimeZoneInfo LocalTimeZone => zone;
-        public override DateTimeOffset GetUtcNow() { Calls++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Calls++;
+
+            return Now;
+        }
     }
 
     private static T Proxy<T>(Func<string, object?[], object?> call) where T : class
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).Call = call;
+
         return proxy;
     }
 
@@ -275,7 +293,9 @@ public partial class PlacedFurniRoomTests : IDisposable
         public override string DataSource => "";
         public override string ServerVersion => "";
         public override ConnectionState State => _state;
-        public override void ChangeDatabase(string databaseName) { }
+        public override void ChangeDatabase(string databaseName)
+        {
+        }
         public override void Close() => _state = ConnectionState.Closed;
         public override void Open() => _state = ConnectionState.Open;
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => new NoOpTransaction(this);
@@ -286,50 +306,110 @@ public partial class PlacedFurniRoomTests : IDisposable
     {
         public override IsolationLevel IsolationLevel => IsolationLevel.ReadCommitted;
         protected override DbConnection DbConnection => connection;
-        public override void Commit() { }
-        public override void Rollback() { }
+        public override void Commit()
+        {
+        }
+        public override void Rollback()
+        {
+        }
     }
 
     private sealed class NoOpCommand(Func<string, DataTable>? read = null, Action<string, DbParameterCollection>? write = null) : DbCommand
     {
         [AllowNull] public override string CommandText { get; set; } = "";
-        public override int CommandTimeout { get; set; }
-        public override CommandType CommandType { get; set; }
-        public override bool DesignTimeVisible { get; set; }
-        public override UpdateRowSource UpdatedRowSource { get; set; }
-        protected override DbConnection? DbConnection { get; set; }
+        public override int CommandTimeout
+        {
+            get; set;
+        }
+        public override CommandType CommandType
+        {
+            get; set;
+        }
+        public override bool DesignTimeVisible
+        {
+            get; set;
+        }
+        public override UpdateRowSource UpdatedRowSource
+        {
+            get; set;
+        }
+        protected override DbConnection? DbConnection
+        {
+            get; set;
+        }
         protected override DbParameterCollection DbParameterCollection { get; } = new NoOpParameters();
-        protected override DbTransaction? DbTransaction { get; set; }
-        public override void Cancel() { }
-        public override int ExecuteNonQuery() { write?.Invoke(CommandText, Parameters); return 1; }
+        protected override DbTransaction? DbTransaction
+        {
+            get; set;
+        }
+        public override void Cancel()
+        {
+        }
+        public override int ExecuteNonQuery()
+        {
+            write?.Invoke(CommandText, Parameters);
+
+            return 1;
+        }
         public override object? ExecuteScalar() => null;
-        public override void Prepare() { }
+        public override void Prepare()
+        {
+        }
         protected override DbParameter CreateDbParameter() => new NoOpParameter();
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
-            if (read != null) return read(CommandText).CreateDataReader();
+            if (read != null)
+            {
+                return read(CommandText).CreateDataReader();
+            }
+
             var table = new DataTable();
+
             if (CommandText.Contains("FROM group_memberships", StringComparison.Ordinal))
             {
                 table.Columns.Add("UserId", typeof(int));
                 table.Columns.Add("Rank", typeof(int));
             }
-            else table.Columns.Add("Value", typeof(int));
+            else
+            {
+                table.Columns.Add("Value", typeof(int));
+            }
+
             return table.CreateDataReader();
         }
     }
 
     private sealed class NoOpParameter : DbParameter
     {
-        public override DbType DbType { get; set; }
-        public override ParameterDirection Direction { get; set; }
-        public override bool IsNullable { get; set; }
+        public override DbType DbType
+        {
+            get; set;
+        }
+        public override ParameterDirection Direction
+        {
+            get; set;
+        }
+        public override bool IsNullable
+        {
+            get; set;
+        }
         [AllowNull] public override string ParameterName { get; set; } = "";
-        public override int Size { get; set; }
+        public override int Size
+        {
+            get; set;
+        }
         [AllowNull] public override string SourceColumn { get; set; } = "";
-        public override bool SourceColumnNullMapping { get; set; }
-        public override object? Value { get; set; }
-        public override void ResetDbType() { }
+        public override bool SourceColumnNullMapping
+        {
+            get; set;
+        }
+        public override object? Value
+        {
+            get; set;
+        }
+        public override void ResetDbType()
+        {
+        }
     }
 
     private sealed class NoOpParameters : DbParameterCollection
@@ -337,8 +417,19 @@ public partial class PlacedFurniRoomTests : IDisposable
         private readonly List<DbParameter> _items = [];
         public override int Count => _items.Count;
         public override object SyncRoot => _items;
-        public override int Add(object value) { _items.Add((DbParameter)value); return _items.Count - 1; }
-        public override void AddRange(Array values) { foreach (var value in values) Add(value); }
+        public override int Add(object value)
+        {
+            _items.Add((DbParameter)value);
+
+            return _items.Count - 1;
+        }
+        public override void AddRange(Array values)
+        {
+            foreach (var value in values)
+            {
+                Add(value);
+            }
+        }
         public override void Clear() => _items.Clear();
         public override bool Contains(object value) => _items.Contains((DbParameter)value);
         public override bool Contains(string value) => IndexOf(value) >= 0;
@@ -359,24 +450,41 @@ public partial class PlacedFurniRoomTests : IDisposable
     private sealed class EmptyConfigurationStore : IWiredConfigurationStore
     {
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
-        public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) { }
-        public void Reset(IReadOnlyCollection<uint> itemIds) { }
+        public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration)
+        {
+        }
+        public void Reset(IReadOnlyCollection<uint> itemIds)
+        {
+        }
     }
 
     private sealed class RecordingRoomItemStore : IRoomItemStore
     {
         public List<RoomItemSave> Saved { get; } = [];
-        public void AssignOwner(uint itemId, int userId) { }
-        public void ClearRoom(uint itemId) { }
-        public void SaveWallPosition(uint itemId, string wallPosition) { }
+        public void AssignOwner(uint itemId, int userId)
+        {
+        }
+        public void ClearRoom(uint itemId)
+        {
+        }
+        public void SaveWallPosition(uint itemId, string wallPosition)
+        {
+        }
         public void SaveMoved(IReadOnlyList<RoomItemSave> items) => Saved.AddRange(items);
-        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
-        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation)
+        {
+        }
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition)
+        {
+        }
     }
 
     private sealed class TestClient : GameClient
     {
-        public Action<uint>? BeforeCapture { get; set; }
+        public Action<uint>? BeforeCapture
+        {
+            get; set;
+        }
         public List<uint> Sent { get; } = new();
         public List<(uint Header, byte[] Body)> Packets { get; } = new();
         public TestClient() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)

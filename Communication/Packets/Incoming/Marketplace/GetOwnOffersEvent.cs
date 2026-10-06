@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Marketplace;
+using Plus.Communication.Packets.Outgoing.Marketplace;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Catalog.Marketplace;
 
@@ -11,6 +11,7 @@ internal class GetOwnOffersEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         session.Send(new MarketPlaceOwnOffersComposer(_marketplaceManager.OwnOffers(session.GetHabbo().Id)));
+
         return Task.CompletedTask;
     }
 }

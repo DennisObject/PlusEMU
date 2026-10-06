@@ -16,6 +16,7 @@ public class CatalogStudioOpenSessionEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         CatalogAdminResponder.Read(session, () => new CatalogStudioSessionComposer(_catalogAdmin.OpenSession(session.GetHabbo())));
+
         return Task.CompletedTask;
     }
 }

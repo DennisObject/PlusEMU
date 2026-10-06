@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Talents;
+namespace Plus.HabboHotel.Talents;
 
 public class TalentTrackSubLevel
 {
@@ -9,7 +9,16 @@ public class TalentTrackSubLevel
         RequiredProgress = requiredProgress;
     }
 
-    public int Level { get; set; }
-    public string Badge { get; set; }
-    public int RequiredProgress { get; set; }
+    public int Level
+    {
+        get; set;
+    }
+    public string Badge
+    {
+        get; set;
+    }
+    public int RequiredProgress
+    {
+        get; set;
+    }
 }

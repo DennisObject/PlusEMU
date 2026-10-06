@@ -52,8 +52,16 @@ public class FurnitureInteractionHandlerTests
     {
         using var stream = PlusMemoryStream.GetStream();
         var packet = new FlashOutgoingPacket(stream);
-        foreach (var value in values) packet.WriteInteger(value);
-        return new() { Buffer = stream.ToArray().AsMemory(6) };
+
+        foreach (var value in values)
+        {
+            packet.WriteInteger(value);
+        }
+
+        return new()
+        {
+            Buffer = stream.ToArray().AsMemory(6)
+        };
     }
 
     private sealed class RecordingFurniture : IFurnitureUseService

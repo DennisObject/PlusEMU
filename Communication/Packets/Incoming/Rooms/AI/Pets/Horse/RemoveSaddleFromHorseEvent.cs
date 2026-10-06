@@ -8,6 +8,7 @@ internal class RemoveSaddleFromHorseEvent(IHorseCustomizationService horses) : I
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         horses.RemoveSaddle(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

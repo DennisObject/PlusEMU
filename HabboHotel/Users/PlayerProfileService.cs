@@ -23,11 +23,14 @@ public sealed class PlayerProfileService(IGroupManager groupManager, IMessengerD
     public async Task Open(GameClient session, int userId)
     {
         var target = clients.GetClientByUserId(userId)?.GetHabbo() ?? await users.GetUserDataByIdAsync(userId);
+
         if (target == null)
         {
             session.SendNotification("An error occurred whilst finding that user's profile.");
+
             return;
         }
+
         var stats = await statsLoader.LoadHabboStats(userId);
         target.HabboStats = stats;
         var groups = groupManager.GetGroupsForUser(target.Id).Select(group => new ProfileGroupSnapshot(group.Id, group.Name,

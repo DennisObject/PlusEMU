@@ -31,6 +31,7 @@ public sealed class FurniEditorDetailResultComposer : IServerPacket
         packet.WriteString(item.Description);
         packet.WriteInteger(_detail.UsageCount);
         packet.WriteInteger(_detail.CatalogRefs.Count);
+
         foreach (var reference in _detail.CatalogRefs)
         {
             bool diamonds = reference.CostDiamonds > 0;
@@ -42,6 +43,7 @@ public sealed class FurniEditorDetailResultComposer : IServerPacket
             packet.WriteInteger(reference.PageId);
             packet.WriteString(reference.PageName);
         }
+
         packet.WriteString(_detail.Furnidata.EntryJson);
         packet.WriteString(_detail.Furnidata.DiagnosticJson);
     }

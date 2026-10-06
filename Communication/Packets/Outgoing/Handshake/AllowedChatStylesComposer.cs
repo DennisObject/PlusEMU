@@ -10,6 +10,10 @@ public sealed class AllowedChatStylesComposer(IReadOnlyList<int> styleIds) : ISe
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_captured.Count);
-        foreach (var id in _captured) packet.WriteInteger(id);
+
+        foreach (var id in _captured)
+        {
+            packet.WriteInteger(id);
+        }
     }
 }

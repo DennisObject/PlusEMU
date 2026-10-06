@@ -36,7 +36,12 @@ public class UserDataFactory : IUserDataFactory
     {
         cancellationToken.ThrowIfCancellationRequested();
         var habbo = await LoadHabboInfo(userId);
-        if (habbo == null) return null;
+
+        if (habbo == null)
+        {
+            return null;
+        }
+
         habbo.Persistence = _persistence;
         habbo.SessionStartedAt = _time.GetUtcNow();
         var components = _components.Load(userId);
@@ -55,19 +60,31 @@ public class UserDataFactory : IUserDataFactory
     public async Task<string> GetUsernameForHabboById(int userId)
     {
         using var connection = _database.Connection();
-        return await connection.ExecuteScalarAsync<string>("SELECT username FROM users WHERE id = @userId", new { userId });
+
+        return await connection.ExecuteScalarAsync<string>("SELECT username FROM users WHERE id = @userId", new
+        {
+            userId
+        });
     }
 
     public async Task<bool> HabboExists(int userId)
     {
         using var connection = _database.Connection();
-        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `id` = @userId LIMIT 1", new { userId }) != 0;
+
+        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `id` = @userId LIMIT 1", new
+        {
+            userId
+        }) != 0;
     }
 
     public async Task<bool> HabboExists(string username)
     {
         using var connection = _database.Connection();
-        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `username` = @username LIMIT 1", new { username }) != 0;
+
+        return await connection.ExecuteScalarAsync<int>("SELECT COUNT(0) FROM `users` WHERE `username` = @username LIMIT 1", new
+        {
+            username
+        }) != 0;
     }
 
     public async Task<Habbo?> GetUserDataByIdAsync(int userId) => await LoadHabboInfo(userId);
@@ -85,11 +102,16 @@ public class UserDataFactory : IUserDataFactory
             (user, volume) =>
             {
                 user.ClientVolume = ParseVolumes(volume);
+
                 return user;
             },
-            new { userId }, splitOn: "Volume");
+            new
+            {
+                userId
+            }, splitOn: "Volume");
         var habbo = users.SingleOrDefault();
         habbo?.SetRoomVisitRecorder(_roomVisits, _achievements);
+
         return habbo;
     }
 
@@ -102,6 +124,7 @@ public class UserDataFactory : IUserDataFactory
     public async Task<List<Badge>> GetEquippedBadgesForUserAsync(int userId)
     {
         var allBadges = await _badgeManager.LoadBadgesForHabbo(userId);
+
         return allBadges.Where(b => b.Slot > 0).ToList();
     }
 }

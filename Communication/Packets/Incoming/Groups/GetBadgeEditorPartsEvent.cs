@@ -8,6 +8,7 @@ internal class GetBadgeEditorPartsEvent(IGroupPresentationService presentation) 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         presentation.ShowBadgeEditor(session);
+
         return Task.CompletedTask;
     }
 }

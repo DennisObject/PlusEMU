@@ -11,6 +11,7 @@ internal class MoveWallItemEvent(IRoomItemPlacementService placement) : RoomPack
         var itemId = packet.ReadUInt();
         var location = packet.ReadString();
         placement.MoveWall(room, session, itemId, location);
+
         return Task.CompletedTask;
     }
 }

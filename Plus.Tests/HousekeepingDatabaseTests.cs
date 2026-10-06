@@ -32,7 +32,9 @@ public sealed class HousekeepingDatabaseFactAttribute : FactAttribute
     public HousekeepingDatabaseFactAttribute()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING")))
+        {
             Skip = "Set PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING to a disposable task_housekeeping_tests_ database with the full Plus schema.";
+        }
     }
 }
 
@@ -61,8 +63,12 @@ public class HousekeepingDatabaseTests : IDisposable
     {
         SqlMapper.AddTypeHandler(new Plus.Database.UtcDateTimeOffsetHandler());
         var connectionString = Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING")!;
+
         if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_housekeeping_tests_", StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("Housekeeping database tests require a disposable task_housekeeping_tests_ schema.");
+        }
+
         _database = new(connectionString);
         Execute("DELETE FROM user_roles WHERE user_id BETWEEN 920000 AND 920099; DELETE FROM users WHERE id BETWEEN 920000 AND 920099; DELETE FROM user_info WHERE user_id BETWEEN 920000 AND 920099; " +
                 "DELETE FROM rooms WHERE id BETWEEN 920000 AND 920099; DELETE FROM bans; DELETE FROM housekeeping_log; " +
@@ -88,6 +94,7 @@ public class HousekeepingDatabaseTests : IDisposable
     private T Scalar<T>(string sql)
     {
         using var connection = _database.Connection();
+
         return connection.ExecuteScalar<T>(sql)!;
     }
 
@@ -131,7 +138,12 @@ public class HousekeepingDatabaseTests : IDisposable
     {
         var styles = new ChatStyleManager(NullLogger<ChatStyleManager>.Instance, _database);
         styles.Init();
-        for (var id = 0; id <= 53; id++) Assert.True(styles.TryGetStyle(id, out _));
+
+        for (var id = 0; id <= 53; id++)
+        {
+            Assert.True(styles.TryGetStyle(id, out _));
+        }
+
         Assert.True(styles.TryGetStyle(0, out var normal));
         Assert.True(normal.CanUse(UserAccess.Empty));
         Assert.True(styles.TryGetStyle(9, out var club));
@@ -173,8 +185,13 @@ public class HousekeepingDatabaseTests : IDisposable
     {
         var clubs = new ClubMembershipService(_database, _permissions, TimeProvider.System);
         // DATETIME(6) keeps microseconds, so the fixture instant is truncated the same way the stored expiry is.
-        var now = DateTimeOffset.UtcNow; now = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMicrosecond));
-        Execute("INSERT INTO user_club_memberships (user_id, expires_at) VALUES (@Target, @expires)", new { Target, expires = now.AddDays(1).UtcDateTime });
+        var now = DateTimeOffset.UtcNow;
+        now = now.AddTicks(-(now.Ticks % TimeSpan.TicksPerMicrosecond));
+        Execute("INSERT INTO user_club_memberships (user_id, expires_at) VALUES (@Target, @expires)", new
+        {
+            Target,
+            expires = now.AddDays(1).UtcDateTime
+        });
         Assert.InRange(clubs.Grant(Staff(), Target, 2)!.Value, now.AddDays(3), now.AddDays(3).AddSeconds(5));
         Assert.InRange(clubs.Grant(Staff(), Target, 0)!.Value, now, now.AddSeconds(5));
         Assert.Null(clubs.Grant(Staff(), Owner, 1));
@@ -338,7 +355,10 @@ public class HousekeepingDatabaseTests : IDisposable
     [NoAuthenticationRequired]
     private sealed class SSOTicketEvent(IAuthenticator authenticator, string ticket) : IPacketEvent
     {
-        public Task<AuthenticationError?>? Attempt { get; private set; }
+        public Task<AuthenticationError?>? Attempt
+        {
+            get; private set;
+        }
         public Task Parse(GameClient session, IIncomingPacket packet) => Attempt = authenticator.AuthenticateUsingSSO(session, ticket);
     }
 
@@ -353,6 +373,7 @@ public class HousekeepingDatabaseTests : IDisposable
         var (session, _) = HabbiconTestSupport.Client(null!);
         var login = Authenticator(factory, gate).AuthenticateUsingSSO(session, _ticket);
         Assert.True(factory.Loaded.Task.Wait(TimeSpan.FromSeconds(10)));
+
         return (login, release, session, gate);
     }
 
@@ -362,6 +383,7 @@ public class HousekeepingDatabaseTests : IDisposable
         StaticDatabase.SetValue(null, _database);
         var tickets = new SsoTicketStore(_database, TimeProvider.System, Options.Create(new AuthApiConfiguration()));
         _ticket = tickets.Issue(Target).GetAwaiter().GetResult().Value;
+
         return new Authenticator(Array.Empty<IAuthenticationTask>(), _clients, factory, new AfterConsume(tickets, afterConsume), gate);
     }
 
@@ -372,6 +394,7 @@ public class HousekeepingDatabaseTests : IDisposable
         {
             var userId = await inner.Consume(ticket);
             hook?.Invoke();
+
             return userId;
         }
 
@@ -398,6 +421,7 @@ public class HousekeepingDatabaseTests : IDisposable
             var habbo = new Habbo { Id = record.Id, Username = record.Username, Credits = record.Credits, Access = UserAccess.Empty };
             Loaded.TrySetResult();
             await release;
+
             return habbo;
         }
 

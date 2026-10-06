@@ -20,7 +20,9 @@ public sealed class WiredRuntimeFactoryTests
     private static Room Room()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 1; room.OwnerId = 5;
+        room.Id = 1;
+        room.OwnerId = 5;
+
         return room;
     }
 
@@ -32,13 +34,19 @@ public sealed class WiredRuntimeFactoryTests
         {
             var item = new Item { Id = (uint)index + 1, Definition = new() { InteractionName = descriptor.CanonicalName } };
             var box = facade.CreateConfiguredBox(item);
+
             if (box != null)
             {
                 Assert.Same(item, box.Item);
                 Assert.Equal(descriptor.CanonicalName, box.Descriptor.CanonicalName);
                 Assert.Equal(WiredBoxSupport.Implemented, box.Descriptor.Support);
             }
-            return new { name = descriptor.CanonicalName, support = box?.Descriptor.Support.ToString() ?? "DescriptorOnly" };
+
+            return new
+            {
+                name = descriptor.CanonicalName,
+                support = box?.Descriptor.Support.ToString() ?? "DescriptorOnly"
+            };
         }).ToArray();
         Assert.Equal(172, boxes.Length);
         Assert.Contains(boxes, x => x.name == "wf_act_teleport_to" && x.support == "Implemented");
@@ -48,17 +56,27 @@ public sealed class WiredRuntimeFactoryTests
             {
                 var interaction = name.StartsWith("wf_antenna") ? "antenna" : name;
                 var item = new Item { Definition = new() { ItemName = name, InteractionName = interaction, Type = ItemType.Floor } };
-                return new { name, interaction, supported = WiredCounterController.Recognizes(item) || WiredStackEngine.IsSignalReceiver(item) };
+
+                return new
+                {
+                    name,
+                    interaction,
+                    supported = WiredCounterController.Recognizes(item) || WiredStackEngine.IsSignalReceiver(item)
+                };
             }).ToArray();
         Assert.All(auxiliaries, auxiliary => Assert.True(auxiliary.supported));
+
         if (Environment.GetEnvironmentVariable("WIRED_SUPPORT_LEDGER") is { Length: > 0 } output)
+        {
             File.WriteAllText(output, JsonSerializer.Serialize(new
             {
                 engineCommit = Environment.GetEnvironmentVariable("WIRED_ENGINE_COMMIT"),
-                registryCommit = "58a2ee4767379dc72e037cab4c061ff33066c0f5", boxes,
+                registryCommit = "58a2ee4767379dc72e037cab4c061ff33066c0f5",
+                boxes,
                 auxiliaries,
                 proof = new[] { "RegistryProbeReportsOnlyConcreteFactorySupport", "NativeCounterInteractorRetainsStateAndStartsOnlyWithRights", "NativeAntennaDeliversConfiguredSignalAndRejectsDetachedReceiver" }
             }, new JsonSerializerOptions { WriteIndented = true }));
+        }
     }
 
     [Theory]
@@ -69,7 +87,11 @@ public sealed class WiredRuntimeFactoryTests
         var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var definition = new ItemDefinition { ItemName = "legacy_custom_name" };
-        var candidate = facade.CreateConfiguredBox(new() { Id = 1, Definition = definition }, descriptor);
+        var candidate = facade.CreateConfiguredBox(new()
+        {
+            Id = 1,
+            Definition = definition
+        }, descriptor);
         Assert.NotNull(candidate);
         Assert.Equal(name, candidate.Descriptor.CanonicalName);
         Assert.Null(definition.WiredDescriptor);
@@ -115,9 +137,15 @@ public sealed class WiredRuntimeFactoryTests
 
     private sealed class FailingLoadStore : IWiredConfigurationStore
     {
-        public int Reads { get; private set; }
+        public int Reads
+        {
+            get; private set;
+        }
         public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
-        { Reads++; throw new InvalidDataException("Saved bytes are unreadable."); }
+        {
+            Reads++;
+            throw new InvalidDataException("Saved bytes are unreadable.");
+        }
         public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
         public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
     }
@@ -126,7 +154,13 @@ public sealed class WiredRuntimeFactoryTests
     {
         public bool WasRead;
         public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
-        { Assert.Equal(10u, id); Assert.Equal(name, descriptor.CanonicalName); WasRead = true; return config; }
+        {
+            Assert.Equal(10u, id);
+            Assert.Equal(name, descriptor.CanonicalName);
+            WasRead = true;
+
+            return config;
+        }
         public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
         public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
     }

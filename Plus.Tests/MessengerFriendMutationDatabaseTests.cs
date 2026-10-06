@@ -18,7 +18,10 @@ public sealed class MessengerFriendDatabaseFactAttribute : FactAttribute
     public const string Variable = "PLUS_MESSENGER_FRIEND_SERVER_CONNECTION_STRING";
     public MessengerFriendDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable(Variable) == null) Skip = $"Set {Variable} to a bare MariaDB server connection (no Database).";
+        if (Environment.GetEnvironmentVariable(Variable) == null)
+        {
+            Skip = $"Set {Variable} to a bare MariaDB server connection (no Database).";
+        }
     }
 }
 
@@ -27,16 +30,21 @@ public sealed class MessengerFriendSchema : IDisposable
 {
     private readonly string _server;
     public string Name { get; } = "task_messenger_tests_" + Guid.NewGuid().ToString("N")[..12];
-    public string ConnectionString { get; }
+    public string ConnectionString
+    {
+        get;
+    }
 
     public MessengerFriendSchema()
     {
         _server = Environment.GetEnvironmentVariable(MessengerFriendDatabaseFactAttribute.Variable)!;
+
         using (var admin = new MySqlConnection(_server))
         {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{Name}` CHARACTER SET utf8mb4");
         }
+
         ConnectionString = new MySqlConnectionStringBuilder(_server) { Database = Name, AllowZeroDateTime = true, ConvertZeroDateTime = true, SslMode = MySqlSslMode.None, Pooling = false, AllowUserVariables = true }.ToString();
         using var connection = new MySqlConnection(ConnectionString);
         connection.Open();
@@ -62,6 +70,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     {
         var proxy = DispatchProxy.Create<IAccessControl, Forwarder>();
         ((Forwarder)(object)proxy).Handler = (method, _) => method.Name == nameof(IAccessControl.Resolve) ? UserAccess.Empty : throw new NotSupportedException(method.Name);
+
         return (IAccessControl)(object)proxy;
     }
 
@@ -69,6 +78,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     {
         var proxy = DispatchProxy.Create<ISettingsManager, Forwarder>();
         ((Forwarder)(object)proxy).Handler = (method, _) => method.Name == nameof(ISettingsManager.GetOptionalValue) ? null : throw new NotSupportedException(method.Name);
+
         return (ISettingsManager)(object)proxy;
     }
 
@@ -77,8 +87,15 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     {
         using var connection = new MySqlConnection(schema.ConnectionString);
         connection.Open();
-        connection.Execute("INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (@id, @name, '', 0, 0, 0)", new { id, name = "friend_" + id });
-        connection.Execute("INSERT IGNORE INTO users_settings (user_id) VALUES (@id)", new { id });
+        connection.Execute("INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (@id, @name, '', 0, 0, 0)", new
+        {
+            id,
+            name = "friend_" + id
+        });
+        connection.Execute("INSERT IGNORE INTO users_settings (user_id) VALUES (@id)", new
+        {
+            id
+        });
     }
 
     private static HabboMessenger MessengerFor(IEnumerable<MessengerBuddy>? friends = null, IEnumerable<MessengerRequest>? requests = null, IEnumerable<int>? outstanding = null) =>
@@ -90,6 +107,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     {
         using var connection = new MySqlConnection(schema.ConnectionString);
         connection.Open();
+
         return connection.ExecuteScalar<int>(sql, parameters);
     }
 
@@ -103,7 +121,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task AcceptCommitsBothRowsAndConsumesOnlyTheSendersRequest()
     {
-        Account(9101); Account(9102);
+        Account(9101);
+        Account(9102);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9102, 9101), (9101, 9102)");
         var acceptor = Habbo(9101, MessengerFor(requests: [new MessengerRequest { FromId = 9102, ToId = 9101 }]));
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
@@ -120,7 +139,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task ConcurrentAcceptsOfOnePairCommitExactlyOnce()
     {
-        Account(9201); Account(9202);
+        Account(9201);
+        Account(9202);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9202, 9201)");
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
         var first = Habbo(9201, MessengerFor(requests: [new MessengerRequest { FromId = 9202, ToId = 9201 }]));
@@ -135,7 +155,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task MissingRequestOrAccountCommitsNothingAndLeavesMemoryAlone()
     {
-        Account(9301); Account(9302);
+        Account(9301);
+        Account(9302);
         var acceptor = Habbo(9301, MessengerFor(requests: [new MessengerRequest { FromId = 9302, ToId = 9301 }]));
         var loader = Loader();
 
@@ -152,9 +173,18 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task FullFriendListRollsBackTheConsumedRequest()
     {
-        Account(9401); Account(9402);
+        Account(9401);
+        Account(9402);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9402, 9401)");
-        for (var i = 0; i < 300; i++) Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9401, @other)", new { other = 9500000 + i });
+
+        for (var i = 0; i < 300; i++)
+        {
+            Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9401, @other)", new
+            {
+                other = 9500000 + i
+            });
+        }
+
         var acceptor = Habbo(9401, MessengerFor(requests: [new MessengerRequest { FromId = 9402, ToId = 9401 }]));
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
 
@@ -169,7 +199,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task DeclineDeletesOnlyTheSenderToRecipientRequest()
     {
-        Account(9501); Account(9502);
+        Account(9501);
+        Account(9502);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9502, 9501), (9501, 9502)");
         var decliner = Habbo(9501, MessengerFor(requests: [new MessengerRequest { FromId = 9502, ToId = 9501 }]));
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
@@ -184,7 +215,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task DecliningLegacyDuplicateRowsRemovesTheCachedRequestAfterTheirCommit()
     {
-        Account(9891); Account(9892);
+        Account(9891);
+        Account(9892);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9892, 9891), (9892, 9891), (9891, 9892)");
         var decliner = Habbo(9891, MessengerFor(requests: [new MessengerRequest { FromId = 9892, ToId = 9891 }]));
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
@@ -199,7 +231,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task RemoveDeletesBothDirectionsAndUpdatesBothMemories()
     {
-        Account(9601); Account(9602);
+        Account(9601);
+        Account(9602);
         Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9601, 9602), (9602, 9601)");
         var friend = new MessengerBuddy { Id = 9602 };
         var remover = Habbo(9601, MessengerFor(friends: [friend]));
@@ -214,7 +247,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task RegisterDuplicateRequestReportsOutstanding()
     {
-        Account(9701); Account(9702);
+        Account(9701);
+        Account(9702);
         var loader = Loader();
 
         Assert.True(await loader.RegisterFriendRequest(9701, 9702));
@@ -225,7 +259,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task StorageFailureLeavesMemoryAndPublicationUnchanged()
     {
-        Account(9801); Account(9802);
+        Account(9801);
+        Account(9802);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9802, 9801)");
         var acceptor = Habbo(9801, MessengerFor(requests: [new MessengerRequest { FromId = 9802, ToId = 9801 }]));
         var failing = DispatchProxy.Create<IMessengerDataLoader, Forwarder>();
@@ -245,7 +280,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task SortedAccountGateWaitsForAHeldLoginAndNeverDeadlocks()
     {
-        Account(9901); Account(9902);
+        Account(9901);
+        Account(9902);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9902, 9901)");
         var gate = new AccountSessionGate();
         var held = await gate.EnterAsync(9902);
@@ -253,6 +289,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         var acceptor = Habbo(9901, MessengerFor(requests: [new MessengerRequest { FromId = 9902, ToId = 9901 }]));
 
         var accept = service.AcceptRequestAsync(acceptor, 9902);
+
         try
         {
             await Task.Delay(200);
@@ -261,7 +298,12 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         finally
         {
             held.Dispose();
-            try { await accept.WaitAsync(TimeSpan.FromSeconds(30)); } catch (Exception) { }
+
+            try
+            {
+                await accept.WaitAsync(TimeSpan.FromSeconds(30));
+            }
+            catch (Exception) { }
         }
 
         Assert.Null(await accept.WaitAsync(TimeSpan.FromSeconds(30)));
@@ -270,7 +312,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task ReversePairOperationsInBothDirectionsCompleteWithoutDeadlock()
     {
-        Account(9951); Account(9952);
+        Account(9951);
+        Account(9952);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9952, 9951), (9951, 9952)");
         var gate = new AccountSessionGate();
         var service = new MessengerFriendMutationService(Loader(), gate, new GameClientManager(null!, null!));
@@ -286,9 +329,11 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task FailureAfterTheRelationshipInsertRollsBackTheConsumedRequest()
     {
-        Account(9981); Account(9982);
+        Account(9981);
+        Account(9982);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9982, 9981)");
         Execute("CREATE TRIGGER messenger_test_fail_friend BEFORE INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9981 AND NEW.user_two_id = 9982 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected friendship failure'; END IF; END");
+
         try
         {
             var acceptor = Habbo(9981, MessengerFor(requests: [new MessengerRequest { FromId = 9982, ToId = 9981 }]));
@@ -323,7 +368,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     public async Task SameStripeAccountsAcceptWithoutSelfDeadlock()
     {
         // 9xxx1 and 9xxx65 share a stripe (id mod 64); the canonical seam must hold that stripe once.
-        Account(9311); Account(9375);
+        Account(9311);
+        Account(9375);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9375, 9311)");
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(TimeSpan.FromSeconds(5)), new GameClientManager(null!, null!));
         var acceptor = Habbo(9311, MessengerFor(requests: [new MessengerRequest { FromId = 9375, ToId = 9311 }]));
@@ -336,7 +382,10 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     public async Task OpposingPairsAcrossWraparoundStripesCompleteWithoutDeadlock()
     {
         // The two accepted pairs are driven in opposing directions over shared accounts while a third account removes a friend.
-        Account(9711); Account(9712); Account(9713); Account(9714);
+        Account(9711);
+        Account(9712);
+        Account(9713);
+        Account(9714);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9712, 9711), (9714, 9713)");
         var gate = new AccountSessionGate(TimeSpan.FromSeconds(20));
         var service = new MessengerFriendMutationService(Loader(), gate, new GameClientManager(null!, null!));
@@ -354,9 +403,11 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     public async Task FailureWhileWritingTheSecondRelationshipRowRollsBackTheRequestAndTheFirstRow()
     {
         // The requester-to-acceptor row is inserted second; the signal aborts the statement after its insert, before any buddy read.
-        Account(9811); Account(9812);
+        Account(9811);
+        Account(9812);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9812, 9811)");
         Execute("CREATE TRIGGER messenger_test_fail_second AFTER INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9812 AND NEW.user_two_id = 9811 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected second-row failure'; END IF; END");
+
         try
         {
             var acceptor = Habbo(9811, MessengerFor(requests: [new MessengerRequest { FromId = 9812, ToId = 9811 }]));
@@ -376,9 +427,11 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     public async Task BuddyPreparationFailureAfterBothRelationshipRowsRollsBackEveryRow()
     {
         // The requester's users row is removed after the second relationship row, so the requester's buddy view reads nothing inside the transaction.
-        Account(9851); Account(9852);
+        Account(9851);
+        Account(9852);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9852, 9851)");
         Execute("CREATE TRIGGER messenger_test_drop_requester AFTER INSERT ON messenger_friendships FOR EACH ROW BEGIN IF NEW.user_one_id = 9852 AND NEW.user_two_id = 9851 THEN DELETE FROM users WHERE id = 9852; END IF; END");
+
         try
         {
             var acceptor = Habbo(9851, MessengerFor(requests: [new MessengerRequest { FromId = 9852, ToId = 9851 }]));
@@ -400,13 +453,15 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task AcceptingIsDecidedUnderTheHoldWhenAnIncomingRequestArrivesWhileWaiting()
     {
-        Account(9821); Account(9822);
+        Account(9821);
+        Account(9822);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9822, 9821)");
         var gate = new AccountSessionGate(TimeSpan.FromSeconds(20));
         var service = new MessengerFriendMutationService(Loader(), gate, new GameClientManager(null!, null!));
         var sender = Habbo(9821, MessengerFor());
         var held = await gate.EnterManyAsync([9821, 9822]);
         Task<FriendRequestOutcome>? send = null;
+
         try
         {
             // The precheck sees no incoming request; the request is recorded in memory before the hold is released.
@@ -419,7 +474,15 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         {
             // Release the lease even when an assertion fails, then observe the send so its exception is never unobserved.
             held.Dispose();
-            if (send != null) { try { await send.WaitAsync(TimeSpan.FromSeconds(30)); } catch (Exception) { } }
+
+            if (send != null)
+            {
+                try
+                {
+                    await send.WaitAsync(TimeSpan.FromSeconds(30));
+                }
+                catch (Exception) { }
+            }
         }
 
         var outcome = await send!;
@@ -432,7 +495,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task ConcurrentDeclinesOfOneRequestCommitExactlyOnce()
     {
-        Account(9831); Account(9832);
+        Account(9831);
+        Account(9832);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9832, 9831)");
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(TimeSpan.FromSeconds(20)), new GameClientManager(null!, null!));
         var first = Habbo(9831, MessengerFor(requests: [new MessengerRequest { FromId = 9832, ToId = 9831 }]));
@@ -447,7 +511,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     [MessengerFriendDatabaseFact]
     public async Task ConcurrentRemovalsOfOneFriendshipUpdateMemoryOnce()
     {
-        Account(9841); Account(9842);
+        Account(9841);
+        Account(9842);
         Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9841, 9842), (9842, 9841)");
         var remover = Habbo(9841, MessengerFor(friends: [new MessengerBuddy { Id = 9842 }]));
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(TimeSpan.FromSeconds(20)), new GameClientManager(null!, null!));
@@ -469,7 +534,10 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     public async Task StagedGapWriteFromAnotherPairCompletesWithoutDeadlock()
     {
         // A repeatable-read gap held on a missing pair past every existing friendship must not deadlock an unrelated accept whose insert lands in that gap.
-        Account(9961); Account(9962); Account(9971); Account(9972);
+        Account(9961);
+        Account(9962);
+        Account(9971);
+        Account(9972);
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9972, 9971)");
         var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(TimeSpan.FromSeconds(20)), new GameClientManager(null!, null!));
         var acceptor = Habbo(9971, MessengerFor(requests: [new MessengerRequest { FromId = 9972, ToId = 9971 }]));
@@ -477,6 +545,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         holder.Open();
         using var held = holder.BeginTransaction();
         Task<FriendRequestError?>? accept = null;
+
         try
         {
             holder.Execute("SELECT 1 FROM messenger_friendships WHERE user_one_id = 9961 AND user_two_id = 9962 FOR UPDATE", transaction: held);
@@ -488,9 +557,22 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         }
         finally
         {
-            try { held.Rollback(); } catch (Exception) { }
-            if (accept != null) { try { await accept.WaitAsync(TimeSpan.FromSeconds(30)); } catch (Exception) { } }
+            try
+            {
+                held.Rollback();
+            }
+            catch (Exception) { }
+
+            if (accept != null)
+            {
+                try
+                {
+                    await accept.WaitAsync(TimeSpan.FromSeconds(30));
+                }
+                catch (Exception) { }
+            }
         }
+
         Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9971 AND user_two_id = 9972) OR (user_one_id = 9972 AND user_two_id = 9971)"));
     }
 
@@ -500,14 +582,20 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     {
         for (var attempt = 0; attempt < 50; attempt++)
         {
-            if (Scalar("SELECT COUNT(*) FROM information_schema.INNODB_TRX WHERE trx_state = 'LOCK WAIT' AND trx_query LIKE 'INSERT INTO messenger_friendships%SELECT 9971, 9972%'") > 0) return;
+            if (Scalar("SELECT COUNT(*) FROM information_schema.INNODB_TRX WHERE trx_state = 'LOCK WAIT' AND trx_query LIKE 'INSERT INTO messenger_friendships%SELECT 9971, 9972%'") > 0)
+            {
+                return;
+            }
+
             if (accept.IsCompleted)
             {
                 await accept;
                 throw new InvalidOperationException("The accept finished without waiting on the held friendship gap.");
             }
+
             await Task.Delay(200);
         }
+
         await Task.Delay(200);
         using var inspector = new MySqlConnection(schema.ConnectionString);
         inspector.Open();

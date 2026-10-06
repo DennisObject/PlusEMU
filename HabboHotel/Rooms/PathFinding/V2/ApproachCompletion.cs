@@ -12,13 +12,18 @@ internal sealed class ApproachCompletion(Room room, RoomNavigation navigation, A
     // The intent is consumed before any recheck, so a re-entrant call can never start it twice.
     public bool Complete(RoomUser actor, long landingRevision)
     {
-        if (registry.Consume(actor) is not { } intent) return false;
+        if (registry.Consume(actor) is not { } intent)
+        {
+            return false;
+        }
+
         return StillValid(actor, intent, landingRevision) && Start(actor, intent.Descriptor);
     }
 
     private bool StillValid(RoomUser actor, ApproachIntent intent, long landingRevision)
     {
         var state = actor.Movement;
+
         return state.State == NavState.Active && state.LifetimeId == intent.LifetimeId
             && state.LocationRevision == landingRevision
             && !(state.Commands.Read()?.Sequence > intent.Sequence)
@@ -40,6 +45,7 @@ internal sealed class ApproachCompletion(Room room, RoomNavigation navigation, A
     {
         var item = room.GetRoomItemHandler().GetItem(descriptor.ItemId);
         var interactor = item == null ? null : _resolve(item);
+
         return interactor != null && interactor.ActionKind == descriptor.ActionKind
             && interactor.StartFromApproach(item!, actor);
     }

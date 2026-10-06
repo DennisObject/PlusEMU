@@ -24,6 +24,7 @@ public partial class PlacedFurniRoomTests
             Assert.Same(_client, args[1]);
             Assert.Equal(50, args[2]);
             calls++;
+
             return null;
         });
         var packet = ClientPacket(50);
@@ -149,8 +150,9 @@ public partial class PlacedFurniRoomTests
             Assert.Equal("Progress", method);
             Assert.Equal(RewardTrackActions.PetRespect, args[1]);
             reward();
+
             return null;
         }));
 
-    private static HabboStats RespectStats(int available) => new(0,0,0,0,0,0,0,available,0,0,0,0,"old",0);
+    private static HabboStats RespectStats(int available) => new(0, 0, 0, 0, 0, 0, 0, available, 0, 0, 0, 0, "old", 0);
 }

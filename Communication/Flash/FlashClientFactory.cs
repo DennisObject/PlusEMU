@@ -1,4 +1,4 @@
-﻿using NetCoreServer;
+using NetCoreServer;
 using Plus.Communication.Abstractions;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Revisions;

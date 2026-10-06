@@ -10,6 +10,7 @@ public static class WiredItemConditions
         WiredRoomOperations.Quantify(items.Select(item =>
         {
             var snapshot = config.Snapshots.FirstOrDefault(entry => entry.ItemId == item.Id);
+
             return snapshot != null && WiredRoomOperations.MatchesSnapshot(item, snapshot,
                 Param(config, 0) == 1, Param(config, 1) == 1, Param(config, 2) == 1, Param(config, 3) == 1);
         }), Param(config, 5));
@@ -31,14 +32,20 @@ public static class WiredItemConditions
         IEnumerable<Item> comparisonItems)
     {
         var definitions = comparisonItems.Select(item => item.Definition.Id).ToHashSet();
+
         return definitions.Count != 0 && WiredRoomOperations.Quantify(
             items.Select(item => definitions.Contains(item.Definition.Id)), Param(config, 2));
     }
 
     public static bool MatchesAltitude(WiredConfiguration config, IEnumerable<Item> items)
     {
-        if (!WiredRoomOperations.TryAltitude(config.Text, out var target)) return false;
+        if (!WiredRoomOperations.TryAltitude(config.Text, out var target))
+        {
+            return false;
+        }
+
         var targetHundredths = (long)Math.Round(target * 100, MidpointRounding.AwayFromZero);
+
         return WiredRoomOperations.Quantify(items.Select(item => WiredRoomOperations.Compare(
             (long)Math.Round(item.GetZ * 100, MidpointRounding.AwayFromZero), targetHundredths,
             Param(config, 0, 1))), Param(config, 2));
@@ -52,6 +59,7 @@ public static class WiredItemConditions
         WiredRoomOperations.Quantify(items.Select(item => Enumerable.Range(0, 4).Any(index =>
         {
             var offset = WiredRoomOperations.Offset(index * 2);
+
             return canMove(item, item.GetX + offset.X, item.GetY + offset.Y);
         })), 0);
 

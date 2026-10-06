@@ -245,6 +245,7 @@ public partial class PlacedFurniRoomTests
         bot.AiType = type;
         bot.Id = id;
         bot.BotId = id;
+
         return bot;
     }
 
@@ -253,19 +254,35 @@ public partial class PlacedFurniRoomTests
         public RoomUser User { get; set; } = null!;
         public Room Room { get; set; } = null!;
         public GameClient Client { get; set; } = null!;
-        public bool RecordExitCalled { get; private set; }
-        public bool SawCapturedVisit { get; private set; }
-        public bool ThrowOnUserCount { get; init; }
+        public bool RecordExitCalled
+        {
+            get; private set;
+        }
+        public bool SawCapturedVisit
+        {
+            get; private set;
+        }
+        public bool ThrowOnUserCount
+        {
+            get; init;
+        }
 
         public void UpdateUserCount(uint roomId, int count)
         {
             if (!ThrowOnUserCount)
+            {
                 return;
+            }
+
             SawCapturedVisit = ReferenceEquals(Client, User.GetClient()) && ReferenceEquals(Room, RoomOf(User));
             throw new InvalidOperationException("forced user-count failure");
         }
-        public void SavePet(RoomPetSave pet) { }
-        public void SaveBot(RoomBotSave bot) { }
+        public void SavePet(RoomPetSave pet)
+        {
+        }
+        public void SaveBot(RoomBotSave bot)
+        {
+        }
         public void RecordExit(uint roomId, int userId, DateTimeOffset exitedAt, int usersNow)
         {
             RecordExitCalled = true;
@@ -276,16 +293,28 @@ public partial class PlacedFurniRoomTests
 
     private sealed class ThrowingLeaveBotAi(Action beforeThrow) : BotAi
     {
-        public override void OnSelfEnterRoom() { }
+        public override void OnSelfEnterRoom()
+        {
+        }
         public override void OnSelfLeaveRoom(bool kicked)
         {
             beforeThrow();
             throw new InvalidOperationException("forced bot leave failure");
         }
-        public override void OnUserEnterRoom(RoomUser user) { }
-        public override void OnUserLeaveRoom(GameClient client) { }
-        public override void OnUserSay(RoomUser user, string message) { }
-        public override void OnUserShout(RoomUser user, string message) { }
-        public override void OnTimerTick() { }
+        public override void OnUserEnterRoom(RoomUser user)
+        {
+        }
+        public override void OnUserLeaveRoom(GameClient client)
+        {
+        }
+        public override void OnUserSay(RoomUser user, string message)
+        {
+        }
+        public override void OnUserShout(RoomUser user, string message)
+        {
+        }
+        public override void OnTimerTick()
+        {
+        }
     }
 }

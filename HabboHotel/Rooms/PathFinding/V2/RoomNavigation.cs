@@ -17,10 +17,22 @@ public sealed partial class RoomNavigation
     private readonly ActorAccessResolver _access;
     private readonly IDatabase _database;
     private readonly IRewardTrackManager _rewards;
-    public PathfindingSettings Settings { get; }
-    public NavInputs Inputs { get; }
-    public NavGrid Grid { get; }
-    public NavGridCompiler Compiler { get; }
+    public PathfindingSettings Settings
+    {
+        get;
+    }
+    public NavInputs Inputs
+    {
+        get;
+    }
+    public NavGrid Grid
+    {
+        get;
+    }
+    public NavGridCompiler Compiler
+    {
+        get;
+    }
     public bool UsesExecutor => Settings.Engine == PathfindingEngine.V2;
     public bool Enabled => Settings.Engine == PathfindingEngine.Shadow;
 
@@ -28,45 +40,86 @@ public sealed partial class RoomNavigation
         IGroupManager groups, IDatabase database, IRewardTrackManager rewards)
     {
         _logger = logger;
-        _room = room; Settings = settings;
+        _room = room;
+        Settings = settings;
         _access = new(groups);
         _database = database;
         _rewards = rewards;
-        if (UsesExecutor) room.EnableV2Movement();
-        var width = model.MapSizeX; var height = model.MapSizeY;
-        var z = new double[width * height]; var states = new SquareState[z.Length];
-        for (var y = 0; y < height; y++) for (var x = 0; x < width; x++)
+
+        if (UsesExecutor)
         {
-            z[y * width + x] = model.SqFloorHeight[x, y]; states[y * width + x] = model.SqState[x, y];
+            room.EnableV2Movement();
         }
+
+        var width = model.MapSizeX;
+        var height = model.MapSizeY;
+        var z = new double[width * height];
+        var states = new SquareState[z.Length];
+
+        for (var y = 0; y < height; y++)
+        {
+            for (var x = 0; x < width; x++)
+            {
+                z[y * width + x] = model.SqFloorHeight[x, y];
+                states[y * width + x] = model.SqState[x, y];
+            }
+        }
+
         Grid = new(width, height, z, states, model.DoorY * width + model.DoorX, model.DoorZ);
         // Layered surfaces need the v2 executor; legacy and shadow keep the K=1 graph.
         var layered = settings.LayeringEnabled && settings.Engine == PathfindingEngine.V2;
-        Inputs = new(width, height); Compiler = new(Grid, Inputs, settings with { LayeringEnabled = layered });
+        Inputs = new(width, height);
+        Compiler = new(Grid, Inputs, settings with
+        {
+            LayeringEnabled = layered
+        });
         Compiler.BeforePublish = tiles =>
         {
-            if (UsesExecutor && RoomOwnerScope.IsOwner(_room)) Executor.Context.Geometry.BeforePublish(tiles);
+            if (UsesExecutor && RoomOwnerScope.IsOwner(_room))
+            {
+                Executor.Context.Geometry.BeforePublish(tiles);
+            }
         };
-        _occupancy = new(Grid.SlotCapacity); _search = new(Grid, settings);
+        _occupancy = new(Grid.SlotCapacity);
+        _search = new(Grid, settings);
         Inputs.MarkAllDirty();
+
         if (settings.LayeringEnabled && !layered)
+        {
             _logger.LogWarning("Room {RoomId}: layering requires pathfinding.engine = v2; using single surfaces (K=1).", room.RoomId);
+        }
     }
 
     public void ApplyDirty()
     {
-        if (!Enabled && !UsesExecutor) return;
-        try { Compiler.ApplyNow(); }
+        if (!Enabled && !UsesExecutor)
+        {
+            return;
+        }
+
+        try
+        {
+            Compiler.ApplyNow();
+        }
         catch (Exception error)
         {
             Inputs.MarkAllDirty();
-            if (UsesExecutor) throw;
+
+            if (UsesExecutor)
+            {
+                throw;
+            }
+
             _logger.LogWarning(error, "Pathfinding shadow compile failed for room {RoomId}; legacy continues.", _room.RoomId);
         }
     }
     public void SetFloorStatus(int x, int y, byte status)
     {
-        if (!Grid.InBounds(x, y)) return;
+        if (!Grid.InBounds(x, y))
+        {
+            return;
+        }
+
         var t = Grid.Tile(x, y);
         Volatile.Write(ref Grid.FloorStatusOverrides[t], status);
         Inputs.MarkDirty(t);
@@ -75,21 +128,41 @@ public sealed partial class RoomNavigation
     // The legacy map rewrote this cell from furniture, which ends an explicit floor status there.
     public void ReleaseFloorStatus(int x, int y)
     {
-        if (!Grid.InBounds(x, y)) return;
+        if (!Grid.InBounds(x, y))
+        {
+            return;
+        }
+
         var t = Grid.Tile(x, y);
-        if (Interlocked.Exchange(ref Grid.FloorStatusOverrides[t], -1) != -1) Inputs.MarkDirty(t);
+
+        if (Interlocked.Exchange(ref Grid.FloorStatusOverrides[t], -1) != -1)
+        {
+            Inputs.MarkDirty(t);
+        }
     }
 
     public void ReleaseFloorStatuses()
     {
         for (var y = 0; y < Grid.Height; y++)
-            for (var x = 0; x < Grid.Width; x++) ReleaseFloorStatus(x, y);
+        {
+            for (var x = 0; x < Grid.Width; x++)
+            {
+                ReleaseFloorStatus(x, y);
+            }
+        }
     }
 
     public void Compare(RoomUser actor, IReadOnlyList<Vector2D> legacyPath, long legacyTicks)
     {
-        if (!Enabled) return;
-        try { CompareCore(actor, legacyPath, legacyTicks); }
+        if (!Enabled)
+        {
+            return;
+        }
+
+        try
+        {
+            CompareCore(actor, legacyPath, legacyTicks);
+        }
         catch (Exception error) { _logger.LogWarning(error, "Pathfinding shadow search failed for room {RoomId} actor {ActorId}; legacy continues.", _room.RoomId, actor.VirtualId); }
     }
 
@@ -115,11 +188,14 @@ public sealed partial class RoomNavigation
         var outcome = _search.Find(request, lease.Workspace, _route);
         var elapsed = Stopwatch.GetTimestamp() - started;
         var divergent = Diverges(outcome, _route.Count, legacyPath.Count) || outcome == PathOutcome.Found && RouteDiffersFromLegacy(legacyPath);
+
         if (Random.Shared.NextDouble() < Settings.ShadowLogSample)
+        {
             _logger.LogInformation("Pathfinding shadow room={RoomId} actor={ActorId} goal={GoalX},{GoalY} divergence={Divergence} outcome={Outcome} legacy_steps={LegacySteps} v2_steps={V2Steps} legacy_us={LegacyMicroseconds:F2} v2_us={V2Microseconds:F2} expansions={Expansions}",
                 _room.RoomId, actor.VirtualId, request.GoalX, request.GoalY, divergent, outcome,
                 Math.Max(0, legacyPath.Count - 1), _route.Count, legacyTicks * 1e6 / Stopwatch.Frequency,
                 elapsed * 1e6 / Stopwatch.Frequency, lease.Workspace.Expansions);
+        }
     }
 
     private ActorProfile ShadowProfile(RoomUser actor)
@@ -130,6 +206,7 @@ public sealed partial class RoomNavigation
         profile.IgnoreStepHeight = actor.RidingHorse && Settings.RidersIgnoreHeight;
         profile.Walkthrough = _room.RoomBlockingEnabled;
         profile.DiagonalEnabled = _room.GetGameMap().DiagonalEnabled;
+
         return profile;
     }
 
@@ -137,7 +214,11 @@ public sealed partial class RoomNavigation
     {
         foreach (var other in _room.GetRoomUserManager().GetUserList())
         {
-            if (other == actor || actor.RidingHorse && other.VirtualId == actor.HorseId || !Grid.InBounds(other.X, other.Y)) continue;
+            if (other == actor || actor.RidingHorse && other.VirtualId == actor.HorseId || !Grid.InBounds(other.X, other.Y))
+            {
+                continue;
+            }
+
             var t = Grid.Tile(other.X, other.Y);
             _occupancy.Targets[t] |= !Grid.Active(t) || other.Z != Grid.WalkZ[t] ? TargetOccupancy.OffGraph
                 : other.IsWalking ? TargetOccupancy.Walking : TargetOccupancy.Stationary;
@@ -148,9 +229,15 @@ public sealed partial class RoomNavigation
     {
         for (var i = 0; i < _route.Count; i++)
         {
-            var t = _route.Steps[i].Tile; var old = legacyPath[legacyPath.Count - 2 - i];
-            if (old.X != t % Grid.Width || old.Y != t / Grid.Width) return true;
+            var t = _route.Steps[i].Tile;
+            var old = legacyPath[legacyPath.Count - 2 - i];
+
+            if (old.X != t % Grid.Width || old.Y != t / Grid.Width)
+            {
+                return true;
+            }
         }
+
         return false;
     }
 }

@@ -27,6 +27,7 @@ public class AuditUtcDatabaseTests
             new CommandManager([], null!, new HabbiconDatabaseTests.TestDatabase(connectionString), new FixedTimeProvider(Captured)).LogCommand(7, ":test", "machine");
             var audit = new HousekeepingAuditLog(new HabbiconDatabaseTests.TestDatabase(connectionString), new FixedTimeProvider(Captured));
             audit.Write(7, "staff", "user.mute", HousekeepingOutcome.Success(HousekeepingTarget.User(8, "target"), "minutes=5"));
+
             using (var connection = new MySqlConnection(connectionString))
             {
                 connection.Open();
@@ -60,6 +61,7 @@ public class AuditUtcDatabaseTests
             RunFile(connectionString, "Database/Migrations/36_UseUtcAuditLogTimes.sql");
             var dump = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
             var update = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/20_Housekeeping.sql"));
+
             using (var connection = new MySqlConnection(connectionString))
             {
                 connection.Open();
@@ -78,6 +80,7 @@ public class AuditUtcDatabaseTests
                     "('user', 'b', 'x', '2050-01-01 00:00:00', 'staff', '2039-12-31 03:04:05.000000'), " +
                     "('user', 'c', 'x', '2050-01-01 00:00:00', 'staff', NULL)");
             }
+
             var database = new HabbiconDatabaseTests.TestDatabase(connectionString);
             new HousekeepingAuditLog(database, new FixedTimeProvider(Captured)).Write(7, "staff", "user.trade_lock", HousekeepingOutcome.Success(HousekeepingTarget.User(8, "target"), "hours=1"));
             var clock = new FixedTimeProvider(Captured);
@@ -102,6 +105,7 @@ public class AuditUtcDatabaseTests
                 connection.Execute("INSERT INTO logs_client_staff (user_id, data_string, machine_id, `timestamp`) VALUES (1, 'fraction', '', 1700000000.25), (1, 'future', '', 2500000000.5), (1, 'zero', '', 0), (1, 'negative', '', -3), (1, 'null', '', NULL)");
                 connection.Execute("INSERT INTO housekeeping_log (`timestamp`, actor_id, action) VALUES (2147483647, 1, 'max'), (0, 1, 'zero'), (-1, 1, 'negative'), (NULL, 1, 'null')");
             }
+
             RunFile(connectionString, "Database/Migrations/36_UseUtcAuditLogTimes.sql");
 
             using var verify = new MySqlConnection(connectionString);
@@ -126,8 +130,12 @@ public class AuditUtcDatabaseTests
             {
                 Assert.Equal(("datetime", "YES", "NULL", 6), verify.QuerySingle<(string, string, string?, int)>(
                     "SELECT DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, DATETIME_PRECISION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table AND COLUMN_NAME = 'timestamp'",
-                    new { table }));
+                    new
+                    {
+                        table
+                    }));
             }
+
             Assert.Equal(5, verify.ExecuteScalar<int>("SELECT ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'logs_client_staff' AND COLUMN_NAME = 'timestamp'"));
             Assert.Equal(2, verify.ExecuteScalar<int>("SELECT ORDINAL_POSITION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'housekeeping_log' AND COLUMN_NAME = 'timestamp'"));
             Assert.Equal(new[] { ("timestamp", 1), ("action", 2) }, verify.Query<(string ColumnName, int Seq)>(
@@ -156,7 +164,12 @@ public class AuditUtcDatabaseTests
     private static string Statement(string text, string opening)
     {
         var start = text.IndexOf(opening, StringComparison.Ordinal);
-        if (start < 0) throw new InvalidOperationException($"Dump has no statement starting {opening}.");
+
+        if (start < 0)
+        {
+            throw new InvalidOperationException($"Dump has no statement starting {opening}.");
+        }
+
         return text[start..(text.IndexOf(';', start) + 1)];
     }
 
@@ -186,11 +199,13 @@ public class AuditUtcDatabaseTests
         var server = Environment.GetEnvironmentVariable("PLUS_AUDIT_UTC_TEST_CONNECTION_STRING")!;
         var schema = "task_audit_utc_tests_" + Guid.NewGuid().ToString("N")[..12];
         var options = new MySqlConnectionStringBuilder(server) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true };
+
         using (var admin = new MySqlConnection(server))
         {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{schema}`");
         }
+
         try
         {
             await body(options.ConnectionString);
@@ -209,6 +224,8 @@ public sealed class AuditUtcDatabaseFactAttribute : Xunit.FactAttribute
     public AuditUtcDatabaseFactAttribute()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_AUDIT_UTC_TEST_CONNECTION_STRING")))
+        {
             Skip = "Set PLUS_AUDIT_UTC_TEST_CONNECTION_STRING to a server that can create and drop disposable task_audit_utc_tests_ schemas.";
+        }
     }
 }

@@ -34,13 +34,18 @@ public class ActorAccessResolverTests
         var resolver = Resolver((_, _) => standing);
         var profile = new ActorProfile();
         resolver.Refresh(profile, 99, [7]);
-        Assert.False(profile.Access.IsMember(7)); Assert.Equal(0, profile.Access.CapabilityVersion);
-        standing = GroupStanding.Member; resolver.Refresh(profile, 99, [7]);
-        Assert.True(profile.Access.IsMember(7)); Assert.Equal(1, profile.Access.CapabilityVersion);
+        Assert.False(profile.Access.IsMember(7));
+        Assert.Equal(0, profile.Access.CapabilityVersion);
+        standing = GroupStanding.Member;
+        resolver.Refresh(profile, 99, [7]);
+        Assert.True(profile.Access.IsMember(7));
+        Assert.Equal(1, profile.Access.CapabilityVersion);
         resolver.Refresh(profile, 99, [7]);
         Assert.Equal(1, profile.Access.CapabilityVersion);
-        standing = GroupStanding.Outsider; resolver.Refresh(profile, 99, [7]);
-        Assert.False(profile.Access.IsMember(7)); Assert.Equal(2, profile.Access.CapabilityVersion);
+        standing = GroupStanding.Outsider;
+        resolver.Refresh(profile, 99, [7]);
+        Assert.False(profile.Access.IsMember(7));
+        Assert.Equal(2, profile.Access.CapabilityVersion);
         Assert.Equal(profile.Access.CapabilityVersion, profile.CapabilityVersion);
     }
 
@@ -59,16 +64,19 @@ public class ActorAccessResolverTests
     public void RefreshWithoutAHabboClearsListedGroupsWithoutAskingTheSource()
     {
         var resolver = Resolver((_, _) => throw new InvalidOperationException("No identity"));
-        var profile = new ActorProfile(); profile.SetMembership(7, true);
+        var profile = new ActorProfile();
+        profile.SetMembership(7, true);
         resolver.Refresh(profile, null, [7]);
-        Assert.False(profile.Access.IsMember(7)); Assert.Equal(2, profile.Access.CapabilityVersion);
+        Assert.False(profile.Access.IsMember(7));
+        Assert.Equal(2, profile.Access.CapabilityVersion);
     }
 
     [Fact]
     public void RefreshLeavesGroupsOutsideTheListedSetUntouched()
     {
         var resolver = Resolver((_, _) => GroupStanding.Outsider);
-        var profile = new ActorProfile(); profile.SetMembership(5, true);
+        var profile = new ActorProfile();
+        profile.SetMembership(5, true);
         resolver.Refresh(profile, 99, [7]);
         Assert.True(profile.Access.IsMember(5));
     }
@@ -81,7 +89,8 @@ public class ActorAccessResolverTests
     {
         var resolver = Resolver((_, _) => standing);
         Assert.Equal(standing, resolver.Standing(99, 7));
-        var profile = new ActorProfile(); resolver.Refresh(profile, 99, [7]);
+        var profile = new ActorProfile();
+        resolver.Refresh(profile, 99, [7]);
         Assert.Equal(member, profile.Access.IsMember(7));
     }
 
@@ -106,9 +115,13 @@ public class ActorAccessResolverTests
         var (grid, inputs, compiler) = NavTest.Create(2, 2);
         inputs.Publish(NavTest.Record(1, 1, [1], interaction: InteractionType.GuildGate));
         compiler.ApplyNow();
-        var allowAll = new AllowAll(); var denyAll = new DenyAll();
-        var outsider = new ActorProfile(); var member = new ActorProfile(); member.SetMembership(7, true);
-        var open = new MovementRules(grid, new(), allowAll); var closed = new MovementRules(grid, new(), denyAll);
+        var allowAll = new AllowAll();
+        var denyAll = new DenyAll();
+        var outsider = new ActorProfile();
+        var member = new ActorProfile();
+        member.SetMembership(7, true);
+        var open = new MovementRules(grid, new(), allowAll);
+        var closed = new MovementRules(grid, new(), denyAll);
         Assert.True(open.CanStep(outsider, grid.Position(0), grid.Position(1), StepPurpose.Transit, OccupancyView.Planning).Ok);
         Assert.Equal(StepReason.GateDenied, closed.CanStep(member, grid.Position(0), grid.Position(1), StepPurpose.Transit, OccupancyView.Planning).Reason);
         Assert.True(open.CanFlank(outsider, grid.Position(0), 1, 0));
@@ -120,7 +133,8 @@ public class ActorAccessResolverTests
     [Fact]
     public void DefaultResolverAdmitsExactlyTheCachedMembers()
     {
-        var member = new ActorProfile(); member.SetMembership(7, true);
+        var member = new ActorProfile();
+        member.SetMembership(7, true);
         Assert.True(ActorAccessResolver.Cached.CanEnterGuildGate(member, 7));
         Assert.False(ActorAccessResolver.Cached.CanEnterGuildGate(member, 8));
         Assert.False(ActorAccessResolver.Cached.CanEnterGuildGate(new ActorProfile(), 7));

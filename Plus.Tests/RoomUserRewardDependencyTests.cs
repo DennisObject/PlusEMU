@@ -33,8 +33,17 @@ public partial class PlacedFurniRoomTests
         WithUnavailableRewardManager(() => Assert.True(manager.AddAvatarToRoom(_client)));
 
         var expected = new List<(GameClient Session, string Action, int Amount)>();
-        if (!owner) expected.Add((_client, RewardTrackActions.EnterOtherUsersRoom, 1));
-        if (matchingFollow) expected.Add((_client, RewardTrackActions.FollowFriend, 1));
+
+        if (!owner)
+        {
+            expected.Add((_client, RewardTrackActions.EnterOtherUsersRoom, 1));
+        }
+
+        if (matchingFollow)
+        {
+            expected.Add((_client, RewardTrackActions.FollowFriend, 1));
+        }
+
         Assert.Equal(expected, rewards.Calls);
         Assert.Equal(0u, habbo.PendingFollowRoomId);
     }
@@ -53,12 +62,16 @@ public partial class PlacedFurniRoomTests
         var rewards = new TestRewardProgress((session, action, _) =>
         {
             Assert.Same(_client, session);
+
             if (action == RewardTrackActions.Teleport)
             {
                 Assert.Equal("2", tile.LegacyDataString);
                 Assert.Equal(0, tile.InteractingUser2);
             }
-            else Assert.Equal("0", tile.LegacyDataString);
+            else
+            {
+                Assert.Equal("0", tile.LegacyDataString);
+            }
         });
         var manager = InstallRewardManager(rewards);
 
@@ -121,6 +134,7 @@ public partial class PlacedFurniRoomTests
     {
         var manager = new RoomUserManager(_room, TestRoomUserStore.Instance, _interactionClock, rewards, TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         Set("_roomUserManager", manager);
+
         return manager;
     }
 
@@ -128,6 +142,7 @@ public partial class PlacedFurniRoomTests
     {
         var current = typeof(RewardTrackManager).GetField("<Current>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)!;
         var previous = current.GetValue(null);
+
         try
         {
             current.SetValue(null, null);

@@ -3,7 +3,10 @@ using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
-public enum GroupStanding { Unresolved, Outsider, Member }
+public enum GroupStanding
+{
+    Unresolved, Outsider, Member
+}
 
 // The one owner of actor access. Plus has a single rule today (guild gates); future rules plug in here.
 public class ActorAccessResolver(Func<int, int, GroupStanding> source)
@@ -27,7 +30,9 @@ public class ActorAccessResolver(Func<int, int, GroupStanding> source)
     public void Refresh(ActorProfile profile, int? habboId, IEnumerable<int> groupIds)
     {
         foreach (var groupId in groupIds)
+        {
             profile.Access.SetMembership(groupId, Standing(habboId, groupId) == GroupStanding.Member);
+        }
     }
 
     private static int? HabboIdOf(RoomUser actor) => actor.GetClient()?.GetHabbo()?.Id;

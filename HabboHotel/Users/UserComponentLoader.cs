@@ -4,7 +4,10 @@ using Plus.HabboHotel.Users.Effects;
 
 namespace Plus.HabboHotel.Users;
 
-public interface IUserComponentLoader { UserComponentData Load(int userId); }
+public interface IUserComponentLoader
+{
+    UserComponentData Load(int userId);
+}
 public sealed record UserComponentData(IReadOnlyList<ClothingParts> Clothing, IReadOnlyList<AvatarEffect> Effects);
 
 public sealed class UserComponentLoader(IClothingStore clothing, IAvatarEffectStore effects) : IUserComponentLoader

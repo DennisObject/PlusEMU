@@ -24,6 +24,7 @@ public class MarketplaceOfferSearchTests
     public async Task ComposedOffersMatchPreMigrationBaseline()
     {
         var lines = new List<string>();
+
         foreach (var scenario in Scenarios())
         {
             var (database, manager) = Fixture(scenario.Rows);
@@ -95,6 +96,7 @@ public class MarketplaceOfferSearchTests
             "AvgPriceForSprite" => (int)args[0]! * 2,
             _ => throw new InvalidOperationException(method),
         });
+
         return (database, manager);
     }
 
@@ -107,8 +109,12 @@ public class MarketplaceOfferSearchTests
         table.Columns.Add("TotalPrice", typeof(int));
         table.Columns.Add("LimitedNumber", typeof(int));
         table.Columns.Add("LimitedStack", typeof(int));
+
         foreach (var row in rows ?? [])
+        {
             table.Rows.Add(row);
+        }
+
         return table;
     }
 
@@ -116,12 +122,14 @@ public class MarketplaceOfferSearchTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         new MarketPlaceOffersComposer(snapshot).Compose(packet);
+
         return string.Join("|", packet.Writes.Select(write => $"{write.GetType().Name}:{write}"));
     }
 
     private static FlashIncomingPacket Packet(params object[] values)
     {
         using var stream = new MemoryStream();
+
         foreach (var value in values)
         {
             if (value is int number)
@@ -139,6 +147,7 @@ public class MarketplaceOfferSearchTests
                 stream.Write(raw);
             }
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 

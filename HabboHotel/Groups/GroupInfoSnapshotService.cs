@@ -38,6 +38,7 @@ public sealed class GroupInfoSnapshotService(IGameClientManager clientManager, I
         rooms.TryGetData(group.RoomId, out var room);
         var viewerIsCreator = group.CreatorId == viewerId;
         var viewerIsAdmin = group.IsAdmin(viewerId);
+
         return new GroupInfoSnapshot(
             group.Id,
             group.Type,
@@ -61,13 +62,25 @@ public sealed class GroupInfoSnapshotService(IGameClientManager clientManager, I
     private string ResolveUsername(int userId)
     {
         var habbo = clientManager.GetClientByUserId(userId)?.GetHabbo();
+
         if (habbo != null)
+        {
             return habbo.Username;
+        }
+
         var user = cacheManager.GenerateUser(userId);
+
         if (user != null)
+        {
             return user.Username;
+        }
+
         using var connection = database.Connection();
-        var name = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id=@userId LIMIT 1", new { userId });
+        var name = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id=@userId LIMIT 1", new
+        {
+            userId
+        });
+
         return string.IsNullOrEmpty(name) ? "Unknown User" : name;
     }
 }

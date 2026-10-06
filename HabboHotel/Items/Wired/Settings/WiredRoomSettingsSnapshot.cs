@@ -13,19 +13,37 @@ public sealed record WiredRoomSettingsSnapshot(int InspectMask = 2, int ModifyMa
     public static bool TryValidate(int inspect, int modify, string? timezone, out WiredRoomSettingsSnapshot validated)
     {
         validated = new();
+
         if ((inspect & ~15) != 0 || (modify & ~14) != 0 || timezone == null || timezone.Length > 64)
+        {
             return false;
+        }
+
         try
         {
-            if (timezone.Length != 0) _ = TimeZoneInfo.FindSystemTimeZoneById(timezone);
+            if (timezone.Length != 0)
+            {
+                _ = TimeZoneInfo.FindSystemTimeZoneById(timezone);
+            }
         }
         catch (TimeZoneNotFoundException) { return false; }
         catch (InvalidTimeZoneException) { return false; }
+
         // Current Octane/Polaris settings keep every modifier able to inspect; admins are group members.
-        if ((modify & 4) != 0) modify |= 8;
+        if ((modify & 4) != 0)
+        {
+            modify |= 8;
+        }
+
         inspect |= modify;
-        if ((inspect & 4) != 0) inspect |= 8;
+
+        if ((inspect & 4) != 0)
+        {
+            inspect |= 8;
+        }
+
         validated = new(inspect, modify, timezone);
+
         return true;
     }
 }

@@ -10,8 +10,10 @@ public static class InteractionMovement
         {
             actor.AllowOverride = false;
             navigation.InteractionStep(actor, target.X, target.Y);
+
             return;
         }
+
         actor.MoveTo(target.X, target.Y, allowOccupied);
     }
 

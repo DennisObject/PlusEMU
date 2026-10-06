@@ -9,13 +9,19 @@ public class SearchSchedulerTests
     public void ReplacementCoalescesOneJobPerActorAndMovesItToTheTail()
     {
         var scheduler = new SearchScheduler<Actor>();
-        var first = new Actor(1); var second = new Actor(2); var third = new Actor(3);
-        Enqueue(scheduler, first); Enqueue(scheduler, second); Enqueue(scheduler, third);
+        var first = new Actor(1);
+        var second = new Actor(2);
+        var third = new Actor(3);
+        Enqueue(scheduler, first);
+        Enqueue(scheduler, second);
+        Enqueue(scheduler, third);
+
         for (var revision = 2; revision <= 100; revision++)
         {
             first.GoalRevision = revision;
             Enqueue(scheduler, first);
         }
+
         var installed = new List<SearchJob<Actor>>();
         var spent = scheduler.Run(100, IsCurrent, _ => new(PathOutcome.Found, 1),
             (job, _) => installed.Add(job));
@@ -29,22 +35,27 @@ public class SearchSchedulerTests
     public void JobsUseActorReferenceIdentityEvenWhenActorsCompareEqual()
     {
         var scheduler = new SearchScheduler<Actor>();
-        var first = new Actor(7); var second = new Actor(7);
+        var first = new Actor(7);
+        var second = new Actor(7);
         Assert.Equal(first, second);
-        Enqueue(scheduler, first); Enqueue(scheduler, second);
+        Enqueue(scheduler, first);
+        Enqueue(scheduler, second);
         var installed = new List<Actor>();
         scheduler.Run(10, IsCurrent, _ => new(PathOutcome.Found, 1),
             (job, _) => installed.Add(job.Actor));
         Assert.Equal(2, installed.Count);
-        Assert.Same(first, installed[0]); Assert.Same(second, installed[1]);
+        Assert.Same(first, installed[0]);
+        Assert.Same(second, installed[1]);
     }
 
     [Fact]
     public void CancelOrRemoveDeletesOnlyTheMatchingActorsQueuedJob()
     {
         var scheduler = new SearchScheduler<Actor>();
-        var cancelled = new Actor(1); var remaining = new Actor(2);
-        Enqueue(scheduler, cancelled); Enqueue(scheduler, remaining);
+        var cancelled = new Actor(1);
+        var remaining = new Actor(2);
+        Enqueue(scheduler, cancelled);
+        Enqueue(scheduler, remaining);
         scheduler.Remove(cancelled);
         scheduler.Remove(cancelled);
         var installed = new List<Actor>();
@@ -60,14 +71,17 @@ public class SearchSchedulerTests
     public void StaleLifetimeOrGoalIsDiscardedBeforeSearching(bool lifetimeChanged)
     {
         var scheduler = new SearchScheduler<Actor>();
-        var stale = new Actor(1); var current = new Actor(2);
-        Enqueue(scheduler, stale); Enqueue(scheduler, current);
+        var stale = new Actor(1);
+        var current = new Actor(2);
+        Enqueue(scheduler, stale);
+        Enqueue(scheduler, current);
         Invalidate(stale, lifetimeChanged);
         var searched = new List<Actor>();
         var installed = new List<Actor>();
         var spent = scheduler.Run(5, IsCurrent, job =>
         {
             searched.Add(job.Actor);
+
             return new(PathOutcome.Found, 5);
         }, (job, _) => installed.Add(job.Actor));
         Assert.Equal(5, spent);
@@ -81,7 +95,8 @@ public class SearchSchedulerTests
     public async Task StaleLifetimeOrGoalAfterSearchCannotInstallItsResult(bool lifetimeChanged)
     {
         var scheduler = new SearchScheduler<Actor>();
-        var actor = new Actor(1); Enqueue(scheduler, actor);
+        var actor = new Actor(1);
+        Enqueue(scheduler, actor);
         using var started = new ManualResetEventSlim();
         using var finish = new ManualResetEventSlim();
         var installed = new List<SearchJob<Actor>>();
@@ -89,14 +104,17 @@ public class SearchSchedulerTests
         {
             started.Set();
             Assert.True(finish.Wait(5000));
+
             return new(PathOutcome.Found, 8);
         }, (job, _) => installed.Add(job)));
+
         try
         {
             Assert.True(started.Wait(5000));
             Invalidate(actor, lifetimeChanged);
         }
         finally { finish.Set(); }
+
         Assert.Equal(8, await runner);
         Assert.Empty(installed);
     }
@@ -105,8 +123,10 @@ public class SearchSchedulerTests
     public void AStartedSearchCompletesBeyondTheBudgetAndDefersTheNextJob()
     {
         var scheduler = new SearchScheduler<Actor>();
-        var first = new Actor(1); var next = new Actor(2);
-        Enqueue(scheduler, first); Enqueue(scheduler, next);
+        var first = new Actor(1);
+        var next = new Actor(2);
+        Enqueue(scheduler, first);
+        Enqueue(scheduler, next);
         var installed = new List<Actor>();
         var spent = scheduler.Run(3, IsCurrent, _ => new(PathOutcome.Found, 100),
             (job, _) => installed.Add(job.Actor));
@@ -122,8 +142,10 @@ public class SearchSchedulerTests
     public void AnExactBudgetStopsStartingJobsUntilTheNextRun()
     {
         var scheduler = new SearchScheduler<Actor>();
-        var first = new Actor(1); var second = new Actor(2);
-        Enqueue(scheduler, first); Enqueue(scheduler, second);
+        var first = new Actor(1);
+        var second = new Actor(2);
+        Enqueue(scheduler, first);
+        Enqueue(scheduler, second);
         var installed = new List<Actor>();
         Assert.Equal(10, scheduler.Run(10, IsCurrent, _ => new(PathOutcome.Found, 10),
             (job, _) => installed.Add(job.Actor)));
@@ -138,7 +160,8 @@ public class SearchSchedulerTests
     public void ZeroBudgetLeavesJobsQueuedWithoutStartingSearches()
     {
         var scheduler = new SearchScheduler<Actor>();
-        var actor = new Actor(1); Enqueue(scheduler, actor);
+        var actor = new Actor(1);
+        Enqueue(scheduler, actor);
         var spent = scheduler.Run(0, IsCurrent,
             _ => throw new InvalidOperationException("Zero budget started a search."),
             (_, _) => Assert.Fail("Zero budget installed a result."));
@@ -183,12 +206,14 @@ public class SearchSchedulerTests
     public void ANewGoalQueuedDuringSearchSurvivesDiscardingTheStaleResult()
     {
         var scheduler = new SearchScheduler<Actor>();
-        var actor = new Actor(1); Enqueue(scheduler, actor);
+        var actor = new Actor(1);
+        Enqueue(scheduler, actor);
         var installed = new List<SearchJob<Actor>>();
         Assert.Equal(5, scheduler.Run(5, IsCurrent, _ =>
         {
             actor.GoalRevision++;
             Enqueue(scheduler, actor);
+
             return new(PathOutcome.Found, 5);
         }, (job, _) => installed.Add(job)));
         Assert.Empty(installed);
@@ -205,8 +230,14 @@ public class SearchSchedulerTests
 
     private static void Invalidate(Actor actor, bool lifetimeChanged)
     {
-        if (lifetimeChanged) actor.LifetimeId++;
-        else actor.GoalRevision++;
+        if (lifetimeChanged)
+        {
+            actor.LifetimeId++;
+        }
+        else
+        {
+            actor.GoalRevision++;
+        }
     }
 
     private sealed class Actor(int id)

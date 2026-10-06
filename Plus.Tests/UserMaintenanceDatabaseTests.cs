@@ -16,6 +16,7 @@ public sealed class UserMaintenanceDatabaseTests
         connection.Open();
         var schema = "user_maintenance_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             connection.Execute($"USE `{schema}`");

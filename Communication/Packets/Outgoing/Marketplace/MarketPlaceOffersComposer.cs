@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Catalog.Marketplace;
+using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Marketplace;
@@ -16,6 +16,7 @@ public class MarketPlaceOffersComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_offers.Offers.Length);
+
         foreach (var offer in _offers.Offers)
         {
             packet.WriteUInteger(offer.OfferId);
@@ -31,6 +32,7 @@ public class MarketPlaceOffersComposer : IServerPacket
             packet.WriteInteger(offer.AveragePrice);
             packet.WriteInteger(offer.Count);
         }
+
         packet.WriteInteger(_offers.Offers.Length); //Item count to show how many were found.
     }
 }

@@ -50,13 +50,19 @@ public class MagicTileHeightTests
     private static string RevisionPath(string fileName)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
         while (dir != null)
         {
             var candidate = Path.Combine(dir.FullName, "Resources", "Revisions", fileName);
+
             if (File.Exists(candidate))
+            {
                 return candidate;
+            }
+
             dir = dir.Parent;
         }
+
         throw new FileNotFoundException(fileName);
     }
 }

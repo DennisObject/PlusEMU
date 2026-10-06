@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 
 namespace Plus.HabboHotel.Items.Interactor;
@@ -8,38 +8,60 @@ internal class InteractorCounter : IFurniInteractor
     public void OnPlace(GameClient? session, Item item)
     {
         var itemRoom = item.GetRoom();
-        if (itemRoom == null) return;
+
+        if (itemRoom == null)
+        {
+            return;
+        }
 
         if (WiredCounterController.Recognizes(item))
         {
             itemRoom.GetWired().AttachRoomItem(item);
+
             return;
         }
+
         item.LegacyDataString = "30";
         item.UpdateState();
     }
 
-    public void OnRemove(GameClient? session, Item item) { }
+    public void OnRemove(GameClient? session, Item item)
+    {
+    }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
         var itemRoom = item.GetRoom();
-        if (itemRoom == null) return;
 
-        if (!hasRights) return;
+        if (itemRoom == null)
+        {
+            return;
+        }
+
+        if (!hasRights)
+        {
+            return;
+        }
+
         if (WiredCounterController.Recognizes(item))
         {
             itemRoom.GetWired().TryUseCounter(item, request);
+
             return;
         }
+
         var oldValue = 0;
+
         if (!int.TryParse(item.LegacyDataString, out oldValue))
         {
             item.LegacyDataString = "30";
             oldValue = 30;
         }
+
         if (request == 0 && oldValue == 0)
+        {
             oldValue = 30;
+        }
         else if (request == 2)
         {
             if (itemRoom.GetSoccer().GameIsStarted && item.PendingReset && oldValue > 0)
@@ -50,19 +72,34 @@ internal class InteractorCounter : IFurniInteractor
             else
             {
                 if (oldValue < 30)
+                {
                     oldValue = 30;
+                }
                 else if (oldValue == 30)
+                {
                     oldValue = 60;
+                }
                 else if (oldValue == 60)
+                {
                     oldValue = 120;
+                }
                 else if (oldValue == 120)
+                {
                     oldValue = 180;
+                }
                 else if (oldValue == 180)
+                {
                     oldValue = 300;
+                }
                 else if (oldValue == 300)
+                {
                     oldValue = 600;
+                }
                 else
+                {
                     oldValue = 0;
+                }
+
                 item.UpdateNeeded = false;
             }
         }
@@ -73,19 +110,31 @@ internal class InteractorCounter : IFurniInteractor
                 item.LegacyDataString = "30";
                 oldValue = 30;
             }
+
             if (!itemRoom.GetSoccer().GameIsStarted)
             {
                 item.UpdateNeeded = !item.UpdateNeeded;
-                if (item.UpdateNeeded) itemRoom.GetSoccer().StartGame();
+
+                if (item.UpdateNeeded)
+                {
+                    itemRoom.GetSoccer().StartGame();
+                }
+
                 item.PendingReset = true;
             }
             else
             {
                 item.UpdateNeeded = !item.UpdateNeeded;
-                if (item.UpdateNeeded) itemRoom.GetSoccer().StopGame(true);
+
+                if (item.UpdateNeeded)
+                {
+                    itemRoom.GetSoccer().StopGame(true);
+                }
+
                 item.PendingReset = true;
             }
         }
+
         item.LegacyDataString = Convert.ToString(oldValue);
         item.UpdateState();
     }
@@ -93,10 +142,17 @@ internal class InteractorCounter : IFurniInteractor
     public void OnWiredTrigger(Item item)
     {
         var itemRoom = item.GetRoom();
-        if (itemRoom == null) return;
+
+        if (itemRoom == null)
+        {
+            return;
+        }
 
         if (itemRoom.GetSoccer().GameIsStarted)
+        {
             itemRoom.GetSoccer().StopGame(true);
+        }
+
         item.PendingReset = true;
         item.UpdateNeeded = true;
         item.LegacyDataString = "30";

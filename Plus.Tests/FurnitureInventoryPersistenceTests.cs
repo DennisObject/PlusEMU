@@ -131,11 +131,13 @@ public sealed class FurnitureInventoryPersistenceTests
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var held = gate.Enter(context.Habbo.Id);
         Task<bool>? worker = null;
+
         try
         {
             worker = Task.Run(() =>
             {
                 started.TrySetResult();
+
                 return new InventoryClearService(store, gate).TryClear(context.Client, context.Room);
             });
             await started.Task;
@@ -147,9 +149,13 @@ public sealed class FurnitureInventoryPersistenceTests
         finally
         {
             held.Dispose();
+
             if (worker != null)
             {
-                try { await worker.WaitAsync(TimeSpan.FromSeconds(2)); }
+                try
+                {
+                    await worker.WaitAsync(TimeSpan.FromSeconds(2));
+                }
                 catch { /* Preserve an assertion already escaping the try; the success path observes below. */ }
             }
         }
@@ -175,6 +181,7 @@ public sealed class FurnitureInventoryPersistenceTests
         await using var server = new MySqlConnection(builder.ConnectionString);
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET utf8mb4");
+
         try
         {
             builder.Database = schema;
@@ -266,6 +273,7 @@ public sealed class FurnitureInventoryPersistenceTests
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(users)!;
         entries[roomUser.VirtualId] = roomUser;
         var events = new List<string>();
+
         return new(room, roomUser, habbo, client, sent, events, new RecordingGate(events));
     }
 
@@ -274,21 +282,39 @@ public sealed class FurnitureInventoryPersistenceTests
 
     private sealed class RecordingStore(Action? before = null) : IInventoryClearStore
     {
-        public int Calls { get; private set; }
-        public Exception? Failure { get; init; }
+        public int Calls
+        {
+            get; private set;
+        }
+        public Exception? Failure
+        {
+            get; init;
+        }
 
         public void DeleteAll(int userId)
         {
             Calls++;
             before?.Invoke();
-            if (Failure != null) throw Failure;
+
+            if (Failure != null)
+            {
+                throw Failure;
+            }
         }
     }
 
     private sealed class RecordingClearService : IInventoryClearService
     {
-        public int Calls { get; private set; }
-        public bool TryClear(GameClient session, Room room) { Calls++; return true; }
+        public int Calls
+        {
+            get; private set;
+        }
+        public bool TryClear(GameClient session, Room room)
+        {
+            Calls++;
+
+            return true;
+        }
     }
 
     private sealed class RecordingGate(List<string> events) : IAccountSessionGate
@@ -297,8 +323,15 @@ public sealed class FurnitureInventoryPersistenceTests
         public Task<IDisposable> EnterAsync(int userId, CancellationToken cancellationToken = default) => Task.FromResult(Enter(userId));
         public Task<IDisposable> EnterManyAsync(IEnumerable<int> userIds, CancellationToken cancellationToken = default) =>
             Task.FromResult<IDisposable>(new Release(events));
-        public IDisposable Enter(int userId) { events.Add("gate-enter"); return new Release(events); }
-        public void Revoke(int userId) { }
+        public IDisposable Enter(int userId)
+        {
+            events.Add("gate-enter");
+
+            return new Release(events);
+        }
+        public void Revoke(int userId)
+        {
+        }
         public bool IsRevoked(int userId, long loginStarted) => false;
     }
 
@@ -311,7 +344,9 @@ public sealed class FurnitureInventoryPersistenceTests
     {
         public Dictionary<uint, ItemDefinition> Items { get; } = definitions.ToDictionary(definition => definition.Id);
         public Dictionary<int, uint> Gifts { get; } = [];
-        public void Init() { }
+        public void Init()
+        {
+        }
         public ItemDefinition? GetItemByName(string name) => null;
     }
 

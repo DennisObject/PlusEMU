@@ -20,6 +20,7 @@ internal class HousekeepingGetDashboardEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         session.Send(new HousekeepingDashboardComposer(_lookups.Dashboard()));
+
         return Task.CompletedTask;
     }
 }

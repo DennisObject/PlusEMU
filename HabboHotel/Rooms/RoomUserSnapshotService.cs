@@ -31,10 +31,20 @@ public sealed class RoomUserSnapshotService(IGroupManager groups, IGameClientMan
         if (!user.IsBot)
         {
             var habbo = clients.GetClientByUserId(user.HabboId)?.GetHabbo();
-            if (habbo == null) return null;
+
+            if (habbo == null)
+            {
+                return null;
+            }
+
             Group? group = null;
             var favouriteGroupId = habbo.HabboStats?.FavouriteGroupId ?? 0;
-            if (favouriteGroupId > 0) groups.TryGetGroup(favouriteGroupId, out group);
+
+            if (favouriteGroupId > 0)
+            {
+                groups.TryGetGroup(favouriteGroupId, out group);
+            }
+
             return new(habbo.Id, habbo.Username, habbo.Motto, habbo.Look, user.VirtualId, user.X, user.Y,
                 user.Z.ToString(CultureInfo.InvariantCulture), user.RotBody, 1, habbo.Gender.ToLowerInvariant(),
                 group?.Id ?? 0, group?.Name ?? "", habbo.HabboStats?.AchievementPoints ?? 0,
@@ -42,11 +52,14 @@ public sealed class RoomUserSnapshotService(IGroupManager groups, IGameClientMan
         }
 
         var kind = user.BotData.AiType == BotAiType.Pet ? 2 : 4;
+
         if (user.IsPet)
+        {
             return new(user.BotAi.BaseId, user.BotData.Name, user.BotData.Motto, user.PetData.Look.ToLowerInvariant(),
                 user.VirtualId, user.X, user.Y, user.Z.ToString(CultureInfo.InvariantCulture), 0, kind, "", 0, "", 0,
                 true, user.PetData.Type, user.PetData.OwnerId, user.PetData.OwnerName, user.PetData.Saddle > 0,
                 user.RidingHorse);
+        }
 
         return new(user.BotAi.BaseId, user.BotData.Name, user.BotData.Motto, user.BotData.Look.ToLowerInvariant(),
             user.VirtualId, user.X, user.Y, user.Z.ToString(CultureInfo.InvariantCulture), 0, kind,
@@ -57,11 +70,25 @@ public sealed class RoomUserSnapshotService(IGroupManager groups, IGameClientMan
     private string ResolveUsername(int userId)
     {
         var online = clients.GetClientByUserId(userId)?.GetHabbo();
-        if (online != null) return online.Username;
+
+        if (online != null)
+        {
+            return online.Username;
+        }
+
         var cached = cache.GenerateUser(userId);
-        if (cached != null) return cached.Username;
+
+        if (cached != null)
+        {
+            return cached.Username;
+        }
+
         using var connection = database.Connection();
-        var username = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id = @userId LIMIT 1", new { userId });
+        var username = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id = @userId LIMIT 1", new
+        {
+            userId
+        });
+
         return string.IsNullOrEmpty(username) ? "Unknown User" : username;
     }
 }

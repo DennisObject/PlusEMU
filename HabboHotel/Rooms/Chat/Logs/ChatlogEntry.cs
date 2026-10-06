@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Rooms.Chat.Logs;
 
@@ -13,19 +13,37 @@ public sealed class ChatlogEntry
         RoomId = roomId;
         Message = message;
         CreatedAt = createdAt.ToUniversalTime();
+
         if (player != null)
+        {
             _playerReference = new(player);
+        }
+
         if (instance != null)
+        {
             _roomReference = new(instance);
+        }
     }
 
-    public int PlayerId { get; }
+    public int PlayerId
+    {
+        get;
+    }
 
-    public uint RoomId { get; }
+    public uint RoomId
+    {
+        get;
+    }
 
-    public string Message { get; }
+    public string Message
+    {
+        get;
+    }
 
-    public DateTimeOffset CreatedAt { get; }
+    public DateTimeOffset CreatedAt
+    {
+        get;
+    }
 
     public Habbo? PlayerNullable() => _playerReference != null && _playerReference.TryGetTarget(out var player) ? player : null;
 

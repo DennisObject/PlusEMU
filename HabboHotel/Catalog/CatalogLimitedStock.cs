@@ -11,21 +11,41 @@ public static class CatalogLimitedStock
     public static int? Reserve(IDbConnection connection, int offerRowId)
     {
         if (connection.State != ConnectionState.Open)
+        {
             connection.Open();
+        }
+
         using var transaction = connection.BeginTransaction();
         var serial = Reserve(connection, transaction, offerRowId);
-        if (serial == null) return null;
+
+        if (serial == null)
+        {
+            return null;
+        }
+
         transaction.Commit();
+
         return serial;
     }
 
     internal static int? Reserve(IDbConnection connection, IDbTransaction transaction, int offerRowId)
     {
         int reserved = connection.Execute("UPDATE catalog_items SET limited_sells = limited_sells + 1 WHERE id = @offerRowId AND limited_sells < limited_stack",
-            new { offerRowId }, transaction);
+            new
+            {
+                offerRowId
+            }, transaction);
+
         if (reserved == 0)
+        {
             return null;
-        int serial = connection.QuerySingle<int>("SELECT limited_sells FROM catalog_items WHERE id = @offerRowId", new { offerRowId }, transaction);
+        }
+
+        int serial = connection.QuerySingle<int>("SELECT limited_sells FROM catalog_items WHERE id = @offerRowId", new
+        {
+            offerRowId
+        }, transaction);
+
         return serial;
     }
 }

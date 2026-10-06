@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -22,12 +22,20 @@ public class AmbassadorsManager : IAmbassadorsManager
     public async Task Warn(GameClient session, int targetId, string message)
     {
         var ambassador = session.GetHabbo();
+
         if (!ambassador.IsAmbassador)
+        {
             return;
+        }
+
         var targetClient = _clients.GetClientByUserId(targetId);
         var target = targetClient?.GetHabbo();
+
         if (targetClient == null || target == null)
+        {
             return;
+        }
+
         var targetName = target.Username;
 
         using var connection = _database.Connection();

@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Engine;
@@ -10,6 +10,7 @@ internal class MoveAvatarEvent(IRoomAvatarActionService actions) : IPacketEvent
         var x = packet.ReadInt();
         var y = packet.ReadInt();
         actions.Move(session, x, y);
+
         return Task.CompletedTask;
     }
 }

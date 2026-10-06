@@ -34,6 +34,7 @@ public sealed class ModerationBanUtcTests
         server.Open();
         var schema = "moderation_bans_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var connectionString = new MySqlConnectionStringBuilder(root)
@@ -103,8 +104,12 @@ public sealed class ModerationBanUtcTests
     private static string RepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
         while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj")))
+        {
             directory = directory.Parent;
+        }
+
         return directory!.FullName;
     }
 
@@ -115,9 +120,17 @@ public sealed class ModerationBanUtcTests
 
     private sealed class CountingClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {
-        public int Calls { get; private set; }
+        public int Calls
+        {
+            get; private set;
+        }
         public override TimeZoneInfo LocalTimeZone => zone;
-        public override DateTimeOffset GetUtcNow() { Calls++; return now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Calls++;
+
+            return now;
+        }
     }
 
     public class EmptyProxy : DispatchProxy

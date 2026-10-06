@@ -4,7 +4,10 @@ namespace Plus.Tests;
 
 internal sealed class TestWiredDefinitions(Func<Dictionary<uint, ItemDefinition>> lookup) : IItemDataManager
 {
-    public static TestWiredDefinitions Unused { get; } = new(() =>
+    public static TestWiredDefinitions Unused
+    {
+        get;
+    } = new(() =>
         throw new InvalidOperationException("Unexpected furniture definition lookup."));
 
     public Dictionary<uint, ItemDefinition> Items => lookup();

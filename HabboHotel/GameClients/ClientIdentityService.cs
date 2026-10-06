@@ -13,11 +13,14 @@ public sealed class ClientIdentityService(IModerationManager moderation) : IClie
     public void SetMachineIdentity(GameClient session, string machineId)
     {
         session.MachineId = machineId;
+
         if (moderation.HasMachineBanCheck(machineId))
         {
             session.Disconnect();
+
             return;
         }
+
         session.Send(new SetUniqueIdComposer(machineId));
     }
 }

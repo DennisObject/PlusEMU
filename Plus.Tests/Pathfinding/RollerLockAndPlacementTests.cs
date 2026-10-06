@@ -30,7 +30,8 @@ public partial class PlacedFurniRoomTests
         var actor = PlannerActor(1, 0, 1, .5);
         _room.GetGameMap().SetFloorStatus(1, 1, 0);
         _room.GetGameMap().GenerateMaps();
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((1, 1, 0d), (actor.X, actor.Y, actor.Z));
     }
 
@@ -46,7 +47,8 @@ public partial class PlacedFurniRoomTests
         _room.GetGameMap().SetFloorStatus(1, 1, 0);
         var handler = _room.GetRoomItemHandler();
         Assert.True(remove ? handler.RemoveTemporaryFloorItem(gate) : handler.SetFloorItem(gate, 3, 3, 0));
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((1, 1, 0d), (actor.X, actor.Y, actor.Z));
     }
 
@@ -59,7 +61,8 @@ public partial class PlacedFurniRoomTests
         var actor = PlannerActor(1, 0, 1, .5);
         _room.GetGameMap().SetFloorStatus(1, 1, 0);
         ExecutorFloor(20, 1, 1);
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((1, 1, 0d), (actor.X, actor.Y, actor.Z));
     }
 
@@ -71,7 +74,9 @@ public partial class PlacedFurniRoomTests
         PlannerRoller(10, 0, 1, 2);
         InstallRollerChainEngine(PathfindingEngine.V2);
         var actor = PlannerActor(1, 0, 1, .5);
-        StartPlannerRollers(); underLock.Clear(); ExecutorTick();
+        StartPlannerRollers();
+        underLock.Clear();
+        ExecutorTick();
         Assert.Equal((1, 1, 0d), (actor.X, actor.Y, actor.Z));
         Assert.NotEmpty(underLock);
         Assert.DoesNotContain(true, underLock);
@@ -83,7 +88,8 @@ public partial class PlacedFurniRoomTests
     {
         Set("_gamemap", new Gamemap(_room, new RoomModel("roller-floor", 0, 0, 0, 0, "0000\r0002\r0000\r0000", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
         _room.GetGameMap().GenerateMaps();
-        PlannerRoller(5, 0, 3, 2); ExecutorFloor(40, 1, 3);
+        PlannerRoller(5, 0, 3, 2);
+        ExecutorFloor(40, 1, 3);
         PlannerRoller(10, 1, 1, 2);
         var helper = Add(20, 1, 1, z: .5, type: InteractionType.WalkMagicTile, length: 2);
         InstallRollerChainEngine(engine);
@@ -91,11 +97,16 @@ public partial class PlacedFurniRoomTests
         var fired = false;
         PlannerObserveWalkOn(() =>
         {
-            if (fired) return;
+            if (fired)
+            {
+                return;
+            }
+
             fired = true;
             Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, helper, 1, 1, 2, false, false, false, height: helper.GetZ));
         });
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.True(fired);
         Assert.Equal((1, 3), (rider.X, rider.Y));
         Assert.Equal((1, 1, .5, 2), (helper.GetX, helper.GetY, helper.GetZ, helper.Rotation));
@@ -109,18 +120,23 @@ public partial class PlacedFurniRoomTests
             GroupMembershipSnapshot.Empty);
         var groups = Proxy<IGroupManager>((method, args) =>
         {
-            observe(); args[1] = group; return (int)args[0]! == group.Id;
+            observe();
+            args[1] = group;
+
+            return (int)args[0]! == group.Id;
         });
         _groupLookup = id =>
         {
             observe();
+
             return id == group.Id ? group : null;
         };
         var previous = ((TestProxy)_gameField.GetValue(null)!).Call;
         _gameField.SetValue(null, Proxy<IGame>((method, args) =>
             method == "get_GroupManager" ? groups : previous(method, args)));
         var gate = Add(40, 3, 3, type: InteractionType.GuildGate);
-        InitializeNativeState(gate); gate.GroupId = group.Id;
+        InitializeNativeState(gate);
+        gate.GroupId = group.Id;
     }
 
     [Fact]
@@ -159,7 +175,8 @@ public partial class PlacedFurniRoomTests
         InstallRollerChainEngine(engine);
         PlannerActor(1, 0, 3, 0);
         StartPlannerRollers();
-        _client.Packets.Clear(); _client.Sent.Clear();
+        _client.Packets.Clear();
+        _client.Sent.Clear();
         PlannerInterleaveRotation(_room.ProcessRoom,
             () => Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, helper, 2, 1, 2, false, false, false)));
         Assert.Equal((2, 1, 2), (helper.GetX, helper.GetY, helper.Rotation));
@@ -189,7 +206,8 @@ public partial class PlacedFurniRoomTests
         InstallRollerChainEngine(PathfindingEngine.V2);
         var walker = PlannerActor(1, 2, 2, 0);
         StartPlannerRollers();
-        walker.MoveTo(1, 2); ExecutorTick();
+        walker.MoveTo(1, 2);
+        ExecutorTick();
         Assert.Equal((1, 1), (cargo.GetX, cargo.GetY));
         Assert.Equal((2, 2, 0d), (walker.X, walker.Y, walker.Z));
         Assert.DoesNotContain("/mv 1,2", ExecutorUpdate(walker).Status);
@@ -204,6 +222,7 @@ public partial class PlacedFurniRoomTests
         var tail = PlannerActor(1, 0, 1, .5);
         _room.GetGameMap().SetFloorStatus(1, 1, 0);
         StartPlannerRollers();
+
         return tail;
     }
 
@@ -213,34 +232,50 @@ public partial class PlacedFurniRoomTests
     {
         Exception? failure = null;
         var worker = new Thread(() => { try { work(); } catch (Exception error) { failure = error; } });
+
         lock (_room.GetGameMap().PlacementSync)
         {
             worker.Start();
             var deadline = DateTime.UtcNow.AddSeconds(30);
+
             while ((worker.ThreadState & ThreadState.WaitSleepJoin) == 0 && worker.IsAlive && DateTime.UtcNow < deadline)
+            {
                 Thread.Sleep(1);
+            }
+
             Assert.True(worker.IsAlive, "worker finished without waiting for the placement lock");
             rotate();
         }
+
         Assert.True(worker.Join(TimeSpan.FromSeconds(30)));
-        if (failure != null) throw failure;
+
+        if (failure != null)
+        {
+            throw failure;
+        }
     }
 
     private Item PlannerLongCargo(uint id, int x, int y, bool walkable)
     {
         var item = Furni(id, InteractionType.None, WiredBoxType.None);
-        item.Definition.Walkable = walkable; item.Definition.Height = .25;
-        item.Definition.Width = 1; item.Definition.Length = 2;
+        item.Definition.Walkable = walkable;
+        item.Definition.Height = .25;
+        item.Definition.Width = 1;
+        item.Definition.Length = 2;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, x, y, 0, true, false, false, height: .5));
+
         return item;
     }
 
     private Item PlannerTemporaryWalkable(int x, int y)
     {
         var definition = Furni(0, InteractionType.None, WiredBoxType.None).Definition;
-        definition.Walkable = true; definition.Height = 0; definition.Width = definition.Length = 1;
+        definition.Walkable = true;
+        definition.Height = 0;
+        definition.Width = definition.Length = 1;
         var item = _room.GetRoomItemHandler().PlaceTemporaryFloorItem(definition, 7, x, y, 0);
         Assert.NotNull(item);
+
         return item!;
     }
 }

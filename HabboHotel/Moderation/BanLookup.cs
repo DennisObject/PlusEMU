@@ -32,10 +32,16 @@ public class BanLookup : IBanLookup
     public async Task<LoginBan?> FindAt(string username, string address, DateTimeOffset now)
     {
         using var connection = _database.Connection();
+
         return await connection.QueryFirstOrDefaultAsync<LoginBan>(
             "SELECT `reason` AS Reason, `expire` AS ExpiresAt FROM `bans` " +
             "WHERE ((`bantype` = 'user' AND `value` = @username) OR (`bantype` = 'ip' AND `value` = @address)) AND `expire` > @now " +
             "ORDER BY `expire` DESC LIMIT 1",
-            new { username, address, now = now.UtcDateTime });
+            new
+            {
+                username,
+                address,
+                now = now.UtcDateTime
+            });
     }
 }

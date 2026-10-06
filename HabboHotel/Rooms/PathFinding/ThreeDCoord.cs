@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 
 namespace Plus.HabboHotel.Rooms.PathFinding;
 
@@ -28,7 +28,10 @@ public struct ThreeDCoord : IEquatable<ThreeDCoord>
     public override bool Equals(object? obj)
     {
         if (obj == null)
+        {
             return false;
+        }
+
         return base.GetHashCode().Equals(obj.GetHashCode());
     }
 }

@@ -5,16 +5,31 @@ namespace Plus.HabboHotel.Housekeeping;
 
 public sealed class HousekeepingAuditEntry
 {
-    public int Id { get; init; }
-    public DateTimeOffset? CreatedAt { get; init; }
-    public int ActorId { get; init; }
+    public int Id
+    {
+        get; init;
+    }
+    public DateTimeOffset? CreatedAt
+    {
+        get; init;
+    }
+    public int ActorId
+    {
+        get; init;
+    }
     public string ActorName { get; init; } = string.Empty;
     public string TargetType { get; init; } = "user";
-    public int TargetId { get; init; }
+    public int TargetId
+    {
+        get; init;
+    }
     public string TargetLabel { get; init; } = string.Empty;
     public string Action { get; init; } = string.Empty;
     public string Detail { get; init; } = string.Empty;
-    public bool Success { get; init; }
+    public bool Success
+    {
+        get; init;
+    }
 }
 
 public interface IHousekeepingAuditLog
@@ -58,10 +73,14 @@ public sealed class HousekeepingAuditLog : IHousekeepingAuditLog
     public IReadOnlyList<HousekeepingAuditEntry> List(int limit)
     {
         using var connection = _database.Connection();
+
         return connection.Query<HousekeepingAuditEntry>(
             "SELECT `id`, `timestamp` AS CreatedAt, `actor_id` AS ActorId, `actor_name` AS ActorName, `target_type` AS TargetType, `target_id` AS TargetId, " +
             "`target_label` AS TargetLabel, `action`, `detail`, `success` FROM `housekeeping_log` ORDER BY `id` DESC LIMIT @limit",
-            new { limit = Math.Clamp(limit, 1, HousekeepingLimits.MaxActionLogEntries) }).ToList();
+            new
+            {
+                limit = Math.Clamp(limit, 1, HousekeepingLimits.MaxActionLogEntries)
+            }).ToList();
     }
 
     internal static string TargetTypeName(HousekeepingTargetType type) => type switch

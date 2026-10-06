@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Quests;
+namespace Plus.HabboHotel.Quests;
 
 public class Quest
 {
@@ -18,17 +18,50 @@ public class Quest
         LocksAt = locksAt?.ToUniversalTime();
     }
 
-    public int Id { get; }
-    public string Category { get; }
-    public string DataBit { get; }
-    public int GoalData { get; }
-    public QuestType GoalType { get; }
-    public string Name { get; }
-    public int Number { get; }
-    public int Reward { get; }
-    public int RewardType { get; }
-    public DateTimeOffset? UnlocksAt { get; }
-    public DateTimeOffset? LocksAt { get; }
+    public int Id
+    {
+        get;
+    }
+    public string Category
+    {
+        get;
+    }
+    public string DataBit
+    {
+        get;
+    }
+    public int GoalData
+    {
+        get;
+    }
+    public QuestType GoalType
+    {
+        get;
+    }
+    public string Name
+    {
+        get;
+    }
+    public int Number
+    {
+        get;
+    }
+    public int Reward
+    {
+        get;
+    }
+    public int RewardType
+    {
+        get;
+    }
+    public DateTimeOffset? UnlocksAt
+    {
+        get;
+    }
+    public DateTimeOffset? LocksAt
+    {
+        get;
+    }
 
     public string ActionName => QuestTypeUtillity.GetString(GoalType);
 

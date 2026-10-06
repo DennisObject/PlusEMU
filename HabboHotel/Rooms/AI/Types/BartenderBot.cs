@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Bots;
@@ -21,11 +21,17 @@ internal class BartenderBot : BotAi
         _wordFilter = wordFilter;
     }
 
-    public override void OnSelfEnterRoom() { }
+    public override void OnSelfEnterRoom()
+    {
+    }
 
-    public override void OnSelfLeaveRoom(bool kicked) { }
+    public override void OnSelfLeaveRoom(bool kicked)
+    {
+    }
 
-    public override void OnUserEnterRoom(RoomUser user) { }
+    public override void OnUserEnterRoom(RoomUser user)
+    {
+    }
 
     public override void OnUserLeaveRoom(GameClient client)
     {
@@ -35,19 +41,43 @@ internal class BartenderBot : BotAi
     public override void OnUserSay(RoomUser user, string message)
     {
         var botUser = GetRoomUser();
-        if (botUser == null) return;
+
+        if (botUser == null)
+        {
+            return;
+        }
+
         var botData = GetBotData();
-        if (botData == null) return;
+
+        if (botData == null)
+        {
+            return;
+        }
+
         var speakerSession = user?.GetClient();
-        if (speakerSession == null) return;
+
+        if (speakerSession == null)
+        {
+            return;
+        }
 
         if (user == null || speakerSession == null || speakerSession.GetHabbo() == null)
+        {
             return;
+        }
+
         if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8)
+        {
             return;
+        }
+
         var response = _bots.GetResponse(botData.AiType, message);
+
         if (response == null)
+        {
             return;
+        }
+
         switch (response.ResponseType.ToLower())
         {
             case "say":
@@ -60,25 +90,53 @@ internal class BartenderBot : BotAi
                 speakerSession.Send(new WhisperComposer(botUser.VirtualId, response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username), 0, 0));
                 break;
         }
-        if (response.BeverageIds.Count > 0) user.CarryItem(response.BeverageIds[Random.Shared.Next(0, response.BeverageIds.Count)]);
+
+        if (response.BeverageIds.Count > 0)
+        {
+            user.CarryItem(response.BeverageIds[Random.Shared.Next(0, response.BeverageIds.Count)]);
+        }
     }
 
     public override void OnUserShout(RoomUser user, string message)
     {
         var botUser = GetRoomUser();
-        if (botUser == null) return;
+
+        if (botUser == null)
+        {
+            return;
+        }
+
         var botData = GetBotData();
-        if (botData == null) return;
+
+        if (botData == null)
+        {
+            return;
+        }
+
         var speakerSession = user?.GetClient();
-        if (speakerSession == null) return;
+
+        if (speakerSession == null)
+        {
+            return;
+        }
 
         if (user == null || speakerSession == null || speakerSession.GetHabbo() == null)
+        {
             return;
+        }
+
         if (Gamemap.TileDistance(botUser.X, botUser.Y, user.X, user.Y) > 8)
+        {
             return;
+        }
+
         var response = _bots.GetResponse(botData.AiType, message);
+
         if (response == null)
+        {
             return;
+        }
+
         switch (response.ResponseType.ToLower())
         {
             case "say":
@@ -91,36 +149,68 @@ internal class BartenderBot : BotAi
                 speakerSession.Send(new WhisperComposer(botUser.VirtualId, response.ResponseText.Replace("{username}", speakerSession.GetHabbo().Username), 0, 0));
                 break;
         }
-        if (response.BeverageIds.Count > 0) user.CarryItem(response.BeverageIds[Random.Shared.Next(0, response.BeverageIds.Count)]);
+
+        if (response.BeverageIds.Count > 0)
+        {
+            user.CarryItem(response.BeverageIds[Random.Shared.Next(0, response.BeverageIds.Count)]);
+        }
     }
 
     public override void OnTimerTick()
     {
         var botRoom = GetRoom();
-        if (botRoom == null) return;
+
+        if (botRoom == null)
+        {
+            return;
+        }
+
         var botUser = GetRoomUser();
-        if (botUser == null) return;
+
+        if (botUser == null)
+        {
+            return;
+        }
+
         var botData = GetBotData();
-        if (botData == null) return;
 
         if (botData == null)
+        {
             return;
+        }
+
+        if (botData == null)
+        {
+            return;
+        }
+
         if (_speechTimer <= 0)
         {
             if (botData.RandomSpeech.Count > 0)
             {
                 if (botData.AutomaticChat == false)
+                {
                     return;
+                }
+
                 var speech = botData.GetRandomSpeech();
                 var @string = _wordFilter.CheckMessage(speech.Message);
+
                 if (@string.Contains("<img src") || @string.Contains("<font ") || @string.Contains("</font>") || @string.Contains("</a>") || @string.Contains("<i>"))
+                {
                     @string = "I really shouldn't be using HTML within bot speeches.";
+                }
+
                 botUser.Chat(@string, botData.ChatBubble);
             }
+
             _speechTimer = botData.SpeakingInterval;
         }
         else
+        {
             _speechTimer--;
+        }
+
         if (_actionTimer <= 0)
         {
             switch (botData.WalkingMode.ToLower())
@@ -142,6 +232,7 @@ internal class BartenderBot : BotAi
                     else if (botData.ForcedUserTargetMovement > 0)
                     {
                         var target = botRoom.GetRoomUserManager().GetRoomUserByHabbo(botData.ForcedUserTargetMovement);
+
                         if (target == null)
                         {
                             botData.ForcedUserTargetMovement = 0;
@@ -150,28 +241,45 @@ internal class BartenderBot : BotAi
                         else
                         {
                             var sq = new Point(target.X, target.Y);
+
                             if (target.RotBody == 0)
+                            {
                                 sq.Y--;
+                            }
                             else if (target.RotBody == 2)
+                            {
                                 sq.X++;
+                            }
                             else if (target.RotBody == 4)
+                            {
                                 sq.Y++;
-                            else if (target.RotBody == 6) sq.X--;
+                            }
+                            else if (target.RotBody == 6)
+                            {
+                                sq.X--;
+                            }
+
                             botUser.MoveTo(sq);
                         }
                     }
                     else if (botData.TargetUser == 0)
                     {
                         if (botRoom.GetGameMap().TryGetRandomWalkableSquare(out var nextCoord))
+                        {
                             botUser.MoveTo(nextCoord.X, nextCoord.Y);
+                        }
                     }
+
                     break;
                 case "specified_range":
                     break;
             }
+
             _actionTimer = Random.Shared.Next(5, 15);
         }
         else
+        {
             _actionTimer--;
+        }
     }
 }

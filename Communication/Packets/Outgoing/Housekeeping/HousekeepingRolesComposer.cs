@@ -12,6 +12,7 @@ public sealed class HousekeepingRolesComposer(int requestId, AccessAdminSnapshot
         packet.WriteInteger(snapshot.Revision);
         packet.WriteInteger(snapshot.ActorWeight);
         packet.WriteInteger(snapshot.Roles.Count);
+
         foreach (var role in snapshot.Roles)
         {
             packet.WriteInteger(role.Id);
@@ -25,11 +26,23 @@ public sealed class HousekeepingRolesComposer(int requestId, AccessAdminSnapshot
             packet.WriteBoolean(role.IsHidden);
             packet.WriteInteger(role.MemberCount);
             packet.WriteInteger(role.Permissions.Length);
-            foreach (var key in role.Permissions) packet.WriteString(key);
+
+            foreach (var key in role.Permissions)
+            {
+                packet.WriteString(key);
+            }
+
             packet.WriteInteger(role.Limits.Count);
-            foreach (var (key, value) in role.Limits) { packet.WriteString(key); packet.WriteInteger(value); }
+
+            foreach (var (key, value) in role.Limits)
+            {
+                packet.WriteString(key);
+                packet.WriteInteger(value);
+            }
         }
+
         packet.WriteInteger(snapshot.Permissions.Count);
+
         foreach (var definition in snapshot.Permissions)
         {
             packet.WriteString(definition.Key);
@@ -38,7 +51,13 @@ public sealed class HousekeepingRolesComposer(int requestId, AccessAdminSnapshot
             packet.WriteBoolean(definition.IsOrphan);
             packet.WriteBoolean(definition.CanGrant);
         }
+
         packet.WriteInteger(snapshot.Limits.Count);
-        foreach (var (key, value) in snapshot.Limits) { packet.WriteString(key); packet.WriteInteger(value); }
+
+        foreach (var (key, value) in snapshot.Limits)
+        {
+            packet.WriteString(key);
+            packet.WriteInteger(value);
+        }
     }
 }

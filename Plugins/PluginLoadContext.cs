@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Runtime.Loader;
 
 namespace Plus.Plugins;
@@ -10,6 +10,7 @@ public class PluginLoadContext : AssemblyLoadContext
     {
         var loadContext = new PluginLoadContext(pluginsPath);
         LoadContexts.Add(loadContext);
+
         return loadContext.LoadFromAssemblyPath(Path.GetFullPath(Path.Join(pluginsPath, $"{pluginName}.dll")));
     }
 
@@ -45,14 +46,21 @@ public class PluginLoadContext : AssemblyLoadContext
     protected override Assembly? Load(AssemblyName assemblyName)
     {
         var existingAssembly = Default.Assemblies.FirstOrDefault(a => a.GetName().Equals(assemblyName)) ?? Default.Assemblies.FirstOrDefault(a => a.GetName(true).Name!.Equals(assemblyName.Name));
-        if (existingAssembly != null) return existingAssembly;
+
+        if (existingAssembly != null)
+        {
+            return existingAssembly;
+        }
+
         var assemblyPath = _resolver.ResolveAssemblyToPath(assemblyName);
+
         return assemblyPath != null ? LoadFromAssemblyPath(assemblyPath) : null;
     }
 
     protected override IntPtr LoadUnmanagedDll(string unmanagedDllName)
     {
         var libraryPath = _resolver.ResolveUnmanagedDllToPath(unmanagedDllName);
+
         return libraryPath != null ? LoadUnmanagedDllFromPath(libraryPath) : IntPtr.Zero;
     }
 }

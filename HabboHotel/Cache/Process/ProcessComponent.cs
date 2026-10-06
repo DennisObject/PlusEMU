@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 
 namespace Plus.HabboHotel.Cache.Process;
 
@@ -28,11 +28,16 @@ public sealed class ProcessComponent : IProcessComponent
     public void Init(Action sweep)
     {
         ArgumentNullException.ThrowIfNull(sweep);
+
         lock (_timerGate)
         {
             ObjectDisposedException.ThrowIf(_disposed != 0, this);
+
             if (_timer != null)
+            {
                 throw new InvalidOperationException("The cache process has already been initialized.");
+            }
+
             _timer = _clock.CreateTimer(_ => Run(sweep), null, TimeSpan.FromSeconds(_runtimeInSec), TimeSpan.FromSeconds(_runtimeInSec));
         }
     }
@@ -45,8 +50,11 @@ public sealed class ProcessComponent : IProcessComponent
         lock (_timerGate)
         {
             if (_disposed != 0 || Interlocked.CompareExchange(ref _timerRunning, 1, 0) != 0)
+            {
                 return;
+            }
         }
+
         try
         {
             sweep();
@@ -69,9 +77,13 @@ public sealed class ProcessComponent : IProcessComponent
         lock (_timerGate)
         {
             if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
                 return;
+            }
+
             var timer = _timer;
             _timer = null;
+
             try
             {
                 timer?.Dispose();

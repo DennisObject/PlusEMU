@@ -99,7 +99,12 @@ public sealed class QuestProgressServiceTests
     private static (FlashGameClient Client, List<(uint Header, byte[] Payload)> Sent) Client(int userId, int questId = 0)
     {
         var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, questId, 0, 0, "", 0);
-        return HabbiconTestSupport.Client(new() { Id = userId, HabboStats = stats });
+
+        return HabbiconTestSupport.Client(new()
+        {
+            Id = userId,
+            HabboStats = stats
+        });
     }
 
     private static Quest TestQuest(int id, string category, int number) =>
@@ -107,22 +112,37 @@ public sealed class QuestProgressServiceTests
 
     private sealed class RecordingStore(Action? beforeStart = null) : IQuestProgressStore
     {
-        public bool Fail { get; init; }
+        public bool Fail
+        {
+            get; init;
+        }
         public List<(int UserId, int QuestId)> Starts { get; } = [];
         public List<(int UserId, int QuestId, int Progress, bool Completed)> Progress { get; } = [];
         public void Start(int userId, int questId)
         {
             beforeStart?.Invoke();
-            if (Fail) throw new InvalidOperationException("forced failure");
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
+
             Starts.Add((userId, questId));
         }
         public void Cancel(int userId, int questId)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
         }
         public void SaveProgress(int userId, int questId, int progress, bool completed)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
+
             Progress.Add((userId, questId, progress, completed));
         }
     }
@@ -130,17 +150,26 @@ public sealed class QuestProgressServiceTests
     private sealed class QuestManagerFake(params Quest[] quests) : IQuestManager
     {
         private readonly Dictionary<int, Quest> _quests = quests.ToDictionary(quest => quest.Id);
-        public int ListRequests { get; private set; }
-        public (string Category, int Number)? NextRequest { get; private set; }
+        public int ListRequests
+        {
+            get; private set;
+        }
+        public (string Category, int Number)? NextRequest
+        {
+            get; private set;
+        }
         public Quest GetQuest(int id) => _quests.GetValueOrDefault(id)!;
         public Quest GetNextQuestInSeries(string category, int number)
         {
             NextRequest = (category, number);
+
             return _quests.Values.SingleOrDefault(quest => quest.Category == category && quest.Number == number)!;
         }
         public void GetList(GameClient session, ClientPacket message) => ListRequests++;
         public int GetAmountOfQuestsInCategory(string category) => _quests.Values.Count(quest => quest.Category == category);
-        public void Init() { }
+        public void Init()
+        {
+        }
         public void ProgressUserQuest(GameClient session, QuestType type, int data = 0) => throw new NotSupportedException();
         public void QuestReminder(GameClient session, int questId) => throw new NotSupportedException();
     }

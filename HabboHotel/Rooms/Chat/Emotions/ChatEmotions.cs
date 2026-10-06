@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Chat.Emotions;
+namespace Plus.HabboHotel.Rooms.Chat.Emotions;
 
 public enum ChatEmotions
 {

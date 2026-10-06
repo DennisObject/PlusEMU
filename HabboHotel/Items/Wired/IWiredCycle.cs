@@ -1,8 +1,14 @@
-﻿namespace Plus.HabboHotel.Items.Wired;
+namespace Plus.HabboHotel.Items.Wired;
 
 internal interface IWiredCycle
 {
-    int Delay { get; set; }
-    int TickCount { get; set; }
+    int Delay
+    {
+        get; set;
+    }
+    int TickCount
+    {
+        get; set;
+    }
     bool OnCycle();
 }

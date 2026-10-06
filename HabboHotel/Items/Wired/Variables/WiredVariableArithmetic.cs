@@ -10,7 +10,11 @@ public static class WiredVariableArithmetic
     public static bool IsUnary(int operation) => operation is 60 or 103 or 110;
     public static int Apply(int operation, int current, int operand, Random? random = null)
     {
-        if (!IsSupported(operation)) throw new ArgumentOutOfRangeException(nameof(operation));
+        if (!IsSupported(operation))
+        {
+            throw new ArgumentOutOfRangeException(nameof(operation));
+        }
+
         long result = operation switch
         {
             0 => operand,
@@ -37,12 +41,18 @@ public static class WiredVariableArithmetic
             118 => operand is >= 0 and < 32 ? current ^ (1 << operand) : current,
             _ => Scan(operation, current, operand)
         };
+
         return (int)Math.Clamp(result, int.MinValue, int.MaxValue);
     }
     private static long Power(int current, int operand)
     {
-        if (operand < 0) return 0;
+        if (operand < 0)
+        {
+            return 0;
+        }
+
         var result = Math.Pow(current, operand);
+
         return (long)Math.Clamp(result, int.MinValue, int.MaxValue);
     }
     private static int Scan(int operation, int current, int operand)
@@ -50,8 +60,15 @@ public static class WiredVariableArithmetic
         var forward = operation is 111 or 112 or 119 or 120;
         var high = operation is 112 or 114 or 120 or 122;
         var start = (long)operand + (operation >= 119 ? (forward ? 1 : -1) : 0);
+
         for (var bit = start; bit is >= 0 and < 32; bit += forward ? 1 : -1)
-            if ((((uint)current >> (int)bit & 1) != 0) == high) return (int)bit;
+        {
+            if ((((uint)current >> (int)bit & 1) != 0) == high)
+            {
+                return (int)bit;
+            }
+        }
+
         return -1;
     }
 }

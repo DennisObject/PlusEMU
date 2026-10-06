@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Navigator;
+namespace Plus.HabboHotel.Navigator;
 
 public class FeaturedRoom
 {
@@ -10,8 +10,20 @@ public class FeaturedRoom
         Image = images;
     }
 
-    public int RoomId { get; }
-    public string Caption { get; }
-    public string Description { get; }
-    public string Image { get; }
+    public int RoomId
+    {
+        get;
+    }
+    public string Caption
+    {
+        get;
+    }
+    public string Description
+    {
+        get;
+    }
+    public string Image
+    {
+        get;
+    }
 }

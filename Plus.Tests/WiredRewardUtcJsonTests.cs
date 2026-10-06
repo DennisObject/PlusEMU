@@ -16,8 +16,11 @@ public sealed class WiredRewardUtcJsonTests
             """);
 
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(2208988800).AddMilliseconds(125), claims[1].LastClaimAt);
-        Assert.Equal(2, claims[1].Count); Assert.Equal(["A"], claims[1].ReceivedCodes);
-        Assert.Null(claims[2].LastClaimAt); Assert.Null(claims[3].LastClaimAt); Assert.Null(claims[4].LastClaimAt);
+        Assert.Equal(2, claims[1].Count);
+        Assert.Equal(["A"], claims[1].ReceivedCodes);
+        Assert.Null(claims[2].LastClaimAt);
+        Assert.Null(claims[3].LastClaimAt);
+        Assert.Null(claims[4].LastClaimAt);
         Assert.True(WiredRewards.IntervalOpen(claims[2], 3, 1, DateTimeOffset.UnixEpoch));
         Assert.False(WiredRewards.IntervalOpen(claims[2], 0, 1, DateTimeOffset.MaxValue));
         Assert.False(WiredRewards.IntervalOpen(claims[1], 3, 1,
@@ -39,7 +42,8 @@ public sealed class WiredRewardUtcJsonTests
         Assert.Equal(TimeSpan.Zero, parsed[7].LastClaimAt!.Value.Offset);
 
         var json = WiredRewardClaimsJson.Serialize(parsed);
-        Assert.Contains("LastClaimAt", json); Assert.DoesNotContain("LastClaimUnix", json);
+        Assert.Contains("LastClaimAt", json);
+        Assert.DoesNotContain("LastClaimUnix", json);
         var roundTrip = WiredRewardClaimsJson.Parse(json);
         Assert.Equal(parsed[7].LastClaimAt, roundTrip[7].LastClaimAt);
         Assert.Equal(3, roundTrip[7].Count);

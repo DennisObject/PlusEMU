@@ -18,7 +18,12 @@ public partial class PlacedFurniRoomTests
     {
         var unloaded = new List<uint>();
         Set("_rooms", TestRoomOwners.Create(unloaded.Add));
-        if (v2) _room.EnableV2Movement();
+
+        if (v2)
+        {
+            _room.EnableV2Movement();
+        }
+
         _room.IdleTime = 58;
         WithUnavailableRoomGame(() =>
         {
@@ -37,7 +42,12 @@ public partial class PlacedFurniRoomTests
     {
         var unloaded = new List<uint>();
         Set("_rooms", TestRoomOwners.Create(unloaded.Add));
-        if (v2) _room.EnableV2Movement();
+
+        if (v2)
+        {
+            _room.EnableV2Movement();
+        }
+
         _room.IdleTime = 59;
         var now = _interactionClock.GetUtcNow();
         _room.Promotion = new RoomPromotion("test", "", 1, now, now.AddHours(1), _interactionClock);
@@ -77,7 +87,10 @@ public partial class PlacedFurniRoomTests
     {
         Assert.True(_room.GetRoomUserManager().AddAvatarToRoom(_client));
         var actor = _room.GetRoomUserManager().GetRoomUserByHabbo(7)!;
-        _client.GetHabbo().Effects = new(_interactionClock) { CurrentEffect = 35 };
+        _client.GetHabbo().Effects = new(_interactionClock)
+        {
+            CurrentEffect = 35
+        };
         actor.Team = Team.Blue;
         actor.LockedTilesCount = 4;
         var calls = new List<(string, int)>();
@@ -133,7 +146,11 @@ public partial class PlacedFurniRoomTests
     {
         var previous = _gameField.GetValue(null);
         _gameField.SetValue(null, null);
-        try { action(); }
+
+        try
+        {
+            action();
+        }
         finally { _gameField.SetValue(null, previous); }
     }
 }

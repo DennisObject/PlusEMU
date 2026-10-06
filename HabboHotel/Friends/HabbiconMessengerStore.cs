@@ -17,12 +17,29 @@ public sealed class HabbiconMessengerStore(IDatabase database) : IHabbiconMessen
         connection.Open();
         using var transaction = connection.BeginTransaction();
         connection.Execute("INSERT INTO chatlogs_console (from_id, to_id, message, timestamp) VALUES (@senderId, @recipientId, @fallback, @createdAtUtc)",
-            new { senderId, recipientId, fallback, createdAtUtc }, transaction);
+            new
+            {
+                senderId,
+                recipientId,
+                fallback,
+                createdAtUtc
+            }, transaction);
         int messageId = connection.QuerySingle<int>("SELECT LAST_INSERT_ID()", transaction: transaction);
+
         if (deliverOffline)
+        {
             connection.Execute("INSERT INTO messenger_offline_messages (from_id, to_id, message, timestamp) VALUES (@senderId, @recipientId, @fallback, @createdAtUtc)",
-                new { senderId, recipientId, fallback, createdAtUtc }, transaction);
+                new
+                {
+                    senderId,
+                    recipientId,
+                    fallback,
+                    createdAtUtc
+                }, transaction);
+        }
+
         transaction.Commit();
+
         return messageId;
     }
 }

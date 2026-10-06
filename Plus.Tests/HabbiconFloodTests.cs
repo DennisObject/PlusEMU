@@ -11,7 +11,12 @@ public class HabbiconFloodTests
         var clock = new ManualTimeProvider();
         var messenger = new HabboMessenger(new(), new(), new(), clock);
         var friend = new MessengerBuddy { Id = 2 };
-        for (int i = 0; i < 10; i++) Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
+
+        for (int i = 0; i < 10; i++)
+        {
+            Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
+        }
+
         Assert.Null(messenger.SendMessage(friend, "eleventh"));
         Assert.False(messenger.TrySendHabbicon(clock.GetUtcNow()));
         Assert.Equal(MessageError.Flooding, messenger.SendMessage(friend, "blocked"));
@@ -29,12 +34,18 @@ public class HabbiconFloodTests
     {
         var clock = new ManualTimeProvider();
         var messenger = new HabboMessenger(new(), new(), new(), clock);
+
         for (int i = 0; i < 25; i++)
         {
             Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
             clock.Advance(TimeSpan.FromSeconds(6));
         }
-        for (int i = 0; i < 9; i++) Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
+
+        for (int i = 0; i < 9; i++)
+        {
+            Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
+        }
+
         clock.Advance(TimeSpan.FromSeconds(21));
         Assert.True(messenger.TrySendHabbicon(clock.GetUtcNow()));
     }
@@ -46,7 +57,12 @@ public class HabbiconFloodTests
         var messenger = new HabboMessenger(new(), new(), new(), clock);
         var friend = new MessengerBuddy { Id = 2 };
         clock.Reads = 0;
-        for (var i = 0; i < 11; i++) Assert.Null(messenger.SendMessage(friend, "allowed"));
+
+        for (var i = 0; i < 11; i++)
+        {
+            Assert.Null(messenger.SendMessage(friend, "allowed"));
+        }
+
         Assert.Equal(MessageError.Flooding, messenger.SendMessage(friend, "starts cooldown"));
         Assert.Equal(12, clock.Reads);
 
@@ -65,7 +81,11 @@ public class HabbiconFloodTests
     {
         var clock = new CountingClock { Now = DateTimeOffset.MaxValue };
         var messenger = new HabboMessenger(new(), new(), new(), clock);
-        for (var i = 0; i < 11; i++) Assert.True(messenger.TrySendHabbicon(clock.Now));
+
+        for (var i = 0; i < 11; i++)
+        {
+            Assert.True(messenger.TrySendHabbicon(clock.Now));
+        }
 
         Assert.False(messenger.TrySendHabbicon(clock.Now));
         Assert.False(messenger.TrySendHabbicon(clock.Now));
@@ -76,9 +96,20 @@ public class HabbiconFloodTests
 
     private sealed class CountingClock : TimeProvider
     {
-        public DateTimeOffset Now { get; set; }
-        public int Reads { get; set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public DateTimeOffset Now
+        {
+            get; set;
+        }
+        public int Reads
+        {
+            get; set;
+        }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 
     private sealed class ManualTimeProvider : TimeProvider

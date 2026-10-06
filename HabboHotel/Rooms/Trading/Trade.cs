@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets;
+using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Inventory.Trading;
@@ -34,9 +34,18 @@ public sealed class Trade
     private readonly ITradeStore _store;
     private readonly ISettingsManager _settings;
 
-    public int Id { get; set; }
-    public TradeUser[] Users { get; set; }
-    public bool CanChange { get; set; }
+    public int Id
+    {
+        get; set;
+    }
+    public TradeUser[] Users
+    {
+        get; set;
+    }
+    public bool CanChange
+    {
+        get; set;
+    }
 
     public bool AllAccepted
     {
@@ -45,9 +54,16 @@ public sealed class Trade
             foreach (var user in Users)
             {
                 if (user == null)
+                {
                     continue;
-                if (!user.HasAccepted) return false;
+                }
+
+                if (!user.HasAccepted)
+                {
+                    return false;
+                }
             }
+
             return true;
         }
     }
@@ -57,7 +73,10 @@ public sealed class Trade
         foreach (var user in Users)
         {
             if (user == null || user.RoomUser == null || user.RoomUser.GetClient() == null)
+            {
                 continue;
+            }
+
             user.RoomUser.GetClient().Send(packet);
         }
     }
@@ -67,7 +86,10 @@ public sealed class Trade
         foreach (var user in Users)
         {
             if (user == null)
+            {
                 continue;
+            }
+
             user.HasAccepted = false;
         }
     }
@@ -77,9 +99,13 @@ public sealed class Trade
         foreach (var tradeUser in Users)
         {
             if (tradeUser == null || tradeUser.RoomUser == null)
+            {
                 continue;
+            }
+
             RemoveTrade(tradeUser.RoomUser.UserId);
         }
+
         SendPacket(new TradingClosedComposer(userId));
         _instance.GetTrading().RemoveTrade(Id);
     }
@@ -89,9 +115,13 @@ public sealed class Trade
         foreach (var tradeUser in Users)
         {
             if (tradeUser == null)
+            {
                 continue;
+            }
+
             RemoveTrade(tradeUser.RoomUser.UserId);
         }
+
         ProcessItems();
         SendPacket(new TradingFinishComposer());
         _instance.GetTrading().RemoveTrade(Id);
@@ -100,7 +130,12 @@ public sealed class Trade
     public void RemoveTrade(int userId)
     {
         var tradeUser = Users[0];
-        if (tradeUser.RoomUser.UserId != userId) tradeUser = Users[1];
+
+        if (tradeUser.RoomUser.UserId != userId)
+        {
+            tradeUser = Users[1];
+        }
+
         tradeUser.RoomUser.RemoveStatus("trd");
         tradeUser.RoomUser.UpdateNeeded = true;
         tradeUser.RoomUser.IsTrading = false;
@@ -116,28 +151,41 @@ public sealed class Trade
         var roomUserTwo = Users[1].RoomUser;
         var logUserOne = "";
         var logUserTwo = "";
+
         if (roomUserOne == null || roomUserOne.GetClient() == null || roomUserOne.GetClient().GetHabbo() == null || roomUserOne.GetClient().GetHabbo().Inventory == null)
+        {
             return;
+        }
+
         if (roomUserTwo == null || roomUserTwo.GetClient() == null || roomUserTwo.GetClient().GetHabbo() == null || roomUserTwo.GetClient().GetHabbo().Inventory == null)
+        {
             return;
+        }
+
         foreach (var item in userOne)
         {
             var I = roomUserOne.GetClient().GetHabbo().Inventory.Furniture.GetItem(item.Id);
+
             if (I == null)
             {
                 SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
+
                 return;
             }
         }
+
         foreach (var item in userTwo)
         {
             var I = roomUserTwo.GetClient().GetHabbo().Inventory.Furniture.GetItem(item.Id);
+
             if (I == null)
             {
                 SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
+
                 return;
             }
         }
+
         foreach (var item in userOne)
         {
             logUserOne += $"{item.Id};";
@@ -146,6 +194,7 @@ public sealed class Trade
             ReceiveTradedItem(roomUserTwo.GetClient(), item,
                 item.Definition.InteractionType == InteractionType.Exchange && _settings.TryGetValue("trading.auto_exchange_redeemables") == "1", _store);
         }
+
         foreach (var item in userTwo)
         {
             logUserTwo += $"{item.Id};";
@@ -154,12 +203,14 @@ public sealed class Trade
             ReceiveTradedItem(roomUserOne.GetClient(), item,
                 item.Definition.InteractionType == InteractionType.Exchange && _settings.TryGetValue("trading.auto_exchange_redeemables") == "1", _store);
         }
+
         _store.Log(roomUserOne.UserId, roomUserTwo.UserId, logUserOne, logUserTwo);
     }
 
     internal static void ReceiveTradedItem(GameClient recipient, InventoryItem item, bool autoRedeem, ITradeStore store)
     {
         var habbo = recipient.GetHabbo();
+
         if (item.Definition.InteractionType == InteractionType.Exchange && autoRedeem)
         {
             lock (habbo.WalletSync)
@@ -169,10 +220,12 @@ public sealed class Trade
                     habbo.Credits += item.Definition.BehaviourData;
                     recipient.Send(new CreditBalanceComposer(habbo.Credits));
                     store.DeleteItem(item.Id);
+
                     return;
                 }
             }
         }
+
         // A wallet saved for shutdown cannot receive credits; transfer the voucher intact.
         if (habbo.Inventory.Furniture.AddItem(item))
         {

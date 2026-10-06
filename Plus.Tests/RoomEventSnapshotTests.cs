@@ -20,8 +20,15 @@ public sealed class RoomEventSnapshotTests
         Assert.Equal(new object[] { active ? 42 : -1, active ? 7 : -1, active ? "Alice" : "", active ? 1 : 0,
             0, active ? "Event" : "", active ? "Description" : "", 0, 0, 0 }, packet.Writes);
 
-        room.Id = 99; room.OwnerName = "Changed";
-        if (promotion != null) { promotion.Name = "Changed"; promotion.Description = "Changed"; }
+        room.Id = 99;
+        room.OwnerName = "Changed";
+
+        if (promotion != null)
+        {
+            promotion.Name = "Changed";
+            promotion.Description = "Changed";
+        }
+
         var repeated = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(repeated);
         Assert.Equal(packet.Writes, repeated.Writes);

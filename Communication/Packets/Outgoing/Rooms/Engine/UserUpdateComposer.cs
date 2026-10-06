@@ -11,6 +11,7 @@ public sealed class UserUpdateComposer(ImmutableArray<RoomUserStatusSnapshot> us
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(users.Length);
+
         foreach (var user in users)
         {
             packet.WriteInteger(user.VirtualId);

@@ -38,13 +38,20 @@ public sealed class AccessAuditWireTests
 
     private static AccessAuditEntry Row(DateTimeOffset? created) => new()
     {
-        Id = 7, ActorName = "actor", Action = "role.assign", TargetType = "user", TargetId = 8,
-        TargetName = "target", Payload = "{}", CreatedAt = created
+        Id = 7,
+        ActorName = "actor",
+        Action = "role.assign",
+        TargetType = "user",
+        TargetId = 8,
+        TargetName = "target",
+        Payload = "{}",
+        CreatedAt = created
     };
     private static object[] Writes(HousekeepingRolesAuditComposer composer)
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes.ToArray();
     }
 }

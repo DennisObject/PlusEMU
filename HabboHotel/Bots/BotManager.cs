@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using System.Data;
 using Dapper;
 using Microsoft.Extensions.Logging;

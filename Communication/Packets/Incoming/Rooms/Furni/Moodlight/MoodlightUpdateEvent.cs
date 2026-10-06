@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
 
@@ -13,6 +13,7 @@ internal class MoodlightUpdateEvent(IMoodlightService moodlight) : RoomPacketEve
         var colorCode = packet.ReadString();
         var intensity = packet.ReadInt();
         moodlight.UpdatePreset(room, session, new(preset, colorCode, intensity, backgroundMode));
+
         return Task.CompletedTask;
     }
 }

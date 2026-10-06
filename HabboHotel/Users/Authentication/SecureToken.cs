@@ -23,7 +23,10 @@ public readonly record struct CredentialInstant
 {
     public CredentialInstant(DateTimeOffset value) => UtcNow = value.ToUniversalTime();
 
-    public DateTimeOffset UtcNow { get; }
+    public DateTimeOffset UtcNow
+    {
+        get;
+    }
 
     public static CredentialInstant Capture(TimeProvider time) => new(time.GetUtcNow());
 }

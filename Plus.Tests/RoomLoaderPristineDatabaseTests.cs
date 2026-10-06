@@ -22,6 +22,7 @@ public sealed class RoomLoaderPristineDatabaseTests
         connection.Open();
         var schema = "room_loaders_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             connection.Execute($"USE `{schema}`");
@@ -82,19 +83,37 @@ public sealed class RoomLoaderPristineDatabaseTests
             Assert.Empty(RoomBotsComponent.Load(connection, 100));
             Assert.Empty(RoomPetsComponent.Load(connection, 100));
 
-            connection.Execute("UPDATE bots SET room_id = @roomId WHERE id IN (10, 12)", new { roomId = uint.MaxValue });
+            connection.Execute("UPDATE bots SET room_id = @roomId WHERE id IN (10, 12)", new
+            {
+                roomId = uint.MaxValue
+            });
             Assert.Equal(uint.MaxValue, Assert.Single(RoomBotsComponent.Load(connection, uint.MaxValue)).RoomId);
             Assert.Equal(uint.MaxValue, Assert.Single(RoomPetsComponent.Load(connection, uint.MaxValue)).RoomId);
 
-            connection.Execute("UPDATE bots SET id = @id WHERE id = 10", new { id = (uint)int.MaxValue + 1 });
+            connection.Execute("UPDATE bots SET id = @id WHERE id = 10", new
+            {
+                id = (uint)int.MaxValue + 1
+            });
             AssertOverflow(() => RoomBotsComponent.Load(connection, uint.MaxValue).ToArray());
-            connection.Execute("UPDATE bots SET user_id = @id WHERE id = 11", new { id = (uint)int.MaxValue + 1 });
+            connection.Execute("UPDATE bots SET user_id = @id WHERE id = 11", new
+            {
+                id = (uint)int.MaxValue + 1
+            });
             AssertOverflow(() => RoomBotsComponent.Load(connection, 42).ToArray());
-            connection.Execute("UPDATE bots SET user_id = @id WHERE id = 12", new { id = (uint)int.MaxValue + 1 });
+            connection.Execute("UPDATE bots SET user_id = @id WHERE id = 12", new
+            {
+                id = (uint)int.MaxValue + 1
+            });
             AssertOverflow(() => RoomPetsComponent.Load(connection, uint.MaxValue).ToArray());
-            connection.Execute("UPDATE bots SET id = @id WHERE id = 14", new { id = uint.MaxValue });
+            connection.Execute("UPDATE bots SET id = @id WHERE id = 14", new
+            {
+                id = uint.MaxValue
+            });
             AssertOverflow(() => RoomPetsComponent.Load(connection, 99).ToArray());
-            connection.Execute("UPDATE bots_petdata SET type = @type WHERE id = 12", new { type = (uint)int.MaxValue + 1 });
+            connection.Execute("UPDATE bots_petdata SET type = @type WHERE id = 12", new
+            {
+                type = (uint)int.MaxValue + 1
+            });
             AssertOverflow(() => RoomPetsComponent.LoadData(connection, 12));
         }
         finally
@@ -110,6 +129,7 @@ public sealed class RoomLoaderPristineDatabaseTests
         Assert.True(start >= 0, $"Missing pristine CREATE TABLE for {table}.");
         var end = pristine.IndexOf(';', start);
         Assert.True(end >= 0, $"Unterminated pristine CREATE TABLE for {table}.");
+
         return pristine[start..(end + 1)];
     }
 

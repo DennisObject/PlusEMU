@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Core;
@@ -66,12 +66,16 @@ public class CatalogManager : ICatalogManager, IStartable
         using var connection = _database.Connection();
 
         var items = await connection.QueryAsync<CatalogItem>("SELECT `id`,`item_id`,`catalog_name`,`cost_credits`,`cost_pixels`,`cost_diamonds`,`amount`,`page_id`,`limited_sells`,`limited_stack`,`offer_active` = '1' AS HaveOffer,`extradata`,`badge`,`offer_id`,`habbicon_id`,`club_level` AS `ClubLevel`,`preview_image` AS `PreviewImage`,`order_num` AS `OrderNum` FROM `catalog_items` ORDER BY `order_num`, `id`");
-        foreach(CatalogItem item in items)
+
+        foreach (CatalogItem item in items)
         {
             if (item.Amount <= 0)
+            {
                 continue;
+            }
 
             ItemDefinition? definition = null;
+
             if (item.HabbiconId <= 0 && !_itemDataManager.Items.TryGetValue(item.ItemId, out definition))
             {
                 _logger.LogError("Couldn't load Catalog Item " + item.ItemId + ", no furniture record found.");
@@ -79,30 +83,42 @@ public class CatalogManager : ICatalogManager, IStartable
             }
 
             if (!itemsByPage.ContainsKey(item.PageId))
+            {
                 itemsByPage[item.PageId] = new();
+            }
 
             item.Definition = definition;
             itemsByPage[item.PageId].Add(item.Id, item);
         }
 
         var deals = await connection.QueryAsync<CatalogDeal>("SELECT `id`, `items`, `name`, `room_id` FROM `catalog_deals`");
+
         foreach (CatalogDeal deal in deals)
         {
             if (dealsById.ContainsKey(deal.Id))
+            {
                 continue;
+            }
 
             var itemDataList = new List<CatalogItem>();
+
             if (!string.IsNullOrWhiteSpace(deal.Items))
             {
                 var splitItems = deal.Items.Split(';');
+
                 foreach (var split in splitItems)
                 {
                     var item = split.Split('*');
+
                     if (!uint.TryParse(item[0], out var itemId) || !int.TryParse(item[1], out var amount))
+                    {
                         continue;
+                    }
 
                     if (!_itemDataManager.Items.TryGetValue(itemId, out var data))
+                    {
                         continue;
+                    }
 
                     itemDataList.Add(new()
                     {
@@ -123,6 +139,7 @@ public class CatalogManager : ICatalogManager, IStartable
                         OfferId = 0
                     });
                 }
+
                 deal.ItemDataList = itemDataList;
             }
 
@@ -130,10 +147,13 @@ public class CatalogManager : ICatalogManager, IStartable
         }
 
         var pages = await connection.QueryAsync<CatalogPage>("SELECT `id`,`parent_id`,`caption`,`page_link` as `link`,`visible`,`enabled`,`required_permission` AS `RequiredPermission`,`required_club_level` AS `RequiredClubLevel`,`icon_image` as `icon`,`page_layout` as `layout`,`page_strings_1`,`page_strings_2` FROM `catalog_pages` ORDER BY `order_num`, `id`");
+
         foreach (CatalogPage page in pages)
         {
             if (itemsByPage.ContainsKey(page.Id))
+            {
                 page.Items = itemsByPage[page.Id];
+            }
 
             page.PageStringsList1 = !string.IsNullOrWhiteSpace(page.PageStrings1) ? page.PageStrings1!.Split("|").ToList() : new();
             page.PageStringsList2 = !string.IsNullOrWhiteSpace(page.PageStrings2) ? page.PageStrings2!.Split("|").ToList() : new();
@@ -143,23 +163,30 @@ public class CatalogManager : ICatalogManager, IStartable
         offerIndex.Build(pagesById.Values);
 
         var bots = await connection.QueryAsync<CatalogBot>("SELECT `id`,`name`,`figure`,`motto`,`gender`,`ai_type` FROM `catalog_bot_presets`");
+
         foreach (CatalogBot bot in bots)
         {
             botPresets.Add(bot.Id, bot);
         }
 
         var promotions = await connection.QueryAsync<CatalogPromotion>("SELECT `id`,`title`,`image`,`unknown`,`page_link`,`parent_id`,`position`,`item_type` AS `ItemType`,`offer_id` AS `OfferId`,`product_code` AS `ProductCode`,`expires_at` AS `ExpiresAt` FROM `catalog_promotions`");
-        foreach(CatalogPromotion promotion in promotions)
+
+        foreach (CatalogPromotion promotion in promotions)
         {
             if (promotionsById.ContainsKey(promotion.Id))
+            {
                 continue;
+            }
 
             promotionsById.Add(promotion.Id, promotion);
         }
 
         var clubOffers = await connection.QueryAsync<ClubOffer>("SELECT `id`,`name`,`days`,`credits`,`points`,`points_type` AS `PointsType`,`giftable` AS `Giftable` FROM `catalog_club_offers` WHERE `enabled` = 1 ORDER BY `id`");
+
         foreach (var offer in clubOffers)
+        {
             clubOffersById.Add(offer.Id, offer);
+        }
 
         _pages = pagesById;
         _botPresets = botPresets;

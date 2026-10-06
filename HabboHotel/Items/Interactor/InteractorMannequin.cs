@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
 using Plus.HabboHotel.Rooms;
@@ -7,9 +7,13 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 internal class InteractorMannequin(IUserProfileService profiles) : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item) { }
+    public void OnPlace(GameClient? session, Item item)
+    {
+    }
 
-    public void OnRemove(GameClient? session, Item item) { }
+    public void OnRemove(GameClient? session, Item item)
+    {
+    }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
@@ -18,6 +22,7 @@ internal class InteractorMannequin(IUserProfileService profiles) : IFurniInterac
             var stuff = item.LegacyDataString.Split(Convert.ToChar(5));
             var newFig = new Dictionary<string, string>();
             newFig.Clear();
+
             foreach (var man in stuff[1].Split('.'))
             {
                 foreach (var fig in session.GetHabbo().Look.Split('.'))
@@ -29,19 +34,33 @@ internal class InteractorMannequin(IUserProfileService profiles) : IFurniInterac
                             newFig.Remove(fig.Split('-')[0]);
                             newFig.Add(fig.Split('-')[0], man);
                         }
-                        else if (!newFig.ContainsKey(fig.Split('-')[0]) && !newFig.ContainsValue(man)) newFig.Add(fig.Split('-')[0], man);
+                        else if (!newFig.ContainsKey(fig.Split('-')[0]) && !newFig.ContainsValue(man))
+                        {
+                            newFig.Add(fig.Split('-')[0], man);
+                        }
                     }
                     else
                     {
-                        if (!newFig.ContainsKey(fig.Split('-')[0])) newFig.Add(fig.Split('-')[0], fig);
+                        if (!newFig.ContainsKey(fig.Split('-')[0]))
+                        {
+                            newFig.Add(fig.Split('-')[0], fig);
+                        }
                     }
                 }
             }
+
             var final = "";
-            foreach (var str in newFig.Values) final += $"{str}.";
+
+            foreach (var str in newFig.Values)
+            {
+                final += $"{str}.";
+            }
+
             profiles.ApplyMannequin(session, new(stuff[0], final.TrimEnd('.')));
         }
     }
 
-    public void OnWiredTrigger(Item item) { }
+    public void OnWiredTrigger(Item item)
+    {
+    }
 }

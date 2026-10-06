@@ -28,21 +28,30 @@ public sealed class PacketManager : IPacketManager, IDisposable
     {
         _maximumRunTimeInSec = Debugger.IsAttached ? TimeSpan.FromMinutes(30) : TimeSpan.FromSeconds(5);
         _logger = logger;
+
         foreach (var packet in incomingPackets)
         {
             var field = typeof(ClientPacketHeader).GetField(packet.GetType().Name, BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
+
             if (field == null)
             {
                 _logger.LogWarning("No incoming header defined for {packet}", packet.GetType().Name);
                 continue;
             }
-            var header = (uint) field.GetValue(null);
+
+            var header = (uint)field.GetValue(null);
             _incomingPackets.Add(header, packet);
             _packetNames.Add(header, packet.GetType().Name);
+
             if (packet.GetType().GetCustomAttribute<RequiresPermissionAttribute>() is { } requirement)
+            {
                 _requiredPermissions.Add(header, requirement.Permissions);
+            }
+
             if (packet.GetType().GetCustomAttribute<NoAuthenticationRequiredAttribute>() != null)
+            {
                 _handshakePackets.Add(packet.GetType());
+            }
         }
     }
 
@@ -51,27 +60,37 @@ public sealed class PacketManager : IPacketManager, IDisposable
         if (!_incomingPackets.TryGetValue(messageId, out var pak))
         {
             if (Debugger.IsAttached)
+            {
                 _logger.LogDebug("Unhandled Packet: " + messageId);
+            }
+
             return;
         }
 
         if (Debugger.IsAttached)
         {
             if (_packetNames.ContainsKey(messageId))
+            {
                 _logger.LogDebug("Handled Packet: [" + messageId + "] " + _packetNames[messageId]);
+            }
             else
+            {
                 _logger.LogDebug("Handled Packet: [" + messageId + "] UnnamedPacketEvent");
+            }
         }
 
         if (!_handshakePackets.Contains(pak.GetType()) && session.GetHabbo() == null)
         {
             _logger.LogDebug($"Session {session.Id} tried execute packet {messageId} but didn't handshake yet.");
+
             return;
         }
 
         if (_requiredPermissions.TryGetValue(messageId, out var required) &&
             (session.GetHabbo() is not { } habbo || required.Any(key => !habbo.Access.Can(key))))
+        {
             return;
+        }
 
         await ExecutePacketAsync(session, packet, pak);
     }
@@ -79,9 +98,11 @@ public sealed class PacketManager : IPacketManager, IDisposable
     private async Task ExecutePacketAsync(GameClient session, IIncomingPacket packet, IPacketEvent pak)
     {
         if (_cancellationTokenSource.IsCancellationRequested)
+        {
             return;
+        }
 
-        var task = pak.Parse(session, packet); 
+        var task = pak.Parse(session, packet);
         // The trusted camera renderer has its own bounded deadline. Other packet limits stay unchanged.
         var timeout = pak is RenderRoomEvent or RenderRoomThumbnailEvent
             ? TimeSpan.FromSeconds(30) : _maximumRunTimeInSec;

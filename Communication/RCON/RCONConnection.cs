@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using System.Text;
 using Microsoft.Extensions.Logging;
 
@@ -14,6 +14,7 @@ public class RconConnection
     {
         _socket = socket;
         _logger = logger;
+
         try
         {
             _socket.BeginReceive(_buffer, 0, _buffer.Length, SocketFlags.None, OnCallBack, _socket);
@@ -31,15 +32,22 @@ public class RconConnection
             if (!int.TryParse(_socket.EndReceive(iAr).ToString(), out var bytes))
             {
                 Dispose();
+
                 return;
             }
+
             var data = Encoding.Default.GetString(_buffer, 0, bytes);
-            if (!PlusEnvironment.RconSocket.GetCommands().Parse(data)) _logger.LogError("Failed to execute a MUS command. Raw data: {Data}", data);
+
+            if (!PlusEnvironment.RconSocket.GetCommands().Parse(data))
+            {
+                _logger.LogError("Failed to execute a MUS command. Raw data: {Data}", data);
+            }
         }
         catch (Exception e)
         {
             Console.WriteLine(e.ToString());
         }
+
         Dispose();
     }
 
@@ -51,6 +59,7 @@ public class RconConnection
             _socket.Close();
             _socket.Dispose();
         }
+
         _socket = null;
         _buffer = null;
     }

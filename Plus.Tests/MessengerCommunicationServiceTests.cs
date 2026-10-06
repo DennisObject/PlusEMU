@@ -64,7 +64,12 @@ public sealed class MessengerCommunicationServiceTests
     {
         using var f = new MessengerFixture();
         var messenger = f.Messenger(friend: 2);
-        for (var i = 0; i < 10; i++) Assert.True(messenger.TrySendHabbicon(f.Clock.GetUtcNow()));
+
+        for (var i = 0; i < 10; i++)
+        {
+            Assert.True(messenger.TrySendHabbicon(f.Clock.GetUtcNow()));
+        }
+
         var (session, _) = f.Session(messenger);
         f.Filter.Output = "hi";
 
@@ -208,6 +213,7 @@ public sealed class MessengerCommunicationServiceTests
     private static IIncomingPacket Packet(params object[] values)
     {
         using var stream = new MemoryStream();
+
         foreach (var value in values)
         {
             if (value is int number)
@@ -225,14 +231,25 @@ public sealed class MessengerCommunicationServiceTests
                 stream.Write(bytes);
             }
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
     private sealed class RecordingCommunication : IMessengerCommunicationService
     {
         public List<string> Calls { get; } = [];
-        public Task SendMessage(GameClient session, int friendId, string text) { Calls.Add($"send {friendId} {text}"); return Task.CompletedTask; }
-        public Task RequestFriend(GameClient session, string username) { Calls.Add($"request {username}"); return Task.CompletedTask; }
+        public Task SendMessage(GameClient session, int friendId, string text)
+        {
+            Calls.Add($"send {friendId} {text}");
+
+            return Task.CompletedTask;
+        }
+        public Task RequestFriend(GameClient session, string username)
+        {
+            Calls.Add($"request {username}");
+
+            return Task.CompletedTask;
+        }
     }
 
     public class ServiceProxy : DispatchProxy
@@ -266,19 +283,36 @@ public sealed class MessengerCommunicationServiceTests
 
         public MessengerFixture()
         {
-            Rewards.Order = Order; Quests.Order = Order;
+            Rewards.Order = Order;
+            Quests.Order = Order;
         }
 
         public HabboMessenger Messenger(int? friend = null, int? requestFrom = null, int? outstanding = null)
         {
             var friends = new Dictionary<int, MessengerBuddy>();
-            if (friend is { } friendId) friends[friendId] = new MessengerBuddy { Id = friendId };
+
+            if (friend is { } friendId)
+            {
+                friends[friendId] = new MessengerBuddy { Id = friendId };
+            }
+
             var requests = new Dictionary<int, MessengerRequest>();
-            if (requestFrom is { } from) requests[from] = new MessengerRequest { FromId = from, ToId = 1 };
+
+            if (requestFrom is { } from)
+            {
+                requests[from] = new MessengerRequest { FromId = from, ToId = 1 };
+            }
+
             var pending = new List<int>();
-            if (outstanding is { } pendingId) pending.Add(pendingId);
+
+            if (outstanding is { } pendingId)
+            {
+                pending.Add(pendingId);
+            }
+
             var messenger = new HabboMessenger(friends, requests, pending, Clock);
             messenger.MessageSend += (_, args) => Delivered.Add(args.Message);
+
             return messenger;
         }
 
@@ -286,6 +320,7 @@ public sealed class MessengerCommunicationServiceTests
         {
             var session = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
             session.SetHabbo(new Habbo { Id = 1, Username = "Alice", Messenger = messenger });
+
             return (session, 0);
         }
 
@@ -294,16 +329,21 @@ public sealed class MessengerCommunicationServiceTests
             var sent = new List<(uint Header, byte[] Payload)>();
             var session = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
-                Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
-                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Where(id => id > 0).Distinct().ToDictionary(id => id, id => id) },
+                Revision = new Revision
+                {
+                    InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
+                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Where(id => id > 0).Distinct().ToDictionary(id => id, id => id)
+                },
                 SendCallback = args =>
                 {
                     var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                     sent.Add((System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+
                     return true;
                 }
             };
             session.SetHabbo(new Habbo { Id = 1, Username = "Alice", Messenger = messenger });
+
             return (session, sent);
         }
 
@@ -320,15 +360,25 @@ public sealed class MessengerCommunicationServiceTests
             public Task<FriendRequestError?> AcceptRequestAsync(Habbo habbo, int fromId)
             {
                 habbo.Messenger.RemoveRequest(fromId);
+
                 return Task.FromResult<FriendRequestError?>(null);
             }
             public Task<FriendRequestError?> DeclineRequestAsync(Habbo habbo, int fromId) => throw new NotSupportedException();
             public Task DeclineAllRequestsAsync(Habbo habbo) => throw new NotSupportedException();
             public async Task<FriendRequestOutcome> SendRequestAsync(Habbo habbo, int toId)
             {
-                if (habbo.Messenger.Requests.ContainsKey(toId)) return new(await AcceptRequestAsync(habbo, toId), Accepted: true);
-                if (habbo.Messenger.OutstandingFriendRequests.Contains(toId)) return new(FriendRequestError.AlreadyOutstandingFriendRequest);
+                if (habbo.Messenger.Requests.ContainsKey(toId))
+                {
+                    return new(await AcceptRequestAsync(habbo, toId), Accepted: true);
+                }
+
+                if (habbo.Messenger.OutstandingFriendRequests.Contains(toId))
+                {
+                    return new(FriendRequestError.AlreadyOutstandingFriendRequest);
+                }
+
                 habbo.Messenger.RecordOutgoingFriendRequest(toId);
+
                 return new(null);
             }
             public Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds) => throw new NotSupportedException();
@@ -339,6 +389,7 @@ public sealed class MessengerCommunicationServiceTests
             var loader = DispatchProxy.Create<IMessengerDataLoader, ServiceProxy>();
             ((ServiceProxy)(object)loader).Handler = (method, _) => method.Name == nameof(IMessengerDataLoader.CanReceiveFriendRequests)
                 ? Loader.Next : throw new NotSupportedException(method.Name);
+
             return (IMessengerDataLoader)(object)loader;
         }
 
@@ -351,19 +402,33 @@ public sealed class MessengerCommunicationServiceTests
             writes.Add(System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(reader.ReadBytes(4)));
             writes.Add(System.Text.Encoding.UTF8.GetString(reader.ReadBytes(System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(reader.ReadBytes(2)))));
             Assert.Equal(stream.Length, stream.Position);
+
             return writes;
         }
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class FilterStub : IWordFilterManager
     {
         public string Output { get; set; } = "";
-        public Action? OnCheck { get; set; }
+        public Action? OnCheck
+        {
+            get; set;
+        }
         public List<string> Checked { get; } = [];
-        public void Init() { }
-        public string CheckMessage(string message) { Checked.Add(message); OnCheck?.Invoke(); return Output; }
+        public void Init()
+        {
+        }
+        public string CheckMessage(string message)
+        {
+            Checked.Add(message);
+            OnCheck?.Invoke();
+
+            return Output;
+        }
         public bool CheckBannedWords(string message) => false;
         public bool IsFiltered(string message) => false;
     }
@@ -371,8 +436,15 @@ public sealed class MessengerCommunicationServiceTests
     private sealed class RecordingRewards : IRewardTrackManager
     {
         public List<string> Progressed { get; } = [];
-        public List<string>? Order { get; set; }
-        public void Progress(GameClient session, string actionType, int amount = 1) { Progressed.Add(actionType); Order?.Add(actionType); }
+        public List<string>? Order
+        {
+            get; set;
+        }
+        public void Progress(GameClient session, string actionType, int amount = 1)
+        {
+            Progressed.Add(actionType);
+            Order?.Add(actionType);
+        }
         public void SendTracks(GameClient session) => throw new NotSupportedException();
         public Task Claim(GameClient session, string trackId, string prizeId) => throw new NotSupportedException();
         public void PurchasePremium(GameClient session, string trackId) => throw new NotSupportedException();
@@ -381,8 +453,15 @@ public sealed class MessengerCommunicationServiceTests
     private sealed class RecordingQuests : IQuestManager
     {
         public List<string> Calls { get; } = [];
-        public List<string>? Order { get; set; }
-        public void ProgressUserQuest(GameClient session, QuestType type, int data = 0) { Calls.Add("quest " + type); Order?.Add("quest " + type); }
+        public List<string>? Order
+        {
+            get; set;
+        }
+        public void ProgressUserQuest(GameClient session, QuestType type, int data = 0)
+        {
+            Calls.Add("quest " + type);
+            Order?.Add("quest " + type);
+        }
         public void Init() => throw new NotSupportedException();
         public Quest? GetQuest(int id) => throw new NotSupportedException();
         public int GetAmountOfQuestsInCategory(string category) => throw new NotSupportedException();

@@ -49,15 +49,19 @@ public class AuthEndpoints
     private async Task<IResult> Login(LoginRequest body, HttpContext context)
     {
         if (string.IsNullOrWhiteSpace(body.Username) || string.IsNullOrEmpty(body.Password))
+        {
             return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Please enter both your Habbo name and password.");
+        }
 
         var result = await _login.Login(body.Username.Trim(), body.Password, AuthHttpServer.ClientAddress(context), body.Remember, context.RequestAborted);
+
         switch (result.Status)
         {
             case LoginStatus.Success:
                 return Session(result.Session!);
             case LoginStatus.Throttled:
                 AuthHttpServer.SetRetryAfter(context.Response, result.RetryAfter);
+
                 return Error(StatusCodes.Status429TooManyRequests, AuthErrorCode.RateLimited, TooManyAttempts);
             case LoginStatus.Banned:
                 return Banned(result.Ban!);
@@ -69,10 +73,13 @@ public class AuthEndpoints
     private async Task<IResult> Register(RegisterRequest body, HttpContext context)
     {
         if (string.IsNullOrWhiteSpace(body.Username) || string.IsNullOrEmpty(body.Password) || string.IsNullOrWhiteSpace(body.Email))
+        {
             return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Choose a Habbo name, email and password.");
+        }
 
         var result = await _registration.Register(new(body.Username.Trim(), body.Password, body.Email.Trim(), body.Figure, body.Gender, AuthHttpServer.ClientAddress(context)),
             context.RequestAborted);
+
         return result.Status switch
         {
             // Revoked within the same instant (e.g. banned): the account exists, the session does not.
@@ -80,7 +87,12 @@ public class AuthEndpoints
                 ? Session(session)
                 : Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidCredentials, "Your account was created. Please log in."),
             RegistrationStatus.UsernameTaken or RegistrationStatus.EmailTaken =>
-                Results.Json(new { error = result.Error, code = TakenCode(result.Status), available = false }, statusCode: StatusCodes.Status409Conflict),
+                Results.Json(new
+                {
+                    error = result.Error,
+                    code = TakenCode(result.Status),
+                    available = false
+                }, statusCode: StatusCodes.Status409Conflict),
             _ => Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, result.Error)
         };
     }
@@ -95,9 +107,12 @@ public class AuthEndpoints
     private async Task<IResult> Resume(RememberRequest body, HttpContext context, bool withTicket)
     {
         if (string.IsNullOrEmpty(body.RememberToken))
+        {
             return Error(StatusCodes.Status400BadRequest, AuthErrorCode.Validation, "Missing remember token.");
+        }
 
         var result = await _sessions.Resume(body.RememberToken, AuthHttpServer.ClientAddress(context), withTicket);
+
         return result.Status switch
         {
             ResumeStatus.Resumed when withTicket => Session(result.Session!),
@@ -134,9 +149,15 @@ public class AuthEndpoints
     private async Task<IResult> ExchangeSsoTicket(SsoTokenRequest body)
     {
         if (string.IsNullOrEmpty(body.SsoTicket) || await _sessions.ExchangeTicket(body.SsoTicket) is not { } token)
+        {
             return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidTicket, "This login ticket is invalid or has expired.");
+        }
 
-        return Results.Json(new { accessToken = token.Value, accessTokenExpiresAt = token.ExpiresAt.ToUnixTimeSeconds() });
+        return Results.Json(new
+        {
+            accessToken = token.Value,
+            accessTokenExpiresAt = token.ExpiresAt.ToUnixTimeSeconds()
+        });
     }
 
     /// <summary>Ends this device's login session: the bearer token's, the body ticket's and the
@@ -144,12 +165,17 @@ public class AuthEndpoints
     private async Task<IResult> Logout(LogoutRequest body, HttpRequest request)
     {
         await _sessions.Logout(BearerToken(request), body.SsoTicket, body.RememberToken);
-        return Results.Json(new { ok = true });
+
+        return Results.Json(new
+        {
+            ok = true
+        });
     }
 
     private static string? BearerToken(HttpRequest request)
     {
         var header = request.Headers.Authorization.ToString();
+
         return header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) && header.Length > 7 ? header[7..].Trim() : null;
     }
 
@@ -184,8 +210,16 @@ public class AuthEndpoints
     }, statusCode: StatusCodes.Status403Forbidden);
 
     private static IResult Availability(Availability result) => result.Available
-        ? Results.Json(new { available = true })
-        : Results.Json(new { available = false, error = result.Error, code = result.Reason == RegistrationStatus.Invalid ? AuthErrorCode.Validation : TakenCode(result.Reason) });
+        ? Results.Json(new
+        {
+            available = true
+        })
+        : Results.Json(new
+        {
+            available = false,
+            error = result.Error,
+            code = result.Reason == RegistrationStatus.Invalid ? AuthErrorCode.Validation : TakenCode(result.Reason)
+        });
 
     private static string TakenCode(RegistrationStatus status) => status == RegistrationStatus.EmailTaken ? AuthErrorCode.EmailTaken : AuthErrorCode.NameTaken;
 

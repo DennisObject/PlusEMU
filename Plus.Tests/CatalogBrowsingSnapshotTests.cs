@@ -100,7 +100,10 @@ public sealed class CatalogBrowsingSnapshotTests
     {
         var page = new CatalogPage
         {
-            Id = 7, Enabled = true, Visible = false, Layout = "frontpage",
+            Id = 7,
+            Enabled = true,
+            Visible = false,
+            Layout = "frontpage",
             Offers = { [44] = new CatalogItem { Id = 1, OfferId = 44, PageId = 7 } }
         };
         var found = true;
@@ -118,8 +121,10 @@ public sealed class CatalogBrowsingSnapshotTests
             if (method == nameof(ICatalogAdminService.RecordViewedPage))
             {
                 viewed.Add((int)args[1]!);
+
                 return null;
             }
+
             throw new InvalidOperationException(method);
         });
         var snapshots = new RecordingSnapshots(new CatalogSnapshotService(catalog, TimeProvider.System));
@@ -177,8 +182,13 @@ public sealed class CatalogBrowsingSnapshotTests
     [Fact]
     public void OfferBrowsingCapturesOnlyAnOfferAllowedByTheCanonicalCatalog()
     {
-        var item = new CatalogItem { Id = 1, OfferId = 44, Amount = 1,
-            Definition = new ItemDefinition { ItemName = "chair", SpriteId = 3, Type = ItemType.Floor } };
+        var item = new CatalogItem
+        {
+            Id = 1,
+            OfferId = 44,
+            Amount = 1,
+            Definition = new ItemDefinition { ItemName = "chair", SpriteId = 3, Type = ItemType.Floor }
+        };
         var found = true;
         var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
         var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, args) =>
@@ -188,6 +198,7 @@ public sealed class CatalogBrowsingSnapshotTests
             Assert.Same(client.GetHabbo(), args[1]);
             args[2] = found ? new CatalogPage() : null;
             args[3] = found ? item : null;
+
             return found;
         });
         var snapshots = new RecordingSnapshots(CatalogSnapshotTestSupport.Snapshots());
@@ -218,20 +229,37 @@ public sealed class CatalogBrowsingSnapshotTests
     private static bool TryPage(object?[] args, CatalogPage? page)
     {
         args[1] = page;
+
         return page != null;
     }
 
     private sealed class Rooms : IRoomDataLoader
     {
         public List<RoomData> Data { get; set; } = [];
-        public int OwnerId { get; private set; }
-        public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId) { OwnerId = ownerId; return Data; }
+        public int OwnerId
+        {
+            get; private set;
+        }
+        public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId)
+        {
+            OwnerId = ownerId;
+
+            return Data;
+        }
         public bool TryGetData(uint roomId, [NotNullWhen(true)] out RoomData? data) => throw new NotSupportedException();
     }
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
     private sealed class ThrowingClock : TimeProvider
     {
@@ -239,11 +267,23 @@ public sealed class CatalogBrowsingSnapshotTests
     }
     private sealed class RecordingBrowsing : ICatalogBrowsingService
     {
-        public string? Type { get; private set; }
-        public bool PromotableRequested { get; private set; }
-        public CatalogPageRequest? PageRequest { get; private set; }
+        public string? Type
+        {
+            get; private set;
+        }
+        public bool PromotableRequested
+        {
+            get; private set;
+        }
+        public CatalogPageRequest? PageRequest
+        {
+            get; private set;
+        }
         public List<string> Modes { get; } = [];
-        public int? OfferId { get; private set; }
+        public int? OfferId
+        {
+            get; private set;
+        }
         public void ShowOffer(GameClient session, int offerId) => OfferId = offerId;
         public void ShowPetPalettes(GameClient session, string type) => Type = type;
         public void ShowPromotableRooms(GameClient session) => PromotableRequested = true;
@@ -255,17 +295,30 @@ public sealed class CatalogBrowsingSnapshotTests
     private sealed class RecordingSnapshots(ICatalogSnapshotService inner) : ICatalogSnapshotService
     {
         public List<int> PageOffers { get; } = [];
-        public int IndexCaptures { get; private set; }
-        public int OfferCaptures { get; private set; }
-        public CatalogOfferSnapshot CaptureOffer(CatalogItem item) { OfferCaptures++; return inner.CaptureOffer(item); }
+        public int IndexCaptures
+        {
+            get; private set;
+        }
+        public int OfferCaptures
+        {
+            get; private set;
+        }
+        public CatalogOfferSnapshot CaptureOffer(CatalogItem item)
+        {
+            OfferCaptures++;
+
+            return inner.CaptureOffer(item);
+        }
         public CatalogPageSnapshot CapturePage(CatalogPage page, int preselectOfferId)
         {
             PageOffers.Add(preselectOfferId);
+
             return inner.CapturePage(page, preselectOfferId);
         }
         public CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages)
         {
             IndexCaptures++;
+
             return inner.CaptureIndex(habbo, pages);
         }
         public ClubGiftsSnapshot CaptureClubGifts(ClubGiftInfo info) => inner.CaptureClubGifts(info);

@@ -18,6 +18,7 @@ public class FurniEditorImporterTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests.Add(request.RequestUri!);
+
             return Task.FromResult(answer(request.RequestUri!));
         }
     }
@@ -30,6 +31,7 @@ public class FurniEditorImporterTests
     {
         var handler = new FakeHandler(answer);
         var configuration = new FurniEditorConfiguration { ImportUrl = url, ImportMaxBytes = maxBytes };
+
         return (new FurniEditorTextImporter(Options.Create(configuration), TimeProvider.System, handler), handler);
     }
 
@@ -99,12 +101,18 @@ public class FurniEditorImporterTests
         public override bool CanSeek => false;
         public override bool CanWrite => false;
         public override long Length => throw new NotSupportedException();
-        public override long Position { get => 0; set => throw new NotSupportedException(); }
-        public override void Flush() { }
+        public override long Position
+        {
+            get => 0; set => throw new NotSupportedException();
+        }
+        public override void Flush()
+        {
+        }
         public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
         public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
         {
             await Task.Delay(Timeout.Infinite, cancellationToken);
+
             return 0;
         }
         public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();

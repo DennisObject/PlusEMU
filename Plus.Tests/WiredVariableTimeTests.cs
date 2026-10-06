@@ -18,17 +18,26 @@ public sealed class WiredVariableTimeTests
         Assert.Equal(612, time.Read(value, 26, zone));
         Assert.Equal(1609459200, time.Read(value, 21, zone));
         Assert.Equal(int.MaxValue, time.Read(value, 20, zone));
-        Assert.Equal(0, time.Read(value with { Value = -1 }, 21, zone));
+        Assert.Equal(0, time.Read(value with
+        {
+            Value = -1
+        }, 21, zone));
     }
     [Fact]
     public void TimestampModesRequirePresentTimestampsAndRespectSelectedFields()
     {
         var creation = new WiredVariableTimeUtilities(1 << 21, 1);
-        var updated = creation with { Mode = 2 };
+        var updated = creation with
+        {
+            Mode = 2
+        };
         var value = new WiredVariableValue(99, DateTimeOffset.FromUnixTimeMilliseconds(12001), DateTimeOffset.FromUnixTimeMilliseconds(24001));
         Assert.Equal(12, creation.Read(value, 21, TimeZoneInfo.Utc));
         Assert.Equal(24, updated.Read(value, 21, TimeZoneInfo.Utc));
-        Assert.Null(creation.Read(value with { CreatedAt = null }, 21, TimeZoneInfo.Utc));
+        Assert.Null(creation.Read(value with
+        {
+            CreatedAt = null
+        }, 21, TimeZoneInfo.Utc));
         Assert.Null(creation.Read(value, 10, TimeZoneInfo.Utc));
         Assert.Null(WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 6250000, 0, false));
         Assert.Equal(700000161u, WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 10, 0, false));

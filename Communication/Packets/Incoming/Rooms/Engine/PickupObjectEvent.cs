@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Engine;
@@ -9,6 +9,7 @@ internal class PickupObjectEvent(IRoomItemPickupService pickup) : IPacketEvent
     {
         packet.ReadInt(); // unknown
         var itemId = packet.ReadUInt();
+
         return pickup.PickUp(session, itemId);
     }
 }

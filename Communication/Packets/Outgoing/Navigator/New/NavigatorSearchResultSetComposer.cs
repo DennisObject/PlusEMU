@@ -12,6 +12,7 @@ public sealed class NavigatorSearchResultSetComposer(NavigatorSearchSnapshot sna
         packet.WriteString(snapshot.Category);
         packet.WriteString(snapshot.Query);
         packet.WriteInteger(snapshot.Results.Length);
+
         foreach (var result in snapshot.Results)
         {
             packet.WriteString(result.CategoryIdentifier);
@@ -20,7 +21,11 @@ public sealed class NavigatorSearchResultSetComposer(NavigatorSearchSnapshot sna
             packet.WriteBoolean(false);
             packet.WriteInteger(result.ViewMode);
             packet.WriteInteger(result.Rooms.Length);
-            foreach (var room in result.Rooms) RoomAppender.WriteRoom(packet, room);
+
+            foreach (var room in result.Rooms)
+            {
+                RoomAppender.WriteRoom(packet, room);
+            }
         }
     }
 }

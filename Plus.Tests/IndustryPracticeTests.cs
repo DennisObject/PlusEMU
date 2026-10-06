@@ -131,6 +131,7 @@ public class IndustryPracticeTests
         var culture = CultureInfo.GetCultureInfo(name);
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
+
         try
         {
             action();
@@ -145,7 +146,10 @@ public class IndustryPracticeTests
     private sealed class RecordingPacket : Plus.HabboHotel.GameClients.IOutgoingPacket
     {
         public List<object> Writes { get; } = new();
-        public int MessageId { get; set; }
+        public int MessageId
+        {
+            get; set;
+        }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

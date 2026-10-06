@@ -141,13 +141,18 @@ public class RewardTrackLiveTests
     private static async Task<Revision> Profile(string name)
     {
         var directory = Directory.CreateTempSubdirectory("revisions-").FullName;
+
         try
         {
             foreach (var file in Directory.GetFiles(Path.Join(AppContext.BaseDirectory, "revisions"), "*.json"))
+            {
                 File.Copy(file, Path.Join(directory, Path.GetFileName(file)));
+            }
+
             var cache = new RevisionsCache();
             typeof(RevisionsCache).GetField("_directory", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(cache, directory);
             await cache.Start();
+
             return cache.Revisions[name];
         }
         finally
@@ -160,6 +165,7 @@ public class RewardTrackLiveTests
     {
         var manager = new RewardTrackManager(NullLogger<RewardTrackManager>.Instance, database, badges, new FixedTimeProvider(FixedTimeProvider.Epoch));
         await manager.Start();
+
         return manager;
     }
 
@@ -174,6 +180,7 @@ public class RewardTrackLiveTests
             Inventory = new InventoryComponent { Badges = new BadgesInventoryComponent(new()) }
         };
         client.SetHabbo(habbo);
+
         return (client, habbo, await Manager(database, badges));
     }
 
@@ -188,15 +195,21 @@ public class RewardTrackLiveTests
             ("TrackId", "introduction"), ("Id", "track_champ"), ("RequiredPoints", 50), ("ProductItemTypeId", 4), ("RewardType", "badge"),
             ("ExtraParams", Badge), ("RewardAmount", 1), ("Premium", 0), ("SortOrder", 1));
         database.Tables["FROM users_reward_tracks "] = Table(("TrackId", "introduction"), ("Points", 60), ("Premium", 0));
+
         return database;
     }
 
     private static DataTable Table(params (string Column, object Value)[] row)
     {
         var table = new DataTable();
+
         foreach (var (column, value) in row)
+        {
             table.Columns.Add(column, value is DBNull ? typeof(DateTimeOffset) : value.GetType());
+        }
+
         table.Rows.Add(row.Select(cell => cell.Value).ToArray());
+
         return table;
     }
 
@@ -207,11 +220,17 @@ public class RewardTrackLiveTests
         public BadgeDefinitions(params string[] codes)
         {
             foreach (var code in codes)
+            {
                 Add(code);
+            }
         }
 
         public BadgeDefinitions((string Code, string Right) badge) =>
-            _badges[badge.Code.ToUpper()] = new() { Code = badge.Code, RequiredRight = badge.Right };
+            _badges[badge.Code.ToUpper()] = new()
+            {
+                Code = badge.Code,
+                RequiredRight = badge.Right
+            };
 
         public IReadOnlyDictionary<string, BadgeDefinition> Badges => _badges;
         public void Add(string code) => _badges[code.ToUpper()] = new() { Code = code };
@@ -224,10 +243,14 @@ public class RewardTrackLiveTests
     /// <summary>Serves canned SELECT results and records each committed transaction's statements.</summary>
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads { get; set; }
+        public int Reads
+        {
+            get; set;
+        }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
+
             return now;
         }
     }
@@ -236,8 +259,14 @@ public class RewardTrackLiveTests
     {
         public Dictionary<string, DataTable> Tables { get; } = new();
         public List<List<string>> Committed { get; } = new();
-        public int RolledBack { get; set; }
-        public string? FailOn { get; set; }
+        public int RolledBack
+        {
+            get; set;
+        }
+        public string? FailOn
+        {
+            get; set;
+        }
         public bool IsConnected() => true;
         public IDbConnection Connection() => new FakeConnection(this);
 
@@ -253,7 +282,9 @@ public class RewardTrackLiveTests
         public override string DataSource => "";
         public override string ServerVersion => "";
         public override ConnectionState State => _state;
-        public override void ChangeDatabase(string databaseName) { }
+        public override void ChangeDatabase(string databaseName)
+        {
+        }
         public override void Close() => _state = ConnectionState.Closed;
         public override void Open() => _state = ConnectionState.Open;
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) => new FakeTransaction(this);
@@ -276,7 +307,10 @@ public class RewardTrackLiveTests
         public override void Rollback()
         {
             if (_done)
+            {
                 return;
+            }
+
             connection.Store.RolledBack++;
             _done = true;
         }
@@ -291,27 +325,57 @@ public class RewardTrackLiveTests
     private sealed class FakeCommand : DbCommand
     {
         [AllowNull] public override string CommandText { get; set; } = "";
-        public override int CommandTimeout { get; set; }
-        public override CommandType CommandType { get; set; }
-        public override bool DesignTimeVisible { get; set; }
-        public override UpdateRowSource UpdatedRowSource { get; set; }
-        protected override DbConnection? DbConnection { get; set; }
+        public override int CommandTimeout
+        {
+            get; set;
+        }
+        public override CommandType CommandType
+        {
+            get; set;
+        }
+        public override bool DesignTimeVisible
+        {
+            get; set;
+        }
+        public override UpdateRowSource UpdatedRowSource
+        {
+            get; set;
+        }
+        protected override DbConnection? DbConnection
+        {
+            get; set;
+        }
         protected override DbParameterCollection DbParameterCollection { get; } = new FakeParameters();
-        protected override DbTransaction? DbTransaction { get; set; }
+        protected override DbTransaction? DbTransaction
+        {
+            get; set;
+        }
         private FakeDatabase Owner => ((FakeConnection)DbConnection!).Store;
-        public override void Cancel() { }
-        public override void Prepare() { }
+        public override void Cancel()
+        {
+        }
+        public override void Prepare()
+        {
+        }
         public override object? ExecuteScalar() => null;
         protected override DbParameter CreateDbParameter() => new FakeParameter();
 
         public override int ExecuteNonQuery()
         {
             if (Owner.FailOn != null && CommandText.Contains(Owner.FailOn))
+            {
                 throw new InvalidOperationException("Injected write failure.");
+            }
+
             if (DbTransaction is FakeTransaction transaction)
+            {
                 transaction.Statements.Add(CommandText);
+            }
             else
+            {
                 Owner.Committed.Add(new() { CommandText });
+            }
+
             return 1;
         }
 
@@ -320,15 +384,35 @@ public class RewardTrackLiveTests
 
     private sealed class FakeParameter : DbParameter
     {
-        public override DbType DbType { get; set; }
-        public override ParameterDirection Direction { get; set; }
-        public override bool IsNullable { get; set; }
+        public override DbType DbType
+        {
+            get; set;
+        }
+        public override ParameterDirection Direction
+        {
+            get; set;
+        }
+        public override bool IsNullable
+        {
+            get; set;
+        }
         [AllowNull] public override string ParameterName { get; set; } = "";
-        public override int Size { get; set; }
+        public override int Size
+        {
+            get; set;
+        }
         [AllowNull] public override string SourceColumn { get; set; } = "";
-        public override bool SourceColumnNullMapping { get; set; }
-        public override object? Value { get; set; }
-        public override void ResetDbType() { }
+        public override bool SourceColumnNullMapping
+        {
+            get; set;
+        }
+        public override object? Value
+        {
+            get; set;
+        }
+        public override void ResetDbType()
+        {
+        }
     }
 
     private sealed class FakeParameters : DbParameterCollection
@@ -336,8 +420,19 @@ public class RewardTrackLiveTests
         private readonly List<DbParameter> _items = [];
         public override int Count => _items.Count;
         public override object SyncRoot => _items;
-        public override int Add(object value) { _items.Add((DbParameter)value); return _items.Count - 1; }
-        public override void AddRange(Array values) { foreach (var value in values) Add(value); }
+        public override int Add(object value)
+        {
+            _items.Add((DbParameter)value);
+
+            return _items.Count - 1;
+        }
+        public override void AddRange(Array values)
+        {
+            foreach (var value in values)
+            {
+                Add(value);
+            }
+        }
         public override void Clear() => _items.Clear();
         public override bool Contains(object value) => _items.Contains((DbParameter)value);
         public override bool Contains(string value) => IndexOf(value) >= 0;
@@ -367,6 +462,7 @@ public class RewardTrackLiveTests
             SendCallback = args =>
             {
                 _bodies.Add(args.MemoryBuffer.Slice(6).ToArray());
+
                 return false;
             };
         }
@@ -375,6 +471,7 @@ public class RewardTrackLiveTests
         public RewardTrackResults ClaimResult()
         {
             var body = _bodies[Sent.LastIndexOf(9451)];
+
             return (RewardTrackResults)BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(body.Length - 4));
         }
 

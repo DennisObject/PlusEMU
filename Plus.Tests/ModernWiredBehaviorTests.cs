@@ -23,7 +23,10 @@ public class ModernWiredBehaviorTests
     {
         var item = Item(1, 5, 7);
         var requested = new List<(uint, int, int)>();
-        var changed = Execute("wf_act_rel_mov", new() { IntParams = [0, 2, 1, 3, 100] }, [item], [], [],
+        var changed = Execute("wf_act_rel_mov", new()
+        {
+            IntParams = [0, 2, 1, 3, 100]
+        }, [item], [], [],
             (furni, x, y, _, _) => { requested.Add((furni.Id, x, y)); return true; });
         Assert.True(changed);
         Assert.Equal(new[] { (1u, 3, 10) }, requested);
@@ -32,7 +35,10 @@ public class ModernWiredBehaviorTests
     [Fact]
     public void BlockedMovementDoesNotReportSuccess()
     {
-        Assert.False(Execute("wf_act_rel_mov", new() { IntParams = [1, 1, 1, 0, 100] },
+        Assert.False(Execute("wf_act_rel_mov", new()
+        {
+            IntParams = [1, 1, 1, 0, 100]
+        },
             [Item(1, 0, 0)], [], [], (_, _, _, _, _) => false));
     }
 
@@ -65,7 +71,10 @@ public class ModernWiredBehaviorTests
     public void GroupMovesItsLeadingEdgeFirstAndContinuesPastBlockedMembers()
     {
         var sequence = new List<uint>();
-        var changed = Execute("wf_act_move_furni_as_group", new() { IntParams = [2, 100] },
+        var changed = Execute("wf_act_move_furni_as_group", new()
+        {
+            IntParams = [2, 100]
+        },
             [Item(1, 0, 0), Item(2, 1, 0), Item(3, 2, 0)], [], [],
             (item, _, _, _, _) => { sequence.Add(item.Id); return item.Id != 2; });
         Assert.True(changed);
@@ -78,7 +87,10 @@ public class ModernWiredBehaviorTests
         var mover = Item(1, 1, 1);
         var target = Item(2, 6, 7);
         var requests = new List<(uint, int, int)>();
-        Assert.True(Execute("wf_act_furni_to_furni", new() { IntParams = [100, 100] },
+        Assert.True(Execute("wf_act_furni_to_furni", new()
+        {
+            IntParams = [100, 100]
+        },
             [mover], [target], [], (item, x, y, _, _) => { requests.Add((item.Id, x, y)); return true; }));
         Assert.Equal(new[] { (1u, 6, 7) }, requests);
     }
@@ -89,7 +101,11 @@ public class ModernWiredBehaviorTests
         var mover = Item(1, 1, 1);
         mover.GetZ = 2.5;
         double? requestedHeight = null;
-        Assert.True(Execute("wf_act_set_altitude", new() { IntParams = [0, 100], Text = "1.25" },
+        Assert.True(Execute("wf_act_set_altitude", new()
+        {
+            IntParams = [0, 100],
+            Text = "1.25"
+        },
             [mover], [], [], (_, _, _, _, height) => { requestedHeight = height; return true; }));
         Assert.Equal(3.75, requestedHeight);
         Assert.False(WiredRoomOperations.TryAltitude("1,25", out _));
@@ -100,7 +116,10 @@ public class ModernWiredBehaviorTests
     public void RotationWithoutMovementStaysOnTheSameTile()
     {
         (int x, int y, int rotation)? requested = null;
-        Assert.True(Execute("wf_act_move_rotate", new() { IntParams = [0, 1, 100] },
+        Assert.True(Execute("wf_act_move_rotate", new()
+        {
+            IntParams = [0, 1, 100]
+        },
             [Item(1, 5, 5)], [], [], (_, x, y, rotation, _) => { requested = (x, y, rotation); return true; }));
         Assert.Equal((5, 5, 2), requested);
     }
@@ -215,7 +234,12 @@ public class ModernWiredBehaviorTests
     public void TimedTriggersAcceptTheirEditorRangeOnly(string name, int max)
     {
         foreach (var (units, valid) in new[] { (0, false), (1, true), (max, true), (max + 1, false) })
-            Assert.Equal(valid, WiredTriggerConfiguration.TryValidate(name, new() { IntParams = [units] }, out _, out _));
+        {
+            Assert.Equal(valid, WiredTriggerConfiguration.TryValidate(name, new()
+            {
+                IntParams = [units]
+            }, out _, out _));
+        }
     }
 
     [Fact]
@@ -240,9 +264,18 @@ public class ModernWiredBehaviorTests
     [Fact]
     public void ActionFiltersUsePolarisSignAndDanceIds()
     {
-        Assert.True(WiredTriggerPredicates.MatchesAction(new() { IntParams = [9, 1, 3, 0, 0] }, 9, 3));
-        Assert.False(WiredTriggerPredicates.MatchesAction(new() { IntParams = [9, 1, 3, 0, 0] }, 9, 4));
-        Assert.True(WiredTriggerPredicates.MatchesAction(new() { IntParams = [10, 0, 0, 1, 2] }, 10, 2));
+        Assert.True(WiredTriggerPredicates.MatchesAction(new()
+        {
+            IntParams = [9, 1, 3, 0, 0]
+        }, 9, 3));
+        Assert.False(WiredTriggerPredicates.MatchesAction(new()
+        {
+            IntParams = [9, 1, 3, 0, 0]
+        }, 9, 4));
+        Assert.True(WiredTriggerPredicates.MatchesAction(new()
+        {
+            IntParams = [10, 0, 0, 1, 2]
+        }, 10, 2));
     }
 
     [Fact]
@@ -276,17 +309,38 @@ public class ModernWiredBehaviorTests
         selected.Definition.Id = 10;
         var other = Item(2, 0, 0);
         other.Definition.Id = 20;
-        Assert.False(WiredItemConditions.MatchesType(new() { IntParams = [100, 201, 0] }, [selected], [other]));
+        Assert.False(WiredItemConditions.MatchesType(new()
+        {
+            IntParams = [100, 201, 0]
+        }, [selected], [other]));
         other.Definition.Id = 10;
-        Assert.True(WiredItemConditions.MatchesType(new() { IntParams = [100, 201, 0] }, [selected], [other]));
-        Assert.False(WiredItemConditions.MatchesType(new() { IntParams = [100, 201, 1] }, [selected], []));
+        Assert.True(WiredItemConditions.MatchesType(new()
+        {
+            IntParams = [100, 201, 0]
+        }, [selected], [other]));
+        Assert.False(WiredItemConditions.MatchesType(new()
+        {
+            IntParams = [100, 201, 1]
+        }, [selected], []));
     }
 
     private static Item Item(uint id, int x, int y) => new()
     {
-        Id = id, GetX = x, GetY = y, ExtraData = new LegacyDataFormat { Data = "0" },
-        Definition = new() { Type = ItemType.Floor, Width = 1, Length = 1, Modes = 2,
-            AdjustableHeights = [], VendingIds = [], ItemName = "test", PublicName = "test" }
+        Id = id,
+        GetX = x,
+        GetY = y,
+        ExtraData = new LegacyDataFormat { Data = "0" },
+        Definition = new()
+        {
+            Type = ItemType.Floor,
+            Width = 1,
+            Length = 1,
+            Modes = 2,
+            AdjustableHeights = [],
+            VendingIds = [],
+            ItemName = "test",
+            PublicName = "test"
+        }
     };
 
     private static (Room room, Gamemap map, ConcurrentDictionary<uint, Item> items) RoomQueries()
@@ -300,6 +354,7 @@ public class ModernWiredBehaviorTests
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         var items = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling)
             .GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!;
+
         return (room, map, items);
     }
 

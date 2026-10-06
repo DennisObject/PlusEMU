@@ -41,7 +41,8 @@ public sealed class LoveLockServiceTests
         var room = TestRoom();
         var (oneClient, _) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "one", Look = "look1", CurrentRoom = room });
         var (twoClient, sent) = HabbiconTestSupport.Client(new Habbo { Id = 2, Username = "two", Look = "look2", CurrentRoom = room });
-        var one = AddUser(room, oneClient, 1); var two = AddUser(room, twoClient, 2);
+        var one = AddUser(room, oneClient, 1);
+        var two = AddUser(room, twoClient, 2);
         one.LlPartner = 2;
         var item = AddItem(room, 1, 2);
         var store = new RecordingStore { Fail = true };
@@ -65,7 +66,8 @@ public sealed class LoveLockServiceTests
         var room = TestRoom();
         var (oneClient, oneSent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "one", Look = "look1", CurrentRoom = room });
         var (twoClient, twoSent) = HabbiconTestSupport.Client(new Habbo { Id = 2, Username = "two", Look = "look2", CurrentRoom = room });
-        var one = AddUser(room, oneClient, 1); var two = AddUser(room, twoClient, 2);
+        var one = AddUser(room, oneClient, 1);
+        var two = AddUser(room, twoClient, 2);
         var item = AddItem(room, 1, 2);
         var store = new RecordingStore(() =>
         {
@@ -119,7 +121,8 @@ public sealed class LoveLockServiceTests
         var room = TestRoom();
         var (oneClient, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "one", CurrentRoom = room });
         var (twoClient, _) = HabbiconTestSupport.Client(new Habbo { Id = 2, Username = "two", CurrentRoom = room });
-        AddUser(room, oneClient, 1); AddUser(room, twoClient, 2);
+        AddUser(room, oneClient, 1);
+        AddUser(room, twoClient, 2);
         var item = AddItem(room, 1, 2, ownerId: 99);
         var store = new RecordingStore();
 
@@ -138,8 +141,11 @@ public sealed class LoveLockServiceTests
         var (oneClient, oneSent) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "one", CurrentRoom = room });
         var (twoClient, twoSent) = HabbiconTestSupport.Client(new Habbo { Id = 2, Username = "two", CurrentRoom = room });
         var (intruderClient, intruderSent) = HabbiconTestSupport.Client(new Habbo { Id = 3, Username = "intruder", CurrentRoom = room });
-        var one = AddUser(room, oneClient, 1); var two = AddUser(room, twoClient, 2); AddUser(room, intruderClient, 3);
-        one.LlPartner = 2; two.LlPartner = 1;
+        var one = AddUser(room, oneClient, 1);
+        var two = AddUser(room, twoClient, 2);
+        AddUser(room, intruderClient, 3);
+        one.LlPartner = 2;
+        two.LlPartner = 1;
         var item = AddItem(room, 1, 2);
         var store = new RecordingStore();
 
@@ -167,34 +173,67 @@ public sealed class LoveLockServiceTests
 
     private static Room TestRoom()
     {
-        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 9;
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 9;
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
+
         return room;
     }
 
     private static Item AddItem(Room room, int one, int two, uint ownerId = 1)
     {
-        var item = new Item { Id = 7, RoomId = room.Id, OwnerId = ownerId, Definition = new() { InteractionType = InteractionType.Lovelock },
-            ExtraData = new LegacyDataFormat(), InteractingUser = one, InteractingUser2 = two };
+        var item = new Item
+        {
+            Id = 7,
+            RoomId = room.Id,
+            OwnerId = ownerId,
+            Definition = new() { InteractionType = InteractionType.Lovelock },
+            ExtraData = new LegacyDataFormat(),
+            InteractingUser = one,
+            InteractingUser2 = two
+        };
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
         typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
-        floor[item.Id] = item; return item;
+        floor[item.Id] = item;
+
+        return item;
     }
 
     private static RoomUser AddUser(Room room, GameClient client, int id)
     {
         var user = new RoomUser(id, room.Id, id, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = id };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
-        users[id] = user; return user;
+        users[id] = user;
+
+        return user;
     }
 
     private sealed class RecordingStore(Action? beforeLock = null) : ILoveLockStore
     {
-        public bool Fail { get; init; }
-        public int Writes { get; private set; }
-        public string? Data { get; private set; }
-        public void Lock(uint itemId, uint roomId, string data) { beforeLock?.Invoke(); Writes++; Data = data; if (Fail) throw new InvalidOperationException("forced failure"); }
+        public bool Fail
+        {
+            get; init;
+        }
+        public int Writes
+        {
+            get; private set;
+        }
+        public string? Data
+        {
+            get; private set;
+        }
+        public void Lock(uint itemId, uint roomId, string data)
+        {
+            beforeLock?.Invoke();
+            Writes++;
+            Data = data;
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
+        }
     }
 
     private sealed class FixedTimeProvider(DateTimeOffset utcNow) : TimeProvider

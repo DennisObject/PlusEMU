@@ -23,9 +23,19 @@ public sealed class CatalogPromotionUtcTests
         Assert.Equal(expired, promotion.HasExpiredAt(now));
         var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) =>
             method == "get_Promotions" ? new[] { promotion } : throw new InvalidOperationException(method));
-        var page = new CatalogSnapshotService(catalog, new FixedTimeProvider(now)).CapturePage(new() { Layout = "frontpage" }, -1);
-        if (expired) Assert.Empty(page.Promotions);
-        else Assert.Equal(seconds, Assert.Single(page.Promotions).SecondsLeft);
+        var page = new CatalogSnapshotService(catalog, new FixedTimeProvider(now)).CapturePage(new()
+        {
+            Layout = "frontpage"
+        }, -1);
+
+        if (expired)
+        {
+            Assert.Empty(page.Promotions);
+        }
+        else
+        {
+            Assert.Equal(seconds, Assert.Single(page.Promotions).SecondsLeft);
+        }
     }
 
     [Fact]
@@ -38,7 +48,10 @@ public sealed class CatalogPromotionUtcTests
         var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) =>
             method == "get_Promotions" ? new[] { promotion } : throw new InvalidOperationException(method));
         var snapshot = new CatalogSnapshotService(catalog, new FixedTimeProvider(DateTimeOffset.UnixEpoch))
-            .CapturePage(new() { Layout = "frontpage" }, -1);
+            .CapturePage(new()
+            {
+                Layout = "frontpage"
+            }, -1);
         promotion.ExpiresAt = DateTimeOffset.UnixEpoch;
         Assert.Equal(int.MaxValue, Assert.Single(snapshot.Promotions).SecondsLeft);
     }
@@ -53,7 +66,10 @@ public sealed class CatalogPromotionUtcTests
         var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) =>
             method == "get_Promotions" ? new[] { promotion } : throw new InvalidOperationException(method));
         var snapshot = new CatalogSnapshotService(catalog, new FixedTimeProvider(DateTimeOffset.UnixEpoch))
-            .CapturePage(new() { Layout = "frontpage" }, -1);
+            .CapturePage(new()
+            {
+                Layout = "frontpage"
+            }, -1);
         Assert.Equal(int.MaxValue - 1, Assert.Single(snapshot.Promotions).SecondsLeft);
     }
 
@@ -84,7 +100,10 @@ public sealed class CatalogPromotionUtcTests
             Assert.True(rows[3].HasExpiredAt(expiry.AddTicks(1)));
             AssertMetadata(connection);
             var runtime = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.FromHours(-7)).AddTicks(6_543_210);
-            connection.Execute("UPDATE catalog_promotions SET expires_at=@expiresAt WHERE id=4", new { expiresAt = runtime.UtcDateTime });
+            connection.Execute("UPDATE catalog_promotions SET expires_at=@expiresAt WHERE id=4", new
+            {
+                expiresAt = runtime.UtcDateTime
+            });
             await manager.Start();
             Assert.Equal(runtime.ToUniversalTime(), manager.Promotions.Single(row => row.Id == 4).ExpiresAt);
         });
@@ -102,7 +121,10 @@ public sealed class CatalogPromotionUtcTests
             connection.Execute(statement.Value);
             AssertMetadata(connection);
             var expiry = new DateTimeOffset(2040, 1, 2, 3, 4, 5, TimeSpan.Zero).AddTicks(1_234_560);
-            connection.Execute("INSERT INTO catalog_promotions (id, expires_at) VALUES (1,@expiresAt),(2,NULL)", new { expiresAt = expiry.UtcDateTime });
+            connection.Execute("INSERT INTO catalog_promotions (id, expires_at) VALUES (1,@expiresAt),(2,NULL)", new
+            {
+                expiresAt = expiry.UtcDateTime
+            });
             var manager = Manager(database);
             await manager.Start();
             Assert.Equal(expiry, manager.Promotions.Single(row => row.Id == 1).ExpiresAt);
@@ -113,12 +135,14 @@ public sealed class CatalogPromotionUtcTests
     private static void CreateCatalogTables(MySqlConnection connection)
     {
         var pristine = Read("Resources/SQLs/Original Database.sql");
+
         foreach (var table in new[] { "catalog_items", "catalog_deals", "catalog_pages", "catalog_bot_presets", "catalog_promotions" })
         {
             var statement = Regex.Match(pristine, $@"CREATE TABLE `{table}` \(.*?;", RegexOptions.Singleline);
             Assert.True(statement.Success);
             connection.Execute(statement.Value);
         }
+
         connection.Execute("""
             ALTER TABLE catalog_pages ADD COLUMN required_club_level INT NOT NULL DEFAULT 0;
             ALTER TABLE catalog_items ADD COLUMN habbicon_id INT NOT NULL DEFAULT 0;
@@ -151,11 +175,15 @@ public sealed class CatalogPromotionUtcTests
     private static async Task InSchema(Func<MySqlConnection, IDatabase, Task> run)
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
-        { AllowZeroDateTime = true, ConvertZeroDateTime = true };
+        {
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
+        };
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         var schema = "task_catalog_promotion_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             options.Database = schema;

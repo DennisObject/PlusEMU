@@ -21,19 +21,26 @@ public sealed class RoomDataLoader(IDatabase database, IRoomManager rooms, IGrou
         if (rooms.TryGetRoom(roomId, out var loaded))
         {
             data = loaded.Data;
+
             return true;
         }
 
         using var connection = database.Connection();
         var row = connection.QuerySingleOrDefault<RoomDataRow>(RoomDataMapping.SelectRoom +
-            "WHERE rooms.id = @roomId LIMIT 1", new { roomId });
+            "WHERE rooms.id = @roomId LIMIT 1", new
+            {
+                roomId
+            });
+
         if (row == null || !rooms.TryGetModel(row.ModelName, out var model))
         {
             data = null;
+
             return false;
         }
 
         data = Prepare(RoomDataMapping.CreateData(row, model, true));
+
         return true;
     }
 
@@ -41,23 +48,36 @@ public sealed class RoomDataLoader(IDatabase database, IRoomManager rooms, IGrou
     {
         using var connection = database.Connection();
         var rows = connection.Query<RoomDataRow>(RoomDataMapping.SelectRoom +
-            "WHERE users.id = @ownerId ORDER BY rooms.caption", new { ownerId });
+            "WHERE users.id = @ownerId ORDER BY rooms.caption", new
+            {
+                ownerId
+            });
         var data = new List<RoomData>();
+
         foreach (var row in rows)
         {
             if (rooms.TryGetRoom(row.Id, out var loaded))
+            {
                 data.Add(loaded.Data);
+            }
             else if (rooms.TryGetModel(row.ModelName, out var model))
+            {
                 data.Add(Prepare(RoomDataMapping.CreateData(row, model, false)));
+            }
         }
+
         return data;
     }
 
     private RoomData Prepare(RoomData data)
     {
         data.Promotion = promotions.Load(data.Id);
+
         if (data.GroupId > 0 && groups.TryGetGroup(data.GroupId, out var group))
+        {
             data.Group = group;
+        }
+
         return data;
     }
 }
@@ -80,46 +100,142 @@ internal static class RoomDataMapping
 
 internal sealed class RoomDataRow
 {
-    public bool AllowPets { get; set; }
-    public bool AllowPetsEat { get; set; }
-    public bool RoomBlockingDisabled { get; set; }
-    public bool AllowHidewall { get; set; }
-    public bool PushEnabled { get; set; }
-    public bool PullEnabled { get; set; }
-    public bool SpushEnabled { get; set; }
-    public bool SpullEnabled { get; set; }
-    public bool EnablesEnabled { get; set; }
-    public bool RespectNotificationsEnabled { get; set; }
-    public bool PetMorphsAllowed { get; set; }
-    public bool LayEnabled { get; set; }
-    public uint Id { get; set; }
+    public bool AllowPets
+    {
+        get; set;
+    }
+    public bool AllowPetsEat
+    {
+        get; set;
+    }
+    public bool RoomBlockingDisabled
+    {
+        get; set;
+    }
+    public bool AllowHidewall
+    {
+        get; set;
+    }
+    public bool PushEnabled
+    {
+        get; set;
+    }
+    public bool PullEnabled
+    {
+        get; set;
+    }
+    public bool SpushEnabled
+    {
+        get; set;
+    }
+    public bool SpullEnabled
+    {
+        get; set;
+    }
+    public bool EnablesEnabled
+    {
+        get; set;
+    }
+    public bool RespectNotificationsEnabled
+    {
+        get; set;
+    }
+    public bool PetMorphsAllowed
+    {
+        get; set;
+    }
+    public bool LayEnabled
+    {
+        get; set;
+    }
+    public uint Id
+    {
+        get; set;
+    }
     public string Caption { get; set; } = string.Empty;
     public string ModelName { get; set; } = string.Empty;
-    public string? Username { get; set; }
-    public int Owner { get; set; }
+    public string? Username
+    {
+        get; set;
+    }
+    public int Owner
+    {
+        get; set;
+    }
     public string Password { get; set; } = string.Empty;
-    public int Score { get; set; }
+    public int Score
+    {
+        get; set;
+    }
     public string Roomtype { get; set; } = string.Empty;
     public string State { get; set; } = string.Empty;
-    public int UsersNow { get; set; }
-    public int UsersMax { get; set; }
-    public int Category { get; set; }
+    public int UsersNow
+    {
+        get; set;
+    }
+    public int UsersMax
+    {
+        get; set;
+    }
+    public int Category
+    {
+        get; set;
+    }
     public string Description { get; set; } = string.Empty;
     public string Tags { get; set; } = string.Empty;
     public string Floor { get; set; } = string.Empty;
     public string Landscape { get; set; } = string.Empty;
-    public int Wallthick { get; set; }
-    public int Floorthick { get; set; }
+    public int Wallthick
+    {
+        get; set;
+    }
+    public int Floorthick
+    {
+        get; set;
+    }
     public string Wallpaper { get; set; } = string.Empty;
-    public int MuteSettings { get; set; }
-    public int BanSettings { get; set; }
-    public int KickSettings { get; set; }
-    public int ChatMode { get; set; }
-    public int ChatSize { get; set; }
-    public int ChatSpeed { get; set; }
-    public int ChatExtraFlood { get; set; }
-    public int ChatHearingDistance { get; set; }
-    public int TradeSettings { get; set; }
-    public int GroupId { get; set; }
-    public int SalePrice { get; set; }
+    public int MuteSettings
+    {
+        get; set;
+    }
+    public int BanSettings
+    {
+        get; set;
+    }
+    public int KickSettings
+    {
+        get; set;
+    }
+    public int ChatMode
+    {
+        get; set;
+    }
+    public int ChatSize
+    {
+        get; set;
+    }
+    public int ChatSpeed
+    {
+        get; set;
+    }
+    public int ChatExtraFlood
+    {
+        get; set;
+    }
+    public int ChatHearingDistance
+    {
+        get; set;
+    }
+    public int TradeSettings
+    {
+        get; set;
+    }
+    public int GroupId
+    {
+        get; set;
+    }
+    public int SalePrice
+    {
+        get; set;
+    }
 }

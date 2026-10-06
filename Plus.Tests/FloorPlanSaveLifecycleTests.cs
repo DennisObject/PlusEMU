@@ -102,6 +102,7 @@ public class FloorPlanSaveLifecycleTests
         room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var client = new SavedClient();
         client.SetHabbo(new Habbo { CurrentRoom = room });
+
         return client;
     }
 

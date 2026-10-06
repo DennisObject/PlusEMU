@@ -214,6 +214,7 @@ public sealed class GroupPresentationServiceTests
     private static bool ReturnGroup(object?[] args, Group? group)
     {
         args[1] = group;
+
         return group != null && (int)args[0]! == group.Id;
     }
 
@@ -221,6 +222,7 @@ public sealed class GroupPresentationServiceTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes.ToArray();
     }
 
@@ -235,6 +237,7 @@ public sealed class GroupPresentationServiceTests
         var count = reader.ReadInt();
         var roles = new List<int>();
         var names = new List<string>();
+
         for (var index = 0; index < count; index++)
         {
             roles.Add(reader.ReadInt());
@@ -243,11 +246,13 @@ public sealed class GroupPresentationServiceTests
             reader.ReadString();
             reader.ReadString();
         }
+
         reader.ReadBool();
         reader.ReadInt();
         var page = reader.ReadInt();
         var requestType = reader.ReadInt();
         reader.ReadString();
+
         return new MembersPayload(total, page, requestType, roles, names);
     }
 
@@ -258,6 +263,7 @@ public sealed class GroupPresentationServiceTests
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).Call = call;
+
         return proxy;
     }
 
@@ -280,8 +286,14 @@ public sealed class GroupPresentationServiceTests
 
     private sealed class RecordingPresentationService : IGroupPresentationService
     {
-        public GroupMembersRequest? Request { get; private set; }
-        public bool BadgeEditorShown { get; private set; }
+        public GroupMembersRequest? Request
+        {
+            get; private set;
+        }
+        public bool BadgeEditorShown
+        {
+            get; private set;
+        }
         public void ShowMembers(GameClient session, GroupMembersRequest request) => Request = request;
         public void ShowBadgeEditor(GameClient session) => BadgeEditorShown = true;
         public void ShowCreationWindow(GameClient session) => throw new NotSupportedException();
@@ -298,6 +310,7 @@ public sealed class GroupPresentationServiceTests
         {
             var value = BinaryPrimitives.ReadInt32BigEndian(payload.AsSpan(_offset, 4));
             _offset += 4;
+
             return value;
         }
 
@@ -309,6 +322,7 @@ public sealed class GroupPresentationServiceTests
             _offset += 2;
             var value = Encoding.UTF8.GetString(payload, _offset, length);
             _offset += length;
+
             return value;
         }
     }

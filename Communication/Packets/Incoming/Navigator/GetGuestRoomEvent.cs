@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Navigator;
+using Plus.Communication.Packets.Outgoing.Navigator;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -12,8 +12,12 @@ internal sealed class GetGuestRoomEvent(IGuestRoomInfoService guestRooms) : IPac
         var isLoading = packet.ReadInt() == 1;
         var checkEntry = packet.ReadInt() == 1;
         var snapshot = guestRooms.Capture(roomId, session.GetHabbo(), isLoading, checkEntry);
+
         if (snapshot != null)
+        {
             session.Send(new GetGuestRoomResultComposer(snapshot));
+        }
+
         return Task.CompletedTask;
     }
 }

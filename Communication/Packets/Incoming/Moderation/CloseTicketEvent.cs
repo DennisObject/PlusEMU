@@ -14,6 +14,7 @@ internal sealed class CloseTicketEvent(IModeratorTicketService tickets) : IPacke
         var result = (SupportTicketResult)packet.ReadInt();
         packet.ReadInt();
         tickets.Close(session, packet.ReadInt(), result);
+
         return Task.CompletedTask;
     }
 }

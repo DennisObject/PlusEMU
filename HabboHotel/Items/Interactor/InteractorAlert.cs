@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
@@ -17,7 +17,11 @@ public class InteractorAlert : IFurniInteractor
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (!hasRights) return;
+        if (!hasRights)
+        {
+            return;
+        }
+
         if (item.LegacyDataString == "0")
         {
             item.LegacyDataString = "1";

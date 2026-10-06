@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms;
+namespace Plus.HabboHotel.Rooms;
 
 public static class RoomAccessUtility
 {

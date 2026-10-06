@@ -8,6 +8,7 @@ internal sealed class GetRoomBannedUsersEvent(IRoomBannedUsersService users) : I
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         users.Send(session);
+
         return Task.CompletedTask;
     }
 }

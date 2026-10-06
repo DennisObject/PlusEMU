@@ -51,7 +51,10 @@ public class CameraEffectCatalogueTests
 
     private sealed class ScriptedHandler(string body) : HttpMessageHandler
     {
-        public int Calls { get; private set; }
+        public int Calls
+        {
+            get; private set;
+        }
         public HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -60,6 +63,7 @@ public class CameraEffectCatalogueTests
             Assert.Equal("/effects", request.RequestUri!.AbsolutePath);
             Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
             Assert.Equal(new string('x', 32), request.Headers.Authorization.Parameter);
+
             return Task.FromResult(new HttpResponseMessage(Status)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json")

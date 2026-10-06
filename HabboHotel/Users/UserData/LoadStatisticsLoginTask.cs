@@ -21,13 +21,17 @@ internal class LoadStatisticsLoginTask : IUserDataLoadingTask
 
     public async Task Load(Habbo habbo)
     {
-        if (habbo == null) throw new ArgumentNullException(nameof(habbo));
+        if (habbo == null)
+        {
+            throw new ArgumentNullException(nameof(habbo));
+        }
 
         try
         {
             var stats = await _habboStatsService.LoadHabboStats(habbo.Id);
 
             var day = TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), _clock.LocalTimeZone).ToString("MM/dd");
+
             if (stats.RespectsTimestamp != day)
             {
                 var dailyRespects = 10;

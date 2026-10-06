@@ -41,7 +41,8 @@ public class MovementIntakeTests
     [InlineData(PathfindingEngine.V2)]
     public void ClearMovementDefersCancellationOnlyForTheV2Executor(PathfindingEngine engine)
     {
-        var actor = CreateActor(engine); actor.IsWalking = true;
+        var actor = CreateActor(engine);
+        actor.IsWalking = true;
         actor.SetStatus("mv", "2,1,0");
         actor.ClearMovement(true);
         Assert.Equal(engine == PathfindingEngine.V2, actor.IsWalking);
@@ -51,12 +52,22 @@ public class MovementIntakeTests
     private static RoomUser CreateActor(PathfindingEngine engine)
     {
         var fixture = RoomPerformanceFixture.Create(0, 1);
-        var actor = fixture.Users[0]; actor.ClearMovement(true);
+        var actor = fixture.Users[0];
+        actor.ClearMovement(true);
         RoomPerformanceFixture.SetField(fixture.Room, "_roomItemHandling", new RoomItemHandling(fixture.Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
-        if (engine == PathfindingEngine.Legacy) return actor;
-        var navigation = new RoomNavigation(fixture.Room, fixture.Map.StaticModel, new() { Engine = engine }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+
+        if (engine == PathfindingEngine.Legacy)
+        {
+            return actor;
+        }
+
+        var navigation = new RoomNavigation(fixture.Room, fixture.Map.StaticModel, new()
+        {
+            Engine = engine
+        }, TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(fixture.Map, navigation);
+
         return actor;
     }
 }

@@ -113,14 +113,18 @@ public sealed class RoomCreationServiceTests
             if (method == nameof(IRoomManager.TryGetModel))
             {
                 args[1] = model;
+
                 return true;
             }
+
             if (method == nameof(IRoomManager.CreateRoom))
             {
                 var request = ((string)args[1], (string)args[2], (int)args[3], (int)args[4], (int)args[5], ((RoomModel)args[6]).Id);
                 roomManagerState.Created.Add(request);
+
                 return createSucceeds ? Room(81, model) : null;
             }
+
             throw new NotSupportedException(method);
         });
         var loader = new RecordingLoader(existingRooms, model);
@@ -128,8 +132,12 @@ public sealed class RoomCreationServiceTests
         var navigator = Proxy<INavigatorManager>((method, args) =>
         {
             if (method != nameof(INavigatorManager.TryGetSearchResultList))
+            {
                 throw new NotSupportedException(method);
+            }
+
             args[1] = categoryExists ? category : null;
+
             return categoryExists;
         });
         var filter = Proxy<IWordFilterManager>((method, args) => method == nameof(IWordFilterManager.CheckMessage)
@@ -138,11 +146,16 @@ public sealed class RoomCreationServiceTests
         var rewards = Proxy<IRewardTrackManager>((method, _) =>
         {
             if (method != nameof(IRewardTrackManager.Progress))
+            {
                 throw new NotSupportedException(method);
+            }
+
             events.Add($"reward:{sent.Count}");
+
             return null;
         });
         var service = new RoomCreationService(loader, roomManager, new Settings(), navigator, filter, rewards, new AccountSessionGate());
+
         return new(service, client, sent, events, loader, roomManagerState);
     }
 
@@ -155,6 +168,7 @@ public sealed class RoomCreationServiceTests
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).InvokeMethod = invoke;
+
         return proxy;
     }
 
@@ -166,19 +180,44 @@ public sealed class RoomCreationServiceTests
 
     private sealed class RecordingService : IRoomCreationService
     {
-        public bool AvailabilityRequested { get; private set; }
-        public RoomCreationRequest? Request { get; private set; }
-        public Task SendCreationAvailability(GameClient session) { AvailabilityRequested = true; return Task.CompletedTask; }
-        public Task Create(GameClient session, RoomCreationRequest request) { Request = request; return Task.CompletedTask; }
+        public bool AvailabilityRequested
+        {
+            get; private set;
+        }
+        public RoomCreationRequest? Request
+        {
+            get; private set;
+        }
+        public Task SendCreationAvailability(GameClient session)
+        {
+            AvailabilityRequested = true;
+
+            return Task.CompletedTask;
+        }
+        public Task Create(GameClient session, RoomCreationRequest request)
+        {
+            Request = request;
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RecordingLoader(int count, RoomModel model) : IRoomDataLoader
     {
-        public int LastOwnerId { get; private set; }
-        public bool TryGetData(uint roomId, out RoomData? data) { data = null; return false; }
+        public int LastOwnerId
+        {
+            get; private set;
+        }
+        public bool TryGetData(uint roomId, out RoomData? data)
+        {
+            data = null;
+
+            return false;
+        }
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId)
         {
             LastOwnerId = ownerId;
+
             return Enumerable.Range(1, count).Select(id => Room((uint)id, model)).ToList();
         }
     }

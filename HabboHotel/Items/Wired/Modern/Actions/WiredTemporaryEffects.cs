@@ -19,21 +19,36 @@ public sealed class WiredTemporaryEffects
         var lease = new Lease(++_generation, original, readEffect, writeEffect, stillAttached);
         _leases[user] = lease;
         writeEffect(4);
+
         return () =>
         {
-            if (!_leases.TryGetValue(user, out var live) || live.Generation != lease.Generation) return;
+            if (!_leases.TryGetValue(user, out var live) || live.Generation != lease.Generation)
+            {
+                return;
+            }
+
             Forget(user);
         };
     }
 
     public void Forget(RoomUser user)
     {
-        if (!_leases.Remove(user, out var lease)) return;
-        if (lease.StillAttached() && lease.Read() == 4) lease.Write(lease.Original);
+        if (!_leases.Remove(user, out var lease))
+        {
+            return;
+        }
+
+        if (lease.StillAttached() && lease.Read() == 4)
+        {
+            lease.Write(lease.Original);
+        }
     }
 
     public void Clear()
     {
-        foreach (var user in _leases.Keys.ToArray()) Forget(user);
+        foreach (var user in _leases.Keys.ToArray())
+        {
+            Forget(user);
+        }
     }
 }

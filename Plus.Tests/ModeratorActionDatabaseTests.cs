@@ -16,6 +16,7 @@ public sealed class ModeratorActionDatabaseTests
         connection.Open();
         var schema = "moderator_action_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             connection.Execute($"USE `{schema}`");
@@ -32,6 +33,7 @@ public sealed class ModeratorActionDatabaseTests
                 """);
             var options = new MySqlConnectionStringBuilder(connection.ConnectionString) { Database = schema };
             var store = new ModeratorActionStore(new ProbeDatabase(options.ConnectionString));
+
             foreach (var (rename, locked, expectedCaption, expectedState) in new[]
                 { (false, false, "Original", "password"), (false, true, "Original", "locked"),
                   (true, false, ModeratorActionService.InappropriateRoomText, "password"),
@@ -41,6 +43,7 @@ public sealed class ModeratorActionDatabaseTests
                 store.ModerateRoom(42, rename, locked, false);
                 Assert.Equal((expectedCaption, expectedState, ""), connection.QuerySingle<(string, string, string)>("SELECT caption,state,tags FROM rooms"));
             }
+
             connection.Execute("UPDATE rooms SET caption='Original',description='Description',state='password',tags='bad'");
             connection.Execute("CREATE TRIGGER reject_promotion_delete BEFORE DELETE ON room_promotions FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced failure'");
             Assert.Throws<MySqlException>(() => store.ModerateRoom(42, true, true, true));

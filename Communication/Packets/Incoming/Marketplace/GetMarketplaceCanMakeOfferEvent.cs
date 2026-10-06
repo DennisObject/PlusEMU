@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Marketplace;
+using Plus.Communication.Packets.Outgoing.Marketplace;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -10,6 +10,7 @@ internal class GetMarketplaceCanMakeOfferEvent(ITradingLockService tradingLocks)
     {
         var errorCode = tradingLocks.IsLocked(session.GetHabbo()) ? MarketplaceOfferEligibility.TradingLocked : MarketplaceOfferEligibility.Allowed;
         session.Send(new MarketplaceCanMakeOfferResultComposer(errorCode));
+
         return Task.CompletedTask;
     }
 }

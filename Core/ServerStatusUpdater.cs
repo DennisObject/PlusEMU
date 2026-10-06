@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -38,6 +38,7 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
     public Task Start()
     {
         Init();
+
         return Task.CompletedTask;
     }
 
@@ -63,10 +64,17 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
         connection.Open();
         using var transaction = connection.BeginTransaction();
         connection.Execute("UPDATE server_status SET users_online=@usersOnline,loaded_rooms=@roomCount LIMIT 1",
-            new { usersOnline, roomCount }, transaction);
+            new
+            {
+                usersOnline,
+                roomCount
+            }, transaction);
         // Daily online peaks feed the housekeeping dashboard.
         connection.Execute("INSERT INTO housekeeping_online_peaks (`day`,peak) VALUES (UTC_DATE(),@usersOnline) ON DUPLICATE KEY UPDATE peak=GREATEST(peak,@usersOnline)",
-            new { usersOnline }, transaction);
+            new
+            {
+                usersOnline
+            }, transaction);
         transaction.Commit();
     }
 }

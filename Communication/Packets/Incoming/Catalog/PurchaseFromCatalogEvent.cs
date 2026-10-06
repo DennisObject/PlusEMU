@@ -12,6 +12,7 @@ public sealed class PurchaseFromCatalogEvent(ICatalogPurchaseService purchases) 
             packet.ReadInt(),
             packet.ReadString(),
             packet.ReadInt());
+
         return purchases.Purchase(session, request);
     }
 }

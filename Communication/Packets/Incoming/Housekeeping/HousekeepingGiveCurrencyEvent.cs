@@ -26,6 +26,7 @@ internal class HousekeepingGiveCurrencyEvent : IPacketEvent
             currencyType is (int)HousekeepingCurrency.Duckets or (int)HousekeepingCurrency.Diamonds
                 ? _economy.Give(actor, userId, (HousekeepingCurrency)currencyType, amount)
                 : HousekeepingOutcome.Invalid(HousekeepingTarget.User(Math.Max(userId, 0))));
+
         return Task.CompletedTask;
     }
 }

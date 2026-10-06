@@ -72,6 +72,7 @@ public class WeeklyLeaderboardComposerTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes;
     }
 }

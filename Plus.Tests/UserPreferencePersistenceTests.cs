@@ -25,7 +25,7 @@ public sealed class UserPreferencePersistenceTests
     [Fact]
     public async Task FailedWritesLeaveBothLivePreferencesAndPacketsUnchanged()
     {
-        var user = new Habbo { Id = 7, HomeRoom = 20, ChatPreference = false, ClientVolume = [20,30,40] };
+        var user = new Habbo { Id = 7, HomeRoom = 20, ChatPreference = false, ClientVolume = [20, 30, 40] };
         var (session, sent) = HabbiconTestSupport.Client(user);
         var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
         var navigator = new NavigatorManager(new FailingDatabase(), TestLogging.For<NavigatorManager>(), new Rooms());
@@ -72,8 +72,13 @@ public sealed class UserPreferencePersistenceTests
     [Fact]
     public async Task SavedWalletRejectsChatStyleWithoutOpeningAConnection()
     {
-        var user = new Habbo { Id = 7, CustomBubbleId = 3, Access = UserAccess.Empty,
-            Persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((_, _) => null) };
+        var user = new Habbo
+        {
+            Id = 7,
+            CustomBubbleId = 3,
+            Access = UserAccess.Empty,
+            Persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((_, _) => null)
+        };
         var (session, sent) = HabbiconTestSupport.Client(user);
         user.Save();
         var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
@@ -91,14 +96,18 @@ public sealed class UserPreferencePersistenceTests
         var schema = "task_preferences_style_shutdown_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new HabbiconDatabaseTests.TestDatabase(new MySqlConnectionStringBuilder(root)
             {
-                Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+                Database = schema,
+                AllowZeroDateTime = true,
+                ConvertZeroDateTime = true
             }.ConnectionString);
             using var connection = database.Connection();
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+
             foreach (var table in new[] { "users", "users_settings", "user_stats" })
             {
                 var definition = System.Text.RegularExpressions.Regex.Match(pristine,
@@ -106,13 +115,20 @@ public sealed class UserPreferencePersistenceTests
                 Assert.NotEmpty(definition);
                 connection.Execute(definition);
             }
+
             connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; " +
                 "ALTER TABLE user_stats RENAME TO user_statistics; " +
                 "INSERT INTO users(id,username,auth_ticket,bubble_id) VALUES(7,'user','ticket',3); " +
                 "INSERT INTO users_settings(user_id) VALUES(7); INSERT INTO user_statistics(id) VALUES(7)");
-            var user = new Habbo { Id = 7, CustomBubbleId = 3, Access = UserAccess.Empty, SessionStartedAt = DateTimeOffset.UtcNow,
+            var user = new Habbo
+            {
+                Id = 7,
+                CustomBubbleId = 3,
+                Access = UserAccess.Empty,
+                SessionStartedAt = DateTimeOffset.UtcNow,
                 HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
-                Persistence = new UserPersistenceService(database, TimeProvider.System) };
+                Persistence = new UserPersistenceService(database, TimeProvider.System)
+            };
             var (session, sent) = HabbiconTestSupport.Client(user);
             var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System,
                 new Styles(new ChatStyle(5, "Public", "")), null!, null!);
@@ -122,13 +138,18 @@ public sealed class UserPreferencePersistenceTests
             var connections = 0;
             database.BeforeConnection = () =>
             {
-                if (Interlocked.Increment(ref connections) != 1) return;
+                if (Interlocked.Increment(ref connections) != 1)
+                {
+                    return;
+                }
+
                 enteredWrite.Set();
                 Assert.True(releaseWrite.Wait(TimeSpan.FromSeconds(5)));
             };
             var update = Task.Run(() => profiles.SetChatStylePreference(session, 5));
             Task? save = null;
             bool savedWhileWritePaused;
+
             try
             {
                 Assert.True(enteredWrite.Wait(TimeSpan.FromSeconds(5)));
@@ -140,7 +161,11 @@ public sealed class UserPreferencePersistenceTests
             {
                 releaseWrite.Set();
                 await update.WaitAsync(TimeSpan.FromSeconds(5));
-                if (save != null) await save.WaitAsync(TimeSpan.FromSeconds(5));
+
+                if (save != null)
+                {
+                    await save.WaitAsync(TimeSpan.FromSeconds(5));
+                }
             }
 
             Assert.False(savedWhileWritePaused);
@@ -162,8 +187,14 @@ public sealed class UserPreferencePersistenceTests
     [InlineData(99, 0)]
     public void FriendBarChangesEchoNormalizedStateAndCurrentSettings(int input, int expected)
     {
-        var user = new Habbo { Id = 7, ClientVolume = [20, 30, 40], ChatPreference = true,
-            AllowMessengerInvites = false, FocusPreference = true };
+        var user = new Habbo
+        {
+            Id = 7,
+            ClientVolume = [20, 30, 40],
+            ChatPreference = true,
+            AllowMessengerInvites = false,
+            FocusPreference = true
+        };
         var (session, sent) = HabbiconTestSupport.Client(user);
         var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), TimeProvider.System, null!, null!, null!);
 
@@ -186,11 +217,14 @@ public sealed class UserPreferencePersistenceTests
         var schema = "task_preferences_style_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root)
             {
-                Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+                Database = schema,
+                AllowZeroDateTime = true,
+                ConvertZeroDateTime = true
             }.ConnectionString);
             using var connection = database.Connection();
             connection.Execute("CREATE TABLE users(id INT PRIMARY KEY,bubble_id TINYINT NOT NULL); INSERT INTO users VALUES(7,3),(8,4)");
@@ -221,11 +255,16 @@ public sealed class UserPreferencePersistenceTests
         var schema = "task_preferences_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
+
             using (var connection = database.Connection())
+            {
                 connection.Execute("CREATE TABLE users_settings(user_id INT PRIMARY KEY, home_room INT UNSIGNED NOT NULL, chat_preference BOOL NOT NULL, ignore_invites BOOL NOT NULL, volume VARCHAR(15) NOT NULL); INSERT INTO users_settings VALUES(7,20,false,false,'20,30,40')");
+            }
+
             var user = new Habbo { Id = 7, HomeRoom = 20 };
             var (session, sent) = HabbiconTestSupport.Client(user);
             var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System, null!, null!, null!);
@@ -267,15 +306,20 @@ public sealed class UserPreferencePersistenceTests
         var schema = "task_preferences_load_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root)
             {
-                Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+                Database = schema,
+                AllowZeroDateTime = true,
+                ConvertZeroDateTime = true
             }.ConnectionString);
+
             using (var connection = database.Connection())
             {
                 var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+
                 foreach (var table in new[] { "users", "users_settings", "user_stats", "user_info" })
                 {
                     var definition = System.Text.RegularExpressions.Regex.Match(pristine,
@@ -283,8 +327,10 @@ public sealed class UserPreferencePersistenceTests
                     Assert.NotEmpty(definition);
                     connection.Execute(definition);
                 }
+
                 connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; ALTER TABLE user_stats RENAME TO user_statistics; INSERT INTO users(id,username,auth_ticket,account_created) VALUES(7,'VolumeUser','ticket','2042-01-01 00:00:00'); INSERT INTO users_settings(user_id,home_room,ignore_invites,volume) VALUES(7,42,true,'20,50,80')");
             }
+
             var loader = new UserDataFactory(null!, database, [], null!, null!, null!, null!, TimeProvider.System, TestRoomAchievements.Unused);
             var user = Assert.IsType<Habbo>(await loader.GetUserDataByIdAsync(7));
             Assert.Equal(new[] { 20, 50, 80 }, user.ClientVolume);
@@ -306,11 +352,13 @@ public sealed class UserPreferencePersistenceTests
         var schema = "task_logout_duration_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
             using var connection = database.Connection();
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+
             foreach (var table in new[] { "users", "users_settings", "user_stats" })
             {
                 var definition = System.Text.RegularExpressions.Regex.Match(pristine,
@@ -318,6 +366,7 @@ public sealed class UserPreferencePersistenceTests
                 Assert.NotEmpty(definition);
                 connection.Execute(definition);
             }
+
             connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; " +
                 "ALTER TABLE user_stats RENAME TO user_statistics; " +
                 "ALTER TABLE user_statistics MODIFY OnlineTime INT NOT NULL DEFAULT 0; " +
@@ -325,8 +374,13 @@ public sealed class UserPreferencePersistenceTests
                 "INSERT INTO users_settings(user_id) VALUES(7); " +
                 "INSERT INTO user_statistics(id,OnlineTime) VALUES(7,2147483647)");
             var now = new DateTimeOffset(2042, 1, 1, 0, 0, 0, TimeSpan.Zero);
-            var user = new Habbo { Id = 7, Credits = 25, SessionStartedAt = now.AddSeconds(-12),
-                HabboStats = new(0, int.MaxValue, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+            var user = new Habbo
+            {
+                Id = 7,
+                Credits = 25,
+                SessionStartedAt = now.AddSeconds(-12),
+                HabboStats = new(0, int.MaxValue, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+            };
             var clock = new SaveClock(now);
             var persistence = new UserPersistenceService(database, clock);
 
@@ -354,8 +408,16 @@ public sealed class UserPreferencePersistenceTests
 
     private sealed class SaveClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
 
     [Theory]
@@ -368,11 +430,14 @@ public sealed class UserPreferencePersistenceTests
 
     private sealed class Styles(ChatStyle style) : IChatStyleManager
     {
-        public void Init() { }
+        public void Init()
+        {
+        }
         public IReadOnlyList<int> GetAllowedStyleIds(UserAccess access) => [];
         public bool TryGetStyle(int id, [NotNullWhen(true)] out ChatStyle? found)
         {
             found = id == style.Id ? style : null;
+
             return found != null;
         }
     }
@@ -382,6 +447,7 @@ public sealed class UserPreferencePersistenceTests
         public bool TryGetData(uint roomId, [NotNullWhen(true)] out RoomData? data)
         {
             data = new RoomData { Id = roomId };
+
             return true;
         }
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId) => [];

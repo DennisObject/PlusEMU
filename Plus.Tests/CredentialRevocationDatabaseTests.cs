@@ -106,8 +106,14 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     public async Task ThePasswordAndItsGenerationAreReadInOneSnapshot()
     {
         var userId = User("secret");
+
         using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
-            connection.Execute("UPDATE users SET credential_generation = 5 WHERE id = @userId", new { userId });
+        {
+            connection.Execute("UPDATE users SET credential_generation = 5 WHERE id = @userId", new
+            {
+                userId
+            });
+        }
 
         var account = await _accounts.FindByUsername(await Name(userId));
 
@@ -170,6 +176,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     {
         var userId = User();
         var issuer = Issuer();
+
         for (var round = 0; round < 200; round++)
         {
             var ticket = await SessionlessTicket(userId);
@@ -202,16 +209,28 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         var userId = User();
         var session = (await Issuer().Issue(userId, "x", await _generations.Current(userId), "203.0.113.8"))!;
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("DELETE FROM user_access_tokens WHERE user_id = @userId; UPDATE user_sessions SET created_at = '1970-01-01 00:00:01' WHERE user_id = @userId", new { userId });
+        connection.Execute("DELETE FROM user_access_tokens WHERE user_id = @userId; UPDATE user_sessions SET created_at = '1970-01-01 00:00:01' WHERE user_id = @userId", new
+        {
+            userId
+        });
         var cutoff = DateTimeOffset.UtcNow;
 
         await _generations.PruneSessions(cutoff, 100);
-        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_sessions WHERE user_id = @userId", new { userId }));
+        Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_sessions WHERE user_id = @userId", new
+        {
+            userId
+        }));
         Assert.Equal(userId, (await _tickets.Exchange(session.SsoTicket.Value))?.UserId);
 
-        connection.Execute("UPDATE users SET auth_ticket_expires_at = '1970-01-01 00:00:01' WHERE id = @userId", new { userId });
+        connection.Execute("UPDATE users SET auth_ticket_expires_at = '1970-01-01 00:00:01' WHERE id = @userId", new
+        {
+            userId
+        });
         await _generations.PruneSessions(cutoff, 100);
-        Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_sessions WHERE user_id = @userId", new { userId }));
+        Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_sessions WHERE user_id = @userId", new
+        {
+            userId
+        }));
     }
 
     /// <summary>A ticket written the way a CMS does it: no login session behind it.</summary>
@@ -220,7 +239,12 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         var ticket = SecureToken.Generate();
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
         await connection.ExecuteAsync("UPDATE users SET auth_ticket = @ticket, auth_ticket_expires_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 300 SECOND), auth_ticket_exchanged = 0, auth_ticket_session = NULL WHERE id = @userId",
-            new { ticket, userId });
+            new
+            {
+                ticket,
+                userId
+            });
+
         return ticket;
     }
 
@@ -303,7 +327,11 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     private static async Task<string> LastAddress(int userId)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        return await connection.QuerySingleAsync<string>("SELECT ip_last FROM users WHERE id = @userId", new { userId });
+
+        return await connection.QuerySingleAsync<string>("SELECT ip_last FROM users WHERE id = @userId", new
+        {
+            userId
+        });
     }
 
     [AuthDatabaseFact]
@@ -343,28 +371,46 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
         var now = DateTimeOffset.UtcNow.UtcDateTime;
-        Assert.Equal("", await connection.QuerySingleAsync<string>("SELECT auth_ticket FROM users WHERE id = @userId", new { userId }));
-        Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM user_access_tokens WHERE user_id = @userId AND revoked_at IS NULL AND expires_at > @now", new { userId, now }));
-        Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM user_remember_tokens WHERE user_id = @userId AND revoked_at IS NULL AND used_at IS NULL", new { userId }));
+        Assert.Equal("", await connection.QuerySingleAsync<string>("SELECT auth_ticket FROM users WHERE id = @userId", new
+        {
+            userId
+        }));
+        Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM user_access_tokens WHERE user_id = @userId AND revoked_at IS NULL AND expires_at > @now", new
+        {
+            userId,
+            now
+        }));
+        Assert.Equal(0, await connection.QuerySingleAsync<int>("SELECT COUNT(*) FROM user_remember_tokens WHERE user_id = @userId AND revoked_at IS NULL AND used_at IS NULL", new
+        {
+            userId
+        }));
     }
 
     private int User(string password = "")
     {
         var id = AuthTestDatabase.InsertUser(AuthTestDatabase.UniqueName("gen"), password);
         _users.Add(id);
+
         return id;
     }
 
     private static async Task<string> Name(int id)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new { id });
+
+        return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new
+        {
+            id
+        });
     }
 
     public void Dispose()
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids; DELETE FROM user_sessions WHERE user_id IN @ids", new { ids = _users.ToArray() });
+        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids; DELETE FROM user_sessions WHERE user_id IN @ids", new
+        {
+            ids = _users.ToArray()
+        });
         AuthTestDatabase.DeleteUsers(_users);
     }
 
@@ -377,6 +423,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         {
             Entered.TrySetResult();
             await Release.Task;
+
             return await inner.UsernameById(userId);
         }
 
@@ -399,6 +446,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
             var owner = await inner.Exchange(ticket);
             Entered.TrySetResult();
             await Release.Task;
+
             return owner;
         }
 
@@ -407,6 +455,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
             var owner = await inner.ExchangeAt(ticket, instant);
             Entered.TrySetResult();
             await Release.Task;
+
             return owner;
         }
 
@@ -430,6 +479,7 @@ public sealed class CredentialRevocationDatabaseTests : IDisposable
         {
             Entered.TrySetResult();
             await Release.Task;
+
             return null;
         }
 

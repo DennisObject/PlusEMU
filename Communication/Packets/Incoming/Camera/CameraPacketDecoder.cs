@@ -11,17 +11,34 @@ internal static class CameraPacketDecoder
     {
         ArgumentNullException.ThrowIfNull(packet);
         var buffer = packet.Buffer;
+
         if (buffer.Length >= PngMagic.Length && buffer.Span.StartsWith(PngMagic))
+        {
             return Invalid(CameraRejectReason.Pixels);
+        }
+
         if (buffer.Length < 2)
+        {
             return Invalid(CameraRejectReason.Schema);
+        }
+
         var declared = (buffer.Span[0] << 8) | buffer.Span[1];
+
         if (declared > CameraRequestParser.MaxJsonBytes)
+        {
             return Invalid(CameraRejectReason.Oversized);
+        }
+
         if (buffer.Length < declared + 2)
+        {
             return Invalid(CameraRejectReason.Schema);
+        }
+
         if (buffer.Length > declared + 2)
+        {
             return Invalid(CameraRejectReason.Trailing);
+        }
+
         try
         {
             return new(packet.ReadString());

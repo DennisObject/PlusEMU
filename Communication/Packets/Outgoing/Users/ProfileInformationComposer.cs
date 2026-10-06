@@ -20,6 +20,7 @@ public class ProfileInformationComposer(PlayerProfileSnapshot profile) : IServer
         packet.WriteBoolean(profile.RequestedFriendship);
         packet.WriteBoolean(profile.Online);
         packet.WriteInteger(profile.Groups.Length);
+
         foreach (var group in profile.Groups)
         {
             packet.WriteInteger(group.Id);
@@ -31,6 +32,7 @@ public class ProfileInformationComposer(PlayerProfileSnapshot profile) : IServer
             packet.WriteInteger(0);
             packet.WriteBoolean(group.ForumEnabled);
         }
+
         packet.WriteInteger(profile.LastOnlineSeconds);
         packet.WriteBoolean(true);
     }

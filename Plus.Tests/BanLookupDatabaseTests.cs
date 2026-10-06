@@ -17,7 +17,13 @@ public sealed class BanLookupDatabaseTests : IDisposable
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
         connection.Execute("INSERT INTO bans (bantype, value, reason, expire, added_by, added_date) VALUES (@type, @value, @reason, @expire, 'probe', NULL)",
-            new { type, value, reason, expire = expire.UtcDateTime });
+            new
+            {
+                type,
+                value,
+                reason,
+                expire = expire.UtcDateTime
+            });
     }
 
     private static DateTimeOffset In(TimeSpan span) => Now + span;
@@ -54,7 +60,11 @@ public sealed class BanLookupDatabaseTests : IDisposable
     public void Dispose()
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("DELETE FROM bans WHERE value IN (@_value, @_address)", new { _value, _address });
+        connection.Execute("DELETE FROM bans WHERE value IN (@_value, @_address)", new
+        {
+            _value,
+            _address
+        });
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider

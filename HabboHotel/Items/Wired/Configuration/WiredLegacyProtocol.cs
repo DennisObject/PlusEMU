@@ -11,27 +11,47 @@ public static class WiredLegacyProtocol
     public static bool TryRead(IIncomingPacket packet, WiredBoxCategory envelope, out WiredConfiguration configuration)
     {
         configuration = new();
+
         try
         {
             var intCount = packet.ReadInt();
+
             if (intCount is < 0 or > WiredConfigurationLimits.IntParams)
+            {
                 return false;
+            }
+
             var ints = ImmutableArray.CreateBuilder<int>(intCount);
+
             for (var i = 0; i < intCount; i++)
+            {
                 ints.Add(packet.ReadInt());
+            }
+
             var text = packet.ReadString();
             var itemCount = packet.ReadInt();
+
             if (itemCount is < 0 or > WiredConfigurationLimits.SelectedItems)
+            {
                 return false;
+            }
+
             var items = ImmutableArray.CreateBuilder<uint>(itemCount);
+
             for (var i = 0; i < itemCount; i++)
+            {
                 items.Add(packet.ReadUInt());
+            }
+
             configuration = new()
             {
-                IntParams = ints.MoveToImmutable(), Text = text, SelectedItems = items.MoveToImmutable(),
+                IntParams = ints.MoveToImmutable(),
+                Text = text,
+                SelectedItems = items.MoveToImmutable(),
                 Delay = envelope == WiredBoxCategory.Action ? packet.ReadInt() : 0,
                 SelectionCode = packet.ReadInt()
             };
+
             return !packet.HasDataRemaining() && IsWithinLimits(configuration);
         }
         catch (Exception error) when (error is ArgumentException or InvalidOperationException or IOException or OverflowException)
@@ -66,23 +86,38 @@ public static class WiredLegacyProtocol
         packet.WriteBoolean(false);
         packet.WriteInteger(furniLimit);
         packet.WriteInteger(configuration.SelectedItems.Length);
+
         foreach (var selected in configuration.SelectedItems)
+        {
             packet.WriteUInteger(selected);
+        }
+
         packet.WriteInteger(spriteId);
         packet.WriteUInteger(itemId);
         packet.WriteString(configuration.Text);
         packet.WriteInteger(configuration.IntParams.Length);
+
         foreach (var value in configuration.IntParams)
+        {
             packet.WriteInteger(value);
+        }
+
         packet.WriteInteger(configuration.SelectionCode);
         packet.WriteInteger(descriptor.EditorCode);
+
         if (descriptor.Envelope == WiredBoxCategory.Action)
+        {
             packet.WriteInteger(configuration.Delay);
+        }
+
         if (descriptor.Envelope != WiredBoxCategory.Condition)
         {
             packet.WriteInteger(blockedItems.Count);
+
             foreach (var blocked in blockedItems)
+            {
                 packet.WriteInteger(blocked);
+            }
         }
     }
 }

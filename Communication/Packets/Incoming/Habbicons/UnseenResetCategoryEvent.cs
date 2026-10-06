@@ -9,6 +9,7 @@ public sealed class UnseenResetCategoryEvent(IHabbiconPresentationService habbic
     {
         var category = packet.ReadInt();
         habbicons.ResetUnseenCategory(session, category);
+
         return Task.CompletedTask;
     }
 }

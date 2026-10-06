@@ -11,7 +11,10 @@ public sealed class ClubMigrationDatabaseFactAttribute : FactAttribute
     public const string Variable = "PLUS_CLUB_MIGRATION_SERVER_CONNECTION_STRING";
     public ClubMigrationDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable(Variable) == null) Skip = $"Set {Variable} to a bare MariaDB server connection (no Database).";
+        if (Environment.GetEnvironmentVariable(Variable) == null)
+        {
+            Skip = $"Set {Variable} to a bare MariaDB server connection (no Database).";
+        }
     }
 }
 
@@ -19,7 +22,10 @@ public sealed class ClubMigrationDatabaseTheoryAttribute : TheoryAttribute
 {
     public ClubMigrationDatabaseTheoryAttribute()
     {
-        if (Environment.GetEnvironmentVariable(ClubMigrationDatabaseFactAttribute.Variable) == null) Skip = $"Set {ClubMigrationDatabaseFactAttribute.Variable} to a bare MariaDB server connection (no Database).";
+        if (Environment.GetEnvironmentVariable(ClubMigrationDatabaseFactAttribute.Variable) == null)
+        {
+            Skip = $"Set {ClubMigrationDatabaseFactAttribute.Variable} to a bare MariaDB server connection (no Database).";
+        }
     }
 }
 
@@ -28,16 +34,21 @@ internal sealed class ClubMigrationSchema : IDisposable
 {
     private readonly string _server;
     public string Name { get; } = "task_acl_tests_migration38_" + Guid.NewGuid().ToString("N")[..12];
-    public string ConnectionString { get; }
+    public string ConnectionString
+    {
+        get;
+    }
 
     public ClubMigrationSchema(string server)
     {
         _server = server;
+
         using (var admin = new MySqlConnection(server))
         {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{Name}` CHARACTER SET utf8mb4");
         }
+
         ConnectionString = new MySqlConnectionStringBuilder(server) { Database = Name, AllowZeroDateTime = true, ConvertZeroDateTime = true, SslMode = MySqlSslMode.None, Pooling = false }.ToString();
     }
 
@@ -144,7 +155,10 @@ public sealed class ClubUtcMigrationDatabaseTests
         connection.Execute(Script());
 
         var zero = connection.QuerySingle<ClubMembershipRow>("SELECT expires_at AS ExpiresAt, started_at AS StartedAt, first_started_at AS FirstStartedAt, past_seconds AS PastSeconds, modified_at AS ModifiedAt, gifts_claimed AS GiftsClaimed FROM user_club_memberships WHERE user_id = 1002").ToMembership();
-        Assert.Null(zero.ExpiresAt); Assert.Null(zero.StartedAt); Assert.Null(zero.FirstStartedAt); Assert.Null(zero.ModifiedAt);
+        Assert.Null(zero.ExpiresAt);
+        Assert.Null(zero.StartedAt);
+        Assert.Null(zero.FirstStartedAt);
+        Assert.Null(zero.ModifiedAt);
         var member = connection.QuerySingle<ClubMembershipRow>("SELECT expires_at AS ExpiresAt, started_at AS StartedAt, first_started_at AS FirstStartedAt, past_seconds AS PastSeconds, modified_at AS ModifiedAt, gifts_claimed AS GiftsClaimed FROM user_club_memberships WHERE user_id = 1001").ToMembership();
         Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1800000000), member.ExpiresAt);
         Assert.Equal(TimeSpan.Zero, member.ExpiresAt!.Value.Offset);
@@ -187,7 +201,8 @@ public sealed class ClubUtcMigrationDatabaseTests
         connection.Execute(Script());
 
         var row = connection.QuerySingle<ClubMembershipRow>("SELECT expires_at AS ExpiresAt, started_at AS StartedAt, first_started_at AS FirstStartedAt, past_seconds AS PastSeconds, modified_at AS ModifiedAt, gifts_claimed AS GiftsClaimed FROM user_club_memberships WHERE user_id = 1010").ToMembership();
-        Assert.Null(row.ExpiresAt); Assert.Null(row.ModifiedAt);
+        Assert.Null(row.ExpiresAt);
+        Assert.Null(row.ModifiedAt);
         Assert.Equal(new DateTimeOffset(2023, 11, 14, 22, 13, 20, TimeSpan.Zero), row.StartedAt);
         Assert.Equal(3, row.PastSeconds);
         Assert.Equal(1, row.GiftsClaimed);
@@ -245,7 +260,11 @@ public sealed class ClubUtcMigrationDatabaseTests
 
     private static void Legacy(MySqlConnection connection)
     {
-        foreach (var statement in LegacyDdl) connection.Execute(statement);
+        foreach (var statement in LegacyDdl)
+        {
+            connection.Execute(statement);
+        }
+
         connection.Execute(LegacySeed);
     }
 
@@ -253,20 +272,40 @@ public sealed class ClubUtcMigrationDatabaseTests
     private static string Snapshot(MySqlConnection connection)
     {
         var builder = new StringBuilder();
+
         foreach (var table in Tables)
         {
             builder.Append(table).Append('\n');
-            foreach (var column in connection.Query<string>("SELECT CONCAT(COLUMN_NAME, ' ', COLUMN_TYPE, ' ', IS_NULLABLE, ' ', COALESCE(COLUMN_DEFAULT, 'NULL'), ' ', EXTRA) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table ORDER BY ORDINAL_POSITION", new { table }))
+
+            foreach (var column in connection.Query<string>("SELECT CONCAT(COLUMN_NAME, ' ', COLUMN_TYPE, ' ', IS_NULLABLE, ' ', COALESCE(COLUMN_DEFAULT, 'NULL'), ' ', EXTRA) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table ORDER BY ORDINAL_POSITION", new
+            {
+                table
+            }))
+            {
                 builder.Append(column).Append('\n');
-            foreach (var index in connection.Query<string>("SELECT CONCAT(INDEX_NAME, ' ', NON_UNIQUE, ' ', COLUMN_NAME, ' ', SEQ_IN_INDEX) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table ORDER BY INDEX_NAME, SEQ_IN_INDEX", new { table }))
+            }
+
+            foreach (var index in connection.Query<string>("SELECT CONCAT(INDEX_NAME, ' ', NON_UNIQUE, ' ', COLUMN_NAME, ' ', SEQ_IN_INDEX) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = @table ORDER BY INDEX_NAME, SEQ_IN_INDEX", new
+            {
+                table
+            }))
+            {
                 builder.Append(index).Append('\n');
+            }
+
             using var reader = connection.ExecuteReader($"SELECT * FROM {table} ORDER BY 1, 2");
+
             while (reader.Read())
             {
-                for (var i = 0; i < reader.FieldCount; i++) builder.Append(reader.GetValue(i) is DBNull ? "NULL" : reader.GetValue(i)).Append('|');
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    builder.Append(reader.GetValue(i) is DBNull ? "NULL" : reader.GetValue(i)).Append('|');
+                }
+
                 builder.Append('\n');
             }
         }
+
         return builder.ToString();
     }
 }

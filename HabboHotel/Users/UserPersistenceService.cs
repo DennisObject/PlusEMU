@@ -28,25 +28,55 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
             "`groupid` = @FavouriteGroupId, `forum_posts` = @ForumPosts WHERE `id` = @Id",
             new
             {
-                habbo.Id, habbo.Duckets, habbo.Credits, habbo.Diamonds, habbo.GotwPoints, habbo.TimeMuted, habbo.CustomBubbleId,
-                habbo.HomeRoom, FriendbarState = Messenger.FriendBar.FriendBarStateUtility.GetInt(habbo.FriendbarState),
-                habbo.HabboStats.RoomVisits, SessionSeconds = Math.Max(0L, (long)(now - habbo.SessionStartedAt).TotalSeconds),
-                habbo.HabboStats.Respect, habbo.HabboStats.RespectGiven, habbo.HabboStats.GiftsGiven, habbo.HabboStats.GiftsReceived,
-                habbo.HabboStats.DailyRespectPoints, habbo.HabboStats.DailyPetRespectPoints, habbo.HabboStats.AchievementPoints,
-                habbo.HabboStats.QuestId, habbo.HabboStats.QuestProgress, habbo.HabboStats.FavouriteGroupId, habbo.HabboStats.ForumPosts,
+                habbo.Id,
+                habbo.Duckets,
+                habbo.Credits,
+                habbo.Diamonds,
+                habbo.GotwPoints,
+                habbo.TimeMuted,
+                habbo.CustomBubbleId,
+                habbo.HomeRoom,
+                FriendbarState = Messenger.FriendBar.FriendBarStateUtility.GetInt(habbo.FriendbarState),
+                habbo.HabboStats.RoomVisits,
+                SessionSeconds = Math.Max(0L, (long)(now - habbo.SessionStartedAt).TotalSeconds),
+                habbo.HabboStats.Respect,
+                habbo.HabboStats.RespectGiven,
+                habbo.HabboStats.GiftsGiven,
+                habbo.HabboStats.GiftsReceived,
+                habbo.HabboStats.DailyRespectPoints,
+                habbo.HabboStats.DailyPetRespectPoints,
+                habbo.HabboStats.AchievementPoints,
+                habbo.HabboStats.QuestId,
+                habbo.HabboStats.QuestProgress,
+                habbo.HabboStats.FavouriteGroupId,
+                habbo.HabboStats.ForumPosts,
                 now = now.UtcDateTime
             }, transaction);
+
         if (reopenModerationTickets)
+        {
             connection.Execute("UPDATE `moderation_tickets` SET `status` = 'open', `moderator_id` = 0 WHERE `status` = 'picked' AND `moderator_id` = @id",
-                new { id = habbo.Id }, transaction);
+                new
+                {
+                    id = habbo.Id
+                }, transaction);
+        }
+
         transaction.Commit();
     }
 
     public void SetProfileValue(int userId, string column, object? value)
     {
         if (column is not ("username" or "last_change" or "bubble_id"))
+        {
             throw new ArgumentOutOfRangeException(nameof(column));
+        }
+
         using var connection = database.Connection();
-        connection.Execute($"UPDATE `users` SET `{column}` = @value WHERE `id` = @userId", new { value, userId });
+        connection.Execute($"UPDATE `users` SET `{column}` = @value WHERE `id` = @userId", new
+        {
+            value,
+            userId
+        });
     }
 }

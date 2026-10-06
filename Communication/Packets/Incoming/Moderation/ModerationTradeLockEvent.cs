@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Attributes;
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
@@ -15,6 +15,7 @@ internal class ModerationTradeLockEvent(ITradeModerationService moderation) : IP
         var minutes = packet.ReadInt();
         packet.ReadString();
         packet.ReadString();
+
         return moderation.Lock(session, userId, minutes, message);
     }
 }

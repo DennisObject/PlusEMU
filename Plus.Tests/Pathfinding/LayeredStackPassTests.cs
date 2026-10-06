@@ -15,8 +15,10 @@ public class LayeredStackPassTests
     {
         // Current Z 2; the next tile's original support now sits at 0.1, another surface at 1.7; the tile after is at 3.
         var (grid, inputs, compiler) = NavTest.Create(3, 1, new PathfindingSettings { LayeringEnabled = true, MaxSurfacesPerTile = 4 });
-        inputs.Publish(NavTest.Record(10, 1, [0], h: 2)); inputs.Publish(NavTest.Record(11, 2, [1], z: 0.1));
-        inputs.Publish(NavTest.Record(12, 3, [1], z: 1.7)); inputs.Publish(NavTest.Record(13, 4, [2], h: 3));
+        inputs.Publish(NavTest.Record(10, 1, [0], h: 2));
+        inputs.Publish(NavTest.Record(11, 2, [1], z: 0.1));
+        inputs.Publish(NavTest.Record(12, 3, [1], z: 1.7));
+        inputs.Publish(NavTest.Record(13, 4, [2], h: 3));
         compiler.ApplyNow();
         RetainedStep[] steps = [new(1, 0, StepPurpose.Transit, 11, 2), new(2, 0, StepPurpose.Goal, 13, 3)];
         var occupancy = new PlanningOccupancy(grid.SlotCapacity);
@@ -39,7 +41,8 @@ public class LayeredStackPassTests
         Assert.Equal((1, true), (grid.SurfaceAt(1, 0), deck >= grid.TileCount));
         var claims = new ClaimLedger(grid);
         var occupancy = new ExecutorGateOccupancy(grid, claims);
-        var standing = Actor(); var claiming = Actor();
+        var standing = Actor();
+        var claiming = Actor();
         claims.Move(standing, deck, 1, walking: false, groupId: 1);
         Assert.True(occupancy.IsBlocked([new Point(1, 0)]));
         claims.Move(standing, 0, 0, walking: false, groupId: 1);
@@ -54,12 +57,14 @@ public class LayeredStackPassTests
     {
         // 4x4: a deck over tile 6 takes overflow slot 16; the deck later moves to tile 11 and reuses slot 16.
         var (grid, inputs, compiler) = NavTest.Create(4, 4, new PathfindingSettings { LayeringEnabled = true });
-        inputs.Publish(NavTest.Record(21, 1, [6], z: 2)); compiler.ApplyNow();
+        inputs.Publish(NavTest.Record(21, 1, [6], z: 2));
+        compiler.ApplyNow();
         Assert.Equal(16, grid.SlotOf(new SurfaceRef(6, 21, SurfaceKind.Top)));
         var claims = new ClaimLedger(grid);
         Assert.True(claims.TryReserveCargo(6, TargetOccupancy.None, null));
         Assert.Equal(TargetOccupancy.RollerClaim, claims.OccupancyAt(16, 0));
-        inputs.Publish(NavTest.Record(21, 2, [11], z: 2)); compiler.ApplyNow();
+        inputs.Publish(NavTest.Record(21, 2, [11], z: 2));
+        compiler.ApplyNow();
         claims.EnsureCapacity(grid.SlotCapacity);
         Assert.Equal(16, grid.SlotOf(new SurfaceRef(11, 21, SurfaceKind.Top)));
         Assert.Equal(TargetOccupancy.None, claims.OccupancyAt(16, 0));
@@ -90,6 +95,7 @@ public class LayeredStackPassTests
     {
         var settings = new PathfindingSettings { LayeringEnabled = true };
         var graph = new NavPrefixGraph(grid, new MovementRules(grid, settings), new ActorProfile(), occupancy);
+
         return new ValidPrefixFinder().Find(new PrefixCandidate(0, 0, 2, 10, 0), steps, graph);
     }
 

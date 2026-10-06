@@ -8,6 +8,7 @@ internal sealed class ManageGroupEvent(IGroupManagementSnapshotService service) 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         service.Send(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

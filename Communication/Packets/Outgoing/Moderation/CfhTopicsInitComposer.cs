@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 
@@ -17,10 +17,12 @@ public class CfhTopicsInitComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_userActionPresets.Length);
+
         foreach (var cat in _userActionPresets)
         {
             packet.WriteString(cat.Name);
             packet.WriteInteger(cat.Topics.Length);
+
             foreach (var preset in cat.Topics)
             {
                 packet.WriteString(preset.Caption);

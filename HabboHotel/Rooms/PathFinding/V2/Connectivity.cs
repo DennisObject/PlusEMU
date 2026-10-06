@@ -11,46 +11,85 @@ public sealed class Connectivity(NavGrid grid)
     public bool SameComponent(int a, int b)
     {
         EnsureCurrent();
+
         return _components[a] != 0 && _components[a] == _components[b];
     }
 
     public bool SameComponent(int start, in AcceptedGoal goal)
     {
         for (var index = 0; index < goal.Count; index++)
-            if (SameComponent(start, goal[index])) return true;
+        {
+            if (SameComponent(start, goal[index]))
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
     public void EnsureCurrent()
     {
-        if (_version == grid.Version) return;
-        if (_components.Length < grid.SlotCapacity) { _components = new int[grid.SlotCapacity]; _queue = new int[grid.SlotCapacity]; }
+        if (_version == grid.Version)
+        {
+            return;
+        }
+
+        if (_components.Length < grid.SlotCapacity)
+        {
+            _components = new int[grid.SlotCapacity];
+            _queue = new int[grid.SlotCapacity];
+        }
+
         Array.Clear(_components);
         var component = 0;
+
         for (var slot = 0; slot < grid.SlotCapacity; slot++)
         {
-            if (_components[slot] != 0 || !grid.Active(slot)) continue;
+            if (_components[slot] != 0 || !grid.Active(slot))
+            {
+                continue;
+            }
+
             _components[slot] = ++component;
             Flood(slot, component);
         }
+
         _version = grid.Version;
     }
 
     private void Flood(int first, int component)
     {
-        var head = 0; var tail = 0; _queue[tail++] = first;
+        var head = 0;
+        var tail = 0;
+        _queue[tail++] = first;
+
         while (head < tail)
         {
-            var tile = grid.TileOf(_queue[head++]); var x = tile % grid.Width; var y = tile / grid.Width;
+            var tile = grid.TileOf(_queue[head++]);
+            var x = tile % grid.Width;
+            var y = tile / grid.Width;
+
             foreach (var (dx, dy) in PathTieBreak.Neighbours)
             {
-                if (!grid.InBounds(x + dx, y + dy)) continue;
+                if (!grid.InBounds(x + dx, y + dy))
+                {
+                    continue;
+                }
+
                 var neighbour = grid.Tile(x + dx, y + dy);
+
                 for (var ordinal = 0; ordinal < grid.SurfaceCount(neighbour); ordinal++)
                 {
                     var next = grid.SurfaceAt(neighbour, ordinal);
-                    if (_components[next] != 0 || !grid.Active(next)) continue;
-                    _components[next] = component; _queue[tail++] = next;
+
+                    if (_components[next] != 0 || !grid.Active(next))
+                    {
+                        continue;
+                    }
+
+                    _components[next] = component;
+                    _queue[tail++] = next;
                 }
             }
         }

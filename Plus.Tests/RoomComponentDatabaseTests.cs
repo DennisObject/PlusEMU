@@ -12,7 +12,9 @@ public sealed class RoomComponentDatabaseFactAttribute : FactAttribute
     public RoomComponentDatabaseFactAttribute()
     {
         if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null)
+        {
             Skip = "Opt-in isolated room component MariaDB probe.";
+        }
     }
 }
 
@@ -26,6 +28,7 @@ public sealed class RoomComponentDatabaseTests
         connection.Open();
         var schema = "room_component_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             connection.Execute($"USE `{schema}`");
@@ -129,7 +132,10 @@ public sealed class RoomComponentDatabaseTests
                 """);
 
             var databaseConnection = new MySqlConnectionStringBuilder(
-                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema }.ConnectionString;
+                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
+            {
+                Database = schema
+            }.ConnectionString;
             var productionDatabaseConnection = new MySqlConnectionStringBuilder(ProductionConnection()) { Database = schema }.ConnectionString;
             using var productionConnection = new MySqlConnection(productionDatabaseConnection);
             productionConnection.Open();
@@ -276,7 +282,8 @@ public sealed class RoomComponentDatabaseTests
             Assert.Throws<InvalidOperationException>(() => new RoomUserStore(new FailingDatabase()).UpdateUserCount(42, 0));
             var definition = new Plus.HabboHotel.Items.ItemDefinition
             {
-                Id = 500, Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor,
+                Id = 500,
+                Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor,
                 InteractionType = Plus.HabboHotel.Items.InteractionType.WalkMagicTile
             };
             var loadedFurniture = new RoomFurnitureLoader(new ProbeDatabase(databaseConnection), new TestItemDataManager(definition)).Load(42);
@@ -314,7 +321,9 @@ public sealed class RoomComponentDatabaseTests
 
     private sealed class TestItemDataManager(Plus.HabboHotel.Items.ItemDefinition definition) : Plus.HabboHotel.Items.IItemDataManager
     {
-        public void Init() { }
+        public void Init()
+        {
+        }
         public Plus.HabboHotel.Items.ItemDefinition GetItemByName(string name) => definition;
         public Dictionary<int, uint> Gifts { get; } = [];
         public Dictionary<uint, Plus.HabboHotel.Items.ItemDefinition> Items { get; } = new() { [definition.Id] = definition };
@@ -332,7 +341,11 @@ public sealed class RoomComponentDatabaseTests
 
     private sealed class TestChatlogManager : Plus.HabboHotel.Rooms.Chat.Logs.IChatlogManager
     {
-        public void StoreChatlog(Plus.HabboHotel.Rooms.Chat.Logs.ChatlogEntry entry) { }
-        public void FlushAndSave() { }
+        public void StoreChatlog(Plus.HabboHotel.Rooms.Chat.Logs.ChatlogEntry entry)
+        {
+        }
+        public void FlushAndSave()
+        {
+        }
     }
 }

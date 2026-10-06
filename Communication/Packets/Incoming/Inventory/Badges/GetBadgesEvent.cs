@@ -8,6 +8,7 @@ internal sealed class GetBadgesEvent(IInventoryShowcaseService inventory) : IPac
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         inventory.ShowBadges(session);
+
         return Task.CompletedTask;
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Catalog.Vouchers;
+namespace Plus.HabboHotel.Catalog.Vouchers;
 
 public enum VoucherType
 {

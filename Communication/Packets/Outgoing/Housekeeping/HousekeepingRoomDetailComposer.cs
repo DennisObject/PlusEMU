@@ -13,7 +13,11 @@ public class HousekeepingRoomDetailComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteBoolean(_room != null);
-        if (_room != null) WriteRoom(packet, _room);
+
+        if (_room != null)
+        {
+            WriteRoom(packet, _room);
+        }
     }
 
     /// <summary>Shared with the room list; field order matches the renderer's HousekeepingRoomData.</summary>

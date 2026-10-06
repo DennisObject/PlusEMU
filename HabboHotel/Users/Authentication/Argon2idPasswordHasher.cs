@@ -28,25 +28,36 @@ public class Argon2idPasswordHasher : IPasswordHasher
     {
         var salt = RandomNumberGenerator.GetBytes(SaltBytes);
         var hash = Derive(password, salt, MemoryKiB, Iterations, Parallelism, HashBytes);
+
         return $"{Prefix}v={Version}$m={MemoryKiB},t={Iterations},p={Parallelism}${ToBase64(salt)}${ToBase64(hash)}";
     }
 
     public PasswordVerificationResult Verify(string password, string stored)
     {
         if (string.IsNullOrEmpty(password) || string.IsNullOrEmpty(stored))
+        {
             return PasswordVerificationResult.Failed;
+        }
 
         if (!stored.StartsWith(Prefix, StringComparison.Ordinal))
+        {
             return VerifyLegacyPlaintext(password, stored);
+        }
 
         if (!TryParse(stored, out var parameters))
+        {
             return PasswordVerificationResult.Failed;
+        }
 
         var actual = Derive(password, parameters.Salt, parameters.MemoryKiB, parameters.Iterations, parameters.Parallelism, parameters.Hash.Length);
+
         if (!CryptographicOperations.FixedTimeEquals(actual, parameters.Hash))
+        {
             return PasswordVerificationResult.Failed;
+        }
 
         var weaker = parameters.MemoryKiB < MemoryKiB || parameters.Iterations < Iterations || parameters.Hash.Length < HashBytes;
+
         return weaker ? PasswordVerificationResult.SuccessRehashNeeded : PasswordVerificationResult.Success;
     }
 
@@ -55,6 +66,7 @@ public class Argon2idPasswordHasher : IPasswordHasher
         // Comparing digests keeps the comparison constant-time and hides the stored length.
         var expected = SHA256.HashData(Encoding.UTF8.GetBytes(stored));
         var actual = SHA256.HashData(Encoding.UTF8.GetBytes(password));
+
         return CryptographicOperations.FixedTimeEquals(actual, expected)
             ? PasswordVerificationResult.SuccessRehashNeeded
             : PasswordVerificationResult.Failed;
@@ -69,6 +81,7 @@ public class Argon2idPasswordHasher : IPasswordHasher
             Iterations = iterations,
             DegreeOfParallelism = parallelism
         };
+
         return argon.GetBytes(length);
     }
 
@@ -76,28 +89,38 @@ public class Argon2idPasswordHasher : IPasswordHasher
     {
         parameters = default;
         var parts = stored.Split('$');
+
         if (parts.Length != 6 || parts[2] != $"v={Version}")
+        {
             return false;
+        }
 
         var settings = parts[3].Split(',');
+
         if (settings.Length != 3
             || !TryReadSetting(settings[0], "m=", MaxMemoryKiB, out var memory)
             || !TryReadSetting(settings[1], "t=", MaxIterations, out var iterations)
             || !TryReadSetting(settings[2], "p=", MaxParallelism, out var parallelism)
             || memory < 8 * parallelism)
+        {
             return false;
+        }
 
         if (!TryFromBase64(parts[4], out var salt) || salt.Length < 8
             || !TryFromBase64(parts[5], out var hash) || hash.Length < 16)
+        {
             return false;
+        }
 
         parameters = new(memory, iterations, parallelism, salt, hash);
+
         return true;
     }
 
     private static bool TryReadSetting(string setting, string name, int max, out int value)
     {
         value = 0;
+
         return setting.StartsWith(name, StringComparison.Ordinal)
             && int.TryParse(setting.AsSpan(name.Length), NumberStyles.None, CultureInfo.InvariantCulture, out value)
             && value >= 1 && value <= max;
@@ -108,15 +131,22 @@ public class Argon2idPasswordHasher : IPasswordHasher
     private static bool TryFromBase64(string value, out byte[] bytes)
     {
         bytes = [];
+
         if (value.Length == 0 || value.Length % 4 == 1)
+        {
             return false;
+        }
 
         var padded = value.PadRight(value.Length + (4 - value.Length % 4) % 4, '=');
         var buffer = new byte[padded.Length];
+
         if (!Convert.TryFromBase64String(padded, buffer, out var written))
+        {
             return false;
+        }
 
         bytes = buffer[..written];
+
         return true;
     }
 

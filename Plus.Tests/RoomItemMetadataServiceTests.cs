@@ -50,6 +50,7 @@ public sealed class RoomItemMetadataServiceTests
         client.GetHabbo().Clothing = new();
         var store = new RecordingStore(() => Assert.Equal(original, item.LegacyDataString)) { Fail = fail };
         var service = new RoomItemMetadataService(store, Figures());
+
         if (fail)
         {
             Assert.Throws<InvalidOperationException>(() => service.SetMannequinFigure(client, item.Id));
@@ -60,6 +61,7 @@ public sealed class RoomItemMetadataServiceTests
             service.SetMannequinFigure(client, item.Id);
             Assert.Equal($"f{(char)5}ch-3.lg-4{(char)5}display name", item.LegacyDataString);
         }
+
         Assert.Equal(1, store.Writes);
         Assert.Equal($"f{(char)5}ch-3.lg-4{(char)5}display name", store.Data);
     }
@@ -92,6 +94,7 @@ public sealed class RoomItemMetadataServiceTests
     private static Plus.Core.FigureData.IFigureDataManager Figures()
     {
         var figures = DispatchProxy.Create<Plus.Core.FigureData.IFigureDataManager, FigureProxy>();
+
         return figures;
     }
 
@@ -100,6 +103,7 @@ public sealed class RoomItemMetadataServiceTests
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
             Assert.Equal("ProcessFigure", method!.Name);
+
             return args![0];
         }
     }
@@ -174,7 +178,9 @@ public sealed class RoomItemMetadataServiceTests
         var (room, client) = Context();
         var item = AddItem(room, InteractionType.Toner);
         room.TonerData = Toner(item.Id);
-        room.TonerData.Hue = 10; room.TonerData.Saturation = 20; room.TonerData.Lightness = 30;
+        room.TonerData.Hue = 10;
+        room.TonerData.Saturation = 20;
+        room.TonerData.Lightness = 30;
         var store = new RecordingStore { Fail = true };
 
         Assert.Throws<InvalidOperationException>(() => new RoomItemMetadataService(store, null!).SetToner(room, client, new(item.Id, 40, 50, 60)));
@@ -185,10 +191,14 @@ public sealed class RoomItemMetadataServiceTests
     private static (Room Room, GameClient Client) Context()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
+        room.Id = 9;
+        room.OwnerName = "owner";
+        room.Type = "private";
+        room.UsersWithRights = [];
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "owner", CurrentRoom = room });
+
         return (room, client);
     }
 
@@ -198,6 +208,7 @@ public sealed class RoomItemMetadataServiceTests
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
         typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
         floor[item.Id] = item;
+
         return item;
     }
 
@@ -205,21 +216,45 @@ public sealed class RoomItemMetadataServiceTests
     {
         var data = (TonerData)RuntimeHelpers.GetUninitializedObject(typeof(TonerData));
         data.ItemId = itemId;
+
         return data;
     }
 
     private sealed class RecordingStore(Action? beforeWrite = null) : IRoomItemMetadataStore
     {
-        public bool Fail { get; init; }
-        public int Writes { get; private set; }
+        public bool Fail
+        {
+            get; init;
+        }
+        public int Writes
+        {
+            get; private set;
+        }
         public string? Data;
-        public void SetMannequinData(uint itemId, uint roomId, string data) { Data = data; Write(); }
+        public void SetMannequinData(uint itemId, uint roomId, string data)
+        {
+            Data = data;
+            Write();
+        }
         public void SetToner(uint itemId, uint roomId, int hue, int saturation, int lightness) => Write();
-        public void SetBrandingData(uint itemId, uint roomId, string data) { Data = data; Write(); }
+        public void SetBrandingData(uint itemId, uint roomId, string data)
+        {
+            Data = data;
+            Write();
+        }
         public Plus.HabboHotel.Items.Data.Moodlight.MoodlightRecord? LoadMoodlight(uint itemId) => throw new NotSupportedException();
         public void SetMoodlightEnabled(uint itemId, uint roomId, bool enabled) => throw new NotSupportedException();
         public void UpdateMoodlightPreset(uint itemId, uint roomId, int preset, string value) => throw new NotSupportedException();
         public TonerRecord? LoadToner(uint itemId) => throw new NotSupportedException();
-        private void Write() { beforeWrite?.Invoke(); Writes++; if (Fail) throw new InvalidOperationException("forced failure"); }
+        private void Write()
+        {
+            beforeWrite?.Invoke();
+            Writes++;
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
+        }
     }
 }

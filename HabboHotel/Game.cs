@@ -77,7 +77,10 @@ public class Game : IGame
         lock (_cycleSync)
         {
             if (_gameCycle != null)
+            {
                 throw new InvalidOperationException("The game loop has already been started.");
+            }
+
             _cycleActive = true;
             _gameCycle = Task.Run(GameCycle);
         }
@@ -98,6 +101,7 @@ public class Game : IGame
         lock (_cycleSync)
         {
             _cycleActive = false;
+
             try
             {
                 _gameCycle?.GetAwaiter().GetResult();

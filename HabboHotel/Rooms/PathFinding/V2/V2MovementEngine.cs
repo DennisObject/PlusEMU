@@ -11,8 +11,14 @@ internal sealed class V2MovementEngine : IMovementEngine
     private readonly AdmissionService _admission;
     private readonly RebindService _rebind;
     internal ClaimLedger Claims => Context.Claims;
-    internal MovementContext Context { get; }
-    internal RollerCycle Rollers { get; }
+    internal MovementContext Context
+    {
+        get;
+    }
+    internal RollerCycle Rollers
+    {
+        get;
+    }
     internal V2MovementEngine(Room room, RoomNavigation navigation, IDatabase database,
         IRewardTrackManager rewards, ActorAccessResolver access)
     {
@@ -39,23 +45,51 @@ internal sealed class V2MovementEngine : IMovementEngine
     {
         foreach (var actor in Context.Room.GetRoomUserManager().GetUserList())
         {
-            if (actor.Movement.State != NavState.Active) continue;
-            _rebind.Rebind(actor); Context.RefreshMembership(actor);
+            if (actor.Movement.State != NavState.Active)
+            {
+                continue;
+            }
+
+            _rebind.Rebind(actor);
+            Context.RefreshMembership(actor);
         }
     }
     public void Tick() => _executor.Tick();
     internal void Handle(RoomCommand command)
     {
         var actor = command.Actor;
-        if (command.LifetimeId != actor.Movement.LifetimeId) return;
-        if (command.Kind == RoomCommandKind.Remove) { _cancellation.Remove(actor); return; }
-        if (actor.Movement.State == NavState.Removing) return;
+
+        if (command.LifetimeId != actor.Movement.LifetimeId)
+        {
+            return;
+        }
+
+        if (command.Kind == RoomCommandKind.Remove)
+        {
+            _cancellation.Remove(actor);
+
+            return;
+        }
+
+        if (actor.Movement.State == NavState.Removing)
+        {
+            return;
+        }
+
         switch (command.Kind)
         {
-            case RoomCommandKind.ActorAction: command.Action?.Invoke(actor, command.CommandSequence); break;
-            case RoomCommandKind.Admit: _admission.Admit(actor); break;
-            case RoomCommandKind.Cancel: _cancellation.Cancel(actor, command.CommandSequence); break;
-            case RoomCommandKind.ForcePlace: _placement.Place(actor, command); break;
+            case RoomCommandKind.ActorAction:
+                command.Action?.Invoke(actor, command.CommandSequence);
+                break;
+            case RoomCommandKind.Admit:
+                _admission.Admit(actor);
+                break;
+            case RoomCommandKind.Cancel:
+                _cancellation.Cancel(actor, command.CommandSequence);
+                break;
+            case RoomCommandKind.ForcePlace:
+                _placement.Place(actor, command);
+                break;
         }
     }
 }

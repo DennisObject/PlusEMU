@@ -48,9 +48,21 @@ public class WiredTemporaryPacketGuardTests
     {
         var (room, client) = Room();
         // A positive id proves the guard uses the immutable marker, independently of wire sign.
-        var item = new Item { Id = 7, IsTemporary = true, UserId = 42, OwnerId = 42, RoomId = 1,
-            ExtraData = new LegacyDataFormat { Data = "original" }, Definition = new() { Type = ItemType.Floor, BehaviourData = 100,
-                InteractionType = Interaction(name) } };
+        var item = new Item
+        {
+            Id = 7,
+            IsTemporary = true,
+            UserId = 42,
+            OwnerId = 42,
+            RoomId = 1,
+            ExtraData = new LegacyDataFormat { Data = "original" },
+            Definition = new()
+            {
+                Type = ItemType.Floor,
+                BehaviourData = 100,
+                InteractionType = Interaction(name)
+            }
+        };
         item.SetState(1, 2, 3.5, new());
         Floor(room).TryAdd(7, item);
         var permanent = new Item { Id = 8, Definition = new() { Type = ItemType.Floor } };
@@ -94,8 +106,16 @@ public class WiredTemporaryPacketGuardTests
                                     : null).ToArray();
         var handler = (IPacketEvent)constructor.Invoke(arguments);
         var packet = Packet(name);
-        if (handler is RoomPacketEvent roomHandler) await roomHandler.Parse(room, client, packet);
-        else await handler.Parse(client, packet);
+
+        if (handler is RoomPacketEvent roomHandler)
+        {
+            await roomHandler.Parse(room, client, packet);
+        }
+        else
+        {
+            await handler.Parse(client, packet);
+        }
+
         Assert.Same(item, room.GetRoomItemHandler().GetItem(7));
         Assert.Same(permanent, room.GetRoomItemHandler().GetItem(8));
         Assert.Equal((1, 2, 3.5, 0), (item.GetX, item.GetY, item.GetZ, item.Rotation));
@@ -116,8 +136,10 @@ public class WiredTemporaryPacketGuardTests
         map.GenerateMaps();
         var item = new Item { Id = highId, Definition = new() { Type = ItemType.Floor, InteractionType = InteractionType.Stacktool }, GetZ = 1 };
         Floor(room).TryAdd(highId, item);
-        using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
-        output.WriteUInteger(highId); output.WriteInteger(350);
+        using var stream = PlusMemoryStream.GetStream();
+        var output = new FlashOutgoingPacket(stream);
+        output.WriteUInteger(highId);
+        output.WriteInteger(350);
         await new UpdateMagicTileEvent(new MagicTileService()).Parse(client, new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) });
         Assert.Equal(3.5, item.GetZ);
         Assert.False(item.IsTemporary);
@@ -129,20 +151,26 @@ public class WiredTemporaryPacketGuardTests
     public void RemoveComposerUsesSignedStringOnlyForTemporaryIdentity(bool temporary, string expected)
     {
         var item = new Item { Id = uint.MaxValue - 1, IsTemporary = temporary };
-        using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
+        using var stream = PlusMemoryStream.GetStream();
+        var output = new FlashOutgoingPacket(stream);
         new ObjectRemoveComposer(item.Id, item.IsTemporary, 42).Compose(output);
         var input = new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) };
-        Assert.Equal(expected, input.ReadString()); Assert.False(input.ReadBool());
-        Assert.Equal(42, input.ReadInt()); Assert.Equal(0, input.ReadInt()); Assert.False(input.HasDataRemaining());
+        Assert.Equal(expected, input.ReadString());
+        Assert.False(input.ReadBool());
+        Assert.Equal(42, input.ReadInt());
+        Assert.Equal(0, input.ReadInt());
+        Assert.False(input.HasDataRemaining());
     }
 
     [Fact]
     public void AddAndUpdateComposersKeepNegativeTemporaryIdBits()
     {
         var item = new Item { Id = uint.MaxValue - 1, IsTemporary = true, Definition = new() { Type = ItemType.Floor } };
+
         foreach (var composer in new IServerPacket[] { new ObjectAddComposer(RoomItemSnapshot.Capture(item)), new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)) })
         {
-            using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
+            using var stream = PlusMemoryStream.GetStream();
+            var output = new FlashOutgoingPacket(stream);
             composer.Compose(output);
             Assert.Equal(-2, new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) }.ReadInt());
         }
@@ -157,14 +185,21 @@ public class WiredTemporaryPacketGuardTests
         var item = new Item { Id = uint.MaxValue - 1, IsTemporary = true, Definition = new() { InteractionType = InteractionType.Moodlight } };
         var wall = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
         wall.TryAdd(item.Id, item);
+
         if (existingState)
         {
             room.MoodlightData = (MoodlightData)RuntimeHelpers.GetUninitializedObject(typeof(MoodlightData));
             room.MoodlightData.ItemId = item.Id;
         }
+
         await new Plus.Communication.Packets.Incoming.Rooms.Furni.Moodlight.GetMoodlightConfigEvent(
             new MoodlightService(TestRoomItemMetadataStore.Instance)).Parse(room, client, new FlashIncomingPacket());
-        if (!existingState) Assert.Null(room.MoodlightData);
+
+        if (!existingState)
+        {
+            Assert.Null(room.MoodlightData);
+        }
+
         Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
     }
 
@@ -186,37 +221,105 @@ public class WiredTemporaryPacketGuardTests
 
     private static FlashIncomingPacket Packet(string name)
     {
-        using var stream = PlusMemoryStream.GetStream(); var output = new FlashOutgoingPacket(stream);
-        if (name.Contains("PickupObject")) output.WriteInteger(0);
+        using var stream = PlusMemoryStream.GetStream();
+        var output = new FlashOutgoingPacket(stream);
+
+        if (name.Contains("PickupObject"))
+        {
+            output.WriteInteger(0);
+        }
+
         output.WriteUInteger(7);
+
         if (name == "Rooms.Engine.MoveObjectEvent")
-        { output.WriteInteger(4); output.WriteInteger(5); output.WriteInteger(2); }
-        if (name.Contains("UpdateMagicTile")) output.WriteInteger(350);
-        if (name.Contains("Gnome")) output.WriteString("Pixel");
-        else if (name.Contains("MoveWall")) output.WriteString(":w=1,1 l=1,1 l");
-        else if (name.Contains("UseFurniture") || name.Contains("UseWallItem") || name.Contains("ThrowDice")) output.WriteInteger(0);
-        else if (name.Contains("SetToner")) { output.WriteInteger(10); output.WriteInteger(20); output.WriteInteger(30); }
-        else if (name.Contains("MoodlightUpdate")) { output.WriteInteger(2); output.WriteString("#000000"); output.WriteInteger(255); }
-        else if (name.Contains("UpdateStickyNote")) { output.WriteString("FFFF33"); output.WriteString("changed"); }
-        else if (name.Contains("SetMannequinName")) output.WriteString("changed");
-        else if (name.Contains("FriendFurni")) output.WriteBoolean(true);
-        else if (name.Contains("ApplyHorse")) output.WriteInteger(42);
-        else if (name.Contains("GetGroupFurni")) output.WriteInteger(0);
-        else if (name.Contains("UpdateMagicTile")) output.WriteInteger(500);
-        return new() { Buffer = stream.ToArray().AsMemory(6) };
+        {
+            output.WriteInteger(4);
+            output.WriteInteger(5);
+            output.WriteInteger(2);
+        }
+
+        if (name.Contains("UpdateMagicTile"))
+        {
+            output.WriteInteger(350);
+        }
+
+        if (name.Contains("Gnome"))
+        {
+            output.WriteString("Pixel");
+        }
+        else if (name.Contains("MoveWall"))
+        {
+            output.WriteString(":w=1,1 l=1,1 l");
+        }
+        else if (name.Contains("UseFurniture") || name.Contains("UseWallItem") || name.Contains("ThrowDice"))
+        {
+            output.WriteInteger(0);
+        }
+        else if (name.Contains("SetToner"))
+        {
+            output.WriteInteger(10);
+            output.WriteInteger(20);
+            output.WriteInteger(30);
+        }
+        else if (name.Contains("MoodlightUpdate"))
+        {
+            output.WriteInteger(2);
+            output.WriteString("#000000");
+            output.WriteInteger(255);
+        }
+        else if (name.Contains("UpdateStickyNote"))
+        {
+            output.WriteString("FFFF33");
+            output.WriteString("changed");
+        }
+        else if (name.Contains("SetMannequinName"))
+        {
+            output.WriteString("changed");
+        }
+        else if (name.Contains("FriendFurni"))
+        {
+            output.WriteBoolean(true);
+        }
+        else if (name.Contains("ApplyHorse"))
+        {
+            output.WriteInteger(42);
+        }
+        else if (name.Contains("GetGroupFurni"))
+        {
+            output.WriteInteger(0);
+        }
+        else if (name.Contains("UpdateMagicTile"))
+        {
+            output.WriteInteger(500);
+        }
+
+        return new()
+        {
+            Buffer = stream.ToArray().AsMemory(6)
+        };
     }
 
     private static (Room, FlashGameClient) Room()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 1; room.OwnerId = 42; room.OwnerName = "owner"; room.Type = "private";
+        room.Id = 1;
+        room.OwnerId = 42;
+        room.OwnerName = "owner";
+        room.Type = "private";
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room,
             new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel));
         var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
-        client.SetHabbo(new Habbo { Id = 42, Username = "owner", CurrentRoom = room, Credits = 10,
-            Access = EditorTestSupport.Access(["room.item_save_branding_items"]) });
+        client.SetHabbo(new Habbo
+        {
+            Id = 42,
+            Username = "owner",
+            CurrentRoom = room,
+            Credits = 10,
+            Access = EditorTestSupport.Access(["room.item_save_branding_items"])
+        });
+
         return (room, client);
     }
 

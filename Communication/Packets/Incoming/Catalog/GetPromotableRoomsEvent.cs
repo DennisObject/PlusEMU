@@ -8,6 +8,7 @@ internal sealed class GetPromotableRoomsEvent(ICatalogBrowsingService catalog) :
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         catalog.ShowPromotableRooms(session);
+
         return Task.CompletedTask;
     }
 }

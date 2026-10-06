@@ -11,6 +11,7 @@ internal sealed class MuteUserEvent(IRoomMuteService mutes) : IPacketEvent
         packet.ReadInt(); // roomId
         var durationMinutes = packet.ReadInt();
         mutes.Mute(session, userId, durationMinutes);
+
         return Task.CompletedTask;
     }
 }

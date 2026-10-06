@@ -32,9 +32,13 @@ public sealed class UserProfilePersistenceTests
         var service = Service(new FailingDatabase(), clock);
 
         if (admitted)
+        {
             Assert.Throws<InvalidOperationException>(() => service.ChangeMotto(session, "new"));
+        }
         else
+        {
             service.ChangeMotto(session, "new");
+        }
 
         Assert.Equal(1, clock.Reads);
         Assert.Equal("old", habbo.Motto);
@@ -53,16 +57,24 @@ public sealed class UserProfilePersistenceTests
         var previous = now.AddSeconds(-2).AddTicks(-ticksAfterBoundary).ToOffset(TimeSpan.FromHours(-9));
         var habbo = new Habbo
         {
-            Id = 7, Look = "old", Gender = "m", Clothing = new(), Access = UserAccess.Empty,
+            Id = 7,
+            Look = "old",
+            Gender = "m",
+            Clothing = new(),
+            Access = UserAccess.Empty,
             LastClothingUpdatedAt = previous
         };
         var (session, _) = HabbiconTestSupport.Client(habbo);
         var service = Service(new FailingDatabase(), clock);
 
         if (admitted)
+        {
             Assert.Throws<InvalidOperationException>(() => service.UpdateFigure(session, new("m", "new")));
+        }
         else
+        {
             service.UpdateFigure(session, new("m", "new"));
+        }
 
         Assert.Equal(1, clock.Reads);
         Assert.Equal("old", habbo.Look);
@@ -102,9 +114,11 @@ public sealed class UserProfilePersistenceTests
         var write = Task.Run(() =>
         {
             attempted.SetResult();
+
             return Record.Exception(() => service.ChangeMotto(session, "new"));
         });
         Exception? outcome = null;
+
         try
         {
             await attempted.Task;
@@ -128,6 +142,7 @@ public sealed class UserProfilePersistenceTests
         var schema = "task_user_profile_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root)
@@ -145,8 +160,16 @@ public sealed class UserProfilePersistenceTests
             var service = Service(database, clock, calls: calls, callback: name =>
             {
                 using var verify = database.Connection();
-                if (name == "look quest") Assert.Equal(("processed", "M"), verify.QuerySingle<(string, string)>("SELECT look,gender FROM users WHERE id=7"));
-                if (name == "motto reward") Assert.Equal("new motto", verify.QuerySingle<string>("SELECT motto FROM users WHERE id=7"));
+
+                if (name == "look quest")
+                {
+                    Assert.Equal(("processed", "M"), verify.QuerySingle<(string, string)>("SELECT look,gender FROM users WHERE id=7"));
+                }
+
+                if (name == "motto reward")
+                {
+                    Assert.Equal("new motto", verify.QuerySingle<string>("SELECT motto FROM users WHERE id=7"));
+                }
             });
 
             service.UpdateFigure(session, new("m", "requested"));
@@ -191,6 +214,7 @@ public sealed class UserProfilePersistenceTests
     {
         calls ??= [];
         callback ??= _ => { };
+
         return new(
             Proxy<IFigureDataManager>((method, _) => method switch
             {
@@ -203,8 +227,12 @@ public sealed class UserProfilePersistenceTests
                 if (method == nameof(IAchievementManager.ProgressAchievement))
                 {
                     var name = calls.Count < 3 ? "look achievement" : "motto achievement";
-                    callback(name); calls.Add(name); return true;
+                    callback(name);
+                    calls.Add(name);
+
+                    return true;
                 }
+
                 return null;
             }),
             Proxy<IQuestManager>((method, args) =>
@@ -212,8 +240,10 @@ public sealed class UserProfilePersistenceTests
                 if (method == nameof(IQuestManager.ProgressUserQuest))
                 {
                     var name = (QuestType)args[1] == QuestType.ProfileChangeLook ? "look quest" : "motto quest";
-                    callback(name); calls.Add(name);
+                    callback(name);
+                    calls.Add(name);
                 }
+
                 return null;
             }),
             Proxy<IWordFilterManager>((method, args) => method == nameof(IWordFilterManager.CheckMessage) ? args[0] : null),
@@ -223,8 +253,10 @@ public sealed class UserProfilePersistenceTests
                 if (method == nameof(IRewardTrackManager.Progress))
                 {
                     var name = (string)args[1] == RewardTrackActions.ChangeFigure ? "look reward" : "motto reward";
-                    callback(name); calls.Add(name);
+                    callback(name);
+                    calls.Add(name);
                 }
+
                 return null;
             }), gate ?? new AccountSessionGate());
     }
@@ -233,6 +265,7 @@ public sealed class UserProfilePersistenceTests
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).Call = call;
+
         return proxy;
     }
 
@@ -249,8 +282,16 @@ public sealed class UserProfilePersistenceTests
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset Now => now;
-        public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
         public void Advance(TimeSpan elapsed) => now += elapsed;
     }
 

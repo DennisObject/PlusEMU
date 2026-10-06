@@ -29,26 +29,46 @@ public sealed class RoomPromotionStore(IDatabase database) : IRoomPromotionStore
     public void Save(uint roomId, int ownerId, RoomPromotion promotion)
     {
         using var connection = database.Connection();
+
         if (connection.Execute("""
             INSERT INTO room_promotions (room_id,title,description,timestamp_start,timestamp_expire,category_id)
             SELECT @roomId,@Name,@Description,@startedAt,@expiresAt,@CategoryId
             FROM rooms WHERE id=@roomId AND owner=@ownerId
             ON DUPLICATE KEY UPDATE title=VALUES(title),description=VALUES(description),
                 timestamp_start=VALUES(timestamp_start),timestamp_expire=VALUES(timestamp_expire),category_id=VALUES(category_id)
-            """, new { roomId, ownerId, promotion.Name, promotion.Description, promotion.CategoryId,
-                startedAt = promotion.StartedAt?.UtcDateTime, expiresAt = promotion.ExpiresAt?.UtcDateTime }) == 0)
+            """, new
+        {
+            roomId,
+            ownerId,
+            promotion.Name,
+            promotion.Description,
+            promotion.CategoryId,
+            startedAt = promotion.StartedAt?.UtcDateTime,
+            expiresAt = promotion.ExpiresAt?.UtcDateTime
+        }) == 0)
+        {
             throw new InvalidOperationException("Room promotion was not persisted.");
+        }
     }
 
     public void Edit(uint roomId, int ownerId, string name, string description)
     {
         using var connection = database.Connection();
+
         if (connection.Execute("""
             UPDATE room_promotions promotion JOIN rooms room ON room.id=promotion.room_id
             SET promotion.title=@name,promotion.description=@description
             WHERE promotion.room_id=@roomId AND room.owner=@ownerId
-            """, new { roomId, ownerId, name, description }) != 1)
+            """, new
+        {
+            roomId,
+            ownerId,
+            name,
+            description
+        }) != 1)
+        {
             throw new InvalidOperationException("Room promotion was not updated.");
+        }
     }
 }
 
@@ -76,10 +96,14 @@ public sealed class RoomPromotionService(IRoomDataLoader dataLoader, IRoomManage
         RoomData data;
         RoomEventSnapshot snapshot;
         string name;
+
         lock (_sync)
         {
             if (!dataLoader.TryGetData(request.RoomId, out var loaded) || loaded.OwnerId != habbo.Id)
+            {
                 return;
+            }
+
             data = loaded;
             name = filter.CheckMessage(request.Name);
             var description = filter.CheckMessage(request.Description);
@@ -94,32 +118,50 @@ public sealed class RoomPromotionService(IRoomDataLoader dataLoader, IRoomManage
             data.Promotion = promotion;
             snapshot = RoomEventSnapshot.Capture(data, promotion);
         }
-        if (!habbo.Inventory.Badges.HasBadge("RADZZ")) await badges.GiveBadge(habbo, "RADZZ");
+
+        if (!habbo.Inventory.Badges.HasBadge("RADZZ"))
+        {
+            await badges.GiveBadge(habbo, "RADZZ");
+        }
+
         session.Send(new PurchaseOKComposer());
+
         if (habbo.CurrentRoom is { } currentRoom && currentRoom.Id == data.Id)
+        {
             currentRoom.SendPacket(new RoomEventComposer(snapshot));
+        }
+
         messenger.BroadcastStatusUpdate(habbo, MessengerEventTypes.EventStarted, name);
     }
 
     public void Edit(GameClient session, EditRoomPromotionRequest request)
     {
         var habbo = session.GetHabbo();
+
         lock (_sync)
         {
             if (!dataLoader.TryGetData(request.RoomId, out var data) || data.OwnerId != habbo.Id)
+            {
                 return;
+            }
+
             if (data.Promotion is not { } promotion)
             {
                 session.SendNotification("Oops, it looks like there isn't a room promotion in this room?");
+
                 return;
             }
+
             var name = filter.CheckMessage(request.Name);
             var description = filter.CheckMessage(request.Description);
             store.Edit(data.Id, habbo.Id, name, description);
             promotion.Name = name;
             promotion.Description = description;
+
             if (rooms.TryGetRoom(data.Id, out var room))
+            {
                 room.SendPacket(new RoomEventComposer(RoomEventSnapshot.Capture(data, promotion)));
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Users.Messenger;
@@ -15,6 +15,7 @@ public class MessengerBuddy
         set
         {
             _habbo = value;
+
             if (_habbo != null)
             {
                 Look = _habbo.Look;
@@ -27,15 +28,30 @@ public class MessengerBuddy
     public bool AppearOffline => _habbo == null;
 
     public bool HideInRoom => _habbo?.AllowUserFollowing ?? true;
-    public DateTimeOffset? LastOnlineAt { get; set; }
+    public DateTimeOffset? LastOnlineAt
+    {
+        get; set;
+    }
     public string Look { get; set; } = string.Empty;
     public string Motto { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
-    public int Relationship { get; set; }
-    public int Gender { get; set; }
-    public int Id { get; set; }
+    public int Relationship
+    {
+        get; set;
+    }
+    public int Gender
+    {
+        get; set;
+    }
+    public int Id
+    {
+        get; set;
+    }
 
     public bool InRoom => CurrentRoom != null;
 
-    public Room? CurrentRoom { get; set; }
+    public Room? CurrentRoom
+    {
+        get; set;
+    }
 }

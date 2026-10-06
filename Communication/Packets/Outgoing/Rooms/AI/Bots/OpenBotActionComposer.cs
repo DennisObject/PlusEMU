@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.AI.Bots;
@@ -14,10 +14,14 @@ public class OpenBotActionComposer : IServerPacket
     {
         packet.WriteInteger(_snapshot.BotId);
         packet.WriteInteger(_snapshot.ActionId);
-        if (_snapshot.ActionId == 2)
-            packet.WriteString(_snapshot.Data);
-        else if (_snapshot.ActionId == 5)
-            packet.WriteString(_snapshot.Data);
 
+        if (_snapshot.ActionId == 2)
+        {
+            packet.WriteString(_snapshot.Data);
+        }
+        else if (_snapshot.ActionId == 5)
+        {
+            packet.WriteString(_snapshot.Data);
+        }
     }
 }

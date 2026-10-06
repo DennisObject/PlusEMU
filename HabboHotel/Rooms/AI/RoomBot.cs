@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using Plus.HabboHotel.Catalog.Utilities;
 using Plus.HabboHotel.Rooms.AI.Speech;
 
@@ -6,7 +6,10 @@ namespace Plus.HabboHotel.Rooms.AI;
 
 public class RoomBot
 {
-    public bool IsTemporary { get; init; }
+    public bool IsTemporary
+    {
+        get; init;
+    }
 
     public BotAiType AiType;
 
@@ -77,23 +80,41 @@ public class RoomBot
         TargetUser = 0;
     }
 
-    public bool ForcedMovement { get; set; }
-    public int ForcedUserTargetMovement { get; set; }
-    public Point TargetCoordinate { get; set; }
+    public bool ForcedMovement
+    {
+        get; set;
+    }
+    public int ForcedUserTargetMovement
+    {
+        get; set;
+    }
+    public Point TargetCoordinate
+    {
+        get; set;
+    }
 
-    public int TargetUser { get; set; }
+    public int TargetUser
+    {
+        get; set;
+    }
 
     public bool IsPet => AiType == BotAiType.Pet;
 
-    public int ChatBubble { get; set; }
+    public int ChatBubble
+    {
+        get; set;
+    }
 
     public void LoadRandomSpeech(List<RandomSpeech> speeches)
     {
         RandomSpeech = new();
+
         foreach (var speech in speeches)
         {
             if (speech.BotId == BotId)
+            {
                 RandomSpeech.Add(speech);
+            }
         }
     }
 
@@ -101,7 +122,10 @@ public class RoomBot
     public RandomSpeech GetRandomSpeech()
     {
         if (RandomSpeech.Count < 1)
+        {
             return new("", 0);
+        }
+
         return RandomSpeech[Random.Shared.Next(0, RandomSpeech.Count)];
     }
 

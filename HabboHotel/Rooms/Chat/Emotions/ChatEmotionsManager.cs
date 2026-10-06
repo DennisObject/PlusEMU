@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Chat.Emotions;
+namespace Plus.HabboHotel.Rooms.Chat.Emotions;
 
 public sealed class ChatEmotionsManager : IChatEmotionsManager
 {
@@ -51,8 +51,13 @@ public sealed class ChatEmotionsManager : IChatEmotionsManager
     public int GetEmotionsForText(string text)
     {
         foreach (var kvp in _emotions)
+        {
             if (text.ToLower().Contains(kvp.Key.ToLower()))
+            {
                 return GetEmoticonPacketNum(kvp.Value);
+            }
+        }
+
         return 0;
     }
 

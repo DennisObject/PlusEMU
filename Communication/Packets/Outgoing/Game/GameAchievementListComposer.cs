@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 
@@ -12,6 +12,7 @@ public class GameAchievementListComposer(int gameId, ImmutableArray<AchievementP
     {
         packet.WriteInteger(gameId);
         packet.WriteInteger(achievements.Length);
+
         foreach (var achievement in achievements)
         {
             packet.WriteInteger(achievement.Id); // ach id
@@ -28,6 +29,7 @@ public class GameAchievementListComposer(int gameId, ImmutableArray<AchievementP
             packet.WriteInteger(0); // total levels
             packet.WriteInteger(0);
         }
+
         packet.WriteString("");
     }
 }

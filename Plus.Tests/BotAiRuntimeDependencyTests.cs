@@ -84,14 +84,22 @@ public partial class PlacedFurniRoomTests
             Y = 1
         };
         Assert.True(LegacyUsers().TryAdd(id, user));
+
         return user;
     }
 
     private sealed class RecordingFilter : IWordFilterManager
     {
         public List<string> Messages { get; } = [];
-        public void Init() { }
-        public string CheckMessage(string message) { Messages.Add(message); return $"filtered:{message}"; }
+        public void Init()
+        {
+        }
+        public string CheckMessage(string message)
+        {
+            Messages.Add(message);
+
+            return $"filtered:{message}";
+        }
         public bool CheckBannedWords(string message) => false;
         public bool IsFiltered(string message) => false;
     }
@@ -103,20 +111,30 @@ public partial class PlacedFurniRoomTests
         public BotResponse? GetResponse(BotAiType type, string message)
         {
             Messages.Add(message);
+
             return new("bartender", message, "served", "say", "");
         }
     }
 
     private sealed class RecordingCommands(int result) : IPetCommandManager
     {
-        public void Init() { }
+        public void Init()
+        {
+        }
         public int TryInvoke(string input) => result;
     }
 
     private sealed class RecordingLocale : IPetLocale
     {
         public List<string> Keys { get; } = [];
-        public void Init() { }
-        public string[] GetValue(string key) { Keys.Add(key); return [key]; }
+        public void Init()
+        {
+        }
+        public string[] GetValue(string key)
+        {
+            Keys.Add(key);
+
+            return [key];
+        }
     }
 }

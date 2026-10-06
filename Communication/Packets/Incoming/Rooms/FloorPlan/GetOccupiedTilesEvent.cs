@@ -8,6 +8,7 @@ internal sealed class GetOccupiedTilesEvent(IFloorPlanUpdateService service) : I
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         service.ShowOccupiedTiles(session);
+
         return Task.CompletedTask;
     }
 }

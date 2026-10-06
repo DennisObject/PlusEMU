@@ -44,10 +44,27 @@ public sealed class FurnitureUseServiceTests
     public void InvalidContextDoesNotPersist(string invalid)
     {
         var (room, client, item) = Context();
-        if (invalid == "rights") room.OwnerName = "another-owner";
-        if (invalid == "room") client.GetHabbo().CurrentRoom = null;
-        if (invalid == "toner") room.TonerData.ItemId++;
-        if (invalid == "item") item.RoomId++;
+
+        if (invalid == "rights")
+        {
+            room.OwnerName = "another-owner";
+        }
+
+        if (invalid == "room")
+        {
+            client.GetHabbo().CurrentRoom = null;
+        }
+
+        if (invalid == "toner")
+        {
+            room.TonerData.ItemId++;
+        }
+
+        if (invalid == "item")
+        {
+            item.RoomId++;
+        }
+
         var store = new Store();
         new FurnitureUseService(store, null!).Use(room, client, new(item.Id, 0));
         Assert.Empty(store.Values);
@@ -57,7 +74,10 @@ public sealed class FurnitureUseServiceTests
     private static (Room Room, GameClient Client, Item Item) Context()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
+        room.Id = 9;
+        room.OwnerName = "owner";
+        room.Type = "private";
+        room.UsersWithRights = [];
         Set(room, "_roomItemHandling", new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         var item = new Item { Id = 1, RoomId = room.Id, OwnerId = 7, Definition = new() { InteractionType = InteractionType.Toner }, ExtraData = new LegacyDataFormat() };
@@ -67,6 +87,7 @@ public sealed class FurnitureUseServiceTests
         room.TonerData = (TonerData)RuntimeHelpers.GetUninitializedObject(typeof(TonerData));
         room.TonerData.ItemId = item.Id;
         var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 7, Username = "owner", CurrentRoom = room });
+
         return (room, client, item);
     }
 
@@ -74,12 +95,20 @@ public sealed class FurnitureUseServiceTests
 
     private sealed class Store(Action? before = null) : IFurnitureUseStore
     {
-        public bool Fail { get; init; }
+        public bool Fail
+        {
+            get; init;
+        }
         public List<(uint, uint, bool)> Values { get; } = [];
         public void SetTonerEnabled(uint itemId, uint roomId, bool enabled)
         {
-            before?.Invoke(); Values.Add((itemId, roomId, enabled));
-            if (Fail) throw new InvalidOperationException("forced write failure");
+            before?.Invoke();
+            Values.Add((itemId, roomId, enabled));
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced write failure");
+            }
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.Furni;
+using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -28,12 +28,19 @@ internal class EjectAllCommand : IChatCommand
         {
             //Let us check anyway.
             if (!room.CheckRights(session, true))
+            {
                 return;
+            }
+
             foreach (var item in room.GetRoomItemHandler().GetWallAndFloor.ToList())
             {
                 if (item == null || item.UserId == session.GetHabbo().Id)
+                {
                     continue;
+                }
+
                 var targetClient = _gameClientManager.GetClientByUserId(item.UserId);
+
                 if (targetClient != null && targetClient.GetHabbo() != null)
                 {
                     room.GetRoomItemHandler().RemoveFurniture(targetClient, item.Id);
@@ -44,7 +51,10 @@ internal class EjectAllCommand : IChatCommand
                 {
                     room.GetRoomItemHandler().RemoveFurniture(null, item.Id);
                     using var connection = _database.Connection();
-                    connection.Execute("UPDATE items SET room_id=0 WHERE id=@id LIMIT 1", new { item.Id });
+                    connection.Execute("UPDATE items SET room_id=0 WHERE id=@id LIMIT 1", new
+                    {
+                        item.Id
+                    });
                 }
             }
         }
@@ -53,8 +63,12 @@ internal class EjectAllCommand : IChatCommand
             foreach (var item in room.GetRoomItemHandler().GetWallAndFloor.ToList())
             {
                 if (item == null || item.UserId != session.GetHabbo().Id)
+                {
                     continue;
+                }
+
                 var targetClient = _gameClientManager.GetClientByUserId(item.UserId);
+
                 if (targetClient != null && targetClient.GetHabbo() != null)
                 {
                     room.GetRoomItemHandler().RemoveFurniture(targetClient, item.Id);
@@ -65,7 +79,10 @@ internal class EjectAllCommand : IChatCommand
                 {
                     room.GetRoomItemHandler().RemoveFurniture(null, item.Id);
                     using var connection = _database.Connection();
-                    connection.Execute("UPDATE items SET room_id=0 WHERE id=@id LIMIT 1", new { item.Id });
+                    connection.Execute("UPDATE items SET room_id=0 WHERE id=@id LIMIT 1", new
+                    {
+                        item.Id
+                    });
                 }
             }
         }

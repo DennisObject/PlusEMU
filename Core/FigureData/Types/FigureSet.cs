@@ -1,4 +1,4 @@
-﻿namespace Plus.Core.FigureData.Types;
+namespace Plus.Core.FigureData.Types;
 
 internal class FigureSet
 {
@@ -9,7 +9,16 @@ internal class FigureSet
         Sets = new();
     }
 
-    public SetType Type { get; set; }
-    public int PalletId { get; set; }
-    public Dictionary<int, Set> Sets { get; set; }
+    public SetType Type
+    {
+        get; set;
+    }
+    public int PalletId
+    {
+        get; set;
+    }
+    public Dictionary<int, Set> Sets
+    {
+        get; set;
+    }
 }

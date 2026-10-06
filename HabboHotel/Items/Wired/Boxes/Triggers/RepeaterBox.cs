@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -25,7 +25,10 @@ internal class RepeaterBox : IWiredItem, IWiredCycle
         }
     }
 
-    public int TickCount { get; set; }
+    public int TickCount
+    {
+        get; set;
+    }
 
     // The room ticks every half second and fires the repeater on the tick that finds it at zero, so a delay of
     // N half-seconds waits N - 1 ticks in between.
@@ -41,15 +44,28 @@ internal class RepeaterBox : IWiredItem, IWiredCycle
             .OfType<Plus.HabboHotel.Users.Habbo>()
             .Select(player => new object[] { player })
             .ToArray();
+
         return Instance.GetWired().RunPeriodicStack(this, actors);
     }
 
-    public Room Instance { get; set; }
-    public Item Item { get; set; }
+    public Room Instance
+    {
+        get; set;
+    }
+    public Item Item
+    {
+        get; set;
+    }
     public WiredBoxType Type => WiredBoxType.TriggerRepeat;
-    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
+    public ConcurrentDictionary<uint, Item> SetItems
+    {
+        get; set;
+    }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData { get; set; }
+    public bool BoolData
+    {
+        get; set;
+    }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)

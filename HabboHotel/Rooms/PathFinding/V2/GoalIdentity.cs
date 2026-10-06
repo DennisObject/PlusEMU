@@ -7,6 +7,7 @@ internal readonly record struct GoalIdentity(int X, int Y, int Count, SurfaceRef
     internal static GoalIdentity Capture(NavGrid grid, AcceptedGoal goal)
     {
         SurfaceRef At(int index) => index < goal.Count ? grid.Reference(goal[index]) : default;
+
         return new(goal.X, goal.Y, goal.Count, At(0), At(1), At(2), At(3));
     }
 
@@ -14,12 +15,18 @@ internal readonly record struct GoalIdentity(int X, int Y, int Count, SurfaceRef
     internal AcceptedGoal? Resolve(NavGrid grid)
     {
         var goal = new AcceptedGoal(X, Y, -1);
+
         for (var index = 0; index < Count; index++)
         {
             var surface = this[index];
             var slot = grid.Layered ? grid.SlotOf(surface) : surface.Tile;
-            if (slot >= 0) goal = goal.With(slot);
+
+            if (slot >= 0)
+            {
+                goal = goal.With(slot);
+            }
         }
+
         return Count > 0 && goal.Count == 0 ? null : goal;
     }
 

@@ -24,6 +24,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(30u, args[2]);
             Assert.Equal(":w=1,1 l=0,0 l", args[3]);
             calls.Add(method);
+
             return null;
         });
         var move = ClientPacket(30, ":w=1,1 l=0,0 l");
@@ -83,7 +84,12 @@ public partial class PlacedFurniRoomTests
             Assert.Null(_room.GetRoomItemHandler().GetItem(30));
             Assert.Empty(_client.Sent);
             writes++;
-            if (fail) throw new InvalidOperationException("wall persistence failed");
+
+            if (fail)
+            {
+                throw new InvalidOperationException("wall persistence failed");
+            }
+
             return null;
         });
         typeof(Room).GetField("_roomItemHandling", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!
@@ -91,6 +97,7 @@ public partial class PlacedFurniRoomTests
         PlacementService(() => throw new InvalidOperationException("Sticky placement must not reward ordinary placement"))
             .PlaceSticky(_room, _client, 30, ":w=1,1 l=0,0 l");
         Assert.Equal(1, writes);
+
         if (fail)
         {
             Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
@@ -114,6 +121,7 @@ public partial class PlacedFurniRoomTests
             Assert.Same(_room, args[0]);
             Assert.Same(_client, args[1]);
             Assert.Equal("30 1 2 0", args[2]);
+
             return null;
         });
         var packet = ClientPacket("30 1 2 0");
@@ -166,6 +174,7 @@ public partial class PlacedFurniRoomTests
             Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
             Assert.Contains(ServerPacketHeader.FurniListRemoveComposer, _client.Sent);
             progress.Add("achievement");
+
             return null;
         });
         new RoomItemPlacementService(Proxy<ISettingsManager>((_, _) => "500"), achievements,
@@ -174,6 +183,7 @@ public partial class PlacedFurniRoomTests
                 Assert.Equal("Progress", method);
                 Assert.Equal(RewardTrackActions.PlaceItem, args[1]);
                 progress.Add("reward");
+
                 return null;
             }), Proxy<IQuestManager>((_, _) => null), TestLogging.For<RoomItemPlacementService>()).Place(_room, _client, placement);
         Assert.Equal(new[] { "achievement", "reward" }, progress);
@@ -192,6 +202,7 @@ public partial class PlacedFurniRoomTests
             Assert.Same(_client, args[1]);
             Assert.Equal(new object[] { 30u, 2, 3, 4 }, args.Skip(2));
             calls++;
+
             return null;
         });
         var packet = ClientPacket(30, 2, 3, 4);
@@ -209,15 +220,21 @@ public partial class PlacedFurniRoomTests
         var quests = Proxy<IQuestManager>((_, args) =>
         {
             var kind = (QuestType)args[1]!;
+
             if (kind == QuestType.FurniMove || kind == QuestType.FurniRotate)
+            {
                 Assert.Equal((1, 1, 0), (item.GetX, item.GetY, item.Rotation));
+            }
+
             calls.Add(kind.ToString());
+
             return null;
         });
         var rewards = Proxy<IRewardTrackManager>((_, args) =>
         {
             Assert.Equal((2, 2, 2), (item.GetX, item.GetY, item.Rotation));
             calls.Add((string)args[1]!);
+
             return null;
         });
         new RoomItemPlacementService(Proxy<ISettingsManager>((_, _) => "500"),

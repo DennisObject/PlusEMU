@@ -50,14 +50,23 @@ public sealed class UserSocialShowcaseService(
     public Task ShowGroupBadges(GameClient session)
     {
         var room = session.GetHabbo().CurrentRoom;
+
         if (room == null)
+        {
             return Task.CompletedTask;
+        }
+
         var badges = groups.GetAllBadgesInRoom(room);
+
         if (badges == null)
+        {
             return Task.CompletedTask;
+        }
+
         var snapshot = badges.Select(pair => new GroupBadgeSnapshot(pair.Key, pair.Value)).ToImmutableArray();
         room.SendPacket(new HabboGroupBadgesComposer(snapshot));
         session.Send(new HabboGroupBadgesComposer(snapshot));
+
         return Task.CompletedTask;
     }
 }

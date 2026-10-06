@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using Plus.Communication.Attributes;
 using Plus.Communication.Revisions;
 using Plus.HabboHotel.GameClients;
@@ -23,14 +23,17 @@ public class ClientHelloEvent : IPacketEvent
         var clientType = packet.ReadString();
         var clientPlatform = packet.ReadInt();
         var clientDeviceType = packet.ReadInt();
+
         if (!_revisionsCache.Revisions.TryGetValue(build, out var revision))
         {
             _logger.LogWarning("Unknown revision connected {revision}.", build);
             session.Disconnect();
+
             return Task.CompletedTask;
         }
 
         session.Revision = revision;
+
         return Task.CompletedTask;
     }
 }

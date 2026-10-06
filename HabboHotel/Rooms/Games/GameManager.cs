@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.Games.Teams;
 
@@ -24,12 +24,16 @@ public class GameManager
         _yellowTeamItems = new();
     }
 
-    public int[] Points { get; set; }
+    public int[] Points
+    {
+        get; set;
+    }
 
     public Team GetWinningTeam()
     {
         var winning = 1;
         var highestScore = 0;
+
         for (var i = 1; i < 5; i++)
         {
             if (Points[i] > highestScore)
@@ -38,15 +42,21 @@ public class GameManager
                 winning = i;
             }
         }
+
         return (Team)winning;
     }
 
     public void AddPointToTeam(Team team, int points)
     {
         var newPoints = Points[Convert.ToInt32(team)] += points;
+
         if (newPoints < 0)
+        {
             newPoints = 0;
+        }
+
         Points[Convert.ToInt32(team)] = newPoints;
+
         foreach (var item in GetFurniItems(team).Values.ToList())
         {
             if (!IsFootballGoal(item.Definition.InteractionType))
@@ -55,6 +65,7 @@ public class GameManager
                 item.UpdateState();
             }
         }
+
         foreach (var item in _room.GetRoomItemHandler().GetFloor.ToList())
         {
             if (team == Team.Blue && item.Definition.InteractionType == InteractionType.Banzaiscoreblue)
@@ -150,29 +161,64 @@ public class GameManager
 
     public void LockGates()
     {
-        foreach (var item in _redTeamItems.Values.ToList()) LockGate(item);
-        foreach (var item in _greenTeamItems.Values.ToList()) LockGate(item);
-        foreach (var item in _blueTeamItems.Values.ToList()) LockGate(item);
-        foreach (var item in _yellowTeamItems.Values.ToList()) LockGate(item);
+        foreach (var item in _redTeamItems.Values.ToList())
+        {
+            LockGate(item);
+        }
+
+        foreach (var item in _greenTeamItems.Values.ToList())
+        {
+            LockGate(item);
+        }
+
+        foreach (var item in _blueTeamItems.Values.ToList())
+        {
+            LockGate(item);
+        }
+
+        foreach (var item in _yellowTeamItems.Values.ToList())
+        {
+            LockGate(item);
+        }
     }
 
     public void UnlockGates()
     {
-        foreach (var item in _redTeamItems.Values.ToList()) UnlockGate(item);
-        foreach (var item in _greenTeamItems.Values.ToList()) UnlockGate(item);
-        foreach (var item in _blueTeamItems.Values.ToList()) UnlockGate(item);
-        foreach (var item in _yellowTeamItems.Values.ToList()) UnlockGate(item);
+        foreach (var item in _redTeamItems.Values.ToList())
+        {
+            UnlockGate(item);
+        }
+
+        foreach (var item in _greenTeamItems.Values.ToList())
+        {
+            UnlockGate(item);
+        }
+
+        foreach (var item in _blueTeamItems.Values.ToList())
+        {
+            UnlockGate(item);
+        }
+
+        foreach (var item in _yellowTeamItems.Values.ToList())
+        {
+            UnlockGate(item);
+        }
     }
 
     private void LockGate(Item item)
     {
         var type = item.Definition.InteractionType;
+
         if (type == InteractionType.FreezeBlueGate || type == InteractionType.FreezeGreenGate ||
             type == InteractionType.FreezeRedGate || type == InteractionType.FreezeYellowGate
             || type == InteractionType.Banzaigateblue || type == InteractionType.Banzaigatered ||
             type == InteractionType.Banzaigategreen || type == InteractionType.Banzaigateyellow)
         {
-            foreach (var user in _room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY))) user.SqState = 0;
+            foreach (var user in _room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY)))
+            {
+                user.SqState = 0;
+            }
+
             _room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 0);
         }
     }
@@ -180,12 +226,17 @@ public class GameManager
     private void UnlockGate(Item item)
     {
         var type = item.Definition.InteractionType;
+
         if (type == InteractionType.FreezeBlueGate || type == InteractionType.FreezeGreenGate ||
             type == InteractionType.FreezeRedGate || type == InteractionType.FreezeYellowGate
             || type == InteractionType.Banzaigateblue || type == InteractionType.Banzaigatered ||
             type == InteractionType.Banzaigategreen || type == InteractionType.Banzaigateyellow)
         {
-            foreach (var user in _room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY))) user.SqState = 1;
+            foreach (var user in _room.GetGameMap().GetRoomUsers(new(item.GetX, item.GetY)))
+            {
+                user.SqState = 1;
+            }
+
             _room.GetGameMap().SetFloorStatus(item.GetX, item.GetY, 1);
         }
     }

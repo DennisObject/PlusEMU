@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users.Calendar;
+namespace Plus.HabboHotel.Users.Calendar;
 
 /// <summary>
 /// Permissions for a specific Player.
@@ -25,9 +25,15 @@ public sealed class CalendarComponent
     public bool Init(Habbo player)
     {
         if (_lateBoxes.Count > 0)
+        {
             _lateBoxes.Clear();
+        }
+
         if (_openedBoxes.Count > 0)
+        {
             _openedBoxes.Clear();
+        }
+
         return true;
     }
 

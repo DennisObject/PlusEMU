@@ -1,6 +1,9 @@
 namespace Plus.HabboHotel.Items.Wired;
 
-internal enum WiredEngineLimit { ExecutionBudget, PendingStacks, Depth }
+internal enum WiredEngineLimit
+{
+    ExecutionBudget, PendingStacks, Depth
+}
 
 internal sealed class WiredEngineLimits
 {

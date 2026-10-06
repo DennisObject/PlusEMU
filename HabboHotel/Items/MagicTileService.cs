@@ -17,20 +17,38 @@ public sealed class MagicTileService : IMagicTileService
     public void Update(GameClient session, uint itemId, int requestedHeight, bool? multiWalk)
     {
         var room = AuthorizedRoom(session);
-        if (room == null) return;
-        var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
+
+        if (room == null)
+        {
             return;
+        }
+
+        var item = room.GetRoomItemHandler().GetItem(itemId);
+
+        if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
+        {
+            return;
+        }
+
         Apply(room, item, requestedHeight, multiWalk);
     }
 
     public void UpdateAdjacent(GameClient session, uint itemId, bool moveDown)
     {
         var room = AuthorizedRoom(session);
-        if (room == null) return;
-        var item = room.GetRoomItemHandler().GetItem(itemId);
-        if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
+
+        if (room == null)
+        {
             return;
+        }
+
+        var item = room.GetRoomItemHandler().GetItem(itemId);
+
+        if (item == null || item.IsTemporary || !MagicTileHeight.IsMagicTile(item.Definition.InteractionType))
+        {
+            return;
+        }
+
         // TODO capture official adjacent-height semantics. Polaris uses one hundredth as a stand-in.
         Apply(room, item, MagicTileHeight.ToWire(item.GetZ) + (moveDown ? -1 : 1));
     }
@@ -39,6 +57,7 @@ public sealed class MagicTileService : IMagicTileService
     {
         var habbo = session.GetHabbo();
         var room = habbo?.CurrentRoom;
+
         return habbo != null && room != null
             && (room.CheckRights(session, false, true) || habbo.Access.Can(PermissionKeys.RoomItemUseAnyStackTile)) ? room : null;
     }
@@ -51,13 +70,19 @@ public sealed class MagicTileService : IMagicTileService
         var height = MagicTileHeight.Resolve(requestedHeight, floorZ, stackBelowZ);
 
         if (!room.GetRoomItemHandler().SetFloorItem(item, item.GetX, item.GetY, height))
+        {
             return;
+        }
+
         if (item.Definition.InteractionType == InteractionType.WalkMagicTile && multiWalk.HasValue)
         {
             item.ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat
-                { Data = MagicTileHeight.ToWire(height).ToString(System.Globalization.CultureInfo.InvariantCulture) + (multiWalk.Value ? ";1" : "") };
+            {
+                Data = MagicTileHeight.ToWire(height).ToString(System.Globalization.CultureInfo.InvariantCulture) + (multiWalk.Value ? ";1" : "")
+            };
             room.GetRoomItemHandler().UpdateItem(item);
         }
+
         room.GetRoomUserManager().UpdateUserStatusses();
         room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
         room.SendPacket(new UpdateMagicTileComposer(item.Id, MagicTileHeight.ToWire(height)));

@@ -15,6 +15,7 @@ public class HousekeepingActionLogComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_entries.Length);
+
         foreach (var entry in _entries)
         {
             packet.WriteInteger(entry.Id);

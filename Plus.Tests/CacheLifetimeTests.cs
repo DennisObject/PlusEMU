@@ -119,18 +119,22 @@ public sealed class CacheLifetimeTests
         process.Init(() =>
         {
             var call = Interlocked.Increment(ref calls);
+
             if (call == 1)
             {
                 entered.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
             }
             else if (call == 2)
+            {
                 throw new InvalidOperationException("probe");
+            }
         });
         Assert.Equal(TimeSpan.FromMinutes(20), clock.DueTime);
         Assert.Equal(TimeSpan.FromMinutes(20), clock.Period);
 
         var first = Task.Run(clock.Fire);
+
         try
         {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
@@ -163,6 +167,7 @@ public sealed class CacheLifetimeTests
     {
         var proxy = DispatchProxy.Create<IGameClientManager, ClientLookup>();
         ((ClientLookup)(object)proxy).Clients = clients.ToDictionary(x => x.Id, x => x.Client);
+
         return proxy;
     }
 
@@ -184,18 +189,31 @@ public sealed class CacheLifetimeTests
 
     private sealed class RecordingProcess : IProcessComponent
     {
-        public Action? Sweep { get; private set; }
+        public Action? Sweep
+        {
+            get; private set;
+        }
         public void Init(Action sweep) => Sweep = sweep;
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
         public DateTimeOffset UtcNow { get; set; } = now;
-        public int Reads { get; private set; }
+        public int Reads
+        {
+            get; private set;
+        }
         public override TimeZoneInfo LocalTimeZone =>
             TimeZoneInfo.CreateCustomTimeZone("cache-plus-nine", TimeSpan.FromHours(9), "test", "test");
-        public override DateTimeOffset GetUtcNow() { Reads++; return UtcNow; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return UtcNow;
+        }
         public void ResetReads() => Reads = 0;
     }
 
@@ -204,8 +222,14 @@ public sealed class CacheLifetimeTests
         private TimerCallback? _callback;
         private object? _state;
         private ManualTimer? _timer;
-        public TimeSpan DueTime { get; private set; }
-        public TimeSpan Period { get; private set; }
+        public TimeSpan DueTime
+        {
+            get; private set;
+        }
+        public TimeSpan Period
+        {
+            get; private set;
+        }
         public bool TimerDisposed => _timer?.Disposed == true;
         public override DateTimeOffset GetUtcNow() => now;
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
@@ -214,30 +238,50 @@ public sealed class CacheLifetimeTests
             _state = state;
             DueTime = dueTime;
             Period = period;
+
             return _timer = new();
         }
-        public void Fire() { if (_timer?.Disposed != true) _callback!(_state); }
+        public void Fire()
+        {
+            if (_timer?.Disposed != true)
+            {
+                _callback!(_state);
+            }
+        }
         public void FireEvenIfDisposed() => _callback!(_state);
 
         private sealed class ManualTimer : ITimer
         {
-            public bool Disposed { get; private set; }
+            public bool Disposed
+            {
+                get; private set;
+            }
             public bool Change(TimeSpan dueTime, TimeSpan period) => !Disposed;
             public void Dispose() => Disposed = true;
-            public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+
+                return ValueTask.CompletedTask;
+            }
         }
     }
 
     private sealed class RecordingLogger<T> : ILogger<T>
     {
-        public int Errors { get; private set; }
+        public int Errors
+        {
+            get; private set;
+        }
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
             if (logLevel >= LogLevel.Error)
+            {
                 Errors++;
+            }
         }
     }
 }

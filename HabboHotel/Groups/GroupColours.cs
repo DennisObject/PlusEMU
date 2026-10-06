@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Groups;
+namespace Plus.HabboHotel.Groups;
 
 public class GroupColours
 {
@@ -8,6 +8,12 @@ public class GroupColours
         Colour = colour;
     }
 
-    public int Id { get; }
-    public string Colour { get; }
+    public int Id
+    {
+        get;
+    }
+    public string Colour
+    {
+        get;
+    }
 }

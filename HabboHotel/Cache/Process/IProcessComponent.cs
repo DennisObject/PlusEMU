@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Cache.Process;
+namespace Plus.HabboHotel.Cache.Process;
 
 public interface IProcessComponent : IDisposable
 {

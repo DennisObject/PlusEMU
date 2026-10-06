@@ -5,23 +5,65 @@ namespace Plus.HabboHotel.Moderation;
 
 public sealed class ModerationUserData
 {
-    public int Id { get; init; }
+    public int Id
+    {
+        get; init;
+    }
     public string Username { get; init; } = "";
     public string Look { get; init; } = "";
     public string Mail { get; init; } = "";
-    public int Rank { get; init; }
-    public int Credits { get; init; }
-    public int Duckets { get; init; }
-    public int Diamonds { get; init; }
-    public int GotwPoints { get; init; }
-    public DateTimeOffset? AccountCreatedAt { get; init; }
-    public DateTimeOffset? LastOnlineAt { get; init; }
-    public DateTimeOffset? TradingLockExpiresAt { get; init; }
-    public int HelpRequests { get; init; }
-    public int AbusiveHelpRequests { get; init; }
-    public int Cautions { get; init; }
-    public int Bans { get; init; }
-    public int TradingLockCount { get; init; }
+    public int Rank
+    {
+        get; init;
+    }
+    public int Credits
+    {
+        get; init;
+    }
+    public int Duckets
+    {
+        get; init;
+    }
+    public int Diamonds
+    {
+        get; init;
+    }
+    public int GotwPoints
+    {
+        get; init;
+    }
+    public DateTimeOffset? AccountCreatedAt
+    {
+        get; init;
+    }
+    public DateTimeOffset? LastOnlineAt
+    {
+        get; init;
+    }
+    public DateTimeOffset? TradingLockExpiresAt
+    {
+        get; init;
+    }
+    public int HelpRequests
+    {
+        get; init;
+    }
+    public int AbusiveHelpRequests
+    {
+        get; init;
+    }
+    public int Cautions
+    {
+        get; init;
+    }
+    public int Bans
+    {
+        get; init;
+    }
+    public int TradingLockCount
+    {
+        get; init;
+    }
 }
 
 public interface IModerationUserStore
@@ -40,12 +82,20 @@ public sealed class ModerationUserStore(IDatabase database) : IModerationUserSto
     public ModerationUserData? Find(int userId)
     {
         using var connection = database.Connection();
-        return connection.QuerySingleOrDefault<ModerationUserData>(Select + "WHERE u.id=@userId LIMIT 1", new { userId });
+
+        return connection.QuerySingleOrDefault<ModerationUserData>(Select + "WHERE u.id=@userId LIMIT 1", new
+        {
+            userId
+        });
     }
 
     public ModerationUserData? Find(string username)
     {
         using var connection = database.Connection();
-        return connection.QuerySingleOrDefault<ModerationUserData>(Select + "WHERE u.username=@username LIMIT 1", new { username });
+
+        return connection.QuerySingleOrDefault<ModerationUserData>(Select + "WHERE u.username=@username LIMIT 1", new
+        {
+            username
+        });
     }
 }

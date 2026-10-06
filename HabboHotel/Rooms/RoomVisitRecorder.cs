@@ -19,6 +19,11 @@ public sealed class RoomVisitRecorder(IDatabase database, TimeProvider clock) : 
         connection.Execute("""
             INSERT INTO user_roomvisits (user_id, room_id, entry_timestamp, exit_timestamp)
             VALUES (@userId, @roomId, @enteredAt, NULL)
-            """, new { userId, roomId, enteredAt = enteredAt.UtcDateTime });
+            """, new
+        {
+            userId,
+            roomId,
+            enteredAt = enteredAt.UtcDateTime
+        });
     }
 }

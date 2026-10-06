@@ -45,7 +45,10 @@ public sealed class CredentialLifetimeTests
 
     private sealed class CountingDatabase : IDatabase
     {
-        public int Connections { get; private set; }
+        public int Connections
+        {
+            get; private set;
+        }
         public bool IsConnected() => true;
         public IDbConnection Connection()
         {

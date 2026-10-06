@@ -16,7 +16,8 @@ public sealed class ModeratorActionServiceTests
     {
         var (actor, _) = HabbiconTestSupport.Client(new Habbo { Id = 7, Access = EditorTestSupport.Access([], 90) });
         var target = new Habbo { Id = 8, TimeMuted = 12, Access = EditorTestSupport.Access([], 50) };
-        var (client, sent) = HabbiconTestSupport.Client(target); target.Client = client;
+        var (client, sent) = HabbiconTestSupport.Client(target);
+        target.Client = client;
         var store = new RecordingStore { BeforeWrite = () => { Assert.Equal(12, target.TimeMuted); Assert.Empty(sent); } };
         var service = Service(target, store);
         service.Mute(actor, target.Id, int.MaxValue);
@@ -31,7 +32,8 @@ public sealed class ModeratorActionServiceTests
     {
         var (actor, _) = HabbiconTestSupport.Client(new Habbo { Id = 7, Access = EditorTestSupport.Access([], 90) });
         var target = new Habbo { Id = 8, TimeMuted = 12, Access = EditorTestSupport.Access([], 50) };
-        var (client, sent) = HabbiconTestSupport.Client(target); target.Client = client;
+        var (client, sent) = HabbiconTestSupport.Client(target);
+        target.Client = client;
         Assert.Throws<InvalidOperationException>(() => Service(target, new() { Fail = true }).Mute(actor, target.Id, 10));
         Assert.Equal(12, target.TimeMuted);
         Assert.Empty(sent);
@@ -57,24 +59,32 @@ public sealed class ModeratorActionServiceTests
     public void RoomModerationCommitsBeforePublishingSettings(bool fail)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 42; room.OwnerId = 7; room.Name = "Original"; room.Description = "Description"; room.Tags.Add("bad");
+        room.Id = 42;
+        room.OwnerId = 7;
+        room.Name = "Original";
+        room.Description = "Description";
+        room.Tags.Add("bad");
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         var (actor, _) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
         var store = new RecordingStore { Fail = fail, BeforeWrite = () => { Assert.Equal("Original", room.Name); Assert.Equal(RoomAccess.Open, room.Access); Assert.Single(room.Tags); } };
         var rooms = Proxy<IRoomManager>((method, args) => { Assert.Equal("TryGetRoom", method); args[1] = room; return true; });
         var service = new ModeratorActionService(null!, null!, rooms, null!, null!, store);
+
         if (fail)
         {
             Assert.Throws<InvalidOperationException>(() => service.ModerateRoom(actor, new(42, true, true, false)));
-            Assert.Equal("Original", room.Name); Assert.Equal(RoomAccess.Open, room.Access); Assert.Single(room.Tags);
+            Assert.Equal("Original", room.Name);
+            Assert.Equal(RoomAccess.Open, room.Access);
+            Assert.Single(room.Tags);
         }
         else
         {
             service.ModerateRoom(actor, new(42, true, true, false));
             Assert.Equal(ModeratorActionService.InappropriateRoomText, room.Name);
             Assert.Equal(ModeratorActionService.InappropriateRoomText, room.Description);
-            Assert.Equal(RoomAccess.Doorbell, room.Access); Assert.Empty(room.Tags);
+            Assert.Equal(RoomAccess.Doorbell, room.Access);
+            Assert.Empty(room.Tags);
         }
     }
 
@@ -97,7 +107,10 @@ public sealed class ModeratorActionServiceTests
         new(null!, Proxy<IModeratorUserLookup>((method, _) => method == "GetById" ? target : throw new NotSupportedException(method)), null!, null!, null!, store);
     private static T Proxy<T>(Func<string, object?[], object?> call) where T : class
     {
-        var proxy = DispatchProxy.Create<T, TestProxy>(); ((TestProxy)(object)proxy).Call = call; return proxy;
+        var proxy = DispatchProxy.Create<T, TestProxy>();
+        ((TestProxy)(object)proxy).Call = call;
+
+        return proxy;
     }
     public class TestProxy : DispatchProxy
     {
@@ -106,12 +119,30 @@ public sealed class ModeratorActionServiceTests
     }
     private sealed class RecordingStore : IModeratorActionStore
     {
-        public bool Fail { get; init; }
-        public Action? BeforeWrite { get; init; }
+        public bool Fail
+        {
+            get; init;
+        }
+        public Action? BeforeWrite
+        {
+            get; init;
+        }
         public List<(int Id, long Seconds)> Mutes { get; } = [];
-        private void Persist() { BeforeWrite?.Invoke(); if (Fail) throw new InvalidOperationException("forced failure"); }
+        private void Persist()
+        {
+            BeforeWrite?.Invoke();
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
+        }
         public void AddCaution(int userId) => Persist();
-        public void SetMute(int userId, long seconds) { Persist(); Mutes.Add((userId, seconds)); }
+        public void SetMute(int userId, long seconds)
+        {
+            Persist();
+            Mutes.Add((userId, seconds));
+        }
         public void ModerateRoom(uint roomId, bool rename, bool locked, bool endPromotion) => Persist();
     }
     private sealed class RecordingService : IModeratorActionService

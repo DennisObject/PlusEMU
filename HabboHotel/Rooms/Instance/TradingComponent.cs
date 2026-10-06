@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using Plus.HabboHotel.Rooms.Trading;
 using Plus.Core.Settings;
@@ -26,6 +26,7 @@ public class TradingComponent
     {
         _currentId++;
         trade = new(_currentId, player1, player2, _instance, _store, _settings);
+
         return _activeTrades.TryAdd(_currentId, trade);
     }
 
@@ -34,6 +35,7 @@ public class TradingComponent
     public bool RemoveTrade(int id)
     {
         Trade? trade = null;
+
         return _activeTrades.TryRemove(id, out trade);
     }
 
@@ -44,7 +46,10 @@ public class TradingComponent
             foreach (var user in trade.Users)
             {
                 if (user == null || user.RoomUser == null)
+                {
                     continue;
+                }
+
                 trade.EndTrade(user.RoomUser.HabboId);
             }
         }

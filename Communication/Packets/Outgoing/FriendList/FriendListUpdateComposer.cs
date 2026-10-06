@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Messenger;
 
@@ -19,13 +19,19 @@ public class FriendListUpdateComposer : IServerPacket
     {
         packet.WriteInteger(0);
         packet.WriteInteger(_modifications.Length);
+
         foreach (var modification in _modifications)
         {
             packet.WriteInteger((int)modification.Type);
+
             if (modification.Type == BuddyModificationType.Added || modification.Type == BuddyModificationType.Updated)
+            {
                 MessengerBuddyWire.Write(packet, modification.Buddy!);
+            }
             else
+            {
                 packet.WriteInteger(modification.BuddyId);
+            }
         }
     }
 }

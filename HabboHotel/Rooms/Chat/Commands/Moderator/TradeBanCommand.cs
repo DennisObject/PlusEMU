@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -13,12 +13,18 @@ internal class TradeBanCommand(ITradingLockService tradingLocks) : ITargetChatCo
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!session.GetHabbo().Access.Outranks(target.Access)) return Task.CompletedTask;
+        if (!session.GetHabbo().Access.Outranks(target.Access))
+        {
+            return Task.CompletedTask;
+        }
+
         if (parameters.Length == 0 || !double.TryParse(parameters[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var days) || !double.IsFinite(days))
         {
             session.SendWhisper("Please enter the number of days. Use 0 to reset.");
+
             return Task.CompletedTask;
         }
+
         if (days == 0)
         {
             tradingLocks.Clear(target.Id);
@@ -33,6 +39,7 @@ internal class TradeBanCommand(ITradingLockService tradingLocks) : ITargetChatCo
             target.Client?.SendNotification($"You have been trade banned for {days} day(s)!");
             session.SendWhisper($"You have successfully trade banned {target.Username} for {days} day(s).");
         }
+
         return Task.CompletedTask;
     }
 }

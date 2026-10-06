@@ -14,6 +14,7 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
     public HabbiconSnapshot Load(int userId)
     {
         using var connection = database.Connection();
+
         return Load(connection, userId, null);
     }
 
@@ -26,7 +27,11 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
             FROM habbicons h JOIN habbicon_collections c ON c.id = h.collection_id
             LEFT JOIN users_habbicons u ON u.habbicon_id = h.id AND u.user_id = @userId
             ORDER BY h.collection_id, h.id
-            """, new { userId }, transaction);
+            """, new
+        {
+            userId
+        }, transaction);
+
         foreach (var row in rows)
         {
             int id = row.id, collectionId = row.collection_id, rewardId = row.reward_id;
@@ -37,30 +42,49 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
                 : !Convert.ToBoolean(row.available) ? HabbiconState.Unavailable
                 : credits == 0 && points == 0 ? HabbiconState.Claimable : HabbiconState.NotOwned;
             items.Add(id, new(id, (string)row.name, collectionId, state, credits, points, pointsType));
-            if (row.unseen != null && Convert.ToBoolean(row.unseen)) unseen.Add(id);
+
+            if (row.unseen != null && Convert.ToBoolean(row.unseen))
+            {
+                unseen.Add(id);
+            }
         }
+
         var collections = new List<HabbiconCollection>();
+
         foreach (var row in connection.Query("SELECT * FROM habbicon_collections ORDER BY id", transaction: transaction))
         {
             int id = row.id, rewardId = row.reward_id;
             var members = items.Values.Where(item => item.CollectionId == id && item.Id != rewardId).ToArray();
             bool complete = members.Length > 0 && members.All(item => item.Collected);
             items.TryGetValue(rewardId, out var reward);
+
             if (reward != null && reward.CollectionId == id && complete && reward.State == HabbiconState.Reward)
-                items[rewardId] = reward = reward with { State = HabbiconState.Claimable };
+            {
+                items[rewardId] = reward = reward with
+                {
+                    State = HabbiconState.Claimable
+                };
+            }
+
             collections.Add(new(id, (string)row.name, complete, rewardId, reward?.State ?? HabbiconState.Unavailable,
                 checked((int)row.cost_credits), checked((int)row.cost_points), checked((int)row.points_type), members));
         }
+
         var recent = connection.Query<int>("""
             SELECT habbicon_id FROM users_habbicons WHERE user_id = @userId AND last_used IS NOT NULL AND state IN (2, 3)
             ORDER BY last_used DESC, habbicon_id DESC LIMIT 10
-            """, new { userId }, transaction).Where(items.ContainsKey).ToArray();
+            """, new
+        {
+            userId
+        }, transaction).Where(items.ContainsKey).ToArray();
+
         return new(collections.AsReadOnly(), new System.Collections.ObjectModel.ReadOnlyDictionary<int, HabbiconItem>(items), recent, unseen.AsReadOnly());
     }
 
     public HabbiconChange Change(Habbo habbo, HabbiconAction action, int id)
     {
         var now = clock.GetUtcNow().ToUniversalTime();
+
         return WithWallet(habbo,
             balances => Change(habbo.Id, action, id, balances, habbo.Access.Membership, now));
     }
@@ -70,6 +94,7 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         HabbiconBalances? balances = null, ClubMembership? membership = null)
     {
         var now = clock.GetUtcNow().ToUniversalTime();
+
         return Change(userId, action, id, balances, membership, now);
     }
 
@@ -85,14 +110,20 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         // Plus packets are serialized per client. Its background currency timer and logout use the same lock.
         lock (habbo.WalletSync)
         {
-            if (habbo.WalletClosed) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+            if (habbo.WalletClosed)
+            {
+                throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+            }
+
             var change = work(new(habbo.Credits, habbo.Duckets, habbo.Diamonds));
+
             if (change.Balances is { } balances)
             {
                 habbo.Credits = balances.Credits;
                 habbo.Duckets = balances.Duckets;
                 habbo.Diamonds = balances.Diamonds;
             }
+
             return change;
         }
     }
@@ -100,6 +131,7 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
     public HabbiconChange BuyCatalog(Habbo habbo, int id, int credits, int duckets, int diamonds)
     {
         var now = clock.GetUtcNow().ToUniversalTime();
+
         return WithWallet(habbo, balances =>
             BuyCatalog(habbo.Id, id, credits, duckets, diamonds, balances, habbo.Access.Membership, now));
     }
@@ -108,6 +140,7 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         HabbiconBalances? balances = null, ClubMembership? membership = null)
     {
         var now = clock.GetUtcNow().ToUniversalTime();
+
         return BuyCatalog(userId, id, credits, duckets, diamonds, balances, membership, now);
     }
 
@@ -117,11 +150,21 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         {
             var before = Load(connection, userId, transaction);
             var item = before.RequireItem(id);
-            if (item.Collected) throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
-            if (item.State != HabbiconState.NotOwned) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+
+            if (item.Collected)
+            {
+                throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
+            }
+
+            if (item.State != HabbiconState.NotOwned)
+            {
+                throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+            }
+
             var afterBalances = Charge(connection, transaction, userId, balances ?? stored, credits, duckets,
                 diamonds, membership, now);
             Save(connection, transaction, userId, id, HabbiconState.Owned, true);
+
             return Changed(connection, transaction, userId, before, afterBalances);
         });
 
@@ -130,43 +173,76 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
     {
         var before = Load(connection, userId, transaction);
         HabbiconBalances? afterBalances = null;
+
         if (action == HabbiconAction.BuyCollection)
         {
             var collection = before.Collections.FirstOrDefault(set => set.Id == id) ?? throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
             var missing = collection.Items.Where(item => !item.Collected).ToArray();
-            if (missing.Length == 0) throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
+
+            if (missing.Length == 0)
+            {
+                throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
+            }
+
             if ((collection.Credits <= 0 && collection.Points <= 0) || missing.Any(item => item.State != HabbiconState.NotOwned))
+            {
                 throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+            }
+
             afterBalances = ChargePoints(connection, transaction, userId, balances, collection.Credits,
                 collection.Points, collection.PointsType, membership, now);
-            foreach (var item in missing) Save(connection, transaction, userId, item.Id, HabbiconState.Owned, true);
+
+            foreach (var item in missing)
+            {
+                Save(connection, transaction, userId, item.Id, HabbiconState.Owned, true);
+            }
         }
         else
         {
             var item = before.RequireItem(id);
             int state;
+
             switch (action)
             {
                 case HabbiconAction.Buy:
-                    if (item.Collected) throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
-                    if (!item.Purchasable) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+                    if (item.Collected)
+                    {
+                        throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
+                    }
+
+                    if (!item.Purchasable)
+                    {
+                        throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+                    }
+
                     afterBalances = ChargePoints(connection, transaction, userId, balances, item.Credits,
                         item.Points, item.PointsType, membership, now);
                     state = HabbiconState.Owned;
                     break;
                 case HabbiconAction.Claim:
-                    if (item.State != HabbiconState.Claimable) throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
+                    if (item.State != HabbiconState.Claimable)
+                    {
+                        throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
+                    }
+
                     state = HabbiconState.Owned;
                     break;
                 case HabbiconAction.Favorite:
                 case HabbiconAction.Unfavorite:
-                    if (!item.Owned) throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
+                    if (!item.Owned)
+                    {
+                        throw new HabbiconRejected(HabbiconActionError.AlreadyOwned);
+                    }
+
                     state = action == HabbiconAction.Favorite ? HabbiconState.Favorite : HabbiconState.Owned;
                     break;
-                default: throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+                default:
+                    throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
             }
+
             Save(connection, transaction, userId, id, state, action is HabbiconAction.Buy or HabbiconAction.Claim);
         }
+
         return Changed(connection, transaction, userId, before, afterBalances);
     }
 
@@ -175,45 +251,78 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
     {
         var after = Load(connection, userId, transaction);
         var changed = after.Items.Values.Where(item => before.RequireItem(item.Id).State != item.State).ToArray();
+
         foreach (var item in changed)
+        {
             if (item.State == HabbiconState.Claimable && before.RequireItem(item.Id).State == HabbiconState.Reward)
+            {
                 Save(connection, transaction, userId, item.Id, HabbiconState.Claimable, true);
+            }
+        }
+
         return new(Load(connection, userId, transaction), changed, balances);
     }
 
     public bool Use(int userId, int id)
     {
         var now = clock.GetUtcNow().ToUniversalTime();
+
         return Transact(userId, (connection, transaction, _) =>
         {
             var item = Load(connection, userId, transaction).Items.GetValueOrDefault(id);
-            if (item == null || !item.Owned) return false;
+
+            if (item == null || !item.Owned)
+            {
+                return false;
+            }
+
             var previous = connection.QuerySingle<DateTimeOffset?>(
                 "SELECT MAX(last_used) FROM users_habbicons WHERE user_id = @userId",
-                new { userId }, transaction);
+                new
+                {
+                    userId
+                }, transaction);
             var lastUsed = NextUsageTime(now, previous);
             Save(connection, transaction, userId, id, item.State, false);
             connection.Execute(
                 "UPDATE users_habbicons SET last_used = @lastUsed WHERE user_id = @userId AND habbicon_id = @id",
-                new { lastUsed = lastUsed.UtcDateTime, userId, id }, transaction);
+                new
+                {
+                    lastUsed = lastUsed.UtcDateTime,
+                    userId,
+                    id
+                }, transaction);
+
             return true;
         });
     }
 
     public void ClearUnseen(int userId, IReadOnlyList<int> ids)
     {
-        if (ids.Count > 1000) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+        if (ids.Count > 1000)
+        {
+            throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+        }
+
         using var connection = database.Connection();
         connection.Execute(ids.Count == 0
             ? "UPDATE users_habbicons SET unseen = FALSE WHERE user_id = @userId"
-            : "UPDATE users_habbicons SET unseen = FALSE WHERE user_id = @userId AND habbicon_id IN @ids", new { userId, ids });
+            : "UPDATE users_habbicons SET unseen = FALSE WHERE user_id = @userId AND habbicon_id IN @ids", new
+            {
+                userId,
+                ids
+            });
     }
 
     private static HabbiconBalances ChargePoints(IDbConnection connection, IDbTransaction transaction, int userId,
         HabbiconBalances balances, int credits, int points, int pointsType, ClubMembership? membership,
         DateTimeOffset now)
     {
-        if (pointsType is not (0 or 5)) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+        if (pointsType is not (0 or 5))
+        {
+            throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+        }
+
         return Charge(connection, transaction, userId, balances, credits, pointsType == 0 ? points : 0,
             pointsType == 5 ? points : 0, membership, now);
     }
@@ -222,24 +331,52 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         HabbiconBalances balances, int credits, int duckets, int diamonds, ClubMembership? membership,
         DateTimeOffset now)
     {
-        if (credits < 0 || duckets < 0 || diamonds < 0) throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
-        if (balances.Credits < credits) throw new HabbiconRejected(HabbiconActionError.InsufficientCredits);
-        if (balances.Duckets < duckets || balances.Diamonds < diamonds) throw new HabbiconRejected(HabbiconActionError.InsufficientActivityPoints);
+        if (credits < 0 || duckets < 0 || diamonds < 0)
+        {
+            throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+        }
+
+        if (balances.Credits < credits)
+        {
+            throw new HabbiconRejected(HabbiconActionError.InsufficientCredits);
+        }
+
+        if (balances.Duckets < duckets || balances.Diamonds < diamonds)
+        {
+            throw new HabbiconRejected(HabbiconActionError.InsufficientActivityPoints);
+        }
+
         var after = new HabbiconBalances(balances.Credits - credits, balances.Duckets - duckets, balances.Diamonds - diamonds);
         connection.Execute("UPDATE users SET credits = @Credits, activity_points = @Duckets, vip_points = @Diamonds WHERE id = @userId",
-            new { after.Credits, after.Duckets, after.Diamonds, userId }, transaction);
+            new
+            {
+                after.Credits,
+                after.Duckets,
+                after.Diamonds,
+                userId
+            }, transaction);
         ClubRewards.RecordSpending(connection, transaction, userId, credits, now,
             membership?.Active(now) == true);
+
         return after;
     }
 
     private static DateTimeOffset NextUsageTime(DateTimeOffset now, DateTimeOffset? previous)
     {
-        if (previous == null) return now;
+        if (previous == null)
+        {
+            return now;
+        }
+
         var prior = previous.Value.ToUniversalTime();
+
         if (prior > DateTimeOffset.MaxValue.AddMilliseconds(-1))
+        {
             throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+        }
+
         var next = prior.AddMilliseconds(1);
+
         return now > next ? now : next;
     }
 
@@ -247,7 +384,13 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         connection.Execute("""
             INSERT INTO users_habbicons (user_id, habbicon_id, state, unseen) VALUES (@userId, @id, @state, @unseen)
             ON DUPLICATE KEY UPDATE state = VALUES(state), unseen = unseen OR VALUES(unseen)
-            """, new { userId, id, state, unseen }, transaction);
+            """, new
+        {
+            userId,
+            id,
+            state,
+            unseen
+        }, transaction);
 
     private T Transact<T>(int userId, Func<IDbConnection, IDbTransaction, HabbiconBalances, T> work)
     {
@@ -256,9 +399,13 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         using var transaction = connection.BeginTransaction();
         var balances = connection.QuerySingleOrDefault<HabbiconBalances>("""
             SELECT credits AS Credits, activity_points AS Duckets, vip_points AS Diamonds FROM users WHERE id = @userId FOR UPDATE
-            """, new { userId }, transaction) ?? throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+            """, new
+        {
+            userId
+        }, transaction) ?? throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
         var result = work(connection, transaction, balances);
         transaction.Commit();
+
         return result;
     }
 }

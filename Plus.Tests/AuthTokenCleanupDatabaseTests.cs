@@ -22,7 +22,10 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
         _remember = new(_database, _time, AuthTestConfig.Options(c => c.RememberTokenLifetimeDays = 30));
         _access = new(_database, _time, AuthTestConfig.Options(c => c.AccessTokenLifetimeMinutes = 60));
         _generations = new(_database, _time);
-        _cleanup = new(_remember, _access, _generations, _time, NullLogger<AuthTokenCleanup>.Instance) { BatchSize = 2 };
+        _cleanup = new(_remember, _access, _generations, _time, NullLogger<AuthTokenCleanup>.Instance)
+        {
+            BatchSize = 2
+        };
     }
 
     [AuthDatabaseFact]
@@ -30,6 +33,7 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
     {
         var userId = User();
         var current = await _remember.Issue(userId);
+
         for (var day = 0; day < 6; day++)
         {
             _time.Advance(TimeSpan.FromDays(20));
@@ -47,8 +51,12 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
     public async Task ExpiredAccessTokensAreRemovedAndLiveOnesKept()
     {
         var userId = User();
+
         for (var i = 0; i < 5; i++)
+        {
             await _access.Issue(userId);
+        }
+
         _time.Advance(TimeSpan.FromDays(3));
         var live = await _access.Issue(userId);
 
@@ -66,8 +74,15 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
             new Plus.HabboHotel.Moderation.BanLookup(_database, _time), _time);
         await issuer.Issue(userId, "x", 0, "203.0.113.8");
         var remembered = (await issuer.Issue(userId, "x", 0, "203.0.113.8", remember: true))!;
+
         using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
-            connection.Execute("UPDATE user_sessions SET created_at = DATE_SUB(created_at, INTERVAL 3 DAY) WHERE user_id = @userId", new { userId });
+        {
+            connection.Execute("UPDATE user_sessions SET created_at = DATE_SUB(created_at, INTERVAL 3 DAY) WHERE user_id = @userId", new
+            {
+                userId
+            });
+        }
+
         _time.Advance(TimeSpan.FromDays(3));
 
         await _cleanup.PruneExpired();
@@ -79,20 +94,29 @@ public sealed class AuthTokenCleanupDatabaseTests : IDisposable
     private int Count(string sql, int userId)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        return connection.QuerySingle<int>(sql, new { userId, cutoff = (_time.Now - TimeSpan.FromDays(1)).UtcDateTime });
+
+        return connection.QuerySingle<int>(sql, new
+        {
+            userId,
+            cutoff = (_time.Now - TimeSpan.FromDays(1)).UtcDateTime
+        });
     }
 
     private int User()
     {
         var id = AuthTestDatabase.InsertUser(AuthTestDatabase.UniqueName("cln"));
         _users.Add(id);
+
         return id;
     }
 
     public void Dispose()
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
-        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids; DELETE FROM user_sessions WHERE user_id IN @ids", new { ids = _users.ToArray() });
+        connection.Execute("DELETE FROM user_remember_tokens WHERE user_id IN @ids; DELETE FROM user_sessions WHERE user_id IN @ids", new
+        {
+            ids = _users.ToArray()
+        });
         AuthTestDatabase.DeleteUsers(_users);
     }
 }

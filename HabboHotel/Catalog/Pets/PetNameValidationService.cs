@@ -16,14 +16,24 @@ public sealed class PetNameValidationService(IWordFilterManager filter) : IPetNa
     public void Check(GameClient session, string name)
     {
         if (name.Length < 2)
+        {
             session.Send(new CheckPetNameComposer(PetNameError.TooShort, "2"));
+        }
         else if (name.Length > 15)
+        {
             session.Send(new CheckPetNameComposer(PetNameError.TooLong, "15"));
+        }
         else if (!PetUtility.CheckPetName(name))
+        {
             session.Send(new CheckPetNameComposer(PetNameError.InvalidCharacters, ""));
+        }
         else if (filter.IsFiltered(name))
+        {
             session.Send(new CheckPetNameComposer(PetNameError.Filtered, ""));
+        }
         else
+        {
             session.Send(new CheckPetNameComposer(PetNameError.None, ""));
+        }
     }
 }

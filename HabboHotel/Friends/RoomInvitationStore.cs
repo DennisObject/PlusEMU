@@ -17,6 +17,11 @@ public sealed class RoomInvitationStore(IDatabase database) : IRoomInvitationSto
         using var connection = database.Connection();
         await connection.ExecuteAsync(
             "INSERT INTO chatlogs_console_invitations (user_id, message, timestamp) VALUES (@userId, @message, @invitedAt)",
-            new { userId, message, invitedAt });
+            new
+            {
+                userId,
+                message,
+                invitedAt
+            });
     }
 }

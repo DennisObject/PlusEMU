@@ -7,7 +7,10 @@ using Plus.HabboHotel.Users.Authentication;
 
 namespace Plus.HabboHotel.Users;
 
-public enum UserCurrency { Credits, Duckets, Diamonds, Gotw }
+public enum UserCurrency
+{
+    Credits, Duckets, Diamonds, Gotw
+}
 
 /// <summary>Staff currency and motto maintenance: every balance change is persisted before memory or the client sees it.</summary>
 public interface IUserMaintenanceService
@@ -27,31 +30,62 @@ public sealed class UserMaintenanceService(IUserMaintenanceStore store, IAccount
 
     public async Task<bool> SyncCurrency(int userId, string currency)
     {
-        if (!TryCurrency(currency, out var type)) return false;
+        if (!TryCurrency(currency, out var type))
+        {
+            return false;
+        }
+
         using var held = await sessionGate.EnterAsync(userId);
         var client = clients.GetClientByUserId(userId);
         var habbo = client?.GetHabbo();
-        if (client == null || habbo == null) return false;
+
+        if (client == null || habbo == null)
+        {
+            return false;
+        }
+
         lock (habbo.WalletSync)
         {
-            if (habbo.WalletClosed) return false;
+            if (habbo.WalletClosed)
+            {
+                return false;
+            }
+
             return store.TryWriteCurrency(userId, type, Balance(habbo, type));
         }
     }
 
     public async Task<bool> ReloadCurrency(int userId, string currency)
     {
-        if (!TryCurrency(currency, out var type)) return false;
+        if (!TryCurrency(currency, out var type))
+        {
+            return false;
+        }
+
         using var held = await sessionGate.EnterAsync(userId);
         var client = clients.GetClientByUserId(userId);
         var habbo = client?.GetHabbo();
-        if (client == null || habbo == null) return false;
+
+        if (client == null || habbo == null)
+        {
+            return false;
+        }
+
         lock (habbo.WalletSync)
         {
-            if (habbo.WalletClosed) return false;
-            if (store.ReadCurrency(userId, type) is not { } value) return false;
+            if (habbo.WalletClosed)
+            {
+                return false;
+            }
+
+            if (store.ReadCurrency(userId, type) is not { } value)
+            {
+                return false;
+            }
+
             SetBalance(habbo, type, value);
             Publish(client, habbo, type, value);
+
             return true;
         }
     }
@@ -61,34 +95,76 @@ public sealed class UserMaintenanceService(IUserMaintenanceStore store, IAccount
         using var held = await sessionGate.EnterAsync(userId);
         var client = clients.GetClientByUserId(userId);
         var habbo = client?.GetHabbo();
-        if (client == null || habbo == null) return false;
-        if (store.ReadMotto(userId) is not { } motto) return false;
+
+        if (client == null || habbo == null)
+        {
+            return false;
+        }
+
+        if (store.ReadMotto(userId) is not { } motto)
+        {
+            return false;
+        }
+
         habbo.Motto = motto;
 
         // Outside a room there is nothing to publish; the stored motto is already the current one.
-        if (!habbo.InRoom) return true;
+        if (!habbo.InRoom)
+        {
+            return true;
+        }
+
         var room = habbo.CurrentRoom;
         var user = room?.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
-        if (room == null || user == null) return false;
+
+        if (room == null || user == null)
+        {
+            return false;
+        }
+
         room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
+
         return true;
     }
 
     private async Task<bool> ChangeCurrency(int userId, string currency, int amount, int sign)
     {
-        if (!TryCurrency(currency, out var type)) return false;
+        if (!TryCurrency(currency, out var type))
+        {
+            return false;
+        }
+
         using var held = await sessionGate.EnterAsync(userId);
         var client = clients.GetClientByUserId(userId);
         var habbo = client?.GetHabbo();
-        if (client == null || habbo == null) return false;
+
+        if (client == null || habbo == null)
+        {
+            return false;
+        }
+
         lock (habbo.WalletSync)
         {
-            if (habbo.WalletClosed) return false;
+            if (habbo.WalletClosed)
+            {
+                return false;
+            }
+
             var next = (long)Balance(habbo, type) + (long)sign * amount;
-            if (next is < int.MinValue or > int.MaxValue) return false;
-            if (!store.TryWriteCurrency(userId, type, (int)next)) return false;
+
+            if (next is < int.MinValue or > int.MaxValue)
+            {
+                return false;
+            }
+
+            if (!store.TryWriteCurrency(userId, type, (int)next))
+            {
+                return false;
+            }
+
             SetBalance(habbo, type, (int)next);
             Publish(client, habbo, type, amount);
+
             return true;
         }
     }
@@ -98,11 +174,26 @@ public sealed class UserMaintenanceService(IUserMaintenanceStore store, IAccount
     {
         switch (alias)
         {
-            case "coins" or "credits": currency = UserCurrency.Credits; return true;
-            case "pixels" or "duckets": currency = UserCurrency.Duckets; return true;
-            case "diamonds": currency = UserCurrency.Diamonds; return true;
-            case "gotw": currency = UserCurrency.Gotw; return true;
-            default: currency = default; return false;
+            case "coins" or "credits":
+                currency = UserCurrency.Credits;
+
+                return true;
+            case "pixels" or "duckets":
+                currency = UserCurrency.Duckets;
+
+                return true;
+            case "diamonds":
+                currency = UserCurrency.Diamonds;
+
+                return true;
+            case "gotw":
+                currency = UserCurrency.Gotw;
+
+                return true;
+            default:
+                currency = default;
+
+                return false;
         }
     }
 
@@ -118,10 +209,18 @@ public sealed class UserMaintenanceService(IUserMaintenanceStore store, IAccount
     {
         switch (currency)
         {
-            case UserCurrency.Credits: habbo.Credits = value; break;
-            case UserCurrency.Duckets: habbo.Duckets = value; break;
-            case UserCurrency.Diamonds: habbo.Diamonds = value; break;
-            default: habbo.GotwPoints = value; break;
+            case UserCurrency.Credits:
+                habbo.Credits = value;
+                break;
+            case UserCurrency.Duckets:
+                habbo.Duckets = value;
+                break;
+            case UserCurrency.Diamonds:
+                habbo.Diamonds = value;
+                break;
+            default:
+                habbo.GotwPoints = value;
+                break;
         }
     }
 
@@ -130,10 +229,18 @@ public sealed class UserMaintenanceService(IUserMaintenanceStore store, IAccount
     {
         switch (currency)
         {
-            case UserCurrency.Credits: client.Send(new CreditBalanceComposer(habbo.Credits)); break;
-            case UserCurrency.Duckets: client.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, pixelAmount)); break;
-            case UserCurrency.Diamonds: client.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, 0, 5)); break;
-            default: client.Send(new HabboActivityPointNotificationComposer(habbo.GotwPoints, 0, 103)); break;
+            case UserCurrency.Credits:
+                client.Send(new CreditBalanceComposer(habbo.Credits));
+                break;
+            case UserCurrency.Duckets:
+                client.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, pixelAmount));
+                break;
+            case UserCurrency.Diamonds:
+                client.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, 0, 5));
+                break;
+            default:
+                client.Send(new HabboActivityPointNotificationComposer(habbo.GotwPoints, 0, 103));
+                break;
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 
@@ -13,16 +13,26 @@ internal class SitCommand : IChatCommand
     public void Execute(GameClient session, Room room, string[] parameters)
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
+
         if (user == null)
+        {
             return;
+        }
+
         if (user.Statusses.ContainsKey("lie") || user.IsLying || user.RidingHorse || user.IsWalking)
+        {
             return;
+        }
+
         if (!user.Statusses.ContainsKey("sit"))
         {
             if (user.RotBody % 2 == 0)
             {
                 if (user == null)
+                {
                     return;
+                }
+
                 try
                 {
                     user.Statusses.Add("sit", "1.0");

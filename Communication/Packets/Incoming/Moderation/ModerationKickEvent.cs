@@ -13,6 +13,7 @@ internal sealed class ModerationKickEvent(IModeratorActionService moderation) : 
         var userId = packet.ReadInt();
         packet.ReadString();
         moderation.Kick(session, userId);
+
         return Task.CompletedTask;
     }
 }

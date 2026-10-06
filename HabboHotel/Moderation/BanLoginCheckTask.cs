@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users.Authentication;
+using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.UserData;
 
 namespace Plus.HabboHotel.Moderation;
@@ -17,8 +17,17 @@ internal class BanLoginCheckTask : IAuthenticationTask
     public async Task<bool> CanLogin(int userId)
     {
         var username = await _userDataFactory.GetUsernameForHabboById(userId);
-        if (string.IsNullOrWhiteSpace(username)) return false;
-        if (_moderationManager.UsernameBanCheck(username)) return false;
+
+        if (string.IsNullOrWhiteSpace(username))
+        {
+            return false;
+        }
+
+        if (_moderationManager.UsernameBanCheck(username))
+        {
+            return false;
+        }
+
         return true;
     }
 }

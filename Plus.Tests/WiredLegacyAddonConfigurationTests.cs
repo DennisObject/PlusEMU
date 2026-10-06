@@ -13,7 +13,11 @@ public sealed class WiredLegacyAddonConfigurationTests
     {
         var item = new Item { Id = 1, Definition = new() { ItemName = "wf_xtra_random" } };
         var original = new AddonRandomEffectBox(null!, item)
-        { StringData = "37;99", BoolData = true, ItemsData = "2:historical-unused-data" };
+        {
+            StringData = "37;99",
+            BoolData = true,
+            ItemsData = "2:historical-unused-data"
+        };
         var selected = new Item { Id = 2 };
         original.SetItems[selected.Id] = selected;
         var descriptor = item.Definition.WiredDescriptor!;
@@ -31,8 +35,14 @@ public sealed class WiredLegacyAddonConfigurationTests
         Assert.Same(selected, original.SetItems[selected.Id]);
         Assert.Same(item, original.Item);
         Assert.False(WiredLegacyAddonConfigurationAdapter.TryConvert(original,
-            descriptor with { CanonicalName = "wf_xtra_unseen" }, out _));
+            descriptor with
+            {
+                CanonicalName = "wf_xtra_unseen"
+            }, out _));
         Assert.False(WiredLegacyAddonConfigurationAdapter.TryConvert(original,
-            descriptor with { Category = WiredBoxCategory.Action }, out _));
+            descriptor with
+            {
+                Category = WiredBoxCategory.Action
+            }, out _));
     }
 }

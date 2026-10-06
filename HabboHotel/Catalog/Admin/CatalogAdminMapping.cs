@@ -13,6 +13,7 @@ public static class CatalogAdminMapping
         var images = Split(row.PageStrings1);
         var texts = Split(row.PageStrings2);
         const string type = CatalogAdminTypes.Normal;
+
         return new(type, row.Id, row.ParentId, row.PageLink, row.Caption, row.PageLayout, 1, row.IconImage, row.RequiredPermission ?? string.Empty,
             row.OrderNum, row.Visible, row.Enabled, row.RequiredClubLevel > 0, type,
             At(images, 0), At(images, 1), At(images, 2), At(texts, 0), At(texts, 1), At(texts, 2), At(texts, 3), 0, string.Empty);
@@ -32,8 +33,12 @@ public static class CatalogAdminMapping
         row.PageLayout = page.PageLayout;
         row.PageStrings1 = SetStrings(row.PageStrings1, page.PageHeadline, page.PageTeaser, page.PageSpecial);
         row.PageStrings2 = SetStrings(row.PageStrings2, page.PageText1, page.PageText2, page.PageTextDetails, page.PageTextTeaser);
+
         if (page.OrderNum >= 0)
+        {
             row.OrderNum = page.OrderNum;
+        }
+
         return row;
     }
 
@@ -42,12 +47,14 @@ public static class CatalogAdminMapping
         var copy = row.Copy();
         var images = Split(row.PageStrings1);
         copy.PageStrings1 = SetStrings(row.PageStrings1, headerImage, teaserImage, At(images, 2));
+
         return copy;
     }
 
     public static CatalogAdminOffer ToOffer(CatalogOfferRow row, int offerId, string catalogType)
     {
         bool diamonds = row.CostDiamonds > 0;
+
         return new(catalogType, offerId, row.ItemId, row.PageId, row.CatalogName, row.CostCredits,
             diamonds ? row.CostDiamonds : row.CostPixels, diamonds ? DiamondsPointsType : DucketsPointsType, row.Amount,
             row.LimitedStack, row.OrderNum, row.OfferId, 0, row.Extradata, row.OfferActive, row.ClubLevel > 0)
@@ -71,8 +78,12 @@ public static class CatalogAdminMapping
         row.Extradata = offer.Extradata;
         row.OfferId = offer.OfferIdClient > 0 ? offer.OfferIdClient : -1;
         row.ClubLevel = offer.ClubOnly ? Math.Max(row.ClubLevel, 1) : 0;
+
         if (offer.OrderNumber >= 0)
+        {
             row.OrderNum = offer.OrderNumber;
+        }
+
         return row;
     }
 
@@ -85,14 +96,22 @@ public static class CatalogAdminMapping
     {
         var list = Split(original);
         int originalCount = list.Count;
+
         for (int i = 0; i < values.Length; i++)
         {
             while (list.Count <= i)
+            {
                 list.Add(string.Empty);
+            }
+
             list[i] = values[i];
         }
+
         while (list.Count > originalCount && list[^1].Length == 0)
+        {
             list.RemoveAt(list.Count - 1);
+        }
+
         return string.Join('|', list);
     }
 }

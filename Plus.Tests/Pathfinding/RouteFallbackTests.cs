@@ -17,7 +17,10 @@ public partial class PlacedFurniRoomTests
     private const string FallbackDeadEnd = "xxxxxxx\r0000000\rxxxxxxx\rxxx0xxx";
     private const string FallbackLongDeadEnd = "xxxxxxxx\r00000000\rxxxxxxxx\rxxx0xxxx";
 
-    public enum FallbackObstacle { ClosingGate, PlacedFurniture }
+    public enum FallbackObstacle
+    {
+        ClosingGate, PlacedFurniture
+    }
 
     [Theory]
     [InlineData(FallbackObstacle.ClosingGate, false)]
@@ -29,14 +32,31 @@ public partial class PlacedFurniRoomTests
         FallbackModel(alternative ? FallbackAlternative : FallbackDeadEnd);
         var gate = obstacle == FallbackObstacle.ClosingGate ? FallbackGate(20, 3, 1) : null;
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y));
-        if (gate != null) FallbackSetGate(gate, open: false);
-        else Add(21, 3, 1, height: 1, stackable: false);
+
+        if (gate != null)
+        {
+            FallbackSetGate(gate, open: false);
+        }
+        else
+        {
+            Add(21, 3, 1, height: 1, stackable: false);
+        }
+
         var trail = FallbackRun(actor, 30);
         Assert.DoesNotContain((3, 1), trail.Select(p => (p.X, p.Y)));
-        if (alternative) FallbackAssertStopped(actor, 6, 1);
-        else FallbackAssertStopped(actor, 2, 1);
+
+        if (alternative)
+        {
+            FallbackAssertStopped(actor, 6, 1);
+        }
+        else
+        {
+            FallbackAssertStopped(actor, 2, 1);
+        }
     }
 
     [Fact]
@@ -44,7 +64,9 @@ public partial class PlacedFurniRoomTests
     {
         FallbackModel(FallbackDeadEnd);
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         FallbackBot(4, 1, 2);
         _room.GetGameMap().GenerateMaps();
         var trail = FallbackRun(actor, 30);
@@ -57,11 +79,19 @@ public partial class PlacedFurniRoomTests
     {
         FallbackModel("xxx0xxx\r0000000\rxxx0xxx\rxxx0xxx");
         var actor = FallbackActor(0, 1);
-        var walker = FallbackBot(3, 0, 2); ExecutorTick();
-        actor.MoveTo(6, 1); ExecutorTick();
+        var walker = FallbackBot(3, 0, 2);
+        ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
         walker.MoveTo(3, 2);
         var states = new List<RouteState>();
-        for (var tick = 0; tick < 30; tick++) { ExecutorTick(); states.Add(actor.Movement.Fallback.State); }
+
+        for (var tick = 0; tick < 30; tick++)
+        {
+            ExecutorTick();
+            states.Add(actor.Movement.Fallback.State);
+        }
+
         Assert.DoesNotContain(RouteState.Truncated, states);
         Assert.Equal((3, 2), (walker.X, walker.Y));
         FallbackAssertStopped(actor, 6, 1);
@@ -72,7 +102,9 @@ public partial class PlacedFurniRoomTests
     {
         FallbackModel(FallbackDeadEnd);
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y));
         Assert.True(actor.HasStatus("mv"));
         _room.GetGameMap().SetFloorStatus(2, 1, 0);
@@ -86,7 +118,9 @@ public partial class PlacedFurniRoomTests
         FallbackModel(FallbackDeadEnd);
         var rug = ExecutorFloor(20, 3, 1);
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         _room.GetRoomItemHandler().RemoveFurniture(null!, rug.Id);
         Add(21, 6, 1, height: 1, stackable: false);
         FallbackRun(actor, 30);
@@ -101,7 +135,9 @@ public partial class PlacedFurniRoomTests
         var support = ExecutorFloor(21, 3, 1, height: 1);
         ExecutorFloor(22, 4, 1, height: 1);
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         _room.GetRoomItemHandler().RemoveFurniture(null!, support.Id);
         Add(23, 6, 1, height: 1, stackable: false);
         var trail = FallbackRun(actor, 30);
@@ -115,7 +151,9 @@ public partial class PlacedFurniRoomTests
         FallbackModel(FallbackAlternative);
         Add(20, 6, 3, height: 1, stackable: false);
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         actor.MoveTo(6, 3);
         FallbackRun(actor, 20);
         FallbackAssertStopped(actor, 2, 1);
@@ -127,7 +165,9 @@ public partial class PlacedFurniRoomTests
         FallbackModel(FallbackDeadEnd);
         var gate = FallbackGate(20, 3, 1);
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         FallbackSetGate(gate, open: false);
         FallbackRun(actor, 20);
         FallbackAssertStopped(actor, 2, 1);
@@ -148,8 +188,14 @@ public partial class PlacedFurniRoomTests
     public void ReachableDetourAboveASmallOperatorExpansionCapStillReroutes()
     {
         FallbackModel(FallbackAlternative);
-        var actor = FallbackActor(0, 1, new() { Engine = PathfindingEngine.V2, MaxExpansionsPerSearch = 8 });
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        var actor = FallbackActor(0, 1, new()
+        {
+            Engine = PathfindingEngine.V2,
+            MaxExpansionsPerSearch = 8
+        });
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y));
         Add(20, 3, 1, height: 1, stackable: false);
         var trail = FallbackRun(actor, 40);
@@ -166,8 +212,10 @@ public partial class PlacedFurniRoomTests
     {
         FallbackModel(alternative ? FallbackAlternative : FallbackDeadEnd);
         var actor = FallbackActor(0, 1);
-        actor.FastWalking = !superFast; actor.SuperFastWalking = superFast;
-        actor.MoveTo(6, 1); ExecutorTick();
+        actor.FastWalking = !superFast;
+        actor.SuperFastWalking = superFast;
+        actor.MoveTo(6, 1);
+        ExecutorTick();
         var blocked = superFast ? 3 : 2;
         Assert.Contains($"/mv {blocked},1,0/", ExecutorUpdate(actor).Status);
         _room.GetGameMap().SetFloorStatus(blocked, 1, 0);
@@ -175,20 +223,33 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((blocked - 1, 1), (actor.X, actor.Y));
         var trail = FallbackRun(actor, 30);
         Assert.DoesNotContain((blocked, 1), trail.Select(p => (p.X, p.Y)));
-        if (alternative) FallbackAssertStopped(actor, 6, 1);
-        else FallbackAssertStopped(actor, blocked - 1, 1);
+
+        if (alternative)
+        {
+            FallbackAssertStopped(actor, 6, 1);
+        }
+        else
+        {
+            FallbackAssertStopped(actor, blocked - 1, 1);
+        }
     }
 
     [Fact]
     public void FastWalkTruncatedPrefixFiresOnlyLandingHooks()
     {
         FallbackModel(FallbackLongDeadEnd);
-        for (var x = 0; x < 5; x++) ExecutorFloor((uint)(10 + x), x, 1);
+
+        for (var x = 0; x < 5; x++)
+        {
+            ExecutorFloor((uint)(10 + x), x, 1);
+        }
+
         var gate = FallbackGate(20, 5, 1);
         var events = ExecutorWalkEvents();
         var actor = FallbackActor(0, 1);
         actor.SuperFastWalking = true;
-        actor.MoveTo(7, 1); ExecutorTick();
+        actor.MoveTo(7, 1);
+        ExecutorTick();
         FallbackSetGate(gate, open: false);
         FallbackRun(actor, 20);
         FallbackAssertStopped(actor, 4, 1);
@@ -203,7 +264,8 @@ public partial class PlacedFurniRoomTests
         FallbackModel(FallbackLongDeadEnd);
         var gate = FallbackGate(20, 6, 1);
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(7, 1); ExecutorTick();
+        actor.MoveTo(7, 1);
+        ExecutorTick();
         FallbackSetGate(gate, open: false);
         ExecutorTick();
         Assert.Equal(RouteState.Truncated, actor.Movement.Fallback.State);
@@ -219,7 +281,8 @@ public partial class PlacedFurniRoomTests
         FallbackModel(FallbackLongDeadEnd);
         var gate = FallbackGate(20, 6, 1);
         var actor = FallbackActor(0, 1);
-        actor.MoveTo(7, 1); ExecutorTick();
+        actor.MoveTo(7, 1);
+        ExecutorTick();
         FallbackSetGate(gate, open: false);
         ExecutorTick();
         Assert.Equal(RouteState.Truncated, actor.Movement.Fallback.State);
@@ -233,8 +296,11 @@ public partial class PlacedFurniRoomTests
     {
         FallbackModel(FallbackDeadEnd);
         var actor = FallbackActor(0, 1);
-        var owner = FallbackBot(3, 3, 2); ExecutorTick();
-        actor.MoveTo(6, 1); ExecutorTick(); ExecutorTick();
+        var owner = FallbackBot(3, 3, 2);
+        ExecutorTick();
+        actor.MoveTo(6, 1);
+        ExecutorTick();
+        ExecutorTick();
         Add(20, 5, 1, height: 1, stackable: false);
         Assert.True(_room.GetGameMap().Navigation!.Executor.Claims.TryClaim(owner, 1 * 7 + 3, ClaimKind.Roller, TargetOccupancy.None));
         FallbackRun(actor, 30);
@@ -245,16 +311,23 @@ public partial class PlacedFurniRoomTests
     public void ExecutorRepeatedFailuresWhileTheFallbackSearchIsQueuedKeepOneJobInPlace()
     {
         FallbackModel("xxxxxxxx\r00000000\rxxxxxxxx\r00000000\r00000000");
-        var actor = FallbackActor(0, 1, new() { Engine = PathfindingEngine.V2, MaxExpansionsPerRoomTick = 1 });
+        var actor = FallbackActor(0, 1, new()
+        {
+            Engine = PathfindingEngine.V2,
+            MaxExpansionsPerRoomTick = 1
+        });
         var bots = Enumerable.Range(0, 3).Select(i => FallbackBot(i, 4, 2 + i)).ToArray();
-        var owner = FallbackBot(7, 4, 9); ExecutorTick();
+        var owner = FallbackBot(7, 4, 9);
+        ExecutorTick();
         var scheduler = _room.GetGameMap().Navigation!.Executor.Context.Scheduler;
-        actor.MoveTo(7, 1); ExecutorTick();
+        actor.MoveTo(7, 1);
+        ExecutorTick();
         Assert.Contains("/mv 1,1,0/", ExecutorUpdate(actor).Status);
         Assert.True(_room.GetGameMap().Navigation!.Executor.Claims.TryClaim(owner, 1 * 8 + 2, ClaimKind.Exclusive, TargetOccupancy.None));
         ExecutorTick();
         Assert.Equal(1, actor.Movement.WaitTicks);
-        bots[0].MoveTo(0, 3); bots[1].MoveTo(1, 3);
+        bots[0].MoveTo(0, 3);
+        bots[1].MoveTo(1, 3);
         ExecutorTick();
         Assert.Equal(RouteState.Suspect, actor.Movement.Fallback.State);
         Assert.Equal(new[] { bots[1], actor }, scheduler.Queued.ToArray());
@@ -272,17 +345,34 @@ public partial class PlacedFurniRoomTests
     {
         FallbackModel("xxxxxxxx\r00000000\r0xxxxxx0\r00000000\rxxxxxxxx\r00000000\r00000000");
         var actor = FallbackActor(0, 1,
-            new() { Engine = PathfindingEngine.V2, MaxExpansionsPerRoomTick = 1, MaxWalkStallTicks = 3 });
+            new()
+            {
+                Engine = PathfindingEngine.V2,
+                MaxExpansionsPerRoomTick = 1,
+                MaxWalkStallTicks = 3
+            });
         var bots = Enumerable.Range(0, 5).Select(i => FallbackBot(i + 2, 5, 2 + i)).ToArray();
+
         // Held bots never stall out, so their queued searches keep the actor's job unstarted.
-        foreach (var bot in bots) bot.CanWalk = false;
+        foreach (var bot in bots)
+        {
+            bot.CanWalk = false;
+        }
+
         ExecutorTick();
-        actor.MoveTo(7, 1); ExecutorTick();
+        actor.MoveTo(7, 1);
+        ExecutorTick();
         FallbackBot(2, 1, 10);
-        foreach (var bot in bots) bot.MoveTo(bot.X, 6);
+
+        foreach (var bot in bots)
+        {
+            bot.MoveTo(bot.X, 6);
+        }
+
         ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y));
         Assert.Equal(RouteState.Suspect, actor.Movement.Fallback.State);
+
         for (var tick = 0; tick < 4; tick++)
         {
             ExecutorTick();
@@ -290,6 +380,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(0, actor.Movement.StallTicks);
             Assert.Equal((1, 1), (actor.X, actor.Y));
         }
+
         FallbackRun(actor, 20);
         FallbackAssertStopped(actor, 7, 1);
     }
@@ -300,21 +391,25 @@ public partial class PlacedFurniRoomTests
         FallbackModel(FallbackLongDeadEnd);
         var gate = FallbackGate(20, 6, 1);
         var actor = FallbackActor(0, 1);
-        var owner = FallbackBot(3, 3, 2); ExecutorTick();
+        var owner = FallbackBot(3, 3, 2);
+        ExecutorTick();
         var scheduler = _room.GetGameMap().Navigation!.Executor.Context.Scheduler;
-        actor.MoveTo(7, 1); ExecutorTick();
+        actor.MoveTo(7, 1);
+        ExecutorTick();
         FallbackSetGate(gate, open: false);
         ExecutorTick();
         Assert.Equal(RouteState.Truncated, actor.Movement.Fallback.State);
         Assert.Equal(1, actor.Movement.BlockReplans);
         // A persistent claim ignored by the prefix view keeps the next announce failing.
         Assert.True(_room.GetGameMap().Navigation!.Executor.Claims.TryClaim(owner, 1 * 8 + 2, ClaimKind.Exclusive, TargetOccupancy.None));
+
         for (var tick = 0; tick < 5; tick++)
         {
             ExecutorTick();
             Assert.Equal(1, actor.Movement.BlockReplans);
             Assert.DoesNotContain(actor, scheduler.Queued);
         }
+
         Assert.Equal((1, 1), (actor.X, actor.Y));
         Assert.True(actor.Movement.HasIntent);
     }
@@ -327,13 +422,25 @@ public partial class PlacedFurniRoomTests
 
     private RoomUser FallbackActor(int x, int y, PathfindingSettings? settings = null)
     {
-        var actor = Viewer(x, y); actor.InternalRoomId = actor.VirtualId; actor.UserId = 7;
+        var actor = Viewer(x, y);
+        actor.InternalRoomId = actor.VirtualId;
+        actor.UserId = 7;
         var map = _room.GetGameMap();
-        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
+        var navigation = new RoomNavigation(_room, map.StaticModel, settings ?? new()
+        {
+            Engine = PathfindingEngine.V2
+        }, TestLogging.Navigation, new TestGroupManager(id => _groupLookup(id)), _database, TestNavigationRewards.Instance);
         typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(map, navigation);
-        foreach (var item in _room.GetRoomItemHandler().GetFloor) navigation.Inputs.Attach(item);
-        navigation.Admit(actor); ExecutorTick();
+
+        foreach (var item in _room.GetRoomItemHandler().GetFloor)
+        {
+            navigation.Inputs.Attach(item);
+        }
+
+        navigation.Admit(actor);
+        ExecutorTick();
+
         return actor;
     }
 
@@ -344,6 +451,7 @@ public partial class PlacedFurniRoomTests
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         Assert.True(users.TryAdd(id, bot));
         _room.GetGameMap().Navigation!.Admit(bot);
+
         return bot;
     }
 
@@ -352,8 +460,10 @@ public partial class PlacedFurniRoomTests
     {
         var gate = Furni(id, InteractionType.Gate, WiredBoxType.None);
         gate.ExtraData = new LegacyDataFormat { Data = "1" };
-        gate.Definition.Height = 0; gate.Definition.Width = gate.Definition.Length = 1;
+        gate.Definition.Height = 0;
+        gate.Definition.Width = gate.Definition.Length = 1;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, gate, x, y, 0, true, false, false));
+
         return gate;
     }
 
@@ -366,7 +476,13 @@ public partial class PlacedFurniRoomTests
     private List<(int X, int Y, double Z)> FallbackRun(RoomUser actor, int ticks)
     {
         var trail = new List<(int X, int Y, double Z)>();
-        for (var tick = 0; tick < ticks; tick++) { ExecutorTick(); trail.Add((actor.X, actor.Y, actor.Z)); }
+
+        for (var tick = 0; tick < ticks; tick++)
+        {
+            ExecutorTick();
+            trail.Add((actor.X, actor.Y, actor.Z));
+        }
+
         return trail;
     }
 

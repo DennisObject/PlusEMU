@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 
 namespace Plus.Communication.Packets.Incoming.Groups;
@@ -10,6 +10,7 @@ internal class GetGroupInfoEvent(IGroupPresentationService presentation) : IPack
         var groupId = packet.ReadInt();
         var newWindow = packet.ReadBool();
         presentation.ShowInfo(session, groupId, newWindow);
+
         return Task.CompletedTask;
     }
 }

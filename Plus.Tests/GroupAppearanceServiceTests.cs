@@ -133,11 +133,16 @@ public sealed class GroupAppearanceServiceTests
         var schema = "task_refactor_tests_ga_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(root);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(root) { Database = schema }.ConnectionString);
+
             using (var connection = database.Connection())
+            {
                 connection.Execute("CREATE TABLE `groups` (`id` INT PRIMARY KEY,`name` VARCHAR(50) NOT NULL,`desc` VARCHAR(100) NOT NULL,`badge` VARCHAR(50) NOT NULL,`colour1` INT NOT NULL,`colour2` INT NOT NULL); INSERT INTO `groups` VALUES(9,'old','old description','oldbadge',1,2)");
+            }
+
             var store = new GroupAppearanceStore(database);
 
             Assert.True(store.UpdateIdentity(9, "new", "new description"));
@@ -176,6 +181,7 @@ public sealed class GroupAppearanceServiceTests
             .SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
+
         return room;
     }
 
@@ -209,6 +215,7 @@ public sealed class GroupAppearanceServiceTests
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).InvokeMethod = invoke;
+
         return proxy;
     }
 
@@ -220,34 +227,102 @@ public sealed class GroupAppearanceServiceTests
 
     private sealed class RecordingAppearanceService : IGroupAppearanceService
     {
-        public GroupIdentityRequest? Identity { get; private set; }
-        public int BadgeGroupId { get; private set; }
-        public ImmutableArray<GroupBadgePartRequest> BadgeParts { get; private set; }
-        public int BadgeCalls { get; private set; }
-        public GroupColoursRequest? Colours { get; private set; }
-        public Task UpdateIdentity(GameClient session, GroupIdentityRequest request) { Identity = request; return Task.CompletedTask; }
-        public Task UpdateBadge(GameClient session, int groupId, ImmutableArray<GroupBadgePartRequest> parts) { BadgeGroupId = groupId; BadgeParts = parts; BadgeCalls++; return Task.CompletedTask; }
-        public Task UpdateColours(GameClient session, GroupColoursRequest request) { Colours = request; return Task.CompletedTask; }
+        public GroupIdentityRequest? Identity
+        {
+            get; private set;
+        }
+        public int BadgeGroupId
+        {
+            get; private set;
+        }
+        public ImmutableArray<GroupBadgePartRequest> BadgeParts
+        {
+            get; private set;
+        }
+        public int BadgeCalls
+        {
+            get; private set;
+        }
+        public GroupColoursRequest? Colours
+        {
+            get; private set;
+        }
+        public Task UpdateIdentity(GameClient session, GroupIdentityRequest request)
+        {
+            Identity = request;
+
+            return Task.CompletedTask;
+        }
+        public Task UpdateBadge(GameClient session, int groupId, ImmutableArray<GroupBadgePartRequest> parts)
+        {
+            BadgeGroupId = groupId;
+            BadgeParts = parts;
+            BadgeCalls++;
+
+            return Task.CompletedTask;
+        }
+        public Task UpdateColours(GameClient session, GroupColoursRequest request)
+        {
+            Colours = request;
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RecordingStore(Action? beforeWrite = null) : IGroupAppearanceStore
     {
         public bool Succeeds { get; init; } = true;
-        public int Writes { get; private set; }
-        public string? Badge { get; private set; }
-        public (int Main, int Secondary)? Colours { get; private set; }
-        public bool UpdateIdentity(int groupId, string name, string description) { beforeWrite?.Invoke(); Writes++; return Succeeds; }
-        public bool UpdateBadge(int groupId, string badge) { beforeWrite?.Invoke(); Writes++; Badge = badge; return Succeeds; }
-        public bool UpdateColours(int groupId, int mainColour, int secondaryColour) { beforeWrite?.Invoke(); Writes++; Colours = (mainColour, secondaryColour); return Succeeds; }
+        public int Writes
+        {
+            get; private set;
+        }
+        public string? Badge
+        {
+            get; private set;
+        }
+        public (int Main, int Secondary)? Colours
+        {
+            get; private set;
+        }
+        public bool UpdateIdentity(int groupId, string name, string description)
+        {
+            beforeWrite?.Invoke();
+            Writes++;
+
+            return Succeeds;
+        }
+        public bool UpdateBadge(int groupId, string badge)
+        {
+            beforeWrite?.Invoke();
+            Writes++;
+            Badge = badge;
+
+            return Succeeds;
+        }
+        public bool UpdateColours(int groupId, int mainColour, int secondaryColour)
+        {
+            beforeWrite?.Invoke();
+            Writes++;
+            Colours = (mainColour, secondaryColour);
+
+            return Succeeds;
+        }
     }
 
     private sealed class RecordingGroupInfo : IGroupInfoSnapshotService
     {
-        public GroupInfoSnapshot? Last { get; private set; }
-        public (int Main, int Secondary)? Colours { get; private set; }
+        public GroupInfoSnapshot? Last
+        {
+            get; private set;
+        }
+        public (int Main, int Secondary)? Colours
+        {
+            get; private set;
+        }
         public GroupInfoSnapshot Capture(Group group, int viewerId)
         {
             Colours = (group.Colour1, group.Colour2);
+
             return Last = new(group.Id, group.Type, group.Name, group.Description, group.Badge, group.RoomId,
                 "Room", group.MemberCount, "1-1-1970", "Owner", true, false, true, false, 0, true, false);
         }
@@ -256,7 +331,9 @@ public sealed class GroupAppearanceServiceTests
     private sealed class RecordingFilter(Func<string, string> filter) : IWordFilterManager
     {
         public string CheckMessage(string message) => filter(message);
-        public void Init() { }
+        public void Init()
+        {
+        }
         public bool CheckBannedWords(string message) => false;
         public bool IsFiltered(string message) => false;
     }

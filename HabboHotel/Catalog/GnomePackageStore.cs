@@ -27,15 +27,21 @@ public sealed class GnomePackageStore(IDatabase database, ILogger<GnomePackageSt
             var pet = PetUtility.CreatePet(connection, transaction, request.CreatedAt, request.OwnerName,
                 request.OwnerId, request.Name, 26, "30", "ffffff",
                 new(request.ItemId, request.BaseItem, request.RoomId, request.X, request.Y, request.Z), request.Clothing);
+
             if (pet == null)
+            {
                 return null;
+            }
+
             transaction.Commit();
+
             return pet;
         }
         catch (Exception exception)
         {
             logger.LogError(exception, "Could not open gnome package {ItemId} for user {OwnerId} in room {RoomId}",
                 request.ItemId, request.OwnerId, request.RoomId);
+
             return null;
         }
     }

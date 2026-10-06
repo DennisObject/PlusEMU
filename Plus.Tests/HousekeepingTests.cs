@@ -80,7 +80,12 @@ public class HousekeepingPolicyTests
 public class HousekeepingActionTests
 {
     private static Habbo Staff(int rank = 7, params string[] rights) =>
-        new() { Id = 1, Username = "staff", Access = HousekeepingPolicyTests.Access(rank * 10, rights) };
+        new()
+        {
+            Id = 1,
+            Username = "staff",
+            Access = HousekeepingPolicyTests.Access(rank * 10, rights)
+        };
 
     private static (HousekeepingUserActions Users, HousekeepingEconomyActions Economy, FakeClients Clients) Actions(params (HousekeepingUserRecord User, UserAccess Access)[] users) =>
         Actions(new AccountSessionGate(), null!, null!, users);
@@ -93,6 +98,7 @@ public class HousekeepingActionTests
         ((AccessProxy)(object)permissions).Users = users.ToDictionary(user => user.User.Id, user => user.Access);
         ((AccessProxy)(object)permissions).Users.TryAdd(1, Staff().Access);
         var clients = new FakeClients();
+
         return (new(store, clients, null!, permissions, null!, null!, gate, null!, null!, TimeProvider.System), new(store, clients, items, itemFactory, null!, null!, gate, permissions), clients);
     }
 
@@ -149,7 +155,11 @@ public class HousekeepingActionTests
     }
 
     private static (HousekeepingUserRecord User, UserAccess Access) User(int id, int rank) =>
-        (new() { Id = id, Username = "user" + id }, HousekeepingPolicyTests.Access(rank * 10));
+        (new()
+        {
+            Id = id,
+            Username = "user" + id
+        }, HousekeepingPolicyTests.Access(rank * 10));
 
     public class AccessProxy : DispatchProxy
     {
@@ -258,7 +268,9 @@ public class HousekeepingActionTests
         public GameClient? GetClientByUserId(int userId) => Online.GetValueOrDefault(userId);
         public GameClient? GetClientByUsername(string username) => Online.Values.FirstOrDefault(client => client.GetHabbo().Username == username);
         public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null) => Broadcasts.Add(packet);
-        public void OnCycle() { }
+        public void OnCycle()
+        {
+        }
         public bool TryGetClient(Guid clientId, out GameClient client) => throw new NotSupportedException();
         public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist) => throw new NotSupportedException();
         public Task<string> GetNameById(int id) => throw new NotSupportedException();
@@ -310,11 +322,17 @@ public class AccountSessionGateTests
 public class HousekeepingHandlerTests
 {
     private static Habbo Staff(params string[] rights) =>
-        new() { Id = 1, Username = "staff", Access = HousekeepingPolicyTests.Access(70, rights) };
+        new()
+        {
+            Id = 1,
+            Username = "staff",
+            Access = HousekeepingPolicyTests.Access(70, rights)
+        };
 
     private static (string Key, bool Ok, int ActionId, string Message) Result(byte[] payload)
     {
         var packet = new FlashIncomingPacket { Buffer = payload };
+
         return (packet.ReadString(), packet.ReadBool(), packet.ReadInt(), packet.ReadString());
     }
 
@@ -451,7 +469,19 @@ public class HousekeepingHandlerTests
     public async Task ActionLogIsReadBackNewestFirstForStaff()
     {
         var audit = new FakeAudit();
-        audit.Entries.Add(new() { Id = 4, CreatedAt = DateTimeOffset.FromUnixTimeSeconds(100), ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true });
+        audit.Entries.Add(new()
+        {
+            Id = 4,
+            CreatedAt = DateTimeOffset.FromUnixTimeSeconds(100),
+            ActorId = 1,
+            ActorName = "staff",
+            TargetType = "room",
+            TargetId = 5,
+            TargetLabel = "Lobby",
+            Action = "room.close",
+            Detail = "open=False",
+            Success = true
+        });
         var (client, sent) = Client(Staff(HousekeepingRights.Access));
         await new HousekeepingListActionLogEvent(new HousekeepingActionRunner(audit, NullLogger<HousekeepingActionRunner>.Instance), audit).Parse(client, Incoming(10_000));
         var packet = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
@@ -471,12 +501,20 @@ public class HousekeepingHandlerTests
     {
         public List<string> Calls { get; } = new();
         public string Password { get; init; } = "";
-        public bool Throw { get; init; }
+        public bool Throw
+        {
+            get; init;
+        }
 
         private HousekeepingOutcome Record(string call, string message = "")
         {
-            if (Throw) throw new InvalidOperationException("boom");
+            if (Throw)
+            {
+                throw new InvalidOperationException("boom");
+            }
+
             Calls.Add(call);
+
             return HousekeepingOutcome.Success(HousekeepingTarget.User(7, "target"), "done", message);
         }
 
@@ -504,6 +542,7 @@ public class HousekeepingWireTests
     {
         var packet = new RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes;
     }
 
@@ -577,7 +616,16 @@ public class HousekeepingWireTests
 
     private static HousekeepingAuditEntry Entry(int id, DateTimeOffset? createdAt) => new()
     {
-        Id = id, CreatedAt = createdAt, ActorId = 1, ActorName = "staff", TargetType = "room", TargetId = 5, TargetLabel = "Lobby", Action = "room.close", Detail = "open=False", Success = true,
+        Id = id,
+        CreatedAt = createdAt,
+        ActorId = 1,
+        ActorName = "staff",
+        TargetType = "room",
+        TargetId = 5,
+        TargetLabel = "Lobby",
+        Action = "room.close",
+        Detail = "open=False",
+        Success = true,
     };
 
     // Each action-log entry writes ten values, and the timestamp is the second value after the leading count.
@@ -595,28 +643,55 @@ public class HousekeepingWireTests
     // IDs from Octane-Renderer OutgoingHeader.ts / IncomingHeader.ts (HOUSEKEEPING_*).
     private static readonly Dictionary<string, uint> Incoming = new()
     {
-        ["HousekeepingFindUserByNameEvent"] = 9100, ["HousekeepingFindUserByIdEvent"] = 9101, ["HousekeepingBanUserEvent"] = 9102,
-        ["HousekeepingUnbanUserEvent"] = 9103, ["HousekeepingMuteUserEvent"] = 9104, ["HousekeepingKickUserEvent"] = 9105,
-        ["HousekeepingForceDisconnectUserEvent"] = 9106, ["HousekeepingTradeLockUserEvent"] = 9108,
-        ["HousekeepingResetUserPasswordEvent"] = 9109, ["HousekeepingFindRoomByIdEvent"] = 9110, ["HousekeepingSearchRoomsEvent"] = 9111,
-        ["HousekeepingRoomStateEvent"] = 9112, ["HousekeepingMuteRoomEvent"] = 9113, ["HousekeepingKickAllFromRoomEvent"] = 9114,
-        ["HousekeepingTransferRoomOwnershipEvent"] = 9115, ["HousekeepingDeleteRoomEvent"] = 9116, ["HousekeepingGiveCreditsEvent"] = 9117,
-        ["HousekeepingGiveCurrencyEvent"] = 9118, ["HousekeepingGrantItemEvent"] = 9119, ["HousekeepingSetHcSubscriptionEvent"] = 9120,
-        ["HousekeepingSendHotelAlertEvent"] = 9121, ["HousekeepingGetDashboardEvent"] = 9122, ["HousekeepingListActionLogEvent"] = 9123,
-        ["HousekeepingGetRolesEvent"] = 9130, ["HousekeepingGetRoleMembersEvent"] = 9131,
-        ["HousekeepingGetUserOverridesEvent"] = 9132, ["HousekeepingGetRolesAuditEvent"] = 9133,
-        ["HousekeepingSaveRoleEvent"] = 9134, ["HousekeepingDeleteRoleEvent"] = 9135,
-        ["HousekeepingSetRolePermissionEvent"] = 9136, ["HousekeepingSetRoleLimitEvent"] = 9137,
-        ["HousekeepingAssignRoleEvent"] = 9138, ["HousekeepingRevokeRoleEvent"] = 9139,
-        ["HousekeepingSetUserOverrideEvent"] = 9140, ["HousekeepingRemoveUserOverrideEvent"] = 9141
+        ["HousekeepingFindUserByNameEvent"] = 9100,
+        ["HousekeepingFindUserByIdEvent"] = 9101,
+        ["HousekeepingBanUserEvent"] = 9102,
+        ["HousekeepingUnbanUserEvent"] = 9103,
+        ["HousekeepingMuteUserEvent"] = 9104,
+        ["HousekeepingKickUserEvent"] = 9105,
+        ["HousekeepingForceDisconnectUserEvent"] = 9106,
+        ["HousekeepingTradeLockUserEvent"] = 9108,
+        ["HousekeepingResetUserPasswordEvent"] = 9109,
+        ["HousekeepingFindRoomByIdEvent"] = 9110,
+        ["HousekeepingSearchRoomsEvent"] = 9111,
+        ["HousekeepingRoomStateEvent"] = 9112,
+        ["HousekeepingMuteRoomEvent"] = 9113,
+        ["HousekeepingKickAllFromRoomEvent"] = 9114,
+        ["HousekeepingTransferRoomOwnershipEvent"] = 9115,
+        ["HousekeepingDeleteRoomEvent"] = 9116,
+        ["HousekeepingGiveCreditsEvent"] = 9117,
+        ["HousekeepingGiveCurrencyEvent"] = 9118,
+        ["HousekeepingGrantItemEvent"] = 9119,
+        ["HousekeepingSetHcSubscriptionEvent"] = 9120,
+        ["HousekeepingSendHotelAlertEvent"] = 9121,
+        ["HousekeepingGetDashboardEvent"] = 9122,
+        ["HousekeepingListActionLogEvent"] = 9123,
+        ["HousekeepingGetRolesEvent"] = 9130,
+        ["HousekeepingGetRoleMembersEvent"] = 9131,
+        ["HousekeepingGetUserOverridesEvent"] = 9132,
+        ["HousekeepingGetRolesAuditEvent"] = 9133,
+        ["HousekeepingSaveRoleEvent"] = 9134,
+        ["HousekeepingDeleteRoleEvent"] = 9135,
+        ["HousekeepingSetRolePermissionEvent"] = 9136,
+        ["HousekeepingSetRoleLimitEvent"] = 9137,
+        ["HousekeepingAssignRoleEvent"] = 9138,
+        ["HousekeepingRevokeRoleEvent"] = 9139,
+        ["HousekeepingSetUserOverrideEvent"] = 9140,
+        ["HousekeepingRemoveUserOverrideEvent"] = 9141
     };
 
     private static readonly Dictionary<string, uint> Outgoing = new()
     {
-        ["HousekeepingUserDetailComposer"] = 9200, ["HousekeepingActionResultComposer"] = 9201, ["HousekeepingRoomDetailComposer"] = 9202,
-        ["HousekeepingRoomListComposer"] = 9203, ["HousekeepingDashboardComposer"] = 9204, ["HousekeepingActionLogComposer"] = 9205,
-        ["HousekeepingRolesComposer"] = 9210, ["HousekeepingRoleMembersComposer"] = 9211,
-        ["HousekeepingUserOverridesComposer"] = 9212, ["HousekeepingRolesAuditComposer"] = 9213
+        ["HousekeepingUserDetailComposer"] = 9200,
+        ["HousekeepingActionResultComposer"] = 9201,
+        ["HousekeepingRoomDetailComposer"] = 9202,
+        ["HousekeepingRoomListComposer"] = 9203,
+        ["HousekeepingDashboardComposer"] = 9204,
+        ["HousekeepingActionLogComposer"] = 9205,
+        ["HousekeepingRolesComposer"] = 9210,
+        ["HousekeepingRoleMembersComposer"] = 9211,
+        ["HousekeepingUserOverridesComposer"] = 9212,
+        ["HousekeepingRolesAuditComposer"] = 9213
     };
 
     [Fact]
@@ -629,13 +704,17 @@ public class HousekeepingWireTests
             .AddClasses(classes => classes.Where(c => c.GetInterface($"I{c.Name}") != null))
             .UsingRegistrationStrategy(Scrutor.RegistrationStrategy.Skip).AsSelfWithInterfaces().WithSingletonLifetime());
         services.AddAssignableTo(typeof(Program).Assembly, typeof(HabboHotel.Users.Authentication.IPasswordHasher));
+
         foreach (var name in Incoming.Keys)
         {
             var handler = typeof(HousekeepingBanUserEvent).Assembly.GetType($"{typeof(HousekeepingBanUserEvent).Namespace}.{name}")!;
             // AsSelfWithInterfaces registers the handler itself and forwards IPacketEvent to that registration.
             Assert.Contains(services, service => service.ServiceType == handler && service.ImplementationType == handler);
+
             foreach (var parameter in handler.GetConstructors().Single().GetParameters())
+            {
                 Assert.True(services.Any(service => service.ServiceType == parameter.ParameterType), $"{name} needs {parameter.ParameterType.Name}");
+            }
         }
     }
 
@@ -647,11 +726,13 @@ public class HousekeepingWireTests
             .Select(type => type.Name).ToHashSet();
         Assert.Equal(Incoming.Keys.ToHashSet(), handlers);
         using var revision = JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json")));
+
         foreach (var (name, id) in Incoming)
         {
             Assert.Equal(id, (uint)typeof(ClientPacketHeader).GetField(name)!.GetRawConstantValue()!);
             Assert.Equal(id, revision.RootElement.GetProperty("IncomingHeaders").GetProperty(name).GetUInt32());
         }
+
         foreach (var (name, id) in Outgoing)
         {
             Assert.Equal(id, (uint)typeof(ServerPacketHeader).GetField(name)!.GetRawConstantValue()!);

@@ -30,6 +30,7 @@ public static class RewardTrackWireSnapshot
     {
         var complete = track.Prizes.Where(prize => !prize.Premium).All(prize => state.IsClaimed(prize.Id));
         var premiumComplete = !track.HasPremium || (complete && track.Prizes.Where(prize => prize.Premium).All(prize => state.IsClaimed(prize.Id)));
+
         return new RewardTrackWireTrack(
             track.Id,
             track.Theme,
@@ -57,6 +58,7 @@ public static class RewardTrackWireSnapshot
     private static RewardTrackWirePrize CapturePrize(RewardTrackPrize prize, UserRewardTrackState state)
     {
         var premiumLocked = prize.Premium && !state.Premium;
+
         return new RewardTrackWirePrize(
             prize.Id,
             prize.RequiredPoints,

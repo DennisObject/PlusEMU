@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Televisions;
 
@@ -12,12 +12,14 @@ public class GetYouTubePlaylistComposer(int itemId, ImmutableArray<TelevisionVid
     {
         packet.WriteInteger(itemId);
         packet.WriteInteger(videos.Length);
+
         foreach (var video in videos)
         {
             packet.WriteString(video.YouTubeId);
             packet.WriteString(video.Title); //Title
             packet.WriteString(video.Description); //Description
         }
+
         packet.WriteString("");
     }
 }

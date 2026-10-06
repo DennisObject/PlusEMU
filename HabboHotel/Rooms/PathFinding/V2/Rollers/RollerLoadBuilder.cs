@@ -14,13 +14,24 @@ internal sealed class RollerLoadBuilder(Room room, RollerTransport transport)
         var cargoSeen = new HashSet<uint>();
         var actorsSeen = new HashSet<RoomUser>(ReferenceEqualityComparer.Instance);
         var loads = new List<RollerLoad>();
+
         foreach (var roller in rollers)
         {
-            if (roller == null || roller.SquareInFront == new Point(roller.GetX, roller.GetY)) continue;
+            if (roller == null || roller.SquareInFront == new Point(roller.GetX, roller.GetY))
+            {
+                continue;
+            }
+
             var load = Load(roller, cargoSeen, actorsSeen);
-            if (load.Moves.Count > 0) loads.Add(load);
+
+            if (load.Moves.Count > 0)
+            {
+                loads.Add(load);
+            }
         }
+
         transport.RefreshCapabilities(actorsSeen);
+
         return loads;
     }
 
@@ -34,8 +45,12 @@ internal sealed class RollerLoadBuilder(Room room, RollerTransport transport)
             .Where(cargo => cargoSeen.Add(cargo.Id))
             .Select(cargo => CargoMove(roller, cargo, destination, nextIsRoller)).ToList();
         var actor = map.GetRoomUsers(new(roller.GetX, roller.GetY)).FirstOrDefault(user => transport.RestsOnRoller(roller, user));
+
         if (actor != null && transport.CanRide(actor) && actorsSeen.Add(actor))
+        {
             moves.Add(ActorMove(roller, actor, destination, nextIsRoller));
+        }
+
         return new(roller, destination, moves);
     }
 
@@ -46,6 +61,7 @@ internal sealed class RollerLoadBuilder(Room room, RollerTransport transport)
             Carried(cargo.GetZ, roller, nextIsRoller));
         var slide = new SlideObjectBundleComposer(cargo.GetX, cargo.GetY, cargo.GetZ, destination.X, destination.Y,
             z, roller.Id, 0, cargo.Id);
+
         return new(roller, new(roller.GetX, roller.GetY), destination, Snapshot(roller, cargo.GetZ, 0, cargo.Rotation), z, cargo, null, slide);
     }
 
@@ -54,6 +70,7 @@ internal sealed class RollerLoadBuilder(Room room, RollerTransport transport)
         var z = Carried(actor.Z, roller, nextIsRoller);
         var slide = new SlideObjectBundleComposer(actor.X, actor.Y, actor.Z, destination.X, destination.Y,
             z, roller.Id, actor.VirtualId, 0);
+
         return new(roller, new(roller.GetX, roller.GetY), destination,
             Snapshot(roller, actor.Z, actor.Movement.LocationRevision), z, null, actor, slide);
     }

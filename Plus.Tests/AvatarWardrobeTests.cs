@@ -158,11 +158,13 @@ public class AvatarWardrobeTests
             var reader = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
             Assert.Equal((1, 2), (reader.ReadInt(), reader.ReadInt()));
             var loaded = new Dictionary<int, (string Look, string Gender)>();
+
             for (int i = 0; i < 2; i++)
             {
                 var slot = reader.ReadInt();
                 loaded[slot] = (reader.ReadString(), reader.ReadString());
             }
+
             Assert.Equal(("look2", "F"), loaded[1]);
             Assert.Equal(("look3", "M"), loaded[2]);
         });
@@ -228,6 +230,7 @@ public class AvatarWardrobeTests
                 connection.Open();
                 connection.Execute("INSERT INTO user_wardrobe (user_id, slot_id, look, gender) VALUES (7, 6, 'old-a', 'M'), (7, 6, 'old-b', 'M')");
             }
+
             var store = new AvatarWardrobeStore(new HabbiconDatabaseTests.TestDatabase(connectionString));
 
             store.SaveSlot(7, 6, "new", "f");
@@ -247,11 +250,13 @@ public class AvatarWardrobeTests
         var server = Environment.GetEnvironmentVariable("PLUS_WARDROBE_TEST_CONNECTION_STRING")!;
         var schema = "task_wardrobe_tests_" + Guid.NewGuid().ToString("N")[..12];
         var options = new MySqlConnectionStringBuilder(server) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true };
+
         using (var admin = new MySqlConnection(server))
         {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{schema}`");
         }
+
         try
         {
             using (var connection = new MySqlConnection(options.ConnectionString))
@@ -261,6 +266,7 @@ public class AvatarWardrobeTests
                 connection.Execute("INSERT INTO users (id, username) VALUES (7, 'wardrobe_tests')");
                 connection.Execute(WardrobeTableDdl());
             }
+
             await body(options.ConnectionString);
         }
         finally
@@ -277,16 +283,21 @@ public class AvatarWardrobeTests
         var dump = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
         int start = dump.IndexOf("CREATE TABLE `user_wardrobe`", StringComparison.Ordinal);
         int end = dump.IndexOf("ENGINE=InnoDB", start, StringComparison.Ordinal) + "ENGINE=InnoDB DEFAULT CHARSET=latin1;".Length;
+
         return dump[start..end];
     }
 
     private sealed class RecordingWardrobe : IAvatarWardrobeService
     {
         public List<object[]> Saves { get; } = new();
-        public int ShowCount { get; private set; }
+        public int ShowCount
+        {
+            get; private set;
+        }
         public Task ShowWardrobe(GameClient session)
         {
             ShowCount++;
+
             return Task.CompletedTask;
         }
         public void SaveOutfit(Habbo habbo, int slotId, string look, string gender) => Saves.Add(new object[] { slotId, look, gender });
@@ -295,20 +306,34 @@ public class AvatarWardrobeTests
     private sealed class RecordingFigures : IFigureDataManager
     {
         public List<object[]> Calls { get; } = new();
-        public Exception? Failure { get; init; }
+        public Exception? Failure
+        {
+            get; init;
+        }
         // Database tests need the figure to pass through unchanged so stored rows can be checked against the input.
-        public bool Echo { get; init; }
-        public void Init() { }
+        public bool Echo
+        {
+            get; init;
+        }
+        public void Init()
+        {
+        }
         public string ProcessFigure(string figure, string gender, ICollection<Plus.HabboHotel.Users.Clothing.Parts.ClothingParts>? clothingParts, int clubLevel)
         {
             Calls.Add(new object[] { figure, gender, clubLevel });
-            if (Failure != null) throw Failure;
+
+            if (Failure != null)
+            {
+                throw Failure;
+            }
+
             return Echo ? figure : "processed";
         }
         public Plus.Core.FigureData.Types.Palette? GetPalette(int colorId) => null;
         public bool TryGetPalette(int palletId, out Plus.Core.FigureData.Types.Palette? palette)
         {
             palette = null;
+
             return false;
         }
         public int GetRandomColor(int palletId, int clubLevel = 0) => 0;
@@ -319,16 +344,27 @@ public class AvatarWardrobeTests
     {
         public List<object[]> Saves { get; } = new();
         public ImmutableArray<WardrobeSlot> Slots { get; init; } = ImmutableArray<WardrobeSlot>.Empty;
-        public Exception? Failure { get; init; }
-        public int LoadCount { get; private set; }
+        public Exception? Failure
+        {
+            get; init;
+        }
+        public int LoadCount
+        {
+            get; private set;
+        }
         public Task<ImmutableArray<WardrobeSlot>> LoadSlots(int userId)
         {
             LoadCount++;
+
             return Task.FromResult(Slots);
         }
         public void SaveSlot(int userId, int slotId, string look, string gender)
         {
-            if (Failure != null) throw Failure;
+            if (Failure != null)
+            {
+                throw Failure;
+            }
+
             Saves.Add(new object[] { userId, slotId, look, gender });
         }
     }
@@ -339,6 +375,8 @@ public sealed class WardrobeDatabaseFactAttribute : Xunit.FactAttribute
     public WardrobeDatabaseFactAttribute()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_WARDROBE_TEST_CONNECTION_STRING")))
+        {
             Skip = "Set PLUS_WARDROBE_TEST_CONNECTION_STRING to a server that can create and drop disposable task_wardrobe_tests_ schemas.";
+        }
     }
 }

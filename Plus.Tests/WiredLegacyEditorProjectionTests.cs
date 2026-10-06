@@ -43,8 +43,17 @@ public class WiredLegacyEditorProjectionTests
         expected.AddRange(new object[] { 91, 7u, shape is 0 or 1 ? storedText : "", parameters.Length });
         expected.AddRange(parameters.Select(value => (object)value));
         expected.AddRange(new object[] { 0, editorCode });
-        if (shape is 0 or 2) expected.Add(configuration.Delay);
-        if (shape != 3) expected.Add(0);
+
+        if (shape is 0 or 2)
+        {
+            expected.Add(configuration.Delay);
+        }
+
+        if (shape != 3)
+        {
+            expected.Add(0);
+        }
+
         Assert.Equal(expected, packet.Writes);
         Assert.Equal(storedText, original.StringData);
         Assert.True(original.BoolData);
@@ -71,7 +80,9 @@ public class WiredLegacyEditorProjectionTests
     {
         var original = new MatchPositionBox(null!, Item())
         {
-            StringData = "1;0;1", ItemsData = "8:1,2,3.5,4,old-state;", Delay = 9
+            StringData = "1;0;1",
+            ItemsData = "8:1,2,3.5,4,old-state;",
+            Delay = 9
         };
         original.SetItems.TryAdd(8, new Item { Id = 8, Definition = new() { Id = 71 }, LegacyDataString = "current-state" });
         Assert.True(WiredLegacyEditorProjection.TryGetConfiguration(original, out _, out var configuration));
@@ -88,22 +99,28 @@ public class WiredLegacyEditorProjectionTests
     {
         var wired = new WiredComponent(null!, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
         var count = 0;
+
         foreach (var type in Enum.GetValues<WiredBoxType>().Where(WiredBoxTypeUtility.IsLegacyConstructible))
         {
             var item = Item();
             item.Definition.WiredType = type;
             var box = Assert.IsAssignableFrom<IWiredItem>(wired.GenerateNewBox(item));
+
             if (WiredLegacyCustomEditor.IsCustom(box))
+            {
                 Assert.True(WiredLegacyCustomEditor.TryGetConfiguration(box, out _, out _));
+            }
             else
             {
                 Assert.True(WiredLegacyEditorProjection.TryGetDescriptor(box, out var descriptor), type.ToString());
                 Assert.Same(descriptor, WiredBoxRegistry.All.Single(entry => entry.CanonicalName == descriptor.CanonicalName));
                 Assert.Equal(WiredBoxTypeUtility.GetWiredId(type), descriptor.EditorCode);
             }
+
             Assert.True(WiredLegacyEditorProjection.TryGetConfiguration(box, out _, out _), type.ToString());
             count++;
         }
+
         Assert.Equal(50, count);
     }
 
@@ -119,14 +136,26 @@ public class WiredLegacyEditorProjectionTests
             2 => new TeleportUserBox(null!, item) { Delay = 6 },
             _ => new UserCountInRoomBox(null!, item) { StringData = "2;8" }
         };
-        if (shape == 2) box.SetItems.TryAdd(8, new() { Id = 8, Definition = new() });
+
+        if (shape == 2)
+        {
+            box.SetItems.TryAdd(8, new()
+            {
+                Id = 8,
+                Definition = new()
+            });
+        }
+
         return box;
     }
 
     private sealed class RecordingPacket : IOutgoingPacket
     {
         public List<object> Writes { get; } = [];
-        public int MessageId { get; set; }
+        public int MessageId
+        {
+            get; set;
+        }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

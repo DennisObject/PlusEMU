@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Quests;
+namespace Plus.HabboHotel.Quests;
 
 public static class QuestTypeUtillity
 {

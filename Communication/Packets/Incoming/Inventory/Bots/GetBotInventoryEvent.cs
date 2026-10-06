@@ -8,6 +8,7 @@ internal sealed class GetBotInventoryEvent(IInventoryShowcaseService inventory) 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         inventory.ShowBots(session);
+
         return Task.CompletedTask;
     }
 }

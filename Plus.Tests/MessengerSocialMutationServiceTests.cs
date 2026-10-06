@@ -20,7 +20,9 @@ public sealed class SocialMutationDatabaseFactAttribute : FactAttribute
     public SocialMutationDatabaseFactAttribute()
     {
         if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null)
+        {
             Skip = "Opt-in isolated messenger social mutation MariaDB probe.";
+        }
     }
 }
 
@@ -95,10 +97,14 @@ public sealed class MessengerSocialMutationServiceTests
         var loader = CatalogSnapshotTestSupport.Proxy<IMessengerDataLoader>((method, arguments) =>
         {
             if (method != nameof(IMessengerDataLoader.SetRelationship))
+            {
                 throw new NotSupportedException(method);
+            }
+
             Assert.False(published);
             Assert.Equal(1, buddy.Relationship);
             Assert.Equal(new object[] { 1, 2, 3 }, arguments);
+
             return Task.CompletedTask;
         });
         var service = Service(loader: loader, rewards: rewards);
@@ -195,6 +201,7 @@ public sealed class MessengerSocialMutationServiceTests
         await root.OpenAsync();
         var schema = "task_refactor_tests_social_" + Guid.NewGuid().ToString("N");
         await root.ExecuteAsync($"CREATE DATABASE `{schema}`");
+
         try
         {
             var builder = new MySqlConnectionStringBuilder(rootBuilder.ConnectionString) { Database = schema };
@@ -264,6 +271,7 @@ public sealed class MessengerSocialMutationServiceTests
             Messenger = new HabboMessenger(friends ?? new(), new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)),
         };
         var result = HabbiconTestSupport.Client(habbo);
+
         return (result.Client, result.Sent);
     }
 
@@ -275,16 +283,24 @@ public sealed class MessengerSocialMutationServiceTests
 
     private sealed class RecordingSocial : IMessengerSocialMutationService
     {
-        public RoomInvitationRequest? Invitation { get; private set; }
-        public (int FriendId, int Relationship)? Relationship { get; private set; }
+        public RoomInvitationRequest? Invitation
+        {
+            get; private set;
+        }
+        public (int FriendId, int Relationship)? Relationship
+        {
+            get; private set;
+        }
         public Task SetRelationship(GameClient session, int friendId, int relationship)
         {
             Relationship = (friendId, relationship);
+
             return Task.CompletedTask;
         }
         public Task SendRoomInvites(GameClient session, RoomInvitationRequest request)
         {
             Invitation = request;
+
             return Task.CompletedTask;
         }
     }
@@ -305,6 +321,7 @@ public sealed class MessengerSocialMutationServiceTests
         {
             beforeLog?.Invoke();
             Logs.Add((userId, message, invitedAt));
+
             return Task.CompletedTask;
         }
     }

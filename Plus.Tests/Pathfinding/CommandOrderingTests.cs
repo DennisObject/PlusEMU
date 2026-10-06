@@ -8,8 +8,10 @@ public partial class PlacedFurniRoomTests
     public void CommandIntakeNewClickOnFinalLandingTickSurvivesOldIntentCompletion()
     {
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(1, 1); ExecutorTick();
-        actor.MoveTo(2, 1); ExecutorTick();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
+        actor.MoveTo(2, 1);
+        ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y));
         Assert.Equal((2, 1), (actor.GoalX, actor.GoalY));
         Assert.Contains("/mv 2,1,0/", ExecutorUpdate(actor).Status);
@@ -21,7 +23,8 @@ public partial class PlacedFurniRoomTests
     public void CommandIntakeQueuedCancelCannotDiscardAClickPublishedAfterIt()
     {
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(1, 1); ExecutorTick();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
         actor.ClearMovement(true);
         actor.MoveTo(0, 2);
         ExecutorTick();

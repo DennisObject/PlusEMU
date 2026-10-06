@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Moderation;
+using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Events;
@@ -27,6 +27,7 @@ internal class EventAlertCommand : IChatCommand
         lock (EventSync)
         {
             var now = _clock.GetUtcNow();
+
             if (_lastEvent == null || now - _lastEvent > TimeSpan.FromHours(1))
             {
                 _gameClientManager.SendPacket(new BroadcastMessageAlertComposer($":follow {session.GetHabbo().Username} for events! win prizes!\r\n- {session.GetHabbo().Username}"));

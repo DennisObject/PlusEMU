@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Navigator;
 using Plus.HabboHotel.Rooms;
 
@@ -18,15 +18,26 @@ internal class SaveEnforcedCategorySettingsEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         if (!_roomManager.TryGetRoom(packet.ReadUInt(), out var room))
+        {
             return Task.CompletedTask;
+        }
+
         if (!room.CheckRights(session, true))
+        {
             return Task.CompletedTask;
+        }
+
         var categoryId = packet.ReadInt();
         var tradeSettings = packet.ReadInt();
+
         if (tradeSettings < 0 || tradeSettings > 2)
+        {
             tradeSettings = 0;
+        }
+
         _navigationManager.TryGetSearchResultList(categoryId, out var searchResultList);
         categoryId = RoomCategoryChoice.Resolve(categoryId, searchResultList, session.GetHabbo().Access, session.GetHabbo().Id, room.OwnerId, applyOwnerRule: false);
+
         return Task.CompletedTask;
     }
 }

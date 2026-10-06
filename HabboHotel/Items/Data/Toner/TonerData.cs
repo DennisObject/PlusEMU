@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Items.Data.Toner;
+namespace Plus.HabboHotel.Items.Data.Toner;
 
 public class TonerData
 {

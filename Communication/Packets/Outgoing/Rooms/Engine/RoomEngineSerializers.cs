@@ -48,6 +48,11 @@ public static class RoomEngineSerializers
     internal static void WriteOwnerMap(IOutgoingPacket packet, RoomFurnitureSnapshot furniture)
     {
         packet.WriteInteger(furniture.Owners.Length);
-        foreach (var owner in furniture.Owners) { packet.WriteInteger(owner.Id); packet.WriteString(owner.Name); }
+
+        foreach (var owner in furniture.Owners)
+        {
+            packet.WriteInteger(owner.Id);
+            packet.WriteString(owner.Name);
+        }
     }
 }

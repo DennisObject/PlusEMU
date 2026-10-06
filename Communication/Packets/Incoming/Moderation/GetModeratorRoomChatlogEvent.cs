@@ -13,7 +13,12 @@ internal class GetModeratorRoomChatlogEvent(IModeratorHistoryService history) : 
     {
         packet.ReadInt(); //junk
         var result = history.GetRoomChatlog(packet.ReadUInt());
-        if (result != null) session.Send(new ModeratorRoomChatlogComposer(result));
+
+        if (result != null)
+        {
+            session.Send(new ModeratorRoomChatlogComposer(result));
+        }
+
         return Task.CompletedTask;
     }
 }

@@ -33,12 +33,23 @@ public sealed class CatalogGiftStore : ICatalogGiftStore
     {
         var itemId = connection.ExecuteScalar<uint>(
             "INSERT INTO items (base_item, user_id, extra_data) VALUES (@baseId, @recipientId, @extraData); SELECT LAST_INSERT_ID()",
-            new { baseId = presentDefinition.Id, recipientId, extraData = presentExtraData },
+            new
+            {
+                baseId = presentDefinition.Id,
+                recipientId,
+                extraData = presentExtraData
+            },
             transaction);
         connection.Execute(
             "INSERT INTO user_presents (item_id, base_id, extra_data) VALUES (@itemId, @baseId, @extraData)",
-            new { itemId, baseId = contentDefinition.Id, extraData = contentExtraData },
+            new
+            {
+                itemId,
+                baseId = contentDefinition.Id,
+                extraData = contentExtraData
+            },
             transaction);
+
         return new InventoryItem
         {
             Id = itemId,

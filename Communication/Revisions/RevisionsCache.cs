@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text.Json;
 using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Outgoing;
@@ -8,8 +8,14 @@ namespace Plus.Communication.Revisions;
 
 public class RevisionsCache : IRevisionsCache, IStartable
 {
-    public IReadOnlyDictionary<string, Revision> Revisions { get; set; }
-    public Revision InternalRevision { get; private set; }
+    public IReadOnlyDictionary<string, Revision> Revisions
+    {
+        get; set;
+    }
+    public Revision InternalRevision
+    {
+        get; private set;
+    }
 
     private string? _directory;
     public string Location => _directory ??= Path.Join(Directory.GetCurrentDirectory(), "revisions");
@@ -41,7 +47,9 @@ public class RevisionsCache : IRevisionsCache, IStartable
         };
 
         if (!Directory.Exists(Location))
+        {
             Directory.CreateDirectory(Location);
+        }
 
         File.WriteAllText(Path.Join(Location, "example.json"), JsonSerializer.Serialize(InternalRevision, SerializerOptions));
     }
@@ -49,12 +57,19 @@ public class RevisionsCache : IRevisionsCache, IStartable
     private async Task LoadRevisions()
     {
         var revisions = new Dictionary<string, Revision>();
+
         foreach (var file in Directory.GetFiles(Location).Where(f => f.EndsWith(".json")))
         {
             var revision = JsonSerializer.Deserialize<Revision>(await File.ReadAllTextAsync(file), SerializerOptions);
-            if (revision.Name.Equals(InternalRevision.Name)) continue;
+
+            if (revision.Name.Equals(InternalRevision.Name))
+            {
+                continue;
+            }
+
             revisions[revision.Name] = revision;
         }
+
         revisions[InternalRevision.Name] = InternalRevision;
         Revisions = revisions;
     }
@@ -69,14 +84,21 @@ public class RevisionsCache : IRevisionsCache, IStartable
             if (undefinedIncoming.Any())
             {
                 Console.WriteLine($"{revision.Name}: Missing Incoming Headers ({undefinedIncoming.Count}):");
+
                 foreach (var incoming in undefinedIncoming)
+                {
                     Console.WriteLine(incoming);
+                }
             }
+
             if (undefinedOutgoing.Any())
             {
                 Console.WriteLine($"{revision.Name}: Missing Outgoing Headers ({undefinedOutgoing.Count}):");
+
                 foreach (var outgoing in undefinedOutgoing)
+                {
                     Console.WriteLine(outgoing);
+                }
             }
 
 

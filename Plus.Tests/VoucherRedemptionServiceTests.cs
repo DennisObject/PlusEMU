@@ -73,26 +73,45 @@ public sealed class VoucherRedemptionServiceTests
 
     private sealed class VoucherManagerFake(Voucher voucher) : IVoucherManager
     {
-        public void Init() { }
+        public void Init()
+        {
+        }
         public bool TryGetVoucher(string code, out Voucher found)
         {
             found = voucher;
+
             return code == voucher.Code;
         }
     }
 
     private sealed class RecordingStore(Action? beforeClaim = null) : IVoucherClaimStore
     {
-        public bool Fail { get; init; }
-        public bool DuplicateAfterFirst { get; init; }
+        public bool Fail
+        {
+            get; init;
+        }
+        public bool DuplicateAfterFirst
+        {
+            get; init;
+        }
         public VoucherClaimResult Result { get; init; } = VoucherClaimResult.Claimed;
         public List<(int UserId, string Code)> Claims { get; } = [];
         public VoucherClaimResult Claim(int userId, string code)
         {
             beforeClaim?.Invoke();
-            if (Fail) throw new InvalidOperationException("forced failure");
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
+
             Claims.Add((userId, code));
-            if (DuplicateAfterFirst && Claims.Count > 1) return VoucherClaimResult.AlreadyUsed;
+
+            if (DuplicateAfterFirst && Claims.Count > 1)
+            {
+                return VoucherClaimResult.AlreadyUsed;
+            }
+
             return Result;
         }
     }

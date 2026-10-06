@@ -11,9 +11,14 @@ public static class WiredTriggerPredicates
 
     public static bool MatchesChat(WiredConfiguration config, string? message, bool isOwner)
     {
-        if (Param(config, 2) == 1 && !isOwner) return false;
+        if (Param(config, 2) == 1 && !isOwner)
+        {
+            return false;
+        }
+
         var text = message?.Trim() ?? string.Empty;
         var keyword = config.Text.Trim();
+
         return Param(config, 0) switch
         {
             2 => text.Length != 0,
@@ -31,18 +36,39 @@ public static class WiredTriggerPredicates
     // Action IDs are Polaris editor values, not Turbo's expression enum.
     public static bool MatchesAction(WiredConfiguration config, int action, int value)
     {
-        if (Param(config, 0, 1) != action) return false;
-        if (action == 9 && Param(config, 1) == 1) return Param(config, 2) == value;
-        if (action == 10 && Param(config, 3) == 1) return Param(config, 4) == value;
+        if (Param(config, 0, 1) != action)
+        {
+            return false;
+        }
+
+        if (action == 9 && Param(config, 1) == 1)
+        {
+            return Param(config, 2) == value;
+        }
+
+        if (action == 10 && Param(config, 3) == 1)
+        {
+            return Param(config, 4) == value;
+        }
+
         return true;
     }
 
     public static bool MatchesItem(WiredConfiguration config, Item eventItem,
         IEnumerable<Item> resolvedSubjects, bool supportsSavedState)
     {
-        if (!resolvedSubjects.Any(item => item.Id == eventItem.Id)) return false;
-        if (!supportsSavedState || Param(config, 0) == 0) return true;
+        if (!resolvedSubjects.Any(item => item.Id == eventItem.Id))
+        {
+            return false;
+        }
+
+        if (!supportsSavedState || Param(config, 0) == 0)
+        {
+            return true;
+        }
+
         var snapshot = config.Snapshots.FirstOrDefault(entry => entry.ItemId == eventItem.Id);
+
         return snapshot != null && string.Equals(snapshot.State, eventItem.LegacyDataString ?? string.Empty,
             StringComparison.Ordinal);
     }

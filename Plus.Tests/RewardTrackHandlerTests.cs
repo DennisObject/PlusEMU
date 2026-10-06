@@ -45,12 +45,21 @@ public sealed class RewardTrackHandlerTests
         public List<string> Calls { get; } = [];
         public GameClient? Session;
         public TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public void SendTracks(GameClient session) { Session = session; Calls.Add("List"); }
-        public void PurchasePremium(GameClient session, string trackId) { Session = session; Calls.Add("Premium " + trackId); }
+        public void SendTracks(GameClient session)
+        {
+            Session = session;
+            Calls.Add("List");
+        }
+        public void PurchasePremium(GameClient session, string trackId)
+        {
+            Session = session;
+            Calls.Add("Premium " + trackId);
+        }
         public Task Claim(GameClient session, string trackId, string prizeId)
         {
             Session = session;
             Calls.Add($"Claim {trackId} {prizeId}");
+
             return Completion.Task;
         }
         public void Progress(GameClient session, string actionType, int amount = 1) => throw new NotSupportedException();

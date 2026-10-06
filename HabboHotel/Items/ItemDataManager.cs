@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using System.Data;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
@@ -33,14 +33,27 @@ public class ItemDataManager : IItemDataManager, IStartable
         using var connection = _database.Connection();
         var rows = await connection.QueryAsync("SELECT * FROM `furniture`");
         var table = new DataTable();
+
         foreach (var values in rows.Cast<IDictionary<string, object?>>())
         {
             if (table.Columns.Count == 0)
-                foreach (var name in values.Keys) table.Columns.Add(name, typeof(object));
+            {
+                foreach (var name in values.Keys)
+                {
+                    table.Columns.Add(name, typeof(object));
+                }
+            }
+
             var row = table.NewRow();
-            foreach (var value in values) row[value.Key] = value.Value ?? DBNull.Value;
+
+            foreach (var value in values)
+            {
+                row[value.Key] = value.Value ?? DBNull.Value;
+            }
+
             table.Rows.Add(row);
         }
+
         Load(table);
     }
 
@@ -49,6 +62,7 @@ public class ItemDataManager : IItemDataManager, IStartable
     {
         var gifts = new Dictionary<int, uint>();
         var items = new Dictionary<uint, ItemDefinition>();
+
         if (itemData != null)
         {
             foreach (DataRow row in itemData.Rows)
@@ -101,6 +115,7 @@ public class ItemDataManager : IItemDataManager, IStartable
                 }
             }
         }
+
         Gifts = gifts;
         Items = items;
         _logger.LogInformation("Item Manager -> LOADED");
@@ -111,29 +126,45 @@ public class ItemDataManager : IItemDataManager, IStartable
         foreach (var entry in Items)
         {
             var item = entry.Value;
+
             if (item.ItemName == name)
+            {
                 return item;
+            }
         }
+
         return null;
     }
 
     internal static InteractionType ReadInteractionType(string itemName, string interactionType, WiredBoxType wiredType = WiredBoxType.None)
     {
         if (itemName is "sb_rail" or "sb_ramp" or "sb_block")
+        {
             return InteractionType.Skateboard;
+        }
+
         // Explicit generic legacy rows keep their category; a canonical descriptor still guides modern factories.
         if (WiredBoxTypeUtility.IsLegacyConstructible(wiredType)
             && interactionType.ToLowerInvariant() is "wired_effect" or "wired_trigger" or "wired_condition")
+        {
             return InteractionTypes.GetTypeFromString(interactionType);
+        }
+
         if (WiredBoxRegistry.TryGet(interactionType, out _) || WiredBoxRegistry.TryGet(itemName, out _))
+        {
             return InteractionTypes.GetTypeFromString(WiredBoxRegistry.TryGet(interactionType, out _) ? interactionType : itemName);
+        }
+
         return InteractionTypes.GetTypeFromString(interactionType);
     }
 
     internal static WiredBoxType ReadWiredType(object cell)
     {
         if (cell is null or DBNull)
+        {
             return WiredBoxType.None;
+        }
+
         return int.TryParse(Convert.ToString(cell, CultureInfo.InvariantCulture), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id)
             ? WiredBoxTypeUtility.FromWiredId(id)
             : WiredBoxType.None;

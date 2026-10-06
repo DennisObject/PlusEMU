@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Talents;
+namespace Plus.HabboHotel.Talents;
 
 public enum TalentType
 {

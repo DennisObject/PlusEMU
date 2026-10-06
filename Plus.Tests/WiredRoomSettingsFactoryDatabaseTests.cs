@@ -31,15 +31,27 @@ public sealed class WiredRoomSettingsFactoryDatabaseTests
         connection.Execute(File.ReadAllText(migrationPath));
         var suffix = Guid.NewGuid().ToString("N")[..12];
         var username = "wired_factory_" + suffix;
-        connection.Execute("INSERT INTO users (username, auth_ticket, `rank`, credits, activity_points, vip_points, mail, ip_last, online) VALUES (@username, '', 1, 0, 0, 0, '', '', 0)", new { username });
+        connection.Execute("INSERT INTO users (username, auth_ticket, `rank`, credits, activity_points, vip_points, mail, ip_last, online) VALUES (@username, '', 1, 0, 0, 0, '', '', 0)", new
+        {
+            username
+        });
         var userId = connection.ExecuteScalar<int>("SELECT LAST_INSERT_ID()");
         var model = connection.QueryFirst<string>("SELECT id FROM room_models LIMIT 1");
-        connection.Execute("INSERT INTO rooms (owner, caption, model_name) VALUES (@owner, 'Wired factory probe', @model)", new { owner = userId.ToString(), model });
+        connection.Execute("INSERT INTO rooms (owner, caption, model_name) VALUES (@owner, 'Wired factory probe', @model)", new
+        {
+            owner = userId.ToString(),
+            model
+        });
         var roomId = connection.ExecuteScalar<uint>("SELECT LAST_INSERT_ID()");
+
         try
         {
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-            room.Id = roomId; room.OwnerId = userId; room.OwnerName = username; room.Type = "private"; room.UsersWithRights = [];
+            room.Id = roomId;
+            room.OwnerId = userId;
+            room.OwnerName = username;
+            room.Type = "private";
+            room.UsersWithRights = [];
             var factory = new WiredRoomSettingsFactory(new DatabaseWiredRoomSettingsStore(database));
             var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, factory,
                 new Plus.HabboHotel.Items.Wired.Configuration.WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
@@ -53,7 +65,11 @@ public sealed class WiredRoomSettingsFactoryDatabaseTests
         }
         finally
         {
-            connection.Execute("DELETE FROM room_wired_settings WHERE room_id=@roomId; DELETE FROM rooms WHERE id=@roomId; DELETE FROM users WHERE id=@userId", new { roomId, userId });
+            connection.Execute("DELETE FROM room_wired_settings WHERE room_id=@roomId; DELETE FROM rooms WHERE id=@roomId; DELETE FROM users WHERE id=@userId", new
+            {
+                roomId,
+                userId
+            });
         }
     }
 }

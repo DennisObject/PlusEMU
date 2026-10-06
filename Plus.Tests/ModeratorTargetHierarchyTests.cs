@@ -117,8 +117,13 @@ public sealed class ModeratorTargetHierarchyTests
         public (int, int)? Ids;
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method?.Name != nameof(IAccessControl.Outranks)) throw new InvalidOperationException(method?.Name);
+            if (method?.Name != nameof(IAccessControl.Outranks))
+            {
+                throw new InvalidOperationException(method?.Name);
+            }
+
             Ids = ((int)args![0]!, (int)args[1]!);
+
             return false;
         }
     }

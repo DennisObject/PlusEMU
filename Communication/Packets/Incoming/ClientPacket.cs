@@ -1,4 +1,4 @@
-﻿using Plus.Utilities;
+using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Incoming;
 
@@ -12,14 +12,20 @@ public class ClientPacket
         Init(messageId, body);
     }
 
-    public int Id { get; private set; }
+    public int Id
+    {
+        get; private set;
+    }
 
     public int RemainingLength => _body.Length - _pointer;
 
     public void Init(int messageId, byte[] body)
     {
         if (body == null)
+        {
             body = new byte[0];
+        }
+
         Id = messageId;
         _body = body;
         _pointer = 0;
@@ -35,25 +41,41 @@ public class ClientPacket
     public byte[] ReadBytes(int bytes)
     {
         if (bytes > RemainingLength)
+        {
             bytes = RemainingLength;
+        }
+
         var data = new byte[bytes];
+
         for (var i = 0; i < bytes; i++)
+        {
             data[i] = _body[_pointer++];
+        }
+
         return data;
     }
 
     public byte[] PlainReadBytes(int bytes)
     {
         if (bytes > RemainingLength)
+        {
             bytes = RemainingLength;
+        }
+
         var data = new byte[bytes];
-        for (int x = 0, y = _pointer; x < bytes; x++, y++) data[x] = _body[y];
+
+        for (int x = 0, y = _pointer; x < bytes; x++, y++)
+        {
+            data[x] = _body[y];
+        }
+
         return data;
     }
 
     public byte[] ReadFixedValue()
     {
         var len = HabboEncoding.DecodeInt16(ReadBytes(2));
+
         return ReadBytes(len);
     }
 
@@ -63,10 +85,15 @@ public class ClientPacket
 
     public int PopInt()
     {
-        if (RemainingLength < 1) return 0;
+        if (RemainingLength < 1)
+        {
+            return 0;
+        }
+
         var data = PlainReadBytes(4);
         var i = HabboEncoding.DecodeInt32(data);
         _pointer += 4;
+
         return i;
     }
 }

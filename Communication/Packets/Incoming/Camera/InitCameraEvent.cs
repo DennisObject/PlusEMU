@@ -7,7 +7,11 @@ public sealed class InitCameraEvent(ICameraPhotoService photos) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (packet.Buffer.Length == 0) photos.Initialize(session);
+        if (packet.Buffer.Length == 0)
+        {
+            photos.Initialize(session);
+        }
+
         return Task.CompletedTask;
     }
 }

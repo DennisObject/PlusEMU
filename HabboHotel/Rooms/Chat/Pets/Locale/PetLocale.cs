@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Database;
 using Plus.Core;
 
@@ -30,7 +30,10 @@ public class PetLocale : IPetLocale, IStartable
     public string[] GetValue(string key)
     {
         if (_values.TryGetValue(key, out var value))
+        {
             return value;
+        }
+
         return new[] { $"Unknown pet speach:{key}" };
     }
 }

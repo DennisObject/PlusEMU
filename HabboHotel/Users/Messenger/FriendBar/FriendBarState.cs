@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users.Messenger.FriendBar;
+namespace Plus.HabboHotel.Users.Messenger.FriendBar;
 
 public enum FriendBarState
 {

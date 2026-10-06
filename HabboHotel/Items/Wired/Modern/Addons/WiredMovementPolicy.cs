@@ -22,6 +22,7 @@ public static class WiredMovementPolicy
                 - Math.Max(Math.Abs((long)targetX - mover.X), Math.Abs((long)targetY - mover.Y)), int.MinValue, int.MaxValue),
             _ => 0
         } : 0;
+
         return new(policy.AnimationTimeMs, !policy.DisableAnimation,
             policy.Physics?.KeepAltitude == true && !explicitHeight ? mover.Z : targetZ,
             direction is int d ? (d + projectile!.RotationOffset) % 8 : rotation,
@@ -31,7 +32,11 @@ public static class WiredMovementPolicy
 
     public static int? Direction(int system, long dx, long dy)
     {
-        if (dx == 0 && dy == 0) return null;
+        if (dx == 0 && dy == 0)
+        {
+            return null;
+        }
+
         var ax = Math.Abs(dx);
         var ay = Math.Abs(dy);
         var diagonal = system switch
@@ -41,8 +46,14 @@ public static class WiredMovementPolicy
             2 or 3 => false,
             _ => throw new ArgumentOutOfRangeException(nameof(system))
         };
-        if (diagonal) return dx > 0 ? dy > 0 ? 3 : 1 : dy > 0 ? 5 : 7;
+
+        if (diagonal)
+        {
+            return dx > 0 ? dy > 0 ? 3 : 1 : dy > 0 ? 5 : 7;
+        }
+
         var horizontal = system == 2 ? ax > ay : ax >= ay;
+
         return horizontal ? dx > 0 ? 2 : 6 : dy > 0 ? 4 : 0;
     }
 
@@ -50,7 +61,12 @@ public static class WiredMovementPolicy
         IEnumerable<int> collidingUsers, bool normallyBlockedByFurni, bool normallyBlockedByUsers)
     {
         var items = collidingFurni.ToArray();
-        if (items.Any(x => physics?.BlockingFurni.Contains(x) == true)) return true;
+
+        if (items.Any(x => physics?.BlockingFurni.Contains(x) == true))
+        {
+            return true;
+        }
+
         return normallyBlockedByFurni && items.Any(x => physics?.ThroughFurni.Contains(x) != true)
             || normallyBlockedByUsers && collidingUsers.Any(x => physics?.ThroughUsers.Contains(x) != true);
     }
@@ -58,7 +74,11 @@ public static class WiredMovementPolicy
     public static IReadOnlyList<WiredSelectorAvatar> CarriedUsers(WiredCarryPolicy? carry,
         WiredSelectorFurniture mover, WiredSelectorWorld world, Func<int, uint, bool> isStandingOn)
     {
-        if (carry is null) return [];
+        if (carry is null)
+        {
+            return [];
+        }
+
         return world.Users.Where(x => carry.UserIds.Contains(x.Id)
             && (carry.SameTile ? mover.Tiles.Contains((x.X, x.Y)) : isStandingOn(x.Id, mover.Id))).ToArray();
     }

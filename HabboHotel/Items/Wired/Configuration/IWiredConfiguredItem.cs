@@ -2,8 +2,14 @@ namespace Plus.HabboHotel.Items.Wired.Configuration;
 
 public interface IWiredConfiguredItem : IWiredItem
 {
-    WiredBoxDescriptor Descriptor { get; }
-    WiredConfiguration Configuration { get; }
+    WiredBoxDescriptor Descriptor
+    {
+        get;
+    }
+    WiredConfiguration Configuration
+    {
+        get;
+    }
 
     /// <summary>Pure validation: reject without changing the live box; decode only this box's editor schema.</summary>
     bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error);

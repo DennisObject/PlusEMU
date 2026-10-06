@@ -64,6 +64,7 @@ public sealed class GameLobbyPresentationTests
         var list = new GameListComposer(source.Select(GameListEntry.Capture).ToImmutableArray());
         var load = new LoadGameComposer(GameLoadSnapshot.Capture(source[0]), "ticket");
         source.Clear();
+
         for (var index = 0; index < 2; index++)
         {
             var listPacket = new HabbiconTestSupport.RecordingPacket();
@@ -104,6 +105,7 @@ public sealed class GameLobbyPresentationTests
         public bool TryGetGame(int gameId, [NotNullWhen(true)] out GameData? data)
         {
             data = GameData.FirstOrDefault(game => game.Id == gameId);
+
             return data != null;
         }
         public int GetCount() => GameData.Count;
@@ -111,8 +113,14 @@ public sealed class GameLobbyPresentationTests
 
     private sealed class RecordingService : IGameLobbyService
     {
-        public bool ListRequested { get; private set; }
-        public int GameId { get; private set; }
+        public bool ListRequested
+        {
+            get; private set;
+        }
+        public int GameId
+        {
+            get; private set;
+        }
         public void ShowGames(GameClient session) => ListRequested = true;
         public void JoinQueue(GameClient session, int gameId) => GameId = gameId;
     }

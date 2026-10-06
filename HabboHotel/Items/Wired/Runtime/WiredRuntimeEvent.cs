@@ -12,18 +12,51 @@ public enum WiredEventKind
 
 public sealed record WiredRuntimeEvent(WiredEventKind Kind)
 {
-    public RoomUser? Actor { get; init; }
-    public Item? EventItem { get; init; }
-    public RoomUser? TargetUser { get; init; }
+    public RoomUser? Actor
+    {
+        get; init;
+    }
+    public Item? EventItem
+    {
+        get; init;
+    }
+    public RoomUser? TargetUser
+    {
+        get; init;
+    }
     public string Message { get; init; } = "";
-    public int Action { get; init; }
-    public int Code { get; init; }
-    public WiredVariableChange? VariableChange { get; init; }
-    public long PreviousValue { get; init; }
-    public long Value { get; init; }
-    public int Team { get; init; }
-    public int X { get; init; }
-    public int Y { get; init; }
+    public int Action
+    {
+        get; init;
+    }
+    public int Code
+    {
+        get; init;
+    }
+    public WiredVariableChange? VariableChange
+    {
+        get; init;
+    }
+    public long PreviousValue
+    {
+        get; init;
+    }
+    public long Value
+    {
+        get; init;
+    }
+    public int Team
+    {
+        get; init;
+    }
+    public int X
+    {
+        get; init;
+    }
+    public int Y
+    {
+        get; init;
+    }
 }
 
 public readonly record struct WiredClickResult(bool Triggered, bool BlockMenu, bool DoNotRotate);

@@ -1,4 +1,4 @@
-﻿namespace Plus.Utilities;
+namespace Plus.Utilities;
 
 public static class Randomizer
 {
@@ -7,12 +7,14 @@ public static class Randomizer
     public static byte NextByte(int max)
     {
         max = Math.Min(max, 255);
+
         return (byte)Random.Shared.Next(0, max);
     }
 
     public static byte NextByte(int min, int max)
     {
         max = Math.Min(max, 255);
+
         return (byte)Random.Shared.Next(Math.Min(min, max), max);
     }
 

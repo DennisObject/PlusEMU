@@ -232,6 +232,7 @@ public sealed class UserMaintenanceServiceTests
         var service = new UserMaintenanceService(store, gate, clients);
         var held = await gate.EnterAsync(7);
         Task<bool>? change = null;
+
         try
         {
             change = service.GiveCurrency(7, "credits", 5);
@@ -242,7 +243,15 @@ public sealed class UserMaintenanceServiceTests
         finally
         {
             held.Dispose();
-            if (change != null) { try { await change.WaitAsync(TimeSpan.FromSeconds(30)); } catch (Exception) { } }
+
+            if (change != null)
+            {
+                try
+                {
+                    await change.WaitAsync(TimeSpan.FromSeconds(30));
+                }
+                catch (Exception) { }
+            }
         }
 
         Assert.True(await change!);
@@ -307,7 +316,12 @@ public sealed class UserMaintenanceServiceTests
     private static byte[] Int32s(params int[] values)
     {
         var bytes = new byte[values.Length * 4];
-        for (var index = 0; index < values.Length; index++) BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(index * 4), values[index]);
+
+        for (var index = 0; index < values.Length; index++)
+        {
+            BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(index * 4), values[index]);
+        }
+
         return bytes;
     }
 
@@ -318,6 +332,7 @@ public sealed class UserMaintenanceServiceTests
         var bytes = new byte[2 + text.Length];
         BinaryPrimitives.WriteUInt16BigEndian(bytes, checked((ushort)text.Length));
         text.CopyTo(bytes, 2);
+
         return bytes;
     }
 
@@ -339,11 +354,20 @@ public sealed class UserMaintenanceServiceTests
 
     private static (Habbo Habbo, Plus.Communication.Flash.FlashGameClient Client, List<(uint Header, byte[] Payload)> Sent, IGameClientManager Clients) Setup()
     {
-        var habbo = new Habbo { Id = 7, Username = "target", Credits = 100, Duckets = 20, Diamonds = 20, GotwPoints = 20,
-            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        var habbo = new Habbo
+        {
+            Id = 7,
+            Username = "target",
+            Credits = 100,
+            Duckets = 20,
+            Diamonds = 20,
+            GotwPoints = 20,
+            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+        };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         var clients = new GameClientManager(null!, null!);
         clients.RegisterClient(client, habbo.Id, habbo.Username);
+
         return (habbo, client, sent, clients);
     }
 
@@ -353,9 +377,13 @@ public sealed class UserMaintenanceServiceTests
     private static Room Room(Habbo habbo)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 9; room.OwnerName = "owner"; room.Type = "private"; room.UsersWithRights = [];
+        room.Id = 9;
+        room.OwnerName = "owner";
+        room.Type = "private";
+        room.UsersWithRights = [];
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         habbo.CurrentRoom = room;
+
         return room;
     }
 
@@ -364,24 +392,55 @@ public sealed class UserMaintenanceServiceTests
         var user = new RoomUser(7, room.Id, 1, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
         users.TryAdd(1, user);
+
         return user;
     }
 
     private sealed class RecordingStore(Action? beforeWrite = null) : IUserMaintenanceStore
     {
-        public bool Throw { get; init; }
-        public bool Missing { get; init; }
-        public int? Read { get; set; }
-        public string? Motto { get; set; }
-        public int Reads { get; private set; }
+        public bool Throw
+        {
+            get; init;
+        }
+        public bool Missing
+        {
+            get; init;
+        }
+        public int? Read
+        {
+            get; set;
+        }
+        public string? Motto
+        {
+            get; set;
+        }
+        public int Reads
+        {
+            get; private set;
+        }
         public List<(UserCurrency Currency, int Value)> Written { get; } = [];
-        public int? ReadCurrency(int userId, UserCurrency currency) { Reads++; return Read; }
+        public int? ReadCurrency(int userId, UserCurrency currency)
+        {
+            Reads++;
+
+            return Read;
+        }
         public bool TryWriteCurrency(int userId, UserCurrency currency, int value)
         {
             beforeWrite?.Invoke();
-            if (Throw) throw new InvalidOperationException("forced failure");
-            if (Missing) return false;
+
+            if (Throw)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
+
+            if (Missing)
+            {
+                return false;
+            }
+
             Written.Add((currency, value));
+
             return true;
         }
         public string? ReadMotto(int userId) => Motto;

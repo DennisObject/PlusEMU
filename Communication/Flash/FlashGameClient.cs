@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.GameClients;
@@ -40,14 +40,20 @@ public class FlashGameClient : GameClient
 
     internal override void OnReceived(byte[] buffer, long offset, long size)
     {
-        if (size == 0) return;
+        if (size == 0)
+        {
+            return;
+        }
+
         if (!_hasReceivedData)
         {
             _hasReceivedData = true;
+
             if (Rc4Client == null && buffer[offset] == (byte)'<')
             {
                 SendPolicy();
                 Disconnect();
+
                 return;
             }
         }
@@ -70,11 +76,25 @@ public class FlashGameClient : GameClient
 
     internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer)
     {
-        if (buffer.Length < 4) return default;
+        if (buffer.Length < 4)
+        {
+            return default;
+        }
+
         var declaredLength = DecodeInt32(buffer);
-        if (declaredLength < 2 || declaredLength > 500000) return (false, true, 0, 0, 0);
-        if (buffer.Length < 4 + declaredLength) return default;
+
+        if (declaredLength < 2 || declaredLength > 500000)
+        {
+            return (false, true, 0, 0, 0);
+        }
+
+        if (buffer.Length < 4 + declaredLength)
+        {
+            return default;
+        }
+
         var messageId = (uint)DecodeInt16(buffer.Slice(4));
+
         return (true, false, messageId, 6, declaredLength - 2);
     }
 }

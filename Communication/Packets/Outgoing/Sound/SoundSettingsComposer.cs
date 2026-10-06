@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Sound;
 
@@ -27,7 +27,10 @@ public class SoundSettingsComposer : IServerPacket
         // and three bools before its optional tail. One leftover byte makes that
         // tail throw, and the client drops the whole packet.
         for (var index = 0; index < 3; index++)
+        {
             packet.WriteInteger(index < _volumes.Length ? _volumes[index] : 0);
+        }
+
         packet.WriteBoolean(_chatPreference);
         packet.WriteBoolean(_invitesStatus);
         packet.WriteBoolean(_focusPreference);

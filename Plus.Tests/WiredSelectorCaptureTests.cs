@@ -21,21 +21,40 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
     {
         var f = new Fixture();
         f.Trigger();
-        foreach (var name in WiredSelectorModule.Names) f.Selector(name, Configuration(name));
-        foreach (var name in WiredAddonModule.Names) f.Addon(name, Configuration(name));
+
+        foreach (var name in WiredSelectorModule.Names)
+        {
+            f.Selector(name, Configuration(name));
+        }
+
+        foreach (var name in WiredAddonModule.Names)
+        {
+            f.Addon(name, Configuration(name));
+        }
+
         var actions = 0;
         f.Action(ctx =>
         {
             actions++;
+
             for (var i = 0; i < 3; i++)
             {
                 var message = ctx.Policy.FormatText(ctx, "Furniture $(f), avatar $(u)");
                 Assert.DoesNotContain("$(", message);
             }
+
             return true;
         });
-        while (f.Furniture.Count < 200) f.Furni();
-        for (var i = 1; i <= 200; i++) f.User(i);
+
+        while (f.Furniture.Count < 200)
+        {
+            f.Furni();
+        }
+
+        for (var i = 1; i <= 200; i++)
+        {
+            f.User(i);
+        }
 
         Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = f.Users[0], EventItem = f.Furniture[^1] }));
         Assert.Equal(1, actions);
@@ -56,11 +75,26 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         var first = f.User(1);
         var second = f.User(2);
         f.Trigger();
-        f.Selector("wf_slc_users_area", new() { IntParams = [0, 0, 20, 20, 0, 0] });
-        f.Selector("wf_slc_users_byname", new() { IntParams = [1, 0], Text = "User1" });
+        f.Selector("wf_slc_users_area", new()
+        {
+            IntParams = [0, 0, 20, 20, 0, 0]
+        });
+        f.Selector("wf_slc_users_byname", new()
+        {
+            IntParams = [1, 0],
+            Text = "User1"
+        });
         // An empty filtered pool must stay empty through the next filter, even though its name exists in the cached world.
-        f.Selector("wf_slc_users_byname", new() { IntParams = [1, 0], Text = "absent" });
-        f.Selector("wf_slc_users_byname", new() { IntParams = [1, 0], Text = "User1" });
+        f.Selector("wf_slc_users_byname", new()
+        {
+            IntParams = [1, 0],
+            Text = "absent"
+        });
+        f.Selector("wf_slc_users_byname", new()
+        {
+            IntParams = [1, 0],
+            Text = "User1"
+        });
         var firings = 0;
         f.Action(ctx =>
         {
@@ -68,6 +102,7 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
             Assert.True(ctx.SelectorKinds.HasFlag(WiredSelectionKind.Users));
             Assert.Empty(ctx.Selected.UserIds);
             Assert.Empty(ctx.Targets.ResolveUsers(ctx, [], WiredSources.Selector));
+
             return true;
         });
         f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = first });
@@ -88,8 +123,15 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         var f = new Fixture();
         var first = f.User(1);
         f.Trigger();
-        f.Selector("wf_slc_users_area", new() { IntParams = [0, 0, 20, 20, 0, 0] });
-        f.Addon("wf_xtra_text_output_username", new() { IntParams = [2, 200], Text = "u\t," });
+        f.Selector("wf_slc_users_area", new()
+        {
+            IntParams = [0, 0, 20, 20, 0, 0]
+        });
+        f.Addon("wf_xtra_text_output_username", new()
+        {
+            IntParams = [2, 200],
+            Text = "u\t,"
+        });
         var seen = new List<string>();
         f.Action(ctx => { seen.Add(ctx.Policy.FormatText(ctx, "$(u)")); return true; }, delay: 1);
         // The selected target can depart while this actorless firing remains valid.
@@ -111,12 +153,23 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         var f = new Fixture();
         f.Trigger();
         var variable = f.Selector("wf_slc_users_with_var", Configuration("wf_slc_users_with_var"), x: 2);
-        f.Selector("wf_slc_remote", new() { SelectedItems = [variable.Item.Id] });
-        var curve = Configuration("wf_xtra_mov_curve") with { IntParams = [7, 100, 80, 1, 0, 0, 0], Text = "custom:10" };
+        f.Selector("wf_slc_remote", new()
+        {
+            SelectedItems = [variable.Item.Id]
+        });
+        var curve = Configuration("wf_xtra_mov_curve") with
+        {
+            IntParams = [7, 100, 80, 1, 0, 0, 0],
+            Text = "custom:10"
+        };
         f.Addon("wf_xtra_mov_curve", curve);
         var projectile = WiredAddonConfiguration.Normalize("wf_xtra_rotate_to_dir", Configuration("wf_xtra_rotate_to_dir")).IntParams.ToArray();
         projectile[15] = 1; // Preserved variable flag, but literal normal distance mode doesn't read it.
-        f.Addon("wf_xtra_rotate_to_dir", new() { IntParams = [..projectile], Text = "\tcustom:10" });
+        f.Addon("wf_xtra_rotate_to_dir", new()
+        {
+            IntParams = [.. projectile],
+            Text = "\tcustom:10"
+        });
         f.Action(_ => true);
         f.User(1);
         f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
@@ -171,38 +224,66 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         }
         public Item Furni(string name = "", int x = 0)
         {
-            var item = new Item { Id = ++_next, GetX = x, GetZ = _next, OwnerId = 5,
-                Definition = new() { Id = 1, InteractionName = name, ItemName = "test", PublicName = "Furniture", VendingIds = [], AdjustableHeights = [] } };
-            Furniture.Add(item); return item;
+            var item = new Item
+            {
+                Id = ++_next,
+                GetX = x,
+                GetZ = _next,
+                OwnerId = 5,
+                Definition = new() { Id = 1, InteractionName = name, ItemName = "test", PublicName = "Furniture", VendingIds = [], AdjustableHeights = [] }
+            };
+            Furniture.Add(item);
+
+            return item;
         }
         public RoomUser User(int id)
         {
-            var user = new RoomUser(id + 100, 1, id, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused); Users.Add(user); return user;
+            var user = new RoomUser(id + 100, 1, id, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
+            Users.Add(user);
+
+            return user;
         }
         public void Trigger() => Add(new Trigger { Item = Furni(), Instance = Room });
         public void Action(Func<WiredRuntimeContext, bool> body, int delay = 0) => Add(new Box(WiredBoxCategory.Action)
-            { Item = Furni(), Instance = Room, Body = body, Configuration = new() { Delay = delay } });
+        {
+            Item = Furni(),
+            Instance = Room,
+            Body = body,
+            Configuration = new() { Delay = delay }
+        });
         public IWiredContextualSelector Selector(string name, WiredConfiguration c, int x = 0)
         {
             var box = WiredSelectorFactory.Create(Room, Furni(name, x), _state, TestGroupManager.Empty, Queries, ReadWorld)!;
-            Configure(box, c); Add(box); return box;
+            Configure(box, c);
+            Add(box);
+
+            return box;
         }
         public void Addon(string name, WiredConfiguration c)
         {
             var box = WiredAddonFactory.Create(Room, Furni(name), _state, TestGroupManager.Empty, Queries, ReadWorld)!;
-            Configure(box, c); Add(box);
+            Configure(box, c);
+            Add(box);
         }
         private static void Configure(IWiredConfiguredItem box, WiredConfiguration c)
         {
             Assert.True(box.TryValidateConfiguration(c, out var normalized, out var error), error);
             box.ApplyConfiguration(normalized);
         }
-        private void Add(IWiredConfiguredItem box) { _boxes[box.Item.Id] = box; Engine.Add(box); }
+        private void Add(IWiredConfiguredItem box)
+        {
+            _boxes[box.Item.Id] = box;
+            Engine.Add(box);
+        }
         private WiredSelectorVariableQueries Queries(WiredRuntimeContext ctx)
         {
             VariableSessions++;
             var session = WiredSelectorVariableBridge.Create(ctx, _variables);
-            return session with { DisposeSession = () => { DisposedSessions++; session.Dispose(); } };
+
+            return session with
+            {
+                DisposeSession = () => { DisposedSessions++; session.Dispose(); }
+            };
         }
         private WiredSelectorWorld ReadWorld(WiredRuntimeContext ctx)
         {
@@ -212,17 +293,21 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
             var furni = items.Select(item =>
             {
                 FurnitureConversions++;
+
                 return new WiredSelectorFurniture(item.Id, (int)item.Definition.Id, item.Definition.PublicName,
                     item.LegacyDataString, item.GetX, item.GetY, item.GetZ, 1, [(item.GetX, item.GetY)], IsWired: _boxes.ContainsKey(item.Id));
             }).ToArray();
             var avatars = users.Select(user =>
             {
-                AvatarConversions++; GroupMembershipReads++;
+                AvatarConversions++;
+                GroupMembershipReads++;
+
                 return new WiredSelectorAvatar(user.VirtualId, $"User{user.VirtualId}", WiredSelectorEntityKind.Player,
                     user.X, user.Y, GroupIds: new HashSet<int> { 1 });
             }).ToArray();
             var remotes = _boxes.Values.Where(box => box.Descriptor.Category == WiredBoxCategory.Selector)
                 .ToDictionary(box => box.Item.Id, box => new WiredRemoteSelector(box.Descriptor.CanonicalName, ctx.ConfigurationOf(box)));
+
             return new(20, 20, furni, avatars, 1, remotes);
         }
         public WiredVariableDefinition? Find(uint id) => id is 10 or 11 ? new(id, 1, 5, "test",
@@ -240,7 +325,10 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         public WiredBoxType Type => WiredBoxType.None;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData { get; set; }
+        public bool BoolData
+        {
+            get; set;
+        }
         public string ItemsData { get; set; } = "";
         public WiredBoxDescriptor Descriptor { get; } = new("test", category, 0, 0, "test") { Support = WiredBoxSupport.Implemented };
         public WiredConfiguration Configuration { get; set; } = new();
@@ -250,7 +338,12 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         public bool Execute(params object[] arguments) => throw new InvalidOperationException("Modern box requires context");
         public bool Execute(WiredRuntimeContext context) => Body(context);
         public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
-        { validated = proposed; error = ""; return true; }
+        {
+            validated = proposed;
+            error = "";
+
+            return true;
+        }
         public void ApplyConfiguration(WiredConfiguration validated) => Configuration = validated;
     }
     private sealed class Trigger() : Box(WiredBoxCategory.Trigger), IWiredContextualTrigger

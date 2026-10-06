@@ -33,7 +33,8 @@ public partial class PlacedFurniRoomTests
 
         new HorseRidingService(Locale()).Ride((Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)), _client, 50, true);
 
-        Assert.False(rider.RidingHorse); Assert.False(horse.RidingHorse);
+        Assert.False(rider.RidingHorse);
+        Assert.False(horse.RidingHorse);
         Assert.Equal(before, _client.Sent.Count);
     }
 
@@ -58,13 +59,16 @@ public partial class PlacedFurniRoomTests
 
         service.Ride(_room, _client, 50, true);
 
-        Assert.True(rider.RidingHorse); Assert.True(horse.RidingHorse);
-        Assert.Equal(horse.VirtualId, rider.HorseId); Assert.Equal(rider.VirtualId, horse.HorseId);
+        Assert.True(rider.RidingHorse);
+        Assert.True(horse.RidingHorse);
+        Assert.Equal(horse.VirtualId, rider.HorseId);
+        Assert.Equal(rider.VirtualId, horse.HorseId);
         Assert.Contains(ServerPacketHeader.PetHorseFigureInformationComposer, _client.Sent);
 
         service.Ride(_room, _client, 50, false);
 
-        Assert.False(rider.RidingHorse); Assert.False(horse.RidingHorse);
+        Assert.False(rider.RidingHorse);
+        Assert.False(horse.RidingHorse);
         Assert.Equal((0, 0), (rider.HorseId, horse.HorseId));
     }
 
@@ -79,7 +83,8 @@ public partial class PlacedFurniRoomTests
 
         new HorseRidingService(Locale()).Ride(_room, _client, 50, true);
 
-        Assert.False(rider.RidingHorse); Assert.False(horse.RidingHorse);
+        Assert.False(rider.RidingHorse);
+        Assert.False(horse.RidingHorse);
         Assert.True(_client.Sent.Count > before);
     }
 
@@ -93,21 +98,24 @@ public partial class PlacedFurniRoomTests
 
         new HorseRidingService(Locale()).Ride(_room, _client, 50, true);
 
-        Assert.True(rider.RidingHorse); Assert.True(horse.RidingHorse);
+        Assert.True(rider.RidingHorse);
+        Assert.True(horse.RidingHorse);
     }
 
     [Fact]
     public void V2OwnerOnlyPetRefusesAnotherRider()
     {
         var rider = ExecutorActor(0, 1);
-        var horse = ExternalLifecycleHorse(2, 1); ExecutorTick();
+        var horse = ExternalLifecycleHorse(2, 1);
+        ExecutorTick();
         horse.PetData.AnyoneCanRide = 0;
         horse.PetData.OwnerId = 99;
 
         RideExternalHorse(horse, mount: true);
         ExecutorTick();
 
-        Assert.False(rider.RidingHorse); Assert.False(horse.RidingHorse);
+        Assert.False(rider.RidingHorse);
+        Assert.False(horse.RidingHorse);
     }
 
     private IPetLocale Locale() => Proxy<IPetLocale>((_, _) => new[] { "horse" });
@@ -116,6 +124,7 @@ public partial class PlacedFurniRoomTests
     {
         var rider = new RoomUser(7, RoomId, 7, _room, _client, TestChatEmotions.Unused, new TestRewardProgress()) { X = 0, Y = 1, InternalRoomId = 7, UserId = 7 };
         Assert.True(LegacyUsers().TryAdd(7, rider));
+
         return rider;
     }
 
@@ -126,12 +135,24 @@ public partial class PlacedFurniRoomTests
         horse.BotData.AiType = BotAiType.Pet;
         horse.PetData = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
         var pet = horse.PetData;
-        pet.PetId = 50; pet.VirtualId = horse.VirtualId; pet.OwnerId = 7; pet.RoomId = RoomId;
-        pet.Name = "horse"; pet.OwnerName = "owner"; pet.Type = 13; pet.Race = "0"; pet.Color = "ffffff";
-        pet.GnomeClothing = ""; pet.AnyoneCanRide = 1; pet.Saddle = 1; pet.Energy = pet.Nutrition = 100;
-        pet.ExperienceLevels = [100, 200, 400, 600]; pet.PlacedInRoom = true;
+        pet.PetId = 50;
+        pet.VirtualId = horse.VirtualId;
+        pet.OwnerId = 7;
+        pet.RoomId = RoomId;
+        pet.Name = "horse";
+        pet.OwnerName = "owner";
+        pet.Type = 13;
+        pet.Race = "0";
+        pet.Color = "ffffff";
+        pet.GnomeClothing = "";
+        pet.AnyoneCanRide = 1;
+        pet.Saddle = 1;
+        pet.Energy = pet.Nutrition = 100;
+        pet.ExperienceLevels = [100, 200, 400, 600];
+        pet.PlacedInRoom = true;
         pet.Attach(_room, TestGameClientManager.Empty, TestRewardProgress.Unused);
         Assert.True(LegacyPets().TryAdd(pet.PetId, horse));
+
         return horse;
     }
 

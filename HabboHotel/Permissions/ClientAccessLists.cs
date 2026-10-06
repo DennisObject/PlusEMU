@@ -14,6 +14,7 @@ public sealed class ClientAccessLists(IAccessControl permissions, IChatStyleMana
     public Task Start()
     {
         permissions.AccessChanged += Send;
+
         return Task.CompletedTask;
     }
 

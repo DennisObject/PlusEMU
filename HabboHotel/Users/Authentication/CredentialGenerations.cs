@@ -76,7 +76,11 @@ public class CredentialGenerations : ICredentialGenerations
     public async Task<long> Current(int userId)
     {
         using var connection = _database.Connection();
-        return await connection.ExecuteScalarAsync<long>("SELECT `credential_generation` FROM `users` WHERE `id` = @userId", new { userId });
+
+        return await connection.ExecuteScalarAsync<long>("SELECT `credential_generation` FROM `users` WHERE `id` = @userId", new
+        {
+            userId
+        });
     }
 
     public Task<bool> WriteIfCurrent(int userId, long generation, Func<CredentialScope, Task> writes) => Write(userId, generation, null, writes);
@@ -89,14 +93,26 @@ public class CredentialGenerations : ICredentialGenerations
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
+
         if (await Lock(connection, transaction, userId) != generation)
+        {
             return false;
+        }
+
         if (sessionId != null && !await connection.ExecuteScalarAsync<bool>(
                 "SELECT COUNT(*) FROM `user_sessions` WHERE `id` = @sessionId AND `user_id` = @userId AND `revoked_at` IS NULL",
-                new { sessionId, userId }, transaction))
+                new
+                {
+                    sessionId,
+                    userId
+                }, transaction))
+        {
             return false;
+        }
+
         await writes(new(connection, transaction));
         transaction.Commit();
+
         return true;
     }
 
@@ -117,9 +133,16 @@ public class CredentialGenerations : ICredentialGenerations
     {
         var now = _time.GetUtcNow();
         await scope.Connection.ExecuteAsync(new CommandDefinition("UPDATE `users` SET `credential_generation` = `credential_generation` + 1 WHERE `id` = @userId",
-            new { userId }, scope.Transaction, cancellationToken: scope.CancellationToken));
+            new
+            {
+                userId
+            }, scope.Transaction, cancellationToken: scope.CancellationToken));
         await scope.Connection.ExecuteAsync(new CommandDefinition("UPDATE `user_sessions` SET `revoked_at` = @now WHERE `user_id` = @userId AND `revoked_at` IS NULL",
-            new { userId, now = now.UtcDateTime }, scope.Transaction, cancellationToken: scope.CancellationToken));
+            new
+            {
+                userId,
+                now = now.UtcDateTime
+            }, scope.Transaction, cancellationToken: scope.CancellationToken));
     }
 
     public async Task Locked(int userId, Func<CredentialScope, Task> work)
@@ -135,8 +158,14 @@ public class CredentialGenerations : ICredentialGenerations
     public Task MarkSessionRevoked(int userId, string sessionId, CredentialScope scope)
     {
         var now = _time.GetUtcNow();
+
         return scope.Connection.ExecuteAsync("UPDATE `user_sessions` SET `revoked_at` = @now WHERE `id` = @sessionId AND `user_id` = @userId AND `revoked_at` IS NULL",
-            new { sessionId, userId, now = now.UtcDateTime }, scope.Transaction);
+            new
+            {
+                sessionId,
+                userId,
+                now = now.UtcDateTime
+            }, scope.Transaction);
     }
 
     public Task StartSession(int userId, string sessionId, CredentialScope scope)
@@ -149,21 +178,35 @@ public class CredentialGenerations : ICredentialGenerations
     {
         var now = _time.GetUtcNow();
         using var connection = _database.Connection();
+
         return await connection.ExecuteAsync(
             "DELETE FROM `user_sessions` WHERE `created_at` < @cutoff " +
             "AND NOT EXISTS (SELECT 1 FROM `user_access_tokens` WHERE `session_id` = `user_sessions`.`id`) " +
             "AND NOT EXISTS (SELECT 1 FROM `user_remember_tokens` WHERE `family_id` = `user_sessions`.`id`) " +
             "AND NOT EXISTS (SELECT 1 FROM `users` WHERE `users`.`id` = `user_sessions`.`user_id` AND `auth_ticket_session` = `user_sessions`.`id` " +
             "AND `auth_ticket_expires_at` >= @now) LIMIT @batch",
-            new { cutoff = cutoff.UtcDateTime, now = now.UtcDateTime, batch });
+            new
+            {
+                cutoff = cutoff.UtcDateTime,
+                now = now.UtcDateTime,
+                batch
+            });
     }
 
     internal static Task StartSession(IDbConnection connection, IDbTransaction? transaction, string sessionId, int userId, DateTimeOffset now) =>
         connection.ExecuteAsync("INSERT INTO `user_sessions` (`id`, `user_id`, `created_at`) VALUES (@sessionId, @userId, @now)",
-            new { sessionId, userId, now = now.UtcDateTime }, transaction);
+            new
+            {
+                sessionId,
+                userId,
+                now = now.UtcDateTime
+            }, transaction);
 
     /// <summary>Locks the user's row and returns its generation (-1 when the user is gone).</summary>
     internal static async Task<long> Lock(IDbConnection connection, IDbTransaction transaction, int userId, CancellationToken cancellationToken = default) =>
         await connection.ExecuteScalarAsync<long?>(new CommandDefinition("SELECT `credential_generation` FROM `users` WHERE `id` = @userId FOR UPDATE",
-            new { userId }, transaction, cancellationToken: cancellationToken)) ?? -1;
+            new
+            {
+                userId
+            }, transaction, cancellationToken: cancellationToken)) ?? -1;
 }

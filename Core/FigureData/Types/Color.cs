@@ -1,4 +1,4 @@
-﻿namespace Plus.Core.FigureData.Types;
+namespace Plus.Core.FigureData.Types;
 
 public class Color
 {
@@ -11,9 +11,24 @@ public class Color
         Value = value;
     }
 
-    public int Id { get; set; }
-    public int Index { get; set; }
-    public int ClubLevel { get; set; }
-    public bool Selectable { get; set; }
-    public string Value { get; set; }
+    public int Id
+    {
+        get; set;
+    }
+    public int Index
+    {
+        get; set;
+    }
+    public int ClubLevel
+    {
+        get; set;
+    }
+    public bool Selectable
+    {
+        get; set;
+    }
+    public string Value
+    {
+        get; set;
+    }
 }

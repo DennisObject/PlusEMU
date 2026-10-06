@@ -19,21 +19,37 @@ public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMar
         // One listing at a time per account: the inventory check, the committed offer and the in-memory removal stay together.
         lock (habbo.WalletSync)
         {
-            if (habbo.WalletClosed) return false;
+            if (habbo.WalletClosed)
+            {
+                return false;
+            }
+
             var item = habbo.Inventory.Furniture.GetItem(itemId);
+
             if (item == null || (long)item.OwnerId != habbo.Id || !item.Definition.AllowTrade || !item.Definition.AllowMarketplaceSell)
+            {
                 return false;
+            }
+
             if (sellingPrice < 1 || sellingPrice > MaximumSellingPrice)
+            {
                 return false;
+            }
+
             var comission = marketplace.CalculateComissionPrice(sellingPrice);
             var totalPrice = (long)sellingPrice + comission;
+
             if (totalPrice > int.MaxValue)
+            {
                 return false;
+            }
+
             var itemType = item.Definition.Type == ItemType.Wall ? "2" : "1";
             var listedAt = time.GetUtcNow();
             store.ListFurni(new MarketplaceListing(itemId, item.Definition.Id, habbo.Id, sellingPrice, (int)totalPrice, item.Definition.PublicName,
                 item.Definition.SpriteId, itemType, listedAt, item.ExtraData.Serialize(), item.UniqueNumber, item.UniqueSeries));
             habbo.Inventory.Furniture.RemoveItem(itemId);
+
             return true;
         }
     }

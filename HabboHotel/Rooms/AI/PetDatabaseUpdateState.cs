@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.AI;
+namespace Plus.HabboHotel.Rooms.AI;
 
 public enum PetDatabaseUpdateState
 {

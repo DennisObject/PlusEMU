@@ -92,12 +92,14 @@ public sealed class WiredMenuDelegationTests
     {
         var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         client.SetHabbo(new Habbo { Id = 1, Username = "Alice" });
+
         return client;
     }
 
     private static FlashIncomingPacket Packet(params object[] values)
     {
         using var stream = new MemoryStream();
+
         foreach (var value in values)
         {
             if (value is int number)
@@ -115,7 +117,11 @@ public sealed class WiredMenuDelegationTests
                 stream.Write(bytes);
             }
         }
-        return new() { Buffer = stream.ToArray() };
+
+        return new()
+        {
+            Buffer = stream.ToArray()
+        };
     }
 
     private sealed class RecordingMenus : IWiredVariableMenuService
@@ -130,8 +136,16 @@ public sealed class WiredMenuDelegationTests
         public void ShowHolders(Room room, GameClient session, string id) => Calls.Add("Holders " + id);
         public void ShowHolderPage(Room room, GameClient session, string id, int page, int size, int users, int sort) =>
             Calls.Add($"HolderPage {id} {page} {size} {users} {sort}");
-        public void Write(Room room, GameClient session, WiredVariableMenuWrite request) { Calls.Add("Write"); Writes.Add(request); }
-        public void Manage(Room room, GameClient session, WiredVariableMenuWrite request) { Calls.Add("Manage"); Manages.Add(request); }
+        public void Write(Room room, GameClient session, WiredVariableMenuWrite request)
+        {
+            Calls.Add("Write");
+            Writes.Add(request);
+        }
+        public void Manage(Room room, GameClient session, WiredVariableMenuWrite request)
+        {
+            Calls.Add("Manage");
+            Manages.Add(request);
+        }
     }
 
     private sealed class RecordingMonitor : IWiredMonitorService

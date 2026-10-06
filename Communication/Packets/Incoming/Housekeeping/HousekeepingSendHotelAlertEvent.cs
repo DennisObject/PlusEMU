@@ -22,11 +22,21 @@ internal class HousekeepingSendHotelAlertEvent : IPacketEvent
         var message = HousekeepingLimits.Normalize(packet.ReadString());
         _runner.Run(session, "hotel.alert", HousekeepingRights.Alert, actor =>
         {
-            if (message.Length == 0) return HousekeepingOutcome.Fail(HousekeepingErrors.AlertEmpty, HousekeepingTarget.Hotel);
-            if (!HousekeepingLimits.IsText(message, HousekeepingLimits.MaxAlertLength)) return HousekeepingOutcome.Invalid(HousekeepingTarget.Hotel);
+            if (message.Length == 0)
+            {
+                return HousekeepingOutcome.Fail(HousekeepingErrors.AlertEmpty, HousekeepingTarget.Hotel);
+            }
+
+            if (!HousekeepingLimits.IsText(message, HousekeepingLimits.MaxAlertLength))
+            {
+                return HousekeepingOutcome.Invalid(HousekeepingTarget.Hotel);
+            }
+
             _clients.SendPacket(new BroadcastMessageAlertComposer($"{message}\r\n- {actor.Username}"));
+
             return HousekeepingOutcome.Success(HousekeepingTarget.Hotel, $"reached={_clients.Count} message={HousekeepingLimits.AuditValue(message)}");
         });
+
         return Task.CompletedTask;
     }
 }

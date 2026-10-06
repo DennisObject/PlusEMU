@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Permissions;
 using Dapper;
 using System.Collections.Concurrent;
@@ -44,35 +44,58 @@ public class CommandManager : ICommandManager
     public async Task<bool> Parse(GameClient session, string message)
     {
         if (session == null || session.GetHabbo() == null || session.GetHabbo().CurrentRoom == null)
+        {
             return false;
+        }
+
         if (!message.StartsWith(_prefix))
+        {
             return false;
+        }
+
         if (message == $"{_prefix}commands")
         {
             var list = new StringBuilder();
             list.Append("This is the list of commands you have available:\n");
+
             foreach (var cmdList in _commands.ToList())
             {
                 if (!session.GetHabbo().Access.Can("command." + cmdList.Value.Key))
+                {
                     continue;
+                }
+
                 list.Append($":{cmdList.Key} {cmdList.Value.Parameters} - {cmdList.Value.Description}\n");
             }
+
             session.Send(new MOTDNotificationComposer(list.ToString()));
+
             return true;
         }
+
         message = message.Substring(1);
+
         if (string.IsNullOrWhiteSpace(message))
+        {
             return false;
+        }
 
         var split = message.Split(' ');
         var key = split[0];
         var parameters = split.Length > 1 ? split[1..] : Array.Empty<string>();
+
         if (_commands.TryGetValue(key.ToLower(), out var command))
         {
             if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
+            {
                 LogCommand(session.GetHabbo().Id, message, session.GetHabbo().MachineId);
+            }
+
             if (!session.GetHabbo().Access.Can("command." + command.Key))
+            {
                 return false;
+            }
+
             session.GetHabbo().ChatCommand = command;
             session.GetHabbo().CurrentRoom.GetWired().TriggerEvent(WiredBoxType.TriggerUserSaysCommand, session.GetHabbo(), this);
 
@@ -85,28 +108,34 @@ public class CommandManager : ICommandManager
                 if (!parameters.Any())
                 {
                     session.SendWhisper("No username specified.");
+
                     return true;
                 }
 
                 var username = parameters[0];
                 parameters = parameters.Length > 1 ? parameters[1..] : Array.Empty<string>();
                 var target = _gameClientManager.GetClientByUsername(username);
+
                 if (target == null)
                 {
                     session.SendWhisper($"User {username} seems to be offline.");
+
                     return true;
                 }
 
                 if (targetChatCommand.MustBeInSameRoom && session.GetHabbo().CurrentRoom != target.GetHabbo().CurrentRoom)
                 {
                     session.SendWhisper($"You must be in the same room as {username} to execute this command.");
+
                     return true;
                 }
 
                 await targetChatCommand.Execute(session, session.GetHabbo().CurrentRoom, target.GetHabbo(), parameters);
             }
+
             return true;
         }
+
         return false;
     }
 
@@ -123,12 +152,17 @@ public class CommandManager : ICommandManager
     public static string MergeParams(string[] @params, int start = 0)
     {
         var merged = new StringBuilder();
+
         for (var i = start; i < @params.Length; i++)
         {
             if (i > start)
+            {
                 merged.Append(" ");
+            }
+
             merged.Append(@params[i]);
         }
+
         return merged.ToString();
     }
 
@@ -137,7 +171,13 @@ public class CommandManager : ICommandManager
         using var connection = _database.Connection();
         var timestamp = _clock.GetUtcNow().UtcDateTime;
         connection.Execute("INSERT INTO logs_client_staff (user_id,data_string,machine_id,`timestamp`) VALUES (@userId,@data,@machineId,@timestamp)",
-            new { userId, data, machineId = machineId ?? string.Empty, timestamp });
+            new
+            {
+                userId,
+                data,
+                machineId = machineId ?? string.Empty,
+                timestamp
+            });
     }
 
     public bool TryGetCommand(string command, [NotNullWhen(true)] out ICommandBase? chatCommand) => _commands.TryGetValue(command, out chatCommand);

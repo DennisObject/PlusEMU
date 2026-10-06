@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Badges;
+namespace Plus.HabboHotel.Badges;
 
 public class BadgeDefinition
 {

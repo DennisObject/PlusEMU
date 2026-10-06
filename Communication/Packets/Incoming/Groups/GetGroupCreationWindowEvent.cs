@@ -8,6 +8,7 @@ internal sealed class GetGroupCreationWindowEvent(IGroupPresentationService pres
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         presentation.ShowCreationWindow(session);
+
         return Task.CompletedTask;
     }
 }

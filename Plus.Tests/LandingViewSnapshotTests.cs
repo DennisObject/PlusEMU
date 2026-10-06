@@ -27,6 +27,7 @@ public sealed class LandingViewSnapshotTests
         promotion.ButtonLink = "changed";
         promotion.ImageLink = "changed";
         source.Clear();
+
         for (var index = 0; index < 2; index++)
         {
             var packet = new HabbiconTestSupport.RecordingPacket();
@@ -67,7 +68,10 @@ public sealed class LandingViewSnapshotTests
 
     private sealed class RecordingService : ILandingViewPresentationService
     {
-        public bool Shown { get; private set; }
+        public bool Shown
+        {
+            get; private set;
+        }
         public void ShowArticles(GameClient session) => Shown = true;
         public void RefreshCampaign(GameClient session, string campaigns) => throw new NotSupportedException();
     }

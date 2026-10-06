@@ -16,13 +16,18 @@ public sealed class ClientAccessListTests
     {
         var manager = new ChatStyleManager(NullLogger<ChatStyleManager>.Instance, null!);
         var styles = (Dictionary<int, ChatStyle>)typeof(ChatStyleManager).GetField("_styles", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
+
         foreach (var style in new[] {
             new ChatStyle(0, "Normal", ""),
             new ChatStyle(1, "HC", "", true),
             new ChatStyle(2, "Staff", PermissionKeys.ChatStyleStaff),
             new ChatStyle(3, "Disabled", "", enabled: false),
             new ChatStyle(4, "Ambassador", PermissionKeys.Ambassador)
-        }) styles.Add(style.Id, style);
+        })
+        {
+            styles.Add(style.Id, style);
+        }
+
         return manager;
     }
 
@@ -30,6 +35,7 @@ public sealed class ClientAccessListTests
     {
         var manager = new RoomManager(NullLogger<RoomManager>.Instance, null!, null!, TimeProvider.System, new TestRoomFactory(), new TestRoomDataLoaderFactory());
         var models = (Dictionary<string, RoomModel>)typeof(RoomManager).GetField("_roomModels", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
+
         foreach (var model in new[] {
             new RoomModel("model_a", 0, 0, 0, 0, "00\rx0", 0, 0, false),
             new RoomModel("model_s", 0, 0, 0, 0, "00\r00", 0, 0, false),
@@ -39,7 +45,11 @@ public sealed class ClientAccessListTests
             new RoomModel("model_staff", 0, 0, 0, 0, "00\r00", -1, 0, false),
             new RoomModel("model_gated", 0, 0, 0, 0, "00\r00", 0, 0, false) { RequiredPermission = PermissionKeys.ChatStyleStaff },
             new RoomModel("model_custom", 0, 0, 0, 0, "00\r00", 0, 0, true)
-        }) models.Add(model.Id, model);
+        })
+        {
+            models.Add(model.Id, model);
+        }
+
         return manager;
     }
 
@@ -86,12 +96,14 @@ public sealed class ClientAccessListTests
     {
         var manager = Models();
         var staff = UserAccess.Create([], [new("*", false)]);
+
         foreach (var id in new[] { "model_s", "model_wl" })
         {
             Assert.True(manager.TryGetModel(id, out var model));
             Assert.False(model.CanCreate(UserAccess.Empty));
             Assert.False(model.CanCreate(staff));
         }
+
         Assert.DoesNotContain(manager.GetCreatableModels(staff), model => model.Id is "model_s" or "model_wl");
     }
 

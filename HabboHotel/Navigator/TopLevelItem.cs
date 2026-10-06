@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Navigator;
+namespace Plus.HabboHotel.Navigator;
 
 public class TopLevelItem
 {
@@ -10,11 +10,23 @@ public class TopLevelItem
         Localization = localization;
     }
 
-    public int Id { get; set; }
+    public int Id
+    {
+        get; set;
+    }
 
-    public string SearchCode { get; set; }
+    public string SearchCode
+    {
+        get; set;
+    }
 
-    public string Filter { get; set; }
+    public string Filter
+    {
+        get; set;
+    }
 
-    public string Localization { get; set; }
+    public string Localization
+    {
+        get; set;
+    }
 }

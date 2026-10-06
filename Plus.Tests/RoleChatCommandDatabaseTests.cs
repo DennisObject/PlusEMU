@@ -28,14 +28,21 @@ public sealed partial class AccessControlDatabaseTests
         var packet = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
         Assert.Equal(ServerPacketHeader.WhisperComposer, sent.Single().Header);
         packet.ReadInt();
+
         return packet.ReadString();
     }
 
     private void AssertNoRoleCommandMutation()
     {
         using var connection = _database.Connection();
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new { Actor }));
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @Target", new { Target }));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new
+        {
+            Actor
+        }));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @Target", new
+        {
+            Target
+        }));
         Assert.Empty(_sent);
     }
 
@@ -46,9 +53,21 @@ public sealed partial class AccessControlDatabaseTests
         Assert.Equal(LimitedRole, _target.Access.PrimaryRole!.Id);
         Assert.Equal(ServerPacketHeader.UserRightsComposer, Assert.Single(_sent).Header);
         using var connection = _database.Connection();
-        Assert.Null(connection.QuerySingle<DateTime?>("SELECT expires_at FROM user_roles WHERE user_id = @Target AND role_id = @LimitedRole", new { Target, LimitedRole }));
-        Assert.Equal(Actor, connection.ExecuteScalar<int>("SELECT granted_by FROM user_roles WHERE user_id = @Target AND role_id = @LimitedRole", new { Target, LimitedRole }));
-        Assert.Equal("role.assign", connection.QuerySingle<string>("SELECT action FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target", new { Actor, Target }));
+        Assert.Null(connection.QuerySingle<DateTime?>("SELECT expires_at FROM user_roles WHERE user_id = @Target AND role_id = @LimitedRole", new
+        {
+            Target,
+            LimitedRole
+        }));
+        Assert.Equal(Actor, connection.ExecuteScalar<int>("SELECT granted_by FROM user_roles WHERE user_id = @Target AND role_id = @LimitedRole", new
+        {
+            Target,
+            LimitedRole
+        }));
+        Assert.Equal("role.assign", connection.QuerySingle<string>("SELECT action FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target", new
+        {
+            Actor,
+            Target
+        }));
     }
 
     [AccessControlDatabaseFact]
@@ -59,9 +78,16 @@ public sealed partial class AccessControlDatabaseTests
         Assert.Equal(LimitedRole, _access.Resolve(Target).PrimaryRole!.Id);
         Assert.Contains("Revoked role 'acl_limited'", RunRoleCommand(false, "acl_target", "acl_limited"));
         using var connection = _database.Connection();
-        Assert.Equal(new[] { "role.assign", "role.revoke" }, connection.Query<string>("SELECT action FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target ORDER BY id", new { Actor, Target }));
+        Assert.Equal(new[] { "role.assign", "role.revoke" }, connection.Query<string>("SELECT action FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target ORDER BY id", new
+        {
+            Actor,
+            Target
+        }));
         Assert.Empty(_sent);
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @Target", new { Target }));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @Target", new
+        {
+            Target
+        }));
     }
 
     [AccessControlDatabaseTheory]
@@ -73,7 +99,11 @@ public sealed partial class AccessControlDatabaseTests
         var expiry = _clock.Now.AddDays(days);
         Assert.Contains($"expires {expiry:yyyy-MM-dd HH:mm:ss} UTC", RunRoleCommand(true, "acl_target", "acl_limited", days.ToString()));
         using var connection = _database.Connection();
-        Assert.Equal(expiry.UtcDateTime, connection.QuerySingle<DateTime>("SELECT expires_at FROM user_roles WHERE user_id = @Target AND role_id = @LimitedRole", new { Target, LimitedRole }));
+        Assert.Equal(expiry.UtcDateTime, connection.QuerySingle<DateTime>("SELECT expires_at FROM user_roles WHERE user_id = @Target AND role_id = @LimitedRole", new
+        {
+            Target,
+            LimitedRole
+        }));
     }
 
     [AccessControlDatabaseTheory]
@@ -98,13 +128,32 @@ public sealed partial class AccessControlDatabaseTests
     public void RoleCommandsRejectEqualOrHigherWeightRoles(bool assign, int weight)
     {
         using var connection = _database.Connection();
-        connection.Execute("UPDATE roles SET weight = @weight WHERE id = @LimitedRole", new { weight, LimitedRole });
-        if (!assign) connection.Execute("INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new { Target, LimitedRole });
+        connection.Execute("UPDATE roles SET weight = @weight WHERE id = @LimitedRole", new
+        {
+            weight,
+            LimitedRole
+        });
+
+        if (!assign)
+        {
+            connection.Execute("INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new
+            {
+                Target,
+                LimitedRole
+            });
+        }
+
         _access.Reload();
         _sent.Clear();
         Assert.Contains("Role change refused", RunRoleCommand(assign, "acl_target", "acl_limited"));
-        Assert.Equal(assign ? 0 : 1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @Target", new { Target }));
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new { Actor }));
+        Assert.Equal(assign ? 0 : 1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @Target", new
+        {
+            Target
+        }));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM acl_audit_log WHERE actor_id = @Actor", new
+        {
+            Actor
+        }));
         Assert.Empty(_sent);
     }
 
@@ -116,7 +165,11 @@ public sealed partial class AccessControlDatabaseTests
     public void RoleCommandsRejectEqualOrHigherWeightTargets(bool assign, int weight)
     {
         using var connection = _database.Connection();
-        connection.Execute("UPDATE roles SET weight = @weight WHERE id = @PeerRole", new { weight, PeerRole });
+        connection.Execute("UPDATE roles SET weight = @weight WHERE id = @PeerRole", new
+        {
+            weight,
+            PeerRole
+        });
         _access.Reload();
         _sent.Clear();
         Assert.Contains("Role change refused", RunRoleCommand(assign, "acl_peer", "acl_limited"));
@@ -147,7 +200,10 @@ public sealed partial class AccessControlDatabaseTests
         Assert.DoesNotContain("acl_actor", reply);
         Assert.DoesNotContain("default", reply);
         using var connection = _database.Connection();
-        connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, 'camera.use', 'deny')", new { Actor });
+        connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, 'camera.use', 'deny')", new
+        {
+            Actor
+        });
         Assert.DoesNotContain("acl_limited", RunRoleCommand(assign, "acl_target", "missing-role"));
         AssertNoRoleCommandMutation();
     }
@@ -161,8 +217,15 @@ public sealed partial class AccessControlDatabaseTests
         Assert.Equal("default", _target.Access.PrimaryRole!.Slug);
         Assert.Equal(ServerPacketHeader.UserRightsComposer, Assert.Single(_sent).Header);
         using var connection = _database.Connection();
-        Assert.Equal("role.revoke", connection.QuerySingle<string>("SELECT action FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target ORDER BY id DESC LIMIT 1", new { Actor, Target }));
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @Target", new { Target }));
+        Assert.Equal("role.revoke", connection.QuerySingle<string>("SELECT action FROM acl_audit_log WHERE actor_id = @Actor AND target_id = @Target ORDER BY id DESC LIMIT 1", new
+        {
+            Actor,
+            Target
+        }));
+        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @Target", new
+        {
+            Target
+        }));
     }
 
     [AccessControlDatabaseTheory]
@@ -173,7 +236,11 @@ public sealed partial class AccessControlDatabaseTests
     public void RoleCommandsRequireTheirCommandAndManagementPermissions(bool assign, string denied)
     {
         using var connection = _database.Connection();
-        connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, @denied, 'deny')", new { Actor, denied });
+        connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, @denied, 'deny')", new
+        {
+            Actor,
+            denied
+        });
         Assert.Contains("not allowed", RunRoleCommand(assign, "acl_target", "acl_limited"));
         AssertNoRoleCommandMutation();
     }
@@ -186,7 +253,12 @@ public sealed partial class AccessControlDatabaseTests
         Assert.Contains("Usage:", RunRoleCommand(assign));
         Assert.Contains("Usage:", RunRoleCommand(assign, "acl_target"));
         Assert.Contains("Usage:", RunRoleCommand(assign, "acl_target", "acl_limited", "1", "extra"));
-        if (!assign) Assert.Contains("Usage:", RunRoleCommand(false, "acl_target", "acl_limited", "1"));
+
+        if (!assign)
+        {
+            Assert.Contains("Usage:", RunRoleCommand(false, "acl_target", "acl_limited", "1"));
+        }
+
         AssertNoRoleCommandMutation();
     }
 }

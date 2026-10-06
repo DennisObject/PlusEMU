@@ -10,6 +10,10 @@ public class ItemsComposer(RoomFurnitureSnapshot furniture) : IServerPacket
     {
         RoomEngineSerializers.WriteOwnerMap(packet, furniture);
         packet.WriteInteger(furniture.Items.Length);
-        foreach (var item in furniture.Items) RoomEngineSerializers.WriteWallItem(packet, item);
+
+        foreach (var item in furniture.Items)
+        {
+            RoomEngineSerializers.WriteWallItem(packet, item);
+        }
     }
 }

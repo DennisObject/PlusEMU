@@ -37,6 +37,7 @@ public sealed class ModeratorRoomInfoTests
         data.Description = "changed";
         data.Tags[0] = "changed";
         data.Tags.Clear();
+
         for (var index = 0; index < 2; index++)
         {
             var packet = new HabbiconTestSupport.RecordingPacket();
@@ -87,8 +88,13 @@ public sealed class ModeratorRoomInfoTests
 
     private static RoomData Data() => new()
     {
-        Id = 42, UsersNow = 3, OwnerId = 7, OwnerName = "owner",
-        Name = "room", Description = "description", Tags = ["one", "two"]
+        Id = 42,
+        UsersNow = 3,
+        OwnerId = 7,
+        OwnerName = "owner",
+        Name = "room",
+        Description = "description",
+        Tags = ["one", "two"]
     };
 
     private static Room World(bool ownerPresent)
@@ -97,6 +103,7 @@ public sealed class ModeratorRoomInfoTests
         room.Id = 42;
         var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
+
         if (ownerPresent)
         {
             var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 7, Username = "OWNER" });
@@ -105,6 +112,7 @@ public sealed class ModeratorRoomInfoTests
                 .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
             users.TryAdd(1, user);
         }
+
         return room;
     }
 
@@ -113,6 +121,7 @@ public sealed class ModeratorRoomInfoTests
         Assert.Equal("TryGetRoom", method);
         Assert.Equal(42u, args[0]);
         args[1] = room;
+
         return room != null;
     });
 
@@ -122,6 +131,7 @@ public sealed class ModeratorRoomInfoTests
         {
             Assert.Equal(42u, roomId);
             data = result;
+
             return data != null;
         }
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId) => throw new NotSupportedException();
@@ -129,8 +139,18 @@ public sealed class ModeratorRoomInfoTests
 
     private sealed class RecordingService : IModeratorRoomInfoService
     {
-        public uint RoomId { get; private set; }
-        public GameClient? Client { get; private set; }
-        public void Show(GameClient session, uint roomId) { Client = session; RoomId = roomId; }
+        public uint RoomId
+        {
+            get; private set;
+        }
+        public GameClient? Client
+        {
+            get; private set;
+        }
+        public void Show(GameClient session, uint roomId)
+        {
+            Client = session;
+            RoomId = roomId;
+        }
     }
 }

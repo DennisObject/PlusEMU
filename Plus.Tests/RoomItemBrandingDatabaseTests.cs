@@ -13,11 +13,16 @@ public sealed class RoomItemBrandingDatabaseTests
     public void BrandingStoreWritesOnlyTheExactRoomRowAndAcceptsAnUnchangedValue()
     {
         var serverOptions = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
-        { Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true };
+        {
+            Pooling = false,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
+        };
         using var connection = new MySqlConnection(serverOptions.ConnectionString);
         connection.Open();
         var schema = "room_branding_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             connection.Execute($"USE `{schema}`");

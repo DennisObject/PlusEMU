@@ -25,14 +25,18 @@ public class ClubMembershipTests
         private object? _state;
         public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
         {
-            _callback = callback; _state = state;
+            _callback = callback;
+            _state = state;
+
             return new ManualTimer();
         }
         public void Tick() => _callback!(_state);
         private sealed class ManualTimer : ITimer
         {
             public bool Change(TimeSpan dueTime, TimeSpan period) => true;
-            public void Dispose() { }
+            public void Dispose()
+            {
+            }
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }
@@ -48,10 +52,14 @@ public class ClubMembershipTests
         var model = new RoomModel("club", 0, 0, 0, 0, "00\r00", 2, 0, false);
         var item = new CatalogItem { ClubLevel = 2 };
         var habbo = new Habbo { Access = access };
-        Assert.True(style.CanUse(access)); Assert.True(model.CanCreate(access)); Assert.True(item.CanPurchase(habbo));
+        Assert.True(style.CanUse(access));
+        Assert.True(model.CanCreate(access));
+        Assert.True(item.CanPurchase(habbo));
         clock.Now = clock.Now.AddSeconds(60);
         Assert.Equal(0, ClubAccess.LevelFor(access));
-        Assert.False(style.CanUse(access)); Assert.False(model.CanCreate(access)); Assert.False(item.CanPurchase(habbo));
+        Assert.False(style.CanUse(access));
+        Assert.False(model.CanCreate(access));
+        Assert.False(item.CanPurchase(habbo));
         var rights = new HabbiconTestSupport.RecordingPacket();
         new UserRightsComposer(UserRightsSnapshot.Capture(access)).Compose(rights);
         Assert.Equal(0, rights.Writes[0]);
@@ -63,7 +71,11 @@ public class ClubMembershipTests
         Assert.Equal(0, ClubAccess.LevelFor(UserAccess.Create([new(staff)])));
         Assert.Equal(2, ClubAccess.LevelFor(UserAccess.Create([new(staff)], [new(PermissionKeys.ClubAccess, false)])));
         Assert.Equal(0, ClubAccess.LevelFor(UserAccess.Create([new(staff)], [new("*", false), new(PermissionKeys.ClubAccess, true)])));
-        var vip = staff with { Slug = "vip", IsStaff = false };
+        var vip = staff with
+        {
+            Slug = "vip",
+            IsStaff = false
+        };
         Assert.Equal(0, ClubAccess.LevelFor(UserAccess.Create([new(vip)])));
     }
     [Fact]
@@ -79,7 +91,8 @@ public class ClubMembershipTests
     [Fact]
     public void StatusCarriesRealTimeHistoryAndHcBranding()
     {
-        var clock = new Clock(); var now = clock.Now;
+        var clock = new Clock();
+        var now = clock.Now;
         var membership = new ClubMembership(now.AddDays(32), now.AddDays(-5), now.AddDays(-40), 35 * ClubMembership.Day, now.AddSeconds(-120));
         var packet = new HabbiconTestSupport.RecordingPacket();
         new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(UserAccess.Create([], clock: clock, membership: membership), ClubStatusSnapshot.PurchaseResponse)).Compose(packet);
@@ -99,10 +112,16 @@ public class ClubMembershipTests
         Assert.Equal(1, membership.AvailableGifts(At(101)));
         Assert.Equal(1, membership.AvailableGifts(At(100 + ClubMembership.Period)));
         Assert.Equal(2, membership.AvailableGifts(At(101 + ClubMembership.Period)));
-        Assert.Equal(0, (membership with { GiftsClaimed = 1 }).AvailableGifts(At(101)));
+        Assert.Equal(0, (membership with
+        {
+            GiftsClaimed = 1
+        }).AvailableGifts(At(101)));
     }
     [Theory]
-    [InlineData(6, 0)] [InlineData(7, 5)] [InlineData(30, 10)] [InlineData(365, 30)]
+    [InlineData(6, 0)]
+    [InlineData(7, 5)]
+    [InlineData(30, 10)]
+    [InlineData(365, 30)]
     public void KickbackUsesPolarisStreakBandsAndFlooredSpending(int days, int bonus)
     {
         Assert.Equal(bonus, ClubRewards.StreakBonus(days));
@@ -133,8 +152,10 @@ public class ClubMembershipTests
         var normal = new Habbo();
         var member = new Habbo { Access = UserAccess.Create([], [new(PermissionKeys.ClubAccess, false)]) };
         var page = new CatalogPage { Enabled = true, RequiredClubLevel = 1 };
-        Assert.False(page.CanOpen(normal)); Assert.True(page.CanOpen(member));
-        page.RequiredPermission = PermissionKeys.CatalogEdit; Assert.False(page.CanOpen(member));
+        Assert.False(page.CanOpen(normal));
+        Assert.True(page.CanOpen(member));
+        page.RequiredPermission = PermissionKeys.CatalogEdit;
+        Assert.False(page.CanOpen(member));
         var settings = DispatchProxy.Create<ISettingsManager, SettingProxy>();
         Assert.Equal(50, ClubLimits.For(normal.Access, "visitors", settings));
         Assert.Equal(75, ClubLimits.For(member.Access, "visitors", settings));

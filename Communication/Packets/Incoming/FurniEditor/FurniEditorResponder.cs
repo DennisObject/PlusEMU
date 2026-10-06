@@ -24,6 +24,7 @@ internal static class FurniEditorResponder
     public static void InBackground(GameClient session, ILogger logger, uint itemId, Func<Task<IServerPacket>> work) => _ = Task.Run(async () =>
     {
         IServerPacket answer;
+
         try
         {
             answer = await work();
@@ -37,6 +38,7 @@ internal static class FurniEditorResponder
             logger.LogError(e, "Furni editor request failed");
             answer = new FurniEditorResultComposer(new(false, "The server could not finish this request", itemId));
         }
+
         session.Send(answer);
     });
 }

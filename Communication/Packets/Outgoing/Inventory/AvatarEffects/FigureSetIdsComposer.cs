@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Clothing.Parts;
 
 namespace Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
@@ -16,11 +16,17 @@ public class FigureSetIdsComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_clothingParts.Length);
-        foreach (var part in _clothingParts)
-            packet.WriteInteger(part.PartId);
-        packet.WriteInteger(_clothingParts.Length);
-        foreach (var part in _clothingParts)
-            packet.WriteString(part.Part);
 
+        foreach (var part in _clothingParts)
+        {
+            packet.WriteInteger(part.PartId);
+        }
+
+        packet.WriteInteger(_clothingParts.Length);
+
+        foreach (var part in _clothingParts)
+        {
+            packet.WriteString(part.Part);
+        }
     }
 }

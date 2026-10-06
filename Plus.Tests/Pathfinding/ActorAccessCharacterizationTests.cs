@@ -19,6 +19,7 @@ public partial class PlacedFurniRoomTests
         var group = (Group)RuntimeHelpers.GetUninitializedObject(typeof(Group));
         RoomPerformanceFixture.SetField(group, "_members", new List<int>(members));
         RoomPerformanceFixture.SetField(group, "_administrators", new List<int>());
+
         return group;
     }
 
@@ -28,7 +29,10 @@ public partial class PlacedFurniRoomTests
         var groups = Proxy<IGroupManager>((method, args) =>
         {
             Assert.Equal("TryGetGroup", method);
-            var group = lookup((int)args[0]!); args[1] = group; return group != null;
+            var group = lookup((int)args[0]!);
+            args[1] = group;
+
+            return group != null;
         });
         var previous = (IGame)_gameField.GetValue(null)!;
         _gameField.SetValue(null, Proxy<IGame>((method, args) => method == "get_GroupManager" ? groups
@@ -38,10 +42,14 @@ public partial class PlacedFurniRoomTests
     private Item AccessGate(InteractionType kind, bool walkable = false)
     {
         var gate = Furni(10, kind, WiredBoxType.None);
-        gate.Definition.Height = 0; gate.Definition.Width = gate.Definition.Length = 1;
-        gate.Definition.Walkable = walkable; gate.GroupId = 7; gate.UserId = 7;
+        gate.Definition.Height = 0;
+        gate.Definition.Width = gate.Definition.Length = 1;
+        gate.Definition.Walkable = walkable;
+        gate.GroupId = 7;
+        gate.UserId = 7;
         InitializeNativeState(gate);
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, gate, 1, 1, 0, true, false, false));
+
         return gate;
     }
 
@@ -53,7 +61,9 @@ public partial class PlacedFurniRoomTests
         AccessGate(InteractionType.GuildGate);
         UseGroups(id => id == 7 ? GuildGroup(member ? [7] : []) : null);
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(1, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
+        ExecutorTick();
         Assert.Equal(member ? (1, 1) : (0, 1), (actor.X, actor.Y));
         Assert.Equal(member, actor.Movement.Profile.IsMember(7));
         Assert.False(actor.HasStatus("mv"));
@@ -63,9 +73,11 @@ public partial class PlacedFurniRoomTests
     public void AccessExecutorRefreshesMembershipAtCommitSoRevokedStepsDoNotLand()
     {
         AccessGate(InteractionType.GuildGate);
-        var group = GuildGroup(7); UseGroups(id => id == 7 ? group : null);
+        var group = GuildGroup(7);
+        UseGroups(id => id == 7 ? group : null);
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(1, 1); ExecutorTick();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
         Assert.Equal("1,1,0", actor.Statusses["mv"]);
         var version = actor.Movement.Profile.CapabilityVersion;
         RoomPerformanceFixture.SetField(group, "_members", new List<int>());
@@ -81,7 +93,9 @@ public partial class PlacedFurniRoomTests
         AccessGate(InteractionType.GuildGate);
         UseGroups(_ => null);
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(1, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
+        ExecutorTick();
         Assert.Equal((0, 1), (actor.X, actor.Y));
     }
 
@@ -95,7 +109,9 @@ public partial class PlacedFurniRoomTests
         var actor = ExecutorActor(0, 1);
         Assert.True(_room.GetGameMap().IsValidStep2(actor, new(0, 1), new(1, 1), true, false));
         Assert.Equal("0", gate.LegacyDataString);
-        actor.MoveTo(1, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
+        ExecutorTick();
         Assert.Equal((1, 1), (actor.X, actor.Y));
         Assert.False(actor.Movement.Profile.IsMember(7));
     }
@@ -114,6 +130,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("0", gate.LegacyDataString);
         Assert.True(_room.GetGameMap().IsValidStep2(user, new(0, 1), new(1, 1), true, false));
         Assert.Equal("1", gate.LegacyDataString);
-        Assert.Equal(7, gate.InteractingUser); Assert.Equal(4, gate.UpdateCounter);
+        Assert.Equal(7, gate.InteractingUser);
+        Assert.Equal(4, gate.UpdateCounter);
     }
 }

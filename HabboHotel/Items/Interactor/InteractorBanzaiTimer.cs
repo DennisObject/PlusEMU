@@ -1,27 +1,43 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorBanzaiTimer : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item) { }
+    public void OnPlace(GameClient? session, Item item)
+    {
+    }
 
-    public void OnRemove(GameClient? session, Item item) { }
+    public void OnRemove(GameClient? session, Item item)
+    {
+    }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
         var itemRoom = item.GetRoom();
-        if (itemRoom == null) return;
 
-        if (!hasRights) return;
+        if (itemRoom == null)
+        {
+            return;
+        }
+
+        if (!hasRights)
+        {
+            return;
+        }
+
         var oldValue = 0;
+
         if (!int.TryParse(item.LegacyDataString, out oldValue))
         {
             item.LegacyDataString = "0";
             oldValue = 0;
         }
+
         if (request == 0 && oldValue == 0)
+        {
             oldValue = 30;
+        }
         else if (request == 2)
         {
             if (itemRoom.GetBanzai().IsBanzaiActive && item.PendingReset && oldValue > 0)
@@ -32,19 +48,34 @@ public class InteractorBanzaiTimer : IFurniInteractor
             else
             {
                 if (oldValue < 30)
+                {
                     oldValue = 30;
+                }
                 else if (oldValue == 30)
+                {
                     oldValue = 60;
+                }
                 else if (oldValue == 60)
+                {
                     oldValue = 120;
+                }
                 else if (oldValue == 120)
+                {
                     oldValue = 180;
+                }
                 else if (oldValue == 180)
+                {
                     oldValue = 300;
+                }
                 else if (oldValue == 300)
+                {
                     oldValue = 600;
+                }
                 else
+                {
                     oldValue = 0;
+                }
+
                 item.UpdateNeeded = false;
             }
         }
@@ -55,19 +86,31 @@ public class InteractorBanzaiTimer : IFurniInteractor
                 item.LegacyDataString = "30";
                 oldValue = 30;
             }
+
             if (!itemRoom.GetBanzai().IsBanzaiActive)
             {
                 item.UpdateNeeded = !item.UpdateNeeded;
-                if (item.UpdateNeeded) itemRoom.GetBanzai().BanzaiStart();
+
+                if (item.UpdateNeeded)
+                {
+                    itemRoom.GetBanzai().BanzaiStart();
+                }
+
                 item.PendingReset = true;
             }
             else
             {
                 item.UpdateNeeded = !item.UpdateNeeded;
-                if (item.UpdateNeeded) itemRoom.GetBanzai().BanzaiEnd(true);
+
+                if (item.UpdateNeeded)
+                {
+                    itemRoom.GetBanzai().BanzaiEnd(true);
+                }
+
                 item.PendingReset = true;
             }
         }
+
         item.LegacyDataString = Convert.ToString(oldValue);
         item.UpdateState();
     }
@@ -75,15 +118,25 @@ public class InteractorBanzaiTimer : IFurniInteractor
     public void OnWiredTrigger(Item item)
     {
         var itemRoom = item.GetRoom();
-        if (itemRoom == null) return;
+
+        if (itemRoom == null)
+        {
+            return;
+        }
 
         if (itemRoom.GetBanzai().IsBanzaiActive)
+        {
             itemRoom.GetBanzai().BanzaiEnd(true);
+        }
+
         item.PendingReset = true;
         item.UpdateNeeded = true;
         item.LegacyDataString = "30";
         item.UpdateState();
+
         if (!itemRoom.GetBanzai().IsBanzaiActive)
+        {
             itemRoom.GetBanzai().BanzaiStart();
+        }
     }
 }

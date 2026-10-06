@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.Encryption.Keys;
+namespace Plus.Communication.Encryption.Keys;
 
 public class RsaKeys
 {

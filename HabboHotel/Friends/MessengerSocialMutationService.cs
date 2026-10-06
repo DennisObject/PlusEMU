@@ -18,8 +18,14 @@ public readonly record struct RoomInvitationRequest
         Message = message;
     }
 
-    public ImmutableArray<int> RecipientIds { get; }
-    public string Message { get; }
+    public ImmutableArray<int> RecipientIds
+    {
+        get;
+    }
+    public string Message
+    {
+        get;
+    }
 }
 
 [Singleton]
@@ -42,32 +48,41 @@ public sealed class MessengerSocialMutationService(
     {
         var habbo = session.GetHabbo();
         var friend = habbo.Messenger.GetFriend(friendId);
+
         if (friend == null)
         {
             session.Send(new BroadcastMessageAlertComposer("Oops, you can only set a relationship where a friendship exists."));
+
             return;
         }
 
         if (relationship is < 0 or > 3)
         {
             session.Send(new BroadcastMessageAlertComposer("Oops, you've chosen an invalid relationship type."));
+
             return;
         }
 
         var gate = _relationshipGates.GetValue(habbo.Messenger, static _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync();
+
         try
         {
             friend = habbo.Messenger.GetFriend(friendId);
+
             if (friend == null)
+            {
                 return;
+            }
 
             var previous = friend.Relationship;
             await messengerData.SetRelationship(habbo.Id, friend.Id, relationship);
             friend.Relationship = relationship;
 
             if (relationship is >= 1 and <= 3 && relationship != previous)
+            {
                 rewards.Progress(session, RewardTrackActions.SetRelationshipStatus);
+            }
 
             habbo.Messenger.UpdateFriend(friend);
         }
@@ -80,15 +95,20 @@ public sealed class MessengerSocialMutationService(
     public async Task SendRoomInvites(GameClient session, RoomInvitationRequest request)
     {
         var habbo = session.GetHabbo();
+
         if (habbo.TimeMuted > 0)
         {
             session.SendNotification("Oops, you're currently muted - you cannot send room invitations.");
+
             return;
         }
 
         var message = StringCharFilter.Escape(request.Message);
+
         if (message.Length > 121)
+        {
             message = message[..121];
+        }
 
         var recipients = request.RecipientIds
             .Where(habbo.Messenger.FriendshipExists)
@@ -101,9 +121,13 @@ public sealed class MessengerSocialMutationService(
         await invitations.Log(habbo.Id, message, invitedAt);
 
         foreach (var recipient in recipients)
+        {
             recipient.Send(new RoomInviteComposer(habbo.Id, message));
+        }
 
         if (recipients.Length > 0)
+        {
             rewards.Progress(session, RewardTrackActions.SendMessengerInvite);
+        }
     }
 }

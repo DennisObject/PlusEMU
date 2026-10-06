@@ -33,35 +33,55 @@ public class MagicTileParityTests
             var map = new Gamemap(fixture.Room, model, TestLogging.Navigation, settings, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(fixture.Room, map);
             var handler = fixture.Room.GetRoomItemHandler();
-            var underlying = NavTest.Item(1); underlying.Definition.Height = walkMagic ? 6 : 1;
+            var underlying = NavTest.Item(1);
+            underlying.Definition.Height = walkMagic ? 6 : 1;
             underlying.Definition.Walkable = !walkMagic;
             underlying.Definition.InteractionType = underlyingInteraction;
             underlying.Definition.IsSeat = walkMagic && underlyingInteraction == InteractionType.None;
             Add(underlying, 0);
+
             if (walkMagic)
             {
-                var low = Helper(100, InteractionType.WalkMagicTile); low.Definition.Height = 100;
-                Add(low, 0.75); Add(Helper(10, InteractionType.WalkMagicTile), 1.25);
+                var low = Helper(100, InteractionType.WalkMagicTile);
+                low.Definition.Height = 100;
+                Add(low, 0.75);
+                Add(Helper(10, InteractionType.WalkMagicTile), 1.25);
                 Add(Helper(11, InteractionType.WalkMagicTile), 1.25);
             }
-            else Add(Helper(2, InteractionType.Stacktool), 2);
-            map.GenerateMaps(); var navigation = map.Navigation!; navigation.Compiler.RebuildAll();
-            var grid = navigation.Grid; var tile = grid.Tile(1, 1);
+            else
+            {
+                Add(Helper(2, InteractionType.Stacktool), 2);
+            }
+
+            map.GenerateMaps();
+            var navigation = map.Navigation!;
+            navigation.Compiler.RebuildAll();
+            var grid = navigation.Grid;
+            var tile = grid.Tile(1, 1);
             Assert.Equal(map.SqAbsoluteHeight(1, 1), grid.LegacyZ[tile]);
             Assert.Equal(map.GameMap[1, 1] != 0, grid.Active(tile));
+
             if (walkMagic)
             {
-                Assert.Equal(1.25, grid.WalkZ[tile]); Assert.Equal(SurfaceKind.WalkMagic, grid.Kind[tile]);
-                Assert.Equal((uint)11, grid.SupportItem[tile]); Assert.Equal(NavFlags.Transit, grid.Flags[tile]);
-                Assert.False(grid.TileVoid[tile]); Assert.Same(handler.GetItem(11), map.WalkMagicAt(1, 1));
+                Assert.Equal(1.25, grid.WalkZ[tile]);
+                Assert.Equal(SurfaceKind.WalkMagic, grid.Kind[tile]);
+                Assert.Equal((uint)11, grid.SupportItem[tile]);
+                Assert.Equal(NavFlags.Transit, grid.Flags[tile]);
+                Assert.False(grid.TileVoid[tile]);
+                Assert.Same(handler.GetItem(11), map.WalkMagicAt(1, 1));
             }
+
             var actor = new RoomUser(0, 0, 1, fixture.Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 0, Y = 1 };
             var legacy = PathFinder.FindPath(actor, true, map, new(0, 1), new(1, 1));
             var route = new Route();
             var outcome = new PathSearch(grid, navigation.Settings).Find(new(new(), grid.Position(4), 1, 1),
                 new PathWorkspace(grid.SlotCapacity, grid.ActiveNodeCount), route);
             Assert.Equal(legacy.Count > 0, outcome == PathOutcome.Found);
-            if (legacy.Count > 0) Assert.Equal(legacy.Count - 1, route.Count);
+
+            if (legacy.Count > 0)
+            {
+                Assert.Equal(legacy.Count - 1, route.Count);
+            }
 
             void Add(Item item, double z)
             {
@@ -94,7 +114,8 @@ public class MagicTileParityTests
 
             void Check(bool expected)
             {
-                map.GenerateMaps(); navigation.Compiler.ApplyNow();
+                map.GenerateMaps();
+                navigation.Compiler.ApplyNow();
                 var grid = navigation.Grid;
                 Assert.Equal(expected, new MovementRules(grid, navigation.Settings).CanStep(new(), grid.Position(5),
                     grid.Position(10), StepPurpose.Goal, OccupancyView.Planning).Ok);
@@ -104,8 +125,11 @@ public class MagicTileParityTests
 
     private static Item Helper(uint id, InteractionType interaction)
     {
-        var item = NavTest.Item(id); item.Definition.InteractionType = interaction;
-        item.Definition.Walkable = false; return item;
+        var item = NavTest.Item(id);
+        item.Definition.InteractionType = interaction;
+        item.Definition.Walkable = false;
+
+        return item;
     }
 
     private static void WithSettings(bool collision, Action<ISettingsManager> test)

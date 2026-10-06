@@ -51,6 +51,7 @@ public partial class PlacedFurniRoomTests
             Assert.Contains(ServerPacketHeader.ItemsComposer, _client.Sent);
             Assert.DoesNotContain(ServerPacketHeader.RoomEntryInfoComposer, _client.Sent);
             reminders++;
+
             return null;
         });
 
@@ -68,8 +69,14 @@ public partial class PlacedFurniRoomTests
             ServerPacketHeader.UserChangeComposer,
             ServerPacketHeader.RoomEventComposer
         };
-        if (activeFlood) expected.Add(ServerPacketHeader.FloodControlComposer);
+
+        if (activeFlood)
+        {
+            expected.Add(ServerPacketHeader.FloodControlComposer);
+        }
+
         Assert.Equal(expected, tail);
+
         if (activeFlood)
         {
             var packet = new FlashIncomingPacket { Buffer = _client.Packets.Last().Body };
@@ -102,13 +109,22 @@ public partial class PlacedFurniRoomTests
     {
         public GameClient? Session;
         public int Calls;
-        public void Enter(GameClient session) { Session = session; Calls++; }
+        public void Enter(GameClient session)
+        {
+            Session = session;
+            Calls++;
+        }
     }
 
     private sealed class EntryClock : TimeProvider
     {
         public readonly DateTimeOffset Now = new(2040, 1, 2, 3, 4, 5, TimeSpan.FromMinutes(330));
         public int Reads;
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 }

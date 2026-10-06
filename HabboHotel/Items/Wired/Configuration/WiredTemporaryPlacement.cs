@@ -1,8 +1,14 @@
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
 // These two choices follow Turbo's explicit placement enums, rather than Octane's six definition-editor slots.
-public enum WiredPlaceLocationType { SourceLocation = 0, CustomLocation = 1 }
-public enum WiredPlaceAltitudeType { OnTopOfTargetLocation = 0, SourceAltitude = 1, CustomAltitude = 2 }
+public enum WiredPlaceLocationType
+{
+    SourceLocation = 0, CustomLocation = 1
+}
+public enum WiredPlaceAltitudeType
+{
+    OnTopOfTargetLocation = 0, SourceAltitude = 1, CustomAltitude = 2
+}
 
 /// <summary>Optional snapshot/relative placement settings stored only in the companion configuration.</summary>
 public sealed record WiredTemporaryPlacement(

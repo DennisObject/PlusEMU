@@ -5,8 +5,14 @@ namespace Plus.Core;
 [Singleton]
 public interface IServerUptime
 {
-    DateTimeOffset? StartedAt { get; }
-    TimeSpan Elapsed { get; }
+    DateTimeOffset? StartedAt
+    {
+        get;
+    }
+    TimeSpan Elapsed
+    {
+        get;
+    }
     void Start();
 }
 
@@ -21,9 +27,14 @@ public sealed class ServerUptime(TimeProvider clock) : IServerUptime
         get
         {
             var start = Volatile.Read(ref _start);
+
             if (start == null)
+            {
                 return TimeSpan.Zero;
+            }
+
             var elapsed = clock.GetElapsedTime(start.Timestamp);
+
             return elapsed < TimeSpan.Zero ? TimeSpan.Zero : elapsed;
         }
     }
@@ -33,7 +44,10 @@ public sealed class ServerUptime(TimeProvider clock) : IServerUptime
         lock (_gate)
         {
             if (_start != null)
+            {
                 return;
+            }
+
             Volatile.Write(ref _start, new(clock.GetUtcNow(), clock.GetTimestamp()));
         }
     }

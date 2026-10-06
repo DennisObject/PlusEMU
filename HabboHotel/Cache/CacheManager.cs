@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using Dapper;
@@ -33,6 +33,7 @@ public class CacheManager : ICacheManager, IStartable
     public Task Start()
     {
         Init();
+
         return Task.CompletedTask;
     }
 
@@ -48,22 +49,39 @@ public class CacheManager : ICacheManager, IStartable
     {
         var now = _clock.GetUtcNow();
         CachedUser? cachedUser;
+
         while (TryGetUser(id, out cachedUser))
         {
             var refreshed = cachedUser.RefreshAt(now);
+
             if (_usersCached.TryUpdate(id, refreshed, cachedUser))
+            {
                 return refreshed;
+            }
         }
 
         var client = _gameClientManager.GetClientByUserId(id);
+
         if (client?.GetHabbo() is { } habbo)
         {
-            cachedUser = new() { Id = id, Username = habbo.Username, Motto = habbo.Motto, Look = habbo.Look, RefreshedAt = now };
+            cachedUser = new()
+            {
+                Id = id,
+                Username = habbo.Username,
+                Motto = habbo.Motto,
+                Look = habbo.Look,
+                RefreshedAt = now
+            };
+
             return AddOrRefresh(id, cachedUser, now);
         }
 
         using var connection = _database.Connection();
-        cachedUser = connection.QuerySingleOrDefault<CachedUser>("SELECT id, `username`, `motto`, `look` FROM users WHERE id = @id LIMIT 1", new { id });
+        cachedUser = connection.QuerySingleOrDefault<CachedUser>("SELECT id, `username`, `motto`, `look` FROM users WHERE id = @id LIMIT 1", new
+        {
+            id
+        });
+
         return cachedUser == null ? null : AddOrRefresh(id, cachedUser.RefreshAt(now), now);
     }
 
@@ -72,12 +90,18 @@ public class CacheManager : ICacheManager, IStartable
         while (true)
         {
             if (_usersCached.TryAdd(id, candidate))
+            {
                 return candidate;
+            }
+
             if (_usersCached.TryGetValue(id, out var current))
             {
                 var refreshed = current.RefreshAt(now);
+
                 if (_usersCached.TryUpdate(id, refreshed, current))
+                {
                     return refreshed;
+                }
             }
         }
     }
@@ -85,8 +109,12 @@ public class CacheManager : ICacheManager, IStartable
     internal void Sweep()
     {
         var now = _clock.GetUtcNow();
+
         foreach (var entry in _usersCached.ToArray())
+        {
             RemoveIfExpired(entry, now);
+        }
+
         foreach (var user in PlusEnvironment.RemoveExpiredCachedUsers(now))
         {
             try

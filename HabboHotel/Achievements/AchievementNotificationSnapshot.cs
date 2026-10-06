@@ -18,6 +18,7 @@ public sealed record AchievementUnlockSnapshot(int Id, int Level, string Badge, 
     public static AchievementUnlockSnapshot Capture(Achievement achievement, int level, int pointReward, int pixelReward)
     {
         var name = achievement.GroupName ?? string.Empty;
+
         return new(achievement.Id, level, name + level.ToString(CultureInfo.InvariantCulture),
             level > 1 ? name + (level - 1).ToString(CultureInfo.InvariantCulture) : string.Empty,
             pointReward, pixelReward, achievement.Category ?? string.Empty);

@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Notifications;
@@ -28,12 +28,15 @@ public class RoomNotificationComposer : IServerPacket
             { "message", message },
             { "linkUrl", hotelUrl },
             { "linkTitle", hotelName }
-        }) { }
+        })
+    {
+    }
 
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteString(_type);
         packet.WriteInteger(_values.Length);
+
         foreach (var (key, value) in _values)
         {
             packet.WriteString(key);

@@ -28,6 +28,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
         admin.Open();
         var schema = "task_catalog_bot_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var options = new MySqlConnectionStringBuilder(root.ConnectionString) { Database = schema };
@@ -54,6 +55,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
                 Assert.Equal(1, CatalogLimitedStock.Reserve(db, transaction, 50));
                 bot = store.Create(db, transaction, preset, habbo.Id);
                 Assert.Equal(100, habbo.Credits);
+
                 return true;
             }));
 
@@ -75,6 +77,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
                 {
                     Assert.Equal(1, CatalogLimitedStock.Reserve(db, transaction, 50));
                     store.Create(db, transaction, preset, habbo.Id);
+
                     return true;
                 }));
 
@@ -107,7 +110,10 @@ public sealed class CatalogBotPurchaseDatabaseTests
 
     private sealed class BotRow
     {
-        public int UserId { get; set; }
+        public int UserId
+        {
+            get; set;
+        }
         public string Name { get; set; } = "";
         public string Motto { get; set; } = "";
         public string Look { get; set; } = "";
@@ -117,8 +123,14 @@ public sealed class CatalogBotPurchaseDatabaseTests
 
     private sealed class SpendingRow
     {
-        public int Credits { get; set; }
-        public DateTime SpentAt { get; set; }
+        public int Credits
+        {
+            get; set;
+        }
+        public DateTime SpentAt
+        {
+            get; set;
+        }
     }
 
     private sealed class Settings : ISettingsManager

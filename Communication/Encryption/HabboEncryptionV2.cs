@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Plus.Communication.Encryption.Crypto.RSA;
 using Plus.Communication.Encryption.KeyExchange;
 using Plus.Communication.Encryption.Keys;
@@ -23,6 +23,7 @@ public static class HabboEncryptionV2
         {
             var m = Encoding.Default.GetBytes(message);
             var c = _rsa.Sign(m);
+
             return c == null ? "0" : Converter.BytesToHexString(c);
         }
         catch
@@ -34,18 +35,21 @@ public static class HabboEncryptionV2
     public static string GetRsaDiffieHellmanPrimeKey()
     {
         var key = _diffieHellman.Prime.ToString(10);
+
         return GetRsaStringEncrypted(key);
     }
 
     public static string GetRsaDiffieHellmanGeneratorKey()
     {
         var key = _diffieHellman.Generator.ToString(10);
+
         return GetRsaStringEncrypted(key);
     }
 
     public static string GetRsaDiffieHellmanPublicKey()
     {
         var key = _diffieHellman.PublicKey.ToString(10);
+
         return GetRsaStringEncrypted(key);
     }
 
@@ -55,9 +59,14 @@ public static class HabboEncryptionV2
         {
             var cbytes = Converter.HexStringToBytes(publicKey);
             var publicKeyBytes = _rsa.Verify(cbytes);
+
             if (publicKeyBytes == null)
+            {
                 return 0;
+            }
+
             var publicKeyString = Encoding.Default.GetString(publicKeyBytes);
+
             return _diffieHellman.CalculateSharedKey(new(publicKeyString, 10));
         }
         catch

@@ -1,13 +1,25 @@
-﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Catalog.Marketplace;
 
 public interface IMarketplaceManager
 {
-    Dictionary<int, int> MarketAverages { get; }
-    Dictionary<int, int> MarketCounts { get; }
-    List<int> MarketItemKeys { get; }
-    List<MarketOffer> MarketItems { get; }
+    Dictionary<int, int> MarketAverages
+    {
+        get;
+    }
+    Dictionary<int, int> MarketCounts
+    {
+        get;
+    }
+    List<int> MarketItemKeys
+    {
+        get;
+    }
+    List<MarketOffer> MarketItems
+    {
+        get;
+    }
     int AvgPriceForSprite(int spriteId);
     int OfferCountForSprite(uint spriteId);
     MarketplaceItemStats ItemStats(uint spriteId);

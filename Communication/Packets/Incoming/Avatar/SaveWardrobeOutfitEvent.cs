@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Clothing;
 
 namespace Plus.Communication.Packets.Incoming.Avatar;
@@ -11,6 +11,7 @@ internal class SaveWardrobeOutfitEvent(IAvatarWardrobeService wardrobe) : IPacke
         var look = packet.ReadString();
         var gender = packet.ReadString();
         wardrobe.SaveOutfit(session.GetHabbo(), slotId, look, gender);
+
         return Task.CompletedTask;
     }
 }

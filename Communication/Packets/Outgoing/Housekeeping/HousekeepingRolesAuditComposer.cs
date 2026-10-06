@@ -15,6 +15,7 @@ public sealed class HousekeepingRolesAuditComposer(int requestId, AccessAuditPag
         packet.WriteInteger(page.Offset);
         packet.WriteInteger(page.Total);
         packet.WriteInteger(_entries.Length);
+
         foreach (var row in _entries)
         {
             packet.WriteInteger(row.Id);

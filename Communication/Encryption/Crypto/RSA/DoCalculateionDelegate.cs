@@ -1,3 +1,3 @@
-﻿namespace Plus.Communication.Encryption.Crypto.RSA;
+namespace Plus.Communication.Encryption.Crypto.RSA;
 
 public delegate BigInteger DoCalculateionDelegate(BigInteger m);

@@ -1,11 +1,14 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms;
 
 public interface IRoomManager
 {
-    int Count { get; }
+    int Count
+    {
+        get;
+    }
     void OnCycle();
     void LoadModels();
     IReadOnlyList<RoomModel> GetCreatableModels(Plus.HabboHotel.Permissions.UserAccess access);

@@ -1,4 +1,4 @@
-﻿using Plus.Database;
+using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Dapper;
 
@@ -23,9 +23,17 @@ internal class DisableForcedFxCommand : IChatCommand
         var habbo = session.GetHabbo();
         var value = !habbo.DisableForcedEffects;
         using var connection = _database.Connection();
+
         if (connection.Execute("UPDATE users_settings SET disable_forced_effects = @value WHERE user_id = @userId LIMIT 1",
-                new { value, userId = habbo.Id }) != 1)
+                new
+                {
+                    value,
+                    userId = habbo.Id
+                }) != 1)
+        {
             throw new InvalidOperationException("User settings were not persisted.");
+        }
+
         habbo.DisableForcedEffects = value;
         session.SendWhisper($"Forced FX mode is now {(value ? "disabled!" : "enabled!")}");
     }

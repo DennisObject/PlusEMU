@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 
 namespace Plus.HabboHotel.Items.DataFormat;
 
@@ -16,7 +16,12 @@ public class CrackableDataFormat : FurniObjectData
     public override void Store(string data)
     {
         var d = data.Split("\n");
-        if (d.Length != 3) return;
+
+        if (d.Length != 3)
+        {
+            return;
+        }
+
         State = Regex.Unescape(d[0]);
         uint.TryParse(d[1], out Hits);
         uint.TryParse(d[2], out Target);
@@ -27,9 +32,12 @@ public class CrackableDataFormat : FurniObjectData
         lock (_lock)
         {
             if (Hits < Target)
+            {
                 Hits++;
+            }
 
             RaiseDataUpdated();
+
             return Hits == Target;
         }
     }

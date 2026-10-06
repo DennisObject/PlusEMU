@@ -23,8 +23,10 @@ internal sealed class HousekeepingSaveRoleEvent(IAccessControl access, IHousekee
         runner.Run(session, "role.save", PermissionKeys.HousekeepingRolesManage, actor =>
         {
             var result = access.Apply(actor, revision, new SaveAccessRole(id, slug, name, description, weight, securityLevel, badgeCode, isStaff, isHidden));
+
             return new HousekeepingOutcome(result.Ok, result.Id, result.Message, HousekeepingTarget.Hotel, "role.save");
         });
+
         return Task.CompletedTask;
     }
 }

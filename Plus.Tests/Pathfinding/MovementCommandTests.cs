@@ -18,12 +18,18 @@ public class MovementCommandTests
             var command = new MoveCommand(1, 2, 3, MoveOrigin.User);
             captured.Set();
             Assert.True(release.Wait(5000));
+
             return slot.Publish(command);
         });
         Assert.True(captured.Wait(5000));
         var newer = new MoveCommand(2, 8, 9, MoveOrigin.Wired, MoveFlags.IgnoreUsers);
-        try { Assert.True(slot.Publish(newer)); }
+
+        try
+        {
+            Assert.True(slot.Publish(newer));
+        }
         finally { release.Set(); }
+
         Assert.False(await older);
         Assert.Same(newer, slot.Read());
     }
@@ -60,8 +66,14 @@ public class MovementCommandTests
         MoveCommand? ReadNew()
         {
             var command = slot.Read();
-            if (command == null || command.Sequence <= lastConsumed) return null;
+
+            if (command == null || command.Sequence <= lastConsumed)
+            {
+                return null;
+            }
+
             lastConsumed = command.Sequence;
+
             return command;
         }
     }
@@ -81,7 +93,12 @@ public class MovementCommandTests
     {
         var original = new MoveCommand(19, 3, 4, MoveOrigin.StaffCommand,
             MoveFlags.IgnoreUsers | MoveFlags.Teleport);
-        var replacement = original with { Sequence = 20, X = 5, Origin = MoveOrigin.User };
+        var replacement = original with
+        {
+            Sequence = 20,
+            X = 5,
+            Origin = MoveOrigin.User
+        };
         Assert.Equal((19L, 3, 4, MoveOrigin.StaffCommand),
             (original.Sequence, original.X, original.Y, original.Origin));
         Assert.Equal((20L, 5, 4, MoveOrigin.User),
@@ -95,19 +112,23 @@ public class MovementCommandTests
         var outer = Room();
         var inner = Room();
         Assert.Null(RoomOwnerScope.CurrentOwner);
+
         using (RoomOwnerScope.Enter(outer))
         {
             Assert.Same(outer, RoomOwnerScope.CurrentOwner);
             Assert.True(RoomOwnerScope.IsOwner(outer));
             Assert.False(RoomOwnerScope.IsOwner(inner));
+
             using (RoomOwnerScope.Enter(inner))
             {
                 Assert.Same(inner, RoomOwnerScope.CurrentOwner);
                 Assert.True(RoomOwnerScope.IsOwner(inner));
                 Assert.False(RoomOwnerScope.IsOwner(outer));
             }
+
             Assert.Same(outer, RoomOwnerScope.CurrentOwner);
         }
+
         Assert.Null(RoomOwnerScope.CurrentOwner);
     }
 
@@ -115,6 +136,7 @@ public class MovementCommandTests
     public void OwnerScopeRestoresThePreviousRoomAfterAnException()
     {
         var outer = Room();
+
         using (RoomOwnerScope.Enter(outer))
         {
             Assert.Throws<InvalidOperationException>((Action)(() =>
@@ -125,6 +147,7 @@ public class MovementCommandTests
             Assert.Same(outer, RoomOwnerScope.CurrentOwner);
             Assert.True(RoomOwnerScope.IsOwner(outer));
         }
+
         Assert.Null(RoomOwnerScope.CurrentOwner);
     }
 
@@ -133,12 +156,14 @@ public class MovementCommandTests
     {
         var room = Room();
         using var completed = new ManualResetEventSlim();
+
         using (RoomOwnerScope.Enter(room))
         {
             var worker = Task.Run(() =>
             {
                 var result = (RoomOwnerScope.CurrentOwner, RoomOwnerScope.IsOwner(room));
                 completed.Set();
+
                 return result;
             });
             Assert.True(completed.Wait(5000));
@@ -147,6 +172,7 @@ public class MovementCommandTests
             Assert.False(isOwner);
             Assert.Same(room, RoomOwnerScope.CurrentOwner);
         }
+
         Assert.Null(RoomOwnerScope.CurrentOwner);
     }
 
@@ -163,7 +189,12 @@ public class MovementCommandTests
             new RoomCommand(RoomCommandKind.Cancel, actor, 41),
             new RoomCommand(RoomCommandKind.Remove, actor, 41)
         };
-        foreach (var command in commands) queue.Enqueue(command);
+
+        foreach (var command in commands)
+        {
+            queue.Enqueue(command);
+        }
+
         var delivered = new List<RoomCommand>();
         queue.Drain(delivered.Add);
         Assert.Equal(commands, delivered);

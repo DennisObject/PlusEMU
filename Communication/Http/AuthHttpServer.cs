@@ -21,7 +21,10 @@ public interface IAuthHttpServer
     Task Stop();
 
     /// <summary>Bound addresses once started, e.g. http://127.0.0.1:8080.</summary>
-    IReadOnlyCollection<string> Urls { get; }
+    IReadOnlyCollection<string> Urls
+    {
+        get;
+    }
 }
 
 /// <summary>
@@ -59,10 +62,14 @@ public class AuthHttpServer : IAuthHttpServer
         builder.Services.AddRateLimiter(ConfigureRateLimiter);
 
         var app = builder.Build();
+
         // With no known proxies at all the middleware would trust every sender, so it only runs
         // when proxies are configured.
         if (_configuration.TrustedProxies.Length > 0)
+        {
             app.UseForwardedHeaders();
+        }
+
         app.UseExceptionHandler(error => error.Run(context => WriteError(context, StatusCodes.Status500InternalServerError)));
         app.UseStatusCodePages(context => WriteError(context.HttpContext, context.HttpContext.Response.StatusCode));
         app.Use(AddSecurityHeaders);
@@ -77,7 +84,10 @@ public class AuthHttpServer : IAuthHttpServer
     public async Task Stop()
     {
         if (_app == null)
+        {
             return;
+        }
+
         await _app.StopAsync();
         await _app.DisposeAsync();
         _app = null;
@@ -87,8 +97,12 @@ public class AuthHttpServer : IAuthHttpServer
     public static string ClientAddress(HttpContext context)
     {
         var address = context.Connection.RemoteIpAddress;
+
         if (address == null)
+        {
             return "unknown";
+        }
+
         return (address.IsIPv4MappedToIPv6 ? address.MapToIPv4() : address).ToString();
     }
 
@@ -104,9 +118,13 @@ public class AuthHttpServer : IAuthHttpServer
         kestrel.Limits.KeepAliveTimeout = TimeSpan.FromSeconds(30);
 
         if (string.Equals(_configuration.Hostname, "localhost", StringComparison.OrdinalIgnoreCase))
+        {
             kestrel.ListenLocalhost(_configuration.Port);
+        }
         else
+        {
             kestrel.Listen(IPAddress.Parse(_configuration.Hostname), _configuration.Port);
+        }
     }
 
     private void ConfigureForwardedHeaders(ForwardedHeadersOptions options)
@@ -116,12 +134,17 @@ public class AuthHttpServer : IAuthHttpServer
         // Only the configured proxies are trusted, not the framework's loopback default.
         options.KnownProxies.Clear();
         options.KnownIPNetworks.Clear();
+
         foreach (var proxy in _configuration.TrustedProxies)
         {
             if (proxy.Contains('/'))
+            {
                 options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(proxy));
+            }
             else
+            {
                 options.KnownProxies.Add(IPAddress.Parse(proxy));
+            }
         }
     }
 
@@ -131,6 +154,7 @@ public class AuthHttpServer : IAuthHttpServer
         options.OnRejected = (context, _) =>
         {
             SetRetryAfter(context.HttpContext.Response, context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) ? retryAfter : TimeSpan.FromMinutes(1));
+
             return new(WriteError(context.HttpContext, StatusCodes.Status429TooManyRequests));
         };
         options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context => context.Request.Path.StartsWithSegments("/api/auth")
@@ -160,6 +184,7 @@ public class AuthHttpServer : IAuthHttpServer
     {
         context.Response.Headers.CacheControl = "no-store";
         context.Response.Headers.XContentTypeOptions = "nosniff";
+
         return next();
     }
 
@@ -182,7 +207,12 @@ public class AuthHttpServer : IAuthHttpServer
         var (code, error) = ErrorFor(status);
         context.Response.StatusCode = status;
         context.Response.Headers.CacheControl = "no-store";
-        return context.Response.WriteAsJsonAsync(new { error, code });
+
+        return context.Response.WriteAsJsonAsync(new
+        {
+            error,
+            code
+        });
     }
 
     /// <summary>

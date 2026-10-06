@@ -12,6 +12,7 @@ public class AuthApiConfigurationTests
     {
         var services = new ServiceCollection();
         Program.AddConfiguration<AuthApiConfiguration>(services, configuration.GetSection("AuthApi"));
+
         return services.BuildServiceProvider().GetRequiredService<IOptions<AuthApiConfiguration>>().Value;
     }
 

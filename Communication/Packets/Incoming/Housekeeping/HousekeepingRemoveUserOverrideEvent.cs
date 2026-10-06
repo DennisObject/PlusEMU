@@ -16,8 +16,10 @@ internal sealed class HousekeepingRemoveUserOverrideEvent(IAccessControl access,
         runner.Run(session, "permission.remove", PermissionKeys.HousekeepingRolesManage, actor =>
         {
             var result = access.Apply(actor, revision, new RemoveAccessOverride(userId, key));
+
             return new HousekeepingOutcome(result.Ok, result.Id, result.Message, HousekeepingTarget.Hotel, "permission.remove");
         });
+
         return Task.CompletedTask;
     }
 }

@@ -293,6 +293,7 @@ public class AvatarEffectServiceTests
         habbo.Effects.Init(habbo);
         var effect = new AvatarEffect(501, 7, sprite, duration, activated, activatedAt, quantity, store ?? new RecordingStore());
         habbo.Effects.TryAdd(effect);
+
         return (habbo, effect);
     }
 
@@ -309,6 +310,7 @@ public class AvatarEffectServiceTests
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(room.GetRoomUserManager())!;
         users.TryAdd(7, user);
+
         return (client, user);
     }
 
@@ -316,6 +318,7 @@ public class AvatarEffectServiceTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes;
     }
 
@@ -323,6 +326,7 @@ public class AvatarEffectServiceTests
     {
         var bytes = new byte[4];
         BinaryPrimitives.WriteInt32BigEndian(bytes, value);
+
         return new FlashIncomingPacket { Buffer = bytes };
     }
 
@@ -330,10 +334,22 @@ public class AvatarEffectServiceTests
     {
         public List<(int Id, DateTimeOffset At)> Activations { get; } = new();
         public List<(int Id, int Quantity, bool Activated)> Saves { get; } = new();
-        public bool Fail { get; set; }
-        public bool FailSave { get; set; }
-        public Action<int>? OnActivate { get; set; }
-        public Action<int>? OnSave { get; set; }
+        public bool Fail
+        {
+            get; set;
+        }
+        public bool FailSave
+        {
+            get; set;
+        }
+        public Action<int>? OnActivate
+        {
+            get; set;
+        }
+        public Action<int>? OnSave
+        {
+            get; set;
+        }
 
         public IReadOnlyList<AvatarEffect> Load(int userId) => [];
         public AvatarEffect Create(int userId, int spriteId, double duration) => throw new NotSupportedException();
@@ -341,14 +357,24 @@ public class AvatarEffectServiceTests
         public void Activate(int id, DateTimeOffset timestamp)
         {
             OnActivate?.Invoke(id);
-            if (Fail) throw new InvalidOperationException("forced store failure");
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced store failure");
+            }
+
             Activations.Add((id, timestamp));
         }
 
         public void SaveQuantity(int id, int quantity, bool activated, DateTimeOffset? activatedAt)
         {
             OnSave?.Invoke(quantity);
-            if (FailSave) throw new InvalidOperationException("forced save failure");
+
+            if (FailSave)
+            {
+                throw new InvalidOperationException("forced save failure");
+            }
+
             Saves.Add((id, quantity, activated));
         }
     }

@@ -9,8 +9,13 @@ public sealed class WiredAllVariablesRequestEvent(IWiredVariableMenuService menu
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (packet.HasDataRemaining()) return Task.CompletedTask;
+        if (packet.HasDataRemaining())
+        {
+            return Task.CompletedTask;
+        }
+
         menus.ShowCatalogHash(room, session);
+
         return Task.CompletedTask;
     }
 }
@@ -19,21 +24,40 @@ public sealed class WiredVariableHashesEvent(IWiredVariableMenuService menus) : 
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!TryReadHashes(packet, out var hashes)) return Task.CompletedTask;
+        if (!TryReadHashes(packet, out var hashes))
+        {
+            return Task.CompletedTask;
+        }
+
         menus.ShowCatalogDiff(room, session, hashes);
+
         return Task.CompletedTask;
     }
     public static bool TryReadHashes(IIncomingPacket packet, out IReadOnlyDictionary<string, int> hashes)
     {
-        var result = new Dictionary<string, int>(StringComparer.Ordinal); hashes = result;
+        var result = new Dictionary<string, int>(StringComparer.Ordinal);
+        hashes = result;
+
         try
         {
-            var count = packet.ReadInt(); if (count is < 0 or > 4096) return false;
+            var count = packet.ReadInt();
+
+            if (count is < 0 or > 4096)
+            {
+                return false;
+            }
+
             for (var i = 0; i < count; i++)
             {
-                var id = packet.ReadString(); var hash = packet.ReadInt();
-                if (id.Length is < 1 or > 64 || !result.TryAdd(id, hash)) return false;
+                var id = packet.ReadString();
+                var hash = packet.ReadInt();
+
+                if (id.Length is < 1 or > 64 || !result.TryAdd(id, hash))
+                {
+                    return false;
+                }
             }
+
             return !packet.HasDataRemaining();
         }
         catch (ArgumentException) { return false; }
@@ -45,9 +69,20 @@ public sealed class WiredVariableHoldersRequestEvent(IWiredVariableMenuService m
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         string id;
-        try { id = packet.ReadString(); } catch (ArgumentException) { return Task.CompletedTask; }
-        if (id.Length is < 1 or > 64 || packet.HasDataRemaining()) return Task.CompletedTask;
+
+        try
+        {
+            id = packet.ReadString();
+        }
+        catch (ArgumentException) { return Task.CompletedTask; }
+
+        if (id.Length is < 1 or > 64 || packet.HasDataRemaining())
+        {
+            return Task.CompletedTask;
+        }
+
         menus.ShowHolders(room, session, id);
+
         return Task.CompletedTask;
     }
 }
@@ -56,11 +91,26 @@ public sealed class WiredVariableHoldersPageEvent(IWiredVariableMenuService menu
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        string id; int page, size, users, sort;
-        try { id = packet.ReadString(); page = packet.ReadInt(); size = packet.ReadInt(); users = packet.ReadInt(); sort = packet.ReadInt(); }
+        string id;
+        int page, size, users, sort;
+
+        try
+        {
+            id = packet.ReadString();
+            page = packet.ReadInt();
+            size = packet.ReadInt();
+            users = packet.ReadInt();
+            sort = packet.ReadInt();
+        }
         catch (ArgumentException) { return Task.CompletedTask; }
-        if (id.Length is < 1 or > 64 || users is not (0 or 1) || sort is < -1 or > 2 || packet.HasDataRemaining()) return Task.CompletedTask;
+
+        if (id.Length is < 1 or > 64 || users is not (0 or 1) || sort is < -1 or > 2 || packet.HasDataRemaining())
+        {
+            return Task.CompletedTask;
+        }
+
         menus.ShowHolderPage(room, session, id, page, size, users, sort);
+
         return Task.CompletedTask;
     }
 }

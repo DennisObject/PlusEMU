@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Catalog;
+using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -24,6 +24,7 @@ internal class ReloadCatalogCommand : IRconCommand
     {
         _catalogManager.Init();
         _gameClientManager.SendPacket(new CatalogUpdatedComposer());
+
         return Task.FromResult(true);
     }
 }

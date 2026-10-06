@@ -13,9 +13,13 @@ public partial class PlacedFurniRoomTests
     public void CommitServiceRunsEffectLandingWhileMvIsStillVisible()
     {
         var item = Add(10, 1, 1, type: InteractionType.Effect);
-        item.Definition.EffectId = 17; item.Definition.Walkable = true; InitializeNativeState(item);
-        var actor = ExecutorActor(0, 1); InitializeClientEffects();
-        actor.MoveTo(1, 1); ExecutorTick();
+        item.Definition.EffectId = 17;
+        item.Definition.Walkable = true;
+        InitializeNativeState(item);
+        var actor = ExecutorActor(0, 1);
+        InitializeClientEffects();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
         Assert.Equal(0, _client.GetHabbo().Effects.CurrentEffect);
         ExecutorTick();
         Assert.Equal(17, _client.GetHabbo().Effects.CurrentEffect);
@@ -26,10 +30,12 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void AnnounceServiceAppliesTheTargetFloorEffect()
     {
-        var actor = ExecutorActor(0, 1); InitializeClientEffects();
+        var actor = ExecutorActor(0, 1);
+        InitializeClientEffects();
         _room.GetGameMap().EffectMap[1, 1] = 3;
         _client.GetHabbo().Gender = "M";
-        actor.MoveTo(1, 1); ExecutorTick();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
         Assert.True(actor.HasStatus("mv"));
         Assert.Equal(38, _client.GetHabbo().Effects.CurrentEffect);
     }
@@ -41,23 +47,32 @@ public partial class PlacedFurniRoomTests
             BindingFlags.Static | BindingFlags.NonPublic)!;
         var previous = current.GetValue(null);
         current.SetValue(null, null);
+
         try
         {
-            var actor = ExecutorActor(0, 1, rewards: rewards); InitializeClientEffects();
+            var actor = ExecutorActor(0, 1, rewards: rewards);
+            InitializeClientEffects();
             var effects = _room.GetGameMap().EffectMap;
             effects[1, 1] = effects[2, 1] = 1;
 
-            actor.MoveTo(1, 1); ExecutorTick();
+            actor.MoveTo(1, 1);
+            ExecutorTick();
             Assert.True(actor.HasStatus("mv"));
             Assert.Equal(29, _client.GetHabbo().Effects.CurrentEffect);
             Assert.Equal([(_client, RewardTrackActions.Swim, 1)], rewards.Calls);
             ExecutorTick();
-            actor.MoveTo(2, 1); ExecutorTick(); ExecutorTick();
+            actor.MoveTo(2, 1);
+            ExecutorTick();
+            ExecutorTick();
             Assert.Equal([(_client, RewardTrackActions.Swim, 1)], rewards.Calls);
 
             effects[3, 1] = 0;
-            actor.MoveTo(3, 1); ExecutorTick(); ExecutorTick();
-            actor.MoveTo(2, 1); ExecutorTick(); ExecutorTick();
+            actor.MoveTo(3, 1);
+            ExecutorTick();
+            ExecutorTick();
+            actor.MoveTo(2, 1);
+            ExecutorTick();
+            ExecutorTick();
             Assert.Equal([(_client, RewardTrackActions.Swim, 1), (_client, RewardTrackActions.Swim, 1)], rewards.Calls);
         }
         finally { current.SetValue(null, previous); }
@@ -71,10 +86,13 @@ public partial class PlacedFurniRoomTests
         Add(11, 3, 2, z: 0.75, type: InteractionType.Teleport);
         var previous = _databaseField.GetValue(null);
         _databaseField.SetValue(null, TestNavigationDatabase.Instance);
+
         try
         {
             var actor = ExecutorActor(0, 1, database: LandingDatabase(11, RoomId));
-            actor.MoveTo(1, 1); ExecutorTick(); ExecutorTick();
+            actor.MoveTo(1, 1);
+            ExecutorTick();
+            ExecutorTick();
             Assert.Equal((3, 2, 0.75), (actor.X, actor.Y, actor.Z));
         }
         finally { _databaseField.SetValue(null, previous); }

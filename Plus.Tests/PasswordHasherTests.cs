@@ -104,6 +104,7 @@ public class PasswordHasherTests
         var salt = Encoding.ASCII.GetBytes("0123456789abcdef");
         using var argon = new Argon2id(Encoding.UTF8.GetBytes(password)) { Salt = salt, MemorySize = memoryKiB, Iterations = iterations, DegreeOfParallelism = 1 };
         var hash = argon.GetBytes(32);
+
         return $"$argon2id$v=19$m={memoryKiB},t={iterations},p=1${Convert.ToBase64String(salt).TrimEnd('=')}${Convert.ToBase64String(hash).TrimEnd('=')}";
     }
 

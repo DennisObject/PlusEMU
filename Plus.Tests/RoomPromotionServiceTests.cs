@@ -126,16 +126,31 @@ public sealed class RoomPromotionServiceTests
     private sealed class Context
     {
         public RoomData Data { get; } = new() { Id = 42, OwnerId = 7, OwnerName = "owner" };
-        public Loader Loader { get; }
+        public Loader Loader
+        {
+            get;
+        }
         public Store Store { get; } = new();
         public Clock Clock { get; } = new();
-        public Plus.HabboHotel.GameClients.GameClient Client { get; }
-        public List<(uint Header, byte[] Payload)> Sent { get; }
-        public RoomPromotionService Service { get; }
+        public Plus.HabboHotel.GameClients.GameClient Client
+        {
+            get;
+        }
+        public List<(uint Header, byte[] Payload)> Sent
+        {
+            get;
+        }
+        public RoomPromotionService Service
+        {
+            get;
+        }
 
         public Context()
         {
-            Loader = new() { Data = Data };
+            Loader = new()
+            {
+                Data = Data
+            };
             (Client, Sent) = HabbiconTestSupport.Client(new Habbo
             {
                 Id = 7,
@@ -154,46 +169,90 @@ public sealed class RoomPromotionServiceTests
 
     private sealed class Loader : IRoomDataLoader
     {
-        public RoomData? Data { get; set; }
-        public bool TryGetData(uint roomId, out RoomData? data) { data = Data; return data != null; }
-        public int? LastOwnerId { get; private set; }
+        public RoomData? Data
+        {
+            get; set;
+        }
+        public bool TryGetData(uint roomId, out RoomData? data)
+        {
+            data = Data;
+
+            return data != null;
+        }
+        public int? LastOwnerId
+        {
+            get; private set;
+        }
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId)
         {
             LastOwnerId = ownerId;
+
             return Data == null ? [] : [Data];
         }
     }
 
     private sealed class Store : IRoomPromotionStore
     {
-        public int Writes { get; private set; }
-        public bool Fail { get; set; }
-        public Action? BeforeWrite { get; set; }
+        public int Writes
+        {
+            get; private set;
+        }
+        public bool Fail
+        {
+            get; set;
+        }
+        public Action? BeforeWrite
+        {
+            get; set;
+        }
         public void Save(uint roomId, int ownerId, RoomPromotion promotion) => Write();
         public void Edit(uint roomId, int ownerId, string name, string description) => Write();
         private void Write()
         {
             BeforeWrite?.Invoke();
-            if (Fail) throw new InvalidOperationException("Forced persistence failure.");
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("Forced persistence failure.");
+            }
+
             Writes++;
         }
     }
 
     private sealed class Clock : TimeProvider
     {
-        public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 
     private sealed class CaptureService : IRoomPromotionService
     {
-        public bool CatalogRequested { get; private set; }
+        public bool CatalogRequested
+        {
+            get; private set;
+        }
         public void ShowCatalogRooms(Plus.HabboHotel.GameClients.GameClient session) => CatalogRequested = true;
-        public PurchaseRoomPromotionRequest? PurchaseRequest { get; private set; }
-        public EditRoomPromotionRequest? EditRequest { get; private set; }
+        public PurchaseRoomPromotionRequest? PurchaseRequest
+        {
+            get; private set;
+        }
+        public EditRoomPromotionRequest? EditRequest
+        {
+            get; private set;
+        }
         public Task Purchase(Plus.HabboHotel.GameClients.GameClient session, PurchaseRoomPromotionRequest request)
         {
             PurchaseRequest = request;
+
             return Task.CompletedTask;
         }
         public void Edit(Plus.HabboHotel.GameClients.GameClient session, EditRoomPromotionRequest request) => EditRequest = request;
@@ -203,6 +262,7 @@ public sealed class RoomPromotionServiceTests
     {
         var proxy = DispatchProxy.Create<T, CallbackProxy>();
         ((CallbackProxy)(object)proxy).Callback = callback;
+
         return proxy;
     }
 

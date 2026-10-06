@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users;
 
 namespace Plus.Communication.RCON.Commands.User;
 
@@ -18,7 +18,10 @@ internal class ReloadUserMottoCommand : IRconCommand
     public Task<bool> TryExecute(string[] parameters)
     {
         if (parameters.Length < 1 || !int.TryParse(parameters[0], out var userId))
+        {
             return Task.FromResult(false);
+        }
+
         return _maintenance.ReloadMotto(userId);
     }
 }

@@ -16,6 +16,7 @@ public sealed class QuestDefinitionDatabaseTests
         connection.Open();
         var schema = "quest_definition_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             connection.Execute($"USE `{schema}`");
@@ -35,7 +36,12 @@ public sealed class QuestDefinitionDatabaseTests
                 "28_UseUtcQuestDefinitionTimes.sql")));
 
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(
-                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
+                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
+            {
+                Database = schema,
+                AllowZeroDateTime = true,
+                ConvertZeroDateTime = true
+            }.ConnectionString);
             var manager = new QuestManager(database, null!, TestLogging.For<QuestManager>(), null!);
             await manager.Start();
 
@@ -77,8 +83,12 @@ public sealed class QuestDefinitionDatabaseTests
     private static string RepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
         while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj")))
+        {
             directory = directory.Parent;
+        }
+
         return directory!.FullName;
     }
 }

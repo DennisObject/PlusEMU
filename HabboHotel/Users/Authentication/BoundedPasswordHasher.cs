@@ -46,6 +46,7 @@ public class BoundedPasswordHasher : IBoundedPasswordHasher
                 Interlocked.Decrement(ref _queued);
                 throw new PasswordCheckQueueFullException();
             }
+
             try
             {
                 await _slots.WaitAsync(cancellationToken);
@@ -60,6 +61,7 @@ public class BoundedPasswordHasher : IBoundedPasswordHasher
         {
             // A caller that went away while queued gives its slot back without hashing.
             cancellationToken.ThrowIfCancellationRequested();
+
             return hash();
         }
         finally

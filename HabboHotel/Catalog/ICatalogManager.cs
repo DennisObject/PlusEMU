@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.Catalog.Marketplace;
@@ -15,16 +15,41 @@ public interface ICatalogManager
     bool TryGetDeal(int dealId, [NotNullWhen(true)] out CatalogDeal? deal);
     // First page the user can open that sells this official offer id.
     bool TryGetOffer(int offerId, Habbo habbo, [NotNullWhen(true)] out CatalogPage? page, [NotNullWhen(true)] out CatalogItem? item);
-    ICollection<CatalogPage> Pages { get; }
-    ICollection<CatalogPromotion> Promotions { get; }
-    ICollection<ClubOffer> ClubOffers { get; }
+    ICollection<CatalogPage> Pages
+    {
+        get;
+    }
+    ICollection<CatalogPromotion> Promotions
+    {
+        get;
+    }
+    ICollection<ClubOffer> ClubOffers
+    {
+        get;
+    }
     bool TryGetClubOffer(int offerId, [NotNullWhen(true)] out ClubOffer? offer);
 
-    [Obsolete("Use dependency injection instead.")] IMarketplaceManager Marketplace { get; }
+    [Obsolete("Use dependency injection instead.")]
+    IMarketplaceManager Marketplace
+    {
+        get;
+    }
 
-    [Obsolete("Use dependency injection instead.")] IPetRaceManager PetRaceManager { get; }
+    [Obsolete("Use dependency injection instead.")]
+    IPetRaceManager PetRaceManager
+    {
+        get;
+    }
 
-    [Obsolete("Use dependency injection instead.")] IVoucherManager VoucherManager { get; }
+    [Obsolete("Use dependency injection instead.")]
+    IVoucherManager VoucherManager
+    {
+        get;
+    }
 
-    [Obsolete("Use dependency injection instead.")] IClothingManager ClothingManager { get; }
+    [Obsolete("Use dependency injection instead.")]
+    IClothingManager ClothingManager
+    {
+        get;
+    }
 }

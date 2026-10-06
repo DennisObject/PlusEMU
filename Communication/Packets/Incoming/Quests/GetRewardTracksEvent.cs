@@ -8,6 +8,7 @@ internal sealed class GetRewardTracksEvent(IRewardTrackManager rewards) : IPacke
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         rewards.SendTracks(session);
+
         return Task.CompletedTask;
     }
 }

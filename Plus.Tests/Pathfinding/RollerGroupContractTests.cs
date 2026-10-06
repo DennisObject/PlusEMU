@@ -15,37 +15,51 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2)]
     public void RejectedWalkMagicCargoLeavesItsWholeChainUnchanged(PathfindingEngine engine)
     {
-        PlannerRoller(10, 1, 0, 6); PlannerRoller(11, 2, 0, 6);
+        PlannerRoller(10, 1, 0, 6);
+        PlannerRoller(11, 2, 0, 6);
         var magic = Add(20, 1, 0, z: .5, height: 1, type: InteractionType.WalkMagicTile);
         InstallRollerChainEngine(engine);
         var actor = PlannerActor(1, 2, 0, .5);
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((1, 0, .5), (magic.GetX, magic.GetY, magic.GetZ));
         Assert.Equal((2, 0, .5), (actor.X, actor.Y, actor.Z));
         Assert.Equal(0, PlannerSlides());
-        if (engine == PathfindingEngine.V2) Assert.Equal(TargetOccupancy.None, PlannerOccupancy(1, 0));
+
+        if (engine == PathfindingEngine.V2)
+        {
+            Assert.Equal(TargetOccupancy.None, PlannerOccupancy(1, 0));
+        }
     }
 
     [Theory]
     [InlineData(PathfindingEngine.V2)]
     public void WalkMagicCargoGroupIsPublishedOnlyAfterEveryMemberCommitted(PathfindingEngine engine)
     {
-        PlannerRoller(10, 0, 1, 2); PlannerRoller(11, 1, 1, 2);
+        PlannerRoller(10, 0, 1, 2);
+        PlannerRoller(11, 1, 1, 2);
         var magic = Add(20, 1, 1, z: .5, type: InteractionType.WalkMagicTile);
         InstallRollerChainEngine(engine);
         var actor = PlannerActor(1, 0, 1, .5);
         StartPlannerRollers();
         var published = new List<string>();
+
         if (engine == PathfindingEngine.V2)
         {
-            var compiler = _room.GetGameMap().Navigation!.Compiler; var inner = compiler.BeforePublish;
+            var compiler = _room.GetGameMap().Navigation!.Compiler;
+            var inner = compiler.BeforePublish;
             compiler.BeforePublish = tiles => { published.Add($"{actor.X},{magic.GetX}"); inner?.Invoke(tiles); };
         }
+
         ExecutorTick();
         Assert.Equal((1, 1, .5), (actor.X, actor.Y, actor.Z));
         Assert.Equal((2, 1, 0d), (magic.GetX, magic.GetY, magic.GetZ));
         Assert.Equal(2, PlannerSlides());
-        if (engine == PathfindingEngine.V2) Assert.Equal(new[] { "1,2" }, published);
+
+        if (engine == PathfindingEngine.V2)
+        {
+            Assert.Equal(new[] { "1,2" }, published);
+        }
     }
 
     [Fact]
@@ -71,9 +85,11 @@ public partial class PlacedFurniRoomTests
         InstallRollerChainEngine(PathfindingEngine.V2);
         var walker = PlannerActor(1, 2, 1, 0);
         ExecutorTick();
-        walker.MoveTo(1, 1); ExecutorTick();
+        walker.MoveTo(1, 1);
+        ExecutorTick();
         Assert.Contains("/mv 1,1,0/", ExecutorUpdate(walker).Status);
-        EnableExecutorRollers(); ExecutorTick();
+        EnableExecutorRollers();
+        ExecutorTick();
         Assert.Equal((0, 1, .5), (cargo.GetX, cargo.GetY, cargo.GetZ));
         Assert.Equal((1, 1, 0d), (walker.X, walker.Y, walker.Z));
         Assert.Equal(0, PlannerSlides());
@@ -87,7 +103,8 @@ public partial class PlacedFurniRoomTests
         InstallRollerChainEngine(PathfindingEngine.V2);
         var walker = PlannerActor(1, 2, 1, 0);
         StartPlannerRollers();
-        walker.MoveTo(1, 1); ExecutorTick();
+        walker.MoveTo(1, 1);
+        ExecutorTick();
         Assert.Equal((1, 1, 0d), (cargo.GetX, cargo.GetY, cargo.GetZ));
         Assert.Equal((2, 1, 0d), (walker.X, walker.Y, walker.Z));
         Assert.DoesNotContain("/mv 1,1", ExecutorUpdate(walker).Status);
@@ -102,7 +119,8 @@ public partial class PlacedFurniRoomTests
         var temporary = PlannerTemporaryCargo(1, 1);
         InstallRollerChainEngine(engine);
         var actor = PlannerActor(1, 2, 1, .5);
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((3, 1, .5), (actor.X, actor.Y, actor.Z));
         Assert.Equal((2, 1, .5), (temporary.GetX, temporary.GetY, temporary.GetZ));
         Assert.Equal(2, PlannerSlides());
@@ -113,10 +131,13 @@ public partial class PlacedFurniRoomTests
     public void TemporaryCargoRotatesWithAFullLoop(PathfindingEngine engine)
     {
         PlannerLoopRollers(false);
-        var cargo = PlannerCargo(30, 2, 1); var temporary = PlannerTemporaryCargo(1, 2);
+        var cargo = PlannerCargo(30, 2, 1);
+        var temporary = PlannerTemporaryCargo(1, 2);
         InstallRollerChainEngine(engine);
-        var first = PlannerActor(1, 1, 1, .5); var second = PlannerActor(2, 2, 2, .5);
-        StartPlannerRollers(); ExecutorTick();
+        var first = PlannerActor(1, 1, 1, .5);
+        var second = PlannerActor(2, 2, 2, .5);
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal((2, 1), (first.X, first.Y));
         Assert.Equal((2, 2), (cargo.GetX, cargo.GetY));
         Assert.Equal((1, 2), (second.X, second.Y));
@@ -131,9 +152,11 @@ public partial class PlacedFurniRoomTests
         PrepareRollerChain(8, false);
         var cargo = PlannerCargo(300, 2, 1);
         InstallRollerChainEngine(engine);
-        var middle = PlannerActor(1, 1, 1, .5); var tail = PlannerActor(2, 0, 1, .5);
+        var middle = PlannerActor(1, 1, 1, .5);
+        var tail = PlannerActor(2, 0, 1, .5);
         _room.GetGameMap().SetFloorStatus(1, 1, 0);
         StartPlannerRollers();
+
         for (var cycle = 1; cycle <= 2; cycle++)
         {
             ExecutorTick();
@@ -149,7 +172,8 @@ public partial class PlacedFurniRoomTests
     {
         var loop = PlannerFullLoop(engine, false, walkableFirstCargo: true);
         _room.GetGameMap().SetFloorStatus(2, 1, 0);
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.Equal(loop.Expected(0), loop.Positions());
         Assert.Equal(0, PlannerSlides());
     }
@@ -159,19 +183,33 @@ public partial class PlacedFurniRoomTests
     [InlineData(PathfindingEngine.V2, true)]
     public void EarlierGroupHookThatChangesALaterGroupRejectsTheStaleGroup(PathfindingEngine engine, bool rotate)
     {
-        PlannerRoller(10, 0, 1, 2); var later = PlannerRoller(20, 0, 3, 2);
+        PlannerRoller(10, 0, 1, 2);
+        var later = PlannerRoller(20, 0, 3, 2);
         ExecutorFloor(40, 1, 1);
         InstallRollerChainEngine(engine);
-        var first = PlannerActor(1, 0, 1, .5); var second = PlannerActor(2, 0, 3, .5);
+        var first = PlannerActor(1, 0, 1, .5);
+        var second = PlannerActor(2, 0, 3, .5);
         var fired = false;
         PlannerObserveWalkOn(() =>
         {
-            if (fired) return;
+            if (fired)
+            {
+                return;
+            }
+
             fired = true;
-            if (rotate) later.SetPlacementState(later.GetX, later.GetY, later.GetZ, later.GetAffectedTiles, 0);
-            else second.SetPos(0, 3, 1.5);
+
+            if (rotate)
+            {
+                later.SetPlacementState(later.GetX, later.GetY, later.GetZ, later.GetAffectedTiles, 0);
+            }
+            else
+            {
+                second.SetPos(0, 3, 1.5);
+            }
         });
-        StartPlannerRollers(); ExecutorTick();
+        StartPlannerRollers();
+        ExecutorTick();
         Assert.True(fired);
         Assert.Equal((1, 1, 0d), (first.X, first.Y, first.Z));
         Assert.Equal((0, 3, rotate ? .5 : 1.5), (second.X, second.Y, second.Z));
@@ -184,12 +222,14 @@ public partial class PlacedFurniRoomTests
         definition.Width = definition.Length = 1;
         var item = _room.GetRoomItemHandler().PlaceTemporaryFloorItem(definition, 7, x, y, 0, .5);
         Assert.NotNull(item);
+
         return item!;
     }
 
     private TargetOccupancy PlannerOccupancy(int x, int y)
     {
         var navigation = _room.GetGameMap().Navigation!;
+
         return navigation.Executor.Claims.OccupancyAt(navigation.Grid.Tile(x, y), 0);
     }
 }

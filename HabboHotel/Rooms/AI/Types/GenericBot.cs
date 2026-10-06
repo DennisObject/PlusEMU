@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.Chat.Filter;
 
@@ -20,7 +20,11 @@ public class GenericBot : BotAi
     public override void OnSelfEnterRoom()
     {
         var botData = GetBotData();
-        if (botData == null) return;
+
+        if (botData == null)
+        {
+            return;
+        }
 
         if (botData.IsTemporary)
         {
@@ -29,43 +33,81 @@ public class GenericBot : BotAi
         }
     }
 
-    public override void OnSelfLeaveRoom(bool kicked) { }
+    public override void OnSelfLeaveRoom(bool kicked)
+    {
+    }
 
-    public override void OnUserEnterRoom(RoomUser user) { }
+    public override void OnUserEnterRoom(RoomUser user)
+    {
+    }
 
-    public override void OnUserLeaveRoom(GameClient client) { }
+    public override void OnUserLeaveRoom(GameClient client)
+    {
+    }
 
-    public override void OnUserSay(RoomUser user, string message) { }
+    public override void OnUserSay(RoomUser user, string message)
+    {
+    }
 
-    public override void OnUserShout(RoomUser user, string message) { }
+    public override void OnUserShout(RoomUser user, string message)
+    {
+    }
 
     public override void OnTimerTick()
     {
         var botRoom = GetRoom();
-        if (botRoom == null) return;
+
+        if (botRoom == null)
+        {
+            return;
+        }
+
         var botUser = GetRoomUser();
-        if (botUser == null) return;
+
+        if (botUser == null)
+        {
+            return;
+        }
+
         var botData = GetBotData();
-        if (botData == null) return;
 
         if (botData == null)
+        {
             return;
+        }
+
+        if (botData == null)
+        {
+            return;
+        }
+
         if (_speechTimer <= 0)
         {
             if (botData.RandomSpeech.Count > 0)
             {
                 if (botData.AutomaticChat == false)
+                {
                     return;
+                }
+
                 var speech = botData.GetRandomSpeech();
                 var @string = _wordFilter.CheckMessage(speech.Message);
+
                 if (@string.Contains("<img src") || @string.Contains("<font ") || @string.Contains("</font>") || @string.Contains("</a>") || @string.Contains("<i>"))
+                {
                     @string = "I really shouldn't be using HTML within bot speeches.";
+                }
+
                 botUser.Chat(@string, botData.ChatBubble);
             }
+
             _speechTimer = botData.SpeakingInterval;
         }
         else
+        {
             _speechTimer--;
+        }
+
         if (_actionTimer <= 0)
         {
             switch (botData.WalkingMode.ToLower())
@@ -87,6 +129,7 @@ public class GenericBot : BotAi
                     else if (botData.ForcedUserTargetMovement > 0)
                     {
                         var target = botRoom.GetRoomUserManager().GetRoomUserByHabbo(botData.ForcedUserTargetMovement);
+
                         if (target == null)
                         {
                             botData.ForcedUserTargetMovement = 0;
@@ -95,28 +138,45 @@ public class GenericBot : BotAi
                         else
                         {
                             var sq = new Point(target.X, target.Y);
+
                             if (target.RotBody == 0)
+                            {
                                 sq.Y--;
+                            }
                             else if (target.RotBody == 2)
+                            {
                                 sq.X++;
+                            }
                             else if (target.RotBody == 4)
+                            {
                                 sq.Y++;
-                            else if (target.RotBody == 6) sq.X--;
+                            }
+                            else if (target.RotBody == 6)
+                            {
+                                sq.X--;
+                            }
+
                             botUser.MoveTo(sq);
                         }
                     }
                     else if (botData.TargetUser == 0)
                     {
                         if (botRoom.GetGameMap().TryGetRandomWalkableSquare(botData.IsTemporary, out var nextCoord))
+                        {
                             botUser.MoveTo(nextCoord.X, nextCoord.Y, botData.IsTemporary);
+                        }
                     }
+
                     break;
                 case "specified_range":
                     break;
             }
+
             _actionTimer = Random.Shared.Next(5, 15);
         }
         else
+        {
             _actionTimer--;
+        }
     }
 }

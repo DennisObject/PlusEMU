@@ -32,8 +32,13 @@ public partial class PlacedFurniRoomTests
         var lamp = Toggle(30);
         WatchState(lamp);
         var revert = WiredBox(106, "wf_act_toggle_state", 2, 0); // joins the stuff_state stack
-        Assert.True(revert.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [lamp.Id] }, out var config, out var error), error);
-        revert.ApplyConfiguration(config); Assert.True(_room.GetWired().AddBox(revert));
+        Assert.True(revert.TryValidateConfiguration(new()
+        {
+            IntParams = [0, 100],
+            SelectedItems = [lamp.Id]
+        }, out var config, out var error), error);
+        revert.ApplyConfiguration(config);
+        Assert.True(_room.GetWired().AddBox(revert));
         Viewer(0, 0);
 
         UseItem(lamp);
@@ -48,7 +53,8 @@ public partial class PlacedFurniRoomTests
         var lamp = Toggle(30);
         WatchState(lamp);
         Viewer(0, 0);
-        _room.OwnerName = "someone else"; _room.UsersWithRights = [];
+        _room.OwnerName = "someone else";
+        _room.UsersWithRights = [];
 
         UseItem(lamp);
 
@@ -102,7 +108,8 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(1, Gates.PendingCount);
         Assert.Equal((1, 0), StateLines());
 
-        ExecutorTick(); ExecutorTick();
+        ExecutorTick();
+        ExecutorTick();
         Assert.Equal("0", gate.LegacyDataString);
         Assert.Equal((1, 1), StateLines());
     }
@@ -118,7 +125,8 @@ public partial class PlacedFurniRoomTests
         UseItem(gate);
         _room.GetRoomUserManager().RemoveUserFromRoom(_client, false, false);
         Assert.Null(_room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId));
-        ExecutorTick(); ExecutorTick();
+        ExecutorTick();
+        ExecutorTick();
 
         Assert.Equal("0", gate.LegacyDataString);
         Assert.Equal((1, 1), StateLines());
@@ -134,11 +142,13 @@ public partial class PlacedFurniRoomTests
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, replacement, 3, 3, 0, true, false, false));
 
         FurnitureStateEvents.Publish(_room, null, lamp);
-        _room.GetWired().OnFastCycle(); _room.GetWired().OnCycle();
+        _room.GetWired().OnFastCycle();
+        _room.GetWired().OnCycle();
         Assert.Equal((0, 0), StateLines());
 
         FurnitureStateEvents.Publish(_room, null, replacement);
-        _room.GetWired().OnFastCycle(); _room.GetWired().OnCycle();
+        _room.GetWired().OnFastCycle();
+        _room.GetWired().OnCycle();
         Assert.Equal((0, 1), StateLines());
     }
 
@@ -151,14 +161,16 @@ public partial class PlacedFurniRoomTests
         var user = Viewer(0, 0);
 
         FurnitureStateEvents.Publish(_room, user, lamp);
-        _room.GetWired().OnFastCycle(); _room.GetWired().OnCycle();
+        _room.GetWired().OnFastCycle();
+        _room.GetWired().OnCycle();
         Assert.Equal((0, 1), StateLines());
         Assert.Contains(ServerPacketHeader.WhisperComposer, _client.Sent);
 
         _client.Sent.Clear();
         _client.GetHabbo().CurrentRoom = null; // moved on while the room still lists the avatar
         FurnitureStateEvents.Publish(_room, user, lamp);
-        _room.GetWired().OnFastCycle(); _room.GetWired().OnCycle();
+        _room.GetWired().OnFastCycle();
+        _room.GetWired().OnCycle();
         Assert.Equal((0, 2), StateLines());
         Assert.DoesNotContain(ServerPacketHeader.WhisperComposer, _client.Sent);
     }
@@ -167,11 +179,21 @@ public partial class PlacedFurniRoomTests
     private void WhisperOnChange(uint id, Item watched)
     {
         var trigger = WiredBox(id, "wf_trg_state_changed", 1, 0);
-        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [watched.Id] }, out var config, out var error), error);
-        trigger.ApplyConfiguration(config); Assert.True(_room.GetWired().AddBox(trigger));
+        Assert.True(trigger.TryValidateConfiguration(new()
+        {
+            IntParams = [0, 100],
+            SelectedItems = [watched.Id]
+        }, out var config, out var error), error);
+        trigger.ApplyConfiguration(config);
+        Assert.True(_room.GetWired().AddBox(trigger));
         var whisper = WiredBox(id + 1, "wf_act_show_message", 1, 0);
-        Assert.True(whisper.TryValidateConfiguration(new() { IntParams = [0, 0, 34, -1], Text = "changed" }, out config, out error), error);
-        whisper.ApplyConfiguration(config); Assert.True(_room.GetWired().AddBox(whisper));
+        Assert.True(whisper.TryValidateConfiguration(new()
+        {
+            IntParams = [0, 0, 34, -1],
+            Text = "changed"
+        }, out config, out error), error);
+        whisper.ApplyConfiguration(config);
+        Assert.True(_room.GetWired().AddBox(whisper));
     }
 
     private Item Toggle(uint id, bool place = true)
@@ -179,7 +201,12 @@ public partial class PlacedFurniRoomTests
         var item = Furni(id, InteractionType.None, WiredBoxType.None);
         item.Definition.Modes = 2;
         InitializeNativeState(item);
-        if (place) Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, 3, 3, 0, true, false, false));
+
+        if (place)
+        {
+            Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, 3, 3, 0, true, false, false));
+        }
+
         return item;
     }
 
@@ -193,11 +220,21 @@ public partial class PlacedFurniRoomTests
     private void Stack(uint id, int x, string trigger, string line, Item watched)
     {
         var triggerBox = WiredBox(id, trigger, x, 0);
-        Assert.True(triggerBox.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [watched.Id] }, out var config, out var error), error);
-        triggerBox.ApplyConfiguration(config); Assert.True(_room.GetWired().AddBox(triggerBox));
+        Assert.True(triggerBox.TryValidateConfiguration(new()
+        {
+            IntParams = [0, 100],
+            SelectedItems = [watched.Id]
+        }, out var config, out var error), error);
+        triggerBox.ApplyConfiguration(config);
+        Assert.True(_room.GetWired().AddBox(triggerBox));
         var log = WiredBox(id + 1, "wf_act_log", x, 0);
-        Assert.True(log.TryValidateConfiguration(new() { IntParams = [1, 0], Text = line }, out config, out error), error);
-        log.ApplyConfiguration(config); Assert.True(_room.GetWired().AddBox(log));
+        Assert.True(log.TryValidateConfiguration(new()
+        {
+            IntParams = [1, 0],
+            Text = line
+        }, out config, out error), error);
+        log.ApplyConfiguration(config);
+        Assert.True(_room.GetWired().AddBox(log));
     }
 
     private IWiredConfiguredItem WiredBox(uint id, string name, int x, int y)
@@ -205,18 +242,21 @@ public partial class PlacedFurniRoomTests
         var item = Furni(id, InteractionType.None, WiredBoxType.None);
         item.Definition.InteractionName = item.Definition.ItemName = name;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, x, y, 0, true, false, false));
+
         return _room.GetWired().CreateConfiguredBox(item)!;
     }
 
     private void UseItem(Item item)
     {
         new FurnitureUseService(null!, TestItemRuntime.Quests).Use(_room, _client, new(item.Id, 0));
-        _room.GetWired().OnFastCycle(); _room.GetWired().OnCycle();
+        _room.GetWired().OnFastCycle();
+        _room.GetWired().OnCycle();
     }
 
     private (int Used, int Changed) StateLines()
     {
         var lines = _room.GetWired().ReadLogs(0, 100).Entries.Select(entry => entry.Message).ToArray();
+
         return (lines.Count(line => line == UseLine), lines.Count(line => line == ChangeLine));
     }
 }

@@ -10,6 +10,11 @@ public sealed class GetRoomBannedUsersComposer(RoomBannedUsersSnapshot data) : I
     {
         packet.WriteUInteger(data.RoomId);
         packet.WriteInteger(data.Users.Length);
-        foreach (var user in data.Users) { packet.WriteInteger(user.Id); packet.WriteString(user.Username); }
+
+        foreach (var user in data.Users)
+        {
+            packet.WriteInteger(user.Id);
+            packet.WriteString(user.Username);
+        }
     }
 }

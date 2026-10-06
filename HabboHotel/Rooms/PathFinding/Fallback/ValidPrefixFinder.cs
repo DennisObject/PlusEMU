@@ -19,12 +19,19 @@ public sealed class ValidPrefixFinder
         var layers = new Layer[steps.Count];
         var previous = new Layer([start], [-1]);
         var reached = 0;
+
         while (reached < steps.Count)
         {
             var layer = Expand(previous, steps[reached], graph);
-            if (layer.Candidates.Length == 0) break;
+
+            if (layer.Candidates.Length == 0)
+            {
+                break;
+            }
+
             layers[reached++] = previous = layer;
         }
+
         return Reconstruct(layers, reached);
     }
 
@@ -33,13 +40,20 @@ public sealed class ValidPrefixFinder
         Span<PrefixCandidate> buffer = stackalloc PrefixCandidate[MaxCandidates];
         var count = Math.Min(graph.Candidates(step.X, step.Y, buffer), MaxCandidates);
         var kept = new List<(PrefixCandidate Candidate, int Parent)>(count);
+
         for (var i = 0; i < count; i++)
         {
             var parent = FirstPredecessor(previous, buffer[i], step.Purpose, graph);
-            if (parent >= 0) kept.Add((buffer[i], parent));
+
+            if (parent >= 0)
+            {
+                kept.Add((buffer[i], parent));
+            }
         }
+
         var advisory = step;
         kept.Sort((a, b) => Rank(a.Candidate, advisory).CompareTo(Rank(b.Candidate, advisory)));
+
         return new(kept.Select(k => k.Candidate).ToArray(), kept.Select(k => k.Parent).ToArray());
     }
 
@@ -47,7 +61,13 @@ public sealed class ValidPrefixFinder
     private static int FirstPredecessor(Layer previous, in PrefixCandidate to, StepPurpose purpose, IPrefixGraph graph)
     {
         for (var p = 0; p < previous.Candidates.Length; p++)
-            if (graph.CanStep(previous.Candidates[p], to, purpose)) return p;
+        {
+            if (graph.CanStep(previous.Candidates[p], to, purpose))
+            {
+                return p;
+            }
+        }
+
         return -1;
     }
 
@@ -59,11 +79,13 @@ public sealed class ValidPrefixFinder
     {
         var prefix = new PrefixCandidate[reached];
         var index = 0;
+
         for (var i = reached - 1; i >= 0; i--)
         {
             prefix[i] = layers[i].Candidates[index];
             index = layers[i].Parents[index];
         }
+
         return prefix;
     }
 

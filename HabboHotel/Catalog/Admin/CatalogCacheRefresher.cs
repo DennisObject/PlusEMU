@@ -37,10 +37,15 @@ public sealed class CatalogCacheRefresher : ICatalogCacheRefresher
         {
             _pendingItems |= reloadItems;
             _pending = true;
+
             if (_running)
+            {
                 return;
+            }
+
             _running = true;
         }
+
         _ = Task.Run(RunAsync);
     }
 
@@ -50,20 +55,27 @@ public sealed class CatalogCacheRefresher : ICatalogCacheRefresher
         while (true)
         {
             bool reloadItems;
+
             lock (_sync)
             {
                 if (!_pending)
                 {
                     _running = false;
+
                     return;
                 }
+
                 reloadItems = _pendingItems;
                 _pending = _pendingItems = false;
             }
+
             try
             {
                 if (reloadItems)
+                {
                     _itemDataManager.Init();
+                }
+
                 await _catalogManager.Init();
                 _gameClientManager.SendPacket(new CatalogUpdatedComposer());
             }

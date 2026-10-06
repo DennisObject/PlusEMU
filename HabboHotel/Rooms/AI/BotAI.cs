@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.AI;
 
@@ -27,7 +27,11 @@ public abstract class BotAi
 
     public void Detach(Room room, RoomUser user)
     {
-        if (!ReferenceEquals(_room, room) || !ReferenceEquals(_roomUser, user)) return;
+        if (!ReferenceEquals(_room, room) || !ReferenceEquals(_roomUser, user))
+        {
+            return;
+        }
+
         _room = null;
         _roomUser = null;
     }

@@ -24,6 +24,7 @@ public sealed class LegacyUserLookupTests
         clients.Online[userId] = client;
         var game = DispatchProxy.Create<IGame, ClientManagerProxy>();
         ((ClientManagerProxy)(object)game).Clients = clients;
+
         try
         {
             gameField.SetValue(null, game);
@@ -39,7 +40,11 @@ public sealed class LegacyUserLookupTests
         {
             gameField.SetValue(null, oldGame);
             cache.TryRemove(userId, out _);
-            if (hadCache) cache[userId] = oldCached!;
+
+            if (hadCache)
+            {
+                cache[userId] = oldCached!;
+            }
         }
     }
 

@@ -29,10 +29,12 @@ public sealed class ItemTravelStoreDatabaseTests
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             options.Database = schema;
             var database = new ProbeDatabase(options.ConnectionString);
+
             using (var connection = database.Connection())
             {
                 connection.Execute("""
@@ -44,6 +46,7 @@ public sealed class ItemTravelStoreDatabaseTests
                     INSERT INTO items VALUES (8,42);
                     """);
             }
+
             var store = new ItemTravelStore(database);
 
             Assert.Equal(10u, store.FindOtherHopperRoom(20));
@@ -84,23 +87,31 @@ public sealed class ItemTravelStoreDatabaseTests
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"))
         {
-            Database = "information_schema", Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true
+            Database = "information_schema",
+            Pooling = false,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
         };
         var schema = "task_mannequin_" + Guid.NewGuid().ToString("N")[..12];
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             options.Database = schema;
             var database = new ProbeDatabase(options.ConnectionString);
+
             using (var connection = database.Connection())
+            {
                 connection.Execute("""
                     CREATE TABLE users (id INT PRIMARY KEY, look VARCHAR(200), gender VARCHAR(10));
                     INSERT INTO users VALUES (7,'old-look','M');
                     CREATE TRIGGER reject_mannequin BEFORE UPDATE ON users FOR EACH ROW
                         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced mannequin failure';
                     """);
+            }
+
             var habbo = new Habbo { Id = 7, Look = "old-look", Gender = "M", Clothing = new(), Access = UserAccess.Empty };
             var (session, sent) = HabbiconTestSupport.Client(habbo);
             var figures = DispatchProxy.Create<IFigureDataManager, FigureProxy>();

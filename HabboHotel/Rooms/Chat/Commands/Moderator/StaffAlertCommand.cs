@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Moderation;
+using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
@@ -20,11 +20,14 @@ internal class StaffAlertCommand : IChatCommand
     public void Execute(GameClient session, Room room, string[] parameters)
     {
         var message = CommandManager.MergeParams(parameters);
+
         if (string.IsNullOrWhiteSpace(message))
         {
             session.SendWhisper("Please enter a message to send.");
+
             return;
         }
+
         _gameClientManager.StaffAlert(new BroadcastMessageAlertComposer($"Staff Alert:\r\r{message}\r\n- {session.GetHabbo().Username}"));
     }
 }

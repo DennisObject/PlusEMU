@@ -56,8 +56,11 @@ public class RegistrationService : IRegistrationService
     public async Task<RegistrationResult> Register(RegistrationRequest request, CancellationToken cancellationToken = default)
     {
         var error = UsernameError(request.Username) ?? RegistrationValidator.EmailError(request.Email) ?? RegistrationValidator.PasswordError(request.Password, request.Username);
+
         if (error != null)
+        {
             return new(RegistrationStatus.Invalid, error);
+        }
 
         var passwordHash = await _hasher.Hash(request.Password, cancellationToken);
         var account = new NewAccount(request.Username, passwordHash, request.Email, RegistrationValidator.FigureOrDefault(request.Figure, _defaults.Look),
@@ -65,12 +68,19 @@ public class RegistrationService : IRegistrationService
 
         int? userId;
         await _registrationLock.WaitAsync();
+
         try
         {
             if (await _accounts.UsernameExists(request.Username))
+            {
                 return new(RegistrationStatus.UsernameTaken, UsernameTaken);
+            }
+
             if (await _accounts.EmailExists(request.Email))
+            {
                 return new(RegistrationStatus.EmailTaken, EmailTaken);
+            }
+
             // The unique username index still decides races with writers outside this process.
             userId = await _accounts.Create(account);
         }
@@ -80,23 +90,33 @@ public class RegistrationService : IRegistrationService
         }
 
         if (userId is not { } id)
+        {
             return new(RegistrationStatus.UsernameTaken, UsernameTaken);
+        }
+
         // A new account starts at generation 0, so a revoke any time after the insert voids this session.
         var session = await _sessions.Issue(id, request.Username, AccountStore.NewAccountGeneration, request.Address);
+
         return new(RegistrationStatus.Created, Session: session);
     }
 
     public async Task<Availability> CheckUsername(string username)
     {
         if (UsernameError(username) is { } error)
+        {
             return new(false, RegistrationStatus.Invalid, error);
+        }
+
         return await _accounts.UsernameExists(username) ? new(false, RegistrationStatus.UsernameTaken, UsernameTaken) : new(true);
     }
 
     public async Task<Availability> CheckEmail(string email)
     {
         if (RegistrationValidator.EmailError(email) is { } error)
+        {
             return new(false, RegistrationStatus.Invalid, error);
+        }
+
         return await _accounts.EmailExists(email) ? new(false, RegistrationStatus.EmailTaken, EmailTaken) : new(true);
     }
 

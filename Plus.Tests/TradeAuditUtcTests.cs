@@ -14,10 +14,14 @@ public sealed class TradeAuditUtcTests
     public void MigrationAndRuntimeWritePreserveUnknownFractionalAndFutureInstants()
     {
         foreach (var mode in new[] { "", "STRICT_TRANS_TABLES" })
+        {
             InSchema((connection, database) =>
             {
                 connection.Execute(PristineTable().Replace("`timestamp` datetime(6) DEFAULT NULL", "`timestamp` char(20) DEFAULT ''"));
-                connection.Execute("SET SESSION sql_mode=@mode; SET time_zone='+05:30'", new { mode });
+                connection.Execute("SET SESSION sql_mode=@mode; SET time_zone='+05:30'", new
+                {
+                    mode
+                });
                 connection.Execute("""
                     INSERT INTO logs_client_trade (id, `timestamp`) VALUES
                         (1,NULL), (2,''), (3,'0'), (4,'-1'), (5,'not-a-date'),
@@ -38,6 +42,7 @@ public sealed class TradeAuditUtcTests
                 Assert.Equal((7, 8, "90;", "91;"), connection.QuerySingle<(int, int, string, string)>(
                     "SELECT `1id`, `2id`, `1items`, `2items` FROM logs_client_trade WHERE `1id`=7"));
             });
+        }
     }
 
     [RoomComponentDatabaseFact]
@@ -72,11 +77,15 @@ public sealed class TradeAuditUtcTests
     private static void InSchema(Action<MySqlConnection, IDatabase> run)
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
-        { AllowZeroDateTime = true, ConvertZeroDateTime = true };
+        {
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
+        };
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         var schema = "task_trade_audit_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             options.Database = schema;
@@ -89,13 +98,27 @@ public sealed class TradeAuditUtcTests
 
     private sealed class AuditTimeRow
     {
-        public int Id { get; set; }
-        public DateTimeOffset? CreatedAt { get; set; }
+        public int Id
+        {
+            get; set;
+        }
+        public DateTimeOffset? CreatedAt
+        {
+            get; set;
+        }
     }
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {

@@ -23,6 +23,7 @@ public sealed class GameLoopTests
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var game = Create(() => { entered.TrySetResult(); release.Task.GetAwaiter().GetResult(); });
         game.StartGameLoop();
+
         try
         {
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
@@ -58,6 +59,7 @@ public sealed class GameLoopTests
         var rooms = DispatchProxy.Create<IRoomManager, CycleProxy>();
         ((CycleProxy)(object)rooms).Cycle = cycle;
         var clients = DispatchProxy.Create<IGameClientManager, CycleProxy>();
+
         return new Game(clients, null!, null!, null!, rooms, null!, null!, null!, null!, null!, null!, null!);
     }
 
@@ -66,8 +68,13 @@ public sealed class GameLoopTests
         public Action Cycle { get; set; } = () => { };
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method?.Name != "OnCycle") throw new NotSupportedException(method?.Name);
+            if (method?.Name != "OnCycle")
+            {
+                throw new NotSupportedException(method?.Name);
+            }
+
             Cycle();
+
             return null;
         }
     }

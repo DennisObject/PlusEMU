@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users.Inventory.Furniture;
+using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms.Trading;
 
@@ -11,9 +11,18 @@ public sealed class TradeUser
         OfferedItems = new();
     }
 
-    public RoomUser RoomUser { get; }
+    public RoomUser RoomUser
+    {
+        get;
+    }
 
-    public bool HasAccepted { get; set; }
+    public bool HasAccepted
+    {
+        get; set;
+    }
 
-    public Dictionary<uint, InventoryItem> OfferedItems { get; set; }
+    public Dictionary<uint, InventoryItem> OfferedItems
+    {
+        get; set;
+    }
 }

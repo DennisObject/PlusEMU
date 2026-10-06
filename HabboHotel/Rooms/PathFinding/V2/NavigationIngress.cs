@@ -11,7 +11,11 @@ public sealed partial class RoomNavigation
     public void Move(RoomUser actor, int x, int y, MoveOrigin origin, MoveFlags flags = MoveFlags.None,
         ApproachDescriptor? approach = null)
     {
-        if (!UsesExecutor || actor.Movement.State == NavState.Removing) return;
+        if (!UsesExecutor || actor.Movement.State == NavState.Removing)
+        {
+            return;
+        }
+
         var state = actor.Movement;
         state.Commands.Publish(new(state.NextSequence(), x, y, origin, flags, approach));
     }
@@ -38,13 +42,27 @@ public sealed partial class RoomNavigation
         => Post(new(RoomCommandKind.ForcePlace, actor, actor.Movement.LifetimeId, x, y, z, resolution, sequence));
     public void Shutdown()
     {
-        if (!UsesExecutor) return;
+        if (!UsesExecutor)
+        {
+            return;
+        }
+
         lock (_room.NavigationSync)
         {
             var manager = _room.GetRoomUserManager();
-            if (manager == null) return;
+
+            if (manager == null)
+            {
+                return;
+            }
+
             using var owner = RoomOwnerScope.Enter(_room);
-            foreach (var actor in manager.GetUserList()) Remove(actor);
+
+            foreach (var actor in manager.GetUserList())
+            {
+                Remove(actor);
+            }
+
             DrainCommands();
             Executor.Context.Approaches.Clear();
         }
@@ -55,26 +73,47 @@ public sealed partial class RoomNavigation
         => Post(new(RoomCommandKind.ForcePlace, actor, actor.Movement.LifetimeId, x, y, z, resolution, actor.Movement.Commands.Read()?.Sequence ?? 0));
     public void Remove(RoomUser actor)
     {
-        if (!UsesExecutor || actor.Movement.State == NavState.Removing) return;
+        if (!UsesExecutor || actor.Movement.State == NavState.Removing)
+        {
+            return;
+        }
+
         actor.Movement.State = NavState.Removing;
         Post(new(RoomCommandKind.Remove, actor, actor.Movement.LifetimeId));
     }
 
     private void Post(RoomCommand command)
     {
-        if (!UsesExecutor) return;
-        if (RoomOwnerScope.IsOwner(_room)) Executor.Handle(command);
-        else _commands.Enqueue(command);
+        if (!UsesExecutor)
+        {
+            return;
+        }
+
+        if (RoomOwnerScope.IsOwner(_room))
+        {
+            Executor.Handle(command);
+        }
+        else
+        {
+            _commands.Enqueue(command);
+        }
     }
     private IGateOccupancy? _gateOccupancy;
     internal IGateOccupancy GateOccupancy => _gateOccupancy ??= new ExecutorGateOccupancy(Grid, Executor.Claims);
     internal V2MovementEngine Executor => _executor ??= new(_room, this, _database, _rewards, _access);
-    public void DrainCommands() { if (UsesExecutor) _commands.Drain(Executor.Handle); }
+    public void DrainCommands()
+    {
+        if (UsesExecutor)
+        {
+            _commands.Drain(Executor.Handle);
+        }
+    }
     public void RefreshPostures()
     {
         if (UsesExecutor && RoomOwnerScope.IsOwner(_room))
         {
-            ApplyDirty(); Executor.RefreshPostures();
+            ApplyDirty();
+            Executor.RefreshPostures();
         }
     }
     public void CycleUsers() => Executor.Tick();

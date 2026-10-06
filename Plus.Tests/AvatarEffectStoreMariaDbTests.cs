@@ -16,6 +16,7 @@ public sealed class AvatarEffectStoreMariaDbTests
         var schema = "task_refactor_tests_effects_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(serverConnection);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
@@ -38,7 +39,10 @@ public sealed class AvatarEffectStoreMariaDbTests
             store.SaveQuantity(effect.Id, 2, true, instant);
             Assert.Equal(2, Assert.Single(store.Load(7)).Quantity);
 
-            connection.Execute("DELETE FROM user_effects WHERE id=@id", new { id = effect.Id });
+            connection.Execute("DELETE FROM user_effects WHERE id=@id", new
+            {
+                id = effect.Id
+            });
             Assert.Throws<DBConcurrencyException>(() => effect.Activate(instant.AddHours(1)));
             Assert.Equal(instant, effect.ActivatedAt);
             Assert.Throws<DBConcurrencyException>(() => effect.AddToQuantity());

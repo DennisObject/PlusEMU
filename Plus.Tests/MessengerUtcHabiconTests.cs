@@ -165,6 +165,7 @@ public class MessengerUtcHabiconTests
         await WithSchema(async connectionString =>
         {
             CreateMigratedSchema(connectionString);
+
             using (var setup = new MySqlConnection(connectionString))
             {
                 setup.Open();
@@ -177,6 +178,7 @@ public class MessengerUtcHabiconTests
                     (9, 1, 'other', '2023-11-14 22:13:20.000000')
                     """);
             }
+
             var loader = new MessengerDataLoader(new HabbiconDatabaseTests.TestDatabase(connectionString), null!, null!, null!,
                 new FixedTimeProvider(DateTimeOffset.FromUnixTimeSeconds(1_700_000_100)));
 
@@ -198,11 +200,13 @@ public class MessengerUtcHabiconTests
         await WithSchema(async connectionString =>
         {
             CreateMigratedSchema(connectionString);
+
             using (var setup = new MySqlConnection(connectionString))
             {
                 setup.Open();
                 setup.Execute("INSERT INTO messenger_offline_messages (to_id, from_id, message, `timestamp`) VALUES (2, 3, 'after 2038', '2039-12-31 23:59:50.250000'), (2, 3, 'unknown', NULL)");
             }
+
             var loader = new MessengerDataLoader(new HabbiconDatabaseTests.TestDatabase(connectionString), null!, null!, null!,
                 new FixedTimeProvider(new DateTimeOffset(2040, 1, 1, 0, 0, 0, TimeSpan.Zero)));
 
@@ -235,6 +239,7 @@ public class MessengerUtcHabiconTests
     private static MySqlException UnreachableServerException()
     {
         using var connection = new MySqlConnection("Server=/tmp/task-messenger-missing-socket/mariadb.sock;Connect Timeout=1");
+
         try
         {
             connection.Open();
@@ -243,6 +248,7 @@ public class MessengerUtcHabiconTests
         {
             return exception;
         }
+
         throw new InvalidOperationException("Expected the missing socket to be unreachable.");
     }
 
@@ -255,6 +261,7 @@ public class MessengerUtcHabiconTests
     {
         var sender = new Habbo { Id = 1, Messenger = new HabboMessenger(new() { [2] = new MessengerBuddy { Id = 2 } }, new(), new(), clock) };
         var (client, sent) = HabbiconTestSupport.Client(sender);
+
         return (client, sent);
     }
 
@@ -262,7 +269,10 @@ public class MessengerUtcHabiconTests
         new(new HabbiconTestSupport.Service(), new GameClientManager(null!, null!), store, NullLogger<HabbiconMessengerService>.Instance, clock);
 
     private static (string Type, string Nullable, int Precision) Column(MySqlConnection connection, string table) =>
-        connection.QuerySingle<(string, string, int)>("SELECT DATA_TYPE, IS_NULLABLE, DATETIME_PRECISION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@table AND COLUMN_NAME='timestamp'", new { table });
+        connection.QuerySingle<(string, string, int)>("SELECT DATA_TYPE, IS_NULLABLE, DATETIME_PRECISION FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@table AND COLUMN_NAME='timestamp'", new
+        {
+            table
+        });
 
     private static void CreateLegacyTables(MySqlConnection connection)
     {
@@ -284,11 +294,13 @@ public class MessengerUtcHabiconTests
         var schema = "task_messenger_tests_utc_" + Guid.NewGuid().ToString("N")[..12];
         // Production Database.Connection sets these, and they change how native DATETIME values are materialised.
         var options = new MySqlConnectionStringBuilder(server) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true };
+
         using (var admin = new MySqlConnection(server))
         {
             admin.Open();
             admin.Execute($"CREATE DATABASE `{schema}`");
         }
+
         try
         {
             await body(options.ConnectionString);
@@ -303,10 +315,14 @@ public class MessengerUtcHabiconTests
 
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
     {
-        public int Reads { get; private set; }
+        public int Reads
+        {
+            get; private set;
+        }
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
+
             return now;
         }
     }
@@ -317,7 +333,12 @@ public class MessengerUtcHabiconTests
         public int Record(int senderId, int recipientId, string fallback, DateTime createdAtUtc, bool deliverOffline)
         {
             Records.Add((senderId, recipientId, fallback, createdAtUtc, deliverOffline));
-            if (failure != null) throw failure;
+
+            if (failure != null)
+            {
+                throw failure;
+            }
+
             return messageId;
         }
     }
@@ -335,6 +356,8 @@ public sealed class MessengerUtcDatabaseFactAttribute : Xunit.FactAttribute
     public MessengerUtcDatabaseFactAttribute()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_MESSENGER_UTC_TEST_CONNECTION_STRING")))
+        {
             Skip = "Set PLUS_MESSENGER_UTC_TEST_CONNECTION_STRING to a server that can create and drop disposable task_messenger_tests_utc_ schemas.";
+        }
     }
 }

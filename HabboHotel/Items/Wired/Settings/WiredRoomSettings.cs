@@ -11,7 +11,18 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
     private bool _loaded;
     private WiredRoomSettingsSnapshot? _saved;
 
-    public WiredRoomSettingsSnapshot Snapshot { get { lock (_gate) { EnsureLoaded(); return _saved ?? new(); } } }
+    public WiredRoomSettingsSnapshot Snapshot
+    {
+        get
+        {
+            lock (_gate)
+            {
+                EnsureLoaded();
+
+                return _saved ?? new();
+            }
+        }
+    }
     public TimeZoneInfo? ExplicitTimeZone => Snapshot.TimeZoneId is { Length: > 0 } timezone
         ? TimeZoneInfo.FindSystemTimeZoneById(timezone) : null;
     public TimeZoneInfo TimeZone
@@ -30,6 +41,7 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
         lock (_gate)
         {
             var saved = Snapshot;
+
             return new(room.Id, saved.InspectMask, saved.ModifyMask, CanInspect(session), CanModify(session),
                 CanManage(session), saved.TimeZoneId);
         }
@@ -38,17 +50,35 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
     public bool TrySave(GameClient session, int inspect, int modify, string? timezone, out string error)
     {
         error = "Unable to save Wired room settings.";
-        if (!CanManage(session)) { error = "You do not have permission to manage Wired room settings."; return false; }
+
+        if (!CanManage(session))
+        {
+            error = "You do not have permission to manage Wired room settings.";
+
+            return false;
+        }
+
         if (!WiredRoomSettingsSnapshot.TryValidate(inspect, modify, timezone, out var validated))
-        { error = "Invalid Wired permissions or timezone."; return false; }
+        {
+            error = "Invalid Wired permissions or timezone.";
+
+            return false;
+        }
+
         lock (_gate)
         {
             EnsureLoaded();
+
             // Check the session again immediately before the authorized transaction.
-            if (!CanManage(session)) return false;
+            if (!CanManage(session))
+            {
+                return false;
+            }
+
             store.Save(room.Id, session.GetHabbo().Id, session.GetHabbo().Access.Can(PermissionKeys.RoomOwnerAny), _saved, validated);
             _saved = validated;
             error = "";
+
             return true;
         }
     }
@@ -67,19 +97,49 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
 
     private bool Permitted(GameClient session, bool modify)
     {
-        if (!InRoom(session)) return false;
-        if (CanManage(session)) return true;
+        if (!InRoom(session))
+        {
+            return false;
+        }
+
+        if (CanManage(session))
+        {
+            return true;
+        }
+
         lock (_gate)
         {
             EnsureLoaded();
+
             // No companion row preserves Plus's existing room and group decorator permissions.
-            if (_saved == null) return room.CheckRights(session, false, true);
+            if (_saved == null)
+            {
+                return room.CheckRights(session, false, true);
+            }
+
             var mask = (WiredRoomAccess)(modify ? _saved.ModifyMask : _saved.InspectMask);
             var habbo = session.GetHabbo();
-            if (!modify && mask.HasFlag(WiredRoomAccess.Everyone)) return true;
-            if (room.Type == "private" && habbo.Access.Can(PermissionKeys.RoomRightsAny)) return true;
-            if (mask.HasFlag(WiredRoomAccess.Rights) && room.UsersWithRights.Contains(habbo.Id)) return true;
-            if (mask.HasFlag(WiredRoomAccess.GroupMembers) && room.Group?.IsMember(habbo.Id) == true) return true;
+
+            if (!modify && mask.HasFlag(WiredRoomAccess.Everyone))
+            {
+                return true;
+            }
+
+            if (room.Type == "private" && habbo.Access.Can(PermissionKeys.RoomRightsAny))
+            {
+                return true;
+            }
+
+            if (mask.HasFlag(WiredRoomAccess.Rights) && room.UsersWithRights.Contains(habbo.Id))
+            {
+                return true;
+            }
+
+            if (mask.HasFlag(WiredRoomAccess.GroupMembers) && room.Group?.IsMember(habbo.Id) == true)
+            {
+                return true;
+            }
+
             return mask.HasFlag(WiredRoomAccess.GroupAdmins) && room.Group?.IsAdmin(habbo.Id) == true;
         }
     }
@@ -87,6 +147,9 @@ public sealed class WiredRoomSettings(Room room, IWiredRoomSettingsStore store, 
     private bool InRoom(GameClient session) => session?.GetHabbo() is { } habbo && ReferenceEquals(habbo.CurrentRoom, room);
     private void EnsureLoaded()
     {
-        if (!_loaded) Reload();
+        if (!_loaded)
+        {
+            Reload();
+        }
     }
 }

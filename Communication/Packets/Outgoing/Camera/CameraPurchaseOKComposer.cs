@@ -8,6 +8,6 @@ public sealed class CameraPurchaseOKComposer() : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        
+
     }
 }

@@ -12,6 +12,7 @@ internal class GetMarketplaceItemStatsEvent(IMarketplaceManager marketplace) : I
         var spriteId = packet.ReadUInt();
         var stats = marketplace.ItemStats(spriteId);
         session.Send(new MarketplaceItemStatsComposer(itemId, spriteId, stats.AveragePrice, stats.OfferCount));
+
         return Task.CompletedTask;
     }
 }

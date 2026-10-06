@@ -22,15 +22,27 @@ public sealed class BadgeEquipmentService(BadgeManager badges, IRewardTrackManag
         var updates = requested.Where(badge => !string.IsNullOrEmpty(badge.Code) && badge.Slot is >= 1 and <= 5)
             .Select(badge => (slot: badge.Slot, badge: badge.Code)).ToList();
         var change = await badges.UpdateUserBadges(habbo, updates);
+
         if (change == null)
+        {
             return;
+        }
+
         if (change.Added > 0)
+        {
             rewards.Progress(session, RewardTrackActions.WearBadge, change.Added);
+        }
+
         var packet = new HabboUserBadgesComposer(habbo.Id, change.Equipped);
+
         if (habbo.InRoom)
+        {
             habbo.CurrentRoom?.SendPacket(packet);
+        }
         else
+        {
             session.Send(packet);
+        }
     }
 
     public async Task Show(GameClient session, int userId)

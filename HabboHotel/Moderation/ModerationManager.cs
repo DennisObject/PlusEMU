@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using System.Data;
@@ -54,13 +54,20 @@ public sealed class ModerationManager : IModerationManager, IStartable
         get
         {
             var result = new Dictionary<string, List<ModerationPresetActions>>();
+
             foreach (var category in _moderationCfhTopics.ToList())
             {
                 result.Add(category.Value, new());
+
                 if (_moderationCfhTopicActions.ContainsKey(category.Key))
+                {
                     foreach (var data in _moderationCfhTopicActions[category.Key])
+                    {
                         result[category.Value].Add(data);
+                    }
+                }
             }
+
             return result;
         }
     }
@@ -84,58 +91,114 @@ public sealed class ModerationManager : IModerationManager, IStartable
         _moderationCfhTopicActions.Clear();
         _userActionPresetCategories.Clear();
         _userActionPresetMessages.Clear();
+
         foreach (var preset in presets)
         {
             switch (preset.Type.ToLowerInvariant())
             {
-                case "user": _userPresets.Add(preset.Message); break;
-                case "room": _roomPresets.Add(preset.Message); break;
+                case "user":
+                    _userPresets.Add(preset.Message);
+                    break;
+                case "room":
+                    _roomPresets.Add(preset.Message);
+                    break;
             }
         }
+
         foreach (var topic in topics)
+        {
             _moderationCfhTopics.TryAdd(topic.Id, topic.Caption);
+        }
+
         foreach (var action in actions)
         {
             if (!_moderationCfhTopicActions.TryGetValue(action.ParentId, out var list))
+            {
                 _moderationCfhTopicActions.Add(action.ParentId, list = new());
+            }
+
             list.Add(new(action.Id, action.ParentId, action.Type, action.Caption, action.MessageText, action.MuteTime, action.BanTime, action.IpTime, action.TradeLockTime, action.DefaultSanction));
         }
+
         foreach (var category in categories)
+        {
             _userActionPresetCategories.Add(category.Id, category.Caption);
+        }
+
         foreach (var message in messages)
         {
             if (!_userActionPresetMessages.TryGetValue(message.ParentId, out var list))
+            {
                 _userActionPresetMessages.Add(message.ParentId, list = new());
+            }
+
             list.Add(new(message.Id, message.ParentId, message.Caption, message.MessageText, message.MuteTime, message.BanTime, message.IpTime, message.TradeLockTime, message.Notice));
         }
+
         await LoadBans(connection);
         _logger.LogInformation("Loaded {Presets} moderation presets, {Categories} categories and {Messages} action preset groups. Cached {Bans} bans.", _userPresets.Count + _roomPresets.Count, _userActionPresetCategories.Count, _userActionPresetMessages.Count, _bans.Count);
     }
 
     private sealed class PresetActionRow
     {
-        public int Id { get; set; }
-        public int ParentId { get; set; }
+        public int Id
+        {
+            get; set;
+        }
+        public int ParentId
+        {
+            get; set;
+        }
         public string Type { get; set; } = string.Empty;
         public string Caption { get; set; } = string.Empty;
         public string MessageText { get; set; } = string.Empty;
-        public int MuteTime { get; set; }
-        public int BanTime { get; set; }
-        public int IpTime { get; set; }
-        public int TradeLockTime { get; set; }
+        public int MuteTime
+        {
+            get; set;
+        }
+        public int BanTime
+        {
+            get; set;
+        }
+        public int IpTime
+        {
+            get; set;
+        }
+        public int TradeLockTime
+        {
+            get; set;
+        }
         public string DefaultSanction { get; set; } = string.Empty;
     }
 
     private sealed class PresetMessageRow
     {
-        public int Id { get; set; }
-        public int ParentId { get; set; }
+        public int Id
+        {
+            get; set;
+        }
+        public int ParentId
+        {
+            get; set;
+        }
         public string Caption { get; set; } = string.Empty;
         public string MessageText { get; set; } = string.Empty;
-        public int MuteTime { get; set; }
-        public int BanTime { get; set; }
-        public int IpTime { get; set; }
-        public int TradeLockTime { get; set; }
+        public int MuteTime
+        {
+            get; set;
+        }
+        public int BanTime
+        {
+            get; set;
+        }
+        public int IpTime
+        {
+            get; set;
+        }
+        public int TradeLockTime
+        {
+            get; set;
+        }
         public string Notice { get; set; } = string.Empty;
     }
 
@@ -150,12 +213,21 @@ public sealed class ModerationManager : IModerationManager, IStartable
         var bans = await connection.QueryAsync<BanRow>("SELECT bantype AS Type, value, reason, expire AS ExpiresAt FROM bans WHERE bantype IN ('machine', 'user')");
         var now = _clock.GetUtcNow();
         _bans.Clear();
+
         foreach (var ban in bans)
         {
             if (ban.ExpiresAt is { } expiresAt && expiresAt > now)
+            {
                 _bans.TryAdd(ban.Value, new(BanTypeUtility.GetModerationBanType(ban.Type), ban.Value, ban.Reason, expiresAt));
+            }
             else
-                await connection.ExecuteAsync("DELETE FROM bans WHERE bantype = @type AND value = @value LIMIT 1", new { type = ban.Type, value = ban.Value });
+            {
+                await connection.ExecuteAsync("DELETE FROM bans WHERE bantype = @type AND value = @value LIMIT 1", new
+                {
+                    type = ban.Type,
+                    value = ban.Value
+                });
+            }
         }
     }
 
@@ -175,7 +247,10 @@ public sealed class ModerationManager : IModerationManager, IStartable
     private readonly ConcurrentDictionary<BanWork, byte> _pendingBans = new();
 
     /// <summary>Test seam: runs after a ban row is inserted and before the ban is published to the cache.</summary>
-    internal Func<Task>? AfterBanInsert { get; set; }
+    internal Func<Task>? AfterBanInsert
+    {
+        get; set;
+    }
 
     /// <summary>One ban being enforced, kept whole through retries.</summary>
     private sealed class BanWork(string mod, ModerationBanType type, string value, string reason, DateTimeOffset? expiresAt, string account)
@@ -192,12 +267,21 @@ public sealed class ModerationManager : IModerationManager, IStartable
         /// <summary>The banned account's username, so unbanning it also stops this work; empty for standalone bans.</summary>
         public string Account { get; } = account;
         /// <summary>For an address part: the account whose recorded address is banned.</summary>
-        public int AddressOf { get; init; }
+        public int AddressOf
+        {
+            get; init;
+        }
         /// <summary>The ban's row, which every delayed sign-out re-checks.</summary>
-        public long BanId { get; set; }
+        public long BanId
+        {
+            get; set;
+        }
         /// <summary>Covered accounts: captured from memory before the first disconnect, completed from the database once.</summary>
         public HashSet<int> Accounts { get; } = new();
-        public bool AccountsComplete { get; set; }
+        public bool AccountsComplete
+        {
+            get; set;
+        }
         public CancellationToken Cancelled => _cancellation.Token;
 
         public void Cancel()
@@ -222,11 +306,20 @@ public sealed class ModerationManager : IModerationManager, IStartable
         {
             await CountBan(userId, token);
             await Ban(new(mod, ModerationBanType.Username, username, reason, expiresAt, username), heldUserId, token);
+
             // The address is resolved inside the ban work, so running out of time defers it instead of dropping it.
             if (includeAddress)
-                await Ban(new(mod, ModerationBanType.Ip, string.Empty, reason, expiresAt, username) { AddressOf = userId }, heldUserId, token);
+            {
+                await Ban(new(mod, ModerationBanType.Ip, string.Empty, reason, expiresAt, username)
+                {
+                    AddressOf = userId
+                }, heldUserId, token);
+            }
+
             if (!string.IsNullOrEmpty(machineId))
+            {
                 await Ban(new(mod, ModerationBanType.Machine, machineId, reason, expiresAt, username), heldUserId, token);
+            }
         });
 
     /// <summary>Runs a ban action on the caller's deadline, or on a fresh <see cref="BanBudget"/> created before any I/O.</summary>
@@ -242,7 +335,10 @@ public sealed class ModerationManager : IModerationManager, IStartable
         {
             using var connection = _database.Connection();
             await connection.ExecuteAsync(new CommandDefinition("UPDATE `user_info` SET `bans` = `bans` + 1 WHERE `user_id` = @userId LIMIT 1",
-                new { userId }, cancellationToken: deadline));
+                new
+                {
+                    userId
+                }, cancellationToken: deadline));
         }
         catch (OperationCanceledException)
         {
@@ -262,6 +358,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
         }
 
         using var token = CancellationTokenSource.CreateLinkedTokenSource(deadline, work.Cancelled);
+
         try
         {
             await Enforce(work, heldUserId, token.Token);
@@ -284,18 +381,28 @@ public sealed class ModerationManager : IModerationManager, IStartable
         if (work.Value.Length == 0 && work.AddressOf > 0)
         {
             work.Value = await AccountAddress(work.AddressOf, cancellationToken);
+
             if (work.Value.Length == 0)
+            {
                 return; // No address on record for the account: nothing to ban.
+            }
         }
+
         if (work.BanId == 0)
+        {
             await WriteBan(work, cancellationToken);
+        }
+
         if (!work.AccountsComplete)
         {
             work.Accounts.UnionWith(await BannedAccounts(work.Type, work.Value, cancellationToken));
             work.AccountsComplete = true;
         }
+
         foreach (var userId in work.Accounts.ToList())
+        {
             await SignOut(work, userId, userId == heldUserId, cancellationToken);
+        }
     }
 
     /// <summary>
@@ -306,8 +413,12 @@ public sealed class ModerationManager : IModerationManager, IStartable
     private async Task SignOut(BanWork work, int userId, bool gateHeld, CancellationToken cancellationToken)
     {
         using var gate = gateHeld ? null : await _sessionGate.EnterAsync(userId, cancellationToken);
+
         if (!await BanInForce(work.BanId, cancellationToken))
+        {
             return;
+        }
+
         _sessionGate.Revoke(userId);
         await _sessions.RevokeAll(userId, cancellationToken);
         _clients.GetClientByUserId(userId)?.Disconnect();
@@ -323,12 +434,14 @@ public sealed class ModerationManager : IModerationManager, IStartable
                 foreach (var delay in RetryDelays)
                 {
                     await Task.Delay(delay, work.Cancelled);
+
                     try
                     {
                         using var attempt = CancellationTokenSource.CreateLinkedTokenSource(work.Cancelled);
                         attempt.CancelAfter(RetryAttemptTimeout);
                         // The caller's gate is long released by now, so every account's gate is taken here.
                         await Enforce(work, heldUserId: 0, attempt.Token);
+
                         return;
                     }
                     catch (Exception e) when (!work.Cancelled.IsCancellationRequested)
@@ -336,6 +449,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
                         _logger.LogWarning(e, "Retrying ban of {Type} {Value} failed", work.Type, work.Value);
                     }
                 }
+
                 _logger.LogError("Gave up enforcing ban of {Type} {Value}", work.Type, work.Value);
             }
             catch (OperationCanceledException) when (work.Cancelled.IsCancellationRequested)
@@ -354,24 +468,42 @@ public sealed class ModerationManager : IModerationManager, IStartable
     {
         var banType = work.Type == ModerationBanType.Ip ? "ip" : work.Type == ModerationBanType.Machine ? "machine" : "user";
         await _banWrites.WaitAsync(cancellationToken);
+
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+
             using (var connection = _database.Connection())
             {
                 var addedAt = _clock.GetUtcNow();
                 work.BanId = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
                     "INSERT INTO `bans` (`bantype`, `value`, `reason`, `expire`, `added_by`, `added_date`) VALUES (@banType, @banValue, @reason, @expire, @mod, @addedDate); " +
                     "SELECT LAST_INSERT_ID();",
-                    new { banType, banValue = work.Value, reason = work.Reason, expire = work.ExpiresAt?.UtcDateTime, mod = work.Mod, addedDate = addedAt.UtcDateTime },
+                    new
+                    {
+                        banType,
+                        banValue = work.Value,
+                        reason = work.Reason,
+                        expire = work.ExpiresAt?.UtcDateTime,
+                        mod = work.Mod,
+                        addedDate = addedAt.UtcDateTime
+                    },
                     cancellationToken: cancellationToken));
             }
-            if (AfterBanInsert != null) await AfterBanInsert();
+
+            if (AfterBanInsert != null)
+            {
+                await AfterBanInsert();
+            }
+
             _pendingBans[work] = 0;
+
             // Published in the same turn as the row: an unban, which clears the cache in its own turn, always comes
             // entirely before or after. A re-ban also refreshes the cached expiry.
             if (work.Type == ModerationBanType.Machine || work.Type == ModerationBanType.Username)
+            {
                 _bans[work.Value] = new(work.Type, work.Value, work.Reason, work.ExpiresAt);
+            }
         }
         finally
         {
@@ -383,8 +515,13 @@ public sealed class ModerationManager : IModerationManager, IStartable
     private async Task<bool> BanInForce(long banId, CancellationToken cancellationToken)
     {
         using var connection = _database.Connection();
+
         return await connection.ExecuteScalarAsync<int>(new CommandDefinition("SELECT COUNT(*) FROM `bans` WHERE `id` = @banId AND `expire` > @now",
-            new { banId, now = _clock.GetUtcNow().UtcDateTime }, cancellationToken: cancellationToken)) > 0;
+            new
+            {
+                banId,
+                now = _clock.GetUtcNow().UtcDateTime
+            }, cancellationToken: cancellationToken)) > 0;
     }
 
     /// <summary>
@@ -394,8 +531,12 @@ public sealed class ModerationManager : IModerationManager, IStartable
     private async Task<string> AccountAddress(int userId, CancellationToken cancellationToken)
     {
         using var connection = _database.Connection();
+
         return await connection.ExecuteScalarAsync<string?>(new CommandDefinition("SELECT `ip_last` FROM `users` WHERE `id` = @userId",
-            new { userId }, cancellationToken: cancellationToken)) ?? string.Empty;
+            new
+            {
+                userId
+            }, cancellationToken: cancellationToken)) ?? string.Empty;
     }
 
     /// <summary>The sessions a ban covers that can be found without the database: by username or handshake machine id.</summary>
@@ -421,28 +562,47 @@ public sealed class ModerationManager : IModerationManager, IStartable
     internal async Task<IReadOnlyList<int>> BannedAccounts(ModerationBanType type, string banValue, CancellationToken cancellationToken = default)
     {
         if (type == ModerationBanType.Machine)
+        {
             return OnlineCovered(type, banValue).Select(client => client.GetHabbo().Id).Distinct().ToList();
+        }
+
         using var connection = _database.Connection();
+
         return (await connection.QueryAsync<int>(new CommandDefinition(type == ModerationBanType.Ip
             ? "SELECT `id` FROM `users` WHERE `ip_last` = @banValue"
-            : "SELECT `id` FROM `users` WHERE `username` = @banValue", new { banValue }, cancellationToken: cancellationToken))).ToList();
+            : "SELECT `id` FROM `users` WHERE `username` = @banValue", new
+            {
+                banValue
+            }, cancellationToken: cancellationToken))).ToList();
     }
 
     public bool UnbanUser(string username)
     {
         _banWrites.Wait();
+
         try
         {
             int removed;
+
             using (var connection = _database.Connection())
-                removed = connection.Execute("DELETE FROM `bans` WHERE `bantype` = 'user' AND `value` = @username", new { username });
+            {
+                removed = connection.Execute("DELETE FROM `bans` WHERE `bantype` = 'user' AND `value` = @username", new
+                {
+                    username
+                });
+            }
+
             RemoveBan(username);
+
             // Every part of a ban on this account still running stops; it would re-check its row anyway.
             foreach (var work in _pendingBans.Keys)
             {
                 if (string.Equals(work.Account, username, StringComparison.OrdinalIgnoreCase))
+                {
                     work.Cancel();
+                }
             }
+
             return removed > 0;
         }
         finally
@@ -454,6 +614,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
     public bool TryAddTicket(ModerationTicket ticket)
     {
         ticket.Id = Interlocked.Increment(ref _ticketCount);
+
         return _modTickets.TryAdd(ticket.Id, ticket);
     }
 
@@ -474,16 +635,26 @@ public sealed class ModerationManager : IModerationManager, IStartable
         if (_bans.TryGetValue(key, out ban))
         {
             if (!ban.IsExpiredAt(_clock.GetUtcNow()))
+            {
                 return true;
+            }
 
             //This ban has expired, let us quickly remove it here.
             using (var connection = _database.Connection())
-                connection.Execute("DELETE FROM bans WHERE bantype = @type AND value = @key LIMIT 1", new { type = BanTypeUtility.FromModerationBanType(ban.Type), key });
+            {
+                connection.Execute("DELETE FROM bans WHERE bantype = @type AND value = @key LIMIT 1", new
+                {
+                    type = BanTypeUtility.FromModerationBanType(ban.Type),
+                    key
+                });
+            }
 
             //And finally, let us remove the ban record from the cache.
             _bans.TryRemove(key, out _);
+
             return false;
         }
+
         return false;
     }
 
@@ -495,11 +666,22 @@ public sealed class ModerationManager : IModerationManager, IStartable
     public bool HasMachineBanCheck(string machineId)
     {
         if (!IsBanned(machineId, out _))
+        {
             return false;
+        }
+
         using var connection = _database.Connection();
-        var exists = connection.ExecuteScalar<bool>("SELECT EXISTS(SELECT 1 FROM bans WHERE bantype = @type AND value = @value)", new { type = "machine", value = machineId });
+        var exists = connection.ExecuteScalar<bool>("SELECT EXISTS(SELECT 1 FROM bans WHERE bantype = @type AND value = @value)", new
+        {
+            type = "machine",
+            value = machineId
+        });
+
         if (!exists)
+        {
             RemoveBan(machineId);
+        }
+
         return exists;
     }
 
@@ -511,11 +693,22 @@ public sealed class ModerationManager : IModerationManager, IStartable
     public bool UsernameBanCheck(string username)
     {
         if (!IsBanned(username, out _))
+        {
             return false;
+        }
+
         using var connection = _database.Connection();
-        var exists = connection.ExecuteScalar<bool>("SELECT EXISTS(SELECT 1 FROM bans WHERE bantype = @type AND value = @value)", new { type = "user", value = username });
+        var exists = connection.ExecuteScalar<bool>("SELECT EXISTS(SELECT 1 FROM bans WHERE bantype = @type AND value = @value)", new
+        {
+            type = "user",
+            value = username
+        });
+
         if (!exists)
+        {
             RemoveBan(username);
+        }
+
         return exists;
     }
 

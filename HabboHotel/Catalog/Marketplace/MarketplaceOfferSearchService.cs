@@ -31,10 +31,20 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
         // Offers listed before this instant are past their two-day lifetime and drop out of the market.
         var threshold = time.GetUtcNow().AddSeconds(-172800);
         List<MarketplaceOfferRow> rows;
+
         using (var connection = database.Connection())
-            rows = connection.Query<MarketplaceOfferRow>(sql, new { threshold, minCost, maxCost }).ToList();
+        {
+            rows = connection.Query<MarketplaceOfferRow>(sql, new
+            {
+                threshold,
+                minCost,
+                maxCost
+            }).ToList();
+        }
+
         marketplace.MarketItems.Clear();
         marketplace.MarketItemKeys.Clear();
+
         foreach (var row in rows)
         {
             if (!marketplace.MarketItemKeys.Contains(Convert.ToInt32(row.OfferId)))
@@ -44,9 +54,11 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
                     row.TotalPrice, int.Parse(row.ItemType), Convert.ToUInt32(row.LimitedNumber), Convert.ToUInt32(row.LimitedStack)));
             }
         }
+
         /// TODO @80O: Wtf is this shit
         var best = new Dictionary<uint, MarketOffer>();
         var counts = new Dictionary<uint, int>();
+
         foreach (var item in marketplace.MarketItems)
         {
             if (best.ContainsKey(item.SpriteId))
@@ -54,9 +66,14 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
                 if (item.LimitedNumber > 0)
                 {
                     if (!best.ContainsKey(item.OfferId))
+                    {
                         best.Add(item.OfferId, item);
+                    }
+
                     if (!counts.ContainsKey(item.OfferId))
+                    {
                         counts.Add(item.OfferId, 1);
+                    }
                 }
                 else
                 {
@@ -65,6 +82,7 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
                         best.Remove(item.SpriteId);
                         best.Add(item.SpriteId, item);
                     }
+
                     var num = counts[item.SpriteId];
                     counts.Remove(item.SpriteId);
                     counts.Add(item.SpriteId, num + 1);
@@ -73,11 +91,17 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
             else
             {
                 if (!best.ContainsKey(item.SpriteId))
+                {
                     best.Add(item.SpriteId, item);
+                }
+
                 if (!counts.ContainsKey(item.SpriteId))
+                {
                     counts.Add(item.SpriteId, 1);
+                }
             }
         }
+
         return Capture(best, counts);
     }
 

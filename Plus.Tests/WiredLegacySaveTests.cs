@@ -70,12 +70,20 @@ public class WiredLegacySaveTests
         Assert.True(candidate.BoolData);
         // SaveBox captures replacement snapshots on the detached candidate during persistence.
         Assert.Equal(original.ItemsData, candidate.ItemsData);
-        Assert.Equal(shape switch { 1 or 4 => "1;0;1", 2 => "NEW_BADGE", 3 => "5", _ => "previous" }, candidate.StringData);
+        Assert.Equal(shape switch
+        {
+            1 or 4 => "1;0;1",
+            2 => "NEW_BADGE",
+            3 => "5",
+            _ => "previous"
+        }, candidate.StringData);
+
         if (original is IWiredCycle oldCycle && candidate is IWiredCycle nextCycle)
         {
             Assert.Equal(3, oldCycle.Delay);
             Assert.Equal(shape == 0 ? 9 : 8, nextCycle.Delay);
         }
+
         Assert.Equal(shape == 2 ? 1 : 0, candidate.SetItems.Count);
     }
 
@@ -94,8 +102,19 @@ public class WiredLegacySaveTests
             source => Create(shape, source.Item), out var candidate, out var error));
 
         Assert.Empty(error);
-        Assert.Equal(shape switch { 1 or 4 => "1;0;1", 2 => "NEW_BADGE", 3 => "5", _ => "previous" }, candidate!.StringData);
-        if (candidate is IWiredCycle cycle) Assert.Equal(shape == 0 ? 9 : 8, cycle.Delay);
+        Assert.Equal(shape switch
+        {
+            1 or 4 => "1;0;1",
+            2 => "NEW_BADGE",
+            3 => "5",
+            _ => "previous"
+        }, candidate!.StringData);
+
+        if (candidate is IWiredCycle cycle)
+        {
+            Assert.Equal(shape == 0 ? 9 : 8, cycle.Delay);
+        }
+
         Assert.Equal(shape == 2 ? 1 : 0, candidate.SetItems.Count);
         Assert.Equal("previous", original.StringData);
         Assert.Single(original.SetItems);
@@ -117,7 +136,11 @@ public class WiredLegacySaveTests
             (_, _) => throw new InvalidOperationException("Persistence must not run."), out _));
         Assert.Equal("previous", original.StringData);
         Assert.Single(original.SetItems);
-        if (original is IWiredCycle cycle) Assert.Equal(3, cycle.Delay);
+
+        if (original is IWiredCycle cycle)
+        {
+            Assert.Equal(3, cycle.Delay);
+        }
     }
 
     [Theory]
@@ -142,7 +165,11 @@ public class WiredLegacySaveTests
         Assert.Equal("8:1,2,3,4,state;", original.ItemsData);
         Assert.Same(selected, original.SetItems);
         Assert.Single(original.SetItems);
-        if (original is IWiredCycle cycle) Assert.Equal(3, cycle.Delay);
+
+        if (original is IWiredCycle cycle)
+        {
+            Assert.Equal(3, cycle.Delay);
+        }
     }
 
     [Fact]
@@ -188,6 +215,7 @@ public class WiredLegacySaveTests
                 Assert.Equal("NEW_BADGE", candidate.StringData);
                 Assert.Equal("previous", live.StringData);
                 published = true;
+
                 return true;
             }, out var error));
         Assert.True(published);
@@ -204,7 +232,12 @@ public class WiredLegacySaveTests
         box.ItemsData = "8:1,2,3,4,state;";
         box.SetItems = new ConcurrentDictionary<uint, Item>();
         box.SetItems.TryAdd(8, new Item { Id = 8 });
-        if (box is IWiredCycle cycle) cycle.Delay = 3;
+
+        if (box is IWiredCycle cycle)
+        {
+            cycle.Delay = 3;
+        }
+
         return box;
     }
 
@@ -232,6 +265,7 @@ public class WiredLegacySaveTests
     {
         using var stream = new MemoryStream();
         Span<byte> number = stackalloc byte[4];
+
         foreach (var value in values)
         {
             if (value is int integer)
@@ -247,6 +281,10 @@ public class WiredLegacySaveTests
                 stream.Write(text);
             }
         }
-        return new() { Buffer = stream.ToArray() };
+
+        return new()
+        {
+            Buffer = stream.ToArray()
+        };
     }
 }

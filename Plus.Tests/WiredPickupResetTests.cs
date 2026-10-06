@@ -155,6 +155,7 @@ public partial class PlacedFurniRoomTests
             save = Task.Run(() =>
             {
                 started.Set();
+
                 return _room.GetWired().PublishLegacy(box, candidate, () => store.Saved.Add(52));
             });
             Assert.True(started.Wait(TimeSpan.FromSeconds(10)));
@@ -174,6 +175,7 @@ public partial class PlacedFurniRoomTests
         var store = new ResettableConfigurationStore();
         typeof(WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(_room.GetWired(), store);
         _client.GetHabbo().Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) };
+
         return store;
     }
 
@@ -184,12 +186,14 @@ public partial class PlacedFurniRoomTests
         var box = _room.GetWired().LoadWiredBox(item)!;
         Assert.NotNull(box);
         store.Saved.Add(id);
+
         return (item, box);
     }
 
     private static Item Owned(Item item, int userId = 7)
     {
         item.UserId = userId;
+
         return item;
     }
 
@@ -201,13 +205,23 @@ public partial class PlacedFurniRoomTests
     {
         public HashSet<uint> Saved { get; } = [];
         public List<uint[]> Resets { get; } = [];
-        public bool Fail { get; set; }
-        public Action? DuringReset { get; set; }
+        public bool Fail
+        {
+            get; set;
+        }
+        public Action? DuringReset
+        {
+            get; set;
+        }
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => null;
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => Saved.Add(itemId);
         public void Reset(IReadOnlyCollection<uint> itemIds)
         {
-            if (Fail) throw new InvalidOperationException("The database is unavailable.");
+            if (Fail)
+            {
+                throw new InvalidOperationException("The database is unavailable.");
+            }
+
             DuringReset?.Invoke();
             Resets.Add(itemIds.Order().ToArray());
             Saved.ExceptWith(itemIds);

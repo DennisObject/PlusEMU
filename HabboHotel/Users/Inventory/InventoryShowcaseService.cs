@@ -22,16 +22,24 @@ public sealed class InventoryShowcaseService : IInventoryShowcaseService
     public void ShowBots(GameClient session)
     {
         var inventory = session.GetHabbo().Inventory;
+
         if (inventory == null)
+        {
             return;
+        }
+
         session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(inventory.Bots.Bots.Values)));
     }
 
     public void ShowPets(GameClient session)
     {
         var inventory = session.GetHabbo().Inventory;
+
         if (inventory == null)
+        {
             return;
+        }
+
         session.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(inventory.Pets.Pets.Values)));
     }
 

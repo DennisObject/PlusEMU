@@ -8,7 +8,12 @@ public sealed class QuestListComposer(QuestListData data) : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(data.Quests.Length);
-        foreach (var quest in data.Quests) QuestWireSerializer.Write(packet, quest);
+
+        foreach (var quest in data.Quests)
+        {
+            QuestWireSerializer.Write(packet, quest);
+        }
+
         packet.WriteBoolean(data.Send);
     }
 }

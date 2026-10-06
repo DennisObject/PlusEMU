@@ -20,11 +20,16 @@ public sealed class PristineBotClothingDatabaseTests
             CreateShippedTable(connection, "bots_speech");
             connection.Execute("INSERT INTO bots (id,user_id,room_id,name,motto,look) VALUES (10,7,42,'guide','hello','hd-180-1')");
             var store = new BotManagementStore(database);
+
             foreach (var mode in new[] { "", "STRICT_ALL_TABLES" })
             {
-                connection.Execute("SET SESSION sql_mode=@mode", new { mode });
+                connection.Execute("SET SESSION sql_mode=@mode", new
+                {
+                    mode
+                });
                 // Each store call opens its own connection. Set its session mode explicitly.
                 database.SqlMode = mode;
+
                 foreach (var automatic in new[] { true, false })
                 {
                     Assert.Equal(["hello", "world"], store.SaveSpeech(10, 42, ["hello", "world"], automatic, 12, true));
@@ -36,6 +41,7 @@ public sealed class PristineBotClothingDatabaseTests
                     Assert.Equal(["hello", "world"], placed.Speech);
                     Assert.Equal((2, 3), connection.QuerySingle<(int, int)>("SELECT x,y FROM bots WHERE id=10"));
                 }
+
                 Assert.Throws<InvalidOperationException>(() => store.SaveSpeech(10, 99, ["replacement"], true, 15, false));
                 Assert.Equal(["hello", "world"], connection.Query<string>("SELECT text FROM bots_speech WHERE bot_id=10").ToArray());
                 Assert.Equal("false", connection.QuerySingle<string>("SELECT automatic_chat FROM bots WHERE id=10"));
@@ -82,12 +88,16 @@ public sealed class PristineBotClothingDatabaseTests
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
         {
-            Database = "mysql", Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true
+            Database = "mysql",
+            Pooling = false,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
         };
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         var schema = "task_bot_clothing_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             options.Database = schema;
@@ -111,7 +121,10 @@ public sealed class PristineBotClothingDatabaseTests
     private sealed class ModeConnection(string connectionString, string mode) : IDbConnection
     {
         private readonly MySqlConnection _connection = new(connectionString);
-        public string ConnectionString { get => _connection.ConnectionString; set => _connection.ConnectionString = value; }
+        public string ConnectionString
+        {
+            get => _connection.ConnectionString; set => _connection.ConnectionString = value;
+        }
         public int ConnectionTimeout => _connection.ConnectionTimeout;
         public string Database => _connection.Database;
         public ConnectionState State => _connection.State;
@@ -120,7 +133,14 @@ public sealed class PristineBotClothingDatabaseTests
         public void ChangeDatabase(string database) => _connection.ChangeDatabase(database);
         public void Close() => _connection.Close();
         public IDbCommand CreateCommand() => _connection.CreateCommand();
-        public void Open() { _connection.Open(); _connection.Execute("SET SESSION sql_mode=@mode", new { mode }); }
+        public void Open()
+        {
+            _connection.Open();
+            _connection.Execute("SET SESSION sql_mode=@mode", new
+            {
+                mode
+            });
+        }
         public void Dispose() => _connection.Dispose();
     }
 }

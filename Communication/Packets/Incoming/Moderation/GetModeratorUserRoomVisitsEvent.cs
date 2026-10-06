@@ -12,7 +12,12 @@ internal class GetModeratorUserRoomVisitsEvent(IModeratorHistoryService history)
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var result = history.GetUserRoomVisits(packet.ReadInt());
-        if (result != null) session.Send(new ModeratorUserRoomVisitsComposer(result));
+
+        if (result != null)
+        {
+            session.Send(new ModeratorUserRoomVisitsComposer(result));
+        }
+
         return Task.CompletedTask;
     }
 }

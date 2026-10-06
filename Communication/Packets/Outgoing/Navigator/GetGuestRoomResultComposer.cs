@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Outgoing.Navigator;
@@ -23,7 +23,12 @@ public sealed class GetGuestRoomResultComposer(GuestRoomInfoSnapshot snapshot) :
         packet.WriteInteger(0); //Top rated room rank.
         packet.WriteInteger(snapshot.Category);
         packet.WriteInteger(snapshot.Tags.Length);
-        foreach (var tag in snapshot.Tags) packet.WriteString(tag);
+
+        foreach (var tag in snapshot.Tags)
+        {
+            packet.WriteString(tag);
+        }
+
         if (snapshot.Group != null && snapshot.Promotion != null)
         {
             packet.WriteInteger(62);
@@ -49,7 +54,10 @@ public sealed class GetGuestRoomResultComposer(GuestRoomInfoSnapshot snapshot) :
             packet.WriteInteger(snapshot.Promotion.MinutesLeft);
         }
         else
+        {
             packet.WriteInteger(56);
+        }
+
         packet.WriteBoolean(snapshot.CheckEntry);
         packet.WriteBoolean(false);
         packet.WriteBoolean(false);

@@ -19,6 +19,7 @@ public sealed class CredentialUtcDatabaseTests
         await using var server = new MySqlConnection(builder.ConnectionString);
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET latin1");
+
         try
         {
             builder.Database = schema;
@@ -47,6 +48,7 @@ public sealed class CredentialUtcDatabaseTests
     public async Task MigrationRejectsInvalidTombstonesBeforeAlterAndPreservesNativeInstants()
     {
         var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
+
         foreach (var sqlMode in new[] { "STRICT_ALL_TABLES", "" })
         {
             foreach (var tombstone in new[] { "access.revoked", "remember.used", "remember.revoked", "session.revoked" })
@@ -164,13 +166,21 @@ public sealed class CredentialUtcDatabaseTests
     {
         await AssertTokenTimes(connection, "user_access_tokens", session.AccessToken.Value, now, TimeSpan.FromMinutes(10));
         await AssertTokenTimes(connection, "user_remember_tokens", session.RememberToken!.Value.Value, now, TimeSpan.FromDays(30));
+
         if (assertSessionCreated)
         {
             var familyId = await connection.QuerySingleAsync<string>(
-                "SELECT family_id FROM user_remember_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(session.RememberToken.Value.Value) });
+                "SELECT family_id FROM user_remember_tokens WHERE token_hash=@hash", new
+                {
+                    hash = SecureToken.Hash(session.RememberToken.Value.Value)
+                });
             Assert.Equal(now, await connection.QuerySingleAsync<DateTimeOffset>(
-                "SELECT created_at FROM user_sessions WHERE id=@id", new { id = familyId }));
+                "SELECT created_at FROM user_sessions WHERE id=@id", new
+                {
+                    id = familyId
+                }));
         }
+
         if (withTicket)
         {
             Assert.Equal(now.AddMinutes(1), session.SsoTicket.ExpiresAt);
@@ -183,7 +193,10 @@ public sealed class CredentialUtcDatabaseTests
     {
         var row = await connection.QuerySingleAsync<TokenTimeRow>(
             $"SELECT created_at AS CreatedAt, expires_at AS ExpiresAt FROM `{table}` WHERE token_hash=@hash",
-            new { hash = SecureToken.Hash(token) });
+            new
+            {
+                hash = SecureToken.Hash(token)
+            });
         Assert.Equal(now, row.CreatedAt);
         Assert.Equal(now.Add(lifetime), row.ExpiresAt);
     }
@@ -200,7 +213,10 @@ public sealed class CredentialUtcDatabaseTests
                 "session.revoked" => "UPDATE user_sessions SET revoked_at=@invalid WHERE id='s'",
                 _ => throw new ArgumentOutOfRangeException(nameof(tombstone))
             };
-            await connection.ExecuteAsync(update, new { invalid });
+            await connection.ExecuteAsync(update, new
+            {
+                invalid
+            });
             var before = await Snapshot(connection);
 
             await Assert.ThrowsAnyAsync<MySqlException>(() => connection.ExecuteAsync(Migration));
@@ -260,11 +276,18 @@ public sealed class CredentialUtcDatabaseTests
             Assert.Equal(clock.Now.AddDays(30), remember.ExpiresAt);
             Assert.Equal(clock.Now.AddSeconds(60), ticket.ExpiresAt);
             Assert.Equal(clock.Now, await connection.QuerySingleAsync<DateTimeOffset>(
-                "SELECT created_at FROM user_access_tokens WHERE token_hash=@hash", new { hash = SecureToken.Hash(access.Value) }));
+                "SELECT created_at FROM user_access_tokens WHERE token_hash=@hash", new
+                {
+                    hash = SecureToken.Hash(access.Value)
+                }));
             Assert.Equal(clock.Now, await connection.QuerySingleAsync<DateTimeOffset>(
                 "SELECT created_at FROM user_sessions WHERE id<>'s' ORDER BY created_at DESC LIMIT 1"));
             await connection.ExecuteAsync("UPDATE user_remember_tokens SET used_at=@future WHERE token_hash=@hash",
-                new { future = clock.Now.AddDays(1).UtcDateTime, hash = SecureToken.Hash(remember.Value) });
+                new
+                {
+                    future = clock.Now.AddDays(1).UtcDateTime,
+                    hash = SecureToken.Hash(remember.Value)
+                });
             Assert.Equal(RememberRotationStatus.Rotated, (await new RememberTokenStore(database, clock, options).Rotate(remember.Value)).Status);
             Assert.Null(await new AccessTokenStore(database, clock, options).FindOwner("unknown-access"));
             Assert.Equal(RememberRotationStatus.Invalid,
@@ -291,6 +314,7 @@ public sealed class CredentialUtcDatabaseTests
         await using var server = new MySqlConnection(builder.ConnectionString);
         await server.OpenAsync();
         await server.ExecuteAsync($"CREATE DATABASE `{schema}` CHARACTER SET latin1");
+
         try
         {
             builder.Database = schema;
@@ -310,11 +334,13 @@ public sealed class CredentialUtcDatabaseTests
     private static async Task<string> Snapshot(MySqlConnection connection)
     {
         var definitions = new List<string>();
+
         foreach (var table in new[] { "users", "user_access_tokens", "user_remember_tokens", "user_sessions" })
         {
             var row = await connection.QuerySingleAsync<dynamic>($"SHOW CREATE TABLE `{table}`");
             definitions.Add((string)((IDictionary<string, object>)row).Values.Last());
         }
+
         var rows = new List<string>();
         rows.AddRange(await connection.QueryAsync<string>(
             "SELECT CONCAT('users:',id,'|',auth_ticket,'|',COALESCE(CAST(auth_ticket_expires_at AS CHAR),'<NULL>'),'|',credential_generation,'|',COALESCE(auth_ticket_session,'<NULL>'),'|',auth_ticket_exchanged) FROM users ORDER BY id"));
@@ -324,6 +350,7 @@ public sealed class CredentialUtcDatabaseTests
             "SELECT CONCAT('remember:',id,'|',user_id,'|',family_id,'|',token_hash,'|',COALESCE(CAST(created_at AS CHAR),'<NULL>'),'|',COALESCE(CAST(expires_at AS CHAR),'<NULL>'),'|',COALESCE(CAST(used_at AS CHAR),'<NULL>'),'|',grace_uses,'|',COALESCE(CAST(revoked_at AS CHAR),'<NULL>')) FROM user_remember_tokens ORDER BY id"));
         rows.AddRange(await connection.QueryAsync<string>(
             "SELECT CONCAT('sessions:',id,'|',user_id,'|',COALESCE(CAST(created_at AS CHAR),'<NULL>'),'|',COALESCE(CAST(revoked_at AS CHAR),'<NULL>')) FROM user_sessions ORDER BY id"));
+
         return string.Join("\n", definitions.Concat(rows));
     }
 
@@ -335,23 +362,44 @@ public sealed class CredentialUtcDatabaseTests
 
     private sealed class TokenTimeRow
     {
-        public DateTimeOffset CreatedAt { get; set; }
-        public DateTimeOffset ExpiresAt { get; set; }
+        public DateTimeOffset CreatedAt
+        {
+            get; set;
+        }
+        public DateTimeOffset ExpiresAt
+        {
+            get; set;
+        }
     }
 
     private sealed record MutationSnapshot
     {
-        public int Sessions { get; set; }
-        public int Access { get; set; }
-        public int Remember { get; set; }
+        public int Sessions
+        {
+            get; set;
+        }
+        public int Access
+        {
+            get; set;
+        }
+        public int Remember
+        {
+            get; set;
+        }
         public string Address { get; set; } = "";
     }
 
     private sealed class AdvancingTime(DateTimeOffset start, TimeSpan step) : TimeProvider
     {
         private DateTimeOffset _next = start;
-        public int Reads { get; private set; }
-        public DateTimeOffset LastUtc { get; private set; }
+        public int Reads
+        {
+            get; private set;
+        }
+        public DateTimeOffset LastUtc
+        {
+            get; private set;
+        }
 
         public override DateTimeOffset GetUtcNow()
         {
@@ -359,6 +407,7 @@ public sealed class CredentialUtcDatabaseTests
             var value = _next;
             _next += step;
             LastUtc = value.ToUniversalTime();
+
             return value;
         }
 

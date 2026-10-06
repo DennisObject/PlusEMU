@@ -25,16 +25,25 @@ public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutSer
 {
     public void Initialize(GameClient session)
     {
-        if (!session.IsAuthenticated) return;
+        if (!session.IsAuthenticated)
+        {
+            return;
+        }
+
         var prices = (Credits: 0, Points: 0, PublishPoints: 0);
+
         try
         {
-            if (checkout.Enabled) prices = checkout.Prices;
+            if (checkout.Enabled)
+            {
+                prices = checkout.Prices;
+            }
         }
         catch (Exception)
         {
             // Invalid camera pricing keeps the established zero-price initialization response.
         }
+
         session.Send(new InitCameraComposer(prices.Credits, prices.Points, prices.PublishPoints));
     }
 
@@ -44,11 +53,14 @@ public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutSer
         {
             var habbo = session.GetHabbo();
             var result = Execute(session, habbo, mediaId, media => checkout.Purchase(habbo, media));
+
             if (!result.Ok || result.Item == null)
             {
                 session.SendNotification("The photograph could not be purchased. No payment was taken.");
+
                 return;
             }
+
             habbo.Inventory.Furniture.AddItem(result.Item);
             session.Send(new FurniListNotificationComposer(result.Item.Id, 1));
             session.Send(new FurniListUpdateComposer());
@@ -73,9 +85,11 @@ public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutSer
             var result = Execute(session, habbo, mediaId, media =>
             {
                 url = CameraMediaPath.For(media.Id);
+
                 return checkout.Publish(habbo, media);
             });
             session.Send(new CameraPublishStatusComposer(result.Ok, result.WaitSeconds, url));
+
             if (result.Ok && result.Changed)
             {
                 session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, 0));
@@ -95,7 +109,12 @@ public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutSer
         {
             var habbo = session.GetHabbo();
             var result = Execute(session, habbo, mediaId, media => checkout.EnterCompetition(habbo, media));
-            var reason = result.Error switch { "limit" => "too-many-submits", "email" => "email-not-verified", _ => result.Error };
+            var reason = result.Error switch
+            {
+                "limit" => "too-many-submits",
+                "email" => "email-not-verified",
+                _ => result.Error
+            };
             session.Send(new CompetitionStatusComposer(result.Ok, reason));
         }
         catch (Exception exception)
@@ -109,7 +128,10 @@ public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutSer
         Func<CameraCheckoutMedia, CameraCheckoutResult> operation)
     {
         if (!session.IsAuthenticated || habbo?.CurrentRoom == null || mediaId is not { } id)
+        {
             return new(false, "unavailable");
+        }
+
         return camera.Checkout(session, id, operation);
     }
 }

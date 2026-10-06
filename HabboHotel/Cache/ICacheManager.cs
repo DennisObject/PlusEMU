@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Cache.Type;
 
 namespace Plus.HabboHotel.Cache;

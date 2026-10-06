@@ -17,6 +17,7 @@ internal sealed class TestRoomUserSnapshots : IRoomUserSnapshotService
         ((Lookup)(object)clients).Client = user.IsBot
             ? HabbiconTestSupport.Client(new Habbo { Id = user.BotData.OwnerId, Username = "owner" }).Client
             : user.GetClient();
+
         return new RoomUserSnapshotService(null!, clients, null!, null!).Capture(user);
     }
 
@@ -25,7 +26,10 @@ internal sealed class TestRoomUserSnapshots : IRoomUserSnapshotService
 
     public class Lookup : DispatchProxy
     {
-        public GameClient? Client { get; set; }
+        public GameClient? Client
+        {
+            get; set;
+        }
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method!.Name == "GetClientByUserId"
             ? Client : throw new NotSupportedException(method.Name);
     }

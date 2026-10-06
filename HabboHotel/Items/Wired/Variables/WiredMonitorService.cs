@@ -22,21 +22,38 @@ public sealed class WiredMonitorService(IWiredRequestGateService gates) : IWired
     public void ShowMonitor(Room room, GameClient session, int action)
     {
         var settings = room.GetWired().Settings;
-        if (!settings.CanInspect(session)) return;
+
+        if (!settings.CanInspect(session))
+        {
+            return;
+        }
+
         if (action == WiredMonitorActions.Clear)
         {
             // A clear has its own gate so a poll cannot swallow it.
-            if (!settings.CanManage(session) || !gates.TryPass(session, WiredRequestKind.MonitorClear)) return;
+            if (!settings.CanManage(session) || !gates.TryPass(session, WiredRequestKind.MonitorClear))
+            {
+                return;
+            }
+
             room.GetWired().ClearLogs();
         }
-        else if (!gates.TryPass(session, WiredRequestKind.MonitorFetch)) return;
+        else if (!gates.TryPass(session, WiredRequestKind.MonitorFetch))
+        {
+            return;
+        }
+
         session.Send(new WiredMonitorDataComposer(room.GetWired().ReadMonitor()));
     }
 
     // The client's pages are 1-based, and the filter text is trimmed before it is matched.
     public void ShowLogs(Room room, GameClient session, int page, int size, int level, int source, string query)
     {
-        if (!room.GetWired().Settings.CanInspect(session) || !gates.TryPass(session, WiredRequestKind.RoomLogPage)) return;
+        if (!room.GetWired().Settings.CanInspect(session) || !gates.TryPass(session, WiredRequestKind.RoomLogPage))
+        {
+            return;
+        }
+
         query = query.Trim();
         var result = room.GetWired().ReadLogs(Math.Max(1, page) - 1, size, level, query, source);
         session.Send(new WiredRoomLogPageComposer(result, level, source, query));

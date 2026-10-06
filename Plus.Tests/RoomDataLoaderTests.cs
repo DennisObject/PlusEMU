@@ -23,6 +23,7 @@ public sealed class RoomDataLoaderTests
         {
             Assert.Equal("TryGetRoom", method);
             args[1] = room;
+
             return true;
         });
         var loader = new RoomDataLoaderFactory(EditorTestSupport.UntouchableDatabase(),
@@ -43,6 +44,7 @@ public sealed class RoomDataLoaderTests
             Assert.Equal("TryGetData", method);
             reads++;
             args[1] = (uint)args[0]! == 42 ? expected : null;
+
             return (uint)args[0]! == 42;
         });
         IRoomManager? boundManager = null;
@@ -50,6 +52,7 @@ public sealed class RoomDataLoaderTests
         {
             Assert.Equal("Create", method);
             boundManager = (IRoomManager)args[0]!;
+
             return loader;
         });
         var construction = new InvalidOperationException("room construction reached");
@@ -76,6 +79,7 @@ public sealed class RoomDataLoaderTests
         connection.Open();
         var schema = "room_data_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             connection.Execute($"USE `{schema}`");
@@ -125,11 +129,15 @@ public sealed class RoomDataLoaderTests
             {
                 Assert.Equal("TryGetGroup", method);
                 args[1] = (int)args[0]! == 9 ? group : null;
+
                 return (int)args[0]! == 9;
             });
             var promotions = new RecordingPromotionLoader();
             var loader = new RoomDataLoader(new ProbeDatabase(new MySqlConnectionStringBuilder(
-                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!) { Database = schema }.ConnectionString),
+                Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!)
+            {
+                Database = schema
+            }.ConnectionString),
                 manager, groups, promotions);
 
             Assert.False(loader.TryGetData(404, out _));
@@ -165,6 +173,7 @@ public sealed class RoomDataLoaderTests
     private static bool Missing(object?[] args)
     {
         args[1] = null;
+
         return false;
     }
 
@@ -172,6 +181,7 @@ public sealed class RoomDataLoaderTests
     {
         var found = (string)args[0]! == model.Id;
         args[1] = found ? model : null;
+
         return found;
     }
 
@@ -179,6 +189,7 @@ public sealed class RoomDataLoaderTests
     {
         var proxy = DispatchProxy.Create<T, CallbackProxy>();
         ((CallbackProxy)(object)proxy).Callback = callback;
+
         return proxy;
     }
 
@@ -196,7 +207,10 @@ public sealed class RoomDataLoaderTests
 
     private sealed class RecordingPromotionLoader : IRoomPromotionLoader
     {
-        public RoomPromotion Promotion { get; } = new("promotion", "details",
+        public RoomPromotion Promotion
+        {
+            get;
+        } = new("promotion", "details",
             new DateTimeOffset(2039, 1, 1, 0, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2039, 1, 1, 1, 0, 0, TimeSpan.Zero), 1, TimeProvider.System);
         public List<uint> Loaded { get; } = [];
@@ -204,6 +218,7 @@ public sealed class RoomDataLoaderTests
         public RoomPromotion? Load(uint roomId)
         {
             Loaded.Add(roomId);
+
             return Promotion;
         }
     }

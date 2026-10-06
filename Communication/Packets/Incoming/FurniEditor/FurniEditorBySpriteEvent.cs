@@ -17,6 +17,7 @@ public class FurniEditorBySpriteEvent : IPacketEvent
     {
         int spriteId = packet.ReadInt();
         FurniEditorResponder.Read(session, () => new FurniEditorDetailResultComposer(_furniEditor.DetailBySprite(session.GetHabbo(), spriteId)));
+
         return Task.CompletedTask;
     }
 }

@@ -2,7 +2,10 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Selectors;
 
-public enum WiredSelectorEntityKind { Player = 1, Pet = 2, Bot = 4 }
+public enum WiredSelectorEntityKind
+{
+    Player = 1, Pet = 2, Bot = 4
+}
 
 public sealed record WiredSelectorFurniture(uint Id, int DefinitionId, string Name, string State,
     int X, int Y, double Z, double Height, IReadOnlyList<(int X, int Y)> Tiles, bool IsFloor = true,
@@ -30,6 +33,7 @@ public sealed class WiredSelectedIds
         var copy = new WiredSelectedIds();
         copy.FurniIds.UnionWith(FurniIds);
         copy.UserIds.UnionWith(UserIds);
+
         return copy;
     }
 }
@@ -41,7 +45,10 @@ public sealed record WiredSelectorInputs(WiredSelectedIds Triggering, WiredSelec
     Func<string, WiredConfiguration, int, bool>? UserVariablePredicate = null,
     bool FurniModified = false, bool UsersModified = false, bool IncludeWired = false);
 
-public enum WiredSelectorTarget { Furni, User, Both }
+public enum WiredSelectorTarget
+{
+    Furni, User, Both
+}
 
 public sealed record WiredSelectorResult(WiredSelectedIds Selection, WiredSelectorTarget Target,
     bool FiltersExisting, bool Invert);

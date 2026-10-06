@@ -24,6 +24,7 @@ internal class HousekeepingFindUserByNameEvent : IPacketEvent
         var username = HousekeepingLimits.Normalize(packet.ReadString());
         var record = HousekeepingLimits.IsText(username, HousekeepingLimits.MaxLookupLength) ? _users.Find(username) : null;
         session.Send(new HousekeepingUserDetailComposer(_lookups.User(session.GetHabbo(), record)));
+
         return Task.CompletedTask;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Attributes;
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.GameClients;
 
@@ -19,11 +19,19 @@ internal class ModerationMsgEvent : IPacketEvent
         var userId = packet.ReadInt();
         var message = packet.ReadString();
         var client = _clientManager.GetClientByUserId(userId);
+
         if (client == null)
+        {
             return Task.CompletedTask;
+        }
+
         if (client.GetHabbo() == null || !session.GetHabbo().Access.Outranks(client.GetHabbo().Access))
+        {
             return Task.CompletedTask;
+        }
+
         client.SendNotification(message);
+
         return Task.CompletedTask;
     }
 }

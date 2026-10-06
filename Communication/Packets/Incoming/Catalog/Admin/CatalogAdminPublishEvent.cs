@@ -17,6 +17,7 @@ public class CatalogAdminPublishEvent : IPacketEvent
     {
         bool published = _catalogAdmin.Publish(session.GetHabbo());
         session.Send(new CatalogAdminResultComposer(published, published ? "Catalog reloaded." : "No permission."));
+
         return Task.CompletedTask;
     }
 }

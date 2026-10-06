@@ -1,4 +1,4 @@
-﻿namespace Plus.Core.FigureData.Types;
+namespace Plus.Core.FigureData.Types;
 
 public static class SetTypeUtility
 {

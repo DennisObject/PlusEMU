@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rewards;
+namespace Plus.HabboHotel.Rewards;
 
 public static class RewardTypeUtility
 {

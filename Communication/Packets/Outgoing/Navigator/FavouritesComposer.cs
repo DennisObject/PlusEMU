@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Navigator;
@@ -17,6 +17,10 @@ public class FavouritesComposer : IServerPacket
     {
         packet.WriteInteger(50);
         packet.WriteInteger(_favouriteIds.Length);
-        foreach (var id in _favouriteIds) packet.WriteInteger(id);
+
+        foreach (var id in _favouriteIds)
+        {
+            packet.WriteInteger(id);
+        }
     }
 }

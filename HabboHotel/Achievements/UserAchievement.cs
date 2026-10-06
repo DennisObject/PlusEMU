@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Achievements;
+namespace Plus.HabboHotel.Achievements;
 
 public class UserAchievement
 {
@@ -9,7 +9,16 @@ public class UserAchievement
         Progress = progress;
     }
 
-    public string AchievementGroup { get; }
-    public int Level { get; set; }
-    public int Progress { get; set; }
+    public string AchievementGroup
+    {
+        get;
+    }
+    public int Level
+    {
+        get; set;
+    }
+    public int Progress
+    {
+        get; set;
+    }
 }

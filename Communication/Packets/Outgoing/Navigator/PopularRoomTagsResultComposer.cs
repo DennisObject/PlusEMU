@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Navigator;
 
@@ -16,6 +16,7 @@ public class PopularRoomTagsResultComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_tags.Count);
+
         foreach (var tag in _tags)
         {
             packet.WriteString(tag.Key);

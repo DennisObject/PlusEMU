@@ -19,7 +19,9 @@ public sealed class ModeratorTicketSnapshotTests
     private static readonly DateTimeOffset Now = new(2042, 2, 3, 12, 0, 4, TimeSpan.Zero);
     private static ModerationTicket Ticket() => new(10, 5, 6, Now.AddSeconds(-4), 4,
         new Habbo { Id = 1, Username = "Sender" }, new Habbo { Id = 2, Username = "Target" }, "help", null, ["chat"])
-        { Moderator = new Habbo { Id = 3, Username = "Staff" } };
+    {
+        Moderator = new Habbo { Id = 3, Username = "Staff" }
+    };
 
     [Fact]
     public void SupportAndInitializationKeepTheirDistinctFieldOrderingAndFreezeModels()
@@ -28,12 +30,17 @@ public sealed class ModeratorTicketSnapshotTests
         var captured = ModeratorTicketService.Capture(ticket, 3, Now);
         var support = new ModeratorSupportTicketComposer(captured);
         var init = new ModeratorInitComposer(new(["warn"], ["room"], [captured]));
-        ticket.Sender.Username = "changed"; ticket.Moderator = null; ticket.Issue = "changed"; ticket.Answered = true;
+        ticket.Sender.Username = "changed";
+        ticket.Moderator = null;
+        ticket.Issue = "changed";
+        ticket.Answered = true;
         var expectedSupport = new object[] { 10, 2, 5, 6, 4000, 4, 0, 1, "Sender", 2, "Target", 3, "Staff", "help", (uint)0, 0 };
         var expectedInit = new object[] { 1, 10, 2, 5, 6, 4000, 4, 1, 1, "Sender", 2, "Target", 3, "Staff", "help", (uint)0, 0,
             1, "warn", 0, true, true, true, true, true, true, true, 1, "room" };
-        Assert.Equal(expectedSupport, Compose(support)); Assert.Equal(expectedSupport, Compose(support));
-        Assert.Equal(expectedInit, Compose(init)); Assert.Equal(expectedInit, Compose(init));
+        Assert.Equal(expectedSupport, Compose(support));
+        Assert.Equal(expectedSupport, Compose(support));
+        Assert.Equal(expectedInit, Compose(init));
+        Assert.Equal(expectedInit, Compose(init));
     }
 
     [Fact]
@@ -54,7 +61,8 @@ public sealed class ModeratorTicketSnapshotTests
     [InlineData(3000000, int.MaxValue)]
     public void TicketAgeIsBoundedWithoutOverflow(int seconds, int expected)
     {
-        var ticket = Ticket(); ticket.CreatedAt = Now.AddSeconds(-seconds);
+        var ticket = Ticket();
+        ticket.CreatedAt = Now.AddSeconds(-seconds);
         Assert.Equal(expected, ModeratorTicketService.Capture(ticket, 3, Now).AgeMilliseconds);
     }
 
@@ -69,6 +77,7 @@ public sealed class ModeratorTicketSnapshotTests
         {
             Assert.Equal("TryGetTicket", method);
             args[1] = ticket;
+
             return true;
         });
         var rooms = Proxy<IRoomDataLoader>((method, args) =>
@@ -76,6 +85,7 @@ public sealed class ModeratorTicketSnapshotTests
             Assert.Equal("TryGetData", method);
             Assert.Equal(42u, args[0]);
             args[1] = exists ? new RoomData { Id = 42, Name = "current" } : null;
+
             return exists;
         });
         var (actor, sent) = HabbiconTestSupport.Client(ticket.Moderator!);
@@ -83,7 +93,13 @@ public sealed class ModeratorTicketSnapshotTests
 
         service.SendChatlogs(actor, ticket.Id);
 
-        if (!exists) { Assert.Empty(sent); return; }
+        if (!exists)
+        {
+            Assert.Empty(sent);
+
+            return;
+        }
+
         var actual = Assert.Single(sent);
         using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
         var expected = new FlashOutgoingPacket(stream);
@@ -101,10 +117,12 @@ public sealed class ModeratorTicketSnapshotTests
         var (actor, sent) = HabbiconTestSupport.Client(ticket.Moderator!);
         var service = new ModeratorTicketService(manager, null!, null!, new FailingStore(), TimeProvider.System, null!);
         Assert.Throws<InvalidOperationException>(() => service.Close(actor, 10, SupportTicketResult.Abusive));
-        Assert.False(ticket.Answered); Assert.Empty(sent);
+        Assert.False(ticket.Answered);
+        Assert.Empty(sent);
         ticket.Moderator = null;
         service.Close(actor, 10, SupportTicketResult.Abusive); // Unassigned ticket is a no-op.
-        Assert.False(ticket.Answered); Assert.Empty(sent);
+        Assert.False(ticket.Answered);
+        Assert.Empty(sent);
     }
 
     [Fact]
@@ -127,6 +145,7 @@ public sealed class ModeratorTicketSnapshotTests
             var request = Assert.IsType<SubmitTicketRequest>(args[1]);
             Assert.Equal((" help ", 6, 2, 5), (request.Message, request.Category, request.ReportedUserId, request.Type));
             Assert.Equal(new[] { "one", "two" }, request.Chats.ToArray());
+
             return null;
         });
         await new SubmitNewTicketEvent(service).Parse(null!, HabbiconTestSupport.Incoming(" help ", 6, 2, 5, 2, 88, "one", 99, "two"));
@@ -134,11 +153,17 @@ public sealed class ModeratorTicketSnapshotTests
 
     private static object[] Compose(IServerPacket composer)
     {
-        var packet = new HabbiconTestSupport.RecordingPacket(); composer.Compose(packet); return packet.Writes.ToArray();
+        var packet = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(packet);
+
+        return packet.Writes.ToArray();
     }
     private static T Proxy<T>(Func<string, object?[], object?> call) where T : class
     {
-        var result = DispatchProxy.Create<T, TestProxy>(); ((TestProxy)(object)result).Call = call; return result;
+        var result = DispatchProxy.Create<T, TestProxy>();
+        ((TestProxy)(object)result).Call = call;
+
+        return result;
     }
     public class TestProxy : DispatchProxy
     {

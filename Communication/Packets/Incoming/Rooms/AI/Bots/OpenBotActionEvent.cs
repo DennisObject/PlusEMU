@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.AI;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.AI.Bots;
@@ -10,6 +10,7 @@ internal class OpenBotActionEvent(IBotManagementService bots) : IPacketEvent
         var botId = packet.ReadInt();
         var actionId = packet.ReadInt();
         bots.ShowAction(session, botId, actionId);
+
         return Task.CompletedTask;
     }
 }

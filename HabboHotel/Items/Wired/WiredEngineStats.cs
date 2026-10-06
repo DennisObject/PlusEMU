@@ -19,7 +19,12 @@ internal sealed class WiredEngineStats(int windowMs = 1000)
         lock (_gate)
         {
             Roll(now);
-            if (executions <= 0) return;
+
+            if (executions <= 0)
+            {
+                return;
+            }
+
             _current.Passes++;
             _current.TotalMs += elapsedMs;
             _current.PeakMs = Math.Max(_current.PeakMs, elapsedMs);
@@ -34,6 +39,7 @@ internal sealed class WiredEngineStats(int windowMs = 1000)
         {
             Roll(now);
             var window = _previous;
+
             return new(windowMs, window.PeakExecutions, window.Passes == 0 ? 0 : (int)Math.Round(window.TotalMs / window.Passes),
                 (int)Math.Round(window.PeakMs), window.PeakDepth, pending);
         }
@@ -41,9 +47,20 @@ internal sealed class WiredEngineStats(int windowMs = 1000)
 
     private void Roll(long now)
     {
-        if (_windowStart == long.MinValue) { _windowStart = now; return; }
+        if (_windowStart == long.MinValue)
+        {
+            _windowStart = now;
+
+            return;
+        }
+
         var elapsed = (now - _windowStart) / windowMs;
-        if (elapsed <= 0) return;
+
+        if (elapsed <= 0)
+        {
+            return;
+        }
+
         // A gap longer than one window means the window before this one saw no passes.
         _previous = elapsed == 1 ? _current : default;
         _current = default;

@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Rooms.Chat.Logs;
@@ -21,6 +21,7 @@ public sealed class ChatlogManager : IChatlogManager
     public void StoreChatlog(ChatlogEntry entry)
     {
         _lock.EnterUpgradeableReadLock();
+
         try
         {
             _chatlogs.Add(entry);
@@ -35,19 +36,26 @@ public sealed class ChatlogManager : IChatlogManager
     private void OnChatlogStore()
     {
         if (_chatlogs.Count >= FlushOnCount)
+        {
             FlushAndSave();
+        }
     }
 
     public void FlushAndSave()
     {
         _lock.EnterWriteLock();
+
         try
         {
             if (_chatlogs.Count == 0)
+            {
                 return;
+            }
+
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
+
             foreach (var entry in _chatlogs)
             {
                 connection.Execute("""
@@ -61,6 +69,7 @@ public sealed class ChatlogManager : IChatlogManager
                     entry.Message
                 }, transaction);
             }
+
             transaction.Commit();
             _chatlogs.Clear();
         }

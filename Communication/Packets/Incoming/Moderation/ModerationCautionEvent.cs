@@ -13,6 +13,7 @@ internal sealed class ModerationCautionEvent(IModeratorActionService moderation)
         var userId = packet.ReadInt();
         var message = packet.ReadString();
         moderation.Caution(session, userId, message);
+
         return Task.CompletedTask;
     }
 }

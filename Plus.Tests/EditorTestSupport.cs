@@ -33,6 +33,7 @@ internal static class EditorTestSupport
     public static FlashIncomingPacket Incoming(params object[] values)
     {
         using var stream = new MemoryStream();
+
         foreach (var value in values)
         {
             switch (value)
@@ -56,6 +57,7 @@ internal static class EditorTestSupport
                     throw new ArgumentException($"Unsupported value {value}");
             }
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 

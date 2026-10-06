@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Rooms.Chat;
+using Plus.HabboHotel.Rooms.Chat;
 
 namespace Plus.Communication.RCON.Commands.Hotel;
 
@@ -18,6 +18,7 @@ internal class ReloadFilterCommand : IRconCommand
     public Task<bool> TryExecute(string[] parameters)
     {
         _chatManager.GetFilter().Init();
+
         return Task.FromResult(true);
     }
 }

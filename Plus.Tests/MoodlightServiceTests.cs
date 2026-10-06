@@ -50,7 +50,10 @@ public sealed class MoodlightServiceTests
             Assert.Equal(original, item.LegacyDataString);
             Assert.Equal(1, room.MoodlightData!.CurrentPreset);
             Assert.Empty(sent);
-        }) { Fail = true };
+        })
+        {
+            Fail = true
+        };
 
         Assert.Throws<InvalidOperationException>(() => new MoodlightService(store)
             .UpdatePreset(room, client, new(2, "#0053F7", 128, 2)));
@@ -186,7 +189,10 @@ public sealed class MoodlightServiceTests
             Assert.False(room.MoodlightData!.Enabled);
             Assert.Equal(original, item.LegacyDataString);
             Assert.Empty(sent);
-        }) { Fail = true };
+        })
+        {
+            Fail = true
+        };
 
         Assert.Throws<InvalidOperationException>(() => new MoodlightService(store).Toggle(room, client));
 
@@ -247,6 +253,7 @@ public sealed class MoodlightServiceTests
             {
                 var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                 sent.Add((BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+
                 return true;
             }
         };
@@ -255,6 +262,7 @@ public sealed class MoodlightServiceTests
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!
             .GetValue(room.GetRoomUserManager())!;
         users.TryAdd(1, user);
+
         return (room, client, item, sent);
     }
 
@@ -262,14 +270,24 @@ public sealed class MoodlightServiceTests
     {
         using var stream = PlusMemoryStream.GetStream();
         composer.Compose(new FlashOutgoingPacket(stream));
+
         return stream.ToArray()[6..];
     }
 
     private sealed class RecordingService : IMoodlightService
     {
-        public int Shows { get; private set; }
-        public int Toggles { get; private set; }
-        public MoodlightPresetUpdate? Update { get; private set; }
+        public int Shows
+        {
+            get; private set;
+        }
+        public int Toggles
+        {
+            get; private set;
+        }
+        public MoodlightPresetUpdate? Update
+        {
+            get; private set;
+        }
         public void ShowConfig(Room room, GameClient session) => Shows++;
         public void Toggle(Room room, GameClient session) => Toggles++;
         public void UpdatePreset(Room room, GameClient session, MoodlightPresetUpdate request) => Update = request;
@@ -277,22 +295,45 @@ public sealed class MoodlightServiceTests
 
     private sealed class RecordingStore(Action? beforeWrite = null) : IRoomItemMetadataStore
     {
-        public bool Fail { get; init; }
-        public int Writes { get; private set; }
-        public (uint Item, uint Room, int Preset, string Value) PresetWrite { get; private set; }
-        public (uint Item, uint Room, bool Enabled) EnabledWrite { get; private set; }
-        public MoodlightRecord? Loaded { get; init; }
-        public uint LoadedItem { get; private set; }
+        public bool Fail
+        {
+            get; init;
+        }
+        public int Writes
+        {
+            get; private set;
+        }
+        public (uint Item, uint Room, int Preset, string Value) PresetWrite
+        {
+            get; private set;
+        }
+        public (uint Item, uint Room, bool Enabled) EnabledWrite
+        {
+            get; private set;
+        }
+        public MoodlightRecord? Loaded
+        {
+            get; init;
+        }
+        public uint LoadedItem
+        {
+            get; private set;
+        }
         public void UpdateMoodlightPreset(uint itemId, uint roomId, int preset, string value)
         {
             beforeWrite?.Invoke();
             Writes++;
             PresetWrite = (itemId, roomId, preset, value);
-            if (Fail) throw new InvalidOperationException("forced failure");
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
         }
         public MoodlightRecord? LoadMoodlight(uint itemId)
         {
             LoadedItem = itemId;
+
             return Loaded;
         }
         public void SetMoodlightEnabled(uint itemId, uint roomId, bool enabled)
@@ -300,7 +341,11 @@ public sealed class MoodlightServiceTests
             beforeWrite?.Invoke();
             Writes++;
             EnabledWrite = (itemId, roomId, enabled);
-            if (Fail) throw new InvalidOperationException("forced failure");
+
+            if (Fail)
+            {
+                throw new InvalidOperationException("forced failure");
+            }
         }
         public Plus.HabboHotel.Items.Data.Toner.TonerRecord? LoadToner(uint itemId) => throw new NotSupportedException();
         public void SetMannequinData(uint itemId, uint roomId, string data) => throw new NotSupportedException();
@@ -325,6 +370,7 @@ public sealed class MoodlightMetadataDatabaseTests
         admin.Open();
         var schema = "task_moodlight_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var options = new MySqlConnectionStringBuilder(root.ConnectionString) { Database = schema };

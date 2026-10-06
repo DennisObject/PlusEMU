@@ -40,12 +40,17 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
 
     public HousekeepingUserDetail? User(Habbo actor, HousekeepingUserRecord? record)
     {
-        if (record == null) return null;
+        if (record == null)
+        {
+            return null;
+        }
+
         var online = _clients.Online(record.Id)?.GetHabbo();
         var role = (online?.Access ?? _permissions.Resolve(record.Id)).PrimaryRole;
         var now = _clock.GetUtcNow();
         // Email and IP are personal data; only ranks granted the private-data right see them.
         var showPrivate = actor.Access.Can(HousekeepingRights.PrivateData);
+
         return new(record.Id, record.Username, online?.Motto ?? record.Motto, online?.Look ?? record.Look, role?.Id ?? 0,
             role?.Name ?? string.Empty, online != null, (int)Math.Clamp(record.LastOnlineAt?.ToUnixTimeSeconds() ?? 0, 0, int.MaxValue),
             online?.Credits ?? record.Credits, online?.Duckets ?? record.Duckets, online?.Diamonds ?? record.Diamonds,
@@ -65,8 +70,12 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
             "(SELECT COALESCE(MAX(`peak`), 0) FROM `housekeeping_online_peaks`) AS PeakAllTime, " +
             "(SELECT COUNT(*) FROM `bans` WHERE `added_date` > @sinceUtc) + " +
             "(SELECT COUNT(*) FROM `housekeeping_log` WHERE `timestamp` > @sinceUtc AND `success` = 1 AND `action` IN ('user.mute', 'user.trade_lock')) AS Sanctions",
-            new { sinceUtc });
+            new
+            {
+                sinceUtc
+            });
         var online = _clients.Count;
+
         return new(online, counts.TotalUsers, _rooms.GetRooms().Count(room => room.UsersNow > 0), counts.TotalRooms,
             Math.Max(online, counts.PeakToday), Math.Max(online, counts.PeakAllTime),
             _moderation.GetTickets.Count(ticket => !ticket.Answered), counts.Sanctions,
@@ -75,10 +84,25 @@ public sealed class HousekeepingLookups : IHousekeepingLookups
 
     private sealed class DashboardCounts
     {
-        public int TotalUsers { get; set; }
-        public int TotalRooms { get; set; }
-        public int PeakToday { get; set; }
-        public int PeakAllTime { get; set; }
-        public int Sanctions { get; set; }
+        public int TotalUsers
+        {
+            get; set;
+        }
+        public int TotalRooms
+        {
+            get; set;
+        }
+        public int PeakToday
+        {
+            get; set;
+        }
+        public int PeakAllTime
+        {
+            get; set;
+        }
+        public int Sanctions
+        {
+            get; set;
+        }
     }
 }

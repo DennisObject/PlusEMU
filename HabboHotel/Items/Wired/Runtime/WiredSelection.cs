@@ -9,7 +9,10 @@ public sealed class WiredSelection(IEnumerable<uint>? furniIds = null, IEnumerab
 }
 
 [Flags]
-public enum WiredSelectionKind { Furni = 1, Users = 2, Both = Furni | Users }
+public enum WiredSelectionKind
+{
+    Furni = 1, Users = 2, Both = Furni | Users
+}
 
 // The engine applies these wrappers once, replacing only the selected kind when filtering.
 public sealed record WiredSelectorResult(WiredSelection Selection, WiredSelectionKind Kind,

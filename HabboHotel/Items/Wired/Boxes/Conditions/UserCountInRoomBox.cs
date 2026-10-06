@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -13,12 +13,24 @@ internal class UserCountInRoomBox : IWiredItem
         SetItems = new();
     }
 
-    public Room Instance { get; set; }
-    public Item Item { get; set; }
+    public Room Instance
+    {
+        get; set;
+    }
+    public Item Item
+    {
+        get; set;
+    }
     public WiredBoxType Type => WiredBoxType.ConditionUserCountInRoom;
-    public ConcurrentDictionary<uint, Item> SetItems { get; set; }
+    public ConcurrentDictionary<uint, Item> SetItems
+    {
+        get; set;
+    }
     public string StringData { get; set; } = string.Empty;
-    public bool BoolData { get; set; }
+    public bool BoolData
+    {
+        get; set;
+    }
     public string ItemsData { get; set; } = string.Empty;
 
     public void HandleSave(IIncomingPacket packet)
@@ -32,13 +44,23 @@ internal class UserCountInRoomBox : IWiredItem
     public bool Execute(params object[] @params)
     {
         if (@params.Length == 0)
+        {
             return false;
+        }
+
         if (string.IsNullOrEmpty(StringData))
+        {
             return false;
+        }
+
         var countOne = StringData != null ? int.Parse(StringData.Split(';')[0]) : 1;
         var countTwo = StringData != null ? int.Parse(StringData.Split(';')[1]) : 50;
+
         if (Instance.UserCount >= countOne && Instance.UserCount <= countTwo)
+        {
             return true;
+        }
+
         return false;
     }
 }

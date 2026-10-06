@@ -38,7 +38,10 @@ public sealed record RoomItemSnapshot(
 {
     public static RoomItemSnapshot Capture(Item item)
     {
-        lock (item.NavSync) return CaptureLocked(item);
+        lock (item.NavSync)
+        {
+            return CaptureLocked(item);
+        }
     }
 
     private static RoomItemSnapshot CaptureLocked(Item item)
@@ -48,16 +51,29 @@ public sealed record RoomItemSnapshot(
         var z = item.GetZ;
         var legacy = item.LegacyDataString;
         var extra = 1;
-        if (type == InteractionType.WalkMagicTile) extra = legacy.Split(';').Skip(1).FirstOrDefault() == "1" ? 1 : 0;
-        else if (type == InteractionType.Gift) extra = GiftWrap.Style(legacy);
+
+        if (type == InteractionType.WalkMagicTile)
+        {
+            extra = legacy.Split(';').Skip(1).FirstOrDefault() == "1" ? 1 : 0;
+        }
+        else if (type == InteractionType.Gift)
+        {
+            extra = GiftWrap.Style(legacy);
+        }
         else if (type == InteractionType.MusicDisc)
         {
             var fields = legacy.Split('\n');
-            if (fields.Length >= 7 && int.TryParse(fields[6], out var songId)) extra = songId;
+
+            if (fields.Length >= 7 && int.TryParse(fields[6], out var songId))
+            {
+                extra = songId;
+            }
         }
+
         var data = item.IsWallItem ? new FurnitureDataSnapshot.Empty() : MagicTileHeight.IsMagicTile(type)
             ? new FurnitureDataSnapshot.Legacy(MagicTileHeight.ToWire(z).ToString(CultureInfo.InvariantCulture))
             : FurnitureDataSnapshot.Capture(item.ExtraData);
+
         return new(item.Id, definition.SpriteId, item.GetX, item.GetY, item.Rotation,
             z.ToString(CultureInfo.InvariantCulture), definition.Height.ToString(CultureInfo.InvariantCulture), extra,
             data, item.UniqueNumber, item.UniqueSeries, item.WallCoordinates ?? "",
@@ -74,15 +90,29 @@ public sealed record RoomFurnitureSnapshot(ImmutableArray<RoomItemSnapshot> Item
     {
         var snapshots = items.Select(RoomItemSnapshot.Capture).ToImmutableArray();
         var names = new Dictionary<int, string>();
+
         foreach (var item in snapshots)
         {
             var name = item.UserId == roomOwnerId ? roomOwnerName ?? "" : item.Username;
+
             if (!names.TryGetValue(item.UserId, out var existing) || (existing.Length == 0 && name.Length > 0))
+            {
                 names[item.UserId] = name;
+            }
         }
+
         var owners = ImmutableArray.CreateBuilder<FurnitureOwner>();
-        if (names.Remove(roomOwnerId, out var ownerName)) owners.Add(new(roomOwnerId, ownerName));
-        foreach (var id in names.Keys.OrderBy(id => id)) owners.Add(new(id, names[id]));
+
+        if (names.Remove(roomOwnerId, out var ownerName))
+        {
+            owners.Add(new(roomOwnerId, ownerName));
+        }
+
+        foreach (var id in names.Keys.OrderBy(id => id))
+        {
+            owners.Add(new(id, names[id]));
+        }
+
         return new(snapshots, owners.ToImmutable());
     }
 }

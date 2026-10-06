@@ -8,6 +8,7 @@ internal sealed class GetPetInventoryEvent(IInventoryShowcaseService inventory) 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         inventory.ShowPets(session);
+
         return Task.CompletedTask;
     }
 }

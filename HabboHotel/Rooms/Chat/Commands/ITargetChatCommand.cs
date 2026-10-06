@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands;
@@ -8,7 +8,10 @@ public interface ITargetChatCommand : ICommandBase
     /// <summary>
     /// The target must be in the same room as the executing Habbo
     /// </summary>
-    bool MustBeInSameRoom { get; }
+    bool MustBeInSameRoom
+    {
+        get;
+    }
 
     /// <summary>
     /// Execute the command.

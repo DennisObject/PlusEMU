@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+using System.Buffers;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
@@ -105,14 +105,17 @@ public class PlusEnvironment : IPlusEnvironment
         Console.WriteLine("");
         Console.WriteLine("");
         CultureInfo = CultureInfo.InvariantCulture;
+
         try
         {
             if (!_database.IsConnected())
             {
                 Logger.LogError("Failed to Connect to the specified MySQL server.");
                 Console.ReadKey(true);
+
                 return false;
             }
+
             Logger.LogInformation("Connected to Database!");
 
             //Reset our statistics first.
@@ -145,6 +148,7 @@ public class PlusEnvironment : IPlusEnvironment
             Logger.LogError("Please check your configuration file - some values appear to be missing.");
             Logger.LogError("Press any key to shut down ...");
             Console.ReadKey(true);
+
             return false;
         }
         catch (InvalidOperationException e)
@@ -152,6 +156,7 @@ public class PlusEnvironment : IPlusEnvironment
             Logger.LogError(e, "Failed to initialize PlusEmulator");
             Logger.LogError("Press any key to shut down ...");
             Console.ReadKey(true);
+
             return false;
         }
         catch (Exception e)
@@ -159,6 +164,7 @@ public class PlusEnvironment : IPlusEnvironment
             Logger.LogError(e, "Fatal error during startup");
             Logger.LogError("Press a key to exit");
             Console.ReadKey();
+
             return false;
         }
 
@@ -185,8 +191,11 @@ public class PlusEnvironment : IPlusEnvironment
         foreach (var character in figure)
         {
             if (!IsValid(character))
+            {
                 return "sh-3338-93.ea-1406-62.hr-831-49.ha-3331-92.hd-180-7.ch-3334-93-1408.lg-3337-92.ca-1813-62";
+            }
         }
+
         return figure;
     }
 
@@ -197,15 +206,32 @@ public class PlusEnvironment : IPlusEnvironment
     {
         var name = "Unknown User";
         var client = Game.ClientManager.GetClientByUserId(userId);
+
         if (client != null && client.GetHabbo() != null)
+        {
             return client.GetHabbo().Username;
+        }
+
         var user = Game.CacheManager.GenerateUser(userId);
+
         if (user != null)
+        {
             return user.Username;
+        }
+
         using (var connection = DatabaseManager.Connection())
-            name = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id=@userId LIMIT 1", new { userId });
+        {
+            name = connection.QuerySingleOrDefault<string>("SELECT username FROM users WHERE id=@userId LIMIT 1", new
+            {
+                userId
+            });
+        }
+
         if (string.IsNullOrEmpty(name))
+        {
             name = "Unknown User";
+        }
+
         return name;
     }
 
@@ -215,11 +241,14 @@ public class PlusEnvironment : IPlusEnvironment
         try
         {
             var user = Game.ClientManager.GetClientByUserId(userId)?.GetHabbo();
+
             if (user is { Id: > 0 })
             {
                 _usersCached.TryRemove(userId, out _);
+
                 return user;
             }
+
             return _usersCached.TryGetValue(userId, out var cached) ? cached : null;
         }
         catch
@@ -233,9 +262,16 @@ public class PlusEnvironment : IPlusEnvironment
         try
         {
             using var connection = DatabaseManager.Connection();
-            var id = connection.QuerySingleOrDefault<int>("SELECT id FROM users WHERE username=@userName LIMIT 1", new { userName });
+            var id = connection.QuerySingleOrDefault<int>("SELECT id FROM users WHERE username=@userName LIMIT 1", new
+            {
+                userName
+            });
+
             if (id > 0)
+            {
                 return GetHabboById(Convert.ToInt32(id));
+            }
+
             return null;
         }
         catch
@@ -258,6 +294,7 @@ public class PlusEnvironment : IPlusEnvironment
         _flashServer.Stop();
         Game.ClientManager.CloseAll(); //Close all connections
         Game.RoomManager.Dispose(); //Stop the game loop.
+
         if (!Debugger.IsAttached)
         {
             using var connection = _database.Connection();
@@ -269,6 +306,7 @@ public class PlusEnvironment : IPlusEnvironment
             connection.Execute("UPDATE server_status SET users_online=0,loaded_rooms=0", transaction: transaction);
             transaction.Commit();
         }
+
         Logger.LogInformation("Plus Emulator has successfully shutdown.");
         Thread.Sleep(1000);
         Environment.Exit(0);
@@ -297,9 +335,15 @@ public class PlusEnvironment : IPlusEnvironment
     internal static IReadOnlyList<Habbo> RemoveExpiredCachedUsers(DateTimeOffset now)
     {
         List<Habbo> removed = [];
+
         foreach (var entry in _usersCached.ToArray())
+        {
             if (entry.Value.CacheExpiredAt(now) && ((ICollection<KeyValuePair<int, Habbo>>)_usersCached).Remove(entry))
+            {
                 removed.Add(entry.Value);
+            }
+        }
+
         return removed;
     }
 }

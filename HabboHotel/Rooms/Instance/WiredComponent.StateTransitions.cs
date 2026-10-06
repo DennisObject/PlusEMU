@@ -20,8 +20,10 @@ public partial class WiredComponent
         {
             Interlocked.Decrement(ref _queuedStateWrites);
             Interlocked.Increment(ref _droppedStateWrites);
+
             return;
         }
+
         _stateWrites.Enqueue(transition);
     }
 
@@ -33,15 +35,26 @@ public partial class WiredComponent
             NoteLimit(WiredEngineLimit.PendingStacks,
                 $"{dropped} furni state changes were dropped: more than {MaxQueuedStateWrites} waited for the room's next pass.");
         }
+
         var published = false;
+
         // At most one queue's worth per pass: writers that keep adding wait for the next pass.
         for (var taken = 0; taken < MaxQueuedStateWrites && _stateWrites.TryDequeue(out var write); taken++)
         {
             Interlocked.Decrement(ref _queuedStateWrites);
-            if (!FurnitureStateEvents.Current(write) || !ReferenceEquals(write.Item.GetRoom(), _room) || !write.TryTake()) continue;
-            QueueRuntimeEvent(new(WiredEventKind.StateChanged) { EventItem = write.Item });
+
+            if (!FurnitureStateEvents.Current(write) || !ReferenceEquals(write.Item.GetRoom(), _room) || !write.TryTake())
+            {
+                continue;
+            }
+
+            QueueRuntimeEvent(new(WiredEventKind.StateChanged)
+            {
+                EventItem = write.Item
+            });
             published = true;
         }
+
         return published;
     });
 
@@ -52,6 +65,7 @@ public partial class WiredComponent
             Interlocked.Decrement(ref _queuedStateWrites);
             write.TryTake();
         }
+
         Interlocked.Exchange(ref _droppedStateWrites, 0);
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+using System.Buffers;
 using System.Text.RegularExpressions;
 
 namespace Plus.Utilities;
@@ -7,12 +7,13 @@ internal static class StringCharFilter
 {
     private static readonly SearchValues<char> AllowedName = SearchValues.Create("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-.");
     private static readonly SearchValues<char> AllowedAlphaNum = SearchValues.Create("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789");
-    private static readonly Regex _scapesRegex = new (@"[\u0001-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]");
-    private static readonly Regex _breakLinesRegex = new (@"[\r\n]");
+    private static readonly Regex _scapesRegex = new(@"[\u0001-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]");
+    private static readonly Regex _breakLinesRegex = new(@"[\r\n]");
 
     public static bool IsValid(string input)
     {
         ArgumentNullException.ThrowIfNull(input);
+
         return input.Length > 0 && input.AsSpan().IndexOfAnyExcept(AllowedName) < 0;
     }
 
@@ -21,6 +22,7 @@ internal static class StringCharFilter
     public static bool IsValidAlphaNumeric(string input)
     {
         ArgumentNullException.ThrowIfNull(input);
+
         return input.Length > 0 && input.AsSpan().IndexOfAnyExcept(AllowedAlphaNum) < 0;
     }
 
@@ -37,12 +39,12 @@ internal static class StringCharFilter
         {
             return string.Empty;
         }
-        
+
         if (!allowBreaks)
         {
             str = _breakLinesRegex.Replace(str, " ");
         }
-        
+
         return _scapesRegex.Replace(str, string.Empty);
     }
 }

@@ -338,12 +338,19 @@ public class WiredStackEngineTests
     [InlineData(1)]
     public void RecursiveStackCallsRetainDepthAcrossImmediateAndDelayedActions(int delay)
     {
-        var fixture = new Fixture(limits: new() { MaxDepth = 3 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxDepth = 3
+        });
         var target = fixture.Trigger();
         var caller = fixture.Effect(delay: delay);
         caller.Body = args => fixture.Engine.CallStacks([target.Item], args);
         fixture.Engine.RunStack(target, [new object()]);
-        for (var i = 0; i < 10; i++) fixture.Advance(500);
+
+        for (var i = 0; i < 10; i++)
+        {
+            fixture.Advance(500);
+        }
 
         Assert.Equal(4, caller.Calls.Count); // root depth 0, calls 1..3; depth 4 rejected
         Assert.Empty(fixture.Errors);
@@ -352,7 +359,10 @@ public class WiredStackEngineTests
     [Fact]
     public void PerActionBudgetDefersRemainingActionsWithoutLoss()
     {
-        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 2 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxExecutionsPerPass = 2
+        });
         var trigger = fixture.Trigger();
         var effects = Enumerable.Range(0, 5).Select(_ => fixture.Effect()).ToArray();
         fixture.Engine.RunStack(trigger, []);
@@ -366,7 +376,10 @@ public class WiredStackEngineTests
     [Fact]
     public void QueueLimitRejectsNewFiringsAndCleanupCancelsPendingWork()
     {
-        var fixture = new Fixture(limits: new() { MaxPendingStacks = 1 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxPendingStacks = 1
+        });
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 1);
         Assert.True(fixture.Engine.RunStack(trigger, []));
@@ -404,7 +417,10 @@ public class WiredStackEngineTests
     [Fact]
     public void PendingLimitAlsoCoversNestedChainsThatEnqueueBeforeTheirCaller()
     {
-        var fixture = new Fixture(limits: new() { MaxPendingStacks = 1 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxPendingStacks = 1
+        });
         var root = fixture.Trigger();
         root.Item.GetX = 1;
         var target = fixture.Trigger();
@@ -423,7 +439,10 @@ public class WiredStackEngineTests
     [Fact]
     public void SpendingTheBudgetExactlyIsNotACapButTurningWorkAwayIs()
     {
-        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 2 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxExecutionsPerPass = 2
+        });
         var notes = new List<WiredEngineLimit>();
         fixture.Engine.LimitReached = (limit, _) => notes.Add(limit);
         var trigger = fixture.Trigger();
@@ -443,7 +462,10 @@ public class WiredStackEngineTests
     [Fact]
     public void DepthAndQueueRejectionsAreReportedAndStillRejected()
     {
-        var deep = new Fixture(limits: new() { MaxDepth = 3 });
+        var deep = new Fixture(limits: new()
+        {
+            MaxDepth = 3
+        });
         var depthNotes = new List<WiredEngineLimit>();
         deep.Engine.LimitReached = (limit, _) => depthNotes.Add(limit);
         var target = deep.Trigger();
@@ -453,7 +475,10 @@ public class WiredStackEngineTests
         Assert.Equal(4, caller.Calls.Count);
         Assert.Equal([WiredEngineLimit.Depth], depthNotes);
 
-        var full = new Fixture(limits: new() { MaxPendingStacks = 1 });
+        var full = new Fixture(limits: new()
+        {
+            MaxPendingStacks = 1
+        });
         var queueNotes = new List<string>();
         full.Engine.LimitReached = (limit, reason) => { Assert.Equal(WiredEngineLimit.PendingStacks, limit); queueNotes.Add(reason); };
         var trigger = full.Trigger();
@@ -467,11 +492,21 @@ public class WiredStackEngineTests
     [Fact]
     public void StatsReportTheLastFullWindowOfPassesThatRanBoxes()
     {
-        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 10 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxExecutionsPerPass = 10
+        });
         var trigger = fixture.Trigger();
-        fixture.Effect(); fixture.Effect(); fixture.Effect();
+        fixture.Effect();
+        fixture.Effect();
+        fixture.Effect();
         fixture.Engine.RunStack(trigger, []);
-        for (var i = 0; i < 20; i++) fixture.Engine.GetBoxes(trigger, InteractionType.WiredEffect); // inspection passes run nothing
+
+        for (var i = 0; i < 20; i++)
+        {
+            fixture.Engine.GetBoxes(trigger, InteractionType.WiredEffect); // inspection passes run nothing
+        }
+
         Assert.Equal(new WiredEngineWindow(1000, 0, 0, 0, 0, 0), fixture.Engine.ReadStats()); // the first window is still open
 
         fixture.Advance(1000);
@@ -539,6 +574,7 @@ public class WiredStackEngineTests
             WiredBoxType.ConditionFurniTypeDoesntMatch];
         var supported = Enum.GetValues<WiredBoxType>().Except(unsupported).ToArray();
         Assert.Equal(50, supported.Length);
+
         foreach (var type in supported)
         {
             var item = new Item { Definition = Definition(InteractionType.None, type) };
@@ -552,15 +588,23 @@ public class WiredStackEngineTests
             Assert.Equal("configuration", box.StringData);
             Assert.Equal("42:1,2,3,4,state;", box.ItemsData);
             Assert.True(box.BoolData);
+
             if (box is IWiredCycle cycle)
             {
                 cycle.Delay = 7;
                 Assert.Equal(7, cycle.Delay);
-                if (type != WiredBoxType.TriggerRepeat) Assert.False(cycle.OnCycle());
+
+                if (type != WiredBoxType.TriggerRepeat)
+                {
+                    Assert.False(cycle.OnCycle());
+                }
             }
         }
+
         foreach (var type in unsupported)
+        {
             Assert.Null(wired.LoadWiredBox(new Item { Definition = Definition(InteractionType.None, type) }));
+        }
     }
 
     [Theory]
@@ -574,7 +618,9 @@ public class WiredStackEngineTests
         var trigger = fixture.Trigger();
         var kick = fixture.Add(new KickUserBox(actor.Room,
             new Item { Definition = Definition(InteractionType.WiredEffect, WiredBoxType.EffectKickUser) })
-            { StringData = "You will be removed" });
+        {
+            StringData = "You will be removed"
+        });
 
         Assert.True(fixture.Engine.RunStack(trigger, [actor.Player]));
         Assert.Equal(new[] { ServerPacketHeader.WhisperComposer }, actor.Packets);
@@ -596,7 +642,9 @@ public class WiredStackEngineTests
         var trigger = fixture.Trigger();
         var teleport = fixture.Add(new TeleportUserBox(actor.Room,
             new Item { Definition = Definition(InteractionType.WiredEffect, WiredBoxType.EffectTeleportToFurni) })
-            { Delay = 2 });
+        {
+            Delay = 2
+        });
         var target = new Item { Id = 100 };
         teleport.SetItems.TryAdd(target.Id, target);
 
@@ -613,7 +661,10 @@ public class WiredStackEngineTests
     [Fact]
     public void PreparationRunsOncePerAcceptedActorAndRejectionHasNoFeedback()
     {
-        var fixture = new Fixture(limits: new() { MaxPendingStacks = 2 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxPendingStacks = 2
+        });
         var trigger = fixture.Trigger();
         var condition = fixture.Condition(_ => true);
         var prepared = fixture.Add(new PreparedBox { Delay = 1 });
@@ -634,7 +685,10 @@ public class WiredStackEngineTests
     [Fact]
     public void PreparationUsesTheExecutionBudgetAndRemainingActionsResume()
     {
-        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 2 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxExecutionsPerPass = 2
+        });
         var trigger = fixture.Trigger();
         var prepared = fixture.Add(new PreparedBox { Delay = 1 });
         var first = fixture.Effect();
@@ -693,7 +747,10 @@ public class WiredStackEngineTests
     [Fact]
     public void SourceMovementReleasesPendingCapacityBeforeTheOldDeadline()
     {
-        var fixture = new Fixture(limits: new() { MaxPendingStacks = 1 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxPendingStacks = 1
+        });
         var trigger = fixture.Trigger();
         var effect = fixture.Effect(delay: 4);
         Assert.True(fixture.Engine.RunStack(trigger, ["old"]));
@@ -755,7 +812,10 @@ public class WiredStackEngineTests
     [Fact]
     public void InsufficientPreparationBudgetRejectsBeforeChatAcceptance()
     {
-        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 1 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxExecutionsPerPass = 1
+        });
         var trigger = fixture.Trigger();
         fixture.Condition(_ => true);
         var prepared = fixture.Add(new PreparedBox { Delay = 1 });
@@ -770,7 +830,10 @@ public class WiredStackEngineTests
     [Fact]
     public void BudgetDeferralRetainsGlobalDeadlinesAndFiringOrder()
     {
-        var fixture = new Fixture(limits: new() { MaxExecutionsPerPass = 1 });
+        var fixture = new Fixture(limits: new()
+        {
+            MaxExecutionsPerPass = 1
+        });
         var trigger = fixture.Trigger();
         var observed = new List<string>();
         fixture.Effect(delay: 1, execute: args => { observed.Add($"first-{args[0]}"); return true; });
@@ -778,7 +841,12 @@ public class WiredStackEngineTests
         fixture.Engine.RunStack(trigger, ["Alice"]);
         fixture.Engine.RunStack(trigger, ["Bob"]);
         fixture.Advance(2000);
-        for (var i = 0; i < 3; i++) fixture.Engine.OnCycle();
+
+        for (var i = 0; i < 3; i++)
+        {
+            fixture.Engine.OnCycle();
+        }
+
         Assert.Equal(new[] { "first-Alice", "first-Bob", "second-Alice", "second-Bob" }, observed);
     }
 
@@ -795,21 +863,32 @@ public class WiredStackEngineTests
         var packets = new List<uint>();
         var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
         {
-            Revision = new Revision { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
+            Revision = new Revision
             {
-                [ServerPacketHeader.WhisperComposer] = ServerPacketHeader.WhisperComposer,
-                [ServerPacketHeader.CloseConnectionComposer] = ServerPacketHeader.CloseConnectionComposer,
-                [ServerPacketHeader.AvatarEffectComposer] = ServerPacketHeader.AvatarEffectComposer,
-                [ServerPacketHeader.UserRemoveComposer] = ServerPacketHeader.UserRemoveComposer
-            } },
+                InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>
+                {
+                    [ServerPacketHeader.WhisperComposer] = ServerPacketHeader.WhisperComposer,
+                    [ServerPacketHeader.CloseConnectionComposer] = ServerPacketHeader.CloseConnectionComposer,
+                    [ServerPacketHeader.AvatarEffectComposer] = ServerPacketHeader.AvatarEffectComposer,
+                    [ServerPacketHeader.UserRemoveComposer] = ServerPacketHeader.UserRemoveComposer
+                }
+            },
             SendCallback = args => { packets.Add(BinaryPrimitives.ReadUInt16BigEndian(args.MemoryBuffer.Span.Slice(4, 2))); return true; }
         };
-        var player = new Habbo { Id = 1, Username = "actor", CurrentRoom = room, Client = client,
-            Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []), Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch)) };
+        var player = new Habbo
+        {
+            Id = 1,
+            Username = "actor",
+            CurrentRoom = room,
+            Client = client,
+            Access = EditorTestSupport.Access(protectedActor ? [PermissionKeys.ModerationTool] : []),
+            Effects = new EffectsComponent(new FixedTimeProvider(FixedTimeProvider.Epoch))
+        };
         client.SetHabbo(player);
         SetPrivate(player.Effects, "_habbo", player);
         var visit = new RoomUser(player.Id, 0, 0, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         users.TryAdd(0, visit);
+
         return (room, player, users, packets);
     }
 
@@ -817,18 +896,28 @@ public class WiredStackEngineTests
 
     private static ItemDefinition Definition(InteractionType kind, WiredBoxType type) => new()
     {
-        InteractionType = kind, WiredType = type, ItemName = "", PublicName = "",
-        VendingIds = [], AdjustableHeights = []
+        InteractionType = kind,
+        WiredType = type,
+        ItemName = "",
+        PublicName = "",
+        VendingIds = [],
+        AdjustableHeights = []
     };
 
     private sealed class Fixture
     {
         private uint _nextId;
-        public long Now { get; private set; }
+        public long Now
+        {
+            get; private set;
+        }
         public HashSet<uint> Detached { get; } = [];
         public List<uint> Flashes { get; } = [];
         public List<Exception> Errors { get; } = [];
-        public WiredStackEngine Engine { get; }
+        public WiredStackEngine Engine
+        {
+            get;
+        }
         public Fixture(Func<object[], bool>? actorPresent = null, WiredEngineLimits? limits = null,
             Func<object[], object?>? actorVisit = null) =>
             Engine = new(() => Now, box => !Detached.Contains(box.Item.Id), actorPresent ?? (_ => true),
@@ -838,6 +927,7 @@ public class WiredStackEngineTests
             box.Item.Id = ++_nextId;
             box.Item.GetZ = _nextId;
             Engine.Add(box);
+
             return box;
         }
         public Box Trigger() => Add(new Box(InteractionType.WiredTrigger, WiredBoxType.TriggerUserSays));
@@ -845,7 +935,11 @@ public class WiredStackEngineTests
             Add(new Box(InteractionType.WiredCondition, WiredBoxType.ConditionTriggererOnFurni) { Body = execute });
         public DelayedBox Effect(int delay = 0, Func<object[], bool>? execute = null) =>
             Add(new DelayedBox { Delay = delay, Body = execute ?? (_ => true) });
-        public void Advance(long milliseconds) { Now += milliseconds; Engine.OnCycle(); }
+        public void Advance(long milliseconds)
+        {
+            Now += milliseconds;
+            Engine.OnCycle();
+        }
     }
 
     private class Box(InteractionType kind, WiredBoxType type) : IWiredItem
@@ -855,33 +949,75 @@ public class WiredStackEngineTests
         public WiredBoxType Type => type;
         public ConcurrentDictionary<uint, Item> SetItems { get; set; } = new();
         public string StringData { get; set; } = "";
-        public bool BoolData { get; set; }
+        public bool BoolData
+        {
+            get; set;
+        }
         public string ItemsData { get; set; } = "";
         public List<object[]> Calls { get; } = [];
         public Func<object[], bool> Body { get; set; } = _ => true;
         public void HandleSave(IIncomingPacket packet) => throw new NotSupportedException();
-        public bool Execute(params object[] arguments) { Calls.Add(arguments.ToArray()); return Body(arguments); }
+        public bool Execute(params object[] arguments)
+        {
+            Calls.Add(arguments.ToArray());
+
+            return Body(arguments);
+        }
     }
 
     private class DelayedBox() : Box(InteractionType.WiredEffect, WiredBoxType.EffectShowMessage), IWiredCycle
     {
-        public int Delay { get; set; }
-        public int TickCount { get; set; }
-        public int Cycles { get; private set; }
-        public bool OnCycle() { Cycles++; return true; }
+        public int Delay
+        {
+            get; set;
+        }
+        public int TickCount
+        {
+            get; set;
+        }
+        public int Cycles
+        {
+            get; private set;
+        }
+        public bool OnCycle()
+        {
+            Cycles++;
+
+            return true;
+        }
     }
 
     private sealed class PreparedBox : DelayedBox, IWiredFiringPreparation
     {
         public List<object[]> Preparations { get; } = [];
-        public bool Prepare(params object[] arguments) { Preparations.Add(arguments.ToArray()); return true; }
+        public bool Prepare(params object[] arguments)
+        {
+            Preparations.Add(arguments.ToArray());
+
+            return true;
+        }
     }
 
     private sealed class PeriodicBox() : Box(InteractionType.WiredTrigger, WiredBoxType.TriggerRepeat), IWiredCycle
     {
-        public int Delay { get; set; }
-        public int TickCount { get; set; }
-        public int Cycles { get; private set; }
-        public bool OnCycle() { Cycles++; TickCount = Delay; return true; }
+        public int Delay
+        {
+            get; set;
+        }
+        public int TickCount
+        {
+            get; set;
+        }
+        public int Cycles
+        {
+            get; private set;
+        }
+        public bool OnCycle()
+        {
+            Cycles++;
+            TickCount = Delay;
+
+            return true;
+        }
     }
 }

@@ -1,4 +1,4 @@
-﻿namespace Plus.Core.Language;
+namespace Plus.Core.Language;
 
 public interface ILanguageManager
 {

@@ -20,20 +20,39 @@ public sealed class HabbiconMessengerService(IHabbiconService habbicons, IGameCl
     {
         var sender = session.GetHabbo();
         var capturedAt = clock.GetUtcNow();
+
         try
         {
             if (conversationId != 0 || recipientId <= 0 || recipientId == sender.Id || type != 4 ||
                 !int.TryParse(message, out int id) || id <= 0 || id > 1000000)
+            {
                 throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
-            if (sender.Messenger.GetFriend(recipientId) == null || metadata.Length != 0) throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
+            }
+
+            if (sender.Messenger.GetFriend(recipientId) == null || metadata.Length != 0)
+            {
+                throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
+            }
+
             var item = habbicons.Load(sender.Id).RequireItem(id);
-            if (!item.Owned) throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
+
+            if (!item.Owned)
+            {
+                throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
+            }
+
             if (sender.TimeMuted > 0 || (sender.FloodUntil is { } floodUntil && capturedAt < floodUntil) || !sender.Messenger.TrySendHabbicon(capturedAt))
+            {
                 throw new HabbiconRejected(HabbiconActionError.MessageRateLimited);
+            }
+
             var target = clients.GetClientByUserId(recipientId);
+
             if (target != null && (target.GetHabbo().TimeMuted > 0 || !target.GetHabbo().AllowConsoleMessages ||
                 target.GetHabbo().IgnoresComponent.IsIgnored(sender.Id) || target.GetHabbo().Messenger.GetFriend(sender.Id) == null))
+            {
                 throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
+            }
 
             // Nothing is acknowledged or delivered unless the store has committed the audit row.
             var createdAtUtc = capturedAt.UtcDateTime;
@@ -41,9 +60,13 @@ public sealed class HabbiconMessengerService(IHabbiconService habbicons, IGameCl
             int createdAt = MessengerTime.WireSeconds(capturedAt);
             session.Send(new MessengerMessageAckComposer(confirmationId, messageId, createdAt));
             target?.Send(new MessengerMessageComposer(messageId, sender.Id, id, createdAt));
+
             try
             {
-                if (habbicons.Use(sender.Id, id)) session.Send(new UserHabbiconsComposer(habbicons.Load(sender.Id)));
+                if (habbicons.Use(sender.Id, id))
+                {
+                    session.Send(new UserHabbiconsComposer(habbicons.Load(sender.Id)));
+                }
             }
             catch (MySqlException exception)
             {

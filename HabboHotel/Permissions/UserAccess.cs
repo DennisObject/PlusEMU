@@ -52,6 +52,7 @@ public sealed class UserAccess
     internal Snapshot Capture(out DateTimeOffset now)
     {
         now = _clock.GetUtcNow();
+
         return ResolveAt(now);
     }
     public IReadOnlySet<string> Keys => Current.Keys;
@@ -70,12 +71,21 @@ public sealed class UserAccess
     private Snapshot ResolveAt(DateTimeOffset now)
     {
         var snapshot = Volatile.Read(ref _snapshot);
-        if (snapshot.NextExpiry is not { } expiry || now < expiry) return snapshot;
+
+        if (snapshot.NextExpiry is not { } expiry || now < expiry)
+        {
+            return snapshot;
+        }
+
         lock (_sync)
         {
             snapshot = _snapshot;
+
             if (snapshot.NextExpiry is { } next && now >= next)
+            {
                 Volatile.Write(ref _snapshot, snapshot = Compile(now));
+            }
+
             return snapshot;
         }
     }
@@ -98,6 +108,7 @@ public sealed class UserAccess
         var expiries = _assignments.Select(role => role.ExpiresAt).Concat(_overrides.Select(permission => permission.ExpiresAt))
             .Append(_membership.ExpiresAt is { } membershipEnd && membershipEnd > now ? membershipEnd : null)
             .Where(expiry => expiry > now).ToArray();
+
         return new(keys, limits, roles, primary, roles.Select(role => role.SecurityLevel).DefaultIfEmpty(1).Max(),
             roles.Select(role => role.Weight).DefaultIfEmpty(0).Max(), expiries.Length == 0 ? null : expiries.Min(), _membership);
     }

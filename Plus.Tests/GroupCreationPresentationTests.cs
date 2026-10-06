@@ -36,11 +36,13 @@ public sealed class GroupCreationPresentationTests
         {
             Assert.Equal(nameof(IRoomDataLoader.GetRoomsDataByOwnerSortByName), method);
             Assert.Equal(7, args[0]);
+
             return source;
         });
         var settings = CatalogSnapshotTestSupport.Proxy<ISettingsManager>((_, args) =>
         {
             Assert.Equal("catalog.group.purchase.cost", args[0]);
+
             return "20";
         });
         var service = new GroupPresentationService(
@@ -79,7 +81,10 @@ public sealed class GroupCreationPresentationTests
 
     private sealed class RecordingPresentation : IGroupPresentationService
     {
-        public bool Shown { get; private set; }
+        public bool Shown
+        {
+            get; private set;
+        }
         public void ShowCreationWindow(GameClient session) => Shown = true;
         public void ShowMembers(GameClient session, GroupMembersRequest request) => throw new NotSupportedException();
         public void ShowBadgeEditor(GameClient session) => throw new NotSupportedException();

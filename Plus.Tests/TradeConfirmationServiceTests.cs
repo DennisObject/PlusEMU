@@ -82,22 +82,26 @@ public sealed class TradeConfirmationServiceTests
         var trade = f.Start(alice, bob);
 
         f.Trades.Confirm(alice.Session);
-        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent);
+        Assert.Empty(alice.Sent);
+        Assert.Empty(bob.Sent);
         Assert.False(trade.Users[0].HasAccepted);
 
         f.Trades.Modify(alice.Session); // Editing is open, so modify is sent to both traders.
         Assert.Equal(new uint[] { ServerPacketHeader.TradingAcceptComposer }, alice.Sent);
         Assert.Equal(new uint[] { ServerPacketHeader.TradingAcceptComposer }, bob.Sent);
-        alice.Packets.Clear(); bob.Packets.Clear();
+        alice.Packets.Clear();
+        bob.Packets.Clear();
 
         f.Trades.Accept(alice.Session);
         f.Trades.Accept(bob.Session);
         Assert.False(trade.CanChange);
         f.Trades.Accept(alice.Session);
-        alice.Packets.Clear(); bob.Packets.Clear();
+        alice.Packets.Clear();
+        bob.Packets.Clear();
 
         f.Trades.Modify(alice.Session); // Once both have accepted, modify is gated off.
-        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent);
+        Assert.Empty(alice.Sent);
+        Assert.Empty(bob.Sent);
         Assert.True(trade.Users[0].HasAccepted);
     }
 
@@ -131,7 +135,8 @@ public sealed class TradeConfirmationServiceTests
         Assert.False(f.Trading.TryGetTrade(trade.Id, out _));
         Assert.Equal(new uint[] { ServerPacketHeader.TradingClosedComposer }, alice.Sent);
         Assert.Equal(new uint[] { ServerPacketHeader.TradingClosedComposer }, bob.Sent);
-        Assert.False(alice.RoomUser.IsTrading); Assert.False(bob.RoomUser.IsTrading);
+        Assert.False(alice.RoomUser.IsTrading);
+        Assert.False(bob.RoomUser.IsTrading);
         Assert.Empty(f.Store.Logged);
     }
 
@@ -147,9 +152,11 @@ public sealed class TradeConfirmationServiceTests
         Assert.Equal(new uint[] { ServerPacketHeader.TradingClosedComposer }, alice.Sent);
         Assert.Equal(new uint[] { ServerPacketHeader.TradingClosedComposer }, bob.Sent);
 
-        alice.Packets.Clear(); bob.Packets.Clear();
+        alice.Packets.Clear();
+        bob.Packets.Clear();
         f.Trades.CancelConfirmation(alice.Session);
-        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent);
+        Assert.Empty(alice.Sent);
+        Assert.Empty(bob.Sent);
     }
 
     [Fact]
@@ -163,23 +170,28 @@ public sealed class TradeConfirmationServiceTests
         stranger.RoomUser.IsTrading = true;
 
         f.Trades.Accept(stranger.Session);
-        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent);
-        Assert.False(trade.Users[0].HasAccepted); Assert.False(trade.Users[1].HasAccepted);
+        Assert.Empty(alice.Sent);
+        Assert.Empty(bob.Sent);
+        Assert.False(trade.Users[0].HasAccepted);
+        Assert.False(trade.Users[1].HasAccepted);
 
         f.Trades.Accept(alice.Session);
         f.Trades.Accept(bob.Session);
         Assert.False(trade.CanChange);
         f.Trades.Accept(bob.Session);
         Assert.True(trade.Users[1].HasAccepted);
-        alice.Packets.Clear(); bob.Packets.Clear();
+        alice.Packets.Clear();
+        bob.Packets.Clear();
 
         f.Trades.Modify(stranger.Session);
         f.Trades.Confirm(stranger.Session);
-        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent);
+        Assert.Empty(alice.Sent);
+        Assert.Empty(bob.Sent);
         Assert.True(trade.Users[1].HasAccepted);
         Assert.False(trade.Users[0].HasAccepted);
         Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
-        Assert.True(alice.RoomUser.HasStatus("trd")); Assert.True(bob.RoomUser.HasStatus("trd"));
+        Assert.True(alice.RoomUser.HasStatus("trd"));
+        Assert.True(bob.RoomUser.HasStatus("trd"));
     }
 
     [Fact]
@@ -192,22 +204,32 @@ public sealed class TradeConfirmationServiceTests
         stranger.RoomUser.TradeId = trade.Id;
         stranger.RoomUser.IsTrading = true;
         f.Trades.Accept(alice.Session);
-        alice.Packets.Clear(); bob.Packets.Clear();
+        alice.Packets.Clear();
+        bob.Packets.Clear();
 
         f.Trades.Cancel(stranger.Session);
         Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
-        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent); Assert.Empty(stranger.Sent);
+        Assert.Empty(alice.Sent);
+        Assert.Empty(bob.Sent);
+        Assert.Empty(stranger.Sent);
         Assert.True(trade.Users[0].HasAccepted);
-        Assert.True(alice.RoomUser.IsTrading); Assert.True(bob.RoomUser.IsTrading);
-        Assert.Equal(trade.Id, alice.RoomUser.TradeId); Assert.Equal(trade.Id, bob.RoomUser.TradeId);
-        Assert.True(alice.RoomUser.HasStatus("trd")); Assert.True(bob.RoomUser.HasStatus("trd"));
+        Assert.True(alice.RoomUser.IsTrading);
+        Assert.True(bob.RoomUser.IsTrading);
+        Assert.Equal(trade.Id, alice.RoomUser.TradeId);
+        Assert.Equal(trade.Id, bob.RoomUser.TradeId);
+        Assert.True(alice.RoomUser.HasStatus("trd"));
+        Assert.True(bob.RoomUser.HasStatus("trd"));
 
         f.Trades.CancelConfirmation(stranger.Session);
         Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
-        Assert.Empty(alice.Sent); Assert.Empty(bob.Sent); Assert.Empty(stranger.Sent);
+        Assert.Empty(alice.Sent);
+        Assert.Empty(bob.Sent);
+        Assert.Empty(stranger.Sent);
         Assert.True(trade.Users[0].HasAccepted);
-        Assert.True(alice.RoomUser.IsTrading); Assert.True(bob.RoomUser.IsTrading);
-        Assert.True(alice.RoomUser.HasStatus("trd")); Assert.True(bob.RoomUser.HasStatus("trd"));
+        Assert.True(alice.RoomUser.IsTrading);
+        Assert.True(bob.RoomUser.IsTrading);
+        Assert.True(alice.RoomUser.HasStatus("trd"));
+        Assert.True(bob.RoomUser.HasStatus("trd"));
     }
 
     [Fact]
@@ -226,8 +248,10 @@ public sealed class TradeConfirmationServiceTests
         Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
         Assert.DoesNotContain(ServerPacketHeader.TradingFinishComposer, alice.Sent);
         Assert.DoesNotContain(ServerPacketHeader.TradingFinishComposer, bob.Sent);
-        Assert.False(alice.RoomUser.IsTrading); Assert.False(bob.RoomUser.IsTrading);
-        Assert.Equal(0, alice.RoomUser.TradeId); Assert.Equal(0, bob.RoomUser.TradeId);
+        Assert.False(alice.RoomUser.IsTrading);
+        Assert.False(bob.RoomUser.IsTrading);
+        Assert.Equal(0, alice.RoomUser.TradeId);
+        Assert.Equal(0, bob.RoomUser.TradeId);
         Assert.False(alice.RoomUser.HasStatus("trd"));
     }
 
@@ -252,12 +276,23 @@ public sealed class TradeConfirmationServiceTests
     internal sealed class RecordingTradeStore : ITradeStore
     {
         public List<(int, int, string, string)> Logged { get; } = [];
-        public Exception? LogFailure { get; set; }
-        public void DeleteItem(uint itemId) { }
-        public void TransferItem(uint itemId, int userId) { }
+        public Exception? LogFailure
+        {
+            get; set;
+        }
+        public void DeleteItem(uint itemId)
+        {
+        }
+        public void TransferItem(uint itemId, int userId)
+        {
+        }
         public void Log(int firstUserId, int secondUserId, string firstItems, string secondItems)
         {
-            if (LogFailure != null) throw LogFailure;
+            if (LogFailure != null)
+            {
+                throw LogFailure;
+            }
+
             Logged.Add((firstUserId, secondUserId, firstItems, secondItems));
         }
     }
@@ -300,12 +335,16 @@ public sealed class TradeConfirmationServiceTests
             // Production revisions exclude zero IDs from their outgoing map.
             var session = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
-                Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
-                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Where(id => id > 0).Distinct().ToDictionary(id => id, id => id) },
+                Revision = new Revision
+                {
+                    InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
+                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Where(id => id > 0).Distinct().ToDictionary(id => id, id => id)
+                },
                 SendCallback = args =>
                 {
                     var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                     packets.Add((BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+
                     return true;
                 }
             };
@@ -315,6 +354,7 @@ public sealed class TradeConfirmationServiceTests
             var roomUser = new RoomUser(habboId, 42, virtualId, Room, session, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = habboId };
             var users = (System.Collections.Concurrent.ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Room.GetRoomUserManager())!;
             users[virtualId] = roomUser;
+
             return new(habbo, session, packets, roomUser);
         }
 
@@ -323,6 +363,7 @@ public sealed class TradeConfirmationServiceTests
             Assert.True(Trading.StartTrade(first.RoomUser, second.RoomUser, out var trade));
             first.RoomUser.SetStatus("trd");
             second.RoomUser.SetStatus("trd");
+
             return trade;
         }
 

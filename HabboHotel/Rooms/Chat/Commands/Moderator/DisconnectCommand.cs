@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
@@ -18,9 +18,12 @@ internal class DisconnectCommand : ITargetChatCommand
         if (!session.GetHabbo().Access.Outranks(target.Access))
         {
             session.SendWhisper("You are not allowed to Disconnect that user.");
+
             return Task.CompletedTask;
         }
+
         target.Client.Disconnect();
+
         return Task.CompletedTask;
     }
 }

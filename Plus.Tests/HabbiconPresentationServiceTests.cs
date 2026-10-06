@@ -18,12 +18,15 @@ public sealed class HabbiconPresentationServiceTests
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"))
         {
-            Database = "information_schema", AllowZeroDateTime = true, ConvertZeroDateTime = true
+            Database = "information_schema",
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
         };
         var schema = "task_habbicon_presentation_" + Guid.NewGuid().ToString("N")[..12];
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             options.Database = schema;

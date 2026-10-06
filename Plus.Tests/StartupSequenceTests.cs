@@ -38,6 +38,7 @@ public class StartupSequenceTests
         var dependent = new Service(20, () =>
         {
             dependentStarted = true;
+
             return Task.CompletedTask;
         });
 
@@ -58,6 +59,7 @@ public class StartupSequenceTests
         var dependent = new Service(20, () =>
         {
             dependentStarted = true;
+
             return Task.CompletedTask;
         });
 

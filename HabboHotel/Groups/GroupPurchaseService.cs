@@ -47,26 +47,32 @@ public sealed class GroupPurchaseService(
     {
         var habbo = session.GetHabbo();
         using var account = await accounts.EnterAsync(habbo.Id);
+
         lock (habbo.WalletSync)
         {
             if (habbo.WalletClosed || ClubAccess.LevelFor(habbo.Access) == 0 ||
                 !TryPrepare(request, habbo.Id, out var prepared, out var room, out var cost))
+            {
                 return;
+            }
 
             if (habbo.Credits < cost)
             {
                 session.Send(new BroadcastMessageAlertComposer(
                     $"A group costs {cost} credits! You only have {habbo.Credits}!"));
+
                 return;
             }
 
             Group group;
+
             try
             {
                 if (!groups.TryCreateGroup(habbo, prepared.Name, prepared.Description, request.RoomId,
                         prepared.Badge, request.MainColour, request.SecondaryColour, out group))
                 {
                     session.SendNotification(FailureMessage);
+
                     return;
                 }
             }
@@ -75,6 +81,7 @@ public sealed class GroupPurchaseService(
                 logger.LogError(exception, "Failed to create group for user {UserId} in room {RoomId}",
                     habbo.Id, request.RoomId);
                 session.SendNotification(FailureMessage);
+
                 return;
             }
 
@@ -83,8 +90,12 @@ public sealed class GroupPurchaseService(
             session.Send(new PurchaseOKComposer());
             room.GroupId = group.Id;
             room.Group = group;
+
             if (habbo.CurrentRoom?.Data != room)
+            {
                 session.Send(new RoomForwardComposer(room.Id));
+            }
+
             session.Send(new NewGroupInfoComposer(room.Id, group.Id));
         }
     }
@@ -95,25 +106,33 @@ public sealed class GroupPurchaseService(
         prepared = default;
         room = null!;
         cost = 0;
+
         if (!rooms.TryGetData(request.RoomId, out room) || room.OwnerId != userId ||
             room.GroupId != 0 || room.Group != null ||
             !int.TryParse(settings.TryGetValue("catalog.group.purchase.cost"), NumberStyles.Integer,
                 CultureInfo.InvariantCulture, out cost) || cost < 0 ||
             !TryBuildBadge(request.BadgeParts, out var badge))
+        {
             return false;
+        }
 
         prepared = new(
             wordFilter.CheckMessage(request.Name),
             wordFilter.CheckMessage(request.Description),
             badge);
+
         return true;
     }
 
     private static bool TryBuildBadge(ImmutableArray<GroupPurchaseBadgePart> parts, out string badge)
     {
         badge = string.Empty;
+
         if (parts.IsDefaultOrEmpty || parts.Length > 5)
+        {
             return false;
+        }
+
         for (var index = 0; index < parts.Length; index++)
         {
             var part = parts[index];
@@ -122,6 +141,7 @@ public sealed class GroupPurchaseService(
                 part.Colour.ToString(CultureInfo.InvariantCulture),
                 part.Position.ToString(CultureInfo.InvariantCulture));
         }
+
         return !string.IsNullOrWhiteSpace(badge);
     }
 

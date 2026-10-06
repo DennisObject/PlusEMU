@@ -17,11 +17,17 @@ internal sealed class SaveRoomSettingsEvent(IRoomSettingsService settings) : IPa
         var category = packet.ReadInt();
         var tagCount = packet.ReadInt();
         var tags = ImmutableArray.CreateBuilder<string>();
-        for (var index = 0; index < tagCount; index++) tags.Add(packet.ReadString());
+
+        for (var index = 0; index < tagCount; index++)
+        {
+            tags.Add(packet.ReadString());
+        }
+
         settings.Save(session, new(roomId, name, description, access, password, maxUsers, category, tags.ToImmutable(),
             packet.ReadInt(), packet.ReadBool(), packet.ReadBool(), packet.ReadBool(), packet.ReadBool(),
             packet.ReadInt(), packet.ReadInt(), packet.ReadInt(), packet.ReadInt(), packet.ReadInt(),
             packet.ReadInt(), packet.ReadInt(), packet.ReadInt(), packet.ReadInt(), packet.ReadInt()));
+
         return Task.CompletedTask;
     }
 }

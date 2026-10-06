@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.Encryption.Crypto.Prng;
+namespace Plus.Communication.Encryption.Crypto.Prng;
 
 public class Arc4
 {
@@ -22,12 +22,18 @@ public class Arc4
     {
         _i = 0;
         _j = 0;
-        for (_i = 0; _i < Poolsize; ++_i) _bytes[_i] = (byte)_i;
+
+        for (_i = 0; _i < Poolsize; ++_i)
+        {
+            _bytes[_i] = (byte)_i;
+        }
+
         for (_i = 0; _i < Poolsize; ++_i)
         {
             _j = (_j + _bytes[_i] + key[_i % key.Length]) & (Poolsize - 1);
             Swap(_i, _j);
         }
+
         _i = 0;
         _j = 0;
     }
@@ -44,6 +50,7 @@ public class Arc4
         _i = ++_i & (Poolsize - 1);
         _j = (_j + _bytes[_i]) & (Poolsize - 1);
         Swap(_i, _j);
+
         return _bytes[(_bytes[_i] + _bytes[_j]) & 255];
     }
 
@@ -59,6 +66,9 @@ public class Arc4
 
     public void Transform(Span<byte> source)
     {
-        for (var k = 0; k < source.Length; k++) source[k] ^= Next();
+        for (var k = 0; k < source.Length; k++)
+        {
+            source[k] ^= Next();
+        }
     }
 }

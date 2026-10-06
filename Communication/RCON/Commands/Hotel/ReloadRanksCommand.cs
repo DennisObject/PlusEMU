@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 
 namespace Plus.Communication.RCON.Commands.Hotel;
 
@@ -17,6 +17,7 @@ internal class ReloadRanksCommand : IRconCommand
     public Task<bool> TryExecute(string[] parameters)
     {
         _permissionManager.Reload();
+
         return Task.FromResult(true);
     }
 }

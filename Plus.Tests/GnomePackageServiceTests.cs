@@ -41,14 +41,25 @@ public sealed class GnomePackageServiceTests
     public void InvalidPackageContextDoesNotReachStore(string denial)
     {
         var world = World(denial == "temporary");
+
         switch (denial)
         {
-            case "owner": world.Item.OwnerId = 99; break;
-            case "temporary": break;
-            case "type": world.Item.Definition.InteractionType = InteractionType.None; break;
-            case "room": world.Item.RoomId = 99; break;
-            case "current": world.Client.GetHabbo().CurrentRoom = null; break;
+            case "owner":
+                world.Item.OwnerId = 99;
+                break;
+            case "temporary":
+                break;
+            case "type":
+                world.Item.Definition.InteractionType = InteractionType.None;
+                break;
+            case "room":
+                world.Item.RoomId = 99;
+                break;
+            case "current":
+                world.Client.GetHabbo().CurrentRoom = null;
+                break;
         }
+
         world.Service.Open(world.Room, world.Client, 7, "Pixel");
         Assert.Empty(world.Store.Requests);
         Assert.Empty(world.Packets);
@@ -112,11 +123,14 @@ public sealed class GnomePackageServiceTests
         root.Open();
         var schema = "gnome_" + Guid.NewGuid().ToString("N");
         root.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var cs = new MySqlConnectionStringBuilder(root.ConnectionString)
             {
-                Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+                Database = schema,
+                AllowZeroDateTime = true,
+                ConvertZeroDateTime = true
             }.ConnectionString;
             using var connection = new MySqlConnection(cs);
             connection.Open();
@@ -135,6 +149,7 @@ public sealed class GnomePackageServiceTests
             var store = new GnomePackageStore(new ProbeDatabase(cs), NullLogger<GnomePackageStore>.Instance);
             var instant = DateTimeOffset.Parse("2040-01-01T00:00:00.123456Z");
             var request = new GnomePackageRequest(7, 100, 1, "prepared owner", 42, 1, 1, 0.5, "Pixel", "hat", instant);
+
             foreach (var invalid in new[] { request with { OwnerId = 99 }, request with { RoomId = 99 }, request with { BaseItem = 101 } })
             {
                 Assert.Null(store.Open(invalid));
@@ -142,6 +157,7 @@ public sealed class GnomePackageServiceTests
                 Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM bots_petdata"));
                 Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items"));
             }
+
             connection.Execute("CREATE TRIGGER fail_pet BEFORE INSERT ON bots_petdata FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced pet failure'");
             Assert.Null(store.Open(request));
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM bots"));
@@ -167,20 +183,33 @@ public sealed class GnomePackageServiceTests
         Set(room, "_gamemap", new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
         Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         Set(room, "_userSnapshots", CatalogSnapshotTestSupport.Proxy<IRoomUserSnapshotService>((_, _) => null));
-        var item = new Item { Id = 7, BaseItem = 100, OwnerId = 1, RoomId = 42, IsTemporary = temporary,
+        var item = new Item
+        {
+            Id = 7,
+            BaseItem = 100,
+            OwnerId = 1,
+            RoomId = 42,
+            IsTemporary = temporary,
             Definition = new() { Id = 100, Type = ItemType.Floor, InteractionType = InteractionType.GnomeBox },
-            ExtraData = new LegacyDataFormat { Data = "" } };
+            ExtraData = new LegacyDataFormat { Data = "" }
+        };
         item.SetState(1, 1, 0, new());
         item.Attach(room, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(room.GetRoomItemHandler())!;
         floor.AddOrUpdate(7, item, (_, _) => item);
         room.GetGameMap().GenerateMaps();
-        var (client, packets) = HabbiconTestSupport.Client(new Habbo { Id = 1, Username = "owner", CurrentRoom = room,
-            Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) } });
+        var (client, packets) = HabbiconTestSupport.Client(new Habbo
+        {
+            Id = 1,
+            Username = "owner",
+            CurrentRoom = room,
+            Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) }
+        });
         var store = new RecordingStore();
         var clock = new CountingClock();
         var definitions = CatalogSnapshotTestSupport.Proxy<IItemDataManager>((method, _) => method == "get_Items" ? new Dictionary<uint, ItemDefinition>() : null);
         var factory = CatalogSnapshotTestSupport.Proxy<IItemFactory>((_, _) => throw new InvalidOperationException("No food definition supplied."));
+
         return new(room, item, client, packets, store, clock, new(store, definitions, factory, clock));
     }
 
@@ -202,6 +231,7 @@ public sealed class GnomePackageServiceTests
         {
             Before?.Invoke(request);
             Requests.Add(request);
+
             return Fail ? null : new Pet(12, request.OwnerId, request.RoomId, request.Name, 26, "30", "ffffff", 0,
                 100, 100, 0, request.CreatedAt, request.X, request.Y, request.Z, 0, 0, 0, -1, request.Clothing, request.OwnerName);
         }
@@ -210,7 +240,12 @@ public sealed class GnomePackageServiceTests
     {
         public DateTimeOffset Now { get; } = DateTimeOffset.Parse("2040-01-01T00:00:00Z");
         public int Reads;
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
     private sealed class ProbeDatabase(string cs) : IDatabase
     {

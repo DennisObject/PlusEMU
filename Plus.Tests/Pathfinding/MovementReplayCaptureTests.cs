@@ -41,19 +41,25 @@ public partial class PlacedFurniRoomTests
         var navigation = fixture._room.GetGameMap().Navigation!;
         var inputs = new List<CapturedMovementInput> { new(ItemRecord: navigation.Inputs.Read(tile.Id)!) };
         var frames = new List<ReplayFrame>();
-        var actor = fixture.Viewer(0, 1); actor.InternalRoomId = actor.VirtualId; actor.UserId = 7;
+        var actor = fixture.Viewer(0, 1);
+        actor.InternalRoomId = actor.VirtualId;
+        actor.UserId = 7;
         navigation.Admit(actor);
         inputs.Add(new(RoomCommand: CaptureQueuedCommand(navigation)));
         fixture.CaptureReplayTick(actor, inputs, frames);
-        CapturePublishedMove(actor, 3, 1, inputs); fixture.CaptureReplayTick(actor, inputs, frames);
-        actor.ClearMovement(true); inputs.Add(new(RoomCommand: CaptureQueuedCommand(navigation)));
+        CapturePublishedMove(actor, 3, 1, inputs);
         fixture.CaptureReplayTick(actor, inputs, frames);
-        CapturePublishedMove(actor, 1, 1, inputs); fixture.CaptureReplayTick(actor, inputs, frames);
+        actor.ClearMovement(true);
+        inputs.Add(new(RoomCommand: CaptureQueuedCommand(navigation)));
+        fixture.CaptureReplayTick(actor, inputs, frames);
+        CapturePublishedMove(actor, 1, 1, inputs);
+        fixture.CaptureReplayTick(actor, inputs, frames);
         fixture.CaptureReplayTick(actor, inputs, frames);
         Assert.True(fixture._room.GetRoomItemHandler().SetFloorItem(tile, 1, 1, 1.25));
         inputs.Add(new(ItemRecord: navigation.Inputs.Read(tile.Id)!));
         fixture.CaptureReplayTick(actor, inputs, frames);
         fixture.CaptureReplayTick(actor, inputs, frames);
+
         return new(inputs.AsReadOnly(), frames, actor.Movement.LifetimeId);
     }
 
@@ -75,6 +81,7 @@ public partial class PlacedFurniRoomTests
             .GetField("_commands", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(navigation)!;
         var commands = (ConcurrentQueue<RoomCommand>)typeof(RoomCommandQueue)
             .GetField("_commands", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(queue)!;
+
         return Assert.Single(commands.ToArray());
     }
 
@@ -82,29 +89,58 @@ public partial class PlacedFurniRoomTests
     {
         using var fixture = new PlacedFurniRoomTests();
         fixture.ReplayNavigation(engine, true);
-        var actor = fixture.Viewer(0, 1); actor.InternalRoomId = actor.VirtualId; actor.UserId = 7;
+        var actor = fixture.Viewer(0, 1);
+        actor.InternalRoomId = actor.VirtualId;
+        actor.UserId = 7;
         var frames = new List<ReplayFrame>();
+
         foreach (var input in capture.Inputs)
         {
-            if (input.Tick) frames.Add(fixture.ReplayTick(actor));
-            else if (input.ItemRecord != null) fixture.ApplyCapturedItem(input.ItemRecord);
-            else if (input.Command != null) ReplayCapturedMove(actor, input.Command, engine);
-            else fixture.ReplayCapturedRoomCommand(actor, input.RoomCommand!, engine);
+            if (input.Tick)
+            {
+                frames.Add(fixture.ReplayTick(actor));
+            }
+            else if (input.ItemRecord != null)
+            {
+                fixture.ApplyCapturedItem(input.ItemRecord);
+            }
+            else if (input.Command != null)
+            {
+                ReplayCapturedMove(actor, input.Command, engine);
+            }
+            else
+            {
+                fixture.ReplayCapturedRoomCommand(actor, input.RoomCommand!, engine);
+            }
         }
+
         return new(frames, actor.Movement.LifetimeId);
     }
 
     private void ApplyCapturedItem(NavItemRecord record)
     {
         var existing = _room.GetRoomItemHandler().GetItem(record.ItemId);
-        if (existing == null) { ApplyReplayFurniture(record); return; }
+
+        if (existing == null)
+        {
+            ApplyReplayFurniture(record);
+
+            return;
+        }
+
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(existing, record.X, record.Y, record.Z));
     }
 
     private static void ReplayCapturedMove(RoomUser actor, MoveCommand command, PathfindingEngine engine)
     {
-        if (engine == PathfindingEngine.V2) Assert.True(actor.Movement.Commands.Publish(command));
-        else actor.MoveTo(command.X, command.Y);
+        if (engine == PathfindingEngine.V2)
+        {
+            Assert.True(actor.Movement.Commands.Publish(command));
+        }
+        else
+        {
+            actor.MoveTo(command.X, command.Y);
+        }
     }
 
     private void ReplayCapturedRoomCommand(RoomUser actor, RoomCommand command, PathfindingEngine engine)
@@ -114,14 +150,24 @@ public partial class PlacedFurniRoomTests
             var navigation = _room.GetGameMap().Navigation!;
             var queue = (RoomCommandQueue)typeof(RoomNavigation)
                 .GetField("_commands", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(navigation)!;
-            queue.Enqueue(command with { Actor = actor, LifetimeId = actor.Movement.LifetimeId });
+            queue.Enqueue(command with
+            {
+                Actor = actor,
+                LifetimeId = actor.Movement.LifetimeId
+            });
+
             return;
         }
-        if (command.Kind == RoomCommandKind.Cancel) actor.ClearMovement(true);
+
+        if (command.Kind == RoomCommandKind.Cancel)
+        {
+            actor.ClearMovement(true);
+        }
         else
         {
             Assert.Equal(RoomCommandKind.Admit, command.Kind);
-            _room.GetGameMap().AddUserToMap(actor, actor.Coordinate); actor.UpdateNeeded = true;
+            _room.GetGameMap().AddUserToMap(actor, actor.Coordinate);
+            actor.UpdateNeeded = true;
         }
     }
 

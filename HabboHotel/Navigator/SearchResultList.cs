@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Navigator;
+namespace Plus.HabboHotel.Navigator;
 
 public class SearchResultList
 {
@@ -18,26 +18,59 @@ public class SearchResultList
         OrderId = orderId;
     }
 
-    public int Id { get; set; }
+    public int Id
+    {
+        get; set;
+    }
 
     //TODO: Make an enum?
-    public string Category { get; set; }
+    public string Category
+    {
+        get; set;
+    }
 
-    public string CategoryIdentifier { get; set; }
+    public string CategoryIdentifier
+    {
+        get; set;
+    }
 
-    public string PublicName { get; set; }
+    public string PublicName
+    {
+        get; set;
+    }
 
-    public bool CanDoActions { get; set; }
+    public bool CanDoActions
+    {
+        get; set;
+    }
 
-    public int Colour { get; set; }
+    public int Colour
+    {
+        get; set;
+    }
 
-    public string RequiredPermission { get; set; }
+    public string RequiredPermission
+    {
+        get; set;
+    }
 
-    public NavigatorViewMode ViewMode { get; set; }
+    public NavigatorViewMode ViewMode
+    {
+        get; set;
+    }
 
-    public NavigatorCategoryType CategoryType { get; set; }
+    public NavigatorCategoryType CategoryType
+    {
+        get; set;
+    }
 
-    public NavigatorSearchAllowance SearchAllowance { get; set; }
+    public NavigatorSearchAllowance SearchAllowance
+    {
+        get; set;
+    }
 
-    public int OrderId { get; set; }
+    public int OrderId
+    {
+        get; set;
+    }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Options;
 using NetCoreServer;
 using Plus.Communication.Flash;
@@ -39,6 +39,7 @@ public abstract class WebsocketGameServer<TGameServerOptions> : WsServer, IGameS
         if (session is not WsSessionProxy gameClient)
         {
             session.Disconnect();
+
             //_logger.LogWarning("Expected {TGameClient} to be connected. Got {type}", typeof(TGameClient), session.GetType());
             return;
         }
@@ -59,9 +60,14 @@ public abstract class WebsocketGameServer<TGameServerOptions> : WsServer, IGameS
     public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet)
     {
         packet.MessageId = messageId;
+
         if (!InvokeInjectors(_incomingInjectors, messageId, injector => injector.ModifyIncomingPacket(this, client, packet)))
+        {
             return Task.CompletedTask;
+        }
+
         packet.Stream.Position = 0;
+
         return _packetManager.TryExecutePacket(client, messageId, packet);
     }
 
@@ -72,16 +78,25 @@ public abstract class WebsocketGameServer<TGameServerOptions> : WsServer, IGameS
 
     private bool InvokeInjectors<T>(IReadOnlyDictionary<uint, T[]> injectors, uint messageId, Action<T> invoke)
     {
-        if (!injectors.TryGetValue(messageId, out var matches)) return true;
+        if (!injectors.TryGetValue(messageId, out var matches))
+        {
+            return true;
+        }
+
         foreach (var injector in matches)
         {
-            try { invoke(injector); }
+            try
+            {
+                invoke(injector);
+            }
             catch (Exception exception)
             {
                 _logger.LogError(exception, "Packet injector {InjectorType} failed for message {MessageId}; packet aborted", injector!.GetType().Name, messageId);
+
                 return false;
             }
         }
+
         return true;
     }
 }

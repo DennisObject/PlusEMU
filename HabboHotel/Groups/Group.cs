@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Groups;
@@ -33,18 +33,54 @@ public class Group
         _administrators = membership.Administrators.ToList();
     }
 
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public int AdminOnlyDeco { get; set; }
-    public string Badge { get; set; }
-    public DateTimeOffset? CreatedAt { get; set; }
-    public int CreatorId { get; set; }
-    public string Description { get; set; }
-    public uint RoomId { get; set; }
-    public int Colour1 { get; set; }
-    public int Colour2 { get; set; }
-    public bool ForumEnabled { get; set; }
-    public GroupType Type { get; set; }
+    public int Id
+    {
+        get; set;
+    }
+    public string Name
+    {
+        get; set;
+    }
+    public int AdminOnlyDeco
+    {
+        get; set;
+    }
+    public string Badge
+    {
+        get; set;
+    }
+    public DateTimeOffset? CreatedAt
+    {
+        get; set;
+    }
+    public int CreatorId
+    {
+        get; set;
+    }
+    public string Description
+    {
+        get; set;
+    }
+    public uint RoomId
+    {
+        get; set;
+    }
+    public int Colour1
+    {
+        get; set;
+    }
+    public int Colour2
+    {
+        get; set;
+    }
+    public bool ForumEnabled
+    {
+        get; set;
+    }
+    public GroupType Type
+    {
+        get; set;
+    }
 
     public List<int> GetMembers => _members.ToList();
 
@@ -58,6 +94,7 @@ public class Group
         {
             var members = new List<int>(_administrators.ToList());
             members.AddRange(_members.ToList());
+
             return members;
         }
     }
@@ -75,34 +112,52 @@ public class Group
     public void MakeAdmin(int id)
     {
         if (_members.Contains(id))
+        {
             _members.Remove(id);
+        }
+
         if (!_administrators.Contains(id))
+        {
             _administrators.Add(id);
+        }
     }
 
     public void TakeAdmin(int userId)
     {
         if (!_administrators.Contains(userId))
+        {
             return;
+        }
+
         _administrators.Remove(userId);
+
         if (!_members.Contains(userId))
+        {
             _members.Add(userId);
+        }
     }
 
     // Memory publication only. Callers persist the membership or request before publishing it.
     public void PublishJoin(int id)
     {
         if (IsMember(id) || Type == GroupType.Locked && _requests.Contains(id))
+        {
             return;
+        }
+
         if (IsAdmin(id))
         {
             _administrators.Remove(id);
             _members.Add(id);
         }
         else if (Type == GroupType.Locked)
+        {
             _requests.Add(id);
+        }
         else
+        {
             _members.Add(id);
+        }
     }
 
     public void DeleteMember(int id)
@@ -116,10 +171,15 @@ public class Group
         if (accepted)
         {
             if (!_members.Contains(id))
+            {
                 _members.Add(id);
+            }
         }
+
         if (_requests.Contains(id))
+        {
             _requests.Remove(id);
+        }
     }
 
     public void ClearRequests()

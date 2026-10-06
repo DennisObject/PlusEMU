@@ -15,7 +15,12 @@ public sealed partial class AccessControlDatabaseTests
         connection.Execute("""
             INSERT INTO acl_audit_log (actor_id, action, target_type, target_id, payload, created_at)
             VALUES (@Actor, 'utc.audit', 'user', @Target, '{}', @createdAt)
-            """, new { Actor, Target, createdAt = created.UtcDateTime });
+            """, new
+        {
+            Actor,
+            Target,
+            createdAt = created.UtcDateTime
+        });
         var page = _access.Audit(_actor, 0);
         var row = Assert.Single(page.Entries, entry => entry.Action == "utc.audit");
         Assert.Equal(created.ToUniversalTime(), row.CreatedAt);

@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;

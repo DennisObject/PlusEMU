@@ -17,8 +17,17 @@ public sealed class CatalogBotPurchaseStore : ICatalogBotPurchaseStore
     {
         connection.Execute(
             "INSERT INTO bots (user_id,name,motto,look,gender,ai_type) VALUES (@ownerId,@name,@motto,@look,@gender,@aiType)",
-            new { ownerId, preset.Name, preset.Motto, look = preset.Figure, preset.Gender, aiType = preset.AiType }, transaction);
+            new
+            {
+                ownerId,
+                preset.Name,
+                preset.Motto,
+                look = preset.Figure,
+                preset.Gender,
+                aiType = preset.AiType
+            }, transaction);
         var id = connection.QuerySingle<int>("SELECT LAST_INSERT_ID()", transaction: transaction);
+
         return new(id, ownerId, preset.Name, preset.Motto, preset.Figure, preset.Gender);
     }
 }

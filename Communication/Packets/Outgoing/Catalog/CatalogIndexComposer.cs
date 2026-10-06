@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog;
@@ -17,8 +17,12 @@ public class CatalogIndexComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         WriteRootIndex(packet);
+
         foreach (var node in _index.Roots)
+        {
             WriteNode(packet, node);
+        }
+
         packet.WriteBoolean(false);
         packet.WriteString(_index.Mode);
     }
@@ -44,9 +48,17 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteString(node.Link);
         packet.WriteString(node.Caption);
         packet.WriteInteger(node.OfferIds.Length);
-        foreach (var offerId in node.OfferIds) packet.WriteInteger(offerId);
+
+        foreach (var offerId in node.OfferIds)
+        {
+            packet.WriteInteger(offerId);
+        }
+
         packet.WriteInteger(node.Children.Length);
+
         foreach (var child in node.Children)
+        {
             WriteNode(packet, child);
+        }
     }
 }

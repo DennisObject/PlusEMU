@@ -22,8 +22,12 @@ public sealed class RewardTracksComposer : IServerPacket
     {
         packet.WriteBoolean(_disabled);
         packet.WriteInteger(_tracks.Length);
+
         foreach (var track in _tracks)
+        {
             WriteTrack(packet, track);
+        }
+
         packet.WriteBoolean(_reload);
     }
 
@@ -33,6 +37,7 @@ public sealed class RewardTracksComposer : IServerPacket
         packet.WriteString(track.Theme);
         packet.WriteInteger(track.Points);
         packet.WriteBoolean(track.HasPremium);
+
         if (track.HasPremium)
         {
             packet.WriteDouble(track.PremiumTaskPointsBoost);
@@ -40,10 +45,12 @@ public sealed class RewardTracksComposer : IServerPacket
             packet.WriteInteger(track.PremiumCostDiamonds);
             packet.WriteInteger(track.PremiumCostCredits);
         }
+
         packet.WriteBoolean(track.Premium);
         packet.WriteBoolean(track.Complete);
         packet.WriteBoolean(track.PremiumComplete);
         packet.WriteInteger(track.Tasks.Length);
+
         foreach (var task in track.Tasks)
         {
             packet.WriteString(task.Id);
@@ -52,6 +59,7 @@ public sealed class RewardTracksComposer : IServerPacket
             packet.WriteInteger(task.Progress);
             packet.WriteBoolean(task.Premium);
             packet.WriteInteger(task.Levels.Length);
+
             foreach (var level in task.Levels)
             {
                 packet.WriteInteger(level.RequiredCount);
@@ -59,7 +67,9 @@ public sealed class RewardTracksComposer : IServerPacket
                 packet.WriteBoolean(level.Premium);
             }
         }
+
         packet.WriteInteger(track.Prizes.Length);
+
         foreach (var prize in track.Prizes)
         {
             packet.WriteString(prize.Id);

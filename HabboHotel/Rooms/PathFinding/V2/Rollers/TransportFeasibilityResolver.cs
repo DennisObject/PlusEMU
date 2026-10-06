@@ -28,15 +28,26 @@ internal sealed class TransportFeasibilityResolver(RollerAdmission admission)
     internal TransportResolution Resolve(RollerGraph graph)
     {
         var resolution = new TransportResolution();
-        foreach (var loop in graph.Loops()) ResolveLoop(loop, resolution);
+
+        foreach (var loop in graph.Loops())
+        {
+            ResolveLoop(loop, resolution);
+        }
+
         var ready = new Queue<Point>(graph.Loads.Select(load => load.Destination).Distinct()
             .Where(tile => graph.At(tile) == null || resolution.LoopTiles.Contains(tile)));
+
         while (ready.TryDequeue(out var tile))
         {
             var feeders = graph.FeedersOf(tile).Where(load => !resolution.LoopTiles.Contains(load.Origin)).ToList();
             ResolveFeeders(tile, feeders, graph.At(tile), resolution);
-            foreach (var feeder in feeders) ready.Enqueue(feeder.Origin);
+
+            foreach (var feeder in feeders)
+            {
+                ready.Enqueue(feeder.Origin);
+            }
         }
+
         return resolution;
     }
 
@@ -44,12 +55,17 @@ internal sealed class TransportFeasibilityResolver(RollerAdmission admission)
     {
         var rotation = new TransportGroup(TransportGroupKind.Loop, loop.SelectMany(load => load.Moves).ToList());
         var rotates = rotation.Moves.All(move => admission.Admits(move, rotation));
+
         foreach (var load in loop)
         {
             resolution.Depart(load, rotates ? load.Moves : []);
             resolution.LoopTiles.Add(load.Origin);
         }
-        if (rotates) resolution.Loops.Add(rotation);
+
+        if (rotates)
+        {
+            resolution.Loops.Add(rotation);
+        }
     }
 
     // A loop tile never has a real vacancy for an external feeder: it either rotates full or stays.
@@ -61,8 +77,15 @@ internal sealed class TransportFeasibilityResolver(RollerAdmission admission)
             .Where(candidate => candidate.Admitted.Count > 0)
             .OrderBy(candidate => candidate.Load.Roller.Id)
             .FirstOrDefault();
+
         foreach (var feeder in feeders)
+        {
             resolution.Depart(feeder, ReferenceEquals(feeder, winner.Load) ? winner.Admitted : []);
-        if (winner.Load != null && standing != null && !resolution.At(tile).IsEmpty) resolution.Follows[winner.Load] = standing;
+        }
+
+        if (winner.Load != null && standing != null && !resolution.At(tile).IsEmpty)
+        {
+            resolution.Follows[winner.Load] = standing;
+        }
     }
 }

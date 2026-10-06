@@ -86,17 +86,22 @@ public class FloorPlanWireTests
         Assert.Equal(legacy.OutgoingHeaders.Keys.OrderBy(key => key), hybrid.OutgoingHeaders.Keys.Where(key => key != "HeightMapUpdateComposer").OrderBy(key => key));
         // The catalog and furni editors exist on the Octane client only; EditorPermissionTests pins their ids.
         static bool OctaneEditor(string name) => name.StartsWith("CatalogAdmin") || name.StartsWith("CatalogStudio") || name.StartsWith("FurniEditor") || name == "FurnitureDataReloadComposer";
+
         foreach (var (name, wire) in legacy.IncomingHeaders)
         {
             // Housekeeping is Octane-only and disabled (0) in the other revisions.
             if (!changedIncoming.Contains(name) && !OctaneEditor(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
+            {
                 Assert.Equal(wire, hybrid.IncomingHeaders[name]);
+            }
         }
 
         foreach (var (name, wire) in legacy.OutgoingHeaders)
         {
             if (!changedOutgoing.Contains(name) && !OctaneEditor(name) && !name.StartsWith("Housekeeping", StringComparison.Ordinal))
+            {
                 Assert.Equal(wire, hybrid.OutgoingHeaders[name]);
+            }
         }
     }
 
@@ -137,16 +142,23 @@ public class FloorPlanWireTests
             "RewardTrackProgressComposer",
             "RewardTrackPremiumPurchaseResultComposer"
         };
+
         foreach (var (name, wire) in supported.IncomingHeaders)
         {
             if (!rewardHeaders.Contains(name))
+            {
                 Assert.Equal(wire, stock.IncomingHeaders[name]);
+            }
         }
+
         foreach (var (name, wire) in supported.OutgoingHeaders)
         {
             if (!rewardHeaders.Contains(name))
+            {
                 Assert.Equal(wire, stock.OutgoingHeaders[name]);
+            }
         }
+
         Assert.All(stock.IncomingHeaders.Keys, name => Assert.Contains(name, incomingHeaders.Keys));
         Assert.All(stock.OutgoingHeaders.Keys, name => Assert.Contains(name, outgoingHeaders.Keys));
         Assert.Equal(stock.IncomingHeaders.Values.Where(wire => wire > 0).Count(), stock.IncomingHeaders.Values.Where(wire => wire > 0).Distinct().Count());
@@ -186,17 +198,23 @@ public class FloorPlanWireTests
         {
             PropertyNameCaseInsensitive = true
         });
+
         return revision ?? throw new InvalidOperationException(fileName);
     }
 
     private static string RevisionPath(string fileName)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
         while (dir != null)
         {
             var candidate = Path.Combine(dir.FullName, "Resources", "Revisions", fileName);
+
             if (File.Exists(candidate))
+            {
                 return candidate;
+            }
+
             dir = dir.Parent;
         }
 
@@ -213,7 +231,10 @@ public class FloorPlanWireTests
     private sealed class RecordingPacket : IOutgoingPacket
     {
         public List<object> Writes { get; } = new();
-        public int MessageId { get; set; }
+        public int MessageId
+        {
+            get; set;
+        }
         public ReadOnlyMemory<byte> Buffer => ReadOnlyMemory<byte>.Empty;
         public void WriteByte(byte value) => Writes.Add(value);
         public void WriteShort(short value) => Writes.Add(value);

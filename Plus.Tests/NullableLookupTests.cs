@@ -31,7 +31,11 @@ public class NullableLookupTests
     public void HeapKeepsOrderingAcrossGrowthAndInterleavedRemoval()
     {
         var heap = new MinHeap<int>(2);
-        foreach (var value in new[] { 7, 2, 6, 1, 4 }) heap.Add(value);
+
+        foreach (var value in new[] { 7, 2, 6, 1, 4 })
+        {
+            heap.Add(value);
+        }
 
         Assert.Equal(1, heap.ExtractFirst());
         heap.Add(3);

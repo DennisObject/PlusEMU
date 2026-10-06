@@ -98,11 +98,13 @@ public sealed class RoomModelAccessTests
             Assert.Equal("TryGetModel", method);
             modelReads++;
             arguments[1] = model;
+
             return true;
         });
         var navigator = Proxy<INavigatorManager>((_, _) => throw new InvalidOperationException("Navigator touched by denied request"));
         var previousDatabase = DatabaseField.GetValue(null);
         DatabaseField.SetValue(null, EditorTestSupport.UntouchableDatabase());
+
         try
         {
             var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7001, Access = Access(staffModels) });
@@ -136,14 +138,17 @@ public sealed class RoomModelAccessTests
             if (method == "TryGetModel")
             {
                 arguments[1] = model;
+
                 return true;
             }
+
             Assert.Equal("CreateRoom", method);
             creationCalls++;
             Assert.Equal(model, arguments[6]);
             Assert.Equal(36, arguments[3]); // Unknown categories keep the existing fallback.
             Assert.Equal(10, arguments[4]);
             Assert.Equal(0, arguments[5]);
+
             return null; // Room persistence belongs to RoomManager; this test observes the call boundary.
         });
         var navigator = Proxy<INavigatorManager>((method, _) => method == "TryGetSearchResultList" ? false : throw new InvalidOperationException(method));
@@ -152,6 +157,7 @@ public sealed class RoomModelAccessTests
         habbo.Messenger.StatusUpdated += (_, _) => friendUpdates++;
         var previousDatabase = DatabaseField.GetValue(null);
         DatabaseField.SetValue(null, database);
+
         try
         {
             var (client, _) = HabbiconTestSupport.Client(habbo);
@@ -160,6 +166,7 @@ public sealed class RoomModelAccessTests
                 Assert.Equal(nameof(IRoomDataLoader.GetRoomsDataByOwnerSortByName), method);
                 Assert.Equal(habbo.Id, arguments[0]);
                 databaseReads++;
+
                 return new List<RoomData>();
             });
             var service = new RoomCreationService(
@@ -185,14 +192,23 @@ public sealed class RoomModelAccessTests
     public void ManagerLoadsAuthoritativeRequirementsForStandardAndCustomModels(bool custom)
     {
         var data = new DataTable();
+
         foreach (var name in new[] { "Id", "DoorX", "DoorY", "DoorZ", "DoorDir", "Heightmap", "WallHeight", "RequiredClubLevel", "RequiredPermission" })
+        {
             data.Columns.Add(name, name == "DoorZ" ? typeof(double) : name is "Id" or "Heightmap" or "RequiredPermission" ? typeof(string) : typeof(int));
+        }
+
         data.Rows.Add("test_model", 0, 0, 0d, 0, "00\r00", 0, -1, ExtraPermission);
         var manager = new RoomManager(NullLogger<RoomManager>.Instance, ReaderDatabase(data), null!, TimeProvider.System, new TestRoomFactory(), new TestRoomDataLoaderFactory());
+
         if (custom)
+        {
             Assert.True(manager.LoadModel("test_model"));
+        }
         else
+        {
             manager.LoadModels();
+        }
 
         Assert.True(manager.TryGetModel("test_model", out var model));
         Assert.Equal(-1, model.RequiredClubLevel);
@@ -223,21 +239,41 @@ public sealed class RoomModelAccessTests
     {
         private readonly MySqlParameterCollection _parameters = new MySqlCommand().Parameters;
         public override string CommandText { get; set; } = "";
-        public override int CommandTimeout { get; set; }
-        public override CommandType CommandType { get; set; }
-        public override bool DesignTimeVisible { get; set; }
-        public override UpdateRowSource UpdatedRowSource { get; set; }
+        public override int CommandTimeout
+        {
+            get; set;
+        }
+        public override CommandType CommandType
+        {
+            get; set;
+        }
+        public override bool DesignTimeVisible
+        {
+            get; set;
+        }
+        public override UpdateRowSource UpdatedRowSource
+        {
+            get; set;
+        }
         protected override DbConnection? DbConnection { get; set; } = connection;
-        protected override DbTransaction? DbTransaction { get; set; }
+        protected override DbTransaction? DbTransaction
+        {
+            get; set;
+        }
         protected override DbParameterCollection DbParameterCollection => _parameters;
         protected override DbParameter CreateDbParameter() => new MySqlParameter();
-        public override void Cancel() { }
-        public override void Prepare() { }
+        public override void Cancel()
+        {
+        }
+        public override void Prepare()
+        {
+        }
         public override int ExecuteNonQuery() => throw new NotSupportedException();
         public override object? ExecuteScalar() => throw new NotSupportedException();
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
             read?.Invoke();
+
             return data.CreateDataReader();
         }
     }
@@ -252,6 +288,7 @@ public sealed class RoomModelAccessTests
     {
         var proxy = DispatchProxy.Create<T, Callback>();
         ((Callback)(object)proxy).InvokeCallback = callback;
+
         return proxy;
     }
 

@@ -12,6 +12,7 @@ public sealed class HabbiconShopDataComposer(HabbiconSnapshot snapshot) : IServe
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_collections.Length);
+
         foreach (var collection in _collections)
         {
             packet.WriteInteger(collection.Id);
@@ -23,7 +24,11 @@ public sealed class HabbiconShopDataComposer(HabbiconSnapshot snapshot) : IServe
             packet.WriteInteger(collection.Points);
             packet.WriteInteger(collection.PointsType);
             packet.WriteInteger(collection.Items.Count);
-            foreach (var item in collection.Items) HabbiconInfoComposer.WriteItem(packet, item);
+
+            foreach (var item in collection.Items)
+            {
+                HabbiconInfoComposer.WriteItem(packet, item);
+            }
         }
     }
 }

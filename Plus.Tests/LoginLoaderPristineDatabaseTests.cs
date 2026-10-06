@@ -12,7 +12,9 @@ public sealed class LoginLoaderDatabaseFactAttribute : FactAttribute
     public LoginLoaderDatabaseFactAttribute()
     {
         if (Environment.GetEnvironmentVariable("LOGIN_LOADER_DATABASE") is null)
+        {
             Skip = "Opt-in isolated login loader MariaDB probe.";
+        }
     }
 }
 
@@ -31,6 +33,7 @@ public sealed class LoginLoaderPristineDatabaseTests
         connection.Open();
         var schema = "login_loaders_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             connection.Execute($"USE `{schema}`");
@@ -69,10 +72,17 @@ public sealed class LoginLoaderPristineDatabaseTests
             var addedId = clothing.Add(7, int.MaxValue, "ch");
             var added = Assert.Single(clothing.Load(7), row => row.Id == addedId);
             Assert.Equal((int.MaxValue, "ch"), (added.PartId, added.Part));
-            connection.Execute("UPDATE bots SET id = @id, user_id = @id WHERE id = 10", new { id = int.MaxValue });
+            connection.Execute("UPDATE bots SET id = @id, user_id = @id WHERE id = 10", new
+            {
+                id = int.MaxValue
+            });
             var largest = Assert.Single(bots.GetBotsForUser(int.MaxValue));
             Assert.Equal((int.MaxValue, int.MaxValue), (largest.Id, largest.OwnerId));
-            connection.Execute("UPDATE bots SET id = @overflow WHERE id = @id", new { overflow = (uint)int.MaxValue + 1, id = int.MaxValue });
+            connection.Execute("UPDATE bots SET id = @overflow WHERE id = @id", new
+            {
+                overflow = (uint)int.MaxValue + 1,
+                id = int.MaxValue
+            });
             Assert.Throws<OverflowException>(() => bots.GetBotsForUser(int.MaxValue));
             connection.Execute("UPDATE user_clothing SET part_id = '2147483648' WHERE id = 20");
             Assert.IsType<OverflowException>(Assert.Throws<DataException>(() => clothing.Load(7)).InnerException);
@@ -92,6 +102,7 @@ public sealed class LoginLoaderPristineDatabaseTests
         Assert.True(start >= 0, $"Missing pristine CREATE TABLE for {table}.");
         var end = pristine.IndexOf(';', start);
         Assert.True(end >= 0, $"Unterminated pristine CREATE TABLE for {table}.");
+
         return pristine[start..(end + 1)];
     }
 

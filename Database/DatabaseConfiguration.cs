@@ -1,4 +1,4 @@
-﻿namespace Plus.Database;
+namespace Plus.Database;
 
 public class DatabaseConfiguration
 {
@@ -6,7 +6,16 @@ public class DatabaseConfiguration
     public string Name { get; set; } = string.Empty;
     public string Username { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
-    public uint Port { get; set; }
-    public uint MinimumPoolSize { get; set; }
-    public uint MaximumPoolSize { get; set; }
+    public uint Port
+    {
+        get; set;
+    }
+    public uint MinimumPoolSize
+    {
+        get; set;
+    }
+    public uint MaximumPoolSize
+    {
+        get; set;
+    }
 }

@@ -8,6 +8,7 @@ internal sealed class GetPetInformationEvent(IPetInformationService pets) : IPac
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         pets.SendInformation(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

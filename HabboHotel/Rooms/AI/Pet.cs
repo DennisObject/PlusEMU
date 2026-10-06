@@ -75,7 +75,11 @@ public class Pet
 
     internal void Attach(Room room, IGameClientManager clients, IRewardTrackManager rewards)
     {
-        if (_room != null && !ReferenceEquals(_room, room)) throw new InvalidOperationException("Pet is already attached to another room.");
+        if (_room != null && !ReferenceEquals(_room, room))
+        {
+            throw new InvalidOperationException("Pet is already attached to another room.");
+        }
+
         _room = room;
         _clients = clients;
         _rewards = rewards;
@@ -83,7 +87,11 @@ public class Pet
 
     internal void Detach(Room room)
     {
-        if (!ReferenceEquals(_room, room)) return;
+        if (!ReferenceEquals(_room, room))
+        {
+            return;
+        }
+
         _room = null;
         _clients = null;
         _rewards = null;
@@ -98,8 +106,11 @@ public class Pet
             for (var level = 0; level < ExperienceLevels.Length; ++level)
             {
                 if (Experience < ExperienceLevels[level])
+                {
                     return level + 1;
+                }
             }
+
             return ExperienceLevels.Length;
         }
     }
@@ -122,67 +133,110 @@ public class Pet
 
     public string Look => $"{Type} {Race} {Color} {CustomParts}";
 
-    public string OwnerName { get; set; }
+    public string OwnerName
+    {
+        get; set;
+    }
 
     public void OnRespect()
     {
         Respect++;
         Room.SendPacket(new RespectPetNotificationComposer(VirtualId, PetId, Name, Color));
+
         if (DbState != PetDatabaseUpdateState.NeedsInsert)
+        {
             DbState = PetDatabaseUpdateState.NeedsUpdate;
+        }
+
         if (Experience <= 150000)
+        {
             Addexperience(10);
+        }
     }
 
     public void Addexperience(int amount)
     {
         var before = Level;
         Experience = Experience + amount;
+
         if (Experience > 150000)
         {
             Experience = 150000;
+
             if (Room != null)
+            {
                 Room.SendPacket(new AddExperiencePointsComposer(PetId, VirtualId, amount));
+            }
         }
         else
         {
             if (DbState != PetDatabaseUpdateState.NeedsInsert)
+            {
                 DbState = PetDatabaseUpdateState.NeedsUpdate;
+            }
+
             if (Room != null)
             {
                 Room.SendPacket(new AddExperiencePointsComposer(PetId, VirtualId, amount));
+
                 if (Experience >= ExperienceGoal)
+                {
                     Room.SendPacket(new ChatComposer(VirtualId, $"*leveled up to level {Level} *", 0, 0));
+                }
             }
         }
+
         var gained = Level - before;
+
         if (gained < 1 || OwnerId <= 0)
+        {
             return;
+        }
+
         var client = _clients?.GetClientByUserId(OwnerId);
+
         if (client != null)
+        {
             _rewards!.Progress(client, RewardTrackActions.PetLevel, gained);
+        }
     }
 
     public void PetEnergy(bool add)
     {
         int maxE;
+
         if (add)
         {
             if (Energy == 100) // If Energy is 100, no point.
+            {
                 return;
+            }
+
             if (Energy > 85)
+            {
                 maxE = MaxEnergy - Energy;
+            }
             else
+            {
                 maxE = 10;
+            }
         }
         else
+        {
             maxE = 15; // Remove Max Energy as 15
+        }
+
         if (maxE <= 4)
+        {
             maxE = 15;
+        }
+
         var r = Random.Shared.Next(4, maxE + 1);
+
         if (!add)
         {
             Energy = Energy - r;
+
             if (Energy < 0)
             {
                 Energy = 1;
@@ -190,8 +244,13 @@ public class Pet
             }
         }
         else
+        {
             Energy = Energy + r;
+        }
+
         if (DbState != PetDatabaseUpdateState.NeedsInsert)
+        {
             DbState = PetDatabaseUpdateState.NeedsUpdate;
+        }
     }
 }

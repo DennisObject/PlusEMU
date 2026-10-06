@@ -10,10 +10,15 @@ internal sealed class HousekeepingGetUserOverridesEvent(IAccessControl access) :
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        if (session.GetHabbo() is not { } actor || !actor.Access.Can(PermissionKeys.HousekeepingRolesManage)) return Task.CompletedTask;
+        if (session.GetHabbo() is not { } actor || !actor.Access.Can(PermissionKeys.HousekeepingRolesManage))
+        {
+            return Task.CompletedTask;
+        }
+
         var requestId = packet.ReadInt();
         var username = packet.ReadString();
         session.Send(new HousekeepingUserOverridesComposer(requestId, access.Overrides(actor, username)));
+
         return Task.CompletedTask;
     }
 }

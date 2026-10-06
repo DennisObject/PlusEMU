@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Engine;
@@ -12,6 +12,7 @@ internal class MoveObjectEvent(IRoomItemPlacementService placement) : RoomPacket
         var y = packet.ReadInt();
         var rotation = packet.ReadInt();
         placement.Move(room, session, itemId, x, y, rotation);
+
         return Task.CompletedTask;
     }
 }

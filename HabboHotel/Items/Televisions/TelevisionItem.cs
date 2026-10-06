@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Items.Televisions;
+namespace Plus.HabboHotel.Items.Televisions;
 
 public class TelevisionItem
 {
@@ -11,14 +11,29 @@ public class TelevisionItem
         Enabled = enabled;
     }
 
-    public int Id { get; }
+    public int Id
+    {
+        get;
+    }
 
-    public string YouTubeId { get; }
+    public string YouTubeId
+    {
+        get;
+    }
 
 
-    public string Title { get; }
+    public string Title
+    {
+        get;
+    }
 
-    public string Description { get; }
+    public string Description
+    {
+        get;
+    }
 
-    public bool Enabled { get; }
+    public bool Enabled
+    {
+        get;
+    }
 }

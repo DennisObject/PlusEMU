@@ -22,7 +22,11 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
     public void UpdateUserCount(uint roomId, int count)
     {
         using var connection = database.Connection();
-        connection.Execute("UPDATE rooms SET users_now = @count WHERE id = @roomId LIMIT 1", new { count, roomId });
+        connection.Execute("UPDATE rooms SET users_now = @count WHERE id = @roomId LIMIT 1", new
+        {
+            count,
+            roomId
+        });
     }
 
     public void SavePet(RoomPetSave pet)
@@ -30,6 +34,7 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
+
         if (pet.Insert)
         {
             connection.Execute("""
@@ -42,13 +47,18 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
                                           have_saddle, anyone_ride, hairdye, pethair, gnome_clothing)
                 VALUES (@Id, @Type, @Race, @Color, 0, 100, @CreatedAt, 0, 0, 0, 0, 1, -1, '-1')
                 """, new
-                {
-                    pet.Id, pet.Type, pet.Race, pet.Color,
-                    CreatedAt = pet.CreatedAt?.UtcDateTime
-                }, transaction);
+            {
+                pet.Id,
+                pet.Type,
+                pet.Race,
+                pet.Color,
+                CreatedAt = pet.CreatedAt?.UtcDateTime
+            }, transaction);
             transaction.Commit();
+
             return;
         }
+
         connection.Execute("UPDATE bots SET room_id = @RoomId, x = @X, y = @Y, z = @Z WHERE id = @Id LIMIT 1", pet, transaction);
         connection.Execute("""
             UPDATE bots_petdata SET experience = @Experience, energy = @Energy, nutrition = @Nutrition, respect = @Respect
@@ -74,8 +84,17 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
         connection.Execute("""
             UPDATE user_roomvisits SET exit_timestamp = @exitedAt
             WHERE room_id = @roomId AND user_id = @userId ORDER BY entry_timestamp DESC, id DESC LIMIT 1
-            """, new { exitedAt = exitedAt.UtcDateTime, roomId, userId }, transaction);
-        connection.Execute("UPDATE rooms SET users_now = @usersNow WHERE id = @roomId LIMIT 1", new { usersNow, roomId }, transaction);
+            """, new
+        {
+            exitedAt = exitedAt.UtcDateTime,
+            roomId,
+            userId
+        }, transaction);
+        connection.Execute("UPDATE rooms SET users_now = @usersNow WHERE id = @roomId LIMIT 1", new
+        {
+            usersNow,
+            roomId
+        }, transaction);
         transaction.Commit();
     }
 }

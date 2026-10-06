@@ -55,6 +55,7 @@ public sealed class BadgeEquipmentTests
         var schema = "task_refactor_tests_badges_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(connectionString);
         server.Execute($"CREATE DATABASE `{schema}`");
+
         try
         {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema }.ConnectionString);
@@ -89,10 +90,26 @@ public sealed class BadgeEquipmentTests
 
     private sealed class RecordingEquipment : IBadgeEquipmentService
     {
-        public ImmutableArray<BadgeSlotSnapshot> Requested { get; private set; }
-        public int UserId { get; private set; }
-        public Task Set(GameClient session, ImmutableArray<BadgeSlotSnapshot> requested) { Requested = requested; return Task.CompletedTask; }
-        public Task Show(GameClient session, int userId) { UserId = userId; return Task.CompletedTask; }
+        public ImmutableArray<BadgeSlotSnapshot> Requested
+        {
+            get; private set;
+        }
+        public int UserId
+        {
+            get; private set;
+        }
+        public Task Set(GameClient session, ImmutableArray<BadgeSlotSnapshot> requested)
+        {
+            Requested = requested;
+
+            return Task.CompletedTask;
+        }
+        public Task Show(GameClient session, int userId)
+        {
+            UserId = userId;
+
+            return Task.CompletedTask;
+        }
     }
     public class UnusedClients : DispatchProxy
     {
@@ -100,7 +117,10 @@ public sealed class BadgeEquipmentTests
     }
     private sealed class Rewards : IRewardTrackManager
     {
-        public int Progressed { get; private set; }
+        public int Progressed
+        {
+            get; private set;
+        }
         public void Progress(GameClient session, string actionType, int amount = 1) => Progressed += amount;
         public void SendTracks(GameClient session) => throw new NotSupportedException();
         public Task Claim(GameClient session, string trackId, string prizeId) => throw new NotSupportedException();

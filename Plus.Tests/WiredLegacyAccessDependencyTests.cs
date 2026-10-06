@@ -32,6 +32,7 @@ public sealed class WiredLegacyAccessDependencyTests
             var userId = (int)arguments![0]!;
             var key = (string)arguments[1]!;
             checks.Add((userId, key));
+
             return allowed.Contains(userId);
         });
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));

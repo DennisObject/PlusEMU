@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users.Authentication;
+namespace Plus.HabboHotel.Users.Authentication;
 
 [Serializable]
 public class IncorrectLoginException : Exception

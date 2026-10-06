@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
@@ -22,14 +22,22 @@ public class BansComponent
     internal void LoadPrepared(IEnumerable<RoomBan> bans)
     {
         _ = RequireRoom();
+
         foreach (var ban in bans)
+        {
             _bans[ban.UserId] = ban.ExpiresAt;
+        }
     }
 
     public void Ban(RoomUser avatar, TimeSpan duration)
     {
         var room = RequireRoom();
-        if (avatar == null || room.CheckRights(avatar.GetClient(), true) || IsBanned(avatar.UserId)) return;
+
+        if (avatar == null || room.CheckRights(avatar.GetClient(), true) || IsBanned(avatar.UserId))
+        {
+            return;
+        }
+
         var expiresAt = _clock.GetUtcNow() + duration;
         _store.Save(room.Id, avatar.UserId, expiresAt);
         _bans[avatar.UserId] = expiresAt;
@@ -39,20 +47,37 @@ public class BansComponent
     public bool IsBanned(int userId)
     {
         var room = RequireRoom();
-        if (!_bans.TryGetValue(userId, out var expiresAt)) return false;
+
+        if (!_bans.TryGetValue(userId, out var expiresAt))
+        {
+            return false;
+        }
+
         var now = _clock.GetUtcNow();
-        if (expiresAt > now) return true;
+
+        if (expiresAt > now)
+        {
+            return true;
+        }
+
         _store.Delete(room.Id, userId);
         _bans.TryRemove(userId, out _);
+
         return false;
     }
 
     public bool Unban(int userId)
     {
         var room = RequireRoom();
-        if (!_bans.ContainsKey(userId)) return false;
+
+        if (!_bans.ContainsKey(userId))
+        {
+            return false;
+        }
+
         _store.Delete(room.Id, userId);
         _bans.TryRemove(userId, out _);
+
         return true;
     }
 

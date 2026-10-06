@@ -12,6 +12,7 @@ internal sealed class PickTicketEvent(IModeratorTicketService tickets) : IPacket
     {
         packet.ReadInt();
         tickets.Pick(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

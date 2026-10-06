@@ -31,32 +31,62 @@ public class Habbo
 {
     private IRoomVisitRecorder _roomVisits = null!;
     private IAchievementManager _roomAchievements = null!;
-    internal uint WiredRoomNetworkDestination { get; set; }
-    public HabboStats HabboStats { get; set; }
+    internal uint WiredRoomNetworkDestination
+    {
+        get; set;
+    }
+    public HabboStats HabboStats
+    {
+        get; set;
+    }
 
     private readonly DateTimeOffset? _cachedAt;
 
-    public GameClient Client { get; set; }
-    public ClothingComponent Clothing { get; set; }
+    public GameClient Client
+    {
+        get; set;
+    }
+    public ClothingComponent Clothing
+    {
+        get; set;
+    }
 
     private bool _disconnected;
     private bool _disposed;
     internal bool AccessClosed => WalletClosed || _disposed;
     internal event EventHandler? Disposed;
-    public EffectsComponent Effects { get; set; }
+    public EffectsComponent Effects
+    {
+        get; set;
+    }
 
     private bool _habboSaved;
 
-    public IgnoresComponent IgnoresComponent { get; set; }
-    public InventoryComponent Inventory { get; set; }
+    public IgnoresComponent IgnoresComponent
+    {
+        get; set;
+    }
+    public InventoryComponent Inventory
+    {
+        get; set;
+    }
 
-    public HabboMessenger Messenger { get; set; }
+    public HabboMessenger Messenger
+    {
+        get; set;
+    }
 
-    public NavigatorPreferences NavigatorPreferences { get; set; }
+    public NavigatorPreferences NavigatorPreferences
+    {
+        get; set;
+    }
     public UserAccess Access { get; set; } = UserAccess.Empty;
 
     [Obsolete("Should be deleted /refactored to standalone service")]
-    private ProcessComponent Process { get; set; }
+    private ProcessComponent Process
+    {
+        get; set;
+    }
 
     public ConcurrentDictionary<string, UserAchievement> Achievements = new();
     public ArrayList FavoriteRooms = new();
@@ -65,7 +95,10 @@ public class Habbo
     public List<uint> RatedRooms = new();
 
     // TODO @80O: Convert to uint
-    public int Id { get; set; }
+    public int Id
+    {
+        get; set;
+    }
 
     public string Username { get; set; } = string.Empty;
 
@@ -77,139 +110,334 @@ public class Habbo
 
     public string Gender { get; set; } = string.Empty;
 
-    internal DateTimeOffset? LastHabbiconTriggeredAt { get; set; }
+    internal DateTimeOffset? LastHabbiconTriggeredAt
+    {
+        get; set;
+    }
     internal object WalletSync { get; } = new();
     internal bool WalletClosed => _habboSaved || _disconnected;
 
-    public int Credits { get; set; }
+    public int Credits
+    {
+        get; set;
+    }
 
-    public int Duckets { get; set; }
+    public int Duckets
+    {
+        get; set;
+    }
 
-    public int Diamonds { get; set; }
+    public int Diamonds
+    {
+        get; set;
+    }
 
-    public int GotwPoints { get; set; }
+    public int GotwPoints
+    {
+        get; set;
+    }
 
-    public uint HomeRoom { get; set; }
+    public uint HomeRoom
+    {
+        get; set;
+    }
 
-    public DateTimeOffset? LastOnlineAt { get; set; }
-    public DateTimeOffset? AccountCreatedAt { get; set; }
+    public DateTimeOffset? LastOnlineAt
+    {
+        get; set;
+    }
+    public DateTimeOffset? AccountCreatedAt
+    {
+        get; set;
+    }
 
     public List<int> ClientVolume { get; set; } = new() { 0, 0, 0 };
 
-    public DateTimeOffset? LastNameChangedAt { get; set; }
+    public DateTimeOffset? LastNameChangedAt
+    {
+        get; set;
+    }
 
-    public string MachineId { get; set; }
+    public string MachineId
+    {
+        get; set;
+    }
 
-    public bool ChatPreference { get; set; }
+    public bool ChatPreference
+    {
+        get; set;
+    }
 
-    public bool FocusPreference { get; set; }
+    public bool FocusPreference
+    {
+        get; set;
+    }
 
     public bool AllowTradingRequests { get; set; } = true;
 
-    public bool AllowUserFollowing { get; set; }
+    public bool AllowUserFollowing
+    {
+        get; set;
+    }
 
-    public bool AllowMessengerInvites { get; set; }
+    public bool AllowMessengerInvites
+    {
+        get; set;
+    }
 
-    public bool AllowPetSpeech { get; set; }
+    public bool AllowPetSpeech
+    {
+        get; set;
+    }
 
-    public bool AllowBotSpeech { get; set; }
+    public bool AllowBotSpeech
+    {
+        get; set;
+    }
 
     public bool AllowConsoleMessages { get; set; } = true;
 
-    public bool AllowGifts { get; set; }
+    public bool AllowGifts
+    {
+        get; set;
+    }
 
-    public bool AllowMimic { get; set; }
+    public bool AllowMimic
+    {
+        get; set;
+    }
 
-    public bool ReceiveWhispers { get; set; }
+    public bool ReceiveWhispers
+    {
+        get; set;
+    }
 
-    public bool IgnorePublicWhispers { get; set; }
+    public bool IgnorePublicWhispers
+    {
+        get; set;
+    }
 
-    public FriendBarState FriendbarState { get; set; }
+    public FriendBarState FriendbarState
+    {
+        get; set;
+    }
 
-    public int TimeAfk { get; set; }
+    public int TimeAfk
+    {
+        get; set;
+    }
 
-    public bool DisableForcedEffects { get; set; }
+    public bool DisableForcedEffects
+    {
+        get; set;
+    }
 
-    public bool ChangingName { get; set; }
+    public bool ChangingName
+    {
+        get; set;
+    }
 
-    public DateTimeOffset? FloodUntil { get; set; }
+    public DateTimeOffset? FloodUntil
+    {
+        get; set;
+    }
 
-    public int BannedPhraseCount { get; set; }
+    public int BannedPhraseCount
+    {
+        get; set;
+    }
 
-    public bool RoomAuthOk { get; set; }
+    public bool RoomAuthOk
+    {
+        get; set;
+    }
 
-    public int QuestLastCompleted { get; set; }
+    public int QuestLastCompleted
+    {
+        get; set;
+    }
 
-    public int MessengerSpamCount { get; set; }
+    public int MessengerSpamCount
+    {
+        get; set;
+    }
 
-    public double MessengerSpamTime { get; set; }
+    public double MessengerSpamTime
+    {
+        get; set;
+    }
 
-    public double TimeMuted { get; set; }
+    public double TimeMuted
+    {
+        get; set;
+    }
 
-    public DateTimeOffset? TradingLockExpiresAt { get; set; }
+    public DateTimeOffset? TradingLockExpiresAt
+    {
+        get; set;
+    }
 
-    public DateTimeOffset SessionStartedAt { get; internal set; }
-    internal IUserPersistenceService Persistence { get; set; }
+    public DateTimeOffset SessionStartedAt
+    {
+        get; internal set;
+    }
+    internal IUserPersistenceService Persistence
+    {
+        get; set;
+    }
 
-    public uint TentId { get; set; }
+    public uint TentId
+    {
+        get; set;
+    }
 
-    public uint HopperId { get; set; }
+    public uint HopperId
+    {
+        get; set;
+    }
 
-    public bool IsHopping { get; set; }
+    public bool IsHopping
+    {
+        get; set;
+    }
 
-    public uint TeleporterId { get; set; }
+    public uint TeleporterId
+    {
+        get; set;
+    }
 
-    public bool IsTeleporting { get; set; }
+    public bool IsTeleporting
+    {
+        get; set;
+    }
 
-    public uint TeleportingRoomId { get; set; }
+    public uint TeleportingRoomId
+    {
+        get; set;
+    }
 
-    public uint PendingFollowRoomId { get; set; }
+    public uint PendingFollowRoomId
+    {
+        get; set;
+    }
 
-    public bool HasSpoken { get; set; }
+    public bool HasSpoken
+    {
+        get; set;
+    }
 
-    public DateTimeOffset? AdvertisingReportAvailableAt { get; set; }
+    public DateTimeOffset? AdvertisingReportAvailableAt
+    {
+        get; set;
+    }
 
-    public bool AdvertisingReported { get; set; }
+    public bool AdvertisingReported
+    {
+        get; set;
+    }
 
-    public bool AdvertisingReportedBlocked { get; set; }
+    public bool AdvertisingReportedBlocked
+    {
+        get; set;
+    }
 
-    public bool WiredInteraction { get; set; }
+    public bool WiredInteraction
+    {
+        get; set;
+    }
 
-    public int CustomBubbleId { get; set; }
+    public int CustomBubbleId
+    {
+        get; set;
+    }
 
-    public int FastfoodScore { get; set; }
+    public int FastfoodScore
+    {
+        get; set;
+    }
 
-    public int PetId { get; set; }
+    public int PetId
+    {
+        get; set;
+    }
 
-    public int CreditsUpdateTick { get; set; }
+    public int CreditsUpdateTick
+    {
+        get; set;
+    }
 
-    public ICommandBase ChatCommand { get; set; }
+    public ICommandBase ChatCommand
+    {
+        get; set;
+    }
 
     internal object GiftPurchaseSync { get; } = new();
-    public DateTimeOffset? LastGiftPurchasedAt { get; set; }
+    public DateTimeOffset? LastGiftPurchasedAt
+    {
+        get; set;
+    }
 
-    public DateTimeOffset? LastMottoUpdatedAt { get; set; }
+    public DateTimeOffset? LastMottoUpdatedAt
+    {
+        get; set;
+    }
 
-    public DateTimeOffset? LastClothingUpdatedAt { get; set; }
+    public DateTimeOffset? LastClothingUpdatedAt
+    {
+        get; set;
+    }
 
-    public int GiftPurchasingWarnings { get; set; }
+    public int GiftPurchasingWarnings
+    {
+        get; set;
+    }
 
-    public int MottoUpdateWarnings { get; set; }
+    public int MottoUpdateWarnings
+    {
+        get; set;
+    }
 
-    public int ClothingUpdateWarnings { get; set; }
+    public int ClothingUpdateWarnings
+    {
+        get; set;
+    }
 
-    public bool SessionGiftBlocked { get; set; }
+    public bool SessionGiftBlocked
+    {
+        get; set;
+    }
 
-    public bool SessionMottoBlocked { get; set; }
+    public bool SessionMottoBlocked
+    {
+        get; set;
+    }
 
-    public bool SessionClothingBlocked { get; set; }
+    public bool SessionClothingBlocked
+    {
+        get; set;
+    }
 
     [System.Diagnostics.CodeAnalysis.MemberNotNullWhen(true, nameof(CurrentRoom))]
     public bool InRoom => CurrentRoom != null;
 
-    public Room? CurrentRoom { get; set; }
+    public Room? CurrentRoom
+    {
+        get; set;
+    }
 
-    internal void Save() { lock (WalletSync) { if (_habboSaved) return; Persistence.Save(this, Access.Can(PermissionKeys.ModerationTickets)); _habboSaved = true; } }
+    internal void Save()
+    {
+        lock (WalletSync)
+        {
+            if (_habboSaved)
+            {
+                return;
+            }
+
+            Persistence.Save(this, Access.Can(PermissionKeys.ModerationTickets));
+            _habboSaved = true;
+        }
+    }
 
     public bool CacheExpiredAt(DateTimeOffset now) =>
         _cachedAt is not { } cachedAt || now - cachedAt >= TimeSpan.FromMinutes(30);
@@ -217,6 +445,7 @@ public class Habbo
     public bool InitProcess(IUserProcessFactory factory)
     {
         Process = factory.Create();
+
         return Process.Init(this);
     }
 
@@ -234,13 +463,18 @@ public class Habbo
     public event EventHandler? Disconnected;
     public void OnDisconnect()
     {
-        lock (WalletSync) OnDisconnectCore();
+        lock (WalletSync)
+        {
+            OnDisconnectCore();
+        }
     }
 
     private void OnDisconnectCore()
     {
         if (_disconnected)
+        {
             return;
+        }
 
         _disconnected = true;
         Disconnected?.Invoke(this, EventArgs.Empty);
@@ -248,9 +482,12 @@ public class Habbo
         try
         {
             if (Process != null)
+            {
                 Process.Dispose();
+            }
         }
         catch { }
+
         // Unregister only after the wallet is saved: until then staff grants see the session and wait on WalletSync,
         // afterwards they write the saved row directly.
         try
@@ -278,19 +515,31 @@ public class Habbo
     {
         _disposed = true;
         Disposed?.Invoke(this, EventArgs.Empty);
+
         if (InRoom && CurrentRoom != null)
+        {
             CurrentRoom.GetRoomUserManager().RemoveUserFromRoom(Client, false);
+        }
+
         if (Effects != null)
+        {
             Effects.Dispose();
+        }
+
         if (Clothing != null)
+        {
             Clothing.Dispose();
+        }
     }
 
     public void CheckCreditsTimer(Plus.Core.Settings.ISettingsManager settings)
     {
         lock (WalletSync)
         {
-            if (!WalletClosed) CheckCreditsTimerCore(settings);
+            if (!WalletClosed)
+            {
+                CheckCreditsTimerCore(settings);
+            }
         }
     }
 
@@ -299,6 +548,7 @@ public class Habbo
         try
         {
             CreditsUpdateTick--;
+
             if (CreditsUpdateTick <= 0)
             {
                 var creditUpdate = Convert.ToInt32(settings.TryGetValue("user.currency_scheduler.credit_reward"));
@@ -319,12 +569,14 @@ public class Habbo
     public int GetQuestProgress(int p)
     {
         Quests.TryGetValue(p, out var progress);
+
         return progress;
     }
 
     public UserAchievement? GetAchievementData(string p)
     {
         Achievements.TryGetValue(p, out var achievement);
+
         return achievement;
     }
 
@@ -338,51 +590,68 @@ public class Habbo
     public void PrepareRoom(uint id, string password)
     {
         if (Client == null || Client.GetHabbo() == null)
+        {
             return;
+        }
 
         if (Client.GetHabbo().InRoom)
         {
             var oldRoom = Client.GetHabbo().CurrentRoom;
             var users = oldRoom?.GetRoomUserManager();
+
             if (users != null)
+            {
                 users.RemoveUserFromRoom(Client, false);
+            }
             else
             {
                 Client.EndCameraContext();
                 Client.GetHabbo().CurrentRoom = null;
             }
         }
+
         if (Client.GetHabbo().IsTeleporting && Client.GetHabbo().TeleportingRoomId != id)
         {
             Client.Send(new CloseConnectionComposer());
+
             return;
         }
+
         if (!PlusEnvironment.Game.RoomManager.TryLoadRoom(id, out var room))
         {
             Client.Send(new CloseConnectionComposer());
+
             return;
         }
+
         if (room.IsCrashed)
         {
             Client.SendNotification("This room has crashed! :(");
             Client.Send(new CloseConnectionComposer());
+
             return;
         }
+
         if (room.GetRoomUserManager().UserCount >= room.UsersMax && !Access.Can(PermissionKeys.RoomEnterFull) && Client.GetHabbo().Id != room.OwnerId)
         {
             Client.Send(new CantConnectComposer(RoomConnectionError.Full));
             Client.Send(new CloseConnectionComposer());
+
             return;
         }
+
         if (!Access.Can(PermissionKeys.RoomBanOverride) && room.GetBans().IsBanned(Id))
         {
             RoomAuthOk = false;
             Client.GetHabbo().RoomAuthOk = false;
             Client.Send(new CantConnectComposer(RoomConnectionError.Banned));
             Client.Send(new CloseConnectionComposer());
+
             return;
         }
+
         Client.Send(new OpenConnectionComposer());
+
         if (!room.CheckRights(Client, true, true) && !Client.GetHabbo().IsTeleporting && !Client.GetHabbo().IsHopping)
         {
             if (room.Access == RoomAccess.Doorbell && !Access.Can(PermissionKeys.RoomEnterLocked))
@@ -391,36 +660,54 @@ public class Habbo
                 {
                     Client.Send(new DoorbellComposer(""));
                     room.SendPacket(new DoorbellComposer(Client.GetHabbo().Username), true);
+
                     return;
                 }
+
                 Client.Send(new FlatAccessDeniedComposer(""));
                 Client.Send(new CloseConnectionComposer());
+
                 return;
             }
+
             if (room.Access == RoomAccess.Password && !Access.Can(PermissionKeys.RoomEnterLocked))
             {
                 if (password.ToLower() != room.Password.ToLower() || string.IsNullOrWhiteSpace(password))
                 {
                     Client.Send(new GenericErrorComposer(GenericError.WrongRoomPassword));
                     Client.Send(new CloseConnectionComposer());
+
                     return;
                 }
             }
         }
+
         if (!EnterRoom(room))
+        {
             Client.Send(new CloseConnectionComposer());
+        }
     }
 
     public bool EnterRoom(Room room)
     {
         if (room == null)
+        {
             return false;
+        }
+
         Client.GetHabbo().CurrentRoom = room;
         Client.Send(new RoomReadyComposer(room.RoomId, room.ModelName));
+
         if (room.Wallpaper != "0.0")
+        {
             Client.Send(new RoomPropertyComposer("wallpaper", room.Wallpaper));
+        }
+
         if (room.Floor != "0.0")
+        {
             Client.Send(new RoomPropertyComposer("floor", room.Floor));
+        }
+
         Client.Send(new RoomPropertyComposer("landscape", room.Landscape));
         Client.Send(new RoomRatingComposer(room.Score, !(Client.GetHabbo().RatedRooms.Contains(room.RoomId) || room.OwnerId == Client.GetHabbo().Id)));
         _roomVisits.RecordEntry(Client.GetHabbo().Id, Client.GetHabbo().CurrentRoom.RoomId);
@@ -430,6 +717,7 @@ public class Habbo
             Client.GetHabbo().HabboStats.RoomVisits += 1;
             _roomAchievements.ProgressAchievement(Client, "ACH_RoomEntry", 1);
         }
+
         return true;
     }
 

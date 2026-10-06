@@ -25,11 +25,18 @@ public sealed class GnomePackageService(
     public void Open(Room room, GameClient session, uint itemId, string petName)
     {
         var habbo = session.GetHabbo();
+
         if (!ReferenceEquals(habbo.CurrentRoom, room))
+        {
             return;
+        }
+
         var item = room.GetRoomItemHandler().GetItem(itemId);
+
         if (item == null)
+        {
             return;
+        }
 
         lock (item)
         {
@@ -37,18 +44,24 @@ public sealed class GnomePackageService(
                 || item.IsTemporary || item.RoomId != room.RoomId
                 || item.OwnerId != habbo.Id
                 || item.Definition?.InteractionType != InteractionType.GnomeBox)
+            {
                 return;
+            }
+
             if (!PetUtility.CheckPetName(petName))
             {
                 session.Send(new CheckGnomeNameComposer(petName, PetPackageNameError.InvalidName));
+
                 return;
             }
 
             var pet = store.Open(new(item.Id, item.Definition.Id, habbo.Id, habbo.Username, room.RoomId,
                 item.GetX, item.GetY, item.GetZ, petName, RandomClothing(), clock.GetUtcNow()));
+
             if (pet == null)
             {
                 session.SendNotification("Oops, an error occoured. Please report this!");
+
                 return;
             }
 
@@ -61,6 +74,7 @@ public sealed class GnomePackageService(
             if (definitions.Items.TryGetValue(320, out var foodDefinition))
             {
                 var foodItem = items.CreateSingleItemNullable(foodDefinition, habbo, "", "");
+
                 if (foodItem != null)
                 {
                     var food = foodItem.ToInventoryItem();

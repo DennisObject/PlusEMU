@@ -20,6 +20,7 @@ internal class HousekeepingUnbanUserEvent : IPacketEvent
     {
         var userId = packet.ReadInt();
         _runner.Run(session, "user.unban", HousekeepingRights.Sanction, actor => _users.Unban(actor, userId));
+
         return Task.CompletedTask;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
 
@@ -10,6 +10,7 @@ internal sealed class SetTonerEvent(IRoomItemMetadataService metadata) : RoomPac
     {
         var request = new TonerSettingsRequest((uint)packet.ReadInt(), packet.ReadInt(), packet.ReadInt(), packet.ReadInt());
         metadata.SetToner(room, session, request);
+
         return Task.CompletedTask;
     }
 }

@@ -54,7 +54,11 @@ public sealed class ScalarCollectionFreezeTests
         var expected = new HabbiconTestSupport.RecordingPacket();
         expected.WriteInteger(1);
         HousekeepingRoomDetailComposer.WriteRoom(expected, room);
-        values[0] = room with { Name = "changed", UserCount = 0 };
+        values[0] = room with
+        {
+            Name = "changed",
+            UserCount = 0
+        };
         values.Clear();
         Recompose(composer, expected.Writes);
     }

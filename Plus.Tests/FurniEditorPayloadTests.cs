@@ -8,17 +8,46 @@ public class FurniEditorPayloadTests
 {
     private static FurniEditorItem Item() => new()
     {
-        Id = 5, SpriteId = 18, ItemName = "chair_polyfon", PublicName = "Dining Chair", Width = 1, Length = 1, StackHeight = 1, AllowSit = true,
-        InteractionType = "default", InteractionModesCount = 1, AllowGift = true, AllowTrade = true, VendingIds = "0", EffectId = 0, Multiheight = "0"
+        Id = 5,
+        SpriteId = 18,
+        ItemName = "chair_polyfon",
+        PublicName = "Dining Chair",
+        Width = 1,
+        Length = 1,
+        StackHeight = 1,
+        AllowSit = true,
+        InteractionType = "default",
+        InteractionModesCount = 1,
+        AllowGift = true,
+        AllowTrade = true,
+        VendingIds = "0",
+        EffectId = 0,
+        Multiheight = "0"
     };
 
     // The editor sends its whole form (FurniEditorEditView EditField keys) on every save.
     private static Dictionary<string, object> Form() => new()
     {
-        ["width"] = 1, ["length"] = 1, ["stackHeight"] = 1.0, ["allowStack"] = false, ["allowWalk"] = false, ["allowSit"] = true, ["allowLay"] = false,
-        ["allowGift"] = true, ["allowTrade"] = true, ["allowRecycle"] = false, ["allowMarketplaceSell"] = false, ["allowInventoryStack"] = false,
-        ["interactionType"] = "default", ["interactionModesCount"] = 1, ["customparams"] = "", ["vendingIds"] = "0", ["multiheight"] = "0",
-        ["effectIdMale"] = 0, ["effectIdFemale"] = 0, ["clothingOnWalk"] = ""
+        ["width"] = 1,
+        ["length"] = 1,
+        ["stackHeight"] = 1.0,
+        ["allowStack"] = false,
+        ["allowWalk"] = false,
+        ["allowSit"] = true,
+        ["allowLay"] = false,
+        ["allowGift"] = true,
+        ["allowTrade"] = true,
+        ["allowRecycle"] = false,
+        ["allowMarketplaceSell"] = false,
+        ["allowInventoryStack"] = false,
+        ["interactionType"] = "default",
+        ["interactionModesCount"] = 1,
+        ["customparams"] = "",
+        ["vendingIds"] = "0",
+        ["multiheight"] = "0",
+        ["effectIdMale"] = 0,
+        ["effectIdFemale"] = 0,
+        ["clothingOnWalk"] = ""
     };
 
     private static (List<FurniEditorColumnChange> Changes, string? Error) Validate(Dictionary<string, object> form) =>
@@ -89,9 +118,18 @@ public class FurniEditorPayloadTests
     [Fact]
     public void PublicNameIsBoundedAndPlain()
     {
-        Assert.Equal("public_name", Validate(new() { ["publicName"] = "Chair" }).Changes.Single().Column);
-        Assert.NotNull(Validate(new() { ["publicName"] = new string('a', 57) }).Error);
-        Assert.NotNull(Validate(new() { ["publicName"] = "a\nb" }).Error);
+        Assert.Equal("public_name", Validate(new()
+        {
+            ["publicName"] = "Chair"
+        }).Changes.Single().Column);
+        Assert.NotNull(Validate(new()
+        {
+            ["publicName"] = new string('a', 57)
+        }).Error);
+        Assert.NotNull(Validate(new()
+        {
+            ["publicName"] = "a\nb"
+        }).Error);
     }
 
     [Fact]

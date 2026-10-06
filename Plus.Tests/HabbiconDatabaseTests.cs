@@ -13,7 +13,9 @@ public sealed class HabbiconDatabaseFactAttribute : FactAttribute
     public HabbiconDatabaseFactAttribute()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_HABBICONS_TEST_CONNECTION_STRING")))
+        {
             Skip = "Set PLUS_HABBICONS_TEST_CONNECTION_STRING to a disposable task_habicons_tests_ database.";
+        }
     }
 }
 
@@ -33,7 +35,11 @@ public class HabbiconDatabaseTests
     {
         lock (PristineImportLock)
         {
-            if (_importedConnectionString == connectionString) return;
+            if (_importedConnectionString == connectionString)
+            {
+                return;
+            }
+
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
             connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")), commandTimeout: 900);
@@ -46,11 +52,16 @@ public class HabbiconDatabaseTests
         string connectionString = Environment.GetEnvironmentVariable("PLUS_HABBICONS_TEST_CONNECTION_STRING")!;
         _database = new(connectionString);
         var builder = new MySqlConnectionStringBuilder(connectionString);
+
         if (!builder.Database.StartsWith("task_habicons_tests_", StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("Habicon database tests require a disposable task_habicons_tests_ schema.");
+        }
+
         ImportPristineSchemaOnce(connectionString);
         Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/14_Habbicons.sql")));
         Execute("DELETE FROM users_habbicons; DELETE FROM users WHERE id = 910001");
+
         using (var connection = _database.Connection())
         {
             bool hasTicket = connection.QuerySingle<int>("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'auth_ticket'") > 0;
@@ -58,6 +69,7 @@ public class HabbiconDatabaseTests
                 ? "INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (910001, 'habicon_tests', '', 100, 20, 20)"
                 : "INSERT INTO users (id, username, credits, activity_points, vip_points) VALUES (910001, 'habicon_tests', 100, 20, 20)");
         }
+
         Execute("UPDATE habbicons SET available = TRUE, default_owned = (id = 28), cost_credits = IF(id IN (28,38,49,60,71), 0, 5), cost_points = 0, points_type = 0");
         Execute("UPDATE habbicon_collections SET cost_credits = 40, cost_points = 0, points_type = 0");
         _service = new(_database, _clock);
@@ -131,7 +143,12 @@ public class HabbiconDatabaseTests
     {
         _service.Change(UserId, HabbiconAction.BuyCollection, 6);
         _service.Change(UserId, HabbiconAction.Favorite, 61);
-        for (int id = 61; id <= 70; id++) Assert.True(_service.Use(UserId, id));
+
+        for (int id = 61; id <= 70; id++)
+        {
+            Assert.True(_service.Use(UserId, id));
+        }
+
         Assert.True(_service.Use(UserId, 28));
         Assert.True(_service.Use(UserId, 61));
         Assert.Equal(new[] { 61, 28, 70, 69, 68, 67, 66, 65, 64, 63 },
@@ -238,8 +255,15 @@ public class HabbiconDatabaseTests
         {
             try
             {
-                if (index % 2 == 0) _service.Change(habbo, HabbiconAction.Buy, 61);
-                else _service.BuyCatalog(habbo, 61, 5, 0, 0);
+                if (index % 2 == 0)
+                {
+                    _service.Change(habbo, HabbiconAction.Buy, 61);
+                }
+                else
+                {
+                    _service.BuyCatalog(habbo, 61, 5, 0, 0);
+                }
+
                 return true;
             }
             catch (HabbiconRejected rejected) { Assert.Equal(4, rejected.Code); return false; }
@@ -257,6 +281,7 @@ public class HabbiconDatabaseTests
     {
         var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20 };
         Execute("CREATE TRIGGER habicon_test_failure BEFORE INSERT ON users_habbicons FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'injected ownership failure'");
+
         try
         {
             Assert.Throws<MySqlException>(() => _service.Change(habbo, HabbiconAction.Buy, 61));
@@ -285,8 +310,14 @@ public class HabbiconDatabaseTests
     [HabbiconDatabaseFact]
     public async Task RconAwardWaitsForCommittedPurchaseAndShutdownRejectsFurtherWalletChanges()
     {
-        var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20,
-            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        var habbo = new Habbo
+        {
+            Id = UserId,
+            Credits = 100,
+            Duckets = 20,
+            Diamonds = 20,
+            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+        };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
         clients.RegisterClient(client, habbo.Id, "habicon_tests");
@@ -298,12 +329,14 @@ public class HabbiconDatabaseTests
         var purchase = Task.Run(() => _service.Change(habbo, HabbiconAction.Buy, 61));
         Assert.True(enteredPurchase.Wait(TimeSpan.FromSeconds(5)));
         var award = Task.Run(async () => { startedAward.Set(); return await give.TryExecute(new[] { UserId.ToString(), "credits", "10" }); });
+
         try
         {
             Assert.True(startedAward.Wait(TimeSpan.FromSeconds(5)));
             Assert.False(award.Wait(TimeSpan.FromMilliseconds(100))); // It cannot read the pre-purchase wallet.
         }
         finally { releasePurchase.Set(); }
+
         await purchase;
         Assert.True(await award);
         _database.BeforeConnection = null;
@@ -329,11 +362,25 @@ public class HabbiconDatabaseTests
         Execute("CREATE TABLE IF NOT EXISTS chatlogs_console (id INT PRIMARY KEY AUTO_INCREMENT, from_id INT NOT NULL, to_id INT NOT NULL, message TEXT NOT NULL, timestamp DATETIME(6) NOT NULL) ENGINE=InnoDB");
         Execute("CREATE TABLE IF NOT EXISTS messenger_offline_messages (id INT PRIMARY KEY AUTO_INCREMENT, from_id INT NOT NULL, to_id INT NOT NULL, message VARCHAR(255) NOT NULL, timestamp DATETIME(6) NOT NULL) ENGINE=InnoDB");
         Execute("DELETE FROM chatlogs_console WHERE from_id = 910001; DELETE FROM messenger_offline_messages WHERE from_id = 910001");
-        var sender = new Habbo { Id = UserId, Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(
-            new() { [910002] = new() { Id = 910002 } }, new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
-        var recipient = new Habbo { Id = 910002, AllowConsoleMessages = true,
+        var sender = new Habbo
+        {
+            Id = UserId,
+            Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(
+            new()
+            {
+                [910002] = new()
+                {
+                    Id = 910002
+                }
+            }, new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch))
+        };
+        var recipient = new Habbo
+        {
+            Id = 910002,
+            AllowConsoleMessages = true,
             IgnoresComponent = new Plus.HabboHotel.Users.Ignores.IgnoresComponent(new()),
-            Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(new() { [UserId] = new() { Id = UserId } }, new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch)) };
+            Messenger = new Plus.HabboHotel.Users.Messenger.HabboMessenger(new() { [UserId] = new() { Id = UserId } }, new(), new(), new FixedTimeProvider(FixedTimeProvider.Epoch))
+        };
         var (client, sent) = HabbiconTestSupport.Client(sender);
         var (target, received) = HabbiconTestSupport.Client(recipient);
         var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
@@ -349,7 +396,8 @@ public class HabbiconDatabaseTests
         Assert.Equal(new[] { 28 }, _service.Load(UserId).Recent);
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM chatlogs_console WHERE from_id = 910001"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_offline_messages WHERE from_id = 910001"));
-        sent.Clear(); received.Clear();
+        sent.Clear();
+        received.Clear();
         await handler.Parse(client, HabbiconTestSupport.Incoming(0, 910002, 8, 4, "61", ""));
         Assert.Equal(Plus.Communication.Packets.Outgoing.ServerPacketHeader.MessengerMessageFailedComposer, Assert.Single(sent).Header);
         Assert.Empty(received);
@@ -365,8 +413,14 @@ public class HabbiconDatabaseTests
     [HabbiconDatabaseFact]
     public async Task RconSyncCannotPersistThePrePurchaseBalanceAfterCommit()
     {
-        var habbo = new Habbo { Id = UserId, Credits = 100, Duckets = 20, Diamonds = 20,
-            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        var habbo = new Habbo
+        {
+            Id = UserId,
+            Credits = 100,
+            Duckets = 20,
+            Diamonds = 20,
+            HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+        };
         var (client, _) = HabbiconTestSupport.Client(habbo);
         var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
         clients.RegisterClient(client, habbo.Id, "habicon_tests");
@@ -378,12 +432,14 @@ public class HabbiconDatabaseTests
         var purchase = Task.Run(() => _service.Change(habbo, HabbiconAction.Buy, 61));
         Assert.True(enteredPurchase.Wait(TimeSpan.FromSeconds(5)));
         var syncing = Task.Run(async () => { startedSync.Set(); return await sync.TryExecute(new[] { UserId.ToString(), "credits" }); });
+
         try
         {
             Assert.True(startedSync.Wait(TimeSpan.FromSeconds(5)));
             Assert.False(syncing.Wait(TimeSpan.FromMilliseconds(100)));
         }
         finally { releasePurchase.Set(); }
+
         await purchase;
         Assert.True(await syncing);
         _database.BeforeConnection = null;
@@ -400,16 +456,27 @@ public class HabbiconDatabaseTests
     {
         Execute("CREATE TABLE IF NOT EXISTS items (id INT PRIMARY KEY, user_id INT NOT NULL, base_item INT NOT NULL, extra_data TEXT NOT NULL) ENGINE=InnoDB");
         Execute("DELETE FROM items WHERE id IN (910005,910006); INSERT INTO items (id,user_id,base_item,extra_data) VALUES (910005,910002,1,''),(910006,910002,1,'')");
-        var habbo = new Habbo { Id = UserId, Credits = 100,
+        var habbo = new Habbo
+        {
+            Id = UserId,
+            Credits = 100,
             HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0),
             Inventory = new Plus.HabboHotel.Users.Inventory.InventoryComponent
             {
                 Furniture = new Plus.HabboHotel.Users.Inventory.Furniture.FurnitureInventoryComponent(Array.Empty<Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem>(), Array.Empty<Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem>())
-            } };
+            }
+        };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
-        var voucher = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem { Id = 910005,
-            Definition = new Plus.HabboHotel.Items.ItemDefinition { InteractionType = Plus.HabboHotel.Items.InteractionType.Exchange,
-                BehaviourData = 10, Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor } };
+        var voucher = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem
+        {
+            Id = 910005,
+            Definition = new Plus.HabboHotel.Items.ItemDefinition
+            {
+                InteractionType = Plus.HabboHotel.Items.InteractionType.Exchange,
+                BehaviourData = 10,
+                Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor
+            }
+        };
         var store = (Plus.HabboHotel.Rooms.ITradeStore)new Plus.HabboHotel.Rooms.RoomTradingComponent(_database, _clock, TestRoomSettings.Empty);
         // Live wallet redeems exactly once and consumes the voucher.
         Plus.HabboHotel.Rooms.Trading.Trade.ReceiveTradedItem(client, voucher, true, store);
@@ -434,26 +501,43 @@ public class HabbiconDatabaseTests
         habbo.Save();
     }
 
-    private void Execute(string sql) { using var connection = _database.Connection(); connection.Execute(sql); }
-    private int Scalar(string sql) { using var connection = _database.Connection(); return connection.QuerySingle<int>(sql); }
+    private void Execute(string sql)
+    {
+        using var connection = _database.Connection();
+        connection.Execute(sql);
+    }
+    private int Scalar(string sql)
+    {
+        using var connection = _database.Connection();
+
+        return connection.QuerySingle<int>(sql);
+    }
 
     internal sealed class TestDatabase(string connectionString) : IDatabase
     {
         public bool IsConnected() => true;
-        public Action? BeforeConnection { get; set; }
+        public Action? BeforeConnection
+        {
+            get; set;
+        }
         public IDbConnection Connection()
         {
             BeforeConnection?.Invoke();
+
             return new MySqlConnection(connectionString);
         }
     }
 
     private sealed class CountingTimeProvider(DateTimeOffset now) : TimeProvider
     {
-        public int Calls { get; private set; }
+        public int Calls
+        {
+            get; private set;
+        }
         public override DateTimeOffset GetUtcNow()
         {
             Calls++;
+
             return now;
         }
 

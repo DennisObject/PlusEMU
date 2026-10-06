@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Permissions;
 using Plus.Communication.Packets;
 using Plus.HabboHotel.Users.Messenger;
@@ -7,8 +7,14 @@ namespace Plus.HabboHotel.GameClients;
 
 public interface IGameClientManager
 {
-    int Count { get; }
-    ICollection<GameClient> GetClients { get; }
+    int Count
+    {
+        get;
+    }
+    ICollection<GameClient> GetClients
+    {
+        get;
+    }
     void OnCycle();
     GameClient? GetClientByUserId(int userId);
     GameClient? GetClientByUsername(string username);

@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Chat.Filter;
+namespace Plus.HabboHotel.Rooms.Chat.Filter;
 
 internal sealed class WordFilter
 {
@@ -10,11 +10,23 @@ internal sealed class WordFilter
         IsBannable = bannable;
     }
 
-    public string Word { get; }
+    public string Word
+    {
+        get;
+    }
 
-    public string Replacement { get; }
+    public string Replacement
+    {
+        get;
+    }
 
-    public bool IsStrict { get; }
+    public bool IsStrict
+    {
+        get;
+    }
 
-    public bool IsBannable { get; }
+    public bool IsBannable
+    {
+        get;
+    }
 }

@@ -74,6 +74,7 @@ public sealed class SsoLoginService : ISsoLoginService
     public async Task Login(GameClient session, string sso)
     {
         var error = await _authenticate.AuthenticateUsingSSO(session, sso);
+
         if (error == null)
         {
             session.Send(new AuthenticationOkComposer());
@@ -98,18 +99,29 @@ public sealed class SsoLoginService : ISsoLoginService
             foreach (var role in session.GetHabbo().Access.Roles)
             {
                 if (!string.IsNullOrEmpty(role.BadgeCode) && !session.GetHabbo().Inventory.Badges.HasBadge(role.BadgeCode))
+                {
                     await _badgeManager.GiveBadge(session.GetHabbo(), role.BadgeCode);
+                }
             }
+
             if (!_cacheManager.ContainsUser(session.GetHabbo().Id))
+            {
                 _cacheManager.GenerateUser(session.GetHabbo().Id);
+            }
+
             _clubLifecycle.Normalize(session.GetHabbo());
             session.GetHabbo().InitProcess(_processFactory);
+
             if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
             {
                 _tickets.SendInitialization(session);
             }
+
             if (_settingsManager.TryGetValue("user.login.message.enabled") == "1")
+            {
                 session.Send(new MOTDNotificationComposer(_languageManager.TryGetValue("user.login.message")));
+            }
+
             await _rewardManager.CheckRewards(session);
             _rewardTracks.SendTracks(session);
         }

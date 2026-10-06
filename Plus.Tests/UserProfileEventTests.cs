@@ -63,8 +63,13 @@ public sealed class UserProfileEventTests
     public void MottoThrottleUsesUtcAndIncludesTheTwoSecondBoundary()
     {
         var clock = new FixedClock();
-        var habbo = new Habbo { Id = 7, Motto = "original", MottoUpdateWarnings = 24,
-            LastMottoUpdatedAt = clock.GetUtcNow().AddSeconds(-2).ToOffset(TimeSpan.FromHours(2)) };
+        var habbo = new Habbo
+        {
+            Id = 7,
+            Motto = "original",
+            MottoUpdateWarnings = 24,
+            LastMottoUpdatedAt = clock.GetUtcNow().AddSeconds(-2).ToOffset(TimeSpan.FromHours(2))
+        };
         var (session, sent) = HabbiconTestSupport.Client(habbo);
         var profiles = new UserProfileService(null!, null!, null!, null!, new FailingDatabase(), clock, null!, null!, new AccountSessionGate());
         profiles.ChangeMotto(session, "changed");
@@ -108,22 +113,60 @@ public sealed class UserProfileEventTests
 
     private sealed class RecordingProfiles : IUserProfileService
     {
-        public FigureUpdateRequest? Figure { get; private set; }
-        public string? Motto { get; private set; }
-        public bool Focus { get; private set; }
-        public int Bubble { get; private set; }
-        public int FriendBar { get; private set; }
-        public bool Invites { get; private set; }
-        public SoundVolumeRequest? Volumes { get; private set; }
-        public void ShowUserObject(GameClient session) { }
+        public FigureUpdateRequest? Figure
+        {
+            get; private set;
+        }
+        public string? Motto
+        {
+            get; private set;
+        }
+        public bool Focus
+        {
+            get; private set;
+        }
+        public int Bubble
+        {
+            get; private set;
+        }
+        public int FriendBar
+        {
+            get; private set;
+        }
+        public bool Invites
+        {
+            get; private set;
+        }
+        public SoundVolumeRequest? Volumes
+        {
+            get; private set;
+        }
+        public void ShowUserObject(GameClient session)
+        {
+        }
         public Task SetChatPreference(GameClient session, bool enabled) => Task.CompletedTask;
-        public Task SetMessengerInvitePreference(GameClient session, bool enabled) { Invites = enabled; return Task.CompletedTask; }
-        public Task SetSoundVolumes(GameClient session, SoundVolumeRequest request) { Volumes = request; return Task.CompletedTask; }
+        public Task SetMessengerInvitePreference(GameClient session, bool enabled)
+        {
+            Invites = enabled;
+
+            return Task.CompletedTask;
+        }
+        public Task SetSoundVolumes(GameClient session, SoundVolumeRequest request)
+        {
+            Volumes = request;
+
+            return Task.CompletedTask;
+        }
         public void UpdateFigure(GameClient session, FigureUpdateRequest request) => Figure = request;
         public void ApplyMannequin(GameClient session, FigureUpdateRequest request) => Figure = request;
         public void ChangeMotto(GameClient session, string motto) => Motto = motto;
         public void SetFocusPreference(GameClient session, bool enabled) => Focus = enabled;
-        public Task SetChatStylePreference(GameClient session, int bubbleId) { Bubble = bubbleId; return Task.CompletedTask; }
+        public Task SetChatStylePreference(GameClient session, int bubbleId)
+        {
+            Bubble = bubbleId;
+
+            return Task.CompletedTask;
+        }
         public void SetFriendBarState(GameClient session, int state) => FriendBar = state;
     }
 }

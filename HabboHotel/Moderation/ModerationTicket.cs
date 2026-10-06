@@ -1,9 +1,12 @@
-﻿using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Moderation;
 
-public enum ModerationTicketStatus { Open = 1, Assigned = 2, ClosedOrAssignedElsewhere = 3 }
+public enum ModerationTicketStatus
+{
+    Open = 1, Assigned = 2, ClosedOrAssignedElsewhere = 3
+}
 
 public class ModerationTicket
 {
@@ -25,26 +28,68 @@ public class ModerationTicket
         ReportedChats = reportedChats.ToList();
     }
 
-    public int Id { get; set; }
-    public int Type { get; set; }
-    public int Category { get; set; }
-    public DateTimeOffset CreatedAt { get; set; }
-    public int Priority { get; set; }
-    public bool Answered { get; set; }
-    public Habbo Sender { get; set; }
-    public Habbo? Reported { get; set; }
-    public Habbo? Moderator { get; set; }
-    public string Issue { get; set; }
-    public RoomData? Room { get; set; }
+    public int Id
+    {
+        get; set;
+    }
+    public int Type
+    {
+        get; set;
+    }
+    public int Category
+    {
+        get; set;
+    }
+    public DateTimeOffset CreatedAt
+    {
+        get; set;
+    }
+    public int Priority
+    {
+        get; set;
+    }
+    public bool Answered
+    {
+        get; set;
+    }
+    public Habbo Sender
+    {
+        get; set;
+    }
+    public Habbo? Reported
+    {
+        get; set;
+    }
+    public Habbo? Moderator
+    {
+        get; set;
+    }
+    public string Issue
+    {
+        get; set;
+    }
+    public RoomData? Room
+    {
+        get; set;
+    }
 
     public ModerationTicketStatus GetStatus(int id)
     {
         if (Moderator == null)
+        {
             return ModerationTicketStatus.Open;
+        }
+
         if (Moderator.Id == id && !Answered)
+        {
             return ModerationTicketStatus.Assigned;
+        }
+
         if (Answered)
+        {
             return ModerationTicketStatus.ClosedOrAssignedElsewhere;
+        }
+
         return ModerationTicketStatus.ClosedOrAssignedElsewhere;
     }
 }

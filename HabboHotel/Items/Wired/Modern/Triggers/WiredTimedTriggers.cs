@@ -15,32 +15,58 @@ public sealed class WiredTimedTriggers
         long nowMs, long elapsedMs, long resetEpoch)
     {
         var units = config.IntParams.IsDefaultOrEmpty ? 1 : config.IntParams[0];
-        if (units < 1) return false;
+
+        if (units < 1)
+        {
+            return false;
+        }
+
         if (name is "wf_trg_at_given_time" or "wf_trg_at_time_long")
         {
             // Approved legacy contract: at-time-long is one-shot in five-second units.
             var targetMs = units * (name == "wf_trg_at_time_long" ? 5000L : 500L);
+
             if (elapsedMs < targetMs || _firedEpoch.TryGetValue(boxId, out var fired) && fired == resetEpoch)
+            {
                 return false;
+            }
+
             _firedEpoch[boxId] = resetEpoch;
+
             return true;
         }
+
         var stepMs = name switch
         {
-            "wf_trg_periodically" => 500L, "wf_trg_period_short" => 50L,
-            "wf_trg_period_long" => 5000L, _ => 0L
+            "wf_trg_periodically" => 500L,
+            "wf_trg_period_short" => 50L,
+            "wf_trg_period_long" => 5000L,
+            _ => 0L
         };
-        if (stepMs == 0) return false;
+
+        if (stepMs == 0)
+        {
+            return false;
+        }
+
         var intervalMs = units * stepMs;
+
         if (!_nextPeriodicAt.TryGetValue(boxId, out var next))
         {
             _nextPeriodicAt[boxId] = nowMs + intervalMs;
+
             return false;
         }
-        if (nowMs < next) return false;
+
+        if (nowMs < next)
+        {
+            return false;
+        }
+
         // Deadlines stay on the grid set when the box armed: a late poll does not push the next one back, and
         // deadlines the room slept through are skipped rather than fired in a burst.
         _nextPeriodicAt[boxId] = next + ((nowMs - next) / intervalMs + 1) * intervalMs;
+
         return true;
     }
 

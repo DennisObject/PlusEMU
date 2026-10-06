@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
@@ -31,15 +31,20 @@ public class TelevisionManager : ITelevisionManager, IStartable
     private async Task LoadAsync()
     {
         if (Televisions.Count > 0)
+        {
             Televisions.Clear();
+        }
+
         using (var connection = _database.Connection())
         {
             var rows = await connection.QueryAsync<TelevisionRow>("SELECT `id`, `youtube_id` AS YoutubeId, `title`, `description`, `enabled` FROM `items_youtube` ORDER BY `id` DESC");
+
             foreach (var row in rows)
             {
                 Televisions.Add(row.Id, new(row.Id, row.YoutubeId, row.Title, row.Description, row.Enabled));
             }
         }
+
         _logger.LogInformation("Television Items -> LOADED");
     }
 
@@ -48,7 +53,10 @@ public class TelevisionManager : ITelevisionManager, IStartable
     public bool TryGet(int itemId, [NotNullWhen(true)] out TelevisionItem? televisionItem)
     {
         if (Televisions.TryGetValue(itemId, out televisionItem))
+        {
             return true;
+        }
+
         return false;
     }
 }

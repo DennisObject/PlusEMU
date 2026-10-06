@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
 using Dapper;
@@ -46,6 +46,7 @@ public sealed class Database : IDatabase
         {
             return false;
         }
+
         return true;
     }
 

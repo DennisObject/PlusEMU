@@ -13,20 +13,26 @@ public class PathfindingSettingsTests
     {
         var manager = new Settings(new());
         var defaults = PathfindingSettings.Load(manager);
-        Assert.Equal(PathfindingEngine.Legacy, defaults.Engine); Assert.Equal(1.5, defaults.EffectiveMaxUp);
-        Assert.Null(defaults.EffectiveMaxDown); Assert.True(defaults.StacktoolLegacyCollision);
-        Assert.Equal(0.05, defaults.ShadowLogSample); Assert.Null(defaults.MaxExpansionsPerSearch);
+        Assert.Equal(PathfindingEngine.Legacy, defaults.Engine);
+        Assert.Equal(1.5, defaults.EffectiveMaxUp);
+        Assert.Null(defaults.EffectiveMaxDown);
+        Assert.True(defaults.StacktoolLegacyCollision);
+        Assert.Equal(0.05, defaults.ShadowLogSample);
+        Assert.Null(defaults.MaxExpansionsPerSearch);
         manager.Values["pathfinding.profile"] = "habbo2013";
         var historical = PathfindingSettings.Load(manager);
-        Assert.Equal(1.25, historical.EffectiveMaxUp); Assert.Equal(4, historical.EffectiveMaxDown);
+        Assert.Equal(1.25, historical.EffectiveMaxUp);
+        Assert.Equal(4, historical.EffectiveMaxDown);
         manager.Values["pathfinding.max_step_up"] = "0";
         manager.Values["pathfinding.max_step_down"] = "none";
         manager.Values["pathfinding.stacktool_legacy_collision"] = "0";
         manager.Values["pathfinding.shadow_log_sample"] = "0";
         manager.Values["pathfinding.engine"] = "shadow";
         var overrides = PathfindingSettings.Load(manager);
-        Assert.Equal(0, overrides.EffectiveMaxUp); Assert.Null(overrides.EffectiveMaxDown);
-        Assert.False(overrides.StacktoolLegacyCollision); Assert.Equal(0, overrides.ShadowLogSample);
+        Assert.Equal(0, overrides.EffectiveMaxUp);
+        Assert.Null(overrides.EffectiveMaxDown);
+        Assert.False(overrides.StacktoolLegacyCollision);
+        Assert.Equal(0, overrides.ShadowLogSample);
         Assert.Equal(PathfindingEngine.Shadow, overrides.Engine);
         Assert.Equal(1.25, historical.EffectiveMaxUp); // Room snapshots don't follow reloads.
     }
@@ -36,11 +42,15 @@ public class PathfindingSettingsTests
     {
         var settings = PathfindingSettings.Load(new Settings(new()
         {
-            ["pathfinding.max_step_up"] = "NaN", ["pathfinding.max_step_down"] = "Infinity",
-            ["pathfinding.max_expansions_per_search"] = "-1", ["pathfinding.shadow_log_sample"] = "2"
+            ["pathfinding.max_step_up"] = "NaN",
+            ["pathfinding.max_step_down"] = "Infinity",
+            ["pathfinding.max_expansions_per_search"] = "-1",
+            ["pathfinding.shadow_log_sample"] = "2"
         }));
-        Assert.Equal(1.5, settings.EffectiveMaxUp); Assert.Null(settings.EffectiveMaxDown);
-        Assert.Null(settings.MaxExpansionsPerSearch); Assert.Equal(1, settings.ShadowLogSample);
+        Assert.Equal(1.5, settings.EffectiveMaxUp);
+        Assert.Null(settings.EffectiveMaxDown);
+        Assert.Null(settings.MaxExpansionsPerSearch);
+        Assert.Equal(1, settings.ShadowLogSample);
     }
 
     [Fact]
@@ -72,7 +82,10 @@ public class PathfindingSettingsTests
     [InlineData("x", 2)]
     public void MaxSurfacesPerTileIsClampedToTheSurfaceKeyLimit(string value, int expected)
     {
-        var settings = PathfindingSettings.Load(new Settings(new() { ["pathfinding.max_surfaces_per_tile"] = value }));
+        var settings = PathfindingSettings.Load(new Settings(new()
+        {
+            ["pathfinding.max_surfaces_per_tile"] = value
+        }));
         Assert.Equal(expected, settings.MaxSurfacesPerTile);
         Assert.False(settings.LayeringEnabled);
     }

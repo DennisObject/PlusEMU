@@ -23,7 +23,9 @@ public sealed class EditorDatabaseFactAttribute : FactAttribute
     public EditorDatabaseFactAttribute()
     {
         if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
+        {
             Skip = $"Set {Variable} to a disposable task_editor_tests_ schema holding the PlusEMU schema including the role-based access-control update.";
+        }
     }
 }
 
@@ -40,11 +42,19 @@ public sealed class EditorDatabaseTests : IDisposable
     public EditorDatabaseTests()
     {
         var builder = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) ?? "Database=none") { AllowUserVariables = true };
+
         if (!builder.Database.StartsWith("task_editor_tests_", StringComparison.Ordinal))
+        {
             throw new InvalidOperationException("Editor database tests require a disposable task_editor_tests_ schema.");
+        }
+
         _database = new(builder.ConnectionString);
+
         if (Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) == null)
+        {
             return;
+        }
+
         Cleanup();
         var catalogManager = DispatchProxy.Create<ICatalogManager, CatalogProxy>();
         ((CatalogProxy)(object)catalogManager).Pages = _cache;
@@ -54,7 +64,10 @@ public sealed class EditorDatabaseTests : IDisposable
     public void Dispose()
     {
         if (Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) != null)
+        {
             Cleanup();
+        }
+
         Directory.Delete(_directory, recursive: true);
     }
 
@@ -92,9 +105,15 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.Contains("\"actorName\":\"editor\"", answer.ReadString());
         using var connection = _database.Connection();
         Assert.Equal(($"{Tag} page", "head", "text"), connection.QuerySingle<(string, string, string)>(
-            "SELECT caption, page_strings_1, page_strings_2 FROM catalog_pages WHERE id = @pageId", new { pageId }));
+            "SELECT caption, page_strings_1, page_strings_2 FROM catalog_pages WHERE id = @pageId", new
+            {
+                pageId
+            }));
         var audit = connection.QuerySingle<(int, string, string, string?, string)>(
-            "SELECT user_id, action, operation, before_json, after_json FROM catalog_admin_log WHERE id = @id", new { id = revision + 1 });
+            "SELECT user_id, action, operation, before_json, after_json FROM catalog_admin_log WHERE id = @id", new
+            {
+                id = revision + 1
+            });
         Assert.Equal((staff.Id, "createPage", "CREATE", (string?)null), (audit.Item1, audit.Item2, audit.Item3, audit.Item4));
         Assert.Contains($"\"caption\":\"{Tag} page\"", audit.Item5);
         Assert.Equal(["Schedule"], _refresher.Calls);
@@ -107,10 +126,17 @@ public sealed class EditorDatabaseTests : IDisposable
         var parent = CreatePage(staff, "parent", -1);
         var child = CreatePage(staff, "child", parent.PageId);
 
-        var stale = _catalog.SavePage(staff, Envelope(Revision() - 1), child with { Caption = "late" });
+        var stale = _catalog.SavePage(staff, Envelope(Revision() - 1), child with
+        {
+            Caption = "late"
+        });
         Assert.Equal((false, CatalogAdminCodes.StaleRevision), (stale.Success, stale.Code));
 
-        var invalid = _catalog.SavePage(staff, Envelope(Revision()), child with { Caption = "", RequiredPermission = EditorTestSupport.RestrictedPagePermission });
+        var invalid = _catalog.SavePage(staff, Envelope(Revision()), child with
+        {
+            Caption = "",
+            RequiredPermission = EditorTestSupport.RestrictedPagePermission
+        });
         Assert.Equal((false, CatalogAdminCodes.ValidationFailed), (invalid.Success, invalid.Code));
         Assert.Equal(["caption", "requiredPermission"], invalid.FieldErrors.Keys.Order());
 
@@ -118,12 +144,20 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.False(cycle.Success);
 
         int before = Revision();
-        var saved = _catalog.SavePage(staff, Envelope(before), child with { Caption = $"{Tag} renamed", PageText2 = "second" });
+        var saved = _catalog.SavePage(staff, Envelope(before), child with
+        {
+            Caption = $"{Tag} renamed",
+            PageText2 = "second"
+        });
         Assert.True(saved.Success);
         Assert.Equal(before + 1, saved.Revision);
+
         using (var connection = _database.Connection())
         {
-            var (beforeJson, afterJson) = connection.QuerySingle<(string, string)>("SELECT before_json, after_json FROM catalog_admin_log WHERE id = @id", new { id = saved.Revision });
+            var (beforeJson, afterJson) = connection.QuerySingle<(string, string)>("SELECT before_json, after_json FROM catalog_admin_log WHERE id = @id", new
+            {
+                id = saved.Revision
+            });
             Assert.Contains($"\"caption\":\"{Tag} child\"", beforeJson);
             Assert.Contains($"\"caption\":\"{Tag} renamed\"", afterJson);
         }
@@ -155,8 +189,16 @@ public sealed class EditorDatabaseTests : IDisposable
         var created = Revision();
         Assert.Equal(CatalogAdminCodes.Unsupported, _catalog.Undo(staff, Envelope(Revision()), created).Code);
 
-        var first = _catalog.SavePage(staff, Envelope(Revision()), page with { Caption = $"{Tag} first", PageText1 = "one" });
-        var second = _catalog.SavePage(staff, Envelope(Revision()), page with { Caption = $"{Tag} second", PageText1 = "two" });
+        var first = _catalog.SavePage(staff, Envelope(Revision()), page with
+        {
+            Caption = $"{Tag} first",
+            PageText1 = "one"
+        });
+        var second = _catalog.SavePage(staff, Envelope(Revision()), page with
+        {
+            Caption = $"{Tag} second",
+            PageText1 = "two"
+        });
         Assert.Equal(CatalogAdminCodes.Conflict, _catalog.Undo(staff, Envelope(Revision()), first.Revision).Code);
         Assert.Equal(CatalogAdminCodes.StaleRevision, _catalog.Undo(staff, Envelope(Revision() - 1), second.Revision).Code);
 
@@ -172,7 +214,10 @@ public sealed class EditorDatabaseTests : IDisposable
         var offer = _catalog.CreateOffer(staff, Envelope(Revision()),
             new CatalogAdminOffer("NORMAL", 0, furni.ToString(), page.PageId, $"{Tag} undo offer", 3, 0, 0, 1, 0, -1, -1, 0, "", true, false));
         var offerId = offer.EntityId;
-        var saved = _catalog.SaveOffer(staff, Envelope(Revision()), Assert.IsType<CatalogAdminOffer>(offer.Entity) with { CostCredits = 99 });
+        var saved = _catalog.SaveOffer(staff, Envelope(Revision()), Assert.IsType<CatalogAdminOffer>(offer.Entity) with
+        {
+            CostCredits = 99
+        });
         Assert.True(saved.Success, saved.Message);
         var offerUndo = _catalog.Undo(staff, Envelope(Revision()), saved.Revision);
         Assert.True(offerUndo.Success, offerUndo.Message);
@@ -192,8 +237,15 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.True(created.Success, created.Message);
         var createdOffer = Assert.IsType<CatalogAdminOffer>(created.Entity);
         Assert.Equal((created.EntityId, 2, 5), (createdOffer.OfferId, createdOffer.CostPoints, createdOffer.PointsType));
-        Assert.True(_catalog.CreateOffer(staff, Envelope(Revision()), offer with { PageId = second.PageId }).Success);
-        Assert.True(_catalog.CreateOffer(staff, Envelope(Revision()), offer with { OfferIdClient = -1, CatalogName = $"{Tag} plain" }).Success);
+        Assert.True(_catalog.CreateOffer(staff, Envelope(Revision()), offer with
+        {
+            PageId = second.PageId
+        }).Success);
+        Assert.True(_catalog.CreateOffer(staff, Envelope(Revision()), offer with
+        {
+            OfferIdClient = -1,
+            CatalogName = $"{Tag} plain"
+        }).Success);
         Reload();
 
         // Both pages sell official offer 900001: a session that neither looks at a page nor loaded it cannot name one.
@@ -202,9 +254,14 @@ public sealed class EditorDatabaseTests : IDisposable
         var details = _catalog.LoadOffer(staff, 900001);
         Assert.Equal((second.PageId, 900001, 2, 5), (details.PageId, details.OfferId, details.CostPoints, details.PointsType));
 
-        var saved = _catalog.SaveOffer(staff, Envelope(Revision()), details with { CostCredits = 9, CatalogName = $"{Tag} saved" });
+        var saved = _catalog.SaveOffer(staff, Envelope(Revision()), details with
+        {
+            CostCredits = 9,
+            CatalogName = $"{Tag} saved"
+        });
         Assert.True(saved.Success, saved.Message);
         Assert.Equal(900001, saved.EntityId);
+
         using (var connection = _database.Connection())
         {
             var names = connection.Query<(int, string, int)>("SELECT page_id, catalog_name, cost_credits FROM catalog_items WHERE offer_id = 900001 ORDER BY page_id").ToList();
@@ -295,7 +352,12 @@ public sealed class EditorDatabaseTests : IDisposable
         var refused = _catalog.MovePage(staff, Envelope(Revision()), ordinary.PageId, parent.PageId, 0);
         Assert.Equal((false, CatalogAdminCodes.Forbidden), (refused.Success, refused.Code));
         Assert.Equal(0, Scalar<int>("SELECT order_num FROM catalog_pages WHERE id = @id", hidden.PageId));
-        var underHidden = _catalog.CreatePage(staff, Envelope(Revision()), ordinary with { PageId = 0, ParentId = hidden.PageId, CaptionSave = $"{Tag}_under" });
+        var underHidden = _catalog.CreatePage(staff, Envelope(Revision()), ordinary with
+        {
+            PageId = 0,
+            ParentId = hidden.PageId,
+            CaptionSave = $"{Tag}_under"
+        });
         Assert.Equal("You cannot use a page requiring a permission you do not have as parent.", underHidden.FieldErrors["parentId"]);
 
         var a = CreatePage(owner, "move_a", parent.PageId, order: 2);
@@ -346,8 +408,12 @@ public sealed class EditorDatabaseTests : IDisposable
         var hiddenPage = CreatePage(owner, "refs_hidden", -1, requiredPermission: EditorTestSupport.RestrictedPagePermission);
         var visiblePage = CreatePage(owner, "refs_visible", -1);
         var furni = InsertFurniture($"{Tag}_refs", 990011);
+
         foreach (var page in new[] { hiddenPage, visiblePage })
+        {
             Assert.True(_catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, page.PageId, -1)).Success);
+        }
+
         var editor = Furni(Path.Combine(_directory, "none.json"));
 
         Assert.Equal([visiblePage.PageId], editor.Detail(staff, furni).CatalogRefs.Select(reference => reference.PageId));
@@ -376,13 +442,19 @@ public sealed class EditorDatabaseTests : IDisposable
         _catalog.RecordViewedPage(owner, pageA.PageId);
         var form = _catalog.LoadOffer(owner, 900091);
         _catalog.RecordViewedPage(owner, pageB.PageId);
-        var saved = _catalog.SaveOffer(owner, Envelope(Revision()), form with { CostCredits = 77 });
+        var saved = _catalog.SaveOffer(owner, Envelope(Revision()), form with
+        {
+            CostCredits = 77
+        });
         Assert.True(saved.Success, saved.Message);
         Assert.Equal((77, 3), (Scalar<int>("SELECT cost_credits FROM catalog_items WHERE id = @id", RowOf(createdA)),
             Scalar<int>("SELECT cost_credits FROM catalog_items WHERE id = @id", RowOf(createdB))));
 
         var otherSession = EditorTestSupport.Staff();
-        Assert.Equal(CatalogAdminCodes.Conflict, _catalog.SaveOffer(otherSession, Envelope(Revision()), form with { CostCredits = 1 }).Code);
+        Assert.Equal(CatalogAdminCodes.Conflict, _catalog.SaveOffer(otherSession, Envelope(Revision()), form with
+        {
+            CostCredits = 1
+        }).Code);
     }
 
     [EditorDatabaseFact]
@@ -462,6 +534,7 @@ public sealed class EditorDatabaseTests : IDisposable
     private FurniEditorService Furni(string furnidataPath)
     {
         var clients = DispatchProxy.Create<IGameClientManager, CatalogProxy>();
+
         return new FurniEditorService(_database, new FurnidataStore(Options.Create(new FurniEditorConfiguration { FurnidataPath = furnidataPath })),
             DispatchProxy.Create<IFurniEditorTextImporter, EditorPermissionTests.Recorder>(), (ICatalogCacheRefresher)(object)_refresher, clients,
             NullLogger<FurniEditorService>.Instance, TimeProvider.System);
@@ -473,6 +546,7 @@ public sealed class EditorDatabaseTests : IDisposable
             "", "", "", "", "", "", "", 0, "");
         var outcome = _catalog.CreatePage(staff, Envelope(Revision()), page);
         Assert.True(outcome.Success, outcome.Message);
+
         return Assert.IsType<CatalogAdminPage>(outcome.Entity);
     }
 
@@ -481,9 +555,13 @@ public sealed class EditorDatabaseTests : IDisposable
     {
         using var connection = _database.Connection();
         var pages = connection.Query<CatalogPage>("SELECT id AS Id, parent_id AS ParentId, enabled = 1 AS Enabled, visible = 1 AS Visible, required_permission AS RequiredPermission FROM catalog_pages WHERE page_link LIKE 'e3test%' ORDER BY id").ToList();
+
         foreach (var page in pages)
+        {
             page.Items = connection.Query<CatalogItem>("SELECT id AS Id, offer_id AS OfferId, page_id AS PageId FROM catalog_items WHERE page_id = @Id ORDER BY order_num, id", page)
                 .ToDictionary(item => item.Id);
+        }
+
         new CatalogOfferIndex().Build(pages);
         _cache.Clear();
         _cache.AddRange(pages);
@@ -515,12 +593,17 @@ public sealed class EditorDatabaseTests : IDisposable
     private T Scalar<T>(string sql, int id)
     {
         using var connection = _database.Connection();
-        return connection.QuerySingle<T>(sql, new { id });
+
+        return connection.QuerySingle<T>(sql, new
+        {
+            id
+        });
     }
 
     private List<T> Query<T>(string sql)
     {
         using var connection = _database.Connection();
+
         return connection.Query<T>(sql).ToList();
     }
 

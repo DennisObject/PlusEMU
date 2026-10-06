@@ -48,7 +48,11 @@ public class GroupManagementTests : IDisposable
         _databaseField.SetValue(null, _database);
         var clients = Proxy<IGameClientManager>((method, args) =>
         {
-            if (method == "GetClientByUserId") return _clients.GetValueOrDefault((int)args[0]!);
+            if (method == "GetClientByUserId")
+            {
+                return _clients.GetValueOrDefault((int)args[0]!);
+            }
+
             throw new InvalidOperationException(method);
         });
         _gameField.SetValue(null, Proxy<IGame>((method, _) => method == "get_ClientManager" ? clients : throw new InvalidOperationException(method)));
@@ -80,12 +84,14 @@ public class GroupManagementTests : IDisposable
         reader.ReadBool();
         reader.ReadString();
         var parts = reader.ReadInt();
+
         for (var i = 0; i < parts; i++)
         {
             reader.ReadInt();
             reader.ReadInt();
             reader.ReadInt();
         }
+
         Assert.Equal(group.Badge, reader.ReadString());
         Assert.Equal(group.MemberCount, reader.ReadInt());
         Assert.True(reader.ReadBool());
@@ -133,6 +139,7 @@ public class GroupManagementTests : IDisposable
         {
             Assert.Equal("TryGetRoom", method);
             args[1] = null;
+
             return false;
         });
         var settings = new GroupSettingsService(GroupSource(group), rooms, GroupInfo(), new GroupSettingsStore(_database));
@@ -153,12 +160,18 @@ public class GroupManagementTests : IDisposable
     public async Task MemberPagesAreFourteenAndPendingStaysWithAdmins()
     {
         var group = NewGroup(hasForum: false);
-        for (var id = 2; id <= 21; id++) group.PublishJoin(id);
+
+        for (var id = 2; id <= 21; id++)
+        {
+            group.PublishJoin(id);
+        }
+
         group.Type = GroupType.Locked;
         group.PublishJoin(30);
         var cache = Proxy<ICacheManager>((method, args) =>
         {
             var id = (int)args[0]!;
+
             return new CachedUser { Id = id, Username = id == 30 ? "Pending" : "Member" + id, Look = "hr-1" };
         });
         var handler = new GetGroupMembersEvent(new GroupPresentationService(GroupSource(group), cache, Proxy<IRoomDataLoader>((_, _) => throw new NotSupportedException()), Proxy<ISettingsManager>((_, _) => throw new NotSupportedException()), GroupInfo()));
@@ -204,13 +217,17 @@ public class GroupManagementTests : IDisposable
             if (method == "TryGetGroup")
             {
                 args[1] = group;
+
                 return true;
             }
+
             if (method == "DeleteGroup")
             {
                 deleted.Add((int)args[0]!);
+
                 return null;
             }
+
             throw new InvalidOperationException(method);
         });
         var rooms = Proxy<IRoomManager>((method, args) =>
@@ -218,13 +235,17 @@ public class GroupManagementTests : IDisposable
             if (method == "TryGetRoom")
             {
                 args[1] = null;
+
                 return false;
             }
+
             if (method == "UnloadRoom")
             {
                 unloaded = true;
+
                 return null;
             }
+
             throw new InvalidOperationException(method);
         });
         var settings = Proxy<ISettingsManager>((_, _) => "50");
@@ -330,6 +351,7 @@ public class GroupManagementTests : IDisposable
         {
             Assert.Equal("TryGetRoom", method);
             args[1] = room;
+
             return true;
         });
         var (owner, sent) = Client(Owner());
@@ -412,6 +434,7 @@ public class GroupManagementTests : IDisposable
         {
             Assert.Equal("TryGetRoom", method);
             args[1] = null;
+
             return false;
         });
         await new RemoveGroupMemberEvent(Removal(GroupSource(group), rooms)).Parse(client, Packet(group.Id, 11));
@@ -445,6 +468,7 @@ public class GroupManagementTests : IDisposable
     {
         Assert.Equal("TryGetRoom", method);
         args[1] = null;
+
         return false;
     });
 
@@ -453,6 +477,7 @@ public class GroupManagementTests : IDisposable
         var group = new Group(9, "Crew", "desc", "b01014s02024", 42, 7,
             DateTimeOffset.FromUnixTimeSeconds(1_700_000_000), 0, 3, 4, 0,
             hasForum, GroupMembershipSnapshot.Empty);
+
         return group;
     }
 
@@ -465,13 +490,19 @@ public class GroupManagementTests : IDisposable
         var result = HabbiconTestSupport.Client(habbo);
         habbo.Access ??= Rights();
         _clients[habbo.Id] = result.Client;
+
         return result;
     }
 
     private static IGroupManager GroupSource(Group group) => Proxy<IGroupManager>((method, args) =>
     {
-        if (method != "TryGetGroup") throw new InvalidOperationException(method);
+        if (method != "TryGetGroup")
+        {
+            throw new InvalidOperationException(method);
+        }
+
         args[1] = group;
+
         return true;
     });
 
@@ -489,6 +520,7 @@ public class GroupManagementTests : IDisposable
         var clients = Proxy<IGameClientManager>((method, args) =>
             method == "GetClientByUserId" ? _clients.GetValueOrDefault((int)args[0]!) : throw new InvalidOperationException(method));
         var cache = Proxy<ICacheManager>((method, _) => method == "GenerateUser" ? null : throw new InvalidOperationException(method));
+
         return new GroupInfoSnapshotService(clients, cache, _database,
             Proxy<IRoomDataLoader>((method, args) =>
             {
@@ -497,6 +529,7 @@ public class GroupManagementTests : IDisposable
                 data.Id = (uint)args[0]!;
                 data.Name = "HQ";
                 args[1] = data;
+
                 return true;
             }));
     }
@@ -517,6 +550,7 @@ public class GroupManagementTests : IDisposable
         var total = reader.ReadInt();
         var count = reader.ReadInt();
         var names = new List<string>();
+
         for (var i = 0; i < count; i++)
         {
             reader.ReadInt();
@@ -525,16 +559,19 @@ public class GroupManagementTests : IDisposable
             reader.ReadString();
             reader.ReadString();
         }
+
         reader.ReadBool();
         var pageSize = reader.ReadInt();
         var page = reader.ReadInt();
         var level = reader.ReadInt();
+
         return new MembersPage(total, count, pageSize, page, level, names);
     }
 
     private static FlashIncomingPacket Packet(params object[] values)
     {
         using var stream = new MemoryStream();
+
         foreach (var value in values)
         {
             if (value is int number)
@@ -555,15 +592,24 @@ public class GroupManagementTests : IDisposable
                 stream.Write(length);
                 stream.Write(raw);
             }
-            else throw new InvalidOperationException(value.GetType().Name);
+            else
+            {
+                throw new InvalidOperationException(value.GetType().Name);
+            }
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
     private static string RepoRevisions()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Plus Emulator.csproj"))) dir = dir.Parent;
+
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Plus Emulator.csproj")))
+        {
+            dir = dir.Parent;
+        }
+
         return Path.Combine(dir!.FullName, "Resources", "Revisions");
     }
 
@@ -571,6 +617,7 @@ public class GroupManagementTests : IDisposable
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).Call = call;
+
         return proxy;
     }
 
@@ -605,6 +652,7 @@ public class GroupManagementTests : IDisposable
         {
             var value = BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(_offset));
             _offset += 4;
+
             return value;
         }
         public bool ReadBool() => body[_offset++] == 1;
@@ -614,6 +662,7 @@ public class GroupManagementTests : IDisposable
             _offset += 2;
             var value = Encoding.UTF8.GetString(body, _offset, length);
             _offset += length;
+
             return value;
         }
     }
@@ -621,12 +670,24 @@ public class GroupManagementTests : IDisposable
     internal sealed class RecordingDatabase : IDatabase
     {
         public List<string> Statements { get; } = new();
-        public int Scalar { get; set; }
-        public string? Username { get; set; }
-        public DataTable? OfferRows { get; set; }
+        public int Scalar
+        {
+            get; set;
+        }
+        public string? Username
+        {
+            get; set;
+        }
+        public DataTable? OfferRows
+        {
+            get; set;
+        }
         public List<string> Transactions { get; } = new();
         public List<(string Sql, Dictionary<string, object?> Parameters)> Writes { get; } = new();
-        public bool FailInsert { get; set; }
+        public bool FailInsert
+        {
+            get; set;
+        }
         public List<(string Sql, Dictionary<string, object?> Parameters)> OfferQueries { get; } = new();
         public bool IsConnected() => true;
         public IDbConnection Connection() => new RecordingConnection(this);
@@ -642,11 +703,15 @@ public class GroupManagementTests : IDisposable
         public ConnectionState State { get; private set; } = ConnectionState.Open;
         public IDbTransaction BeginTransaction() => new RecordingTransaction(this, database);
         public IDbTransaction BeginTransaction(IsolationLevel il) => new RecordingTransaction(this, database, il);
-        public void ChangeDatabase(string databaseName) { }
+        public void ChangeDatabase(string databaseName)
+        {
+        }
         public void Close() => State = ConnectionState.Closed;
         public IDbCommand CreateCommand() => new RecordingCommand(database);
         public void Open() => State = ConnectionState.Open;
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class RecordingTransaction(IDbConnection connection, RecordingDatabase database, IsolationLevel isolationLevel = IsolationLevel.Unspecified) : IDbTransaction
@@ -661,65 +726,111 @@ public class GroupManagementTests : IDisposable
     private sealed class RecordingCommand(RecordingDatabase database) : IDbCommand
     {
         public string CommandText { get; set; } = "";
-        public int CommandTimeout { get; set; }
+        public int CommandTimeout
+        {
+            get; set;
+        }
         public CommandType CommandType { get; set; } = CommandType.Text;
-        public IDbConnection? Connection { get; set; }
+        public IDbConnection? Connection
+        {
+            get; set;
+        }
         public IDataParameterCollection Parameters { get; } = new RecordingParameters();
-        public IDbTransaction? Transaction { get; set; }
-        public UpdateRowSource UpdatedRowSource { get; set; }
-        public void Cancel() { }
+        public IDbTransaction? Transaction
+        {
+            get; set;
+        }
+        public UpdateRowSource UpdatedRowSource
+        {
+            get; set;
+        }
+        public void Cancel()
+        {
+        }
         public IDbDataParameter CreateParameter() => new RecordingParameter();
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
         public int ExecuteNonQuery()
         {
             database.Statements.Add(CommandText);
             database.Writes.Add((CommandText, Parameters.Cast<RecordingParameter>().ToDictionary(parameter => parameter.ParameterName, parameter => parameter.Value)));
+
             if (database.FailInsert && CommandText.Contains("INSERT INTO `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
+            {
                 throw new InvalidOperationException("forced insert failure");
+            }
+
             // A claim delete removes one row per expanded id, as the database would for rows that exist.
             if (CommandText.StartsWith("DELETE FROM `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
+            {
                 return Parameters.Cast<RecordingParameter>().Count(parameter => parameter.ParameterName.Contains("offerIds", StringComparison.Ordinal));
+            }
+
             return 1;
         }
         public IDataReader ExecuteReader() => ExecuteReader(CommandBehavior.Default);
         public IDataReader ExecuteReader(CommandBehavior behavior)
         {
             database.Statements.Add(CommandText);
+
             if (CommandText.Contains("FROM `catalog_marketplace_offers`", StringComparison.OrdinalIgnoreCase))
             {
                 database.OfferQueries.Add((CommandText, Parameters.Cast<RecordingParameter>().ToDictionary(parameter => parameter.ParameterName, parameter => parameter.Value)));
+
                 return (database.OfferRows ?? new DataTable()).CreateDataReader();
             }
+
             if (CommandText.Contains("FROM group_memberships", StringComparison.OrdinalIgnoreCase))
+            {
                 return EmptyReader(("UserId", typeof(int)), ("Rank", typeof(int)));
+            }
+
             if (CommandText.Contains("FROM group_requests", StringComparison.OrdinalIgnoreCase))
+            {
                 return EmptyReader(("user_id", typeof(int)));
+            }
+
             if (CommandText.Contains("SELECT username FROM users", StringComparison.OrdinalIgnoreCase))
+            {
                 return database.Username is { } name ? SingleValueReader("username", name) : EmptyReader(("username", typeof(string)));
+            }
+
             if (CommandText.Contains("INNER JOIN `rooms`", StringComparison.OrdinalIgnoreCase))
+            {
                 return EmptyReader();
+            }
+
             return new ScalarReader(database.Scalar);
         }
         public object? ExecuteScalar()
         {
             database.Statements.Add(CommandText);
+
             return database.Scalar;
         }
-        public void Prepare() { }
+        public void Prepare()
+        {
+        }
 
         private static IDataReader SingleValueReader(string column, string value)
         {
             var table = new DataTable();
             table.Columns.Add(column, typeof(string));
             table.Rows.Add(value);
+
             return table.CreateDataReader();
         }
 
         private static IDataReader EmptyReader(params (string Name, Type Type)[] columns)
         {
             var table = new DataTable();
+
             foreach (var column in columns)
+            {
                 table.Columns.Add(column.Name, column.Type);
+            }
+
             return table.CreateDataReader();
         }
     }
@@ -732,8 +843,13 @@ public class GroupManagementTests : IDisposable
         public object this[string name] => value;
         public bool Read()
         {
-            if (_consumed) return false;
+            if (_consumed)
+            {
+                return false;
+            }
+
             _consumed = true;
+
             return true;
         }
         public object GetValue(int i) => value;
@@ -747,11 +863,16 @@ public class GroupManagementTests : IDisposable
         public int GetValues(object[] values)
         {
             values[0] = value;
+
             return 1;
         }
         public bool NextResult() => false;
-        public void Close() { }
-        public void Dispose() { }
+        public void Close()
+        {
+        }
+        public void Dispose()
+        {
+        }
         public int Depth => 0;
         public bool IsClosed => false;
         public int RecordsAffected => 1;
@@ -785,16 +906,37 @@ public class GroupManagementTests : IDisposable
 
     private sealed class RecordingParameter : IDbDataParameter
     {
-        public byte Precision { get; set; }
-        public byte Scale { get; set; }
-        public int Size { get; set; }
-        public DbType DbType { get; set; }
-        public ParameterDirection Direction { get; set; }
+        public byte Precision
+        {
+            get; set;
+        }
+        public byte Scale
+        {
+            get; set;
+        }
+        public int Size
+        {
+            get; set;
+        }
+        public DbType DbType
+        {
+            get; set;
+        }
+        public ParameterDirection Direction
+        {
+            get; set;
+        }
         public bool IsNullable => true;
         public string ParameterName { get; set; } = "";
         public string SourceColumn { get; set; } = "";
-        public DataRowVersion SourceVersion { get; set; }
-        public object? Value { get; set; }
+        public DataRowVersion SourceVersion
+        {
+            get; set;
+        }
+        public object? Value
+        {
+            get; set;
+        }
     }
 
     public void Dispose()

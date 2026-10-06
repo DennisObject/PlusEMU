@@ -12,8 +12,12 @@ internal static class CatalogAdminResponder
     public static void Send(GameClient session, string action, CatalogAdminEnvelope envelope, CatalogAdminOutcome outcome)
     {
         CatalogAdminSmartSave? smartSave = null;
+
         if (SmartSaveActions.Contains(action) && envelope.OperationId.Length is > 0 and <= CatalogAdminEnvelope.MaxOperationIdLength)
+        {
             smartSave = new(envelope.OperationId, action, outcome, session.GetHabbo().Username);
+        }
+
         session.Send(new CatalogAdminResultComposer(outcome.Success, outcome.Message, smartSave));
     }
 

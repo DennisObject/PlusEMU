@@ -18,9 +18,12 @@ public class CatalogAdminReorderOffersEvent : IPacketEvent
         if (CatalogAdminPacketReader.ReorderOffers(packet) is not { } reorder)
         {
             session.Send(new CatalogAdminResultComposer(false, $"Reorder 1 to {CatalogAdminPacketReader.MaxReorderCount} offers at a time."));
+
             return Task.CompletedTask;
         }
+
         CatalogAdminResponder.Send(session, "reorder", reorder.Envelope, _catalogAdmin.ReorderOffers(session.GetHabbo(), reorder.Envelope, reorder.Orders));
+
         return Task.CompletedTask;
     }
 }

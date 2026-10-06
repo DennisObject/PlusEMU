@@ -15,20 +15,49 @@ public sealed class HorseRidingService(IPetLocale petLocale) : IHorseRidingServi
     {
         // The packet's room is the one the user occupies now. A stale reference from before a move is ignored.
         var habbo = session.GetHabbo();
-        if (!ReferenceEquals(habbo.CurrentRoom, room)) return;
+
+        if (!ReferenceEquals(habbo.CurrentRoom, room))
+        {
+            return;
+        }
+
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
-        if (user == null) return;
-        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet) || pet.PetData == null) return;
-        if (!MayRide(session, user, pet)) return;
-        if (room.UsesV2Movement) room.GetGameMap().Navigation!.Mounts.Ride(user, pet, mount, petLocale);
-        else RideLegacy(room, session, user, pet, mount);
+
+        if (user == null)
+        {
+            return;
+        }
+
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet) || pet.PetData == null)
+        {
+            return;
+        }
+
+        if (!MayRide(session, user, pet))
+        {
+            return;
+        }
+
+        if (room.UsesV2Movement)
+        {
+            room.GetGameMap().Navigation!.Mounts.Ride(user, pet, mount, petLocale);
+        }
+        else
+        {
+            RideLegacy(room, session, user, pet, mount);
+        }
     }
 
     private static bool MayRide(GameClient session, RoomUser user, RoomUser pet)
     {
-        if (pet.PetData.AnyoneCanRide != 0 || pet.PetData.OwnerId == user.UserId) return true;
+        if (pet.PetData.AnyoneCanRide != 0 || pet.PetData.OwnerId == user.UserId)
+        {
+            return true;
+        }
+
         session.SendNotification(
             "You are unable to ride this horse.\nThe owner of the pet has not selected for anyone to ride it.");
+
         return false;
     }
 
@@ -42,11 +71,16 @@ public sealed class HorseRidingService(IPetLocale petLocale) : IHorseRidingServi
                 pet.Chat(speech2[Random.Shared.Next(0, speech2.Length)]);
             }
             else if (user.RidingHorse)
+            {
                 session.SendNotification("You are already riding a horse!");
+            }
             else
             {
                 if (pet.Statusses.Count > 0)
+                {
                     pet.Statusses.Clear();
+                }
+
                 var newX2 = user.X;
                 var newY2 = user.Y;
                 room.SendPacket(room.GetRoomItemHandler().UpdateUserOnRoller(pet, new(newX2, newY2), 0, room.GetGameMap().SqAbsoluteHeight(newX2, newY2)));
@@ -84,8 +118,11 @@ public sealed class HorseRidingService(IPetLocale petLocale) : IHorseRidingServi
                 pet.UpdateNeeded = true;
             }
             else
+            {
                 session.SendNotification("Could not dismount this horse - You are not riding it!");
+            }
         }
+
         room.SendPacket(new PetHorseFigureInformationComposer(PetAppearanceSnapshots.Horse(pet)));
     }
 }

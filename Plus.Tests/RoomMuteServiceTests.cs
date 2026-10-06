@@ -104,9 +104,15 @@ public sealed class RoomMuteServiceTests
         clock.Now = Now.AddMinutes(5);
         var descriptor = WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_mute_triggerer");
         var modern = new WiredModernAction(world.Room, item, descriptor, new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, clock, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
-        Assert.True(modern.TryValidateConfiguration(new() { IntParams = [3, 0] }, out var config, out var error), error);
+        Assert.True(modern.TryValidateConfiguration(new()
+        {
+            IntParams = [3, 0]
+        }, out var config, out var error), error);
         modern.ApplyConfiguration(config);
-        var context = new WiredRuntimeContext(world.Room, new(WiredEventKind.Use) { Actor = world.TargetUser },
+        var context = new WiredRuntimeContext(world.Room, new(WiredEventKind.Use)
+        {
+            Actor = world.TargetUser
+        },
             new(() => Array.Empty<Item>(), () => new[] { world.TargetUser }), new NoWiredOperations());
         context.Triggering.UserIds.Add(world.TargetUser.VirtualId);
 
@@ -119,13 +125,34 @@ public sealed class RoomMuteServiceTests
 
     private sealed class World
     {
-        public Room Room { get; }
-        public Habbo Owner { get; }
-        public Habbo Target { get; }
-        public GameClient OwnerClient { get; }
-        public GameClient TargetClient { get; }
-        public RoomUser TargetUser { get; }
-        public List<(uint Header, byte[] Payload)> TargetPackets { get; }
+        public Room Room
+        {
+            get;
+        }
+        public Habbo Owner
+        {
+            get;
+        }
+        public Habbo Target
+        {
+            get;
+        }
+        public GameClient OwnerClient
+        {
+            get;
+        }
+        public GameClient TargetClient
+        {
+            get;
+        }
+        public RoomUser TargetUser
+        {
+            get;
+        }
+        public List<(uint Header, byte[] Payload)> TargetPackets
+        {
+            get;
+        }
 
         public World(TimeProvider clock)
         {
@@ -134,8 +161,20 @@ public sealed class RoomMuteServiceTests
             Room.UsersWithRights = [];
             Room.Type = "private";
             Room.OwnerName = "owner";
-            Owner = new() { Id = 7, Username = "owner", CurrentRoom = Room, Access = EditorTestSupport.Access([], 10) };
-            Target = new() { Id = 8, Username = "target", CurrentRoom = Room, Access = EditorTestSupport.Access([]) };
+            Owner = new()
+            {
+                Id = 7,
+                Username = "owner",
+                CurrentRoom = Room,
+                Access = EditorTestSupport.Access([], 10)
+            };
+            Target = new()
+            {
+                Id = 8,
+                Username = "target",
+                CurrentRoom = Room,
+                Access = EditorTestSupport.Access([])
+            };
             (OwnerClient, _) = HabbiconTestSupport.Client(Owner);
             (TargetClient, TargetPackets) = HabbiconTestSupport.Client(Target);
             Owner.Client = OwnerClient;
@@ -156,29 +195,48 @@ public sealed class RoomMuteServiceTests
 
     private sealed class RecordingMuteService : IRoomMuteService
     {
-        public (int UserId, int Duration)? Request { get; private set; }
+        public (int UserId, int Duration)? Request
+        {
+            get; private set;
+        }
         public void Mute(GameClient session, int userId, int durationMinutes) => Request = (userId, durationMinutes);
     }
 
     private sealed class CountingClock(DateTimeOffset now, TimeZoneInfo zone) : TimeProvider
     {
         public DateTimeOffset Now { get; set; } = now;
-        public int Calls { get; set; }
+        public int Calls
+        {
+            get; set;
+        }
         public override TimeZoneInfo LocalTimeZone => zone;
-        public override DateTimeOffset GetUtcNow() { Calls++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Calls++;
+
+            return Now;
+        }
     }
 
     public class AchievementRecorder : DispatchProxy
     {
-        public int Calls { get; private set; }
+        public int Calls
+        {
+            get; private set;
+        }
         public static (IAchievementManager Service, AchievementRecorder Recorder) Create()
         {
             var service = DispatchProxy.Create<IAchievementManager, AchievementRecorder>();
+
             return (service, (AchievementRecorder)(object)service);
         }
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(IAchievementManager.ProgressAchievement)) Calls++;
+            if (targetMethod?.Name == nameof(IAchievementManager.ProgressAchievement))
+            {
+                Calls++;
+            }
+
             return targetMethod?.ReturnType == typeof(bool) ? true : null;
         }
     }
@@ -187,7 +245,9 @@ public sealed class RoomMuteServiceTests
     {
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => false;
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => false;
-        public void ResetTimers(IEnumerable<Item> targets) { }
+        public void ResetTimers(IEnumerable<Item> targets)
+        {
+        }
     }
 
     private static object Get(object target, string name) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;

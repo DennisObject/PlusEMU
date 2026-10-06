@@ -11,10 +11,20 @@ public sealed class WiredMonitorRequestEvent(IWiredMonitorService monitor) : Roo
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         int action;
-        try { action = packet.HasDataRemaining() ? packet.ReadInt() : WiredMonitorActions.Fetch; }
+
+        try
+        {
+            action = packet.HasDataRemaining() ? packet.ReadInt() : WiredMonitorActions.Fetch;
+        }
         catch (ArgumentException) { return Task.CompletedTask; }
-        if (action is not (WiredMonitorActions.Fetch or WiredMonitorActions.Clear) || packet.HasDataRemaining()) return Task.CompletedTask;
+
+        if (action is not (WiredMonitorActions.Fetch or WiredMonitorActions.Clear) || packet.HasDataRemaining())
+        {
+            return Task.CompletedTask;
+        }
+
         monitor.ShowMonitor(room, session, action);
+
         return Task.CompletedTask;
     }
 }
@@ -27,13 +37,27 @@ public sealed class WiredRoomLogsPageEvent(IWiredMonitorService monitor) : RoomP
 
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        int page, size, level, source; string query;
-        try { page = packet.ReadInt(); size = packet.ReadInt(); level = packet.ReadInt(); source = packet.ReadInt(); query = packet.ReadString(); }
+        int page, size, level, source;
+        string query;
+
+        try
+        {
+            page = packet.ReadInt();
+            size = packet.ReadInt();
+            level = packet.ReadInt();
+            source = packet.ReadInt();
+            query = packet.ReadString();
+        }
         catch (ArgumentException) { return Task.CompletedTask; }
+
         // Every source the client can filter by is accepted; the ones Plus never writes read as empty.
         if (packet.HasDataRemaining() || level is < -1 or > 3 || source is < -1 or > (int)WiredLogSource.WiredLog || query.Length > MaxQuery)
+        {
             return Task.CompletedTask;
+        }
+
         monitor.ShowLogs(room, session, page, size, level, source, query);
+
         return Task.CompletedTask;
     }
 }

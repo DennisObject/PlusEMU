@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog;
@@ -27,6 +27,7 @@ public class PurchaseOKComposer : IServerPacket
             packet.WriteBoolean(true);
             packet.WriteInteger(1);
             packet.WriteString(_confirmation.ProductType);
+
             if (_confirmation.ProductType == "b")
             {
                 packet.WriteString(_confirmation.Name);

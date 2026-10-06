@@ -10,6 +10,7 @@ internal class UpdateMagicTileAdjacentEvent(IMagicTileService tiles) : IPacketEv
         var itemId = packet.ReadUInt();
         var moveDown = packet.ReadBool();
         tiles.UpdateAdjacent(session, itemId, moveDown);
+
         return Task.CompletedTask;
     }
 }
