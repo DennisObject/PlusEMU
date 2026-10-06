@@ -20,8 +20,8 @@ TABLES = {
                   'allow_recycle', 'allow_trade', 'allow_marketplace_sell', 'allow_gift',
                   'allow_inventory_stack', 'behaviour_data', 'interaction_modes_count', 'vending_ids',
                   'height_adjustable', 'effect_id', 'is_rare', 'clothing_id', 'extra_rot'],
-    'catalog_pages': ['id', 'parent_id', 'page_link', 'caption', 'page_layout', 'min_rank',
-                      'visible', 'enabled', 'icon_image', 'min_vip', 'order_num', 'page_strings_1', 'page_strings_2'],
+    'catalog_pages': ['id', 'parent_id', 'page_link', 'caption', 'page_layout', 'required_permission',
+                      'visible', 'enabled', 'icon_image', 'required_club_level', 'order_num', 'page_strings_1', 'page_strings_2'],
     'catalog_items': ['id', 'page_id', 'item_id', 'catalog_name', 'cost_credits', 'cost_pixels',
                       'cost_diamonds', 'amount', 'limited_sells', 'limited_stack', 'offer_active',
                       'extradata', 'badge', 'offer_id'],
@@ -123,6 +123,8 @@ def validate_assets(manifest, assets, overlay=None):
         f = (overlay_indexed if row.get('asset_source') == 'original_overlay' else indexed)[classname]
         if (f['id'], f['xdim'], f['ydim'], f['defaultdir']) != (row['sprite_id'], row['width'], row['length'], row['default_direction']):
             raise ValueError('FurniData geometry disagrees: ' + name)
+        if f.get('offerid', -1) != row['offer_id']:
+            raise ValueError('FurniData purchase offer disagrees: ' + name)
         position = 2
         model = None
         png = False
@@ -170,8 +172,8 @@ def plan(manifest, ledger, snapshot):
     if len(pages) > 1:
         raise ValueError('Duplicate import page link.')
     page = pages[0] if pages else None
-    expected_page = dict(parent_id=-1, caption='Recently Added', page_layout='default_3x3', min_rank=1,
-                         visible=1, enabled=1, icon_image=1, min_vip=0, order_num=999,
+    expected_page = dict(parent_id=-1, caption='Recently Added', page_layout='default_3x3', required_permission=None,
+                         visible=1, enabled=1, icon_image=1, required_club_level=0, order_num=999,
                          page_strings_1='catalog_wired_header1|',
                          page_strings_2='Wired furniture available in this engine.|')
     if page and any(page[key] != value for key, value in expected_page.items()):
@@ -199,17 +201,20 @@ def plan(manifest, ledger, snapshot):
                 excluded.append({'name': name, 'reason': 'sprite_already_owned', 'existing_names': [r['item_name'] for r in collisions]})
                 continue
             definitions.append(entry)
+        if entry['offer_id'] > 0 and any(r['offer_id'] == entry['offer_id'] and
+                (row is None or r['item_id'] != str(row['id'])) for r in snapshot['catalog_items']):
+            raise ValueError('Official offer ID belongs to another product: ' + name)
         current = [r for r in snapshot['catalog_items'] if page and r['page_id'] == page['id'] and r['catalog_name'].lower() == name]
         if len(current) > 1:
             raise ValueError('Duplicate import offer: ' + name)
         if current:
             expected = dict(item_id=str(row['id']) if row else None, cost_credits=0, cost_pixels=0,
                             cost_diamonds=0, amount=1, limited_sells=0, limited_stack=0,
-                            offer_active='1', extradata='', badge='', offer_id=-1)
+                            offer_active=1, extradata='', badge='', offer_id=entry['offer_id'])
             if any(current[0][k] != value for k, value in expected.items()):
                 raise ValueError('Import offer has conflicting item/pricing: ' + name)
         else:
-            offers.append({'name': name, 'definition_id': row['id'] if row else None})
+            offers.append({'name': name, 'definition_id': row['id'] if row else None, 'offer_id': entry['offer_id']})
     return {'engine_commit': ledger['engineCommit'],
             'factory_implemented': sum(r['support'] == 'Implemented' for r in ledger['boxes']),
             'auxiliary_supported': sum(r['supported'] for r in ledger.get('auxiliaries', [])),
@@ -219,6 +224,8 @@ def plan(manifest, ledger, snapshot):
 
 
 def literal(value):
+    if value is None:
+        return 'NULL'
     if isinstance(value, str):
         return "CONVERT(0x" + value.encode().hex() + " USING utf8mb4)" if value else "''"
     return str(int(value)) if isinstance(value, bool) else str(value)
@@ -232,7 +239,7 @@ def statements(result):
     sql = []
     if result['new_page']:
         sql += [insert('catalog_pages', dict(parent_id=-1, caption='Recently Added', icon_image=1,
-                 visible=1, enabled=1, min_rank=1, min_vip=0, order_num=999, page_link=PAGE_LINK,
+                 visible=1, enabled=1, required_permission=None, required_club_level=0, order_num=999, page_link=PAGE_LINK,
                  page_layout='default_3x3', page_strings_1='catalog_wired_header1|',
                  page_strings_2='Wired furniture available in this engine.|')), 'SET @wired_page=LAST_INSERT_ID();']
     elif result['offers']:
@@ -253,7 +260,7 @@ def statements(result):
             sql.append(f"SET @wired_item={offer['definition_id']};")
         # Variables are created only by this function, never from input SQL.
         sql.append('INSERT INTO catalog_items (page_id,item_id,catalog_name,cost_credits,cost_pixels,cost_diamonds,amount,offer_id) '
-                   + 'VALUES (@wired_page,CAST(@wired_item AS CHAR),' + literal(name) + ',0,0,0,1,-1);')
+                   + 'VALUES (@wired_page,CAST(@wired_item AS CHAR),' + literal(name) + ',0,0,0,1,' + literal(offer['offer_id']) + ');')
     return '\n'.join(sql)
 
 
