@@ -214,7 +214,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
             case "wf_act_move_to_dir":
                 _directions.Retain(context.Targets.AllFurni());
                 foreach (var item in items)
-                    changed |= _directions.MoveHeading(item, Param(config, 0), Param(config, 1), Param(config, 3) == 1,
+                    changed |= _directions.MoveHeading(item, Param(config, 0), HeadingTurnRule(Param(config, 1)), Param(config, 3) == 1,
                         (x, y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null),
                         (x, y) => context.Room.GetGameMap().ValidTile(x, y) ? context.Room.GetGameMap().GetRoomUsers(new(x, y)).ToArray() : [],
                         (furni, actor) => _publish(new(WiredEventKind.Collision) { Actor = actor, EventItem = furni }));
@@ -280,6 +280,13 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
             default: throw new InvalidOperationException("Action has no executor.");
         }
     }
+
+    // The current editor orders Wait/right/left/back/random differently from Turbo's heading rules.
+    private static int HeadingTurnRule(int choice) => choice switch
+    {
+        0 => 6, 1 => 3, 2 => 1, 3 => 4, 4 => 2, 5 => 0, 6 => 5,
+        _ => throw new ArgumentOutOfRangeException(nameof(choice))
+    };
 
     private bool Teleport(WiredRuntimeContext context, RoomUser user, Item target, bool fast)
     {

@@ -47,8 +47,8 @@ public sealed class ModernWiredDatabaseCollection;
 public class ModernWiredRuntimeTests
 {
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
-        TimeProvider? clock = null, IWiredRewardService? rewards = null, IItemDataManager? definitions = null) =>
-        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), _ => { }, (_, _, _) => { }, log ?? new(), TestLogging.Logger,
+        TimeProvider? clock = null, IWiredRewardService? rewards = null, IItemDataManager? definitions = null, Action<WiredRuntimeEvent>? publish = null) =>
+        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), publish ?? (_ => { }), (_, _, _) => { }, log ?? new(), TestLogging.Logger,
             clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, definitions ?? TestWiredDefinitions.Unused, TestItemRuntime.Travel);
 
     [Fact]
@@ -630,6 +630,61 @@ public class ModernWiredRuntimeTests
         Assert.Equal(2, WiredDirectionalActions.AvatarRotation(0, 8)); Assert.Equal(6, WiredDirectionalActions.AvatarRotation(0, 9));
     }
 
+    [Theory]
+    [InlineData(0, 1, 1)] // Wait.
+    [InlineData(1, 2, 0)] // Right 45.
+    [InlineData(2, 2, 1)] // Right 90.
+    [InlineData(3, 0, 0)] // Left 45.
+    [InlineData(4, 0, 1)] // Left 90.
+    [InlineData(5, 1, 2)] // Turn back.
+    public void MoveToDirectionExecutesCurrentEditorTurnChoices(int choice, int x, int y)
+    {
+        var (room, map, items) = World();
+        var item = MakeItem(8, "test");
+        item.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
+        items[item.Id] = item; map.AddToMap(item);
+        map.Model.SqState[1, 0] = SquareState.Blocked;
+        var action = ActionBox(room, "wf_act_move_to_dir");
+        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket([0, choice, 100, 0], [item.Id], 0), TestWiredConfigurationStore.Instance, out var error), error);
+        var editor = EditorFields(WiredEditorSnapshot.Capture(action), 13);
+        Assert.Equal(new[] { 0, choice, 100, 0 }, editor.Ints);
+        var context = Context(room, new(WiredEventKind.Use), [item], []);
+        context.Policy.Addons.DisableAnimation = true;
+
+        Assert.Equal(choice != 0, action.Execute(context));
+
+        Assert.Equal(new Point(x, y), item.Coordinate);
+        Assert.Equal(0, item.Rotation);
+        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out error), error);
+        Assert.Equal(new[] { 0, choice, 100, 0 }, action.Configuration.IntParams);
+    }
+
+    [Fact]
+    public void MoveToDirectionRandomTriesEveryBlockedTurnInsteadOfWaiting()
+    {
+        var (room, map, items) = World();
+        var item = MakeItem(8, "test");
+        item.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
+        items[item.Id] = item; map.AddToMap(item);
+        var users = new List<RoomUser>();
+        for (var direction = 0; direction < 8; direction++)
+        {
+            var offset = WiredRoomOperations.Offset(direction);
+            var user = new RoomUser(direction + 1, 0, direction + 20, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
+            user.SetPos(1 + offset.X, 1 + offset.Y, 0);
+            RoomUsers(room)[user.VirtualId] = user; map.AddUserToMap(user, user.Coordinate); users.Add(user);
+        }
+        var collisions = 0;
+        var action = ActionBox(room, "wf_act_move_to_dir", publish: e => { if (e.Kind == WiredEventKind.Collision) collisions++; });
+        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket([0, 6, 100, 1], [item.Id], 0), TestWiredConfigurationStore.Instance, out var error), error);
+        Assert.Equal(new[] { 0, 6, 100, 1 }, EditorFields(WiredEditorSnapshot.Capture(action), 13).Ints);
+
+        Assert.False(action.Execute(Context(room, new(WiredEventKind.Use), [item], users.ToArray())));
+
+        Assert.Equal(8, collisions);
+        Assert.Equal(new Point(1, 1), item.Coordinate);
+    }
+
     [Fact]
     public void ChaseQueriesNearestWithinThreeAndOrdersLongAxisFirst()
     {
@@ -792,7 +847,7 @@ public class ModernWiredRuntimeTests
         return configuration;
     }
 
-    private static (int[] Ints, uint[] Selected, int Delay) EditorFields(WiredEditorSnapshot snapshot)
+    private static (int[] Ints, uint[] Selected, int Delay) EditorFields(WiredEditorSnapshot snapshot, int editorCode = 4)
     {
         var fields = new List<object>(); var packet = DispatchProxy.Create<IOutgoingPacket, RecordingProxy>();
         ((RecordingProxy)(object)packet).InvokeMethod = (_, args) => { fields.Add(args![0]!); return null; };
@@ -802,7 +857,7 @@ public class ModernWiredRuntimeTests
         var at = 3 + selected.Length + 3;
         var ints = fields.Skip(at + 1).Take((int)fields[at]).Cast<int>().ToArray();
         at += 1 + ints.Length;
-        Assert.Equal(4, (int)fields[at + 1]);
+        Assert.Equal(editorCode, (int)fields[at + 1]);
         Assert.Equal(at + 4, fields.Count);
         return (ints, selected, (int)fields[at + 2]);
     }
