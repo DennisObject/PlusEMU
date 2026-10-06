@@ -55,7 +55,8 @@ public sealed class WiredMovementActions
                     var rotation = Param(1) switch
                     {
                         2 => (item.Rotation + 2) % 8, 4 => (item.Rotation + 6) % 8,
-                        6 => (item.Rotation + Random.Shared.Next(1, 8)) % 8,
+                        // Random turns a quarter either way, like cw/ccw, so 4-direction furniture keeps a valid rotation.
+                        6 => (item.Rotation + (Random.Shared.Next(2) == 0 ? 2 : 6)) % 8,
                         _ => item.Rotation
                     };
                     affected |= move(item, item.GetX + offset.X, item.GetY + offset.Y, rotation, null);

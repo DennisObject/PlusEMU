@@ -790,6 +790,42 @@ public class ModernWiredRuntimeTests
             }
     }
 
+    [Theory]
+    [InlineData(0)] [InlineData(1)] [InlineData(2)] [InlineData(3)] [InlineData(4)] [InlineData(5)] [InlineData(6)] [InlineData(7)]
+    public void StoredRandomTurnIsAQuarterTurnEitherWay(int start)
+    {
+        for (var attempt = 0; attempt < 32; attempt++)
+        {
+            var item = MakeItem(1, "test"); item.Rotation = start; var rotation = -1;
+            Assert.True(new WiredMovementActions().Execute("wf_act_move_rotate", new() { IntParams = [-1, 6, 100, 0] }, [item], [], [],
+                (_, _, _, value, _) => { rotation = value; return true; }, (_, _, _, _, _) => false, (_, _) => { }));
+            Assert.Contains(rotation, new[] { (start + 2) % 8, (start + 6) % 8 });
+        }
+    }
+
+    [Theory]
+    [InlineData(false, 0)] [InlineData(false, 6)] [InlineData(true, 1)] [InlineData(true, 4)]
+    public void RandomTurnKeepsAValidRotationAndTheMoveLandsInTheActualRoom(bool extraRot, int start)
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var mover = MakeItem(1, "test"); mover.Definition.ExtraRot = extraRot;
+        mover.SetState(0, 1, 0, Gamemap.GetAffectedTiles(1, 1, 0, 1, start)); mover.Rotation = start;
+        items[1] = mover; map.AddToMap(mover);
+        var east = ActionBox(room, "wf_act_move_rotate"); var west = ActionBox(room, "wf_act_move_rotate");
+        Assert.True(east.TryValidateConfiguration(new() { IntParams = [5, 3, 100], SelectedItems = [1] }, out var config, out var error), error); east.ApplyConfiguration(config);
+        Assert.True(west.TryValidateConfiguration(new() { IntParams = [7, 3, 100], SelectedItems = [1] }, out config, out error), error); west.ApplyConfiguration(config);
+        for (var step = 0; step < 16; step++)
+        {
+            var before = mover.Rotation;
+            var box = step % 2 == 0 ? east : west;
+            Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [mover], [])));
+            Assert.Equal(new Point(step % 2 == 0 ? 1 : 0, 1), new Point(mover.GetX, mover.GetY));
+            Assert.Contains(mover.Rotation, new[] { (before + 2) % 8, (before + 6) % 8 });
+            Assert.True(WiredRoomOperations.ValidRotation(mover, mover.Rotation));
+            Assert.Equal(start % 2, mover.Rotation % 2);
+        }
+    }
+
     [Fact]
     public void FreshMoveRotateOpensAsNoMovementAndKeepsThatOnUnchangedSave()
     {
