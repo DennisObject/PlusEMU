@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -26,21 +26,29 @@ internal class BotCommunicatesToAllBox : IWiredItem
         var unknown = packet.ReadInt();
         var chatMode = packet.ReadInt();
         var chatConfig = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
 
         //this.StringData = ChatConfig.Replace('\t', ';') + ";" + ChatMode;
     }
 
     public bool Execute(params object[] @params)
     {
-        if (@params == null || @params.Length == 0)
+        if (@params == null || @params.Length == 0) {
             return false;
-        if (string.IsNullOrEmpty(StringData))
+        }
+
+        if (string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var user = Instance.GetRoomUserManager().GetBotByName(StringData);
-        if (user == null)
+
+        if (user == null) {
             return false;
+        }
 
         //TODO: This needs finishing.
         return true;

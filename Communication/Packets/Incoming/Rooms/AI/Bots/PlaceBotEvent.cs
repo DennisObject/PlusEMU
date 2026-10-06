@@ -12,6 +12,7 @@ internal sealed class PlaceBotEvent(IBotManagementService bots) : RoomPacketEven
         var x = packet.ReadInt();
         var y = packet.ReadInt();
         bots.Place(room, session, botId, x, y);
+
         return Task.CompletedTask;
     }
 }

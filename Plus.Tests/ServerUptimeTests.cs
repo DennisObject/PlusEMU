@@ -59,7 +59,11 @@ public sealed class ServerUptimeTests
         reader.ReadString();
         var count = reader.ReadInt();
         var fields = new Dictionary<string, string>();
-        for (var index = 0; index < count; index++) fields.Add(reader.ReadString(), reader.ReadString());
+
+        for (var index = 0; index < count; index++) {
+            fields.Add(reader.ReadString(), reader.ReadString());
+        }
+
         Assert.Contains(fields.Values, text => text.Contains("Uptime: 2 day(s), 3 hours and 4 minutes.", StringComparison.Ordinal));
     }
 
@@ -70,7 +74,17 @@ public sealed class ServerUptimeTests
         public int UtcReads;
         public int TimestampReads;
         public override long TimestampFrequency => 1_000;
-        public override DateTimeOffset GetUtcNow() { UtcReads++; return Now; }
-        public override long GetTimestamp() { TimestampReads++; return Timestamp; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            UtcReads++;
+
+            return Now;
+        }
+        public override long GetTimestamp()
+        {
+            TimestampReads++;
+
+            return Timestamp;
+        }
     }
 }

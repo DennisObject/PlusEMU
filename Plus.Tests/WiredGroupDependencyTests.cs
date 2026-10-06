@@ -104,6 +104,7 @@ public sealed class WiredGroupDependencyTests
             _ => null
         };
         field.SetValue(null, game);
+
         return new Restore(() => field.SetValue(null, original));
     }
 
@@ -156,10 +157,11 @@ public sealed class WiredGroupDependencyTests
         {
             var item = Item(1, "wf_slc_users_group");
             var box = Assert.IsAssignableFrom<IWiredContextualSelector>(_wired.CreateConfiguredBox(item));
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [..parameters] }, out var valid, out var error), error);
+            Assert.True(box.TryValidateConfiguration(new() { IntParams = [.. parameters] }, out var valid, out var error), error);
             box.ApplyConfiguration(valid);
             Assert.True(_wired.AddBox(box));
             _items[0] = item;
+
             return box;
         }
 
@@ -172,6 +174,7 @@ public sealed class WiredGroupDependencyTests
             box.ApplyConfiguration(valid);
             Assert.True(_wired.AddBox(box));
             _items[1] = item;
+
             return box;
         }
 
@@ -179,8 +182,9 @@ public sealed class WiredGroupDependencyTests
         {
             var item = Item(3, "wf_cnd_actor_in_group");
             var box = Assert.IsType<WiredModernCondition>(_wired.CreateConfiguredBox(item));
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [..parameters] }, out var valid, out var error), error);
+            Assert.True(box.TryValidateConfiguration(new() { IntParams = [.. parameters] }, out var valid, out var error), error);
             box.ApplyConfiguration(valid);
+
             return box;
         }
 
@@ -189,6 +193,7 @@ public sealed class WiredGroupDependencyTests
             var context = new WiredRuntimeContext(Room, new(WiredEventKind.Enter) { Actor = Member },
                 new(() => items, () => new[] { Member, NonMember, Bot }), new Operations());
             context.Triggering.UserIds.Add(Member.VirtualId);
+
             return context;
         }
 
@@ -200,6 +205,7 @@ public sealed class WiredGroupDependencyTests
             habbo.Username = name;
             habbo.Client = client;
             client.SetHabbo(habbo);
+
             return client;
         }
 

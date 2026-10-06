@@ -115,6 +115,7 @@ public class NavigatorPresentationTests
         public override DateTimeOffset GetUtcNow()
         {
             Reads++;
+
             return Reads <= 2 ? expiry.AddHours(-1) : expiry.AddHours(1);
         }
     }
@@ -167,6 +168,7 @@ public class NavigatorPresentationTests
         {
             Assert.Equal(nameof(IRoomManager.TryGetRandomLoadedRoom), method);
             lookups++;
+
             return room;
         });
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
@@ -179,9 +181,11 @@ public class NavigatorPresentationTests
         Assert.Equal(new[] { ServerPacketHeader.FindFriendsProcessResultComposer, ServerPacketHeader.RoomForwardComposer },
             sent.Select(packet => packet.Header));
         var result = new FlashIncomingPacket { Buffer = sent[0].Payload };
-        Assert.True(result.ReadBool()); Assert.False(result.HasDataRemaining());
+        Assert.True(result.ReadBool());
+        Assert.False(result.HasDataRemaining());
         var forward = new FlashIncomingPacket { Buffer = sent[1].Payload };
-        Assert.Equal(42, forward.ReadInt()); Assert.False(forward.HasDataRemaining());
+        Assert.Equal(42, forward.ReadInt());
+        Assert.False(forward.HasDataRemaining());
     }
 
     [Fact]
@@ -196,13 +200,15 @@ public class NavigatorPresentationTests
         var response = Assert.Single(sent);
         Assert.Equal(ServerPacketHeader.FindFriendsProcessResultComposer, response.Header);
         var body = new FlashIncomingPacket { Buffer = response.Payload };
-        Assert.False(body.ReadBool()); Assert.False(body.HasDataRemaining());
+        Assert.False(body.ReadBool());
+        Assert.False(body.HasDataRemaining());
     }
 
     private static List<object> Write(IServerPacket composer)
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes;
     }
 
@@ -212,14 +218,15 @@ public class NavigatorPresentationTests
         var reader = new FlashIncomingPacket { Buffer = payload };
         var count = reader.ReadInt();
         var rows = new (int, string, bool)[count];
-        for (var index = 0; index < count; index++)
-        {
+
+        for (var index = 0; index < count; index++) {
             rows[index] = (reader.ReadInt(), reader.ReadString(), reader.ReadBool());
             reader.ReadBool();
             reader.ReadString();
             reader.ReadString();
             reader.ReadBool();
         }
+
         return rows;
     }
 
@@ -232,6 +239,7 @@ public class NavigatorPresentationTests
     {
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         new NavigatorPresentationService(Manager([], categories, []), null!).ShowUserFlatCategories(client);
+
         return Assert.Single(sent).Payload;
     }
 

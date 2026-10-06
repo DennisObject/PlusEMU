@@ -17,13 +17,16 @@ internal static class MagicTileHeight
     internal static double Resolve(int requested, double floorZ, double stackBelowZ)
     {
         var height = requested == MatchBelow ? stackBelowZ : requested / 100.0;
+
         return Clamp(height, floorZ);
     }
 
     internal static double Clamp(double height, double floorZ)
     {
-        if (!double.IsFinite(height))
+        if (!double.IsFinite(height)) {
             height = floorZ;
+        }
+
         return Math.Clamp(height, floorZ, Math.Max(floorZ, MaximumHeight));
     }
 
@@ -31,13 +34,21 @@ internal static class MagicTileHeight
 
     internal static bool Sync(Item item)
     {
-        if (!IsMagicTile(item.Definition.InteractionType)) return false;
+        if (!IsMagicTile(item.Definition.InteractionType)) {
+            return false;
+        }
+
         var stored = item.LegacyDataString;
         var separator = stored.IndexOf(';');
         var normalized = ToWire(item.GetZ).ToString(CultureInfo.InvariantCulture)
             + (separator < 0 ? "" : stored[separator..]);
-        if (stored == normalized && item.ExtraData is LegacyDataFormat) return false;
+
+        if (stored == normalized && item.ExtraData is LegacyDataFormat) {
+            return false;
+        }
+
         item.ExtraData = new LegacyDataFormat { Data = normalized };
+
         return true;
     }
 

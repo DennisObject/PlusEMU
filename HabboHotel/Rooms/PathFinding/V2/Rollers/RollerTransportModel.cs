@@ -37,7 +37,10 @@ internal interface IRollerDepartureView
     RollerDepartures At(Point tile);
 }
 
-internal enum TransportGroupKind { Single, Chain, Loop }
+internal enum TransportGroupKind
+{
+    Single, Chain, Loop
+}
 
 // An indivisible transport: it commits completely or not at all.
 internal sealed class TransportGroup : IRollerDepartureView
@@ -46,7 +49,8 @@ internal sealed class TransportGroup : IRollerDepartureView
 
     internal TransportGroup(TransportGroupKind kind, IReadOnlyList<RollerMove> moves)
     {
-        Kind = kind; Moves = moves;
+        Kind = kind;
+        Moves = moves;
         FirstRollerId = moves.Min(move => move.Roller.Id);
         _departures = moves.GroupBy(move => move.Origin).ToDictionary(tile => tile.Key, RollerDepartures.Of);
     }
@@ -66,7 +70,9 @@ internal sealed class RollerDepartures
 
     private RollerDepartures(Item? roller, IReadOnlySet<uint> items, IReadOnlySet<RoomUser> users)
     {
-        Roller = roller; Items = items; Users = users;
+        Roller = roller;
+        Items = items;
+        Users = users;
     }
 
     internal Item? Roller { get; }
@@ -80,14 +86,20 @@ internal sealed class RollerDepartures
     // (the legacy lock lifetime v2 follows); a lock under it is attributed to the cargo.
     internal bool ReleasesFloorStatus(Room room)
     {
-        var map = room.GetGameMap(); var items = room.GetRoomItemHandler();
+        var map = room.GetGameMap();
+        var items = room.GetRoomItemHandler();
+
         return Items.Select(items.GetItem).Any(cargo => cargo != null && map.ItemWalkState(cargo) == 0);
     }
 
     internal static RollerDepartures Of(IEnumerable<RollerMove> moves)
     {
         var list = moves.ToList();
-        if (list.Count == 0) return None;
+
+        if (list.Count == 0) {
+            return None;
+        }
+
         return new(list[0].Roller, list.Where(move => move.Cargo != null).Select(move => move.Cargo!.Id).ToHashSet(),
             list.Where(move => move.Actor != null).Select(move => move.Actor!).ToHashSet<RoomUser>(ReferenceEqualityComparer.Instance));
     }

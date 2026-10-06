@@ -31,53 +31,59 @@ public sealed class MarketplaceOfferSearchService(IDatabase database, IMarketpla
         // Offers listed before this instant are past their two-day lifetime and drop out of the market.
         var threshold = time.GetUtcNow().AddSeconds(-172800);
         List<MarketplaceOfferRow> rows;
-        using (var connection = database.Connection())
+
+        using (var connection = database.Connection()) {
             rows = connection.Query<MarketplaceOfferRow>(sql, new { threshold, minCost, maxCost }).ToList();
+        }
+
         marketplace.MarketItems.Clear();
         marketplace.MarketItemKeys.Clear();
-        foreach (var row in rows)
-        {
-            if (!marketplace.MarketItemKeys.Contains(Convert.ToInt32(row.OfferId)))
-            {
+
+        foreach (var row in rows) {
+            if (!marketplace.MarketItemKeys.Contains(Convert.ToInt32(row.OfferId))) {
                 marketplace.MarketItemKeys.Add(Convert.ToInt32(row.OfferId));
                 marketplace.MarketItems.Add(new(Convert.ToUInt32(row.OfferId), Convert.ToUInt32(row.SpriteId),
                     row.TotalPrice, int.Parse(row.ItemType), Convert.ToUInt32(row.LimitedNumber), Convert.ToUInt32(row.LimitedStack)));
             }
         }
+
         /// TODO @80O: Wtf is this shit
         var best = new Dictionary<uint, MarketOffer>();
         var counts = new Dictionary<uint, int>();
-        foreach (var item in marketplace.MarketItems)
-        {
-            if (best.ContainsKey(item.SpriteId))
-            {
-                if (item.LimitedNumber > 0)
-                {
-                    if (!best.ContainsKey(item.OfferId))
+
+        foreach (var item in marketplace.MarketItems) {
+            if (best.ContainsKey(item.SpriteId)) {
+                if (item.LimitedNumber > 0) {
+                    if (!best.ContainsKey(item.OfferId)) {
                         best.Add(item.OfferId, item);
-                    if (!counts.ContainsKey(item.OfferId))
+                    }
+
+                    if (!counts.ContainsKey(item.OfferId)) {
                         counts.Add(item.OfferId, 1);
+                    }
                 }
-                else
-                {
-                    if (best[item.SpriteId].TotalPrice > item.TotalPrice)
-                    {
+                else {
+                    if (best[item.SpriteId].TotalPrice > item.TotalPrice) {
                         best.Remove(item.SpriteId);
                         best.Add(item.SpriteId, item);
                     }
+
                     var num = counts[item.SpriteId];
                     counts.Remove(item.SpriteId);
                     counts.Add(item.SpriteId, num + 1);
                 }
             }
-            else
-            {
-                if (!best.ContainsKey(item.SpriteId))
+            else {
+                if (!best.ContainsKey(item.SpriteId)) {
                     best.Add(item.SpriteId, item);
-                if (!counts.ContainsKey(item.SpriteId))
+                }
+
+                if (!counts.ContainsKey(item.SpriteId)) {
                     counts.Add(item.SpriteId, 1);
+                }
             }
         }
+
         return Capture(best, counts);
     }
 

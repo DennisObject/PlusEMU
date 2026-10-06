@@ -8,6 +8,7 @@ internal sealed class GetRoomEntryTileEvent(IFloorPlanUpdateService service) : I
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         service.ShowEntryTile(session);
+
         return Task.CompletedTask;
     }
 }

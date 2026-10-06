@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Attributes;
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Handshake;
@@ -11,6 +11,7 @@ public class UniqueIdEvent(IClientIdentityService identity) : IPacketEvent
         packet.ReadString();
         var machineId = packet.ReadString();
         identity.SetMachineIdentity(session, machineId);
+
         return Task.CompletedTask;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.AI;
 using System.Collections.Concurrent;
 
 namespace Plus.HabboHotel.Users.Inventory.Pets;

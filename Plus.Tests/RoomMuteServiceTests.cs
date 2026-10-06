@@ -165,7 +165,12 @@ public sealed class RoomMuteServiceTests
         public DateTimeOffset Now { get; set; } = now;
         public int Calls { get; set; }
         public override TimeZoneInfo LocalTimeZone => zone;
-        public override DateTimeOffset GetUtcNow() { Calls++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Calls++;
+
+            return Now;
+        }
     }
 
     public class AchievementRecorder : DispatchProxy
@@ -174,11 +179,15 @@ public sealed class RoomMuteServiceTests
         public static (IAchievementManager Service, AchievementRecorder Recorder) Create()
         {
             var service = DispatchProxy.Create<IAchievementManager, AchievementRecorder>();
+
             return (service, (AchievementRecorder)(object)service);
         }
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(IAchievementManager.ProgressAchievement)) Calls++;
+            if (targetMethod?.Name == nameof(IAchievementManager.ProgressAchievement)) {
+                Calls++;
+            }
+
             return targetMethod?.ReturnType == typeof(bool) ? true : null;
         }
     }
@@ -187,7 +196,9 @@ public sealed class RoomMuteServiceTests
     {
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => false;
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) => false;
-        public void ResetTimers(IEnumerable<Item> targets) { }
+        public void ResetTimers(IEnumerable<Item> targets)
+        {
+        }
     }
 
     private static object Get(object target, string name) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target)!;

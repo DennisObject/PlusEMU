@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -32,8 +32,11 @@ internal class RoomEnterBox : IWiredItem
     public bool Execute(params object[] @params)
     {
         var player = (Habbo)@params[0];
-        if (!string.IsNullOrWhiteSpace(StringData) && player.Username != StringData)
+
+        if (!string.IsNullOrWhiteSpace(StringData) && player.Username != StringData) {
             return false;
+        }
+
         return Instance.GetWired().RunStack(this, player);
     }
 }

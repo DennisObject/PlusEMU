@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -26,35 +26,52 @@ internal class TriggererNotOnFurniBox : IWiredItem
     {
         var unknown = packet.ReadInt();
         var unknown2 = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         var furniCount = packet.ReadInt();
-        for (var i = 0; i < furniCount; i++)
-        {
+
+        for (var i = 0; i < furniCount; i++) {
             var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
-            if (selectedItem != null)
+
+            if (selectedItem != null) {
                 SetItems.TryAdd(selectedItem.Id, selectedItem);
+            }
         }
     }
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0)
+        if (@params.Length == 0) {
             return false;
-        var player = (Habbo)@params[0];
-        if (player == null)
-            return false;
-        if (player.CurrentRoom == null)
-            return false;
-        var user = player.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(player.Username);
-        if (user == null)
-            return false;
-        var itemsOnSquare = Instance.GetGameMap().GetAllRoomItemForSquare(user.X, user.Y);
-        foreach (var item in itemsOnSquare.ToList())
-        {
-            if (SetItems.ContainsKey(item.Id))
-                return false;
         }
+
+        var player = (Habbo)@params[0];
+
+        if (player == null) {
+            return false;
+        }
+
+        if (player.CurrentRoom == null) {
+            return false;
+        }
+
+        var user = player.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(player.Username);
+
+        if (user == null) {
+            return false;
+        }
+
+        var itemsOnSquare = Instance.GetGameMap().GetAllRoomItemForSquare(user.X, user.Y);
+
+        foreach (var item in itemsOnSquare.ToList()) {
+            if (SetItems.ContainsKey(item.Id)) {
+                return false;
+            }
+        }
+
         return true;
     }
 }

@@ -75,10 +75,14 @@ public sealed class GroupRemovalServiceTests
         var (target, sent) = Client(8, group.Id);
         var store = new Store { RemoveResult = false, ThrowRemove = throws };
         var operation = Service(group, store, target).Remove;
-        if (throws)
+
+        if (throws) {
             await Assert.ThrowsAsync<InvalidOperationException>(() => operation(target, group.Id, 8));
-        else
+        }
+        else {
             await operation(target, group.Id, 8);
+        }
+
         Assert.True(group.IsAdmin(8));
         Assert.True(group.IsMember(8));
         Assert.Equal(group.Id, target.GetHabbo().HabboStats.FavouriteGroupId);
@@ -137,6 +141,7 @@ public sealed class GroupRemovalServiceTests
             Assert.Equal(nameof(IAccountSessionGate.Enter), method);
             Assert.Equal(8, (int)args[0]!);
             entering.Set();
+
             return gate.Enter(8);
         });
         var store = new Store
@@ -145,17 +150,17 @@ public sealed class GroupRemovalServiceTests
         };
         var lease = gate.Enter(8);
         Task removal;
-        try
-        {
+
+        try {
             removal = Task.Run(() => Service(group, store, member, sessions: sessions).Remove(owner, group.Id, 8));
             Assert.True(entering.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(0, store.Removes);
             member.GetHabbo().HabboStats.FavouriteGroupId = 11;
         }
-        finally
-        {
+        finally {
             lease.Dispose();
         }
+
         await removal.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.False(group.IsMember(8));
         Assert.Equal(11, member.GetHabbo().HabboStats.FavouriteGroupId);
@@ -171,30 +176,32 @@ public sealed class GroupRemovalServiceTests
         var sessions = Proxy<IAccountSessionGate>((method, args) =>
         {
             var id = (int)args[0]!;
-            if (id == 7)
+
+            if (id == 7) {
                 entering.Set();
+            }
+
             return gate.Enter(id);
         });
         var lease = gate.Enter(7);
         Task deletion;
-        try
-        {
+
+        try {
             deletion = Task.Run(() => Service(group, new Store(), owner, sessions: sessions).Delete(owner, group.Id));
             Assert.True(entering.Wait(TimeSpan.FromSeconds(5)));
             Assert.True(Monitor.TryEnter(group), "Deleted-group lock was held while waiting for account publication");
-            try
-            {
+
+            try {
                 owner.GetHabbo().HabboStats.FavouriteGroupId = 11;
             }
-            finally
-            {
+            finally {
                 Monitor.Exit(group);
             }
         }
-        finally
-        {
+        finally {
             lease.Dispose();
         }
+
         await deletion.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.Equal(11, owner.GetHabbo().HabboStats.FavouriteGroupId);
     }
@@ -207,8 +214,8 @@ public sealed class GroupRemovalServiceTests
         var schema = "task_refactor_tests_gr_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(root.ConnectionString);
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             root.Database = schema;
             var database = new ProbeDatabase(root.ConnectionString);
             using var connection = database.Connection();
@@ -252,8 +259,7 @@ public sealed class GroupRemovalServiceTests
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items_groups"));
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -264,15 +270,27 @@ public sealed class GroupRemovalServiceTests
     private static (GameClient Client, List<(uint Header, byte[] Payload)> Sent) Client(int id, int favourite) =>
         HabbiconTestSupport.Client(new Habbo
         {
-            Id = id, Username = "Actor", Access = UserAccess.Empty,
+            Id = id,
+            Username = "Actor",
+            Access = UserAccess.Empty,
             HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, favourite, "", 0)
         });
 
     private static GroupRemovalService Service(Group group, Store store, GameClient online, Action? deleted = null, IAccountSessionGate? sessions = null) => new(
         Proxy<IGroupManager>((method, args) =>
         {
-            if (method == nameof(IGroupManager.TryGetGroup)) { args[1] = group; return true; }
-            if (method == nameof(IGroupManager.DeleteGroup)) { deleted?.Invoke(); return null; }
+            if (method == nameof(IGroupManager.TryGetGroup)) {
+                args[1] = group;
+
+                return true;
+            }
+
+            if (method == nameof(IGroupManager.DeleteGroup)) {
+                deleted?.Invoke();
+
+                return null;
+            }
+
             throw new NotSupportedException(method);
         }),
         Proxy<IRoomManager>((method, args) => { args[1] = null; return false; }),
@@ -287,6 +305,7 @@ public sealed class GroupRemovalServiceTests
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).InvokeMethod = invoke;
+
         return proxy;
     }
 
@@ -305,23 +324,52 @@ public sealed class GroupRemovalServiceTests
         public Action? BeforeRemove { get; set; }
         public int Removes { get; private set; }
         public int Counts { get; private set; }
-        public bool Delete(int groupId) { BeforeDelete?.Invoke(); return DeleteResult; }
+        public bool Delete(int groupId)
+        {
+            BeforeDelete?.Invoke();
+
+            return DeleteResult;
+        }
         public bool RemoveMember(int groupId, int userId, bool requireMembership, bool clearFavourite)
         {
             Removes++;
             BeforeRemove?.Invoke();
-            if (ThrowRemove) throw new InvalidOperationException("forced persistence failure");
+
+            if (ThrowRemove) {
+                throw new InvalidOperationException("forced persistence failure");
+            }
+
             return RemoveResult;
         }
-        public int CountFurniture(int userId, uint roomId) { Counts++; return 4; }
+        public int CountFurniture(int userId, uint roomId)
+        {
+            Counts++;
+
+            return 4;
+        }
     }
 
     private sealed class RecordingService : IGroupRemovalService
     {
         public List<(string, int, int)> Calls { get; } = [];
-        public Task Delete(GameClient session, int groupId) { Calls.Add(("delete", groupId, 0)); return Task.CompletedTask; }
-        public Task ConfirmRemove(GameClient session, int groupId, int userId) { Calls.Add(("confirm", groupId, userId)); return Task.CompletedTask; }
-        public Task Remove(GameClient session, int groupId, int userId) { Calls.Add(("remove", groupId, userId)); return Task.CompletedTask; }
+        public Task Delete(GameClient session, int groupId)
+        {
+            Calls.Add(("delete", groupId, 0));
+
+            return Task.CompletedTask;
+        }
+        public Task ConfirmRemove(GameClient session, int groupId, int userId)
+        {
+            Calls.Add(("confirm", groupId, userId));
+
+            return Task.CompletedTask;
+        }
+        public Task Remove(GameClient session, int groupId, int userId)
+        {
+            Calls.Add(("remove", groupId, userId));
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class ProbeDatabase(string connectionString) : IDatabase

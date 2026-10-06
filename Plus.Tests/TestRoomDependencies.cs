@@ -13,8 +13,12 @@ internal sealed class TestRoomAchievements(Action<GameClient, string, int>? prog
     public ICollection<Achievement> GetGameAchievements(int gameId) => throw new InvalidOperationException("Unexpected game achievements.");
     public bool ProgressAchievement(GameClient session, string group, int amount, bool fromBeginning = false)
     {
-        if (progress == null) throw new InvalidOperationException("Unexpected room achievement.");
+        if (progress == null) {
+            throw new InvalidOperationException("Unexpected room achievement.");
+        }
+
         progress(session, group, amount);
+
         return true;
     }
 }
@@ -27,13 +31,17 @@ public class TestRoomOwners : DispatchProxy
     {
         var owner = Create<IRoomManager, TestRoomOwners>();
         ((TestRoomOwners)owner)._unload = unload;
+
         return owner;
     }
     protected override object? Invoke(MethodInfo? method, object?[]? args)
     {
-        if (method?.Name != nameof(IRoomManager.UnloadRoom) || _unload == null)
+        if (method?.Name != nameof(IRoomManager.UnloadRoom) || _unload == null) {
             throw new InvalidOperationException($"Unexpected room manager call: {method?.Name}.");
+        }
+
         _unload((uint)args![0]!);
+
         return null;
     }
 }

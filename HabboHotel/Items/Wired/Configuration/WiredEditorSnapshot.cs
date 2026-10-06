@@ -31,22 +31,24 @@ public sealed record WiredEditorSnapshot(
             WiredBoxType.ConditionFurniHasNoFurni => Parse(text, "0", 1),
             _ => ImmutableArray<int>.Empty
         };
+
         return Legacy(box, WiredBoxCategory.Condition, 5, text, parameters, 0, []);
     }
 
     public static WiredEditorSnapshot Effect(IWiredItem box, IReadOnlyList<int> blockedItems)
     {
-        if (WiredLegacyCustomEditor.IsCustom(box))
-        {
-            if (!WiredLegacyCustomEditor.TryGetConfiguration(box, out var descriptor, out var configuration))
+        if (WiredLegacyCustomEditor.IsCustom(box)) {
+            if (!WiredLegacyCustomEditor.TryGetConfiguration(box, out var descriptor, out var configuration)) {
                 throw new InvalidDataException("Invalid stored custom Wired settings.");
+            }
+
             return Capture(box.Item, descriptor, configuration, 0);
         }
 
         var text = box.StringData ?? string.Empty;
         ImmutableArray<int> parameters;
-        switch (box.Type)
-        {
+
+        switch (box.Type) {
             case WiredBoxType.EffectBotGivesHanditemBox:
                 var handItem = Parts(text, "Bot name;0");
                 text = handItem[0];
@@ -70,8 +72,10 @@ public sealed record WiredEditorSnapshot(
                 parameters = [];
                 break;
         }
+
         var delay = box is IWiredCycle cycle && box.Type is not (WiredBoxType.EffectKickUser or WiredBoxType.EffectSetRollerSpeed)
             ? cycle.Delay : 0;
+
         return Legacy(box, WiredBoxCategory.Action, 15, text, parameters, delay, blockedItems);
     }
 
@@ -80,7 +84,9 @@ public sealed record WiredEditorSnapshot(
         Capture(box.Item, new(box.Type.ToString(), category, WiredBoxTypeUtility.GetWiredId(box.Type), 0, string.Empty),
             new WiredConfiguration
             {
-                Text = text, IntParams = parameters, Delay = delay,
+                Text = text,
+                IntParams = parameters,
+                Delay = delay,
                 SelectedItems = box.SetItems.Values.Select(item => item.Id).ToImmutableArray()
             }, furniLimit, blockedItems);
 
@@ -89,6 +95,7 @@ public sealed record WiredEditorSnapshot(
     private static ImmutableArray<int> Parse(string text, string defaults, int count)
     {
         var parts = Parts(text, defaults);
+
         return Enumerable.Range(0, count).Select(index => int.Parse(parts[index], CultureInfo.InvariantCulture)).ToImmutableArray();
     }
 }

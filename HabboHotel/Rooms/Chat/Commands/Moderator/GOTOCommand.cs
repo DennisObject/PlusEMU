@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 
@@ -12,20 +12,22 @@ internal class GotoCommand(IRoomDataLoader rooms) : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!parameters.Any())
-        {
+        if (!parameters.Any()) {
             session.SendWhisper("You must specify a room id!");
+
             return;
         }
-        if (!uint.TryParse(parameters[0], out var roomId))
+
+        if (!uint.TryParse(parameters[0], out var roomId)) {
             session.SendWhisper("You must enter a valid room ID");
-        else
-        {
-            if (!rooms.TryGetData(roomId, out _))
-            {
+        }
+        else {
+            if (!rooms.TryGetData(roomId, out _)) {
                 session.SendWhisper("This room does not exist!");
+
                 return;
             }
+
             session.GetHabbo().PrepareRoom(roomId, "");
         }
     }

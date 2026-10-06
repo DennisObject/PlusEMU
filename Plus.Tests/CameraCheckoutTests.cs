@@ -17,8 +17,9 @@ public sealed class CameraDatabaseFactAttribute : FactAttribute
 {
     public CameraDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_CAMERA_TEST_CONNECTION_STRING")))
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PLUS_CAMERA_TEST_CONNECTION_STRING"))) {
             Skip = "Set PLUS_CAMERA_TEST_CONNECTION_STRING to a disposable task_camera_tests_ schema.";
+        }
     }
 }
 
@@ -36,8 +37,11 @@ public class CameraCheckoutTests
     public CameraCheckoutTests()
     {
         var value = Environment.GetEnvironmentVariable("PLUS_CAMERA_TEST_CONNECTION_STRING")!;
-        if (!new MySqlConnectionStringBuilder(value).Database.StartsWith("task_camera_tests_", StringComparison.Ordinal))
+
+        if (!new MySqlConnectionStringBuilder(value).Database.StartsWith("task_camera_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Camera database tests require a disposable schema.");
+        }
+
         _database = new(new MySqlConnectionStringBuilder(value)
         { AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString);
         _service = new(_database, _settings, _definitions, _clock);
@@ -96,13 +100,13 @@ public class CameraCheckoutTests
         Assert.Equal(new DateTimeOffset(clock.Now.UtcDateTime.Date, TimeSpan.Zero), connection.QuerySingle<DateTimeOffset>(
             "SELECT CAST(quota_date AS DATETIME) FROM camera_quota WHERE user_id=910001"));
 
-        foreach (var elapsed in new[] { TimeSpan.FromSeconds(5).Subtract(TimeSpan.FromTicks(10)), TimeSpan.FromSeconds(5) })
-        {
+        foreach (var elapsed in new[] { TimeSpan.FromSeconds(5).Subtract(TimeSpan.FromTicks(10)), TimeSpan.FromSeconds(5) }) {
             clock.Now = clock.Start.Add(elapsed);
             int reads = clock.Reads;
             Assert.Equal(elapsed == TimeSpan.FromSeconds(5), quota.Reserve(UserId, false, false));
             Assert.Equal(reads + 1, clock.Reads);
         }
+
         clock.Now = clock.Start.AddSeconds(15).AddTicks(-10);
         Assert.False(quota.Reserve(UserId, false, true));
         clock.Now = clock.Start.AddSeconds(15);
@@ -116,7 +120,8 @@ public class CameraCheckoutTests
     {
         var first = _service.Purchase(_habbo, _media);
         var second = _service.Purchase(_habbo, _media);
-        Assert.True(first.Ok); Assert.True(second.Ok);
+        Assert.True(first.Ok);
+        Assert.True(second.Ok);
         Assert.NotEqual(first.Item!.Id, second.Item!.Id);
         Assert.Equal((96, 20, 3), (_habbo.Credits, _habbo.Duckets, _habbo.Diamonds));
         Assert.Equal(96, Scalar("SELECT credits FROM users WHERE id=910001"));
@@ -148,8 +153,14 @@ public class CameraCheckoutTests
     public void FailureAfterItemInsertionRollsBackItemOwnershipAndWallet()
     {
         Execute("CREATE TRIGGER camera_test_failure BEFORE UPDATE ON users FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced rollback'");
-        try { Assert.Throws<MySqlException>(() => _service.Purchase(_habbo, _media)); }
-        finally { Execute("DROP TRIGGER camera_test_failure"); }
+
+        try {
+            Assert.Throws<MySqlException>(() => _service.Purchase(_habbo, _media));
+        }
+        finally {
+            Execute("DROP TRIGGER camera_test_failure");
+        }
+
         Assert.Equal(100, _habbo.Credits);
         Assert.Equal(100, Scalar("SELECT credits FROM users"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items"));
@@ -162,10 +173,12 @@ public class CameraCheckoutTests
         Assert.True(_service.Publish(_habbo, _media).Changed);
         Assert.True(_service.Publish(_habbo, _media).Ok);
         Assert.Equal(19, _habbo.Duckets);
-        var next = _media with { Id = Guid.NewGuid() }; Mint(next);
+        var next = _media with { Id = Guid.NewGuid() };
+        Mint(next);
         var recreated = new CameraCheckoutService(_database, _settings, _definitions, _clock);
         var blocked = recreated.Publish(_habbo, next);
-        Assert.False(blocked.Ok); Assert.Equal(180, blocked.WaitSeconds);
+        Assert.False(blocked.Ok);
+        Assert.Equal(180, blocked.WaitSeconds);
         Assert.Equal(19, Scalar("SELECT activity_points FROM users"));
         _clock.Now = _clock.Now.AddSeconds(180);
         Assert.True(recreated.Publish(_habbo, next).Ok);
@@ -180,12 +193,14 @@ public class CameraCheckoutTests
         _settings.Values["camera.competition.daily"] = "1";
         Assert.True(_service.EnterCompetition(_habbo, _media).Changed);
         Assert.True(_service.EnterCompetition(_habbo, _media).Ok);
-        var next = _media with { Id = Guid.NewGuid() }; Mint(next);
+        var next = _media with { Id = Guid.NewGuid() };
+        Mint(next);
         Assert.Equal("limit", _service.EnterCompetition(_habbo, next).Error);
         _settings.Values["camera.competition.require_email"] = "1";
         Assert.Equal("email", _service.EnterCompetition(_habbo, next).Error);
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM camera_competition_entries"));
-        Assert.Equal(100, _habbo.Credits); Assert.Equal(20, _habbo.Duckets);
+        Assert.Equal(100, _habbo.Credits);
+        Assert.Equal(20, _habbo.Duckets);
     }
 
     [CameraDatabaseFact]
@@ -195,16 +210,17 @@ public class CameraCheckoutTests
         _clock.Now = _clock.Now.AddMinutes(31);
         var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("D"));
         Directory.CreateDirectory(directory);
-        try
-        {
-            for (var index = 0; index < 105; index++)
-            {
+
+        try {
+            for (var index = 0; index < 105; index++) {
                 var expired = _media with { Id = Guid.NewGuid() };
                 Mint(expired);
                 File.WriteAllText(Path.Combine(directory, expired.Id + ".png"), "expired");
                 File.WriteAllText(Path.Combine(directory, expired.Id + "_small.png"), "expired");
             }
-            var fresh = _media with { Id = Guid.NewGuid(), CreatedAt = _clock.GetUtcNow() }; Mint(fresh);
+
+            var fresh = _media with { Id = Guid.NewGuid(), CreatedAt = _clock.GetUtcNow() };
+            Mint(fresh);
             using var cleanup = new CameraMediaCleanup(_database,
                 Microsoft.Extensions.Options.Options.Create(new CameraConfiguration { OutputDirectory = directory }),
                 _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<CameraMediaCleanup>.Instance);
@@ -213,7 +229,9 @@ public class CameraCheckoutTests
             Assert.Empty(Directory.GetFiles(directory));
             Assert.Equal(1, Scalar("SELECT COUNT(*) FROM camera_purchases"));
         }
-        finally { Directory.Delete(directory, true); }
+        finally {
+            Directory.Delete(directory, true);
+        }
     }
 
     [CameraDatabaseFact]
@@ -226,8 +244,8 @@ public class CameraCheckoutTests
         string small = Path.Combine(directory, _media.Id + "_small.png");
         File.WriteAllText(main, "expired");
         Directory.CreateDirectory(small); // File.Delete must fail after the main file was removed.
-        try
-        {
+
+        try {
             using var cleanup = new CameraMediaCleanup(_database,
                 Microsoft.Extensions.Options.Options.Create(new CameraConfiguration { OutputDirectory = directory }),
                 _clock, Microsoft.Extensions.Logging.Abstractions.NullLogger<CameraMediaCleanup>.Instance);
@@ -239,7 +257,9 @@ public class CameraCheckoutTests
             Assert.Equal(0, Scalar("SELECT COUNT(*) FROM camera_media"));
             Assert.Empty(Directory.GetFiles(directory));
         }
-        finally { Directory.Delete(directory, true); }
+        finally {
+            Directory.Delete(directory, true);
+        }
     }
 
     private void Mint(CameraCheckoutMedia media)
@@ -248,8 +268,17 @@ public class CameraCheckoutTests
         c.Execute("INSERT INTO camera_media (id,user_id,room_id,created_at) VALUES (@id,910001,@roomId,@now)",
             new { id = media.Id.ToString("D"), roomId = media.RoomId, now = media.CreatedAt.UtcDateTime });
     }
-    private void Execute(string sql) { using var c = _database.Connection(); c.Execute(sql); }
-    private int Scalar(string sql) { using var c = _database.Connection(); return c.QuerySingle<int>(sql); }
+    private void Execute(string sql)
+    {
+        using var c = _database.Connection();
+        c.Execute(sql);
+    }
+    private int Scalar(string sql)
+    {
+        using var c = _database.Connection();
+
+        return c.QuerySingle<int>(sql);
+    }
     private sealed class TestDatabase(string value) : IDatabase
     {
         public IDbConnection Connection() => new MySqlConnection(value);
@@ -257,35 +286,54 @@ public class CameraCheckoutTests
     }
     private sealed class TestSettings : ISettingsManager
     {
-        public Dictionary<string,string> Values = new()
+        public Dictionary<string, string> Values = new()
         {
-            ["camera.render.daily"]="50", ["camera.render.cooldown"]="5", ["camera.render.edit.daily"]="200", ["camera.render.edit.cooldown"]="1", ["camera.thumbnail.cooldown"]="15",
-            ["camera.enabled"]="1", ["camera.item_id"]="123", ["camera.price.credits"]="2", ["camera.price.points"]="0",
-            ["camera.price.points.type"]="0", ["camera.price.publish.points"]="1", ["camera.price.publish.points.type"]="0",
-            ["camera.publish.cooldown"]="180", ["camera.competition.enabled"]="0", ["camera.competition.daily"]="3", ["camera.competition.require_email"]="0"
+            ["camera.render.daily"] = "50",
+            ["camera.render.cooldown"] = "5",
+            ["camera.render.edit.daily"] = "200",
+            ["camera.render.edit.cooldown"] = "1",
+            ["camera.thumbnail.cooldown"] = "15",
+            ["camera.enabled"] = "1",
+            ["camera.item_id"] = "123",
+            ["camera.price.credits"] = "2",
+            ["camera.price.points"] = "0",
+            ["camera.price.points.type"] = "0",
+            ["camera.price.publish.points"] = "1",
+            ["camera.price.publish.points.type"] = "0",
+            ["camera.publish.cooldown"] = "180",
+            ["camera.competition.enabled"] = "0",
+            ["camera.competition.daily"] = "3",
+            ["camera.competition.require_email"] = "0"
         };
-        public string TryGetValue(string key) => Values.GetValueOrDefault(key,"0");
+        public string TryGetValue(string key) => Values.GetValueOrDefault(key, "0");
         public string? GetOptionalValue(string key) => Values.GetValueOrDefault(key);
         public Task Reload() => Task.CompletedTask;
     }
     private sealed class TestDefinitions : IItemDataManager
     {
-        public Dictionary<uint,ItemDefinition> Items { get; } = new() { [123] = new() { Id=123, SpriteId=4597, Type=ItemType.Wall, InteractionType=InteractionType.CameraPicture } };
-        public Dictionary<int,uint> Gifts { get; } = new();
+        public Dictionary<uint, ItemDefinition> Items { get; } = new() { [123] = new() { Id = 123, SpriteId = 4597, Type = ItemType.Wall, InteractionType = InteractionType.CameraPicture } };
+        public Dictionary<int, uint> Gifts { get; } = new();
         public ItemDefinition GetItemByName(string name) => Items[123];
-        public void Init() { }
+        public void Init()
+        {
+        }
     }
     private sealed class CountingClock(DateTimeOffset start) : TimeProvider
     {
         public DateTimeOffset Start { get; } = start;
         public DateTimeOffset Now { get; set; } = start;
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 
     private sealed class Clock : TimeProvider
     {
-        public DateTimeOffset Now = new(2026,10,2,18,0,0,TimeSpan.Zero);
+        public DateTimeOffset Now = new(2026, 10, 2, 18, 0, 0, TimeSpan.Zero);
         public override DateTimeOffset GetUtcNow() => Now;
     }
 }

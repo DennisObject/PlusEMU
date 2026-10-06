@@ -13,7 +13,9 @@ public class HousekeepingRoomListComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_rooms.Count);
-        foreach (var room in _rooms)
+
+        foreach (var room in _rooms) {
             HousekeepingRoomDetailComposer.WriteRoom(packet, room);
+        }
     }
 }

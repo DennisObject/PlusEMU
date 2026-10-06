@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Teams;
@@ -32,22 +32,38 @@ internal class ActorIsInTeamBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0 || Instance == null || string.IsNullOrEmpty(StringData))
+        if (@params.Length == 0 || Instance == null || string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-        if (user == null)
+
+        if (user == null) {
             return false;
-        if (int.Parse(StringData) == 1 && user.Team == Team.Red)
+        }
+
+        if (int.Parse(StringData) == 1 && user.Team == Team.Red) {
             return true;
-        if (int.Parse(StringData) == 2 && user.Team == Team.Green)
+        }
+
+        if (int.Parse(StringData) == 2 && user.Team == Team.Green) {
             return true;
-        if (int.Parse(StringData) == 3 && user.Team == Team.Blue)
+        }
+
+        if (int.Parse(StringData) == 3 && user.Team == Team.Blue) {
             return true;
-        if (int.Parse(StringData) == 4 && user.Team == Team.Yellow)
+        }
+
+        if (int.Parse(StringData) == 4 && user.Team == Team.Yellow) {
             return true;
+        }
+
         return false;
     }
 }

@@ -12,9 +12,17 @@ internal static class CameraCheckoutPacket
     {
         id = Guid.Empty;
         var bytes = packet.Buffer;
-        if (bytes.Length < 2) return false;
+
+        if (bytes.Length < 2) {
+            return false;
+        }
+
         int count = (bytes.Span[0] << 8) | bytes.Span[1];
-        if (bytes.Length != count + 2) return false;
+
+        if (bytes.Length != count + 2) {
+            return false;
+        }
+
         return CameraMediaPath.TryReadId(packet.ReadString(), out id);
     }
 }

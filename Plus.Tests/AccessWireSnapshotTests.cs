@@ -62,8 +62,8 @@ public class AccessWireSnapshotTests
         styles.Clear();
         unseen.Clear();
         tiles.Clear();
-        for (var index = 0; index < composers.Length; index++)
-        {
+
+        for (var index = 0; index < composers.Length; index++) {
             Assert.Equal(expected[index], Write(composers[index]));
             Assert.Equal(expected[index], Write(composers[index]));
         }
@@ -90,7 +90,9 @@ public class AccessWireSnapshotTests
     {
         var values = new Dictionary<string, string>
         {
-            ["message"] = "hello", ["empty"] = " ", ["linkUrl"] = "/room/1"
+            ["message"] = "hello",
+            ["empty"] = " ",
+            ["linkUrl"] = "/room/1"
         };
         var composer = new RoomNotificationComposer("notice", values);
         var expected = new object[] { "notice", 2, "message", "hello", "linkUrl", "/room/1" };
@@ -111,6 +113,7 @@ public class AccessWireSnapshotTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes.ToArray();
     }
 
@@ -118,6 +121,11 @@ public class AccessWireSnapshotTests
     {
         public DateTimeOffset Now { get; set; } = new(2040, 1, 2, 3, 4, 5, TimeSpan.Zero);
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 }

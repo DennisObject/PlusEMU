@@ -158,14 +158,15 @@ public class TelevisionPresentationTests
         service.ShowVideoInformation(client, 42, "aaa");
 
         Assert.Equal(2, sent.Count);
-        foreach (var response in sent)
-        {
+
+        foreach (var response in sent) {
             Assert.Equal(ServerPacketHeader.GetYouTubeVideoComposer, response.Header);
             var body = new FlashIncomingPacket { Buffer = response.Payload };
             Assert.Equal((42, "aaa", 0, 0, 0),
                 (body.ReadInt(), body.ReadString(), body.ReadInt(), body.ReadInt(), body.ReadInt()));
             Assert.False(body.HasDataRemaining());
         }
+
         sent.Clear();
         service.ShowVideoInformation(client, 42, "missing");
         Assert.Empty(sent);
@@ -175,6 +176,7 @@ public class TelevisionPresentationTests
     {
         var room = new Room(Data(1), Array.Empty<IRoomComponent>(), TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         habbo.CurrentRoom = room;
+
         return HabbiconTestSupport.Client(habbo);
     }
 
@@ -182,6 +184,7 @@ public class TelevisionPresentationTests
     {
         var data = (RoomData)RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
         data.Id = id;
+
         return data;
     }
 
@@ -190,8 +193,11 @@ public class TelevisionPresentationTests
     private static FakeTelevisions Televisions(params TelevisionItem[] items)
     {
         var televisions = new FakeTelevisions();
-        foreach (var item in items)
+
+        foreach (var item in items) {
             televisions.Televisions[item.Id] = item;
+        }
+
         return televisions;
     }
 
@@ -199,6 +205,7 @@ public class TelevisionPresentationTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes;
     }
 
@@ -216,7 +223,9 @@ public class TelevisionPresentationTests
     {
         public Dictionary<int, TelevisionItem> Televisions { get; } = new();
         public ICollection<TelevisionItem> TelevisionList => Televisions.Values;
-        public void Init() { }
+        public void Init()
+        {
+        }
         public bool TryGet(int itemId, out TelevisionItem? televisionItem) => Televisions.TryGetValue(itemId, out televisionItem);
     }
 }

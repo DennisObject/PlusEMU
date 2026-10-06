@@ -61,7 +61,10 @@ public class SsoLoginServiceTests
         var rewardCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var habbo = new Habbo
         {
-            Id = 7, Look = "look", Clothing = new(), Access = UserAccess.Empty,
+            Id = 7,
+            Look = "look",
+            Clothing = new(),
+            Access = UserAccess.Empty,
             HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
@@ -88,9 +91,12 @@ public class SsoLoginServiceTests
             Proxy<IRewardTrackManager>((_, _) => { calls.Add("tracks"); return null; }));
 
         var pending = service.Login(client, "valid");
-        try
-        {
-            if (pending.IsFaulted) await pending;
+
+        try {
+            if (pending.IsFaulted) {
+                await pending;
+            }
+
             Assert.False(pending.IsCompleted);
             Assert.Equal(new[] { "authenticate", "definitions", "cache", "rewards" }, calls);
             Assert.Equal(new[]
@@ -109,11 +115,15 @@ public class SsoLoginServiceTests
             await pending;
             Assert.Equal("tracks", calls[^1]);
         }
-        finally
-        {
+        finally {
             rewardCompletion.TrySetResult();
-            try { await pending; }
-            finally { ProcessOf(habbo)?.Dispose(); }
+
+            try {
+                await pending;
+            }
+            finally {
+                ProcessOf(habbo)?.Dispose();
+            }
         }
     }
 
@@ -127,6 +137,12 @@ public class SsoLoginServiceTests
         public TaskCompletionSource Completed { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public string? Ticket { get; private set; }
         public GameClient? Client { get; private set; }
-        public Task Login(GameClient session, string sso) { Client = session; Ticket = sso; return Completed.Task; }
+        public Task Login(GameClient session, string sso)
+        {
+            Client = session;
+            Ticket = sso;
+
+            return Completed.Task;
+        }
     }
 }

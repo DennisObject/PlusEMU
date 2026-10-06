@@ -28,7 +28,12 @@ public sealed class MessengerRequestSendTests
 
         var sender = new Participant(1, "Alice", new HabboMessenger([], [], [], TimeProvider.System));
         var target = new Participant(2, "Bob", new HabboMessenger([], [], [], TimeProvider.System));
-        sender.Messenger.FriendRequestUpdated += (_, args) => { if (args.FriendRequestModificationType == FriendRequestModificationType.Sent) sentEvents++; };
+        sender.Messenger.FriendRequestUpdated += (_, args) =>
+        {
+            if (args.FriendRequestModificationType == FriendRequestModificationType.Sent) {
+                sentEvents++;
+            }
+        };
         clients.RegisterClient(target.Client, target.Habbo.Id, target.Habbo.Username);
 
         // The commit point: the store is written, nothing in memory or on the wire has changed yet.
@@ -42,6 +47,7 @@ public sealed class MessengerRequestSendTests
         {
             registrations++;
             atCommit = (sender.Messenger.OutstandingFriendRequests.Count, sentEvents, target.Headers.Count, target.Messenger.Requests.Count);
+
             return Task.FromResult(true);
         }
 
@@ -82,6 +88,7 @@ public sealed class MessengerRequestSendTests
     private static object? Record(List<string> order, MethodInfo method, object?[]? args)
     {
         order.Add($"{method.Name} {args![1]}");
+
         return null;
     }
 
@@ -89,6 +96,7 @@ public sealed class MessengerRequestSendTests
     {
         var proxy = DispatchProxy.Create<T, MessengerCommunicationServiceTests.ServiceProxy>();
         ((MessengerCommunicationServiceTests.ServiceProxy)(object)proxy).Handler = handler;
+
         return proxy;
     }
 
@@ -99,12 +107,16 @@ public sealed class MessengerRequestSendTests
             Headers = [];
             Client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
-                Revision = new Revision { InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
-                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Where(headerId => headerId > 0).Distinct().ToDictionary(headerId => headerId, headerId => headerId) },
+                Revision = new Revision
+                {
+                    InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
+                    .Where(field => field.FieldType == typeof(uint)).Select(field => (uint)field.GetValue(null)!).Where(headerId => headerId > 0).Distinct().ToDictionary(headerId => headerId, headerId => headerId)
+                },
                 SendCallback = args =>
                 {
                     var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                     Headers.Add(BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)));
+
                     return true;
                 }
             };

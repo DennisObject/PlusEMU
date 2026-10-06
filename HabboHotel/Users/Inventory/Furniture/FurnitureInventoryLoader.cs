@@ -20,10 +20,12 @@ public sealed class FurnitureInventoryLoader(IDatabase database, IItemDataManage
             "FROM items LEFT JOIN items_groups ON items.id=items_groups.id WHERE items.room_id=0 AND items.user_id=@userId",
             new { userId });
         var items = new List<InventoryItem>();
-        foreach (var row in rows)
-        {
-            if (!definitions.Items.TryGetValue(row.BaseItem, out var definition))
+
+        foreach (var row in rows) {
+            if (!definitions.Items.TryGetValue(row.BaseItem, out var definition)) {
                 continue;
+            }
+
             items.Add(new()
             {
                 Id = row.Id,
@@ -34,6 +36,7 @@ public sealed class FurnitureInventoryLoader(IDatabase database, IItemDataManage
                 UniqueSeries = row.LimitedStack
             });
         }
+
         return items;
     }
 

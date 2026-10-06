@@ -8,6 +8,7 @@ public sealed class PurchasePhotoEvent(ICameraPhotoService photos) : IPacketEven
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         photos.Purchase(session, CameraCheckoutPacket.ReadMediaId(packet));
+
         return Task.CompletedTask;
     }
 }

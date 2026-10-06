@@ -10,14 +10,20 @@ internal sealed class InteractorCrackable(IAchievementManager achievements) : IF
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (session?.GetHabbo()?.Effects == null || session.GetHabbo().Effects.CurrentEffect != RequiredEffect)
+        if (session?.GetHabbo()?.Effects == null || session.GetHabbo().Effects.CurrentEffect != RequiredEffect) {
             return;
-        if (item.ExtraData is not CrackableDataFormat data || data.Target == 0 || data.Hits >= data.Target)
+        }
+
+        if (item.ExtraData is not CrackableDataFormat data || data.Target == 0 || data.Hits >= data.Target) {
             return;
+        }
 
         achievements.ProgressAchievement(session, "ACH_PinataWhacker", 1);
-        if (data.TryCrack())
+
+        if (data.TryCrack()) {
             achievements.ProgressAchievement(session, "ACH_PinataBreaker", 1);
+        }
+
         item.UpdateState();
     }
 }

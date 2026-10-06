@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Core;
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
@@ -29,8 +29,11 @@ public sealed class ChatStyleManager : IChatStyleManager, IStartable
         using var connection = _database.Connection();
         var styles = await connection.QueryAsync<ChatStyle>("SELECT id, name, COALESCE(required_permission, '') AS RequiredPermission, requires_hc AS RequiresHc, enabled FROM room_chat_styles");
         _styles.Clear();
-        foreach (var style in styles)
+
+        foreach (var style in styles) {
             _styles.TryAdd(style.Id, style);
+        }
+
         _logger.LogInformation("Loaded {Count} chat styles.", _styles.Count);
     }
 

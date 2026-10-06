@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items;
 
@@ -6,7 +6,7 @@ public static class InteractionTypes
 {
     public static InteractionType GetTypeFromString(string type)
     {
-        if (WiredBoxRegistry.TryGet(type, out var descriptor))
+        if (WiredBoxRegistry.TryGet(type, out var descriptor)) {
             return descriptor.Category switch
             {
                 WiredBoxCategory.Trigger => InteractionType.WiredTrigger,
@@ -16,8 +16,9 @@ public static class InteractionTypes
                 WiredBoxCategory.Variable => InteractionType.WiredVariable,
                 _ => InteractionType.WiredEffect
             };
-        switch (type.ToLower())
-        {
+        }
+
+        switch (type.ToLower()) {
             case "":
             case "default":
                 return InteractionType.None;
@@ -243,11 +244,10 @@ public static class InteractionTypes
                 return InteractionType.Skateboard;
             case "pet":
                 return InteractionType.Pet;
-            default:
-            {
-                //Logging.WriteLine("Unknown interaction type in parse code: " + pType, ConsoleColor.Yellow);
-                return InteractionType.None;
-            }
+            default: {
+                    //Logging.WriteLine("Unknown interaction type in parse code: " + pType, ConsoleColor.Yellow);
+                    return InteractionType.None;
+                }
         }
     }
 }

@@ -17,11 +17,20 @@ public sealed class WiredSelectorReviewRegressionTests
     public void ExplicitTriggerSourceWinsOverRetainedSavedPicks(string name)
     {
         var f = new Fixture();
-        var selector = f.Selector(name, new() { SelectedItems = [2],
-            IntParams = name == "wf_slc_furni_onfurni" ? [0, 0, 0, 0] : [0, 0, 0] });
+        var selector = f.Selector(name, new()
+        {
+            SelectedItems = [2],
+            IntParams = name == "wf_slc_furni_onfurni" ? [0, 0, 0, 0] : [0, 0, 0]
+        });
         var result = selector.Select(f.Context);
-        if (name == "wf_slc_furni_onfurni") Assert.Equal(new uint[] { 3 }, result.Selection.FurniIds);
-        else Assert.Equal(new[] { 11 }, result.Selection.UserIds);
+
+        if (name == "wf_slc_furni_onfurni") {
+            Assert.Equal(new uint[] { 3 }, result.Selection.FurniIds);
+        }
+        else {
+            Assert.Equal(new[] { 11 }, result.Selection.UserIds);
+        }
+
         Assert.Equal(1, f.WorldCaptures);
     }
 
@@ -31,11 +40,19 @@ public sealed class WiredSelectorReviewRegressionTests
     public void MissingSourceFieldUsesLegacyPickedAnchorFallback(string name)
     {
         var f = new Fixture();
-        var selector = f.Selector(name, new() { SelectedItems = [2],
-            IntParams = name == "wf_slc_furni_onfurni" ? [0] : [] });
+        var selector = f.Selector(name, new()
+        {
+            SelectedItems = [2],
+            IntParams = name == "wf_slc_furni_onfurni" ? [0] : []
+        });
         var result = selector.Select(f.Context);
-        if (name == "wf_slc_furni_onfurni") Assert.Equal(new uint[] { 4 }, result.Selection.FurniIds);
-        else Assert.Equal(new[] { 12 }, result.Selection.UserIds);
+
+        if (name == "wf_slc_furni_onfurni") {
+            Assert.Equal(new uint[] { 4 }, result.Selection.FurniIds);
+        }
+        else {
+            Assert.Equal(new[] { 12 }, result.Selection.UserIds);
+        }
     }
 
     [Theory]
@@ -44,7 +61,11 @@ public sealed class WiredSelectorReviewRegressionTests
     public void AllOnTileIncludesItsAnchorEvenWhenItIsTheOnlyFurniture(bool anchorOnly)
     {
         var f = new Fixture();
-        if (anchorOnly) f.World = f.World with { Furni = f.World.Furni.Where(x => x.Id != 4).ToArray() };
+
+        if (anchorOnly) {
+            f.World = f.World with { Furni = f.World.Furni.Where(x => x.Id != 4).ToArray() };
+        }
+
         var selector = f.Selector("wf_slc_furni_onfurni", new() { SelectedItems = [2], IntParams = [3, 100, 0, 0] });
         Assert.Equal(anchorOnly ? new uint[] { 2 } : [2, 4], selector.Select(f.Context).Selection.FurniIds.Order());
     }
@@ -98,13 +119,19 @@ public sealed class WiredSelectorReviewRegressionTests
             Context.Triggering.FurniIds.Add(1);
         }
         private static Item Item(uint id, string name) => new() { Id = id, Definition = new() { PublicName = name } };
-        private WiredSelectorWorld ReadWorld(WiredRuntimeContext _) { WorldCaptures++; return World; }
+        private WiredSelectorWorld ReadWorld(WiredRuntimeContext _)
+        {
+            WorldCaptures++;
+
+            return World;
+        }
         public IWiredContextualSelector Selector(string name, WiredConfiguration configuration)
         {
             var selector = WiredSelectorFactory.Create(_room, new() { Id = 100, Definition = new() { InteractionName = name } },
                 _state, TestGroupManager.Empty, readWorld: ReadWorld)!;
             Assert.True(selector.TryValidateConfiguration(configuration, out var valid, out var error), error);
             selector.ApplyConfiguration(valid);
+
             return selector;
         }
         public IWiredContextualAddon Addon(WiredConfiguration configuration)
@@ -113,6 +140,7 @@ public sealed class WiredSelectorReviewRegressionTests
                 _state, TestGroupManager.Empty, readWorld: ReadWorld)!;
             Assert.True(addon.TryValidateConfiguration(configuration, out var valid, out var error), error);
             addon.ApplyConfiguration(valid);
+
             return addon;
         }
     }
@@ -120,6 +148,8 @@ public sealed class WiredSelectorReviewRegressionTests
     {
         public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) => false;
         public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> targets, WiredSelection selection, bool negative = false) => false;
-        public void ResetTimers(IEnumerable<Item> targets) { }
+        public void ResetTimers(IEnumerable<Item> targets)
+        {
+        }
     }
 }

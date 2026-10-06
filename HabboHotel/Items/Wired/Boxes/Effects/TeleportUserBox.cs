@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -44,73 +44,116 @@ internal class TeleportUserBox : IWiredItem, IWiredCycle, IWiredFiringPreparatio
     {
         var unknown = packet.ReadInt();
         var unknown2 = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
-        var furniCount = packet.ReadInt();
-        for (var i = 0; i < furniCount; i++)
-        {
-            var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
-            if (selectedItem != null)
-                SetItems.TryAdd(selectedItem.Id, selectedItem);
         }
+
+        var furniCount = packet.ReadInt();
+
+        for (var i = 0; i < furniCount; i++) {
+            var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
+
+            if (selectedItem != null) {
+                SetItems.TryAdd(selectedItem.Id, selectedItem);
+            }
+        }
+
         Delay = packet.ReadInt();
     }
 
     public bool Prepare(params object[] @params)
     {
-        if (@params == null || @params.Length == 0)
+        if (@params == null || @params.Length == 0) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null || player.CurrentRoom != Instance || SetItems.Count == 0)
+
+        if (player == null || player.CurrentRoom != Instance || SetItems.Count == 0) {
             return false;
-        if (player.Effects != null)
+        }
+
+        if (player.Effects != null) {
             player.Effects.ApplyEffect(4);
+        }
+
         return true;
     }
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0 || @params[0] is not Habbo player || player.CurrentRoom != Instance || SetItems.Count == 0)
+        if (@params.Length == 0 || @params[0] is not Habbo player || player.CurrentRoom != Instance || SetItems.Count == 0) {
             return false;
+        }
+
         TeleportUser(player);
+
         return true;
     }
 
     private void TeleportUser(Habbo player)
     {
-        if (player == null)
+        if (player == null) {
             return;
+        }
+
         var room = player.CurrentRoom;
-        if (room == null)
+
+        if (room == null) {
             return;
+        }
+
         var user = player.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(player.Username);
-        if (user == null)
+
+        if (user == null) {
             return;
-        if (player.IsTeleporting || player.IsHopping || player.TeleporterId != 0)
+        }
+
+        if (player.IsTeleporting || player.IsHopping || player.TeleporterId != 0) {
             return;
+        }
+
         var items = SetItems.Values.ToList();
         items = items.OrderBy(x => Random.Shared.Next()).ToList();
-        if (items.Count == 0)
+
+        if (items.Count == 0) {
             return;
-        var item = items.First();
-        if (item == null)
-            return;
-        if (!Instance.GetRoomItemHandler().GetFloor.Contains(item))
-        {
-            SetItems.TryRemove(item.Id, out item);
-            if (items.Contains(item))
-                items.Remove(item);
-            if (SetItems.Count == 0 || items.Count == 0)
-                return;
-            item = items.First();
-            if (item == null)
-                return;
         }
-        if (room.GetGameMap() == null)
+
+        var item = items.First();
+
+        if (item == null) {
             return;
+        }
+
+        if (!Instance.GetRoomItemHandler().GetFloor.Contains(item)) {
+            SetItems.TryRemove(item.Id, out item);
+
+            if (items.Contains(item)) {
+                items.Remove(item);
+            }
+
+            if (SetItems.Count == 0 || items.Count == 0) {
+                return;
+            }
+
+            item = items.First();
+
+            if (item == null) {
+                return;
+            }
+        }
+
+        if (room.GetGameMap() == null) {
+            return;
+        }
+
         room.GetGameMap().TeleportToItem(user, item);
         room.GetRoomUserManager().UpdateUserStatusses();
-        if (player.Effects != null)
+
+        if (player.Effects != null) {
             player.Effects.ApplyEffect(0);
+        }
     }
 }

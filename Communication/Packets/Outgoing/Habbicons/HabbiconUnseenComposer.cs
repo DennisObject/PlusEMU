@@ -12,6 +12,9 @@ public sealed class HabbiconUnseenComposer(IReadOnlyList<int> ids) : IServerPack
         packet.WriteInteger(1);
         packet.WriteInteger(HabbiconService.UnseenCategory);
         packet.WriteInteger(_captured.Count);
-        foreach (var id in _captured) packet.WriteInteger(id);
+
+        foreach (var id in _captured) {
+            packet.WriteInteger(id);
+        }
     }
 }

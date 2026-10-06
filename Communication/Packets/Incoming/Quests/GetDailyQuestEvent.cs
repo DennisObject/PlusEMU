@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.LandingView;
+using Plus.Communication.Packets.Outgoing.LandingView;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Quests;
@@ -16,6 +16,7 @@ internal class GetDailyQuestEvent : IPacketEvent
     {
         var usersOnline = _clientManager.Count;
         session.Send(new ConcurrentUsersGoalProgressComposer(usersOnline));
+
         return Task.CompletedTask;
     }
 }

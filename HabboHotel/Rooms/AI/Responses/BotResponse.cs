@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Catalog.Utilities;
+using Plus.HabboHotel.Catalog.Utilities;
 
 namespace Plus.HabboHotel.Rooms.AI.Responses;
 
@@ -8,23 +8,26 @@ public class BotResponse
     {
         AiType = BotUtility.GetAiFromString(botAi);
         Keywords = new();
-        foreach (var keyword in keywords.Split(',')) Keywords.Add(keyword.ToLower());
+
+        foreach (var keyword in keywords.Split(',')) {
+            Keywords.Add(keyword.ToLower());
+        }
+
         ResponseText = responseText;
         ResponseType = responseMode;
         BeverageIds = new();
-        if (responseBeverages.Contains(","))
-        {
-            foreach (var vendingId in responseBeverages.Split(','))
-            {
-                try
-                {
+
+        if (responseBeverages.Contains(",")) {
+            foreach (var vendingId in responseBeverages.Split(',')) {
+                try {
                     BeverageIds.Add(int.Parse(vendingId));
                 }
                 catch { }
             }
         }
-        else if (!string.IsNullOrEmpty(responseBeverages) && int.Parse(responseBeverages) > 0)
+        else if (!string.IsNullOrEmpty(responseBeverages) && int.Parse(responseBeverages) > 0) {
             BeverageIds.Add(int.Parse(responseBeverages));
+        }
     }
 
     public BotAiType AiType { get; set; }
@@ -35,11 +38,12 @@ public class BotResponse
 
     public bool KeywordMatched(string message)
     {
-        foreach (var keyword in Keywords)
-        {
-            if (message.ToLower().Contains(keyword.ToLower()))
+        foreach (var keyword in Keywords) {
+            if (message.ToLower().Contains(keyword.ToLower())) {
                 return true;
+            }
         }
+
         return false;
     }
 }

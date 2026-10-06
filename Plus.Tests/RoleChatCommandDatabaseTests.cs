@@ -28,6 +28,7 @@ public sealed partial class AccessControlDatabaseTests
         var packet = new FlashIncomingPacket { Buffer = Assert.Single(sent).Payload };
         Assert.Equal(ServerPacketHeader.WhisperComposer, sent.Single().Header);
         packet.ReadInt();
+
         return packet.ReadString();
     }
 
@@ -99,7 +100,11 @@ public sealed partial class AccessControlDatabaseTests
     {
         using var connection = _database.Connection();
         connection.Execute("UPDATE roles SET weight = @weight WHERE id = @LimitedRole", new { weight, LimitedRole });
-        if (!assign) connection.Execute("INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new { Target, LimitedRole });
+
+        if (!assign) {
+            connection.Execute("INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new { Target, LimitedRole });
+        }
+
         _access.Reload();
         _sent.Clear();
         Assert.Contains("Role change refused", RunRoleCommand(assign, "acl_target", "acl_limited"));
@@ -186,7 +191,11 @@ public sealed partial class AccessControlDatabaseTests
         Assert.Contains("Usage:", RunRoleCommand(assign));
         Assert.Contains("Usage:", RunRoleCommand(assign, "acl_target"));
         Assert.Contains("Usage:", RunRoleCommand(assign, "acl_target", "acl_limited", "1", "extra"));
-        if (!assign) Assert.Contains("Usage:", RunRoleCommand(false, "acl_target", "acl_limited", "1"));
+
+        if (!assign) {
+            Assert.Contains("Usage:", RunRoleCommand(false, "acl_target", "acl_limited", "1"));
+        }
+
         AssertNoRoleCommandMutation();
     }
 }

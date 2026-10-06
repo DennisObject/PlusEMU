@@ -1,7 +1,10 @@
 using Plus.Communication.Packets;
 namespace Plus.HabboHotel.Habbicons;
 
-public enum HabbiconAction { Buy, BuyCollection, Claim, Favorite, Unfavorite }
+public enum HabbiconAction
+{
+    Buy, BuyCollection, Claim, Favorite, Unfavorite
+}
 
 public static class HabbiconState
 {

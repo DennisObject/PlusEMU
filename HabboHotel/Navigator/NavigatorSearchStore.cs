@@ -15,18 +15,21 @@ public sealed class NavigatorSearchStore(IDatabase database) : INavigatorSearchS
     public IReadOnlyList<uint> FindByOwnerName(string username)
     {
         using var connection = database.Connection();
+
         return connection.Query<uint>("SELECT id FROM rooms WHERE owner=(SELECT id FROM users WHERE username=@username LIMIT 1) AND state<>'invisible' ORDER BY users_now DESC LIMIT 50", new { username }).ToArray();
     }
 
     public IReadOnlyList<NavigatorRoomReference> FindByCaption(string captionPrefix)
     {
         using var connection = database.Connection();
+
         return connection.Query<NavigatorRoomReference>("SELECT id,state<>'invisible' AS Visible FROM rooms WHERE caption LIKE @query ORDER BY users_now DESC LIMIT 50", new { query = $"{captionPrefix}%" }).ToArray();
     }
 
     public IReadOnlyList<uint> FindWithRights(int userId, int limit)
     {
         using var connection = database.Connection();
+
         return connection.Query<uint>("SELECT room_id FROM room_rights WHERE user_id=@userId LIMIT @limit", new { userId, limit }).ToArray();
     }
 }

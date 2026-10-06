@@ -8,6 +8,7 @@ public sealed class PhotoCompetitionEvent(ICameraPhotoService photos) : IPacketE
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         photos.EnterCompetition(session, CameraCheckoutPacket.ReadMediaId(packet));
+
         return Task.CompletedTask;
     }
 }

@@ -17,6 +17,7 @@ public class FurniEditorDeleteEvent : IPacketEvent
     {
         uint id = packet.ReadUInt();
         session.Send(new FurniEditorResultComposer(_furniEditor.Delete(session.GetHabbo(), id)));
+
         return Task.CompletedTask;
     }
 }

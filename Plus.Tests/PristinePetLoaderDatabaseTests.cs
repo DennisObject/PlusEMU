@@ -12,8 +12,9 @@ public sealed class StagedLoaderDatabaseFactAttribute : FactAttribute
 {
     public StagedLoaderDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("STAGED_LOADER_DATABASE") is null)
+        if (Environment.GetEnvironmentVariable("STAGED_LOADER_DATABASE") is null) {
             Skip = "Opt-in isolated pristine loader MariaDB probe.";
+        }
     }
 }
 
@@ -88,23 +89,23 @@ internal static class PristineStagedDatabase
         connection.Open();
         var schema = "staged_loaders_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             connection.Execute($"USE `{schema}`");
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
-            foreach (var table in tables)
-            {
+
+            foreach (var table in tables) {
                 var start = pristine.IndexOf($"CREATE TABLE `{table}` (", StringComparison.Ordinal);
                 Assert.True(start >= 0, $"Missing pristine CREATE TABLE for {table}.");
                 var end = pristine.IndexOf(';', start);
                 Assert.True(end >= 0, $"Unterminated pristine CREATE TABLE for {table}.");
                 connection.Execute(pristine[start..(end + 1)]);
             }
+
             options.Database = schema;
             test(new ProbeDatabase(options.ConnectionString), connection);
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
@@ -114,6 +115,7 @@ internal static class PristineStagedDatabase
     {
         var proxy = DispatchProxy.Create<T, StagedLoaderCallbackProxy>();
         ((StagedLoaderCallbackProxy)(object)proxy).Callback = callback;
+
         return proxy;
     }
 

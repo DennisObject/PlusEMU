@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Catalog;
+namespace Plus.HabboHotel.Catalog;
 
 public class CatalogDeal
 {

@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Items.Data.Moodlight;
+namespace Plus.HabboHotel.Items.Data.Moodlight;
 
 public class MoodlightPreset
 {

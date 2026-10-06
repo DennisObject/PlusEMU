@@ -16,8 +16,10 @@ internal sealed class HousekeepingRevokeRoleEvent(IAccessControl access, IHousek
         runner.Run(session, "role.revoke", PermissionKeys.HousekeepingRolesManage, actor =>
         {
             var result = access.Apply(actor, revision, new RevokeAccessRole(userId, roleId));
+
             return new HousekeepingOutcome(result.Ok, result.Id, result.Message, HousekeepingTarget.Hotel, "role.revoke");
         });
+
         return Task.CompletedTask;
     }
 }

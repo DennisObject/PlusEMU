@@ -173,6 +173,7 @@ public sealed class PacketCollectionSnapshotTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes;
     }
 }

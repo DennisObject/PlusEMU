@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Users.Navigator.SavedSearches;
+namespace Plus.HabboHotel.Users.Navigator.SavedSearches;
 
 public class SavedSearch
 {

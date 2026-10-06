@@ -1,4 +1,4 @@
-﻿using Plus.Plugins;
+using Plus.Plugins;
 
 namespace PluginExample;
 

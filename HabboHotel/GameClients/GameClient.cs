@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
 using Microsoft.IO;
 using Plus.Communication.Encryption.Crypto.Prng;
@@ -65,19 +65,19 @@ public abstract class GameClient
     internal void OnDisconnected()
     {
         Habbo? habbo;
-        lock (_lifecycle)
-        {
+
+        lock (_lifecycle) {
             Close();
             habbo = _habbo;
         }
+
         IsAuthenticated = false;
         EndCameraContext();
-        try
-        {
+
+        try {
             habbo?.OnDisconnect();
         }
-        catch (Exception exception)
-        {
+        catch (Exception exception) {
             _logger.LogError(exception, "Failed to clean up disconnected user {UserId}", habbo?.Id);
         }
     }
@@ -88,95 +88,101 @@ public abstract class GameClient
     /// </summary>
     internal bool TryAttach(Habbo habbo, Action register)
     {
-        lock (_lifecycle)
-        {
-            if (_closed.IsCancellationRequested) return false;
+        lock (_lifecycle) {
+            if (_closed.IsCancellationRequested) {
+                return false;
+            }
+
             SetHabbo(habbo);
             register();
+
             return true;
         }
     }
 
     private void Close()
     {
-        lock (_lifecycle)
-        {
-            if (!_closed.IsCancellationRequested) _closed.Cancel();
+        lock (_lifecycle) {
+            if (!_closed.IsCancellationRequested) {
+                _closed.Cancel();
+            }
         }
     }
 
     internal abstract (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer);
     internal virtual async void OnReceived(byte[] buffer, long offset, long size)
     {
-        if (size > int.MaxValue) throw new InvalidOperationException("");
+        if (size > int.MaxValue) {
+            throw new InvalidOperationException("");
+        }
+
         // The transport reuses its receive buffer as soon as this method yields.
         var received = buffer.AsSpan((int)offset, (int)size).ToArray();
         await _receiveLock.WaitAsync();
-        try
-        {
+
+        try {
             var decrypted = SupportsLegacyCrypto && Rc4Client != null;
-            if (decrypted) Rc4Client!.Transform(received);
+
+            if (decrypted) {
+                Rc4Client!.Transform(received);
+            }
+
             await using var stream = PlusMemoryStream.GetStream(received);
             var memory = stream.GetBuffer().AsMemory().Slice(0, (int)stream.Length);
 
-            if (_incompleteStream != null)
-            {
+            if (_incompleteStream != null) {
                 _incompleteStream.Position = _incompleteStream.Length;
                 _incompleteStream.Write(memory.Span);
                 memory = _incompleteStream.GetBuffer().AsMemory().Slice(0, (int)_incompleteStream.Length);
             }
 
-            while (memory.Length > 0)
-            {
+            while (memory.Length > 0) {
                 var (complete, malformed, messageId, headerLength, length) = GetMessageIdAndPacketLength(memory);
-                if (malformed)
-                {
+
+                if (malformed) {
                     Disconnect();
                     _incompleteStream?.Dispose();
                     _incompleteStream = null;
+
                     return;
                 }
 
-                if (!complete) break;
+                if (!complete) {
+                    break;
+                }
 
-                try
-                {
-                    if (Revision.IncomingIdToInternalIdMapping.TryGetValue(messageId, out var internalMessageId))
-                    {
+                try {
+                    if (Revision.IncomingIdToInternalIdMapping.TryGetValue(messageId, out var internalMessageId)) {
                         await using var packetStream = PlusMemoryStream.GetStream(memory.Slice(headerLength, length).Span);
                         await _server.PacketReceived(this, internalMessageId, _packetFactory.CreateIncomingPacket(packetStream));
                     }
-                    else
-                    {
+                    else {
                         // TODO @80O: Add logging unknown packet received.
                     }
                 }
-                catch (Exception e)
-                {
+                catch (Exception e) {
                     _logger.LogError(e, "Error handling packet {MessageId}", messageId);
                 }
+
                 memory = memory.Slice(headerLength + length);
-                if (!decrypted && SupportsLegacyCrypto && Rc4Client != null && !memory.IsEmpty)
-                {
+
+                if (!decrypted && SupportsLegacyCrypto && Rc4Client != null && !memory.IsEmpty) {
                     Rc4Client.Transform(memory.Span);
                     decrypted = true;
                 }
             }
 
-            if (memory.Length == 0)
-            {
+            if (memory.Length == 0) {
                 _incompleteStream?.Dispose();
                 _incompleteStream = null;
             }
-            else
-            {
+            else {
                 var tail = PlusMemoryStream.GetStream(memory.Span);
                 _incompleteStream?.Dispose();
                 _incompleteStream = tail;
             }
         }
-        finally
-        {
+        finally {
             _receiveLock.Release();
         }
     }
@@ -185,7 +191,10 @@ public abstract class GameClient
 
     public void SetHabbo(Habbo habbo)
     {
-        if (_habbo != null) throw new InvalidOperationException();
+        if (_habbo != null) {
+            throw new InvalidOperationException();
+        }
+
         _habbo = habbo;
         IsAuthenticated = true;
     }
@@ -194,7 +203,11 @@ public abstract class GameClient
     {
         var outgoingMessageId = Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
         var encoded = EncodePacket(composer, outgoingMessageId);
-        if (encoded == null) return;
+
+        if (encoded == null) {
+            return;
+        }
+
         SendEncoded(encoded);
         LogPacket(composer, outgoingMessageId);
     }
@@ -203,17 +216,24 @@ public abstract class GameClient
     internal static void SendBroadcast(IServerPacket composer, IEnumerable<GameClient> clients, Func<GameClient, bool>? canSend = null)
     {
         var encodedPackets = new Dictionary<(Revision, IPacketFactory, Type, uint), byte[]>();
-        foreach (var client in clients)
-        {
+
+        foreach (var client in clients) {
             var outgoingMessageId = client.Revision.InternalIdToOutgoingIdMapping[composer.MessageId];
             var key = (client.Revision, client._packetFactory, client.GetType(), outgoingMessageId);
             byte[] buffer;
-            if (client._server.HasOutgoingPacketInjectors(composer.MessageId) || !encodedPackets.TryGetValue(key, out buffer!))
-            {
+
+            if (client._server.HasOutgoingPacketInjectors(composer.MessageId) || !encodedPackets.TryGetValue(key, out buffer!)) {
                 buffer = client.EncodePacket(composer, outgoingMessageId)!;
-                if (buffer == null) continue;
-                if (!client._server.HasOutgoingPacketInjectors(composer.MessageId)) encodedPackets.Add(key, buffer);
+
+                if (buffer == null) {
+                    continue;
+                }
+
+                if (!client._server.HasOutgoingPacketInjectors(composer.MessageId)) {
+                    encodedPackets.Add(key, buffer);
+                }
             }
+
             client.SendEncoded(buffer, canSend == null ? null : () => canSend(client));
             client.LogPacket(composer, outgoingMessageId);
         }
@@ -225,18 +245,25 @@ public abstract class GameClient
         var packet = _packetFactory.CreateOutgoingPacket(stream);
         packet.MessageId = checked((int)composer.MessageId);
         composer.Compose(packet);
-        if (!_server.ModifyOutgoingPacket(this, packet)) return null;
+
+        if (!_server.ModifyOutgoingPacket(this, packet)) {
+            return null;
+        }
+
         var memory = stream.GetBuffer().AsMemory(0, (int)stream.Length);
         CreateHeader(memory, outgoingMessageId);
+
         // Socket.SendAsync can outlive this stream; never hand its pooled buffer to a send.
         return memory.ToArray();
     }
 
     public void ActivateLegacyCrypto(byte[] key)
     {
-        if (!SupportsLegacyCrypto) return;
-        lock (_sendLock)
-        {
+        if (!SupportsLegacyCrypto) {
+            return;
+        }
+
+        lock (_sendLock) {
             Rc4Client = new Arc4(key);
             _outgoingRc4 = new Arc4(key);
         }
@@ -244,13 +271,13 @@ public abstract class GameClient
 
     private void SendEncoded(byte[] buffer, Func<bool>? canSend = null)
     {
-        if (!SupportsLegacyCrypto || _outgoingRc4 == null)
-        {
+        if (!SupportsLegacyCrypto || _outgoingRc4 == null) {
             SendEncodedCore(buffer, canSend);
+
             return;
         }
-        lock (_sendLock)
-        {
+
+        lock (_sendLock) {
             SendEncodedCore(buffer, canSend);
         }
     }
@@ -260,26 +287,27 @@ public abstract class GameClient
         var args = new SocketAsyncEventArgs();
         args.SetBuffer(buffer.AsMemory());
         args.Completed += static (_, completed) => completed.Dispose();
-        try
-        {
+
+        try {
             // Visit-scoped packets can expire during encoding or a prior recipient's synchronous send.
             // Recheck at the transport boundary, without holding a room/network lock across the callback.
-            if (canSend != null && !canSend())
-            {
+            if (canSend != null && !canSend()) {
                 args.Dispose();
+
                 return;
             }
-            if (SupportsLegacyCrypto && _outgoingRc4 != null)
-            {
+
+            if (SupportsLegacyCrypto && _outgoingRc4 != null) {
                 buffer = buffer.ToArray();
                 _outgoingRc4.Transform(buffer);
                 args.SetBuffer(buffer.AsMemory());
             }
-            if (!SendCallback(args))
+
+            if (!SendCallback(args)) {
                 args.Dispose();
+            }
         }
-        catch
-        {
+        catch {
             args.Dispose();
             throw;
         }
@@ -287,8 +315,9 @@ public abstract class GameClient
 
     private void LogPacket(IServerPacket composer, uint outgoingMessageId)
     {
-        if (_logger.IsEnabled(LogLevel.Debug))
+        if (_logger.IsEnabled(LogLevel.Debug)) {
             _logger.LogDebug("Send Packet: {PacketType} (EmuId: {EmulatorId}, ClientId: {ClientId})", composer.GetType().Name, composer.MessageId, outgoingMessageId);
+        }
     }
 
     public abstract void CreateHeader(Memory<byte> memory, uint messageId);

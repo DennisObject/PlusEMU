@@ -21,7 +21,7 @@ public sealed class NavigatorSearchSnapshotTests
     {
         var ids = new uint[] { 2, 99, 1, 2 };
         var result = new SearchResultList(7, "cat", "id", "Name", true, 0, "", NavigatorViewMode.Thumbnail, "query", "none", 0)
-            { CategoryType = category };
+        { CategoryType = category };
         var navigator = CatalogSnapshotTestSupport.Proxy<INavigatorManager>((method, args) => method switch
         {
             nameof(INavigatorManager.GetCategoriessForSearch) => new List<SearchResultList> { result },
@@ -33,6 +33,7 @@ public sealed class NavigatorSearchSnapshotTests
         var store = CatalogSnapshotTestSupport.Proxy<INavigatorSearchStore>((method, _) =>
         {
             storeCalls.Add(method);
+
             return method == nameof(INavigatorSearchStore.FindByCaption)
                 ? new NavigatorRoomReference[] { new() { Id = 3, Visible = false }, new() { Id = 2, Visible = true },
                     new() { Id = 99, Visible = true }, new() { Id = 1, Visible = true }, new() { Id = 2, Visible = true } }
@@ -42,30 +43,48 @@ public sealed class NavigatorSearchSnapshotTests
         {
             Assert.Equal(nameof(IGroupManager.GetGroupsForUser), method);
             Assert.Equal(42, args[0]);
+
             return ids.Select((id, index) => new Group(index, "Group", "", "", id, 42, null, 0, 1, 1, 0, false, GroupMembershipSnapshot.Empty)).ToList();
         });
         var loader = new Rooms();
         var (client, _) = HabbiconTestSupport.Client(new() { Id = 42 });
-        foreach (var id in ids) client.GetHabbo().FavoriteRooms.Add(id);
+
+        foreach (var id in ids) {
+            client.GetHabbo().FavoriteRooms.Add(id);
+        }
+
         var roomManager = CatalogSnapshotTestSupport.Proxy<IRoomManager>((method, _) => throw new InvalidOperationException(method));
         var service = new NavigatorSearchService(navigator, store, roomManager, groups, loader);
 
         var snapshot = service.Search(client, "cat", query);
 
         Assert.Equal(new uint[] { 2, 1 }, Assert.Single(snapshot.Results).Rooms.Select(room => room.Id));
-        if (category == NavigatorCategoryType.MyRooms)
-        {
+
+        if (category == NavigatorCategoryType.MyRooms) {
             Assert.Equal(42, loader.OwnerId);
             Assert.Empty(loader.Resolved);
         }
-        else Assert.Equal(ids, loader.Resolved);
+        else {
+            Assert.Equal(ids, loader.Resolved);
+        }
+
         Assert.Equal(category == NavigatorCategoryType.MyRights ? [nameof(INavigatorSearchStore.FindWithRights)] :
             query.StartsWith("owner:") ? [nameof(INavigatorSearchStore.FindByOwnerName)] :
             query.Length > 0 ? [nameof(INavigatorSearchStore.FindByCaption)] : Array.Empty<string>(), storeCalls);
     }
 
-    private static bool FoundResult(object?[] args, SearchResultList result) { args[1] = result; return true; }
-    private static bool NoFeatured(object?[] args) { args[1] = null; return false; }
+    private static bool FoundResult(object?[] args, SearchResultList result)
+    {
+        args[1] = result;
+
+        return true;
+    }
+    private static bool NoFeatured(object?[] args)
+    {
+        args[1] = null;
+
+        return false;
+    }
 
     private sealed class Rooms : IRoomDataLoader
     {
@@ -74,12 +93,14 @@ public sealed class NavigatorSearchSnapshotTests
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId)
         {
             OwnerId = ownerId;
+
             return [new() { Id = 1, Name = "A", UsersNow = 1 }, new() { Id = 2, Name = "B", UsersNow = 2 }];
         }
         public bool TryGetData(uint roomId, [NotNullWhen(true)] out RoomData? data)
         {
             Resolved.Add(roomId);
             data = roomId == 99 ? null : new RoomData { Id = roomId, Name = "Room" };
+
             return data != null;
         }
     }

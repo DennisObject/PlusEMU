@@ -106,7 +106,11 @@ public sealed class RoomFilterServiceTests
     {
         var store = new RecordingStore { Fail = true };
         var world = new World(store);
-        if (!add) world.Room.WordFilterList.Add("existing");
+
+        if (!add) {
+            world.Room.WordFilterList.Add("existing");
+        }
+
         var service = new RoomFilterService(Achievement([]));
 
         Assert.Throws<InvalidOperationException>(() => service.Modify(world.Client, 42, add, add ? "new" : "existing"));
@@ -122,19 +126,20 @@ public sealed class RoomFilterServiceTests
         connection.Open();
         var schema = "room_filter_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
             {
                 Database = schema,
                 AllowZeroDateTime = true,
                 ConvertZeroDateTime = true
             }.ConnectionString;
-            using (var schemaConnection = new MySqlConnection(connectionString))
-            {
+
+            using (var schemaConnection = new MySqlConnection(connectionString)) {
                 schemaConnection.Open();
                 schemaConnection.Execute("CREATE TABLE room_filter (room_id INT UNSIGNED NOT NULL, word VARCHAR(100) NOT NULL, UNIQUE KEY room_word (room_id, word))");
             }
+
             var component = new RoomFilterComponent(new ProbeDatabase(connectionString));
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
             room.Id = 42;
@@ -142,16 +147,20 @@ public sealed class RoomFilterServiceTests
             component.Initiate(room);
 
             Assert.True(room.GetFilter().AddFilter("blocked"));
-            using (var probe = new MySqlConnection(connectionString))
+
+            using (var probe = new MySqlConnection(connectionString)) {
                 Assert.Equal("blocked", probe.QuerySingle<string>("SELECT word FROM room_filter WHERE room_id = 42"));
+            }
+
             component.Initiated();
             Assert.Equal(["blocked"], room.WordFilterList);
             Assert.True(room.GetFilter().RemoveFilter("blocked"));
-            using (var probe = new MySqlConnection(connectionString))
+
+            using (var probe = new MySqlConnection(connectionString)) {
                 Assert.Equal(0, probe.QuerySingle<int>("SELECT COUNT(*) FROM room_filter"));
+            }
         }
-        finally
-        {
+        finally {
             connection.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -186,13 +195,20 @@ public sealed class RoomFilterServiceTests
         public Action? BeforeRemove { get; set; }
         public void Add(uint roomId, string word)
         {
-            if (Fail) throw new InvalidOperationException("forced add failure");
+            if (Fail) {
+                throw new InvalidOperationException("forced add failure");
+            }
+
             Added = (roomId, word);
         }
         public void Remove(uint roomId, string word)
         {
             BeforeRemove?.Invoke();
-            if (Fail) throw new InvalidOperationException("forced remove failure");
+
+            if (Fail) {
+                throw new InvalidOperationException("forced remove failure");
+            }
+
             Removed = (roomId, word);
         }
     }
@@ -209,6 +225,7 @@ public sealed class RoomFilterServiceTests
     {
         var proxy = DispatchProxy.Create<IAchievementManager, AchievementProxy>();
         ((AchievementProxy)(object)proxy).Order = order;
+
         return proxy;
     }
 
@@ -217,8 +234,10 @@ public sealed class RoomFilterServiceTests
         public List<string> Order { get; set; } = null!;
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
-            if (targetMethod?.Name == nameof(IAchievementManager.ProgressAchievement))
+            if (targetMethod?.Name == nameof(IAchievementManager.ProgressAchievement)) {
                 Order.Add("achievement");
+            }
+
             return targetMethod?.ReturnType == typeof(bool) ? true : null;
         }
     }

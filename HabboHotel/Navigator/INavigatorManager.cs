@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Navigator.SavedSearches;
 

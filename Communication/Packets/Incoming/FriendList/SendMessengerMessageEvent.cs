@@ -11,6 +11,7 @@ public sealed class SendMessengerMessageEvent(IHabbiconMessengerService messenge
         int conversationId = packet.ReadInt(), recipientId = packet.ReadInt(), confirmationId = packet.ReadInt(), type = packet.ReadInt();
         string message = packet.ReadString(), metadata = packet.ReadString();
         messenger.Send(session, conversationId, recipientId, confirmationId, type, message, metadata);
+
         return Task.CompletedTask;
     }
 }

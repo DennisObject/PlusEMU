@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Session;
+using Plus.Communication.Packets.Outgoing.Rooms.Session;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -16,8 +16,11 @@ internal class FindRandomFriendingRoomEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var instance = _roomManager.TryGetRandomLoadedRoom();
-        if (instance != null)
+
+        if (instance != null) {
             session.Send(new RoomForwardComposer(instance.Id));
+        }
+
         return Task.CompletedTask;
     }
 }

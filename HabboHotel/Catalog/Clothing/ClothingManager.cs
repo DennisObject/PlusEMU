@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 using System.Diagnostics.CodeAnalysis;
 using Dapper;
 using Plus.Database;

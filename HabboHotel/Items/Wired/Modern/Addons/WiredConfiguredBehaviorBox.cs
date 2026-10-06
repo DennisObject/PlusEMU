@@ -31,16 +31,16 @@ public abstract class WiredConfiguredBehaviorBox : IWiredConfiguredItem
 
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
-        try
-        {
+        try {
             validated = _normalize(proposed);
             error = "";
+
             return true;
         }
-        catch (ArgumentException exception)
-        {
+        catch (ArgumentException exception) {
             validated = Configuration;
             error = exception.Message;
+
             return false;
         }
     }
@@ -53,7 +53,9 @@ public abstract class WiredConfiguredBehaviorBox : IWiredConfiguredItem
         ConfigurationChanged();
     }
 
-    protected virtual void ConfigurationChanged() { }
+    protected virtual void ConfigurationChanged()
+    {
+    }
     public void HandleSave(IIncomingPacket packet) => throw new InvalidOperationException("Modern boxes require the configured save adapter");
     public bool Execute(params object[] @params) => false;
 }

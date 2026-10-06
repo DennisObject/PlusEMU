@@ -35,8 +35,12 @@ public sealed record ClubMembership
     /// <summary>Past tenure plus the running interval, capped at expiry. A missing expiry contributes no running time.</summary>
     public long Elapsed(DateTimeOffset now)
     {
-        if (StartedAt is not { } started || ExpiresAt is not { } expiry) return PastSeconds;
+        if (StartedAt is not { } started || ExpiresAt is not { } expiry) {
+            return PastSeconds;
+        }
+
         var end = expiry < now ? expiry : now;
+
         return PastSeconds + WholeSeconds(end - started);
     }
 
@@ -50,9 +54,14 @@ public sealed record ClubMembership
     public static DateTimeOffset? Extend(DateTimeOffset now, DateTimeOffset? expiry, int days)
     {
         var basis = ToUtc(expiry) is { } current && current > now ? current : ToUtc(now)!.Value;
+
         // Divide rather than multiply: a product of a large day count and ticks-per-day overflows long.
-        if (days < 0 || days > TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerDay) return null;
+        if (days < 0 || days > TimeSpan.MaxValue.Ticks / TimeSpan.TicksPerDay) {
+            return null;
+        }
+
         var span = new TimeSpan((long)days * TimeSpan.TicksPerDay);
+
         // The exact remaining range is compared before adding, so no value outside DateTimeOffset is ever constructed.
         return span > DateTimeOffset.MaxValue - basis ? null : basis + span;
     }

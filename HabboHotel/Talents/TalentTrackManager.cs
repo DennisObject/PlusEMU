@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Core;
 using System.Data;
 using Microsoft.Extensions.Logging;
@@ -32,9 +32,12 @@ public class TalentTrackManager : ITalentTrackManager, IStartable
         var subLevels = await connection.QueryAsync<(int TalentLevel, int Level, string Badge, int Progress)>("SELECT talent_level, sub_level, badge_code, required_progress FROM talents_sub_levels");
         var byLevel = subLevels.ToLookup(row => row.TalentLevel);
         _citizenshipLevels.Clear();
-        foreach (var level in levels)
+
+        foreach (var level in levels) {
             _citizenshipLevels.Add(level.Level, new(level.Type, level.Level, level.Actions, level.Gifts,
                 byLevel[level.Level].Select(row => new TalentTrackSubLevel(row.Level, row.Badge, row.Progress))));
+        }
+
         _logger.LogInformation("Loaded {Count} talent track levels", _citizenshipLevels.Count);
     }
 

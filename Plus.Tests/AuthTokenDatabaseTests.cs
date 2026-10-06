@@ -62,8 +62,10 @@ public sealed class AuthTokenDatabaseTests : IDisposable
         var store = new SsoTicketStore(_database, _time, AuthTestConfig.Options());
         var userId = User();
         var legacy = SecureToken.Generate();
-        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
+
+        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString)) {
             connection.Execute("UPDATE users SET auth_ticket = @legacy, auth_ticket_expires_at = NULL WHERE id = @userId", new { legacy, userId });
+        }
 
         Assert.Null(await store.Consume(legacy));
     }
@@ -135,12 +137,13 @@ public sealed class AuthTokenDatabaseTests : IDisposable
 
         var token = await store.Issue(userId);
         Assert.Equal(_time.Now.AddMinutes(10), token.ExpiresAt);
-        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
-        {
+
+        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString)) {
             var stored = connection.QuerySingle<string>("SELECT token_hash FROM user_access_tokens WHERE user_id = @userId", new { userId });
             Assert.Equal(SecureToken.Hash(token.Value), stored);
             Assert.NotEqual(token.Value, stored);
         }
+
         Assert.Equal(userId, await store.FindUser(token.Value));
         Assert.Null(await store.FindUser(token.Value + "x"));
 
@@ -188,6 +191,7 @@ public sealed class AuthTokenDatabaseTests : IDisposable
     {
         var id = AuthTestDatabase.InsertUser(AuthTestDatabase.UniqueName("tok"));
         _users.Add(id);
+
         return id;
     }
 

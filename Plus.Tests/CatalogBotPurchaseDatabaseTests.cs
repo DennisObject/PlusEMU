@@ -28,8 +28,8 @@ public sealed class CatalogBotPurchaseDatabaseTests
         admin.Open();
         var schema = "task_catalog_bot_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var options = new MySqlConnectionStringBuilder(root.ConnectionString) { Database = schema };
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
@@ -54,6 +54,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
                 Assert.Equal(1, CatalogLimitedStock.Reserve(db, transaction, 50));
                 bot = store.Create(db, transaction, preset, habbo.Id);
                 Assert.Equal(100, habbo.Credits);
+
                 return true;
             }));
 
@@ -75,6 +76,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
                 {
                     Assert.Equal(1, CatalogLimitedStock.Reserve(db, transaction, 50));
                     store.Create(db, transaction, preset, habbo.Id);
+
                     return true;
                 }));
 
@@ -84,8 +86,7 @@ public sealed class CatalogBotPurchaseDatabaseTests
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM club_credit_spending"));
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT limited_sells FROM catalog_items WHERE id=50"));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }

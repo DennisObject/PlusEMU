@@ -60,6 +60,7 @@ public class CameraEffectCatalogueTests
             Assert.Equal("/effects", request.RequestUri!.AbsolutePath);
             Assert.Equal("Bearer", request.Headers.Authorization!.Scheme);
             Assert.Equal(new string('x', 32), request.Headers.Authorization.Parameter);
+
             return Task.FromResult(new HttpResponseMessage(Status)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json")

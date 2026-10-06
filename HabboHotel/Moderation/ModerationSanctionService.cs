@@ -15,27 +15,33 @@ internal static class ModerationBanDuration
     public static bool TryGetExpiry(DateTimeOffset now, double hours, out DateTimeOffset expiresAt)
     {
         expiresAt = default;
-        if (!double.IsFinite(hours) || hours <= 0)
+
+        if (!double.IsFinite(hours) || hours <= 0) {
             return false;
+        }
 
         TimeSpan delay;
-        try
-        {
+
+        try {
             delay = TimeSpan.FromHours(hours);
         }
-        catch (OverflowException)
-        {
+        catch (OverflowException) {
             return false;
         }
+
         return TryGetExpiry(now, delay, out expiresAt);
     }
 
     public static bool TryGetExpiry(DateTimeOffset now, TimeSpan delay, out DateTimeOffset expiresAt)
     {
         expiresAt = default;
-        if (delay <= TimeSpan.Zero || delay > DateTimeOffset.MaxValue - now)
+
+        if (delay <= TimeSpan.Zero || delay > DateTimeOffset.MaxValue - now) {
             return false;
+        }
+
         expiresAt = now + delay;
+
         return true;
     }
 }
@@ -49,31 +55,37 @@ public sealed class ModerationSanctionService(
     public async Task Ban(GameClient actor, ModerationBanRequest request)
     {
         var moderator = actor.GetHabbo();
+
         if (request.IpBan && !moderator.Access.Can(PermissionKeys.ModerationIpBan) ||
-            request.MachineBan && !moderator.Access.Can(PermissionKeys.ModerationMachineBan))
+            request.MachineBan && !moderator.Access.Can(PermissionKeys.ModerationMachineBan)) {
             return;
+        }
 
         var now = clock.GetUtcNow();
-        if (!ModerationBanDuration.TryGetExpiry(now, request.Hours, out var expiresAt))
+
+        if (!ModerationBanDuration.TryGetExpiry(now, request.Hours, out var expiresAt)) {
             return;
+        }
 
         using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
         var targetClient = clients.GetClientByUserId(request.UserId);
         var target = targetClient?.GetHabbo() ?? users.GetById(request.UserId);
-        if (target == null)
-        {
+
+        if (target == null) {
             actor.SendWhisper("An error occoured whilst finding that user in the database.");
+
             return;
         }
-        if (!moderator.Access.Outranks(target.Access))
-        {
+
+        if (!moderator.Access.Outranks(target.Access)) {
             actor.SendWhisper("Oops, you cannot ban that user.");
+
             return;
         }
 
         string? machineId = null;
-        if (request.MachineBan && targetClient != null)
-        {
+
+        if (request.MachineBan && targetClient != null) {
 #pragma warning disable CS0618 // The handshake's machine id only lives on the session.
             machineId = targetClient.MachineId;
 #pragma warning restore CS0618

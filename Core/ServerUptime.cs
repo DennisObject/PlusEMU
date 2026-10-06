@@ -21,19 +21,24 @@ public sealed class ServerUptime(TimeProvider clock) : IServerUptime
         get
         {
             var start = Volatile.Read(ref _start);
-            if (start == null)
+
+            if (start == null) {
                 return TimeSpan.Zero;
+            }
+
             var elapsed = clock.GetElapsedTime(start.Timestamp);
+
             return elapsed < TimeSpan.Zero ? TimeSpan.Zero : elapsed;
         }
     }
 
     public void Start()
     {
-        lock (_gate)
-        {
-            if (_start != null)
+        lock (_gate) {
+            if (_start != null) {
                 return;
+            }
+
             Volatile.Write(ref _start, new(clock.GetUtcNow(), clock.GetTimestamp()));
         }
     }

@@ -32,7 +32,10 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((0, 1), StateLines());
         Assert.Equal(1, Whispers()); // the roll is the user's
 
-        for (var tick = 0; tick < 5 && dice.LegacyDataString == "-1"; tick++) dice.ProcessUpdates();
+        for (var tick = 0; tick < 5 && dice.LegacyDataString == "-1"; tick++) {
+            dice.ProcessUpdates();
+        }
+
         Cycle();
         Assert.NotEqual("-1", dice.LegacyDataString);
         Assert.Equal((0, 2), StateLines());
@@ -56,7 +59,10 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("1", vending.LegacyDataString);
         Assert.Equal((1, 1), StateLines());
 
-        for (var tick = 0; tick < 5 && vending.LegacyDataString == "1"; tick++) vending.ProcessUpdates();
+        for (var tick = 0; tick < 5 && vending.LegacyDataString == "1"; tick++) {
+            vending.ProcessUpdates();
+        }
+
         Cycle();
         Assert.Equal("0", vending.LegacyDataString);
         Assert.Equal((1, 2), StateLines());
@@ -125,7 +131,8 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("1", gate.LegacyDataString);
         Assert.Equal(1, Gates.PendingCount);
         _room.GetRoomUserManager().RemoveUserFromRoom(_client, false, false);
-        ExecutorTick(); ExecutorTick();
+        ExecutorTick();
+        ExecutorTick();
 
         Assert.Equal("0", gate.LegacyDataString);
         Assert.Equal((0, 1), StateLines());
@@ -142,8 +149,8 @@ public partial class PlacedFurniRoomTests
 
         UseItem(gate);
         var whispers = 0;
-        for (var tick = 0; tick < 3; tick++)
-        {
+
+        for (var tick = 0; tick < 3; tick++) {
             ExecutorTick();
             whispers += Whispers();
         }
@@ -181,12 +188,15 @@ public partial class PlacedFurniRoomTests
         var user = Viewer(0, 0);
 
         var capture = FurnitureStateEvents.Capture(_room);
-        try
-        {
+
+        try {
             lamp.LegacyDataString = "1";
             Task.Run(() => _room.GetWired().OnCycle()).GetAwaiter().GetResult();
         }
-        finally { capture.Dispose(); }
+        finally {
+            capture.Dispose();
+        }
+
         FurnitureStateEvents.Publish(_room, user, capture.Transitions);
         Cycle();
 
@@ -222,19 +232,20 @@ public partial class PlacedFurniRoomTests
         WatchState(lamp);
         var otherRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
 
-        using (var outer = FurnitureStateEvents.Capture(_room))
-        {
-            using (var inner = FurnitureStateEvents.Capture(_room))
-            {
+        using (var outer = FurnitureStateEvents.Capture(_room)) {
+            using (var inner = FurnitureStateEvents.Capture(_room)) {
                 lamp.LegacyDataString = "1";
                 Assert.Single(inner.Transitions);
             }
-            using (FurnitureStateEvents.Capture(otherRoom)) lamp.LegacyDataString = "0";
+
+            using (FurnitureStateEvents.Capture(otherRoom)) {
+                lamp.LegacyDataString = "0";
+            }
+
             Assert.Single(outer.Transitions);
             Assert.Throws<InvalidOperationException>(new Action(() =>
             {
-                using (FurnitureStateEvents.Capture(_room))
-                {
+                using (FurnitureStateEvents.Capture(_room)) {
                     lamp.LegacyDataString = "1";
                     throw new InvalidOperationException();
                 }
@@ -242,6 +253,7 @@ public partial class PlacedFurniRoomTests
             lamp.LegacyDataString = "0";
             Assert.Equal(2, outer.Transitions.Count);
         }
+
         lamp.LegacyDataString = "1";
         Cycle();
 
@@ -258,7 +270,9 @@ public partial class PlacedFurniRoomTests
         Assert.Equal((0, 1), StateLines());
 
         var admitted = Furni(42, InteractionType.Dice, WiredBoxType.None);
-        admitted.Definition.Modes = 7; InitializeNativeState(admitted); admitted.LegacyDataString = "-1";
+        admitted.Definition.Modes = 7;
+        InitializeNativeState(admitted);
+        admitted.LegacyDataString = "-1";
         Stack(130, 1, "wf_trg_state_changed", ChangeLine, admitted);
         Viewer(0, 3);
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(_client, admitted, 2, 2, 0, true, false, false));
@@ -294,8 +308,11 @@ public partial class PlacedFurniRoomTests
     public void AFullQueueDropsTheOverflowWithANoteAndCleanupEmptiesIt()
     {
         var lamp = Toggle(30);
-        for (var write = 0; write < WiredComponent.MaxQueuedStateWrites + 4; write++)
+
+        for (var write = 0; write < WiredComponent.MaxQueuedStateWrites + 4; write++) {
             lamp.LegacyDataString = write % 2 == 0 ? "1" : "0";
+        }
+
         Cycle();
         Assert.Contains(_room.GetWired().ReadLogs(0, 100).Entries,
             entry => entry.Message.Contains("4 furni state changes were dropped", StringComparison.Ordinal));
@@ -304,7 +321,8 @@ public partial class PlacedFurniRoomTests
         Cycle();
         Assert.Single(_room.GetWired().ReadLogs(0, 100, -1, "were dropped").Entries);
 
-        lamp.LegacyDataString = "1"; lamp.LegacyDataString = "0";
+        lamp.LegacyDataString = "1";
+        lamp.LegacyDataString = "0";
         Assert.Equal(2, QueuedStateWrites());
         _room.GetWired().Cleanup();
         Assert.Equal(0, QueuedStateWrites());
@@ -331,7 +349,11 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("1", gate.LegacyDataString);
         _room.GetRoomUserManager().RemoveUserFromRoom(_client, false, false);
         _client.Sent.Clear();
-        using (RoomOwnerScope.Enter(_room)) Gates.Drain();
+
+        using (RoomOwnerScope.Enter(_room)) {
+            Gates.Drain();
+        }
+
         Cycle();
 
         Assert.Equal("0", gate.LegacyDataString);
@@ -347,6 +369,7 @@ public partial class PlacedFurniRoomTests
         item.Definition.Modes = modes;
         InitializeNativeState(item);
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, 3, 3, 0, true, false, false));
+
         return item;
     }
 
@@ -354,6 +377,7 @@ public partial class PlacedFurniRoomTests
     {
         var item = Toggle(id, place: false);
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, x, y, 0, true, false, false));
+
         return item;
     }
 
@@ -362,10 +386,12 @@ public partial class PlacedFurniRoomTests
     {
         var trigger = WiredBox(id, "wf_trg_stuff_state", 0, 1);
         Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [button.Id] }, out var config, out var error), error);
-        trigger.ApplyConfiguration(config); Assert.True(_room.GetWired().AddBox(trigger));
+        trigger.ApplyConfiguration(config);
+        Assert.True(_room.GetWired().AddBox(trigger));
         var toggle = WiredBox(id + 1, "wf_act_toggle_state", 0, 1);
         Assert.True(toggle.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [target.Id] }, out config, out error), error);
-        toggle.ApplyConfiguration(config); Assert.True(_room.GetWired().AddBox(toggle));
+        toggle.ApplyConfiguration(config);
+        Assert.True(_room.GetWired().AddBox(toggle));
     }
 
     private static FurnitureUseService UseService() => new(null!, TestItemRuntime.Quests);
@@ -387,14 +413,20 @@ public partial class PlacedFurniRoomTests
 
         private sealed class Throwing : IFurniInteractor
         {
-            public void OnPlace(GameClient? session, Item item) { }
-            public void OnRemove(GameClient? session, Item item) { }
+            public void OnPlace(GameClient? session, Item item)
+            {
+            }
+            public void OnRemove(GameClient? session, Item item)
+            {
+            }
             public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
             {
                 item.LegacyDataString = "1";
                 throw new InvalidOperationException("interactor failed");
             }
-            public void OnWiredTrigger(Item item) { }
+            public void OnWiredTrigger(Item item)
+            {
+            }
         }
     }
 }

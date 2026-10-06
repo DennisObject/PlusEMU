@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Games.Freeze;
+namespace Plus.HabboHotel.Rooms.Games.Freeze;
 
 public enum FreezePowerUp
 {

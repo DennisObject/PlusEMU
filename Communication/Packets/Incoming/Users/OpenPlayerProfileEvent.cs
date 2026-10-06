@@ -9,6 +9,7 @@ internal class OpenPlayerProfileEvent(IPlayerProfileService profiles) : IPacketE
     {
         var userId = packet.ReadInt();
         packet.ReadBool(); // IsMe?
+
         return profiles.Open(session, userId);
     }
 }

@@ -33,8 +33,10 @@ public sealed class UserRewardTrackState
     {
         _progress[step.TaskId] = step.Count;
         _peaks[step.TaskId] = Math.Max(PeakOf(step.TaskId), step.Peak);
-        if (step.PointsGranted > 0)
+
+        if (step.PointsGranted > 0) {
             Points += step.PointsGranted;
+        }
     }
 
     public bool IsClaimed(string prizeId) => _claimed.Contains(prizeId);

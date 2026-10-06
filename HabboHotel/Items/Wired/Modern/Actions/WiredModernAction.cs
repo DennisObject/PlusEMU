@@ -41,8 +41,13 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
         TimeProvider clock, IWiredRewardService rewards, IBotManagementStore botStore, IGameClientManager clients, IItemDataManager definitions,
         IItemTravelStore travelStore) : base(room, item, descriptor)
     {
-        if (!Supports(descriptor.CanonicalName)) throw new ArgumentException("Unknown action.", nameof(descriptor));
-        _clocks = clocks; _publish = publish; _movement = new(walkTransition);
+        if (!Supports(descriptor.CanonicalName)) {
+            throw new ArgumentException("Unknown action.", nameof(descriptor));
+        }
+
+        _clocks = clocks;
+        _publish = publish;
+        _movement = new(walkTransition);
         _roomLog = roomLog;
         _logger = logger;
         _clock = clock;
@@ -55,86 +60,220 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         var name = Descriptor.CanonicalName;
-        if (name == "wf_act_give_reward") return WiredRewards.TryValidate(proposed, out validated, out error);
-        if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.TryValidate(name, proposed, out validated, out error);
-        if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.TryValidate(proposed, out validated, out error);
-        if (WiredBotActions.Names.Contains(name)) return WiredBotActions.TryValidate(name, proposed, out validated, out error);
-        if (WiredMovementActions.Names.Contains(name)) return WiredMovementConfiguration.TryValidate(name, proposed, out validated, out error);
-        validated = proposed; error = "Invalid action configuration.";
-        if (!WiredLegacyProtocol.IsWithinLimits(proposed)) return false;
+
+        if (name == "wf_act_give_reward") {
+            return WiredRewards.TryValidate(proposed, out validated, out error);
+        }
+
+        if (WiredTemporaryFurnitureActions.Supports(name)) {
+            return WiredTemporaryFurnitureActions.TryValidate(name, proposed, out validated, out error);
+        }
+
+        if (name == "wf_act_teleport_to_room") {
+            return WiredRoomForwarding.TryValidate(proposed, out validated, out error);
+        }
+
+        if (WiredBotActions.Names.Contains(name)) {
+            return WiredBotActions.TryValidate(name, proposed, out validated, out error);
+        }
+
+        if (WiredMovementActions.Names.Contains(name)) {
+            return WiredMovementConfiguration.TryValidate(name, proposed, out validated, out error);
+        }
+
+        validated = proposed;
+        error = "Invalid action configuration.";
+
+        if (!WiredLegacyProtocol.IsWithinLimits(proposed)) {
+            return false;
+        }
+
         var p = proposed.IntParams;
         bool F(int i) => p[i] is 0 or 100 or 200 or 201;
         bool U(int i) => p[i] is 0 or 10 or 11 or 200 or 201;
         var furni = ImmutableDictionary.CreateBuilder<string, int>();
         var users = ImmutableDictionary.CreateBuilder<string, int>();
         var secondary = proposed.SecondarySelectedItems;
-        switch (name)
-        {
+
+        switch (name) {
             case "wf_act_join_team":
-                if (p.Length != 4 || p[0] is < 0 or > 2 || p[1] is < 1 or > 4 || !U(2) || p[3] is < 0 or > 2) return false; users["users"] = p[2]; break;
-            case "wf_act_leave_team": case "wf_act_kick_user":
-                if (p.Length != 1 || !U(0)) return false; users["users"] = p[0]; break;
-            case "wf_act_give_score": case "wf_act_give_score_tm":
-                if (p.Length != 3 || p[0] is < 1 or > 1000 || p[1] is < 0 or > 1 || (name == "wf_act_give_score" ? !U(2) : p[2] is < 1 or > 4)) return false;
-                if (name == "wf_act_give_score") users["users"] = p[2]; break;
+                if (p.Length != 4 || p[0] is < 0 or > 2 || p[1] is < 1 or > 4 || !U(2) || p[3] is < 0 or > 2) {
+                    return false;
+                }
+
+                users["users"] = p[2];
+                break;
+            case "wf_act_leave_team":
+            case "wf_act_kick_user":
+                if (p.Length != 1 || !U(0)) {
+                    return false;
+                }
+
+                users["users"] = p[0];
+                break;
+            case "wf_act_give_score":
+            case "wf_act_give_score_tm":
+                if (p.Length != 3 || p[0] is < 1 or > 1000 || p[1] is < 0 or > 1 || (name == "wf_act_give_score" ? !U(2) : p[2] is < 1 or > 4)) {
+                    return false;
+                }
+
+                if (name == "wf_act_give_score") {
+                    users["users"] = p[2];
+                }
+
+                break;
             case "wf_act_mute_triggerer":
-                if (p.Length != 2 || p[0] is < 1 or > 100000 || !U(1)) return false; users["users"] = p[1]; break;
+                if (p.Length != 2 || p[0] is < 1 or > 100000 || !U(1)) {
+                    return false;
+                }
+
+                users["users"] = p[1];
+                break;
             case "wf_act_freeze":
-                if (p.Length != 3 || p[0] is not (0 or 218 or 12 or 11 or 53 or 163) || p[1] is < 0 or > 1 || !U(2)) return false;
-                users["users"] = p[2]; break;
+                if (p.Length != 3 || p[0] is not (0 or 218 or 12 or 11 or 53 or 163) || p[1] is < 0 or > 1 || !U(2)) {
+                    return false;
+                }
+
+                users["users"] = p[2];
+                break;
             case "wf_act_unfreeze":
-                if (p.Length != 1 || !U(0)) return false; users["users"] = p[0]; break;
-            case "wf_act_chase": case "wf_act_flee":
-                if (p.Length != 1 || !F(0)) return false; furni["items"] = p[0]; break;
+                if (p.Length != 1 || !U(0)) {
+                    return false;
+                }
+
+                users["users"] = p[0];
+                break;
+            case "wf_act_chase":
+            case "wf_act_flee":
+                if (p.Length != 1 || !F(0)) {
+                    return false;
+                }
+
+                furni["items"] = p[0];
+                break;
             case "wf_act_move_to_dir":
-                if (p.Length != 4 || p[0] is < 0 or > 7 || p[1] is < 0 or > 6 || !F(2) || p[3] is < 0 or > 1) return false;
-                furni["items"] = p[2]; break;
+                if (p.Length != 4 || p[0] is < 0 or > 7 || p[1] is < 0 or > 6 || !F(2) || p[3] is < 0 or > 1) {
+                    return false;
+                }
+
+                furni["items"] = p[2];
+                break;
             case "wf_act_move_rotate_user":
-                if (p.Length != 3 || p[0] is < -1 or > 7 || p[1] is < -1 or > 9 || !U(2)) return false;
-                users["users"] = p[2]; break;
+                if (p.Length != 3 || p[0] is < -1 or > 7 || p[1] is < -1 or > 9 || !U(2)) {
+                    return false;
+                }
+
+                users["users"] = p[2];
+                break;
             case "wf_act_control_clock":
-                if (p.Length != 2 || p[0] is < 0 or > 4 || !F(1)) return false; furni["items"] = p[1]; break;
+                if (p.Length != 2 || p[0] is < 0 or > 4 || !F(1)) {
+                    return false;
+                }
+
+                furni["items"] = p[1];
+                break;
             case "wf_act_adjust_clock":
-                if (p.Length != 4 || p[0] is < 0 or > 2 || !F(1) || p[2] is < 0 or > 99 || p[3] is < 0 or > 119) return false;
-                furni["items"] = p[1]; break;
+                if (p.Length != 4 || p[0] is < 0 or > 2 || !F(1) || p[2] is < 0 or > 99 || p[3] is < 0 or > 119) {
+                    return false;
+                }
+
+                furni["items"] = p[1];
+                break;
             case "wf_act_reset_timers":
-                if (p.Length != 0) return false; furni["items"] = 900; break;
-            case "wf_act_call_stacks": case "wf_act_neg_call_stacks":
-                if (p.Length != 1 || !F(0)) return false; furni["items"] = p[0]; break;
-            case "wf_act_log": case "wf_act_neg_log":
-                if (p.Length != 2 || p[0] is < 0 or > 3 || !U(1)) return false;
-                users["users"] = p[1]; break;
+                if (p.Length != 0) {
+                    return false;
+                }
+
+                furni["items"] = 900;
+                break;
+            case "wf_act_call_stacks":
+            case "wf_act_neg_call_stacks":
+                if (p.Length != 1 || !F(0)) {
+                    return false;
+                }
+
+                furni["items"] = p[0];
+                break;
+            case "wf_act_log":
+            case "wf_act_neg_log":
+                if (p.Length != 2 || p[0] is < 0 or > 3 || !U(1)) {
+                    return false;
+                }
+
+                users["users"] = p[1];
+                break;
             case "wf_act_show_message":
                 if (p.Length is not (3 or 4) || !U(0) || p[1] is < 0 or > 1 || p[2] is < 0 or > 1000
-                    || p.Length == 4 && p[3] is < -1 or > 2) return false; users["users"] = p[0]; break;
+                    || p.Length == 4 && p[3] is < -1 or > 2) {
+                    return false;
+                }
+
+                users["users"] = p[0];
+                break;
             case "wf_act_click_conf":
-                if (p.Length != 3 || p[0] is < 0 or > 2 || p[1] is < 0 or > 1 || !U(2)) return false; users["users"] = p[2]; break;
-            case "wf_act_send_signal": case "wf_act_neg_send_signal":
-                if (p.Length != 6 || p[0] < 0 || !F(1) || !U(2) || p[3] is < 0 or > 1 || p[4] is < 0 or > 1 || p[5] != 0) return false;
+                if (p.Length != 3 || p[0] is < 0 or > 2 || p[1] is < 0 or > 1 || !U(2)) {
+                    return false;
+                }
+
+                users["users"] = p[2];
+                break;
+            case "wf_act_send_signal":
+            case "wf_act_neg_send_signal":
+                if (p.Length != 6 || p[0] < 0 || !F(1) || !U(2) || p[3] is < 0 or > 1 || p[4] is < 0 or > 1 || p[5] != 0) {
+                    return false;
+                }
+
                 var ids = ImmutableArray.CreateBuilder<uint>();
-                foreach (var token in proposed.Text.Split([';', ',', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                {
-                    if (ids.Count >= 100 || !uint.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id == 0) return false;
+
+                foreach (var token in proposed.Text.Split([';', ',', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) {
+                    if (ids.Count >= 100 || !uint.TryParse(token, NumberStyles.None, CultureInfo.InvariantCulture, out var id) || id == 0) {
+                        return false;
+                    }
+
                     ids.Add(id);
                 }
+
                 secondary = ids.Distinct().ToImmutableArray();
-                furni["items"] = 100; furni["forwarded"] = p[1]; users["users"] = p[2]; break;
-            default: return false;
+                furni["items"] = 100;
+                furni["forwarded"] = p[1];
+                users["users"] = p[2];
+                break;
+            default:
+                return false;
         }
+
         validated = proposed with { FurniSources = furni.ToImmutable(), UserSources = users.ToImmutable(), SecondarySelectedItems = secondary };
-        error = ""; return true;
+        error = "";
+
+        return true;
     }
     public override bool Execute(WiredRuntimeContext context)
     {
         var config = context.ConfigurationOf(this);
-        if (!TryValidateConfiguration(config, out config, out _)) return false;
+
+        if (!TryValidateConfiguration(config, out config, out _)) {
+            return false;
+        }
+
         var name = Descriptor.CanonicalName;
-        if (name == "wf_act_give_reward") return _rewards.Execute(Item, context, config);
-        if (WiredTemporaryFurnitureActions.Supports(name)) return WiredTemporaryFurnitureActions.Execute(name, Item, context, config, _definitions);
-        if (name == "wf_act_teleport_to_room") return WiredRoomForwarding.Execute(context, config, _logger, _travelStore);
-        if (WiredBotActions.Names.Contains(name))
+
+        if (name == "wf_act_give_reward") {
+            return _rewards.Execute(Item, context, config);
+        }
+
+        if (WiredTemporaryFurnitureActions.Supports(name)) {
+            return WiredTemporaryFurnitureActions.Execute(name, Item, context, config, _definitions);
+        }
+
+        if (name == "wf_act_teleport_to_room") {
+            return WiredRoomForwarding.Execute(context, config, _logger, _travelStore);
+        }
+
+        if (WiredBotActions.Names.Contains(name)) {
             return WiredBotActions.Execute(name, context, config, _movement, _botStore);
-        if (WiredMovementActions.Names.Contains(name))
+        }
+
+        if (WiredMovementActions.Names.Contains(name)) {
             return new WiredMovementActions().Execute(name, config,
                 config.FurniSources.ContainsKey("movers") ? Furni(context, config, "movers") : [],
                 config.FurniSources.ContainsKey("targets") ? Furni(context, config, "targets", name == "wf_act_furni_to_furni") : [],
@@ -146,177 +285,304 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 (item, state) =>
                 {
                     var mark = FurnitureStateEvents.Mark();
-                    item.LegacyDataString = state; item.UpdateState();
-                    if (FurnitureStateEvents.TakeWriteSince(item, mark))
+                    item.LegacyDataString = state;
+                    item.UpdateState();
+
+                    if (FurnitureStateEvents.TakeWriteSince(item, mark)) {
                         _publish(new(WiredEventKind.StateChanged) { Actor = FurnitureStateEvents.Present(context.Room, context.Event.Actor), EventItem = item });
+                    }
                 },
                 // v2 only: state toggles and snapshot restores go through the per-gate sequencer.
                 GateTransitionService.For(Instance) == null ? null : (item, nextState) => GateTransitionService.ToggleState(item, nextState, GateCloseReason.Wired,
                     afterWrite: _ =>
                     {
                         // A queued write can land after the triggering user left: the change is still reported.
-                        if (FurnitureStateEvents.TakeFollowedWrite(item))
+                        if (FurnitureStateEvents.TakeFollowedWrite(item)) {
                             _publish(new(WiredEventKind.StateChanged) { Actor = FurnitureStateEvents.Present(context.Room, context.Event.Actor), EventItem = item });
+                        }
                     }) is GateTransition.Applied or GateTransition.Queued);
+        }
+
         // Reset timers always covers the whole room, unlimited, so it resolves its own targets.
         var items = name != "wf_act_reset_timers" && config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
         var changed = false;
-        switch (name)
-        {
-            case "wf_act_join_team": case "wf_act_leave_team":
-                foreach (var user in Users(context, config, "users"))
+
+        switch (name) {
+            case "wf_act_join_team":
+            case "wf_act_leave_team":
+                foreach (var user in Users(context, config, "users")) {
                     changed |= name == "wf_act_join_team"
                         ? WiredGameState.For(context.Room).Join(context.Room, user, Param(config, 0), (Team)Param(config, 1), Param(config, 3), context.Targets.AllUsers())
                         : WiredGameState.For(context.Room).Leave(context.Room, user);
+                }
+
                 return changed;
-            case "wf_act_give_score": case "wf_act_give_score_tm":
+            case "wf_act_give_score":
+            case "wf_act_give_score_tm":
                 var amount = Param(config, 0) * (Param(config, 1) == 1 ? -1 : 1);
-                if (name == "wf_act_give_score_tm")
-                {
+
+                if (name == "wf_act_give_score_tm") {
                     var playerId = context.Event.Actor is { IsBot: false } actor ? actor.HabboId : 0;
-                    if (config.ScoreQuotaPerGame.HasValue && playerId == 0) return false;
+
+                    if (config.ScoreQuotaPerGame.HasValue && playerId == 0) {
+                        return false;
+                    }
+
                     return WiredGameState.For(context.Room).GiveScore(context.Room, Item.Id, playerId, (Team)Param(config, 2), amount, config.ScoreQuotaPerGame, _publish);
                 }
-                foreach (var user in Users(context, config, "users").Where(user => !user.IsBot))
+
+                foreach (var user in Users(context, config, "users").Where(user => !user.IsBot)) {
                     changed |= WiredGameState.For(context.Room).GiveScore(context.Room, Item.Id, user.HabboId, user.Team, amount, config.ScoreQuotaPerGame,
                         score => _publish(score with { Actor = user }));
+                }
+
                 return changed;
-            case "wf_act_kick_user": case "wf_act_mute_triggerer":
+            case "wf_act_kick_user":
+            case "wf_act_mute_triggerer":
                 DateTimeOffset mutedUntil = default;
                 var now = name == "wf_act_mute_triggerer" ? _clock.GetUtcNow() : default;
-                if (name == "wf_act_mute_triggerer" && !RoomMuteDeadline.TryCreate(now, Param(config, 0), out mutedUntil)) return false;
-                foreach (var user in Users(context, config, "users").Where(user => !user.IsBot))
-                {
-                    var client = user.GetClient(); var player = client?.GetHabbo();
-                    if (player == null || client == null || player.Id == context.Room.OwnerId || player.Access.Can(PermissionKeys.ModerationTool)) continue;
-                    if (config.Text.Length > 0) client.Send(new WiredChatComposer(user.VirtualId, FormatLegacyText(context, user, config.Text), 34, -1, true));
-                    if (name == "wf_act_kick_user") context.Room.GetRoomUserManager().RemoveUserFromRoom(client, true, true);
-                    else context.Room.MutedUsers[player.Id] = mutedUntil;
+
+                if (name == "wf_act_mute_triggerer" && !RoomMuteDeadline.TryCreate(now, Param(config, 0), out mutedUntil)) {
+                    return false;
+                }
+
+                foreach (var user in Users(context, config, "users").Where(user => !user.IsBot)) {
+                    var client = user.GetClient();
+                    var player = client?.GetHabbo();
+
+                    if (player == null || client == null || player.Id == context.Room.OwnerId || player.Access.Can(PermissionKeys.ModerationTool)) {
+                        continue;
+                    }
+
+                    if (config.Text.Length > 0) {
+                        client.Send(new WiredChatComposer(user.VirtualId, FormatLegacyText(context, user, config.Text), 34, -1, true));
+                    }
+
+                    if (name == "wf_act_kick_user") {
+                        context.Room.GetRoomUserManager().RemoveUserFromRoom(client, true, true);
+                    }
+                    else {
+                        context.Room.MutedUsers[player.Id] = mutedUntil;
+                    }
+
                     changed = true;
                 }
+
                 return changed;
-            case "wf_act_freeze": case "wf_act_unfreeze":
+            case "wf_act_freeze":
+            case "wf_act_unfreeze":
                 var avatarState = WiredAvatarState.For(context.Room);
-                foreach (var user in Users(context, config, "users"))
+
+                foreach (var user in Users(context, config, "users")) {
                     changed |= name == "wf_act_freeze" ? avatarState.FreezeUser(user, Param(config, 0), Param(config, 1) == 1) : avatarState.Thaw(user);
+                }
+
                 return changed;
-            case "wf_act_chase": case "wf_act_flee":
-                foreach (var item in items)
-                {
+            case "wf_act_chase":
+            case "wf_act_flee":
+                foreach (var item in items) {
                     var nearest = WiredDirectionalActions.Nearest(item, context.Targets.AllUsers());
-                    if (nearest == null)
-                    {
-                        if (name == "wf_act_flee") continue;
+
+                    if (nearest == null) {
+                        if (name == "wf_act_flee") {
+                            continue;
+                        }
+
                         var random = WiredRoomOperations.Offset(Random.Shared.Next(4) * 2);
                         changed |= _movement.MoveFurniture(context, item, item.GetX + random.X, item.GetY + random.Y, item.Rotation, null);
                         continue;
                     }
-                    if (name == "wf_act_chase" && Math.Max(Math.Abs(nearest.X - item.GetX), Math.Abs(nearest.Y - item.GetY)) <= 1)
-                    {
-                        _publish(new(WiredEventKind.Collision) { Actor = nearest, EventItem = item }); changed = true; continue;
+
+                    if (name == "wf_act_chase" && Math.Max(Math.Abs(nearest.X - item.GetX), Math.Abs(nearest.Y - item.GetY)) <= 1) {
+                        _publish(new(WiredEventKind.Collision) { Actor = nearest, EventItem = item });
+                        changed = true;
+                        continue;
                     }
+
                     var candidates = WiredDirectionalActions.Steps(item, nearest, name == "wf_act_flee").ToArray();
-                    if (name == "wf_act_flee" && candidates.Length == 0) candidates = [new(item.GetX + Random.Shared.Next(-1, 2), item.GetY)];
-                    foreach (var candidate in name == "wf_act_chase" ? candidates.Take(1) : candidates)
-                        if (_movement.MoveFurniture(context, item, candidate.X, candidate.Y, item.Rotation, null)) { changed = true; break; }
+
+                    if (name == "wf_act_flee" && candidates.Length == 0) {
+                        candidates = [new(item.GetX + Random.Shared.Next(-1, 2), item.GetY)];
+                    }
+
+                    foreach (var candidate in name == "wf_act_chase" ? candidates.Take(1) : candidates) {
+                        if (_movement.MoveFurniture(context, item, candidate.X, candidate.Y, item.Rotation, null)) {
+                            changed = true;
+                            break;
+                        }
+                    }
                 }
+
                 return changed;
             case "wf_act_move_to_dir":
                 _directions.Retain(context.Targets.AllFurni());
-                foreach (var item in items)
+
+                foreach (var item in items) {
                     changed |= _directions.MoveHeading(item, Param(config, 0), HeadingTurnRule(Param(config, 1)), Param(config, 3) == 1,
                         (x, y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null),
                         (x, y) => context.Room.GetGameMap().ValidTile(x, y) ? context.Room.GetGameMap().GetRoomUsers(new(x, y)).ToArray() : [],
                         (furni, actor) => _publish(new(WiredEventKind.Collision) { Actor = actor, EventItem = furni }));
+                }
+
                 return changed;
             case "wf_act_move_rotate_user":
-                foreach (var user in Users(context, config, "users"))
-                {
-                    if (Param(config, 0) >= 0)
-                    {
+                foreach (var user in Users(context, config, "users")) {
+                    if (Param(config, 0) >= 0) {
                         var offset = WiredRoomOperations.Offset(Param(config, 0));
                         changed |= _movement.MoveAvatar(context, user, user.X + offset.X, user.Y + offset.Y, true);
                     }
-                    if (Param(config, 1) < 0) continue;
+
+                    if (Param(config, 1) < 0) {
+                        continue;
+                    }
+
                     var rotation = WiredDirectionalActions.AvatarRotation(user.RotBody, Param(config, 1));
-                    if (user.RotBody == rotation && user.RotHead == rotation) continue;
-                    user.RotBody = rotation; user.RotHead = rotation; user.UpdateNeeded = true; changed = true;
+
+                    if (user.RotBody == rotation && user.RotHead == rotation) {
+                        continue;
+                    }
+
+                    user.RotBody = rotation;
+                    user.RotHead = rotation;
+                    user.UpdateNeeded = true;
+                    changed = true;
                 }
+
                 return changed;
             case "wf_act_control_clock":
-                foreach (var item in items) changed |= _clocks.Control(item, Param(config, 0), context.NowMilliseconds);
+                foreach (var item in items) {
+                    changed |= _clocks.Control(item, Param(config, 0), context.NowMilliseconds);
+                }
+
                 return changed;
             case "wf_act_adjust_clock":
-                foreach (var item in items) changed |= _clocks.Adjust(item, Param(config, 0), Param(config, 2), Param(config, 3));
+                foreach (var item in items) {
+                    changed |= _clocks.Adjust(item, Param(config, 0), Param(config, 2), Param(config, 3));
+                }
+
                 return changed;
             case "wf_act_reset_timers":
                 context.Room.LastTimerResetAt = _clock.GetUtcNow();
                 // The room timer belongs to the whole room; a furni limit add-on must not pick which timers restart.
-                context.Operations.ResetTimers(context.Targets.ResolveFurni(context, [], WiredSources.AllRoom, raw: true)); return true;
-            case "wf_act_call_stacks": case "wf_act_neg_call_stacks":
+                context.Operations.ResetTimers(context.Targets.ResolveFurni(context, [], WiredSources.AllRoom, raw: true));
+
+                return true;
+            case "wf_act_call_stacks":
+            case "wf_act_neg_call_stacks":
                 return context.Operations.CallStacks(context, items.Where(item => item.GetX != Item.GetX || item.GetY != Item.GetY), IsNegative);
-            case "wf_act_send_signal": case "wf_act_neg_send_signal":
+            case "wf_act_send_signal":
+            case "wf_act_neg_send_signal":
                 var forwarded = Furni(context, config, "forwarded", true).Select(item => item.Id).ToArray();
                 var users = Users(context, config, "users").Select(user => user.VirtualId).ToArray();
                 var furniBatches = Param(config, 3) == 1 && forwarded.Length != 0 ? forwarded.Select(id => new[] { id }).ToArray() : [forwarded];
                 var userBatches = Param(config, 4) == 1 && users.Length != 0 ? users.Select(id => new[] { id }).ToArray() : [users];
-                foreach (var furni in furniBatches) foreach (var avatars in userBatches)
-                    changed |= context.Operations.SendSignal(context, items, new(furni, avatars), IsNegative);
+
+                foreach (var furni in furniBatches) {
+                    foreach (var avatars in userBatches) {
+                        changed |= context.Operations.SendSignal(context, items, new(furni, avatars), IsNegative);
+                    }
+                }
+
                 return changed;
-            case "wf_act_log": case "wf_act_neg_log":
-                if (config.Text.Length == 0) return false;
+            case "wf_act_log":
+            case "wf_act_neg_log":
+                if (config.Text.Length == 0) {
+                    return false;
+                }
+
                 var message = context.Policy.FormatText(context, config.Text);
                 _roomLog.Append(Param(config, 0), WiredLogSource.WiredLog, Item.Id, Descriptor.CanonicalName, message, _clock.GetUtcNow());
                 _logger.Log(Param(config, 0) switch { 0 => LogLevel.Debug, 1 => LogLevel.Information, 2 => LogLevel.Warning, _ => LogLevel.Error }, "{Message}", message);
+
                 return true;
             case "wf_act_show_message":
-                if (config.Text.Length == 0) return false;
-                foreach (var user in Users(context, config, "users"))
-                {
+                if (config.Text.Length == 0) {
+                    return false;
+                }
+
+                foreach (var user in Users(context, config, "users")) {
                     var client = user.GetClient();
-                    if (client == null) continue;
+
+                    if (client == null) {
+                        continue;
+                    }
+
                     var packet = new WiredChatComposer(user.VirtualId, FormatLegacyText(context, user, config.Text), Param(config, 2), Param(config, 3, -1), Param(config, 1) == 0);
-                    if (packet.Private) client.Send(packet); else context.Room.SendPacket(packet);
+
+                    if (packet.Private) {
+                        client.Send(packet);
+                    }
+                    else {
+                        context.Room.SendPacket(packet);
+                    }
+
                     changed = true;
                 }
+
                 return changed;
             case "wf_act_click_conf":
-                foreach (var user in Users(context, config, "users"))
-                {
-                    var client = user.GetClient(); if (client == null) continue;
-                    client.Send(new WiredClickSettingsComposer(Param(config, 0), Param(config, 1))); changed = true;
+                foreach (var user in Users(context, config, "users")) {
+                    var client = user.GetClient();
+
+                    if (client == null) {
+                        continue;
+                    }
+
+                    client.Send(new WiredClickSettingsComposer(Param(config, 0), Param(config, 1)));
+                    changed = true;
                 }
+
                 return changed;
-            default: throw new InvalidOperationException("Action has no executor.");
+            default:
+                throw new InvalidOperationException("Action has no executor.");
         }
     }
 
     // The current editor orders Wait/right/left/back/random differently from Turbo's heading rules.
     private static int HeadingTurnRule(int choice) => choice switch
     {
-        0 => 6, 1 => 3, 2 => 1, 3 => 4, 4 => 2, 5 => 0, 6 => 5,
+        0 => 6,
+        1 => 3,
+        2 => 1,
+        3 => 4,
+        4 => 2,
+        5 => 0,
+        6 => 5,
         _ => throw new ArgumentOutOfRangeException(nameof(choice))
     };
 
     private bool Teleport(WiredRuntimeContext context, RoomUser user, Item target, bool fast)
     {
-        if (user.X == target.GetX && user.Y == target.GetY) return false;
+        if (user.X == target.GetX && user.Y == target.GetY) {
+            return false;
+        }
+
         var delay = fast ? 100 : 500; // Polaris default 500ms; fast uses max(75, delay / 5).
         var scheduled = context.Room.GetWired().ScheduleAux(context, delay, () =>
         {
-            if (context.Targets.ResolveFurni(context, [target.Id], 100, raw: true).Any(attached => ReferenceEquals(attached, target)))
-            {
+            if (context.Targets.ResolveFurni(context, [target.Id], 100, raw: true).Any(attached => ReferenceEquals(attached, target))) {
                 WiredAvatarState.For(context.Room).Thaw(user, teleport: true);
                 _movement.MoveAvatar(context, user, target.GetX, target.GetY, false);
             }
         });
-        if (!scheduled) return false;
-        if (user.IsBot) return true; // Plus bot effects have no durable current-effect state to lease.
+
+        if (!scheduled) {
+            return false;
+        }
+
+        if (user.IsBot) {
+            return true; // Plus bot effects have no durable current-effect state to lease.
+        }
+
         var restore = WiredTemporaryEffects.For(context.Room).Acquire(user,
             () => user.IsBot ? 0 : user.GetClient()?.GetHabbo()?.Effects?.CurrentEffect ?? 0, user.ApplyEffect,
             () => context.Targets.ResolveUsers(context, [user.VirtualId], 100, raw: true).Any(attached => ReferenceEquals(attached, user)));
         void RestoreEffect() => restore();
-        if (!context.Room.GetWired().ScheduleAux(context, fast ? 500 : 1500, RestoreEffect, RestoreEffect)) RestoreEffect();
+
+        if (!context.Room.GetWired().ScheduleAux(context, fast ? 500 : 1500, RestoreEffect, RestoreEffect)) {
+            RestoreEffect();
+        }
+
         return true;
     }
 

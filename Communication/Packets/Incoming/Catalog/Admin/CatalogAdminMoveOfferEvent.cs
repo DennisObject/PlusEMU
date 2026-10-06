@@ -17,6 +17,7 @@ public class CatalogAdminMoveOfferEvent : IPacketEvent
         int offerId = packet.ReadInt(), orderNumber = packet.ReadInt();
         var envelope = CatalogAdminPacketReader.Envelope(packet, CatalogAdminPacketReader.CatalogType(packet.ReadString()));
         CatalogAdminResponder.Send(session, "moveOffer", envelope, _catalogAdmin.MoveOffer(session.GetHabbo(), envelope, offerId, orderNumber));
+
         return Task.CompletedTask;
     }
 }

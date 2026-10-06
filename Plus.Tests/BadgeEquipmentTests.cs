@@ -55,8 +55,8 @@ public sealed class BadgeEquipmentTests
         var schema = "task_refactor_tests_badges_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(connectionString);
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema }.ConnectionString);
             using var connection = database.Connection();
             connection.Execute("CREATE TABLE user_badges(user_id INT,badge_id VARCHAR(100),badge_slot INT,PRIMARY KEY(user_id,badge_id)) ENGINE=InnoDB; INSERT INTO user_badges VALUES(42,'old',1),(42,'new',0)");
@@ -81,8 +81,7 @@ public sealed class BadgeEquipmentTests
             Assert.Equal(1, rewards.Progressed);
             Assert.Single(packets);
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -91,8 +90,18 @@ public sealed class BadgeEquipmentTests
     {
         public ImmutableArray<BadgeSlotSnapshot> Requested { get; private set; }
         public int UserId { get; private set; }
-        public Task Set(GameClient session, ImmutableArray<BadgeSlotSnapshot> requested) { Requested = requested; return Task.CompletedTask; }
-        public Task Show(GameClient session, int userId) { UserId = userId; return Task.CompletedTask; }
+        public Task Set(GameClient session, ImmutableArray<BadgeSlotSnapshot> requested)
+        {
+            Requested = requested;
+
+            return Task.CompletedTask;
+        }
+        public Task Show(GameClient session, int userId)
+        {
+            UserId = userId;
+
+            return Task.CompletedTask;
+        }
     }
     public class UnusedClients : DispatchProxy
     {

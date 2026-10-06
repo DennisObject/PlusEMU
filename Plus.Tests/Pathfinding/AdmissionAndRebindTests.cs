@@ -38,7 +38,9 @@ public partial class PlacedFurniRoomTests
     {
         var tile = Add(10, 1, 1, z: .75, type: InteractionType.WalkMagicTile);
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(1, 1); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(1, 1);
+        ExecutorTick();
+        ExecutorTick();
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(tile, 1, 1, 2.125));
         Assert.Equal(.75, actor.Z);
         Assert.Equal(.75, actor.Movement.SupportZ);
@@ -53,7 +55,8 @@ public partial class PlacedFurniRoomTests
     {
         var destination = ExecutorFloor(10, 2, 2, z: .5);
         var actor = ExecutorActor(0, 1);
-        actor.MoveTo(3, 1); ExecutorTick();
+        actor.MoveTo(3, 1);
+        ExecutorTick();
         var revision = actor.Movement.LocationRevision;
         _room.GetGameMap().TeleportToItem(actor, destination);
         Assert.Equal((0, 1, 0d), (actor.X, actor.Y, actor.Z));

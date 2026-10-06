@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.Items.DataFormat;
@@ -18,7 +18,10 @@ public class ItemFactory : IItemFactory
 
     public Item CreateSingleItemNullable(ItemDefinition definition, Habbo habbo, string extraData, string displayFlags, int groupId = 0, uint limitedNumber = 0, uint limitedStack = 0)
     {
-        if (definition == null) throw new InvalidOperationException("Data cannot be null.");
+        if (definition == null) {
+            throw new InvalidOperationException("Data cannot be null.");
+        }
+
         var item = new Item()
         {
             OwnerId = (uint)habbo.Id,
@@ -35,17 +38,21 @@ public class ItemFactory : IItemFactory
             "INSERT INTO `items` (base_item,user_id,room_id,x,y,z,wall_pos,rot,extra_data,`limited_number`,`limited_stack`) VALUES (@did,@uid,0,0,0,0,'',0,@extraData,@limitedNumber,@limitedStack)",
             new { did = definition.Id, uid = habbo.Id, extraData, limitedNumber, limitedStack }, transaction);
         item.Id = connection.QuerySingle<uint>("SELECT LAST_INSERT_ID()", transaction: transaction);
-        if (groupId > 0)
-        {
+
+        if (groupId > 0) {
             connection.Execute("INSERT INTO `items_groups` (`id`, `group_id`) VALUES (@id, @groupId)", new { id = item.Id, groupId }, transaction);
         }
+
         transaction.Commit();
+
         return item;
     }
 
     public Item CreateSingleItem(ItemDefinition definition, Habbo habbo, string extraData, string displayFlags, uint itemId, uint limitedNumber = 0, uint limitedStack = 0)
     {
-        if (definition == null) throw new InvalidOperationException("Data cannot be null.");
+        if (definition == null) {
+            throw new InvalidOperationException("Data cannot be null.");
+        }
 
         var item = new Item()
         {
@@ -60,12 +67,16 @@ public class ItemFactory : IItemFactory
         connection.Execute(
             "INSERT INTO `items` (`id`,base_item,user_id,room_id,x,y,z,wall_pos,rot,extra_data,`limited_number`,`limited_stack`) VALUES (@itemId,@did,@uid,0,0,0,0,'',0,@extraData,@limitedNumber,@limitedStack)",
             new { itemId, did = definition.Id, uid = habbo.Id, extraData, limitedNumber, limitedStack });
+
         return item;
     }
 
     public Item CreateGiftItem(ItemDefinition definition, Habbo habbo, string extraData, string displayFlags, int itemId, uint limitedNumber = 0, uint limitedStack = 0)
     {
-        if (definition == null) throw new InvalidOperationException("Data cannot be null.");
+        if (definition == null) {
+            throw new InvalidOperationException("Data cannot be null.");
+        }
+
         var item = new Item()
         {
             OwnerId = (uint)habbo.Id,
@@ -78,6 +89,7 @@ public class ItemFactory : IItemFactory
         connection.Execute(
             "INSERT INTO `items` (`id`,base_item,user_id,room_id,x,y,z,wall_pos,rot,extra_data,`limited_number`,`limited_stack`) VALUES (@itemId,@did,@uid,0,0,0,0,'',0,@extraData,@limitedNumber,@limitedStack)",
             new { itemId, did = definition.Id, uid = habbo.Id, extraData, limitedNumber, limitedStack });
+
         return item;
     }
 
@@ -86,13 +98,16 @@ public class ItemFactory : IItemFactory
 
     public List<Item> CreateMultipleItems(ItemDefinition definition, int ownerId, string extraData, int amount, int groupId = 0)
     {
-        if (definition == null) throw new InvalidOperationException("Data cannot be null.");
+        if (definition == null) {
+            throw new InvalidOperationException("Data cannot be null.");
+        }
+
         var items = new List<Item>();
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        for (var i = 0; i < amount; i++)
-        {
+
+        for (var i = 0; i < amount; i++) {
             connection.Execute("INSERT INTO `items` (base_item,user_id,room_id,x,y,z,wall_pos,rot,extra_data) VALUES(@did,@ownerId,0,0,0,0,'',0,@extraData)",
                 new { did = definition.Id, ownerId, extraData }, transaction);
 
@@ -104,13 +119,16 @@ public class ItemFactory : IItemFactory
                 ExtraData = FurniExtraData.Load(definition, extraData, keepLegacy: true),
                 GroupId = groupId
             };
-            if (groupId > 0)
-            {
+
+            if (groupId > 0) {
                 connection.Execute("INSERT INTO `items_groups` (`id`, `group_id`) VALUES (@id, @groupId)", new { id = item.Id, groupId }, transaction);
             }
+
             items.Add(item);
         }
+
         transaction.Commit();
+
         return items;
     }
 
@@ -147,6 +165,7 @@ public class ItemFactory : IItemFactory
         transaction.Commit();
         items.Add(item1);
         items.Add(item2);
+
         return items;
     }
 

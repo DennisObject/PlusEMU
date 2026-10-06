@@ -16,8 +16,8 @@ public class RoomOccupiedTilesComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_tiles.Count);
-        foreach (var (x, y) in _tiles)
-        {
+
+        foreach (var (x, y) in _tiles) {
             packet.WriteInteger(x);
             packet.WriteInteger(y);
         }

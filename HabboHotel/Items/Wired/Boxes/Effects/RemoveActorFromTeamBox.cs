@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Teams;
@@ -30,25 +30,35 @@ internal class RemoveActorFromTeamBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0 || Instance == null)
+        if (@params.Length == 0 || Instance == null) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-        if (user == null)
+
+        if (user == null) {
             return false;
-        if (user.Team != Team.None)
-        {
+        }
+
+        if (user.Team != Team.None) {
             var team = Instance.GetTeamManagerForFreeze();
-            if (team != null)
-            {
+
+            if (team != null) {
                 team.OnUserLeave(user);
                 user.Team = Team.None;
-                if (user.GetClient().GetHabbo().Effects.CurrentEffect != 0)
+
+                if (user.GetClient().GetHabbo().Effects.CurrentEffect != 0) {
                     user.GetClient().GetHabbo().Effects.ApplyEffect(0);
+                }
             }
         }
+
         return true;
     }
 }

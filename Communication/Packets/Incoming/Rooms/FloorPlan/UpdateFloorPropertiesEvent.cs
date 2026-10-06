@@ -9,6 +9,7 @@ internal sealed class UpdateFloorPropertiesEvent(IFloorPlanUpdateService service
     {
         var body = FloorPlanRequest.Read(packet);
         service.Update(room, session, new(body.Map, body.DoorFieldsPresent, body.WallHeightPresent, body.Requested));
+
         return Task.CompletedTask;
     }
 

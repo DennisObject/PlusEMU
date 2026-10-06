@@ -21,6 +21,7 @@ internal class HousekeepingKickUserEvent : IPacketEvent
         var userId = packet.ReadInt();
         var reason = packet.ReadString();
         _runner.Run(session, "user.kick", HousekeepingRights.Sanction, actor => _users.Kick(actor, userId, reason));
+
         return Task.CompletedTask;
     }
 }

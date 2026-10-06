@@ -9,6 +9,7 @@ public sealed record InventoryItemSnapshot(uint Id, string Type, int SpriteId, F
     public static InventoryItemSnapshot Capture(InventoryItem item)
     {
         var definition = item.Definition;
+
         return new(item.Id, definition.Type.ToCharCode(), definition.SpriteId, definition.Category,
             FurnitureDataSnapshot.Capture(item.ExtraData), item.UniqueNumber, item.UniqueSeries,
             definition.AllowEcotronRecycle, definition.AllowTrade, item.ShouldStackInInventory(),

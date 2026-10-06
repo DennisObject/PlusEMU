@@ -45,13 +45,20 @@ public class HabbiconPacketTests
         var snapshot = new HabbiconSnapshot(collections, items, recent, []);
         var shop = new HabbiconShopDataComposer(snapshot);
         var user = new UserHabbiconsComposer(snapshot);
-        var shopBefore = new RecordingPacket(); shop.Compose(shopBefore);
-        var userBefore = new RecordingPacket(); user.Compose(userBefore);
-        members.Clear(); collections.Clear(); items.Clear(); recent.Clear();
-        for (var i = 0; i < 2; i++)
-        {
-            var shopAfter = new RecordingPacket(); shop.Compose(shopAfter);
-            var userAfter = new RecordingPacket(); user.Compose(userAfter);
+        var shopBefore = new RecordingPacket();
+        shop.Compose(shopBefore);
+        var userBefore = new RecordingPacket();
+        user.Compose(userBefore);
+        members.Clear();
+        collections.Clear();
+        items.Clear();
+        recent.Clear();
+
+        for (var i = 0; i < 2; i++) {
+            var shopAfter = new RecordingPacket();
+            shop.Compose(shopAfter);
+            var userAfter = new RecordingPacket();
+            user.Compose(userAfter);
             Assert.Equal(shopBefore.Writes, shopAfter.Writes);
             Assert.Equal(userBefore.Writes, userAfter.Writes);
         }
@@ -101,31 +108,47 @@ public class HabbiconPacketTests
     {
         var expectedIncoming = new Dictionary<string, uint>
         {
-            [nameof(TriggerHabbiconEvent)] = 9417, [nameof(GetHabbiconShopDataEvent)] = 9460,
-            [nameof(GetHabbiconInfoEvent)] = 9461, [nameof(BuyHabbiconEvent)] = 9462,
-            [nameof(BuyHabbiconCollectionEvent)] = 9463, [nameof(ClaimHabbiconEvent)] = 9464,
-            [nameof(FavoriteHabbiconEvent)] = 9465, [nameof(UnfavoriteHabbiconEvent)] = 9466,
-            [nameof(UnseenResetCategoryEvent)] = 3493, [nameof(UnseenResetItemsEvent)] = 2343,
+            [nameof(TriggerHabbiconEvent)] = 9417,
+            [nameof(GetHabbiconShopDataEvent)] = 9460,
+            [nameof(GetHabbiconInfoEvent)] = 9461,
+            [nameof(BuyHabbiconEvent)] = 9462,
+            [nameof(BuyHabbiconCollectionEvent)] = 9463,
+            [nameof(ClaimHabbiconEvent)] = 9464,
+            [nameof(FavoriteHabbiconEvent)] = 9465,
+            [nameof(UnfavoriteHabbiconEvent)] = 9466,
+            [nameof(UnseenResetCategoryEvent)] = 3493,
+            [nameof(UnseenResetItemsEvent)] = 2343,
             ["SendMessengerMessageEvent"] = 4902
         };
         var expectedOutgoing = new Dictionary<string, uint>
         {
-            [nameof(RoomUseHabbiconComposer)] = 9410, [nameof(UserHabbiconsComposer)] = 9465,
-            [nameof(UserHabbiconStatusChangedComposer)] = 9466, [nameof(HabbiconShopDataComposer)] = 9467,
-            [nameof(HabbiconInfoComposer)] = 9463, [nameof(MessengerMessageAckComposer)] = 4902,
-            [nameof(MessengerMessageFailedComposer)] = 4903, [nameof(MessengerMessageComposer)] = 4904
+            [nameof(RoomUseHabbiconComposer)] = 9410,
+            [nameof(UserHabbiconsComposer)] = 9465,
+            [nameof(UserHabbiconStatusChangedComposer)] = 9466,
+            [nameof(HabbiconShopDataComposer)] = 9467,
+            [nameof(HabbiconInfoComposer)] = 9463,
+            [nameof(MessengerMessageAckComposer)] = 4902,
+            [nameof(MessengerMessageFailedComposer)] = 4903,
+            [nameof(MessengerMessageComposer)] = 4904
         };
-        foreach (var (type, expected) in new[] { (typeof(ClientPacketHeader), expectedIncoming), (typeof(ServerPacketHeader), expectedOutgoing) })
-        {
-            foreach (var (name, id) in expected) Assert.Equal(id, (uint)type.GetField(name)!.GetRawConstantValue()!);
+
+        foreach (var (type, expected) in new[] { (typeof(ClientPacketHeader), expectedIncoming), (typeof(ServerPacketHeader), expectedOutgoing) }) {
+            foreach (var (name, id) in expected) {
+                Assert.Equal(id, (uint)type.GetField(name)!.GetRawConstantValue()!);
+            }
+
             var ids = type.GetFields(BindingFlags.Public | BindingFlags.Static).Select(f => (uint)f.GetRawConstantValue()!).Where(id => id > 0).ToArray();
             Assert.Equal(ids.Length, ids.Distinct().Count());
         }
-        foreach (var file in Directory.GetFiles(Repo("Resources/Revisions"), "*.json"))
-        {
+
+        foreach (var file in Directory.GetFiles(Repo("Resources/Revisions"), "*.json")) {
             using var json = JsonDocument.Parse(File.ReadAllText(file));
-            foreach (var (key, expected) in new[] { ("IncomingHeaders", expectedIncoming), ("OutgoingHeaders", expectedOutgoing) })
-                foreach (var (name, id) in expected) Assert.Equal(id, json.RootElement.GetProperty(key).GetProperty(name).GetUInt32());
+
+            foreach (var (key, expected) in new[] { ("IncomingHeaders", expectedIncoming), ("OutgoingHeaders", expectedOutgoing) }) {
+                foreach (var (name, id) in expected) {
+                    Assert.Equal(id, json.RootElement.GetProperty(key).GetProperty(name).GetUInt32());
+                }
+            }
         }
     }
 
@@ -157,14 +180,17 @@ public class HabbiconPacketTests
         Assert.Equal(ServerPacketHeader.UserHabbiconStatusChangedComposer, sent[0].Header);
         bool purchase = action is HabboHotel.Habbicons.HabbiconAction.Buy or HabboHotel.Habbicons.HabbiconAction.BuyCollection or HabboHotel.Habbicons.HabbiconAction.Claim;
         Assert.Equal(purchase, sent.Any(p => p.Header == ServerPacketHeader.PurchaseOKComposer));
-        sent.Clear(); service.Rejection = 3;
+        sent.Clear();
+        service.Rejection = 3;
         await handler.Parse(client, Incoming(61));
-        if (purchase)
-        {
+
+        if (purchase) {
             Assert.Equal(ServerPacketHeader.PurchaseErrorComposer, Assert.Single(sent).Header);
             Assert.Equal(3, new Communication.Flash.FlashIncomingPacket { Buffer = sent[0].Payload }.ReadInt());
         }
-        else Assert.Empty(sent);
+        else {
+            Assert.Empty(sent);
+        }
     }
 
     [Fact]
@@ -209,8 +235,18 @@ public class HabbiconPacketTests
     [InlineData(false)]
     public void HabiconOfferHasOneProductWithoutFurnitureDefinitionOrGiftAndBulkOptions(bool haveOffer)
     {
-        var item = new CatalogItem { Id = 10, OfferId = 12, CatalogName = "toast_toast", HabbiconId = 61,
-            CostCredits = 5, Amount = 1, HaveOffer = haveOffer, Badge = "ignored", Definition = null! };
+        var item = new CatalogItem
+        {
+            Id = 10,
+            OfferId = 12,
+            CatalogName = "toast_toast",
+            HabbiconId = 61,
+            CostCredits = 5,
+            Amount = 1,
+            HaveOffer = haveOffer,
+            Badge = "ignored",
+            Definition = null!
+        };
         var packet = new RecordingPacket();
         new CatalogOfferComposer(CatalogSnapshotTestSupport.Snapshots().CaptureOffer(item)).Compose(packet);
         Assert.Equal(new object[] { 12, "toast_toast", false, 5, 0, 0, false, 1,

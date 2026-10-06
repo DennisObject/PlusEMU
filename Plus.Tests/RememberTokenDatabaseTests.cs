@@ -130,8 +130,10 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     {
         var userId = User();
         var token = await _store.Issue(userId);
-        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString))
+
+        using (var connection = new MySqlConnection(AuthTestDatabase.ConnectionString)) {
             connection.Execute("UPDATE users SET credential_generation = 7 WHERE id = @userId", new { userId });
+        }
 
         Assert.Equal(7, (await _store.Rotate(token.Value)).Generation);
     }
@@ -139,8 +141,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     [AuthDatabaseFact]
     public async Task ReuseAtAndAfterGraceUsesOneCapturedUtcInstant()
     {
-        foreach (var elapsed in new[] { 30, 31 })
-        {
+        foreach (var elapsed in new[] { 30, 31 }) {
             var store = new RememberTokenStore(new AuthTestDatabase(), _time,
                 AuthTestConfig.Options(c => c.RememberReuseGraceSeconds = 30));
             var userId = User();
@@ -186,6 +187,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     {
         var rotation = await _store.Rotate(token);
         Assert.Equal(RememberRotationStatus.Rotated, rotation.Status);
+
         return await _store.Continue(rotation.UserId, rotation.FamilyId);
     }
 
@@ -193,6 +195,7 @@ public sealed class RememberTokenDatabaseTests : IDisposable
     {
         var id = AuthTestDatabase.InsertUser(AuthTestDatabase.UniqueName("rem"));
         _users.Add(id);
+
         return id;
     }
 

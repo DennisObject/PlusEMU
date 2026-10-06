@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Items.Wired;
+using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 

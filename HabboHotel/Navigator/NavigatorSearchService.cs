@@ -19,13 +19,25 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
     public NavigatorSearchSnapshot Search(GameClient session, string category, string query)
     {
         IReadOnlyCollection<SearchResultList> categories;
-        var goBack = 1; var limit = 12;
-        if (!string.IsNullOrEmpty(query)) categories = navigator.TryGetSearchResultList(0, out var result) ? [result] : [];
-        else
-        {
-            categories = navigator.GetCategoriessForSearch(category);
-            if (categories.Count == 0) { categories = navigator.GetResultByIdentifier(category); if (categories.Count > 0) { goBack = 2; limit = 100; } }
+        var goBack = 1;
+        var limit = 12;
+
+        if (!string.IsNullOrEmpty(query)) {
+            categories = navigator.TryGetSearchResultList(0, out var result) ? [result] : [];
         }
+        else {
+            categories = navigator.GetCategoriessForSearch(category);
+
+            if (categories.Count == 0) {
+                categories = navigator.GetResultByIdentifier(category);
+
+                if (categories.Count > 0) {
+                    goBack = 2;
+                    limit = 100;
+                }
+            }
+        }
+
         return new(category, query, categories.Select(item => PrepareBlock(session, item, query, goBack, limit)).ToImmutableArray());
     }
 
@@ -49,20 +61,34 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
         };
         var snapshots = selected.DistinctBy(room => room.Id).Select(room => RoomAppender.Capture(room, navigator)).ToImmutableArray();
         var action = NavigatorSearchAllowanceUtility.GetIntegerValue(result.SearchAllowance);
+
         return new(result.CategoryIdentifier, result.PublicName, action != 0 ? goBack : action,
             result.ViewMode == NavigatorViewMode.Thumbnail ? 1 : 0, snapshots);
     }
 
     private IEnumerable<RoomData> Query(string query)
     {
-        if (query.StartsWith("owner:", StringComparison.OrdinalIgnoreCase)) return Resolve(store.FindByOwnerName(query[6..]));
-        if (query.StartsWith("tag:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchTaggedRooms(query[4..]).Select(room => room.Data);
-        if (query.StartsWith("group:", StringComparison.OrdinalIgnoreCase)) return rooms.SearchGroupRooms(query[6..]).Select(room => room.Data);
+        if (query.StartsWith("owner:", StringComparison.OrdinalIgnoreCase)) {
+            return Resolve(store.FindByOwnerName(query[6..]));
+        }
+
+        if (query.StartsWith("tag:", StringComparison.OrdinalIgnoreCase)) {
+            return rooms.SearchTaggedRooms(query[4..]).Select(room => room.Data);
+        }
+
+        if (query.StartsWith("group:", StringComparison.OrdinalIgnoreCase)) {
+            return rooms.SearchGroupRooms(query[6..]).Select(room => room.Data);
+        }
+
         return query.Length == 0 ? [] : Resolve(store.FindByCaption(query).Where(room => room.Visible).Select(room => checked((uint)room.Id)));
     }
 
     private IEnumerable<RoomData> Resolve(IEnumerable<uint> ids)
     {
-        foreach (var id in ids) if (roomData.TryGetData(id, out var room)) yield return room;
+        foreach (var id in ids) {
+            if (roomData.TryGetData(id, out var room)) {
+                yield return room;
+            }
+        }
     }
 }

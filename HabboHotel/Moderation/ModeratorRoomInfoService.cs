@@ -23,8 +23,9 @@ public sealed class ModeratorRoomInfoService(IRoomDataLoader dataLoader, IRoomMa
 {
     public void Show(GameClient session, uint roomId)
     {
-        if (!dataLoader.TryGetData(roomId, out var data) || !rooms.TryGetRoom(roomId, out var room))
+        if (!dataLoader.TryGetData(roomId, out var data) || !rooms.TryGetRoom(roomId, out var room)) {
             return;
+        }
 
         var snapshot = ModeratorRoomInfoSnapshot.Capture(data,
             room.GetRoomUserManager().GetRoomUserByHabbo(data.OwnerName) != null);

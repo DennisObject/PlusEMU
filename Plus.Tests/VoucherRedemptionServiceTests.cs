@@ -73,10 +73,13 @@ public sealed class VoucherRedemptionServiceTests
 
     private sealed class VoucherManagerFake(Voucher voucher) : IVoucherManager
     {
-        public void Init() { }
+        public void Init()
+        {
+        }
         public bool TryGetVoucher(string code, out Voucher found)
         {
             found = voucher;
+
             return code == voucher.Code;
         }
     }
@@ -90,9 +93,17 @@ public sealed class VoucherRedemptionServiceTests
         public VoucherClaimResult Claim(int userId, string code)
         {
             beforeClaim?.Invoke();
-            if (Fail) throw new InvalidOperationException("forced failure");
+
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
+
             Claims.Add((userId, code));
-            if (DuplicateAfterFirst && Claims.Count > 1) return VoucherClaimResult.AlreadyUsed;
+
+            if (DuplicateAfterFirst && Claims.Count > 1) {
+                return VoucherClaimResult.AlreadyUsed;
+            }
+
             return Result;
         }
     }

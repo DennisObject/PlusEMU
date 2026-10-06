@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Televisions;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Furni.YouTubeTelevisions;
@@ -10,6 +10,7 @@ internal class YouTubeVideoInformationEvent(ITelevisionPresentationService telev
         var itemId = packet.ReadInt();
         var videoId = packet.ReadString();
         televisions.ShowVideoInformation(session, itemId, videoId);
+
         return Task.CompletedTask;
     }
 }

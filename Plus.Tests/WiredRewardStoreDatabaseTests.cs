@@ -15,14 +15,17 @@ public sealed class WiredRewardStoreDatabaseTests
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"))
         {
-            Database = "information_schema", AllowZeroDateTime = true, ConvertZeroDateTime = true, Pooling = false
+            Database = "information_schema",
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true,
+            Pooling = false
         };
         var schema = "task_wired_reward_" + Guid.NewGuid().ToString("N")[..12];
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             var database = new HabbiconDatabaseTests.TestDatabase(options.ConnectionString);
             using var connection = database.Connection();
@@ -42,7 +45,7 @@ public sealed class WiredRewardStoreDatabaseTests
             var store = new WiredRewardStore(database);
             var box = new Item { Id = 100, OwnerId = 7, RoomId = 42 };
             var habbo = new Habbo { Id = 7, Access = UserAccess.Empty };
-            var config = WiredRewards.Defaults() with { IntParams = [0,0,1,1,0], Text = "0,TEST_BADGE,100" };
+            var config = WiredRewards.Defaults() with { IntParams = [0, 0, 1, 1, 0], Text = "0,TEST_BADGE,100" };
             const string malformed = "{\"7\":{\"Count\":1,\"ReceivedCodes\":[\"OLD\",2]}}";
             connection.Execute("INSERT INTO wired_reward_state VALUES (100,@malformed)", new { malformed });
             Assert.Throws<InvalidDataException>(() => store.ClaimAndGrant(box, 42, habbo, config, null!,
@@ -72,13 +75,13 @@ public sealed class WiredRewardStoreDatabaseTests
             var claims = WiredRewardClaimsJson.Parse(stored);
             Assert.Equal(1, claims[7].Count);
             Assert.Equal(now, claims[7].LastClaimAt);
-            Assert.Contains("LastClaimAt", stored); Assert.DoesNotContain("LastClaimUnix", stored);
+            Assert.Contains("LastClaimAt", stored);
+            Assert.DoesNotContain("LastClaimUnix", stored);
             Assert.Equal(new[] { "TEST_BADGE" }, claims[7].ReceivedCodes);
             Assert.Equal(1, store.ClaimAndGrant(box, 42, habbo, config, null!, now.AddSeconds(100)).Reason);
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_badges"));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE `{schema}`");
         }
     }

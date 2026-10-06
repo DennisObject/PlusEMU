@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Navigator;
 
@@ -11,8 +11,8 @@ public class UserFlatCatsComposer(ImmutableArray<NavigatorCategoryRow> categorie
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(categories.Length);
-        foreach (var category in categories)
-        {
+
+        foreach (var category in categories) {
             packet.WriteInteger(category.Id);
             packet.WriteString(category.PublicName);
             packet.WriteBoolean(category.CanSelect);

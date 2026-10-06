@@ -23,6 +23,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(0, target.CarryItemId);
             Assert.Empty(_client.Sent);
             quests++;
+
             return null;
         }), null!);
         service.GiveHandItem(_room, _client, 9);
@@ -53,6 +54,7 @@ public partial class PlacedFurniRoomTests
         client.SetHabbo(new Plus.HabboHotel.Users.Habbo { Id = 9, Username = "target", CurrentRoom = _room });
         var target = new RoomUser(9, RoomId, 9, _room, client, TestChatEmotions.Unused, new TestRewardProgress()) { X = x, Y = y, DanceId = danceId };
         Assert.True(LegacyUsers().TryAdd(9, target));
+
         return target;
     }
 

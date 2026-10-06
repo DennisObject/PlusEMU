@@ -8,6 +8,7 @@ internal sealed class GetHabboClubExtendOfferEvent(IClubOfferSnapshotService off
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         offers.ShowExtension(session);
+
         return Task.CompletedTask;
     }
 }

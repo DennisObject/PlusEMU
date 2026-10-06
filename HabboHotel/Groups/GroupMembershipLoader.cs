@@ -36,11 +36,15 @@ public sealed class GroupMembershipLoader(IDatabase database) : IGroupMembership
             SELECT user_id FROM group_requests WHERE group_id = @groupId ORDER BY user_id
             """, new { groupId }, transaction).Select(userId => checked((int)userId)).Distinct().ToArray();
         var staleRequests = requests.Where(participantIds.Contains).ToArray();
-        if (staleRequests.Length > 0)
+
+        if (staleRequests.Length > 0) {
             connection.Execute("""
                 DELETE FROM group_requests WHERE group_id = @groupId AND user_id IN @staleRequests
                 """, new { groupId, staleRequests }, transaction);
+        }
+
         transaction.Commit();
+
         return new(memberIds, administratorIds, requests.Where(userId => !participantIds.Contains(userId)).ToImmutableArray());
     }
 

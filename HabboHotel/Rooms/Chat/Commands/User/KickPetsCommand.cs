@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Rooms.AI;
+using Plus.HabboHotel.Rooms.AI;
 using Plus.Communication.Packets.Outgoing.Inventory.Pets;
 using Dapper;
 using Plus.Database;
@@ -24,16 +24,21 @@ internal class KickPetsCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!room.CheckRights(session, true))
-        {
+        if (!room.CheckRights(session, true)) {
             session.SendWhisper("Oops, only the room owner can run this command!");
+
             return;
         }
-        if (room.GetRoomUserManager().GetPets().Count == 0) session.SendWhisper("Oops, there isn't any pets in here!?");
-        foreach (var bot in room.GetRoomUserManager().GetUserList().ToList())
-        {
-            if (bot?.PetData == null)
+
+        if (room.GetRoomUserManager().GetPets().Count == 0) {
+            session.SendWhisper("Oops, there isn't any pets in here!?");
+        }
+
+        foreach (var bot in room.GetRoomUserManager().GetUserList().ToList()) {
+            if (bot?.PetData == null) {
                 continue;
+            }
+
             var pet = bot.PetData;
             using var connection = _database.Connection();
             connection.Open();
@@ -43,25 +48,29 @@ internal class KickPetsCommand : IChatCommand
                 new { pet.Experience, pet.Energy, pet.Nutrition, pet.Respect, petId = pet.PetId }, transaction);
             transaction.Commit();
 
-            if (bot.RidingHorse)
-            {
+            if (bot.RidingHorse) {
                 var rider = room.GetRoomUserManager().GetRoomUserByVirtualId(bot.HorseId);
-                if (rider != null)
-                {
+
+                if (rider != null) {
                     rider.RidingHorse = false;
                     rider.ApplyEffect(-1);
                     rider.MoveTo(new(rider.X + 1, rider.Y + 1));
                 }
-                else
+                else {
                     bot.RidingHorse = false;
+                }
             }
+
             pet.RoomId = 0;
             pet.PlacedInRoom = false;
             room.GetRoomUserManager().RemoveBot(bot.VirtualId, false);
             var ownerClient = _gameClientManager.GetClientByUserId(pet.OwnerId);
-            if (ownerClient?.GetHabbo() != null && ownerClient.GetHabbo().Inventory.Pets.AddPet(pet))
+
+            if (ownerClient?.GetHabbo() != null && ownerClient.GetHabbo().Inventory.Pets.AddPet(pet)) {
                 ownerClient.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(ownerClient.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
+            }
         }
+
         session.SendWhisper("All pets have been kicked from the room.");
     }
 }

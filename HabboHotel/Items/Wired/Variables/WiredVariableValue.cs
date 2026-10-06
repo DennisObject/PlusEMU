@@ -35,6 +35,7 @@ public interface IWiredVariableStore
     IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> ReadMany(IReadOnlyCollection<WiredVariableKey> keys)
     {
         var requested = keys.ToHashSet();
+
         return keys.Select(x => x.DefinitionId).Distinct().SelectMany(GetHolders)
             .Where(x => requested.Contains(x.Key)).ToDictionary();
     }

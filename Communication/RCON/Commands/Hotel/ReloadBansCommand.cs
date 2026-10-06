@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Moderation;
+using Plus.HabboHotel.Moderation;
 
 namespace Plus.Communication.RCON.Commands.Hotel;
 
@@ -18,6 +18,7 @@ internal class ReloadBansCommand : IRconCommand
     public Task<bool> TryExecute(string[] parameters)
     {
         _moderationManager.ReCacheBans();
+
         return Task.FromResult(true);
     }
 }

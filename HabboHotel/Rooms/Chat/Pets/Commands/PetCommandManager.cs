@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Core;
 using Plus.Database;
 
@@ -30,19 +30,23 @@ public class PetCommandManager : IPetCommandManager, IStartable
         _petCommands.Clear();
         _commandRegister.Clear();
         _commandDatabase.Clear();
-        foreach (var row in commands)
-        {
+
+        foreach (var row in commands) {
             _commandRegister.Add(row.Id, row.Title);
             _commandDatabase.Add($"{row.Title}.input", row.Input);
-            foreach (var command in row.Input.Split(','))
+
+            foreach (var command in row.Input.Split(',')) {
                 _petCommands.Add(command, new(row.Id, command));
+            }
         }
     }
 
     public int TryInvoke(string input)
     {
-        if (_petCommands.TryGetValue(input.ToLower(), out var command))
+        if (_petCommands.TryGetValue(input.ToLower(), out var command)) {
             return command.Id;
+        }
+
         return 0;
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Navigator.New;
@@ -11,8 +11,8 @@ public class NavigatorMetaDataParserComposer(ImmutableArray<string> searchCodes)
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(searchCodes.Length); //Count
-        foreach (var searchCode in searchCodes)
-        {
+
+        foreach (var searchCode in searchCodes) {
             //TopLevelContext
             packet.WriteString(searchCode); //Search code
             packet.WriteInteger(0); //Count of saved searches?

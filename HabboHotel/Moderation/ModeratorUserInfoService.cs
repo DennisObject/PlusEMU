@@ -14,11 +14,13 @@ public sealed class ModeratorUserInfoService(IModerationUserStore users, IGameCl
     public void Send(GameClient session, int userId)
     {
         var user = users.Find(userId);
-        if (user == null)
-        {
+
+        if (user == null) {
             session.SendNotification(language.TryGetValue("user.not_found"));
+
             return;
         }
+
         session.Send(new ModeratorUserInfoComposer(user, clients.GetClientByUserId(userId)?.GetHabbo() != null, clock.GetUtcNow()));
     }
 }

@@ -39,6 +39,7 @@ public sealed class CatalogGiftStore : ICatalogGiftStore
             "INSERT INTO user_presents (item_id, base_id, extra_data) VALUES (@itemId, @baseId, @extraData)",
             new { itemId, baseId = contentDefinition.Id, extraData = contentExtraData },
             transaction);
+
         return new InventoryItem
         {
             Id = itemId,

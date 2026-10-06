@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Navigator;
+using Plus.HabboHotel.Navigator;
 
 namespace Plus.Communication.RCON.Commands.Hotel;
 
@@ -18,6 +18,7 @@ internal class ReloadNavigatorCommand : IRconCommand
     public Task<bool> TryExecute(string[] parameters)
     {
         _navigatorManager.Init();
+
         return Task.FromResult(true);
     }
 }

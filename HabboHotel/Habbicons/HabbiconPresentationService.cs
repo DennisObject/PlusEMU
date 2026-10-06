@@ -35,39 +35,43 @@ public sealed class HabbiconPresentationService(IHabbiconService habbicons,
         Execute(session, purchase, () =>
         {
             HabbiconMessages.Publish(session, habbicons.Change(session.GetHabbo(), action, id));
-            if (purchase)
+
+            if (purchase) {
                 session.Send(new PurchaseOKComposer());
+            }
         });
     }
 
     public void ResetUnseenItems(GameClient session, int category, IReadOnlyList<int> ids)
     {
-        if (category == HabbiconService.UnseenCategory && ids.Count > 0)
+        if (category == HabbiconService.UnseenCategory && ids.Count > 0) {
             habbicons.ClearUnseen(session.GetHabbo().Id, ids.Distinct().ToArray());
+        }
     }
 
     public void ResetUnseenCategory(GameClient session, int category)
     {
-        if (category == HabbiconService.UnseenCategory)
+        if (category == HabbiconService.UnseenCategory) {
             habbicons.ClearUnseen(session.GetHabbo().Id, Array.Empty<int>());
+        }
     }
 
     private void Execute(GameClient session, bool purchase, Action operation)
     {
-        try
-        {
+        try {
             operation();
         }
-        catch (HabbiconRejected rejected)
-        {
-            if (purchase)
+        catch (HabbiconRejected rejected) {
+            if (purchase) {
                 session.Send(new PurchaseErrorComposer((PurchaseError)rejected.Code));
+            }
         }
-        catch (MySqlException exception)
-        {
+        catch (MySqlException exception) {
             logger.LogError(exception, "Unable to process Habbicon request for {UserId}", session.GetHabbo().Id);
-            if (purchase)
+
+            if (purchase) {
                 session.Send(new PurchaseErrorComposer(PurchaseError.DeliveryFailed));
+            }
         }
     }
 }

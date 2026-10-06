@@ -44,27 +44,32 @@ internal sealed class FurniEditorRepository
     public FurniEditorSearchResult Search(string query, string type, int page, string sortField, string sortDirection)
     {
         query = query.Trim();
-        if (query.Length > 100)
+
+        if (query.Length > 100) {
             query = query[..100];
+        }
+
         page = Math.Clamp(page, 1, MaxPage);
         var parameters = new DynamicParameters();
         var where = new List<string>();
-        if (query.Length > 0)
-        {
+
+        if (query.Length > 0) {
             parameters.Add("like", "%" + query.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_") + "%");
             var match = "item_name LIKE @like OR public_name LIKE @like";
-            if (int.TryParse(query, out var number))
-            {
+
+            if (int.TryParse(query, out var number)) {
                 parameters.Add("number", number);
                 match += " OR id = @number OR sprite_id = @number";
             }
+
             where.Add($"({match})");
         }
-        if (Types.Contains(type))
-        {
+
+        if (Types.Contains(type)) {
             parameters.Add("type", type);
             where.Add("type = @type");
         }
+
         var filter = where.Count == 0 ? string.Empty : " WHERE " + string.Join(" AND ", where);
         var order = SortColumns.GetValueOrDefault(sortField, "id") + (sortDirection == "desc" ? " DESC" : " ASC");
         parameters.Add("limit", PageSize);
@@ -72,6 +77,7 @@ internal sealed class FurniEditorRepository
         int total = _connection.QuerySingle<int>($"SELECT COUNT(*) FROM furniture{filter}", parameters, _transaction);
         var items = _connection.Query<FurniEditorItem>($"SELECT {ItemColumns} FROM furniture{filter} ORDER BY {order}, id LIMIT @limit OFFSET @offset",
             parameters, _transaction).ToList();
+
         return new(items, total, page);
     }
 
@@ -101,8 +107,10 @@ internal sealed class FurniEditorRepository
         void Count(string sql, string label)
         {
             int count = _connection.QuerySingle<int>(sql, parameters, _transaction);
-            if (count > 0)
+
+            if (count > 0) {
                 references.Add($"{count} {label}");
+            }
         }
         Count("SELECT COUNT(*) FROM items WHERE base_item = @id", "placed or owned items");
         Count("SELECT COUNT(*) FROM catalog_items WHERE item_id = @itemId", "catalog offers");
@@ -111,8 +119,11 @@ internal sealed class FurniEditorRepository
         var deals = _connection.Query<(int Id, string Items)>("SELECT id, items FROM catalog_deals WHERE items LIKE CONCAT('%', @itemId, '%')", parameters, _transaction)
             .Where(deal => deal.Items.Split(';').Any(entry => entry.Split('*')[0].Trim() == parameters.itemId))
             .Select(deal => $"#{deal.Id}").ToList();
-        if (deals.Count > 0)
+
+        if (deals.Count > 0) {
             references.Add($"catalog deals {string.Join(", ", deals)}");
+        }
+
         return references;
     }
 
@@ -126,6 +137,7 @@ internal sealed class FurniEditorRepository
         var assignments = changes.Select((change, index) =>
         {
             parameters.Add($"v{index}", change.Value);
+
             return $"`{change.Column}` = @v{index}";
         });
         _connection.Execute($"UPDATE furniture SET {string.Join(", ", assignments)} WHERE id = @id", parameters, _transaction);

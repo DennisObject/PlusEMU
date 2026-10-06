@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Catalog.Clothing;
+namespace Plus.HabboHotel.Catalog.Clothing;
 
 public class ClothingItem
 {

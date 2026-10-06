@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Users.Authentication.Tasks;
 
@@ -15,6 +15,7 @@ public class DisconnectCurrentOnlineHabboTask : IAuthenticationTask
     {
         var existingSession = _gameClientManager.GetClientByUserId(userId);
         existingSession?.Disconnect();
+
         return Task.FromResult(true);
     }
 }

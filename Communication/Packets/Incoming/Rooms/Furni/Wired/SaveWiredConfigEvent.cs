@@ -10,10 +10,18 @@ internal abstract class SaveWiredConfigEvent(IWiredConfigurationService service)
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         uint itemId;
-        try { itemId = packet.ReadUInt(); }
-        catch (ArgumentException) { return Task.CompletedTask; }
-        if (WiredLegacyProtocol.TryRead(packet, Envelope, out var configuration))
+
+        try {
+            itemId = packet.ReadUInt();
+        }
+        catch (ArgumentException) {
+            return Task.CompletedTask;
+        }
+
+        if (WiredLegacyProtocol.TryRead(packet, Envelope, out var configuration)) {
             service.Save(session, new(itemId, Envelope, configuration));
+        }
+
         return Task.CompletedTask;
     }
 }

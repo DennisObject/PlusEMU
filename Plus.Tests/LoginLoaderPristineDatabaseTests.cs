@@ -11,8 +11,9 @@ public sealed class LoginLoaderDatabaseFactAttribute : FactAttribute
 {
     public LoginLoaderDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("LOGIN_LOADER_DATABASE") is null)
+        if (Environment.GetEnvironmentVariable("LOGIN_LOADER_DATABASE") is null) {
             Skip = "Opt-in isolated login loader MariaDB probe.";
+        }
     }
 }
 
@@ -31,8 +32,8 @@ public sealed class LoginLoaderPristineDatabaseTests
         connection.Open();
         var schema = "login_loaders_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             connection.Execute($"USE `{schema}`");
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
             connection.Execute(CreateTable(pristine, "bots"));
@@ -79,8 +80,7 @@ public sealed class LoginLoaderPristineDatabaseTests
             connection.Execute("UPDATE user_clothing SET part_id = 'not-a-number' WHERE id = 20");
             Assert.IsType<FormatException>(Assert.Throws<DataException>(() => clothing.Load(7)).InnerException);
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
@@ -92,6 +92,7 @@ public sealed class LoginLoaderPristineDatabaseTests
         Assert.True(start >= 0, $"Missing pristine CREATE TABLE for {table}.");
         var end = pristine.IndexOf(';', start);
         Assert.True(end >= 0, $"Unterminated pristine CREATE TABLE for {table}.");
+
         return pristine[start..(end + 1)];
     }
 

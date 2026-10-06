@@ -11,6 +11,7 @@ internal sealed class GetModeratorTicketChatlogsEvent(IModeratorTicketService ti
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         tickets.SendChatlogs(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

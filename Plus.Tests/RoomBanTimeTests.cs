@@ -60,6 +60,7 @@ public sealed class RoomBanTimeTests
     {
         var data = (RoomData)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(RoomData));
         data.Id = id;
+
         return new Room(data, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
     }
 
@@ -72,7 +73,9 @@ public sealed class RoomBanTimeTests
     {
         public List<(uint RoomId, int UserId)> Deleted { get; } = [];
         public IEnumerable<RoomBan> Load(uint roomId) => [];
-        public void Save(uint roomId, int userId, DateTimeOffset expiresAt) { }
+        public void Save(uint roomId, int userId, DateTimeOffset expiresAt)
+        {
+        }
         public void Delete(uint roomId, int userId) => Deleted.Add((roomId, userId));
         public IEnumerable<int> ActiveUserIds(uint roomId) => [];
     }

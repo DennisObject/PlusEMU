@@ -12,6 +12,7 @@ public class FigureDataManagerTests
         // The catalog is only consulted when clothing parts are passed.
         var manager = new FigureDataManager(null!, NullLogger<FigureDataManager>.Instance);
         manager.Init();
+
         return manager;
     }
 

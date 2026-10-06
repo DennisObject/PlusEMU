@@ -35,6 +35,7 @@ public class AuthTokenCleanup : IStartable
     public Task Start()
     {
         _ = Task.Run(RunForever);
+
         return Task.CompletedTask;
     }
 
@@ -42,6 +43,7 @@ public class AuthTokenCleanup : IStartable
     public async Task<int> PruneExpired()
     {
         var cutoff = _time.GetUtcNow() - Retention;
+
         return await PruneInBatches(batch => _rememberTokens.Prune(cutoff, batch))
             + await PruneInBatches(batch => _accessTokens.Prune(cutoff, batch))
             + await PruneInBatches(batch => _sessions.PruneSessions(cutoff, batch));
@@ -50,27 +52,28 @@ public class AuthTokenCleanup : IStartable
     private async Task<int> PruneInBatches(Func<int, Task<int>> prune)
     {
         var total = 0;
-        for (var i = 0; i < MaxBatchesPerRun; i++)
-        {
+
+        for (var i = 0; i < MaxBatchesPerRun; i++) {
             var deleted = await prune(BatchSize);
             total += deleted;
-            if (deleted < BatchSize)
+
+            if (deleted < BatchSize) {
                 break;
+            }
         }
+
         return total;
     }
 
     private async Task RunForever()
     {
         using var timer = new PeriodicTimer(Interval, _time);
-        do
-        {
-            try
-            {
+
+        do {
+            try {
                 await PruneExpired();
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 _logger.LogWarning(e, "Expired login token cleanup failed; retrying in {Interval}.", Interval);
             }
         } while (await timer.WaitForNextTickAsync());

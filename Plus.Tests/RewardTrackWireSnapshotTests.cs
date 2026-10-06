@@ -42,8 +42,14 @@ public class RewardTrackWireSnapshotTests
     {
         var track = Track();
         var state = new UserRewardTrackState("track", 300, premium);
-        if (p1Claimed) state.MarkClaimed("p1");
-        if (p2Claimed) state.MarkClaimed("p2");
+
+        if (p1Claimed) {
+            state.MarkClaimed("p1");
+        }
+
+        if (p2Claimed) {
+            state.MarkClaimed("p2");
+        }
 
         var snapshot = RewardTrackWireSnapshot.Capture(track, state);
 
@@ -123,6 +129,7 @@ public class RewardTrackWireSnapshotTests
         track.AddTask(new RewardTrackTask("t1", "chat", "", false, 1, [new RewardTrackLevel(10, 20, false), new RewardTrackLevel(5, 10, false)]));
         track.AddPrize(new RewardTrackPrize("p1", 50, 4, "badge", "ACH_1", 1, false, 1));
         track.AddPrize(new RewardTrackPrize("p2", 200, 4, "badge", "ACH_2", 1, true, 2));
+
         return track;
     }
 
@@ -130,6 +137,7 @@ public class RewardTrackWireSnapshotTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes;
     }
 }

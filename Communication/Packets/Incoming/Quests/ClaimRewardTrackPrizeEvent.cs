@@ -9,6 +9,7 @@ internal sealed class ClaimRewardTrackPrizeEvent(IRewardTrackManager rewards) : 
     {
         var trackId = packet.ReadString();
         var prizeId = packet.ReadString();
+
         return rewards.Claim(session, trackId, prizeId);
     }
 }

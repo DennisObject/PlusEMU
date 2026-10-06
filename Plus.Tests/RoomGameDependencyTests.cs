@@ -18,7 +18,11 @@ public partial class PlacedFurniRoomTests
     {
         var unloaded = new List<uint>();
         Set("_rooms", TestRoomOwners.Create(unloaded.Add));
-        if (v2) _room.EnableV2Movement();
+
+        if (v2) {
+            _room.EnableV2Movement();
+        }
+
         _room.IdleTime = 58;
         WithUnavailableRoomGame(() =>
         {
@@ -37,7 +41,11 @@ public partial class PlacedFurniRoomTests
     {
         var unloaded = new List<uint>();
         Set("_rooms", TestRoomOwners.Create(unloaded.Add));
-        if (v2) _room.EnableV2Movement();
+
+        if (v2) {
+            _room.EnableV2Movement();
+        }
+
         _room.IdleTime = 59;
         var now = _interactionClock.GetUtcNow();
         _room.Promotion = new RoomPromotion("test", "", 1, now, now.AddHours(1), _interactionClock);
@@ -133,7 +141,12 @@ public partial class PlacedFurniRoomTests
     {
         var previous = _gameField.GetValue(null);
         _gameField.SetValue(null, null);
-        try { action(); }
-        finally { _gameField.SetValue(null, previous); }
+
+        try {
+            action();
+        }
+        finally {
+            _gameField.SetValue(null, previous);
+        }
     }
 }

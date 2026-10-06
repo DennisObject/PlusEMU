@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -7,37 +7,63 @@ namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorPuzzleBox : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item) { }
+    public void OnPlace(GameClient? session, Item item)
+    {
+    }
 
-    public void OnRemove(GameClient? session, Item item) { }
+    public void OnRemove(GameClient? session, Item item)
+    {
+    }
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
         var itemRoom = item.GetRoom();
-        if (itemRoom == null) return;
 
-        if (session == null)
+        if (itemRoom == null) {
             return;
+        }
+
+        if (session == null) {
+            return;
+        }
+
         var user = itemRoom.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
-        if (user == null) return;
-        if (!(Math.Abs(user.X - item.GetX) >= 2 || Math.Abs(user.Y - item.GetY) >= 2))
-        {
+
+        if (user == null) {
+            return;
+        }
+
+        if (!(Math.Abs(user.X - item.GetX) >= 2 || Math.Abs(user.Y - item.GetY) >= 2)) {
             user.SetRot(Rotation.Calculate(user.X, user.Y, item.GetX, item.GetY), false);
-            if (user.RotBody % 2 != 0)
-            {
+
+            if (user.RotBody % 2 != 0) {
                 user.MoveTo(item.GetX + 1, item.GetY);
+
                 return;
             }
+
             var room = itemRoom;
             var newPoint = new Point(0, 0);
-            if (user.RotBody == 4) newPoint = new(item.GetX, item.GetY + 1);
-            if (user.RotBody == 0) newPoint = new(item.GetX, item.GetY - 1);
-            if (user.RotBody == 6) newPoint = new(item.GetX - 1, item.GetY);
-            if (user.RotBody == 2) newPoint = new(item.GetX + 1, item.GetY);
+
+            if (user.RotBody == 4) {
+                newPoint = new(item.GetX, item.GetY + 1);
+            }
+
+            if (user.RotBody == 0) {
+                newPoint = new(item.GetX, item.GetY - 1);
+            }
+
+            if (user.RotBody == 6) {
+                newPoint = new(item.GetX - 1, item.GetY);
+            }
+
+            if (user.RotBody == 2) {
+                newPoint = new(item.GetX + 1, item.GetY);
+            }
+
             if (room.GetGameMap().ValidTile(newPoint.X, newPoint.Y) &&
                 room.GetGameMap().ItemCanBePlaced(newPoint.X, newPoint.Y) &&
-                room.GetGameMap().CanRollItemHere(newPoint.X, newPoint.Y))
-            {
+                room.GetGameMap().CanRollItemHere(newPoint.X, newPoint.Y)) {
                 var newZ = itemRoom.GetGameMap().SqAbsoluteHeight(newPoint.X, newPoint.Y);
                 /*var mMessage = new ServerMessage();
                 mMessage.Init(Outgoing.ObjectOnRoller); // Cf
@@ -55,9 +81,12 @@ public class InteractorPuzzleBox : IFurniInteractor
                 itemRoom.GetRoomItemHandler().SetFloorItem(user.GetClient(), item, newPoint.X, newPoint.Y, item.Rotation, false, false, false);
             }
         }
-        else
+        else {
             user.MoveTo(item.GetX + 1, item.GetY);
+        }
     }
 
-    public void OnWiredTrigger(Item item) { }
+    public void OnWiredTrigger(Item item)
+    {
+    }
 }

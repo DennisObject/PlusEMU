@@ -1,4 +1,4 @@
-﻿using Plus.Core;
+using Plus.Core;
 
 namespace Plus.Plugins;
 

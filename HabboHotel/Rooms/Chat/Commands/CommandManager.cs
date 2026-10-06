@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Permissions;
 using Dapper;
 using System.Collections.Concurrent;
@@ -43,70 +43,85 @@ public class CommandManager : ICommandManager
     /// <returns>True if parsed or false if not.</returns>
     public async Task<bool> Parse(GameClient session, string message)
     {
-        if (session == null || session.GetHabbo() == null || session.GetHabbo().CurrentRoom == null)
+        if (session == null || session.GetHabbo() == null || session.GetHabbo().CurrentRoom == null) {
             return false;
-        if (!message.StartsWith(_prefix))
+        }
+
+        if (!message.StartsWith(_prefix)) {
             return false;
-        if (message == $"{_prefix}commands")
-        {
+        }
+
+        if (message == $"{_prefix}commands") {
             var list = new StringBuilder();
             list.Append("This is the list of commands you have available:\n");
-            foreach (var cmdList in _commands.ToList())
-            {
-                if (!session.GetHabbo().Access.Can("command." + cmdList.Value.Key))
+
+            foreach (var cmdList in _commands.ToList()) {
+                if (!session.GetHabbo().Access.Can("command." + cmdList.Value.Key)) {
                     continue;
+                }
+
                 list.Append($":{cmdList.Key} {cmdList.Value.Parameters} - {cmdList.Value.Description}\n");
             }
+
             session.Send(new MOTDNotificationComposer(list.ToString()));
+
             return true;
         }
+
         message = message.Substring(1);
-        if (string.IsNullOrWhiteSpace(message))
+
+        if (string.IsNullOrWhiteSpace(message)) {
             return false;
+        }
 
         var split = message.Split(' ');
         var key = split[0];
         var parameters = split.Length > 1 ? split[1..] : Array.Empty<string>();
-        if (_commands.TryGetValue(key.ToLower(), out var command))
-        {
-            if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTool))
+
+        if (_commands.TryGetValue(key.ToLower(), out var command)) {
+            if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTool)) {
                 LogCommand(session.GetHabbo().Id, message, session.GetHabbo().MachineId);
-            if (!session.GetHabbo().Access.Can("command." + command.Key))
+            }
+
+            if (!session.GetHabbo().Access.Can("command." + command.Key)) {
                 return false;
+            }
+
             session.GetHabbo().ChatCommand = command;
             session.GetHabbo().CurrentRoom.GetWired().TriggerEvent(WiredBoxType.TriggerUserSaysCommand, session.GetHabbo(), this);
 
-            if (command is IChatCommand chatCommand)
-            {
+            if (command is IChatCommand chatCommand) {
                 chatCommand.Execute(session, session.GetHabbo().CurrentRoom, parameters);
             }
-            else if (command is ITargetChatCommand targetChatCommand)
-            {
-                if (!parameters.Any())
-                {
+            else if (command is ITargetChatCommand targetChatCommand) {
+                if (!parameters.Any()) {
                     session.SendWhisper("No username specified.");
+
                     return true;
                 }
 
                 var username = parameters[0];
                 parameters = parameters.Length > 1 ? parameters[1..] : Array.Empty<string>();
                 var target = _gameClientManager.GetClientByUsername(username);
-                if (target == null)
-                {
+
+                if (target == null) {
                     session.SendWhisper($"User {username} seems to be offline.");
+
                     return true;
                 }
 
-                if (targetChatCommand.MustBeInSameRoom && session.GetHabbo().CurrentRoom != target.GetHabbo().CurrentRoom)
-                {
+                if (targetChatCommand.MustBeInSameRoom && session.GetHabbo().CurrentRoom != target.GetHabbo().CurrentRoom) {
                     session.SendWhisper($"You must be in the same room as {username} to execute this command.");
+
                     return true;
                 }
 
                 await targetChatCommand.Execute(session, session.GetHabbo().CurrentRoom, target.GetHabbo(), parameters);
             }
+
             return true;
         }
+
         return false;
     }
 
@@ -123,12 +138,15 @@ public class CommandManager : ICommandManager
     public static string MergeParams(string[] @params, int start = 0)
     {
         var merged = new StringBuilder();
-        for (var i = start; i < @params.Length; i++)
-        {
-            if (i > start)
+
+        for (var i = start; i < @params.Length; i++) {
+            if (i > start) {
                 merged.Append(" ");
+            }
+
             merged.Append(@params[i]);
         }
+
         return merged.ToString();
     }
 

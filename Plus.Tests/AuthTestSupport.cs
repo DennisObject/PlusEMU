@@ -25,8 +25,9 @@ public sealed class AuthDatabaseFactAttribute : FactAttribute
 
     public AuthDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable))) {
             Skip = $"Set {Variable} to a disposable PlusEMU database to run.";
+        }
     }
 }
 
@@ -40,6 +41,7 @@ internal sealed class AuthTestDatabase : IDatabase
     public static int InsertUser(string username, string password = "", string mail = "probe@invalid")
     {
         using var connection = new MySqlConnection(ConnectionString);
+
         return connection.ExecuteScalar<int>("INSERT INTO users (username, password, mail, auth_ticket) VALUES (@username, @password, @mail, ''); SELECT LAST_INSERT_ID();",
             new { username, password, mail });
     }
@@ -61,6 +63,7 @@ internal sealed class ManualTime(DateTimeOffset start) : TimeProvider
     public override DateTimeOffset GetUtcNow()
     {
         Reads++;
+
         return Now;
     }
     public void Advance(TimeSpan by) => Now += by;
@@ -73,6 +76,7 @@ internal static class AuthTestConfig
     {
         var configuration = new AuthApiConfiguration();
         configure?.Invoke(configuration);
+
         return Microsoft.Extensions.Options.Options.Create(configuration);
     }
 }
@@ -87,6 +91,7 @@ internal sealed class FakeAccounts : IAccountStore
     {
         var row = new AccountCredentials(Rows.Count + 1, username, password);
         Rows.Add(row);
+
         return row;
     }
 
@@ -97,10 +102,15 @@ internal sealed class FakeAccounts : IAccountStore
     public async Task<AccountCredentials?> FindByUsername(string username)
     {
         LookupStarted.TrySetResult();
-        if (HoldLookups != null)
+
+        if (HoldLookups != null) {
             await HoldLookups;
-        if (FailLookupsWith != null)
+        }
+
+        if (FailLookupsWith != null) {
             throw FailLookupsWith;
+        }
+
         // Like the users.username collation: case- and accent-insensitive.
         return Rows.FirstOrDefault(r => System.Globalization.CultureInfo.InvariantCulture.CompareInfo.Compare(r.Username, username,
             System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) == 0);
@@ -109,8 +119,11 @@ internal sealed class FakeAccounts : IAccountStore
     public Task UpgradePassword(int userId, string current, string replacement)
     {
         var index = Rows.FindIndex(r => r.Id == userId && r.Password == current);
-        if (index >= 0)
+
+        if (index >= 0) {
             Rows[index] = Rows[index] with { Password = replacement };
+        }
+
         return Task.CompletedTask;
     }
 
@@ -119,6 +132,7 @@ internal sealed class FakeAccounts : IAccountStore
     public Task RecordAddress(int userId, string address, CredentialScope? scope = null)
     {
         LastAddress[userId] = address;
+
         return Task.CompletedTask;
     }
 
@@ -134,11 +148,15 @@ internal sealed class FakeAccounts : IAccountStore
 
     public async Task<bool> EmailExists(string email)
     {
-        if (Interlocked.Increment(ref _emailChecksArrived) >= ConcurrentEmailChecks)
+        if (Interlocked.Increment(ref _emailChecksArrived) >= ConcurrentEmailChecks) {
             _emailChecksGate.TrySetResult();
+        }
+
         await Task.WhenAny(_emailChecksGate.Task, Task.Delay(100));
-        lock (Emails)
+
+        lock (Emails) {
             return Emails.Contains(email);
+        }
     }
 
     /// <summary>Runs right after an account is created, before its session is issued.</summary>
@@ -147,20 +165,26 @@ internal sealed class FakeAccounts : IAccountStore
     public async Task<int?> Create(NewAccount account)
     {
         var id = await CreateRow(account);
-        if (id != null && RevokeOnCreate != null)
+
+        if (id != null && RevokeOnCreate != null) {
             await RevokeOnCreate(id.Value);
+        }
+
         return id;
     }
 
     private async Task<int?> CreateRow(NewAccount account)
     {
         await Task.Yield();
-        if (await UsernameExists(account.Username))
+
+        if (await UsernameExists(account.Username)) {
             return null;
-        lock (Emails)
-        {
+        }
+
+        lock (Emails) {
             Created.Add(account);
             Emails.Add(account.Email);
+
             return Add(account.Username, account.PasswordHash).Id;
         }
     }
@@ -174,11 +198,14 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 
     public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
     {
-        foreach (var old in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
+        foreach (var old in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList()) {
             Live.Remove(old);
+        }
+
         var token = new IssuedToken(SecureToken.Generate(), DateTimeOffset.FromUnixTimeSeconds(1000));
         Live[token.Value] = userId;
         _sessions[token.Value] = sessionId;
+
         return Task.FromResult(token);
     }
 
@@ -194,15 +221,19 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
     public Task<int?> Consume(string ticket)
     {
         Exchanged.Remove(ticket);
+
         return Task.FromResult(Live.Remove(ticket, out var id) ? id : (int?)null);
     }
 
     public async Task<CredentialOwner?> Exchange(string ticket)
     {
-        if (await FindOwner(ticket) is not { } owner || !Exchanged.Add(ticket))
+        if (await FindOwner(ticket) is not { } owner || !Exchanged.Add(ticket)) {
             return null;
+        }
+
         // Like the database store, a ticket without a session gets one when it is exchanged.
         var sessionId = _sessions[ticket] ??= "fake-" + Guid.NewGuid().ToString("N");
+
         return owner with { SessionId = sessionId };
     }
 
@@ -210,23 +241,30 @@ internal sealed class FakeSsoTickets : ISsoTicketStore
 
     public async Task<CredentialOwner?> Withdraw(int userId, string ticket, CredentialScope scope)
     {
-        if (await FindOwner(ticket) is not { } owner || owner.UserId != userId)
+        if (await FindOwner(ticket) is not { } owner || owner.UserId != userId) {
             return null;
+        }
+
         Live.Remove(ticket);
+
         return owner;
     }
 
     public Task Revoke(int userId, CredentialScope? scope = null)
     {
-        foreach (var ticket in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList())
+        foreach (var ticket in Live.Where(p => p.Value == userId).Select(p => p.Key).ToList()) {
             Live.Remove(ticket);
+        }
+
         return Task.CompletedTask;
     }
 
     public Task RevokeSession(int userId, string sessionId, CredentialScope scope)
     {
-        foreach (var ticket in Live.Where(p => p.Value == userId && _sessions.GetValueOrDefault(p.Key) == sessionId).Select(p => p.Key).ToList())
+        foreach (var ticket in Live.Where(p => p.Value == userId && _sessions.GetValueOrDefault(p.Key) == sessionId).Select(p => p.Key).ToList()) {
             Live.Remove(ticket);
+        }
+
         return Task.CompletedTask;
     }
 }
@@ -241,6 +279,7 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
         var token = new IssuedToken(SecureToken.Generate(), DateTimeOffset.FromUnixTimeSeconds(2000));
         Live[token.Value] = userId;
         _sessions[token.Value] = sessionId;
+
         return Task.FromResult(token);
     }
 
@@ -255,6 +294,7 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
     public Task Revoke(string token)
     {
         Live.Remove(token);
+
         return Task.CompletedTask;
     }
 
@@ -266,15 +306,19 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
 
     private Task RemoveWhere(Func<KeyValuePair<string, int>, bool> match)
     {
-        foreach (var key in Live.Where(match).Select(p => p.Key).ToList())
+        foreach (var key in Live.Where(match).Select(p => p.Key).ToList()) {
             Live.Remove(key);
+        }
+
         return Task.CompletedTask;
     }
 }
 
 internal sealed class FakeWordFilter(params string[] words) : IWordFilterManager
 {
-    public void Init() { }
+    public void Init()
+    {
+    }
     public string CheckMessage(string message) => message;
     public bool CheckBannedWords(string message) => false;
     public bool IsFiltered(string message) => words.Any(message.Contains);
@@ -303,13 +347,13 @@ internal sealed class CountingHasher(IPasswordHasher inner, TimeSpan delay) : IP
     {
         var now = Interlocked.Increment(ref _current);
         InterlockedMax(ref MaxConcurrent, now);
-        try
-        {
+
+        try {
             Thread.Sleep(delay);
+
             return work();
         }
-        finally
-        {
+        finally {
             Interlocked.Decrement(ref _current);
         }
     }
@@ -317,6 +361,7 @@ internal sealed class CountingHasher(IPasswordHasher inner, TimeSpan delay) : IP
     private static void InterlockedMax(ref int target, int value)
     {
         int seen;
+
         while ((seen = Volatile.Read(ref target)) < value && Interlocked.CompareExchange(ref target, value, seen) != seen) { }
     }
 }
@@ -338,16 +383,22 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
 
     public async Task<RememberRotation> Rotate(string token, Func<int, CredentialScope, Task>? onReuse = null)
     {
-        if (!_rows.TryGetValue(token, out var row) || row.Revoked)
+        if (!_rows.TryGetValue(token, out var row) || row.Revoked) {
             return new(RememberRotationStatus.Invalid);
-        if (row.Used)
-        {
+        }
+
+        if (row.Used) {
             RevokeWhere(r => r.Family == row.Family);
-            if (onReuse != null)
+
+            if (onReuse != null) {
                 await onReuse(row.UserId, null!);
+            }
+
             return new(RememberRotationStatus.Reused, row.UserId, row.Family);
         }
+
         _rows[token] = row with { Used = true };
+
         return new(RememberRotationStatus.Rotated, row.UserId, row.Family);
     }
 
@@ -360,12 +411,14 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
     public Task RevokeSession(string sessionId, CredentialScope scope)
     {
         RevokeWhere(r => r.Family == sessionId);
+
         return Task.CompletedTask;
     }
 
     public Task RevokeAll(int userId, CredentialScope? scope = null)
     {
         RevokeWhere(r => r.UserId == userId);
+
         return Task.CompletedTask;
     }
 
@@ -375,13 +428,15 @@ internal sealed class FakeRememberTokens : IRememberTokenStore
     {
         var token = new IssuedToken(SecureToken.Generate(), DateTimeOffset.FromUnixTimeSeconds(3000));
         _rows[token.Value] = new(userId, family, false, false);
+
         return token;
     }
 
     private void RevokeWhere(Func<Row, bool> match)
     {
-        foreach (var (key, row) in _rows.Where(p => match(p.Value)).ToList())
+        foreach (var (key, row) in _rows.Where(p => match(p.Value)).ToList()) {
             _rows[key] = row with { Revoked = true };
+        }
     }
 }
 
@@ -399,9 +454,12 @@ internal sealed class FakeGenerations : ICredentialGenerations
 
     public async Task<bool> WriteInSession(int userId, long generation, string sessionId, Func<CredentialScope, Task> writes)
     {
-        if (_generations.GetValueOrDefault(userId) != generation || sessionId != null && _revokedSessions.Contains(sessionId))
+        if (_generations.GetValueOrDefault(userId) != generation || sessionId != null && _revokedSessions.Contains(sessionId)) {
             return false;
+        }
+
         await writes(null!);
+
         return true;
     }
 
@@ -414,6 +472,7 @@ internal sealed class FakeGenerations : ICredentialGenerations
     public Task Bump(int userId, CredentialScope scope)
     {
         _generations[userId] = _generations.GetValueOrDefault(userId) + 1;
+
         return Task.CompletedTask;
     }
 
@@ -422,6 +481,7 @@ internal sealed class FakeGenerations : ICredentialGenerations
     public Task MarkSessionRevoked(int userId, string sessionId, CredentialScope scope)
     {
         _revokedSessions.Add(sessionId);
+
         return Task.CompletedTask;
     }
 
@@ -446,6 +506,7 @@ internal sealed class HeldHasher : IPasswordHasher
         Entered.TrySetResult();
         Release.Wait();
         Interlocked.Increment(ref Hashed);
+
         return result;
     }
 }

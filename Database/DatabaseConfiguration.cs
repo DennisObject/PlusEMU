@@ -1,4 +1,4 @@
-﻿namespace Plus.Database;
+namespace Plus.Database;
 
 public class DatabaseConfiguration
 {

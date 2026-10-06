@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Users.Messenger;
@@ -15,8 +15,8 @@ public class MessengerBuddy
         set
         {
             _habbo = value;
-            if (_habbo != null)
-            {
+
+            if (_habbo != null) {
                 Look = _habbo.Look;
                 Motto = _habbo.Motto;
                 Gender = _habbo.Gender.Equals("M", StringComparison.OrdinalIgnoreCase) ? 1 : 0;

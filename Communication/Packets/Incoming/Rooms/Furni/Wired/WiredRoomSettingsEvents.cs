@@ -8,7 +8,10 @@ public sealed class WiredRoomSettingsRequestEvent(IWiredRoomSettingsService sett
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        if (!packet.HasDataRemaining()) settings.Reload(room, session);
+        if (!packet.HasDataRemaining()) {
+            settings.Reload(room, session);
+        }
+
         return Task.CompletedTask;
     }
 }
@@ -18,10 +21,21 @@ public sealed class WiredRoomSettingsSaveEvent(IWiredRoomSettingsService setting
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         int inspect, modify;
-        try { inspect = packet.ReadInt(); modify = packet.ReadInt(); }
-        catch (ArgumentException) { return Task.CompletedTask; }
-        if (packet.HasDataRemaining()) return Task.CompletedTask;
+
+        try {
+            inspect = packet.ReadInt();
+            modify = packet.ReadInt();
+        }
+        catch (ArgumentException) {
+            return Task.CompletedTask;
+        }
+
+        if (packet.HasDataRemaining()) {
+            return Task.CompletedTask;
+        }
+
         settings.Save(room, session, inspect, modify, null);
+
         return Task.CompletedTask;
     }
 }
@@ -30,11 +44,24 @@ public sealed class WiredMenuPermissionsSaveEvent(IWiredRoomSettingsService sett
 {
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
-        int modify, inspect; string timezone;
-        try { modify = packet.ReadInt(); inspect = packet.ReadInt(); timezone = packet.ReadString(); }
-        catch (ArgumentException) { return Task.CompletedTask; }
-        if (packet.HasDataRemaining()) return Task.CompletedTask;
+        int modify, inspect;
+        string timezone;
+
+        try {
+            modify = packet.ReadInt();
+            inspect = packet.ReadInt();
+            timezone = packet.ReadString();
+        }
+        catch (ArgumentException) {
+            return Task.CompletedTask;
+        }
+
+        if (packet.HasDataRemaining()) {
+            return Task.CompletedTask;
+        }
+
         settings.Save(room, session, inspect, modify, timezone);
+
         return Task.CompletedTask;
     }
 }

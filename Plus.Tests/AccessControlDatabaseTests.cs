@@ -26,8 +26,9 @@ public sealed class AccessControlDatabaseFactAttribute : FactAttribute
     public const string Variable = "PLUS_ACL_TEST_CONNECTION_STRING";
     public AccessControlDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable(Variable) == null)
+        if (Environment.GetEnvironmentVariable(Variable) == null) {
             Skip = $"Set {Variable} to a disposable task_acl_tests_ database with the migrated schema.";
+        }
     }
 }
 
@@ -52,12 +53,15 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     public AccessControlDatabaseTests()
     {
         var connectionString = Environment.GetEnvironmentVariable(AccessControlDatabaseFactAttribute.Variable)!;
-        if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_acl_tests_", StringComparison.Ordinal))
+
+        if (!new MySqlConnectionStringBuilder(connectionString).Database.StartsWith("task_acl_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Access-control tests require a disposable task_acl_tests_ database.");
+        }
+
         var builder = new MySqlConnectionStringBuilder(connectionString) { AllowZeroDateTime = true, ConvertZeroDateTime = true };
         _database = new(builder.ConnectionString);
-        using (var connection = _database.Connection())
-        {
+
+        using (var connection = _database.Connection()) {
             connection.Execute("DELETE FROM user_roles WHERE user_id IN @ids; DELETE FROM user_permissions WHERE user_id IN @ids; DELETE FROM users WHERE id IN @ids; " +
                 "DELETE FROM roles WHERE id IN @roles", new { ids = new[] { Actor, Target, Peer }, roles = new[] { ActorRole, LimitedRole, PeerRole } });
             connection.Execute("INSERT INTO users (id, username, auth_ticket) VALUES (@Actor, 'acl_actor', ''), (@Target, 'acl_target', ''), (@Peer, 'acl_peer', '')", new { Actor, Target, Peer });
@@ -66,6 +70,7 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
             connection.Execute("INSERT INTO role_permissions (role_id, permission_key) VALUES (@ActorRole, '*'), (@LimitedRole, 'camera.use'); " +
                 "INSERT INTO user_roles (user_id, role_id) VALUES (@Actor, @ActorRole), (@Peer, @PeerRole)", new { ActorRole, LimitedRole, PeerRole, Actor, Peer });
         }
+
         _target = new Habbo { Id = Target, Username = "acl_target" };
         var (client, sent) = HabbiconTestSupport.Client(_target);
         _sent = sent;
@@ -123,9 +128,12 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         // The same sender is used after successful login.
         lists.Send(_target);
         AssertLists([0], ["model_a"]);
-        using (var connection = _database.Connection())
+
+        using (var connection = _database.Connection()) {
             connection.Execute("INSERT INTO role_permissions (role_id, permission_key) VALUES (@LimitedRole, @key)",
                 new { LimitedRole, key = PermissionKeys.ChatStyleStaff });
+        }
+
         _access.Reload();
         Assert.True(_access.AssignRole(_actor, Target, LimitedRole));
         AssertLists([0, 2], ["model_a", "model_gated"]);
@@ -148,11 +156,15 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
             Assert.Equal(styleIds, Enumerable.Range(0, styleIds.Length).Select(_ => styles.ReadInt()));
             var models = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = _sent.Last(packet => packet.Header == ServerPacketHeader.CreatableRoomModelsComposer).Body };
             Assert.Equal(modelIds.Length, models.ReadInt());
-            foreach (var id in modelIds)
-            {
+
+            foreach (var id in modelIds) {
                 Assert.Equal(id, models.ReadString());
-                for (var i = 0; i < 4; i++) models.ReadInt();
+
+                for (var i = 0; i < 4; i++) {
+                    models.ReadInt();
+                }
             }
+
             _sent.Clear();
         }
     }
@@ -226,8 +238,11 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         var loaded = _target.Access;
         Assert.True(_access.SetOverride(_actor, Target, PermissionKeys.ModerationTool, false, "grant while login is paused"));
         Assert.True(_access.SetOverride(_actor, Target, PermissionKeys.ModerationTool, true, "deny while login is paused"));
-        using (var connection = _database.Connection())
+
+        using (var connection = _database.Connection()) {
             connection.Execute("INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new { Target, LimitedRole });
+        }
+
         _access.Reload();
         Assert.Empty(CachedUsers("_resolved"));
         Assert.Empty(CachedUsers("_refreshAt"));
@@ -260,12 +275,13 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         clients.Additional.Add(HabbiconTestSupport.Client(_actor).Client);
         _actor.Access = _access.Resolve(Actor);
         _accessDatabase.Connections = 0;
-        for (var i = 0; i < 50; i++)
-        {
+
+        for (var i = 0; i < 50; i++) {
             Assert.True(_access.Can(Actor, PermissionKeys.CameraUse));
             Assert.Equal(10, _access.Limit(Target, "limit.daily_respects"));
             Assert.True(_access.Outranks(Actor, Target));
         }
+
         Assert.Equal(0, _accessDatabase.Connections);
     }
 
@@ -274,9 +290,12 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     {
         var offline = _access.Resolve(Actor);
         _access.Resolve(Peer);
-        using (var connection = _database.Connection())
+
+        using (var connection = _database.Connection()) {
             connection.Execute("INSERT INTO user_permissions (user_id, permission_key, effect) VALUES (@Actor, 'camera.use', 'deny'); " +
                 "INSERT INTO user_roles (user_id, role_id) VALUES (@Target, @LimitedRole)", new { Actor, Target, LimitedRole });
+        }
+
         _accessDatabase.Connections = 0;
         _access.Reload();
         Assert.Equal(2, _accessDatabase.Connections); // registry/prune plus the one online account
@@ -305,13 +324,15 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         field.SetValue(null, game);
         // Skip persistence already tested by the wallet suites; exercise the real disconnect/unregister path.
         typeof(Habbo).GetField("_habboSaved", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_target, true);
-        try
-        {
+
+        try {
             ((Clients)(object)_clients).Client.OnDisconnected();
             Assert.False(((Clients)(object)_clients).Registered);
             AssertUncachedAfterLogout();
         }
-        finally { field.SetValue(null, previous); }
+        finally {
+            field.SetValue(null, previous);
+        }
     }
 
     [AccessControlDatabaseFact]
@@ -352,11 +373,12 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         var (moderator, updates) = HabbiconTestSupport.Client(_actor);
         var reporter = ((Clients)(object)_clients).Client;
         var (ordinary, ordinaryMessages) = HabbiconTestSupport.Client(new Habbo { Id = Peer, Username = "acl_peer", Access = _access.Resolve(Peer) });
-        foreach (var client in new[] { moderator, reporter, ordinary })
-        {
+
+        foreach (var client in new[] { moderator, reporter, ordinary }) {
             client.Id = Guid.NewGuid();
             manager.RegisterClient(client, client.GetHabbo().Id, client.GetHabbo().Username);
         }
+
         var moderation = DispatchProxy.Create<IModerationManager, Tickets>();
         var tickets = (Tickets)(object)moderation;
         var field = typeof(PlusEnvironment).GetField("_game", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -364,8 +386,8 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         var game = DispatchProxy.Create<IGame, Game>();
         ((Game)(object)game).Clients = manager;
         field.SetValue(null, game);
-        try
-        {
+
+        try {
             var ticketService = new ModeratorTicketService(moderation, manager, new ModeratorUserLookup(), new ModeratorTicketStore(_database), _clock, null!);
             await new SubmitNewTicketEvent(ticketService).Parse(reporter, HabbiconTestSupport.Incoming("help", 1, Peer, 1, 0));
             await new PickTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
@@ -379,7 +401,9 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
             Assert.Empty(ordinaryMessages);
             Assert.True(tickets.Ticket!.Answered);
         }
-        finally { field.SetValue(null, previous); }
+        finally {
+            field.SetValue(null, previous);
+        }
     }
 
 
@@ -430,16 +454,15 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     {
         using var connection = _database.Connection();
         var original = connection.ExecuteScalar<int>("SELECT security_level FROM roles WHERE slug = 'default'");
-        try
-        {
+
+        try {
             connection.Execute("UPDATE roles SET security_level = 4 WHERE slug = 'default'");
             _access.Reload();
             Assert.Equal(4, connection.ExecuteScalar<int>("SELECT `rank` FROM users WHERE id = @Target", new { Target }));
             Assert.Equal(4, _access.Resolve(Target).SecurityLevel);
             Assert.Equal(7, connection.ExecuteScalar<int>("SELECT `rank` FROM users WHERE id = @Peer", new { Peer }));
         }
-        finally
-        {
+        finally {
             connection.Execute("UPDATE roles SET security_level = @original WHERE slug = 'default'", new { original });
             _access.Reload();
         }
@@ -449,9 +472,12 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     {
         _access.Dispose();
         using var connection = _database.Connection();
-        if (_registeredUserId is { } registered)
+
+        if (_registeredUserId is { } registered) {
             connection.Execute("DELETE FROM user_roles WHERE user_id = @registered; DELETE FROM user_statistics WHERE id = @registered; " +
                 "DELETE FROM acl_audit_log WHERE target_id = @registered; DELETE FROM users WHERE id = @registered", new { registered });
+        }
+
         connection.Execute("DELETE FROM acl_audit_log WHERE actor_id IN @ids OR target_id IN @ids; " +
             "DELETE FROM user_permissions WHERE user_id IN @ids; DELETE FROM user_roles WHERE user_id IN @ids; " +
             "DELETE FROM user_info WHERE user_id IN @ids; DELETE FROM users WHERE id IN @ids; DELETE FROM roles WHERE id IN @roles; DELETE FROM acl_permissions WHERE `key` = 'acl_test_orphan'",
@@ -468,13 +494,16 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         {
             _callback = callback;
             _state = state;
+
             return new ManualTimer();
         }
         public void Tick() => _callback!(_state);
         private sealed class ManualTimer : ITimer
         {
             public bool Change(TimeSpan dueTime, TimeSpan period) => true;
-            public void Dispose() { }
+            public void Dispose()
+            {
+            }
             public ValueTask DisposeAsync() => ValueTask.CompletedTask;
         }
     }
@@ -488,6 +517,7 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         public IDbConnection Connection()
         {
             Connections++;
+
             return inner.Connection();
         }
     }
@@ -497,13 +527,21 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         public ModerationTicket? Ticket { get; set; }
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            switch (method!.Name)
-            {
-                case "UserHasTickets": return Ticket != null;
-                case "GetTicketBySenderId": return Ticket;
-                case "TryAddTicket": Ticket = (ModerationTicket)args![0]!; return true;
-                case "TryGetTicket": args![1] = Ticket; return Ticket != null;
-                default: throw new InvalidOperationException(method.Name);
+            switch (method!.Name) {
+                case "UserHasTickets":
+                    return Ticket != null;
+                case "GetTicketBySenderId":
+                    return Ticket;
+                case "TryAddTicket":
+                    Ticket = (ModerationTicket)args![0]!;
+
+                    return true;
+                case "TryGetTicket":
+                    args![1] = Ticket;
+
+                    return Ticket != null;
+                default:
+                    throw new InvalidOperationException(method.Name);
             }
         }
     }
@@ -523,13 +561,20 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             var clients = Registered ? new[] { Client }.Concat(Additional).ToList() : new List<GameClient>();
-            switch (targetMethod!.Name)
-            {
-                case "get_GetClients": return clients;
-                case "GetClientByUsername": return clients.FirstOrDefault(client => client.GetHabbo().Username == (string)args![0]!);
-                case "GetClientByUserId": return clients.FirstOrDefault(client => client.GetHabbo().Id == (int)args![0]!);
-                case "UnregisterClient": Registered = false; return null;
-                default: throw new InvalidOperationException($"Unexpected client call {targetMethod.Name}");
+
+            switch (targetMethod!.Name) {
+                case "get_GetClients":
+                    return clients;
+                case "GetClientByUsername":
+                    return clients.FirstOrDefault(client => client.GetHabbo().Username == (string)args![0]!);
+                case "GetClientByUserId":
+                    return clients.FirstOrDefault(client => client.GetHabbo().Id == (int)args![0]!);
+                case "UnregisterClient":
+                    Registered = false;
+
+                    return null;
+                default:
+                    throw new InvalidOperationException($"Unexpected client call {targetMethod.Name}");
             }
         }
     }

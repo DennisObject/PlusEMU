@@ -16,8 +16,10 @@ public sealed class RoomBannedUsersSnapshotTests
     public void ComposerKeepsCapturedIdentityAndFallbackFields()
     {
         var composer = new GetRoomBannedUsersComposer(new(42, [new(7, "guest"), new(0, "Unknown Error")]));
-        var first = new HabbiconTestSupport.RecordingPacket(); composer.Compose(first);
-        var second = new HabbiconTestSupport.RecordingPacket(); composer.Compose(second);
+        var first = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(first);
+        var second = new HabbiconTestSupport.RecordingPacket();
+        composer.Compose(second);
         Assert.Equal(new object[] { (uint)42, 2, 7, "guest", 0, "Unknown Error" }, first.Writes);
         Assert.Equal(first.Writes, second.Writes);
     }
@@ -28,7 +30,9 @@ public sealed class RoomBannedUsersSnapshotTests
     public void OnlyOwnerCanResolveBannedUserIdentities(bool owner)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 42; room.OwnerName = "owner"; room.Type = "private";
+        room.Id = 42;
+        room.OwnerName = "owner";
+        room.Type = "private";
         var bans = new Store();
         typeof(Room).GetField("_bansComponent", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new BansComponent(room, bans, TimeProvider.System, []));
@@ -52,7 +56,12 @@ public sealed class RoomBannedUsersSnapshotTests
     {
         public int Reads { get; private set; }
         public IEnumerable<RoomBan> Load(uint roomId) => [];
-        public IEnumerable<int> ActiveUserIds(uint roomId) { Reads++; return [7, 8]; }
+        public IEnumerable<int> ActiveUserIds(uint roomId)
+        {
+            Reads++;
+
+            return [7, 8];
+        }
         public void Save(uint roomId, int userId, DateTimeOffset expiresAt) => throw new NotSupportedException();
         public void Delete(uint roomId, int userId) => throw new NotSupportedException();
     }

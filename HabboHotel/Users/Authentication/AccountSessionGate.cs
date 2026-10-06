@@ -35,7 +35,9 @@ public sealed class AccountSessionGate : IAccountSessionGate
     private readonly ConcurrentDictionary<int, long> _revoked = new();
     private readonly TimeSpan _timeout;
 
-    public AccountSessionGate() : this(TimeSpan.FromSeconds(10)) { }
+    public AccountSessionGate() : this(TimeSpan.FromSeconds(10))
+    {
+    }
 
     internal AccountSessionGate(TimeSpan timeout) => _timeout = timeout;
 
@@ -44,7 +46,11 @@ public sealed class AccountSessionGate : IAccountSessionGate
     public async Task<IDisposable> EnterAsync(int userId, CancellationToken cancellationToken = default)
     {
         var stripe = Stripe(userId);
-        if (!await stripe.WaitAsync(_timeout, cancellationToken)) throw new TimeoutException($"Account {userId} is busy.");
+
+        if (!await stripe.WaitAsync(_timeout, cancellationToken)) {
+            throw new TimeoutException($"Account {userId} is busy.");
+        }
+
         return new Held(stripe);
     }
 
@@ -53,27 +59,37 @@ public sealed class AccountSessionGate : IAccountSessionGate
         // Accounts sharing a stripe are one lock, so acquisition is over distinct stripe indexes in ascending order.
         var indexes = userIds.Select(id => (int)((uint)id % Stripes)).Distinct().OrderBy(index => index).ToArray();
         var held = new List<Held>(indexes.Length);
-        try
-        {
-            foreach (var index in indexes)
-            {
+
+        try {
+            foreach (var index in indexes) {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!await _stripes[index].WaitAsync(_timeout, cancellationToken)) throw new TimeoutException("Account is busy.");
+
+                if (!await _stripes[index].WaitAsync(_timeout, cancellationToken)) {
+                    throw new TimeoutException("Account is busy.");
+                }
+
                 held.Add(new Held(_stripes[index]));
             }
         }
-        catch
-        {
-            for (var i = held.Count - 1; i >= 0; i--) held[i].Dispose();
+        catch {
+            for (var i = held.Count - 1; i >= 0; i--) {
+                held[i].Dispose();
+            }
+
             throw;
         }
+
         return new HeldMany(held);
     }
 
     public IDisposable Enter(int userId)
     {
         var stripe = Stripe(userId);
-        if (!stripe.Wait(_timeout)) throw new TimeoutException($"Account {userId} is busy.");
+
+        if (!stripe.Wait(_timeout)) {
+            throw new TimeoutException($"Account {userId} is busy.");
+        }
+
         return new Held(stripe);
     }
 
@@ -87,7 +103,9 @@ public sealed class AccountSessionGate : IAccountSessionGate
     {
         public void Dispose()
         {
-            for (var i = held.Count - 1; i >= 0; i--) held[i].Dispose();
+            for (var i = held.Count - 1; i >= 0; i--) {
+                held[i].Dispose();
+            }
         }
     }
 
@@ -97,7 +115,9 @@ public sealed class AccountSessionGate : IAccountSessionGate
 
         public void Dispose()
         {
-            if (Interlocked.Exchange(ref _released, 1) == 0) stripe.Release();
+            if (Interlocked.Exchange(ref _released, 1) == 0) {
+                stripe.Release();
+            }
         }
     }
 }

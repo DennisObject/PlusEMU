@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Teams;
@@ -32,28 +32,40 @@ internal class AddActorToTeamBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0 || Instance == null || string.IsNullOrEmpty(StringData))
+        if (@params.Length == 0 || Instance == null || string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-        if (user == null)
+
+        if (user == null) {
             return false;
+        }
+
         var toJoin = int.Parse(StringData) == 1 ? Team.Red : int.Parse(StringData) == 2 ? Team.Green : int.Parse(StringData) == 3 ? Team.Blue : int.Parse(StringData) == 4 ? Team.Yellow : Team.None;
         var team = Instance.GetTeamManagerForFreeze();
-        if (team != null)
-        {
-            if (team.CanEnterOnTeam(toJoin))
-            {
-                if (user.Team != Team.None)
+
+        if (team != null) {
+            if (team.CanEnterOnTeam(toJoin)) {
+                if (user.Team != Team.None) {
                     team.OnUserLeave(user);
+                }
+
                 user.Team = toJoin;
                 team.AddUser(user);
-                if (user.GetClient().GetHabbo().Effects.CurrentEffect != Convert.ToInt32(toJoin + 39))
+
+                if (user.GetClient().GetHabbo().Effects.CurrentEffect != Convert.ToInt32(toJoin + 39)) {
                     user.GetClient().GetHabbo().Effects.ApplyEffect(Convert.ToInt32(toJoin + 39));
+                }
             }
         }
+
         return true;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
+using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
 using Plus.HabboHotel.GameClients;
 using Plus.Core;
 

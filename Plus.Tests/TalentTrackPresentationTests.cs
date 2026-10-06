@@ -117,7 +117,9 @@ public class TalentTrackPresentationTests
 
     private sealed class FixedTalents(List<TalentTrackLevel> levels) : ITalentTrackManager
     {
-        public void Init() { }
+        public void Init()
+        {
+        }
         public ICollection<TalentTrackLevel> GetLevels() => levels;
     }
 }

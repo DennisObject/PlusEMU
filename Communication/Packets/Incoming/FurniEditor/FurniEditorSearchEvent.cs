@@ -19,6 +19,7 @@ public class FurniEditorSearchEvent : IPacketEvent
         int page = packet.ReadInt();
         string sortField = packet.ReadString(), sortDirection = packet.ReadString();
         FurniEditorResponder.Read(session, () => new FurniEditorSearchResultComposer(_furniEditor.Search(session.GetHabbo(), query, type, page, sortField, sortDirection)));
+
         return Task.CompletedTask;
     }
 }

@@ -12,12 +12,16 @@ public sealed class UserHabbiconsComposer(HabbiconSnapshot snapshot) : IServerPa
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_items.Length);
-        foreach (var item in _items)
-        {
+
+        foreach (var item in _items) {
             packet.WriteInteger(item.Id);
             packet.WriteInteger(item.State);
         }
+
         packet.WriteInteger(_recent.Length);
-        foreach (var id in _recent) packet.WriteInteger(id);
+
+        foreach (var id in _recent) {
+            packet.WriteInteger(id);
+        }
     }
 }

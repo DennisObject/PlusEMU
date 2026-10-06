@@ -105,10 +105,18 @@ internal sealed class CatalogAdminStore
             SELECT CAST(LAST_INSERT_ID() AS SIGNED);
             """, new
         {
-            userId, username, action, change.EntityType, change.CatalogType, change.EntityId, change.Operation, summary,
+            userId,
+            username,
+            action,
+            change.EntityType,
+            change.CatalogType,
+            change.EntityId,
+            change.Operation,
+            summary,
             before = change.Before == null ? null : System.Text.Json.JsonSerializer.Serialize(change.Before, CatalogAdminTypes.Json),
             after = change.After == null ? null : System.Text.Json.JsonSerializer.Serialize(change.After, CatalogAdminTypes.Json)
         }, _transaction);
+
         return _connection.QuerySingle<CatalogAdminLogEntry>($"{HistorySelect} WHERE id = @id", new { id }, _transaction);
     }
 

@@ -242,12 +242,13 @@ public partial class PlacedFurniRoomTests
     {
         var target = ModerationTarget();
         var service = ModerationService(target, _ => throw new InvalidOperationException());
-        foreach (var muted in new[] { true, false })
-        {
+
+        foreach (var muted in new[] { true, false }) {
             _client.BeforeCapture = id =>
             {
-                if (id == ServerPacketHeader.RoomMuteSettingsComposer)
+                if (id == ServerPacketHeader.RoomMuteSettingsComposer) {
                     Assert.Equal(ServerPacketHeader.WhisperComposer, target.Sent[0]);
+                }
             };
             service.ToggleMute(_client);
             Assert.Equal(muted, _room.RoomMuted);
@@ -271,6 +272,7 @@ public partial class PlacedFurniRoomTests
         var user = new RoomUser(8, RoomId, 2, _room, client, TestChatEmotions.Unused, TestRewardProgress.Unused) { UserId = 8, InternalRoomId = 2, X = 1, Y = 1 };
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         users[2] = user;
+
         return client;
     }
 
@@ -279,6 +281,7 @@ public partial class PlacedFurniRoomTests
         {
             Assert.Equal(nameof(IAchievementManager.ProgressAchievement), method);
             progress((string)args[1]!);
+
             return null;
         }),
         Proxy<IGameClientManager>((method, args) => method switch
@@ -301,7 +304,12 @@ public partial class PlacedFurniRoomTests
     private sealed class ModerationClock(DateTimeOffset now) : TimeProvider
     {
         public int Reads;
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
 
     private sealed class RecordingModerationBans : IRoomBanStore
@@ -316,12 +324,19 @@ public partial class PlacedFurniRoomTests
         {
             BeforeSave?.Invoke();
             Saves.Add((roomId, userId, expiresAt));
-            if (Fail) throw new InvalidOperationException("forced ban failure");
+
+            if (Fail) {
+                throw new InvalidOperationException("forced ban failure");
+            }
         }
         public void Delete(uint roomId, int userId)
         {
             BeforeDelete?.Invoke();
-            if (Fail) throw new InvalidOperationException("forced ban failure");
+
+            if (Fail) {
+                throw new InvalidOperationException("forced ban failure");
+            }
+
             Deletes.Add(userId);
         }
         public IEnumerable<int> ActiveUserIds(uint roomId) => throw new NotSupportedException();

@@ -17,6 +17,7 @@ public sealed record ClubStatusSnapshot(
     public static ClubStatusSnapshot Capture(UserAccess access, int responseType = InfoResponse)
     {
         var snapshot = access.Capture(out var now);
+
         return Capture(snapshot.Membership, now, responseType);
     }
 
@@ -27,6 +28,7 @@ public sealed record ClubStatusSnapshot(
         var days = (int)Math.Min(int.MaxValue, (seconds + ClubMembership.Day - 1) / ClubMembership.Day);
         var ahead = Math.Max(0, days - 1) / 31;
         var elapsed = membership.Elapsed(now);
+
         return new(days - ahead * 31,
             (int)Math.Min(int.MaxValue, elapsed / ClubMembership.Period), ahead, responseType,
             membership.FirstStartedAt is not null,

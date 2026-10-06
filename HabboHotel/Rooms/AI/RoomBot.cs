@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using Plus.HabboHotel.Catalog.Utilities;
 using Plus.HabboHotel.Rooms.AI.Speech;
 
@@ -90,18 +90,21 @@ public class RoomBot
     public void LoadRandomSpeech(List<RandomSpeech> speeches)
     {
         RandomSpeech = new();
-        foreach (var speech in speeches)
-        {
-            if (speech.BotId == BotId)
+
+        foreach (var speech in speeches) {
+            if (speech.BotId == BotId) {
                 RandomSpeech.Add(speech);
+            }
         }
     }
 
 
     public RandomSpeech GetRandomSpeech()
     {
-        if (RandomSpeech.Count < 1)
+        if (RandomSpeech.Count < 1) {
             return new("", 0);
+        }
+
         return RandomSpeech[Random.Shared.Next(0, RandomSpeech.Count)];
     }
 

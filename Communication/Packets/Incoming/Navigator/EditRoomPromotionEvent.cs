@@ -11,6 +11,7 @@ internal class EditRoomPromotionEvent(IRoomPromotionService promotions) : IPacke
         var name = packet.ReadString();
         var description = packet.ReadString();
         promotions.Edit(session, new(roomId, name, description));
+
         return Task.CompletedTask;
     }
 }

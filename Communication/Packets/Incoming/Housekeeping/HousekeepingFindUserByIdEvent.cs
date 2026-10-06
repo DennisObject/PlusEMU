@@ -23,6 +23,7 @@ internal class HousekeepingFindUserByIdEvent : IPacketEvent
     {
         var record = _users.Find(packet.ReadInt());
         session.Send(new HousekeepingUserDetailComposer(_lookups.User(session.GetHabbo(), record)));
+
         return Task.CompletedTask;
     }
 }

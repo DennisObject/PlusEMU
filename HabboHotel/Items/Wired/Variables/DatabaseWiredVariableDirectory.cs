@@ -13,6 +13,7 @@ public sealed class DatabaseWiredVariableDirectory(IDatabase database) : IWiredV
     public uint? GetRoomOwner(uint roomId)
     {
         using var connection = database.Connection();
+
         return ParseOwner(connection.QuerySingleOrDefault<string>("SELECT owner FROM rooms WHERE id=@roomId", new { roomId }));
     }
     public WiredVariableDefinition? Find(uint itemId)
@@ -22,10 +23,20 @@ public sealed class DatabaseWiredVariableDirectory(IDatabase database) : IWiredV
             SELECT i.room_id AS RoomId,r.owner AS Owner,c.box_name AS BoxName,c.configuration AS Configuration
             FROM items i JOIN rooms r ON r.id=i.room_id JOIN wired_item_configurations c ON c.item_id=i.id WHERE i.id=@itemId
             """, new { itemId });
-        if (row is null || ParseOwner(row.Owner) is not { } ownerId) return null;
+
+        if (row is null || ParseOwner(row.Owner) is not { } ownerId) {
+            return null;
+        }
+
         WiredConfiguration? config;
-        try { config = JsonSerializer.Deserialize<WiredConfiguration>(row.Configuration, JsonOptions); }
-        catch (JsonException) { return null; }
+
+        try {
+            config = JsonSerializer.Deserialize<WiredConfiguration>(row.Configuration, JsonOptions);
+        }
+        catch (JsonException) {
+            return null;
+        }
+
         return config is not null && WiredVariableDefinitions.TryDecode(row.BoxName, itemId, row.RoomId, ownerId, config, out var definition, out _)
             ? definition : null;
     }

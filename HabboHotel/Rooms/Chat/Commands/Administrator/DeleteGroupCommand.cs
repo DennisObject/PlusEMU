@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.GameClients;
@@ -29,15 +29,21 @@ internal class DeleteGroupCommand : IChatCommand
     public void Execute(GameClient session, Room room, string[] parameters)
     {
         room = session.GetHabbo().CurrentRoom;
-        if (room == null)
-            return;
-        if (room.Group == null)
-        {
-            session.SendWhisper("Oops, there is no group here?");
+
+        if (room == null) {
             return;
         }
-        if (room.Group.CreatorId != session.GetHabbo().Id && !_access.Outranks(session.GetHabbo().Id, room.Group.CreatorId))
+
+        if (room.Group == null) {
+            session.SendWhisper("Oops, there is no group here?");
+
             return;
+        }
+
+        if (room.Group.CreatorId != session.GetHabbo().Id && !_access.Outranks(session.GetHabbo().Id, room.Group.CreatorId)) {
+            return;
+        }
+
         var groupId = room.Group.Id;
         using var connection = _database.Connection();
         connection.Open();

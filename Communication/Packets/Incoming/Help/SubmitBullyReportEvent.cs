@@ -8,6 +8,7 @@ internal sealed class SubmitBullyReportEvent(IAdvertisingReportService reports) 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         reports.Submit(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

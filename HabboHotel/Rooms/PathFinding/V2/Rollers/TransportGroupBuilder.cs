@@ -7,13 +7,21 @@ internal sealed class TransportGroupBuilder
     {
         var heads = new Dictionary<RollerLoad, RollerLoad>(ReferenceEqualityComparer.Instance);
         var segments = new Dictionary<RollerLoad, List<RollerMove>>(ReferenceEqualityComparer.Instance);
-        foreach (var (load, moves) in resolution.Departing)
-        {
-            if (moves.Count == 0 || resolution.LoopTiles.Contains(load.Origin)) continue;
+
+        foreach (var (load, moves) in resolution.Departing) {
+            if (moves.Count == 0 || resolution.LoopTiles.Contains(load.Origin)) {
+                continue;
+            }
+
             var head = Head(load, resolution, heads);
-            if (!segments.TryGetValue(head, out var segment)) segments[head] = segment = new();
+
+            if (!segments.TryGetValue(head, out var segment)) {
+                segments[head] = segment = new();
+            }
+
             segment.AddRange(moves);
         }
+
         return resolution.Loops
             .Concat(segments.Values.Select(Segment))
             .OrderBy(group => group.FirstRollerId).ToList();
@@ -25,13 +33,24 @@ internal sealed class TransportGroupBuilder
         var path = new List<RollerLoad>();
         var current = load;
         RollerLoad? head = null;
-        while (head == null)
-        {
-            if (heads.TryGetValue(current, out var known)) head = known;
-            else if (resolution.Follows.TryGetValue(current, out var downstream)) { path.Add(current); current = downstream; }
-            else head = current;
+
+        while (head == null) {
+            if (heads.TryGetValue(current, out var known)) {
+                head = known;
+            }
+            else if (resolution.Follows.TryGetValue(current, out var downstream)) {
+                path.Add(current);
+                current = downstream;
+            }
+            else {
+                head = current;
+            }
         }
-        foreach (var visited in path) heads[visited] = head;
+
+        foreach (var visited in path) {
+            heads[visited] = head;
+        }
+
         return head;
     }
 

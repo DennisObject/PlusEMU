@@ -1,4 +1,4 @@
-﻿using System.Buffers;
+using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -25,8 +25,11 @@ public class FlashOutgoingPacket : IOutgoingPacket
     {
         var buffer = ArrayPool<byte>.Shared.Rent(sizeof(short));
         var span = buffer.AsSpan();
-        if (BitConverter.IsLittleEndian)
+
+        if (BitConverter.IsLittleEndian) {
             value = BinaryPrimitives.ReverseEndianness(value);
+        }
+
         MemoryMarshal.Write(span, ref value);
         _stream.Write(span.Slice(0, sizeof(short)));
         ArrayPool<byte>.Shared.Return(buffer);
@@ -36,8 +39,11 @@ public class FlashOutgoingPacket : IOutgoingPacket
     {
         var buffer = ArrayPool<byte>.Shared.Rent(sizeof(int));
         var span = buffer.AsSpan();
-        if (BitConverter.IsLittleEndian)
+
+        if (BitConverter.IsLittleEndian) {
             value = BinaryPrimitives.ReverseEndianness(value);
+        }
+
         MemoryMarshal.Write(span, ref value);
         _stream.Write(span.Slice(0, sizeof(int)));
         ArrayPool<byte>.Shared.Return(buffer);
@@ -46,8 +52,11 @@ public class FlashOutgoingPacket : IOutgoingPacket
     {
         var buffer = ArrayPool<byte>.Shared.Rent(sizeof(uint));
         var span = buffer.AsSpan();
-        if (BitConverter.IsLittleEndian)
+
+        if (BitConverter.IsLittleEndian) {
             value = BinaryPrimitives.ReverseEndianness(value);
+        }
+
         MemoryMarshal.Write(span, ref value);
         _stream.Write(span.Slice(0, sizeof(uint)));
         ArrayPool<byte>.Shared.Return(buffer);
@@ -63,11 +72,12 @@ public class FlashOutgoingPacket : IOutgoingPacket
     {
         var buffer = !string.IsNullOrEmpty(value) ? Encoding.UTF8.GetBytes(value) : Array.Empty<byte>();
 
-        if (buffer.Length <= ushort.MaxValue)
-        {
+        if (buffer.Length <= ushort.MaxValue) {
             WriteShort((short)buffer.Length);
-            if (buffer.Length > 0)
+
+            if (buffer.Length > 0) {
                 _stream.Write(buffer, 0, buffer.Length);
+            }
         }
     }
 
@@ -75,12 +85,13 @@ public class FlashOutgoingPacket : IOutgoingPacket
     {
         var buffer = ArrayPool<byte>.Shared.Rent(sizeof(double));
         var span = buffer.AsSpan();
-        if (BitConverter.IsLittleEndian)
-        {
+
+        if (BitConverter.IsLittleEndian) {
             var dSpan = new Span<byte>(BitConverter.GetBytes(value));
             dSpan.Reverse();
             value = BitConverter.ToDouble(dSpan);
         }
+
         MemoryMarshal.Write(span, ref value);
         _stream.Write(span.Slice(0, sizeof(double)));
         ArrayPool<byte>.Shared.Return(buffer);

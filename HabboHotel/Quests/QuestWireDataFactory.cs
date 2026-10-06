@@ -3,7 +3,10 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Quests;
 
-public enum QuestWireKind { Started, Completed }
+public enum QuestWireKind
+{
+    Started, Completed
+}
 
 public static class QuestWireDataFactory
 {
@@ -11,9 +14,18 @@ public static class QuestWireDataFactory
     {
         var progress = session.GetHabbo().GetQuestProgress(quest.Id);
         var categoryProgress = kind == QuestWireKind.Completed ? quest.Number : quest.Number - 1;
-        if (kind == QuestWireKind.Started && quest.IsCompleted(progress)) categoryProgress++;
+
+        if (kind == QuestWireKind.Started && quest.IsCompleted(progress)) {
+            categoryProgress++;
+        }
+
         var total = kind == QuestWireKind.Completed && quest.Name.Contains("xmas2012") ? 1 : categoryTotal;
-        if (kind == QuestWireKind.Started && quest.Category.Contains("xmas2012")) { categoryProgress = 0; total = 0; }
+
+        if (kind == QuestWireKind.Started && quest.Category.Contains("xmas2012")) {
+            categoryProgress = 0;
+            total = 0;
+        }
+
         return new(quest.Category, categoryProgress, total, quest.RewardType, quest.Id,
             session.GetHabbo().HabboStats.QuestId == quest.Id, quest.ActionName, quest.DataBit, quest.Reward,
             quest.Name, progress, quest.GoalData, LegacyTimestamp(quest.UnlocksAt));

@@ -39,9 +39,13 @@ public class CatalogStructureWireTests
     private static CatalogPage Page(int id, int parentId, bool enabled = true, string? requiredPermission = null, params int[] offerIds)
     {
         var page = new CatalogPage { Id = id, ParentId = parentId, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", RequiredPermission = requiredPermission };
-        foreach (var offerId in offerIds)
+
+        foreach (var offerId in offerIds) {
             page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id };
+        }
+
         new CatalogOfferIndex().Build([page]);
+
         return page;
     }
 
@@ -114,8 +118,12 @@ public class CatalogStructureWireTests
         var page = Page(55, -1);
         page.Items = new()
         {
-            [4] = Item(4, 5, 55), [5] = Item(5, 18, 55), [6] = Item(6, -1, 55),
-            [18] = Item(18, -1, 55), [827] = Item(827, 590, 55), [828] = Item(828, 590, 55)
+            [4] = Item(4, 5, 55),
+            [5] = Item(5, 18, 55),
+            [6] = Item(6, -1, 55),
+            [18] = Item(18, -1, 55),
+            [827] = Item(827, 590, 55),
+            [828] = Item(828, 590, 55)
         };
         var index = new CatalogOfferIndex();
 

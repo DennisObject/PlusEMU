@@ -79,8 +79,15 @@ public class WiredModernContractsTests
         var composer = new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(box));
         composer.Compose(packet);
         var expected = new List<object> { false, 100, 1, 8u, 91, 7u, "schema-json", 2, 200, 7, 0, code };
-        if (action) expected.Add(3);
-        if (blocked) expected.Add(0);
+
+        if (action) {
+            expected.Add(3);
+        }
+
+        if (blocked) {
+            expected.Add(0);
+        }
+
         Assert.Equal(expected, packet.Writes);
         Assert.Equal(action ? ServerPacketHeader.WiredEffectConfigComposer
             : blocked ? ServerPacketHeader.WiredTriggeRconfigComposer : ServerPacketHeader.WiredConditionConfigComposer, composer.MessageId);
@@ -141,10 +148,14 @@ public class WiredModernContractsTests
     {
         var config = new WiredConfiguration
         {
-            IntParams = [1, 0, 42, 11, 100], Text = "custom:8", SelectedItems = [8], SecondarySelectedItems = [9],
+            IntParams = [1, 0, 42, 11, 100],
+            Text = "custom:8",
+            SelectedItems = [8],
+            SecondarySelectedItems = [9],
             FurniSources = ImmutableDictionary<string, int>.Empty.Add("forward", WiredSources.Selected),
             UserSources = ImmutableDictionary<string, int>.Empty.Add("actor", WiredSources.ClickedUser),
-            VariableIds = ["custom:8", "internal:@altitude"], Snapshots = [new(8, 5, 1, 2, 0.5, 4, "state")]
+            VariableIds = ["custom:8", "internal:@altitude"],
+            Snapshots = [new(8, 5, 1, 2, 0.5, 4, "state")]
         };
         var restored = JsonSerializer.Deserialize<WiredConfiguration>(JsonSerializer.Serialize(config))!;
         Assert.True(WiredLegacyProtocol.IsWithinLimits(restored));
@@ -174,7 +185,9 @@ public class WiredModernContractsTests
         var wiredType = ItemDataManager.ReadWiredType(41);
         var definition = new ItemDefinition
         {
-            ItemName = "wf_xtra_random", InteractionName = "wired_effect", WiredType = wiredType,
+            ItemName = "wf_xtra_random",
+            InteractionName = "wired_effect",
+            WiredType = wiredType,
             InteractionType = ItemDataManager.ReadInteractionType("wf_xtra_random", "wired_effect", wiredType)
         };
         Assert.Equal(InteractionType.WiredEffect, definition.InteractionType);
@@ -210,6 +223,7 @@ public class WiredModernContractsTests
             publish: (live, validated, persist) =>
             {
                 Assert.False(Monitor.IsEntered(live));
+
                 return false;
             }));
         Assert.Empty(store.Saved);
@@ -220,6 +234,7 @@ public class WiredModernContractsTests
             {
                 persist();
                 live.ApplyConfiguration(validated);
+
                 return true;
             }));
         Assert.Same(original, box.Configuration);
@@ -232,6 +247,7 @@ public class WiredModernContractsTests
                 persist();
                 Assert.Same(store.Saved.Single(), validated);
                 live.ApplyConfiguration(validated);
+
                 return true;
             }));
         Assert.Equal("durable", box.Configuration.Text);
@@ -245,7 +261,11 @@ public class WiredModernContractsTests
         var box = new PersistingBox("wf_var_room", validated =>
         {
             order.Add("persist");
-            if (fail) throw new IOException("Combined transaction rejected.");
+
+            if (fail) {
+                throw new IOException("Combined transaction rejected.");
+            }
+
             Assert.Equal("combined", validated.Text);
         });
         box.Applying = _ => order.Add("apply");
@@ -280,6 +300,7 @@ public class WiredModernContractsTests
                 Assert.Same(original, live.Configuration);
                 Assert.Empty(store.Saved);
                 prepared = true;
+
                 return proposed with { Snapshots = [new(8, 5, 1, 2, 0.5, 4, "captured")] };
             }, publish: (live, validated, persist) =>
             {
@@ -288,6 +309,7 @@ public class WiredModernContractsTests
                 Assert.Same(original, live.Configuration);
                 persist();
                 live.ApplyConfiguration(validated);
+
                 return true;
             }));
         Assert.Equal("captured", store.Saved.Single().Snapshots.Single().State);
@@ -332,21 +354,20 @@ public class WiredModernContractsTests
     {
         using var stream = new MemoryStream();
         Span<byte> number = stackalloc byte[4];
-        foreach (var value in values)
-        {
-            if (value is int integer)
-            {
+
+        foreach (var value in values) {
+            if (value is int integer) {
                 BinaryPrimitives.WriteInt32BigEndian(number, integer);
                 stream.Write(number);
             }
-            else
-            {
+            else {
                 var text = Encoding.UTF8.GetBytes((string)value);
                 BinaryPrimitives.WriteUInt16BigEndian(number, (ushort)text.Length);
                 stream.Write(number[..2]);
                 stream.Write(text);
             }
         }
+
         return new() { Buffer = stream.ToArray() };
     }
 
@@ -357,7 +378,10 @@ public class WiredModernContractsTests
         public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => Saved.LastOrDefault();
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration)
         {
-            if (Throw) throw new InvalidOperationException("Database unavailable.");
+            if (Throw) {
+                throw new InvalidOperationException("Database unavailable.");
+            }
+
             Saved.Add(configuration);
         }
         public void Reset(IReadOnlyCollection<uint> itemIds) => Saved.Clear();
@@ -382,6 +406,7 @@ public class WiredModernContractsTests
             ValidatedInput = proposed;
             validated = proposed;
             error = Reject ? "Rejected by box validation." : string.Empty;
+
             return !Reject;
         }
         public void ApplyConfiguration(WiredConfiguration validated)

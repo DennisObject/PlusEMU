@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Settings;
@@ -14,6 +14,9 @@ public sealed class GetRoomFilterListComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_words.Length);
-        foreach (var word in _words) packet.WriteString(word);
+
+        foreach (var word in _words) {
+            packet.WriteString(word);
+        }
     }
 }

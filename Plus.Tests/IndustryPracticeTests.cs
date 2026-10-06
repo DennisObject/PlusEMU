@@ -131,12 +131,11 @@ public class IndustryPracticeTests
         var culture = CultureInfo.GetCultureInfo(name);
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
-        try
-        {
+
+        try {
             action();
         }
-        finally
-        {
+        finally {
             CultureInfo.CurrentCulture = previous;
             CultureInfo.CurrentUICulture = previousUi;
         }

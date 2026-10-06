@@ -28,6 +28,7 @@ internal static class TestWiredAccess
     {
         var access = DispatchProxy.Create<IAccessControl, Proxy>();
         ((Proxy)(object)access).Handler = handler;
+
         return access;
     }
 

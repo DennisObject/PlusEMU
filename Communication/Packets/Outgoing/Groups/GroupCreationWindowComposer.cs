@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups;
 
 namespace Plus.Communication.Packets.Outgoing.Groups;
@@ -17,12 +17,13 @@ public class GroupCreationWindowComposer : IServerPacket
     {
         packet.WriteInteger(_presentation.Price);
         packet.WriteInteger(_presentation.Rooms.Length); //Room count that the user has.
-        foreach (var room in _presentation.Rooms)
-        {
+
+        foreach (var room in _presentation.Rooms) {
             packet.WriteUInteger(room.Id); //Room Id
             packet.WriteString(room.Name); //Room Name
             packet.WriteBoolean(false); //What?
         }
+
         packet.WriteInteger(5);
         packet.WriteInteger(5);
         packet.WriteInteger(11);

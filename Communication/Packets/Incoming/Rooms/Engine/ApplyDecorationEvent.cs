@@ -8,6 +8,7 @@ internal sealed class ApplyDecorationEvent(IRoomDecorationService decorations) :
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         decorations.Apply(room, session, new(packet.ReadUInt()));
+
         return Task.CompletedTask;
     }
 }

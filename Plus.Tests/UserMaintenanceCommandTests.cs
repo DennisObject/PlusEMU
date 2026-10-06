@@ -154,10 +154,35 @@ public sealed class UserMaintenanceCommandTests
     {
         public bool Result { get; init; }
         public List<string> Calls { get; } = [];
-        public Task<bool> GiveCurrency(int userId, string currency, int amount) { Calls.Add($"give {userId} {currency} {amount}"); return Task.FromResult(Result); }
-        public Task<bool> TakeCurrency(int userId, string currency, int amount) { Calls.Add($"take {userId} {currency} {amount}"); return Task.FromResult(Result); }
-        public Task<bool> SyncCurrency(int userId, string currency) { Calls.Add($"sync {userId} {currency}"); return Task.FromResult(Result); }
-        public Task<bool> ReloadCurrency(int userId, string currency) { Calls.Add($"reload {userId} {currency}"); return Task.FromResult(Result); }
-        public Task<bool> ReloadMotto(int userId) { Calls.Add($"motto {userId}"); return Task.FromResult(Result); }
+        public Task<bool> GiveCurrency(int userId, string currency, int amount)
+        {
+            Calls.Add($"give {userId} {currency} {amount}");
+
+            return Task.FromResult(Result);
+        }
+        public Task<bool> TakeCurrency(int userId, string currency, int amount)
+        {
+            Calls.Add($"take {userId} {currency} {amount}");
+
+            return Task.FromResult(Result);
+        }
+        public Task<bool> SyncCurrency(int userId, string currency)
+        {
+            Calls.Add($"sync {userId} {currency}");
+
+            return Task.FromResult(Result);
+        }
+        public Task<bool> ReloadCurrency(int userId, string currency)
+        {
+            Calls.Add($"reload {userId} {currency}");
+
+            return Task.FromResult(Result);
+        }
+        public Task<bool> ReloadMotto(int userId)
+        {
+            Calls.Add($"motto {userId}");
+
+            return Task.FromResult(Result);
+        }
     }
 }

@@ -157,6 +157,7 @@ public class CatalogSnapshotTests
         gift2.WireOfferId = 701;
         Add("club-gifts", new ClubGiftsComposer(snapshots.CaptureClubGifts(new ClubGiftInfo(3, 2, 5, [new ClubGift(gift1, 1), new ClubGift(gift2, 9)]))));
         Add("club-gifts-none", new ClubGiftsComposer(snapshots.CaptureClubGifts(new ClubGiftInfo(3, 0, 0, [new ClubGift(gift1, 9)]))));
+
         return lines;
     }
 
@@ -173,11 +174,16 @@ public class CatalogSnapshotTests
 
     private static ICatalogManager Catalog(params CatalogPromotion[] promotions)
     {
-        var deal = new CatalogDeal { Id = 77, ItemDataList =
+        var deal = new CatalogDeal
+        {
+            Id = 77,
+            ItemDataList =
         [
             new CatalogItem { Definition = Def(InteractionType.Badge, "b", name: "ADM") },
             new CatalogItem { Amount = 2, Definition = Def(InteractionType.None, "i", sprite: 5) },
-        ] };
+        ]
+        };
+
         return Proxy<ICatalogManager>((method, args) => method switch
         {
             "TryGetDeal" => Out(args, 1, (int)args[0]! == 77 ? deal : null),
@@ -189,19 +195,37 @@ public class CatalogSnapshotTests
 
     private static ItemDefinition Def(InteractionType interaction, string productType, int behaviour = 0, string name = "item", int sprite = 1, bool gift = false, ItemType type = ItemType.Floor) => new()
     {
-        InteractionType = interaction, ProductType = productType, ItemName = name, SpriteId = sprite, BehaviourData = behaviour, AllowGift = gift, Type = type,
+        InteractionType = interaction,
+        ProductType = productType,
+        ItemName = name,
+        SpriteId = sprite,
+        BehaviourData = behaviour,
+        AllowGift = gift,
+        Type = type,
     };
 
     private static CatalogPage Page(int id, string layout) => new()
     {
-        Id = id, ParentId = -1, Enabled = true, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = layout,
+        Id = id,
+        ParentId = -1,
+        Enabled = true,
+        Visible = true,
+        Icon = id,
+        Link = "page" + id,
+        Caption = "Page " + id,
+        Layout = layout,
     };
 
     private static CatalogPage Tree(int id, int parent, bool enabled = true, params int[] offerIds)
     {
         var page = new CatalogPage { Id = id, ParentId = parent, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3" };
-        foreach (var offerId in offerIds) page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id, Definition = Def(InteractionType.None, "i") };
+
+        foreach (var offerId in offerIds) {
+            page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id, Definition = Def(InteractionType.None, "i") };
+        }
+
         new CatalogOfferIndex().Build([page]);
+
         return page;
     }
 
@@ -209,12 +233,14 @@ public class CatalogSnapshotTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return string.Join("|", packet.Writes.Select(write => $"{write.GetType().Name}:{write}"));
     }
 
     private static bool Out<T>(object?[] args, int index, T? value) where T : class
     {
         args[index] = value;
+
         return value != null;
     }
 
@@ -223,7 +249,12 @@ public class CatalogSnapshotTests
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider
     {
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return now;
+        }
     }
 }
 
@@ -236,6 +267,7 @@ internal static class CatalogSnapshotTestSupport
     {
         var proxy = System.Reflection.DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).Call = call;
+
         return proxy;
     }
 

@@ -16,6 +16,7 @@ public class CatalogAdminCreatePageEvent : IPacketEvent
     {
         var (page, envelope) = CatalogAdminPacketReader.CreatePage(packet);
         CatalogAdminResponder.Send(session, "createPage", envelope, _catalogAdmin.CreatePage(session.GetHabbo(), envelope, page));
+
         return Task.CompletedTask;
     }
 }

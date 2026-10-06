@@ -7,8 +7,12 @@ public sealed class WiredVariableEditor(WiredVariableModule variables)
 {
     public WiredConfiguration ForDisplay(string name, uint definitionId, WiredConfiguration saved)
     {
-        if (name != "wf_var_room" || saved.IntParams.Length != 2) return saved;
+        if (name != "wf_var_room" || saved.IntParams.Length != 2) {
+            return saved;
+        }
+
         var value = variables.Read(new(WiredVariableTarget.Global, $"custom:{definitionId}"), new(WiredVariableTarget.Global, 0, 0), new(variables.RoomId, []));
+
         return value is null ? saved : saved with { IntParams = saved.IntParams.SetItem(1, value.Value) };
     }
 

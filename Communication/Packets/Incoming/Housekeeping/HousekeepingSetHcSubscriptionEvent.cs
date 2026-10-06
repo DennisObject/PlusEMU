@@ -21,6 +21,7 @@ internal class HousekeepingSetHcSubscriptionEvent : IPacketEvent
         var userId = packet.ReadInt();
         var days = packet.ReadInt();
         _runner.Run(session, "user.set_hc", HousekeepingRights.Economy, actor => _economy.SetClub(actor, userId, days));
+
         return Task.CompletedTask;
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -31,16 +31,26 @@ internal class ActorHasHandItemBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0 || Instance == null || string.IsNullOrEmpty(StringData))
+        if (@params.Length == 0 || Instance == null || string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null)
+
+        if (player == null) {
             return false;
+        }
+
         var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-        if (user == null)
+
+        if (user == null) {
             return false;
-        if (user.CarryItemId != int.Parse(StringData))
+        }
+
+        if (user.CarryItemId != int.Parse(StringData)) {
             return false;
+        }
+
         return true;
     }
 }

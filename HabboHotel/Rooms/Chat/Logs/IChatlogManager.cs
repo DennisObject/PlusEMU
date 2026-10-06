@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Chat.Logs;
+namespace Plus.HabboHotel.Rooms.Chat.Logs;
 
 public interface IChatlogManager
 {

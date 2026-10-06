@@ -42,6 +42,7 @@ public class CameraCheckoutPacketTests
     private static Guid Read(string value)
     {
         Assert.True(CameraCheckoutPacket.TryReadMediaId(HabbiconTestSupport.Incoming(value), out var id));
+
         return id;
     }
 }

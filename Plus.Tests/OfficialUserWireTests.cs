@@ -19,7 +19,11 @@ public class OfficialUserWireTests
     {
         var habbo = new Habbo
         {
-            Id = 7, Username = "Dennis", Motto = "hi", Look = "hd-180-1", Gender = "M",
+            Id = 7,
+            Username = "Dennis",
+            Motto = "hi",
+            Look = "hd-180-1",
+            Gender = "M",
             HabboStats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 12, 0, 0, 0, "", 0)
         };
         var client = new TestClient();
@@ -88,8 +92,14 @@ public class OfficialUserWireTests
         var source = new[] { snapshot };
         var composer = new UsersComposer(source);
         var expected = new List<object> { 1, 10, "Helper", "hello", "figure", 4, 2, 3, "1.5", 0, isPet ? 2 : 4 };
-        if (isPet) expected.AddRange(new object[] { 13, 7, "Dennis", 1, true, false, 0, 0, "" });
-        else expected.AddRange(new object[] { "m", 7, "Dennis", 5, (short)1, (short)2, (short)3, (short)4, (short)5 });
+
+        if (isPet) {
+            expected.AddRange(new object[] { 13, 7, "Dennis", 1, true, false, 0, 0, "" });
+        }
+        else {
+            expected.AddRange(new object[] { "m", 7, "Dennis", 5, (short)1, (short)2, (short)3, (short)4, (short)5 });
+        }
+
         expected.AddRange(new object[] { "", 0 });
         source[0] = snapshot with { Name = "changed", X = 99, OwnerName = "changed" };
         Assert.Equal(expected, Compose(composer));
@@ -139,6 +149,7 @@ public class OfficialUserWireTests
     {
         var packet = new RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes.ToArray();
     }
 
@@ -146,6 +157,7 @@ public class OfficialUserWireTests
     {
         var proxy = DispatchProxy.Create<T, CallbackProxy>();
         ((CallbackProxy)(object)proxy).Callback = callback;
+
         return proxy;
     }
 

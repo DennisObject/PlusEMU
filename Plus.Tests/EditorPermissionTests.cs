@@ -24,6 +24,7 @@ public class EditorPermissionTests
     private static (CatalogAdminService Service, Recorder Refresher) Catalog()
     {
         var refresher = DispatchProxy.Create<ICatalogCacheRefresher, Recorder>();
+
         return (new CatalogAdminService(EditorTestSupport.UntouchableDatabase(), DispatchProxy.Create<ICatalogManager, Recorder>(),
             refresher, NullLogger<CatalogAdminService>.Instance), (Recorder)(object)refresher);
     }
@@ -31,6 +32,7 @@ public class EditorPermissionTests
     private static (FurniEditorService Service, Recorder Refresher) Furni()
     {
         var refresher = DispatchProxy.Create<ICatalogCacheRefresher, Recorder>();
+
         return (new FurniEditorService(EditorTestSupport.UntouchableDatabase(), new FurnidataStore(Options.Create(new FurniEditorConfiguration())),
             DispatchProxy.Create<IFurniEditorTextImporter, Recorder>(), refresher, DispatchProxy.Create<IGameClientManager, Recorder>(),
             NullLogger<FurniEditorService>.Instance, TimeProvider.System), (Recorder)(object)refresher);
@@ -115,8 +117,8 @@ public class EditorPermissionTests
             .ToList();
         Assert.Equal(28, handlers.Count);
         var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json"))).RootElement;
-        foreach (var handler in handlers)
-        {
+
+        foreach (var handler in handlers) {
             var permission = handler.GetCustomAttribute<Plus.Communication.Attributes.RequiresPermissionAttribute>();
             Assert.NotNull(permission);
             string[] expected = handler.Name switch
@@ -130,11 +132,11 @@ public class EditorPermissionTests
             Assert.NotNull(header);
             Assert.Equal((uint)header!.GetValue(null)!, revision.GetProperty("IncomingHeaders").GetProperty(handler.Name).GetUInt32());
         }
+
         foreach (var composer in new[] { "CatalogAdminResultComposer", "CatalogAdminOfferDetailsComposer", "CatalogAdminPageDetailsComposer",
                      "CatalogStudioSessionComposer", "CatalogStudioHistoryComposer",
                      "CatalogStudioOperationComposer", "FurniEditorSearchResultComposer", "FurniEditorDetailResultComposer",
-                     "FurniEditorInteractionsResultComposer", "FurniEditorResultComposer", "FurnitureDataReloadComposer", "FurniEditorImportTextResultComposer" })
-        {
+                     "FurniEditorInteractionsResultComposer", "FurniEditorResultComposer", "FurnitureDataReloadComposer", "FurniEditorImportTextResultComposer" }) {
             var header = typeof(Plus.Communication.Packets.Outgoing.ServerPacketHeader).GetField(composer);
             Assert.Equal((uint)header!.GetValue(null)!, revision.GetProperty("OutgoingHeaders").GetProperty(composer).GetUInt32());
         }
@@ -154,8 +156,8 @@ public class EditorPermissionTests
         Assert.DoesNotContain(typeof(Plus.Communication.Packets.Incoming.ClientPacketHeader).GetFields(),
             field => incoming.Contains(field.Name) || (field.GetRawConstantValue() is uint id && wireIds.Contains(id)));
         Assert.DoesNotContain(typeof(Plus.Communication.Packets.Outgoing.ServerPacketHeader).GetFields(), field => outgoing.Contains(field.Name));
-        foreach (var file in new[] { "OCTANE-3-6-0-FLOOR-20260909.json", "1.6.6.json", "3.6.0.json" })
-        {
+
+        foreach (var file in new[] { "OCTANE-3-6-0-FLOOR-20260909.json", "1.6.6.json", "3.6.0.json" }) {
             var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo($"Resources/Revisions/{file}"))).RootElement;
             var incomingHeaders = revision.GetProperty("IncomingHeaders").EnumerateObject().ToList();
             Assert.DoesNotContain(incomingHeaders, header => incoming.Contains(header.Name) || wireIds.Contains(header.Value.GetUInt32()));
@@ -171,6 +173,7 @@ public class EditorPermissionTests
         {
             Calls.Add(targetMethod!.Name);
             var type = targetMethod.ReturnType;
+
             return type.IsValueType && type != typeof(void) ? Activator.CreateInstance(type) : null;
         }
     }

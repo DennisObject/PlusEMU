@@ -18,8 +18,10 @@ internal sealed class HousekeepingSetRoleLimitEvent(IAccessControl access, IHous
         runner.Run(session, "role.limit", PermissionKeys.HousekeepingRolesManage, actor =>
         {
             var result = access.Apply(actor, revision, new ChangeRoleLimit(roleId, key, value, remove));
+
             return new HousekeepingOutcome(result.Ok, result.Id, result.Message, HousekeepingTarget.Hotel, "role.limit");
         });
+
         return Task.CompletedTask;
     }
 }

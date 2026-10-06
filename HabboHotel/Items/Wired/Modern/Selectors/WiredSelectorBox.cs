@@ -23,8 +23,10 @@ public sealed class WiredSelectorBox : WiredConfiguredBehaviorBox, IWiredContext
         _groups = groups;
         _variables = variables;
         _readWorld = readWorld;
-        if (descriptor.CanonicalName.EndsWith("_with_var", StringComparison.Ordinal) && variables is null)
+
+        if (descriptor.CanonicalName.EndsWith("_with_var", StringComparison.Ordinal) && variables is null) {
             throw new ArgumentException("Variable selectors require the concrete variable query provider", nameof(variables));
+        }
     }
 
     public Runtime.WiredSelectorResult Select(WiredRuntimeContext context)
@@ -35,8 +37,13 @@ public sealed class WiredSelectorBox : WiredConfiguredBehaviorBox, IWiredContext
             ? _variables?.Invoke(context) : null;
         input = input.WithVariables(variables);
         var raw = WiredSelectorModule.SelectRaw(Descriptor.CanonicalName, configuration, input.World, input.Selection);
-        var kind = raw.Target switch { WiredSelectorTarget.Furni => WiredSelectionKind.Furni,
-            WiredSelectorTarget.User => WiredSelectionKind.Users, _ => WiredSelectionKind.Both };
+        var kind = raw.Target switch
+        {
+            WiredSelectorTarget.Furni => WiredSelectionKind.Furni,
+            WiredSelectorTarget.User => WiredSelectionKind.Users,
+            _ => WiredSelectionKind.Both
+        };
+
         return new(new(raw.Selection.FurniIds, raw.Selection.UserIds), kind, raw.FiltersExisting, raw.Invert);
     }
 }
@@ -49,8 +56,15 @@ public static class WiredSelectorFactory
         Func<WiredRuntimeContext, WiredSelectorWorld>? readWorld = null)
     {
         var descriptor = item.Definition.WiredDescriptor;
-        if (descriptor?.Category != WiredBoxCategory.Selector) return null;
-        if (descriptor.CanonicalName.EndsWith("_with_var", StringComparison.Ordinal) && variables is null) return null;
+
+        if (descriptor?.Category != WiredBoxCategory.Selector) {
+            return null;
+        }
+
+        if (descriptor.CanonicalName.EndsWith("_with_var", StringComparison.Ordinal) && variables is null) {
+            return null;
+        }
+
         return new WiredSelectorBox(room, item, descriptor, state, groups, variables, readWorld);
     }
 }

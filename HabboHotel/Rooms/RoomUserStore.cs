@@ -30,8 +30,8 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        if (pet.Insert)
-        {
+
+        if (pet.Insert) {
             connection.Execute("""
                 INSERT INTO bots (id, user_id, room_id, ai_type, name, motto, look, x, y, z, rotation, walk_mode,
                                   automatic_chat, speaking_interval, mix_sentences, chat_bubble)
@@ -42,13 +42,18 @@ public sealed class RoomUserStore(IDatabase database) : IRoomUserStore
                                           have_saddle, anyone_ride, hairdye, pethair, gnome_clothing)
                 VALUES (@Id, @Type, @Race, @Color, 0, 100, @CreatedAt, 0, 0, 0, 0, 1, -1, '-1')
                 """, new
-                {
-                    pet.Id, pet.Type, pet.Race, pet.Color,
-                    CreatedAt = pet.CreatedAt?.UtcDateTime
-                }, transaction);
+            {
+                pet.Id,
+                pet.Type,
+                pet.Race,
+                pet.Color,
+                CreatedAt = pet.CreatedAt?.UtcDateTime
+            }, transaction);
             transaction.Commit();
+
             return;
         }
+
         connection.Execute("UPDATE bots SET room_id = @RoomId, x = @X, y = @Y, z = @Z WHERE id = @Id LIMIT 1", pet, transaction);
         connection.Execute("""
             UPDATE bots_petdata SET experience = @Experience, energy = @Energy, nutrition = @Nutrition, respect = @Respect

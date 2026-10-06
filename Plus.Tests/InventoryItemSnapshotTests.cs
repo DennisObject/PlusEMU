@@ -34,7 +34,8 @@ public sealed class InventoryItemSnapshotTests
         var data = new MapDataFormat(new() { ["state"] = "before" });
         var item = Item(17, data);
         item.Definition.Type = ItemType.Wall;
-        item.UniqueNumber = 4; item.UniqueSeries = 20;
+        item.UniqueNumber = 4;
+        item.UniqueSeries = 20;
         var source = new[] { InventoryItemSnapshot.Capture(item) };
         var composer = new FurniListComposer(source.ToImmutableArray(), 2, 0);
         var addition = new FurniListAddComposer(source[0]);
@@ -44,8 +45,10 @@ public sealed class InventoryItemSnapshotTests
         var expectedAdd = Encode(fields);
         data.Data["state"] = "after";
         data.Data["extra"] = "changed";
-        item.Definition.SpriteId = 99; item.Definition.AllowTrade = false;
-        item.UniqueNumber = 100; item.UniqueSeries = 0;
+        item.Definition.SpriteId = 99;
+        item.Definition.AllowTrade = false;
+        item.UniqueNumber = 100;
+        item.UniqueSeries = 0;
         source[0] = InventoryItemSnapshot.Capture(Item(99, new EmptyDataFormat()));
         Assert.Equal(expectedList, Encode(composer));
         Assert.Equal(expectedList, Encode(composer));
@@ -56,7 +59,8 @@ public sealed class InventoryItemSnapshotTests
     public void ListAndAdditionKeepTheirExistingDistinctStackingFlags()
     {
         var item = Item(17, new EmptyDataFormat());
-        item.UniqueNumber = 0; item.UniqueSeries = 20;
+        item.UniqueNumber = 0;
+        item.UniqueSeries = 20;
         var snapshot = InventoryItemSnapshot.Capture(item);
         var list = new HabbiconTestSupport.RecordingPacket();
         var addition = new HabbiconTestSupport.RecordingPacket();
@@ -79,8 +83,8 @@ public sealed class InventoryItemSnapshotTests
         await new RequestFurniInventoryEvent().Parse(client, HabbiconTestSupport.Incoming());
         Assert.Equal(pages, sent.Count);
         var actualCount = 0;
-        for (var index = 0; index < sent.Count; index++)
-        {
+
+        for (var index = 0; index < sent.Count; index++) {
             var packet = sent[index];
             Assert.Equal(ServerPacketHeader.FurniListComposer, packet.Header);
             Assert.Equal(pages, BinaryPrimitives.ReadInt32BigEndian(packet.Payload));
@@ -89,20 +93,31 @@ public sealed class InventoryItemSnapshotTests
             Assert.Equal(Math.Min(700, count - index * 700), pageCount);
             actualCount += pageCount;
         }
+
         Assert.Equal(count, actualCount);
     }
 
     private static InventoryItem Item(uint id, FurniObjectData data) => new()
     {
-        Id = id, ExtraData = data,
-        Definition = new ItemDefinition { SpriteId = 31, Type = ItemType.Floor, Category = FurniCategory.Default,
-            AllowEcotronRecycle = true, AllowTrade = true, AllowInventoryStack = true, AllowMarketplaceSell = true }
+        Id = id,
+        ExtraData = data,
+        Definition = new ItemDefinition
+        {
+            SpriteId = 31,
+            Type = ItemType.Floor,
+            Category = FurniCategory.Default,
+            AllowEcotronRecycle = true,
+            AllowTrade = true,
+            AllowInventoryStack = true,
+            AllowMarketplaceSell = true
+        }
     };
 
     private static byte[] Encode(IServerPacket composer)
     {
         using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
         composer.Compose(new FlashOutgoingPacket(stream));
+
         return stream.ToArray()[6..];
     }
 
@@ -110,15 +125,26 @@ public sealed class InventoryItemSnapshotTests
     {
         using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
         IOutgoingPacket packet = new FlashOutgoingPacket(stream);
-        foreach (var field in fields)
-            switch (field)
-            {
-                case int value: packet.WriteInt(value); break;
-                case uint value: packet.WriteUInt(value); break;
-                case bool value: packet.WriteBool(value); break;
-                case string value: packet.WriteString(value); break;
-                default: throw new ArgumentOutOfRangeException(nameof(fields));
+
+        foreach (var field in fields) {
+            switch (field) {
+                case int value:
+                    packet.WriteInt(value);
+                    break;
+                case uint value:
+                    packet.WriteUInt(value);
+                    break;
+                case bool value:
+                    packet.WriteBool(value);
+                    break;
+                case string value:
+                    packet.WriteString(value);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(fields));
             }
+        }
+
         return stream.ToArray()[6..];
     }
 }

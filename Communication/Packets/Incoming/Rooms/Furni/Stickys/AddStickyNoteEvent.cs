@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Incoming.Rooms;
+using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -11,6 +11,7 @@ internal class AddStickyNoteEvent(IRoomItemPlacementService placement) : RoomPac
         var itemId = packet.ReadUInt();
         var location = packet.ReadString();
         placement.PlaceSticky(room, session, itemId, location);
+
         return Task.CompletedTask;
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -32,15 +32,19 @@ internal class RegenerateMapsBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (Instance == null)
+        if (Instance == null) {
             return false;
+        }
+
         var now = Instance.RuntimeClock.GetUtcNow();
-        if (Instance.LastRegenerationAt is not { } lastRegeneration || now - lastRegeneration > TimeSpan.FromMinutes(1))
-        {
+
+        if (Instance.LastRegenerationAt is not { } lastRegeneration || now - lastRegeneration > TimeSpan.FromMinutes(1)) {
             Instance.GetGameMap().GenerateMaps();
             Instance.LastRegenerationAt = now;
+
             return true;
         }
+
         return false;
     }
 }

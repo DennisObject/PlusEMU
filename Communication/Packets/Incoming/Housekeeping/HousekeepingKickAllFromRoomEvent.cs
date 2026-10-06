@@ -20,6 +20,7 @@ internal class HousekeepingKickAllFromRoomEvent : IPacketEvent
     {
         var roomId = packet.ReadInt();
         _runner.Run(session, "room.kick_all", HousekeepingRights.Rooms, actor => _rooms.KickAll(actor, roomId));
+
         return Task.CompletedTask;
     }
 }

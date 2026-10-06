@@ -80,6 +80,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal("1", item.LegacyDataString);
             Assert.Single(_client.Packets, packet => packet.Header == ServerPacketHeader.ItemUpdateComposer);
             progressed++;
+
             return null;
         });
 
@@ -103,12 +104,19 @@ public partial class PlacedFurniRoomTests
         _client.Packets.Clear();
         var service = new FurnitureUseService(null!, null!);
 
-        switch (action)
-        {
-            case "off": service.TurnOffDice(_room, _client, item.Id); break;
-            case "roll": service.RollDice(_room, _client, new(item.Id, 3)); break;
-            case "gate": service.UseOneWayGate(_room, _client, item.Id); break;
-            case "wall": service.UseWall(_room, _client, new(item.Id, 3)); break;
+        switch (action) {
+            case "off":
+                service.TurnOffDice(_room, _client, item.Id);
+                break;
+            case "roll":
+                service.RollDice(_room, _client, new(item.Id, 3));
+                break;
+            case "gate":
+                service.UseOneWayGate(_room, _client, item.Id);
+                break;
+            case "wall":
+                service.UseWall(_room, _client, new(item.Id, 3));
+                break;
         }
 
         Assert.Equal("9", item.LegacyDataString);

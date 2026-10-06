@@ -90,20 +90,23 @@ public sealed class UserNameServiceTests
         map.AddUserToMap(actor, new(0, 0));
         var (observer, observerSent) = HabbiconTestSupport.Client(new Habbo
         {
-            Id = 43, Username = "Observer", CurrentRoom = room
+            Id = 43,
+            Username = "Observer",
+            CurrentRoom = room
         });
         var observerVisit = new RoomUser(43, room.Id, 4, room, observer, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 4 };
         var visits = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         visits[4] = observerVisit;
         map.AddUserToMap(observerVisit, new(1, 0));
-        foreach (var recipient in new[] { (Plus.Communication.Flash.FlashGameClient)context.Client, observer })
-        {
+
+        foreach (var recipient in new[] { (Plus.Communication.Flash.FlashGameClient)context.Client, observer }) {
             var capture = recipient.SendCallback;
             recipient.SendCallback = args =>
             {
                 Assert.Single(context.Store.Changes);
                 Assert.Equal(new[] { ("Dennis", "Renamed") }, context.ClientNames.Updates);
+
                 return capture!(args);
             };
         }
@@ -194,6 +197,7 @@ public sealed class UserNameServiceTests
         {
             persistenceEntered.Set();
             finishPersistence.Wait();
+
             return false;
         }));
         Assert.True(persistenceEntered.Wait(TimeSpan.FromSeconds(5)));
@@ -220,11 +224,11 @@ public sealed class UserNameServiceTests
         var schema = "task_refactor_tests_names_" + Guid.NewGuid().ToString("N");
         using var server = new MySqlConnection(connectionString);
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var database = new ProbeDatabase(new MySqlConnectionStringBuilder(connectionString) { Database = schema }.ConnectionString);
-            using (var connection = database.Connection())
-            {
+
+            using (var connection = database.Connection()) {
                 connection.Execute("CREATE TABLE users(id INT PRIMARY KEY,username VARCHAR(50) NOT NULL UNIQUE,last_change DATETIME(6) NULL)");
                 connection.Execute("CREATE TABLE logs_client_namechange(id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,new_name VARCHAR(50) NOT NULL,old_name VARCHAR(50) NOT NULL,`timestamp` DECIMAL(20,6) NULL)");
                 connection.Execute("INSERT INTO users VALUES(42,'Dennis',NULL)");
@@ -236,19 +240,19 @@ public sealed class UserNameServiceTests
 
             var changedAt = new DateTimeOffset(2041, 1, 2, 3, 4, 5, TimeSpan.FromHours(2)).AddTicks(1234560);
             Assert.True(new NameChangeStore(database).Change(42, "Dennis", "Renamed", changedAt, true));
-            using (var verify = database.Connection())
-            {
+
+            using (var verify = database.Connection()) {
                 Assert.Equal("Renamed", verify.ExecuteScalar<string>("SELECT username FROM users WHERE id=42"));
                 Assert.Equal(changedAt.UtcDateTime, verify.ExecuteScalar<DateTime>("SELECT last_change FROM users WHERE id=42"));
                 Assert.Equal(changedAt.UtcDateTime, verify.ExecuteScalar<DateTime>("SELECT `timestamp` FROM logs_client_namechange WHERE user_id=42"));
                 verify.Execute("DROP TABLE logs_client_namechange");
             }
+
             Assert.ThrowsAny<Exception>(() => new NameChangeStore(database).Change(42, "Renamed", "Broken", changedAt, true));
             using var rollback = database.Connection();
             Assert.Equal("Renamed", rollback.ExecuteScalar<string>("SELECT username FROM users WHERE id=42"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }
@@ -292,6 +296,7 @@ public sealed class UserNameServiceTests
             store,
             clock,
             NullLogger<UserNameService>.Instance);
+
         return new(service, client, habbo, sent, clientNames, store, clock);
     }
 
@@ -302,6 +307,7 @@ public sealed class UserNameServiceTests
     {
         var (client, _) = HabbiconTestSupport.Client(new Habbo { Username = username });
         client.Id = Guid.NewGuid();
+
         return client;
     }
 
@@ -309,6 +315,7 @@ public sealed class UserNameServiceTests
     {
         var proxy = DispatchProxy.Create<T, TestProxy>();
         ((TestProxy)(object)proxy).InvokeMethod = invoke;
+
         return proxy;
     }
 
@@ -331,8 +338,18 @@ public sealed class UserNameServiceTests
     {
         public string? Checked { get; private set; }
         public string? Changed { get; private set; }
-        public Task Check(GameClient session, string name) { Checked = name; return Task.CompletedTask; }
-        public Task Change(GameClient session, string name) { Changed = name; return Task.CompletedTask; }
+        public Task Check(GameClient session, string name)
+        {
+            Checked = name;
+
+            return Task.CompletedTask;
+        }
+        public Task Change(GameClient session, string name)
+        {
+            Changed = name;
+
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class RecordingStore(bool succeeds) : INameChangeStore
@@ -341,6 +358,7 @@ public sealed class UserNameServiceTests
         public bool Change(int userId, string oldName, string newName, DateTimeOffset changedAt, bool writeLog)
         {
             Changes.Add((userId, oldName, newName, changedAt, writeLog));
+
             return succeeds;
         }
     }
@@ -351,6 +369,7 @@ public sealed class UserNameServiceTests
         public bool TryChangeClientUsername(GameClient client, string oldUsername, string newUsername, Func<bool> persist)
         {
             Updates.Add((oldUsername, newUsername));
+
             return persist();
         }
         public int Count => 0;
@@ -358,7 +377,12 @@ public sealed class UserNameServiceTests
         public void OnCycle() => throw new NotSupportedException();
         public GameClient? GetClientByUserId(int userId) => null;
         public GameClient? GetClientByUsername(string username) => null;
-        public bool TryGetClient(Guid clientId, out GameClient? client) { client = null; return false; }
+        public bool TryGetClient(Guid clientId, out GameClient? client)
+        {
+            client = null;
+
+            return false;
+        }
         public Task<string> GetNameById(int id) => throw new NotSupportedException();
         public IEnumerable<GameClient> GetClientsById(Dictionary<int, HabboHotel.Users.Messenger.MessengerBuddy>.KeyCollection users) => [];
         public void StaffAlert(IServerPacket message, int exclude = 0) => throw new NotSupportedException();
@@ -375,7 +399,12 @@ public sealed class UserNameServiceTests
     {
         public DateTimeOffset Now { get; } = now;
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 
     private sealed class ProbeDatabase(string connectionString) : IDatabase

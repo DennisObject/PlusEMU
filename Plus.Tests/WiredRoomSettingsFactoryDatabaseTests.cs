@@ -36,10 +36,14 @@ public sealed class WiredRoomSettingsFactoryDatabaseTests
         var model = connection.QueryFirst<string>("SELECT id FROM room_models LIMIT 1");
         connection.Execute("INSERT INTO rooms (owner, caption, model_name) VALUES (@owner, 'Wired factory probe', @model)", new { owner = userId.ToString(), model });
         var roomId = connection.ExecuteScalar<uint>("SELECT LAST_INSERT_ID()");
-        try
-        {
+
+        try {
             var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-            room.Id = roomId; room.OwnerId = userId; room.OwnerName = username; room.Type = "private"; room.UsersWithRights = [];
+            room.Id = roomId;
+            room.OwnerId = userId;
+            room.OwnerName = username;
+            room.Type = "private";
+            room.UsersWithRights = [];
             var factory = new WiredRoomSettingsFactory(new DatabaseWiredRoomSettingsStore(database));
             var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, factory,
                 new Plus.HabboHotel.Items.Wired.Configuration.WiredConfigurationStore(database), database, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
@@ -51,8 +55,7 @@ public sealed class WiredRoomSettingsFactoryDatabaseTests
             Assert.True(room.GetWired().Settings.TrySave(client, 15, 14, "Europe/Berlin", out var error), error);
             Assert.Equal(new(15, 14, "Europe/Berlin"), factory.Create(room).Snapshot);
         }
-        finally
-        {
+        finally {
             connection.Execute("DELETE FROM room_wired_settings WHERE room_id=@roomId; DELETE FROM rooms WHERE id=@roomId; DELETE FROM users WHERE id=@userId", new { roomId, userId });
         }
     }

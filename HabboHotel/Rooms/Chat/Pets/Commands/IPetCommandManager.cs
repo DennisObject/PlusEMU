@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Chat.Pets.Commands;
+namespace Plus.HabboHotel.Rooms.Chat.Pets.Commands;
 
 public interface IPetCommandManager
 {

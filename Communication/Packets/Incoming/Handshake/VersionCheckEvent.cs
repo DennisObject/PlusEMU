@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Attributes;
+using Plus.Communication.Attributes;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Handshake;
@@ -11,6 +11,7 @@ internal class VersionCheckEvent : IPacketEvent
         var clientId = packet.ReadInt();
         var gordanPath = packet.ReadString();
         var externalVariables = packet.ReadString();
+
         return Task.CompletedTask;
     }
 }

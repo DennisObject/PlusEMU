@@ -36,8 +36,10 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     public async Task DisposeAsync()
     {
         _http.Dispose();
-        if (_server != null)
+
+        if (_server != null) {
             await _server.Stop();
+        }
     }
 
     private async Task Start(Action<AuthApiConfiguration>? configure = null)
@@ -61,10 +63,15 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private Task<HttpResponseMessage> Post(string path, object body, string? forwardedFor = null, string? bearer = null)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body) };
-        if (forwardedFor != null)
+
+        if (forwardedFor != null) {
             request.Headers.Add("X-Forwarded-For", forwardedFor);
-        if (bearer != null)
+        }
+
+        if (bearer != null) {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", bearer);
+        }
+
         return _http.SendAsync(request);
     }
 
@@ -84,6 +91,18 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.True(health.Headers.CacheControl!.NoStore);
         Assert.Equal("nosniff", health.Headers.GetValues("X-Content-Type-Options").Single());
         Assert.False(health.Headers.Contains("Server"));
+    }
+
+    [Fact]
+    public async Task DisabledAuthKeepsHealthAvailableAndRefusesEveryAuthRoute()
+    {
+        await Start(configuration => configuration.Enabled = false);
+
+        Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync("/api/health")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await _http.GetAsync("/api/maintenance")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await Post("/api/auth/login", new { username = "Dennis", password = "secret" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await Post("/api/auth/sso-token", new { ssoTicket = "external-ticket" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync("/api/auth/room-templates")).StatusCode);
     }
 
     [Fact]
@@ -489,8 +508,10 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     {
         await Start(c => c.RequestsPerMinute = 3);
 
-        for (var i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++) {
             Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/check-username", new { username = "Fresh" + i })).StatusCode);
+        }
+
         var limited = await Post("/api/auth/check-email", new { email = "a@example.com" });
 
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);

@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Concurrent;
 using Dapper;
 using Microsoft.Extensions.Logging;
@@ -48,44 +48,46 @@ public class RoomManager : IRoomManager, IStartable
 
     public void OnCycle()
     {
-        try
-        {
+        try {
             var now = _clock.GetLocalNow();
             var fullPass = RoomCycle.IsDue(_cycleLastExecution, now);
-            if (fullPass)
-            {
+
+            if (fullPass) {
                 _cycleLastExecution = now;
-                foreach (var room in _rooms.Values.ToList())
-                {
-                    if (room.IsCrashed)
+
+                foreach (var room in _rooms.Values.ToList()) {
+                    if (room.IsCrashed) {
                         continue;
+                    }
+
                     var tick = RoomCycle.Next(room.ProcessTask is { IsCompleted: false }, room.IsLagging);
-                    if (tick.Start)
-                    {
+
+                    if (tick.Start) {
                         RoomCycle.TryStart(room, room.ProcessRoom);
                         room.IsLagging = 0;
                     }
-                    else
-                    {
+                    else {
                         room.IsLagging = tick.Lag;
-                        if (tick.Crashed)
-                        {
+
+                        if (tick.Crashed) {
                             room.IsCrashed = true;
                             UnloadRoom(room.Id);
                         }
                     }
                 }
             }
-            if (now - _wiredLastExecution >= RoomCycle.WiredInterval)
-            {
+
+            if (now - _wiredLastExecution >= RoomCycle.WiredInterval) {
                 _wiredLastExecution = now;
-                if (!fullPass && !_fastWiredRooms.IsEmpty)
-                    foreach (var room in _fastWiredRooms.Values)
+
+                if (!fullPass && !_fastWiredRooms.IsEmpty) {
+                    foreach (var room in _fastWiredRooms.Values) {
                         RoomCycle.TryStart(room, room.ProcessWiredOnly);
+                    }
+                }
             }
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             ExceptionLogger.LogException(e);
         }
     }
@@ -103,8 +105,10 @@ public class RoomManager : IRoomManager, IStartable
         using var connection = _database.Connection();
         var models = await connection.QueryAsync<ModelRow>(SelectModel + "WHERE custom = FALSE");
         _roomModels.Clear();
-        foreach (var row in models)
+
+        foreach (var row in models) {
             _roomModels.Add(row.Id, CreateModel(row, false));
+        }
     }
 
     public IReadOnlyList<RoomModel> GetCreatableModels(Plus.HabboHotel.Permissions.UserAccess access) =>
@@ -114,14 +118,19 @@ public class RoomManager : IRoomManager, IStartable
     {
         using var connection = _database.Connection();
         var row = connection.QuerySingleOrDefault<ModelRow>(SelectModel + "WHERE custom = TRUE AND id = @id LIMIT 1", new { id });
-        if (row == null)
+
+        if (row == null) {
             return false;
+        }
+
         _roomModels.TryAdd(row.Id, CreateModel(row, true));
+
         return true;
     }
 
     private static RoomModel CreateModel(ModelRow row, bool custom) => new(row.Id, row.DoorX, row.DoorY, row.DoorZ,
-        row.DoorDir, row.Heightmap, row.RequiredClubLevel, row.WallHeight, custom) { RequiredPermission = row.RequiredPermission };
+        row.DoorDir, row.Heightmap, row.RequiredClubLevel, row.WallHeight, custom)
+    { RequiredPermission = row.RequiredPermission };
 
     private sealed class ModelRow
     {
@@ -138,66 +147,72 @@ public class RoomManager : IRoomManager, IStartable
 
     public void ReloadModel(string id)
     {
-        if (!_roomModels.ContainsKey(id))
-        {
+        if (!_roomModels.ContainsKey(id)) {
             LoadModel(id);
+
             return;
         }
+
         _roomModels.Remove(id);
         LoadModel(id);
     }
 
     public bool TryGetModel(string id, [NotNullWhen(true)] out RoomModel? model)
     {
-        if (_roomModels.ContainsKey(id))
-        {
+        if (_roomModels.ContainsKey(id)) {
             model = _roomModels[id];
+
             return true;
         }
 
         // Try to load this model.
-        if (LoadModel(id))
-        {
-            if (TryGetModel(id, out var customModel))
-            {
+        if (LoadModel(id)) {
+            if (TryGetModel(id, out var customModel)) {
                 model = customModel;
+
                 return true;
             }
         }
+
         model = null;
+
         return false;
     }
 
     public void UnloadRoom(uint roomId)
     {
         Room room;
-        lock (_roomLoadingSync)
-        {
-            if (!_rooms.TryRemove(roomId, out room!)) return;
+
+        lock (_roomLoadingSync) {
+            if (!_rooms.TryRemove(roomId, out room!)) {
+                return;
+            }
+
             _unloadingRooms.Add(roomId);
         }
+
         Exception? failure = null;
-        try
-        {
+
+        try {
             room.GetWired().ObserveFastWork(null);
             _fastWiredRooms.TryRemove(roomId, out _);
             room.Dispose();
         }
-        catch (Exception exception)
-        {
+        catch (Exception exception) {
             failure = exception;
             throw;
         }
-        finally
-        {
-            try { _roomFactory.Dispose(roomId); }
-            catch (Exception exception) when (failure != null)
-            {
+        finally {
+            try {
+                _roomFactory.Dispose(roomId);
+            }
+            catch (Exception exception) when (failure != null) {
                 _logger.LogError(exception, "Dependency scope cleanup failed for room {RoomId}", roomId);
             }
-            finally
-            {
-                lock (_roomLoadingSync) _unloadingRooms.Remove(roomId);
+            finally {
+                lock (_roomLoadingSync) {
+                    _unloadingRooms.Remove(roomId);
+                }
             }
         }
     }
@@ -205,53 +220,65 @@ public class RoomManager : IRoomManager, IStartable
     public bool TryLoadRoom(uint roomId, [NotNullWhen(true)] out Room? room)
     {
         Room? inst = null;
-        if (_rooms.TryGetValue(roomId, out inst))
-        {
-            if (!inst.Unloaded)
-            {
+
+        if (_rooms.TryGetValue(roomId, out inst)) {
+            if (!inst.Unloaded) {
                 room = inst;
+
                 return true;
             }
+
             room = null;
+
             return false;
         }
-        lock (_roomLoadingSync)
-        {
-            if (_unloadingRooms.Contains(roomId))
-            {
+
+        lock (_roomLoadingSync) {
+            if (_unloadingRooms.Contains(roomId)) {
                 room = null;
+
                 return false;
             }
-            if (_rooms.TryGetValue(roomId, out inst))
-            {
-                if (!inst.Unloaded)
-                {
+
+            if (_rooms.TryGetValue(roomId, out inst)) {
+                if (!inst.Unloaded) {
                     room = inst;
+
                     return true;
                 }
+
                 room = null;
+
                 return false;
             }
-            if (!_roomData.TryGetData(roomId, out var data))
-            {
+
+            if (!_roomData.TryGetData(roomId, out var data)) {
                 room = null;
+
                 return false;
             }
+
             var myInstance = _roomFactory.Create(data);
-            if (_rooms.TryAdd(roomId, myInstance))
-            {
+
+            if (_rooms.TryAdd(roomId, myInstance)) {
                 myInstance.GetWired().ObserveFastWork(required =>
                 {
-                    if (required && _rooms.TryGetValue(roomId, out var attached) && ReferenceEquals(attached, myInstance))
+                    if (required && _rooms.TryGetValue(roomId, out var attached) && ReferenceEquals(attached, myInstance)) {
                         _fastWiredRooms[roomId] = myInstance;
-                    else _fastWiredRooms.TryRemove(roomId, out _);
+                    }
+                    else {
+                        _fastWiredRooms.TryRemove(roomId, out _);
+                    }
                 });
                 room = myInstance;
+
                 return true;
             }
+
             myInstance.Dispose();
             _roomFactory.Dispose(roomId);
             room = null;
+
             return false;
         }
     }
@@ -289,7 +316,10 @@ public class RoomManager : IRoomManager, IStartable
 
     public List<Room> GetOnGoingRoomPromotions(int mode, int amount = 50)
     {
-        if (mode == 17) return _rooms.Values.Where(x => x.HasActivePromotion && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.Promotion.StartedAt).Take(amount).ToList();
+        if (mode == 17) {
+            return _rooms.Values.Where(x => x.HasActivePromotion && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.Promotion.StartedAt).Take(amount).ToList();
+        }
+
         return _rooms.Values.Where(x => x.HasActivePromotion && x.Access != RoomAccess.Invisible).OrderByDescending(x => x.UsersNow).Take(amount).ToList();
     }
 
@@ -320,11 +350,12 @@ public class RoomManager : IRoomManager, IStartable
     public RoomData? CreateRoom(GameClient session, string name, string description, int category, int maxVisitors, int tradeSettings, RoomModel model, string wallpaper = "0.0", string floor = "0.0",
         string landscape = "0.0", int wallthick = 0, int floorthick = 0)
     {
-        if (name.Length < 3)
-        {
+        if (name.Length < 3) {
             session.SendNotification(_languageManager.TryGetValue("room.creation.name.too_short"));
+
             return null;
         }
+
         using var connection = _database.Connection();
         var roomId = connection.QuerySingle<uint>(
             "INSERT INTO `rooms` (`roomtype`,`caption`,`description`,`owner`,`model_name`,`category`,`users_max`,`trade_settings`) " +
@@ -332,6 +363,7 @@ public class RoomManager : IRoomManager, IStartable
             new { name, description, ownerId = session.GetHabbo().Id, modelId = model.Id, category, maxVisitors, tradeSettings });
         var data = new RoomData(roomId, name, model.Id, session.GetHabbo().Username, session.GetHabbo().Id, "", 0, "public", "open", 0, maxVisitors, category, description, string.Empty,
             floor, landscape, true, true, false, false, wallthick, floorthick, wallpaper, 1, 1, 1, 1, 1, 1, 1, 8, tradeSettings, true, true, true, true, true, true, true, 0, 0, true, model);
+
         return data;
     }
 
@@ -341,15 +373,18 @@ public class RoomManager : IRoomManager, IStartable
     {
         var length = _rooms.Count;
         var i = 0;
-        foreach (var room in _rooms.Values.ToList())
-        {
-            if (room == null)
+
+        foreach (var room in _rooms.Values.ToList()) {
+            if (room == null) {
                 continue;
+            }
+
             UnloadRoom(room.Id);
             Console.Clear();
             _logger.LogInformation("<<- SERVER SHUTDOWN ->> ROOM ITEM SAVE: " + string.Format("{0:0.##}", (double)i / length * 100) + "%");
             i++;
         }
+
         _logger.LogInformation("Done disposing rooms!");
     }
 }

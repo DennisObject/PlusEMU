@@ -68,8 +68,7 @@ public sealed class ScalarCollectionFreezeTests
 
     private static void Recompose(IServerPacket composer, IEnumerable<object> expected)
     {
-        for (var index = 0; index < 2; index++)
-        {
+        for (var index = 0; index < 2; index++) {
             var packet = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(packet);
             Assert.Equal(expected, packet.Writes);

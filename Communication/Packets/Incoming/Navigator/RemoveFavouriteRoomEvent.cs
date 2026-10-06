@@ -8,6 +8,7 @@ public class RemoveFavouriteRoomEvent(INavigatorFavoriteService favorites) : IPa
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         favorites.Remove(session, packet.ReadUInt());
+
         return Task.CompletedTask;
     }
 }

@@ -44,6 +44,7 @@ public sealed class PlayerIgnoreServiceTests
             Assert.Equal(!ignored, f.Actor.IgnoresComponent.IsIgnored(2));
             Assert.Empty(f.Sent);
             Assert.Equal(ignored ? 0 : 1, f.Achievements);
+
             return Task.CompletedTask;
         };
         await f.Service.Ignore(f.Client, "target");
@@ -64,7 +65,11 @@ public sealed class PlayerIgnoreServiceTests
     public async Task FailedPersistenceLeavesStatePacketsAndAchievementsUnchanged(bool ignore)
     {
         var f = new Fixture();
-        if (!ignore) f.Actor.IgnoresComponent.PublishIgnore(2);
+
+        if (!ignore) {
+            f.Actor.IgnoresComponent.PublishIgnore(2);
+        }
+
         f.Store.BeforeWrite = (_, _, _) => throw new InvalidOperationException("forced store failure");
         await Assert.ThrowsAsync<InvalidOperationException>(() => ignore ? f.Service.Ignore(f.Client, "target") : f.Service.Unignore(f.Client, "target"));
         Assert.Equal(!ignore, f.Actor.IgnoresComponent.IsIgnored(2));
@@ -105,30 +110,30 @@ public sealed class PlayerIgnoreServiceTests
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         f.Store.BeforeWrite = async (_, _, ignored) =>
         {
-            if (ignored)
-            {
+            if (ignored) {
                 entered.SetResult();
                 await release.Task;
             }
-            else
+            else {
                 Assert.True(f.Actor.IgnoresComponent.IsIgnored(2));
+            }
         };
         var first = f.Service.Ignore(f.Client, "target");
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var second = f.Service.Unignore(f.Client, "target");
-        try
-        {
+
+        try {
             Assert.False(first.IsCompleted);
             Assert.False(second.IsCompleted);
             Assert.False(f.Actor.IgnoresComponent.IsIgnored(2));
             Assert.Empty(f.Sent);
             Assert.Equal(new[] { true }, f.Store.Writes);
         }
-        finally
-        {
+        finally {
             release.TrySetResult();
             await Task.WhenAll(first, second);
         }
+
         Assert.False(f.Actor.IgnoresComponent.IsIgnored(2));
         Assert.Equal(new[] { true, false }, f.Store.Writes);
         Assert.Equal(2, f.Sent.Count);
@@ -142,8 +147,8 @@ public sealed class PlayerIgnoreServiceTests
         server.Open();
         var schema = "task_refactor_tests_ignore_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
             { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true }.ConnectionString;
             var database = new ProbeDatabase(connectionString);
@@ -165,7 +170,9 @@ public sealed class PlayerIgnoreServiceTests
             await new IgnoresUserDataLoadingTask(database).Load(habbo);
             Assert.Empty(habbo.IgnoresComponent.IgnoredUsers);
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private static void AssertStatus((uint Header, byte[] Payload) sent, IgnoreStatus status)
@@ -195,6 +202,7 @@ public sealed class PlayerIgnoreServiceTests
             {
                 var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
                 Sent.Add((BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+
                 return true;
             };
             var (target, _) = HabbiconTestSupport.Client(Target);
@@ -210,6 +218,7 @@ public sealed class PlayerIgnoreServiceTests
                 Assert.True(Actor.IgnoresComponent.IsIgnored(2));
                 AssertStatus(Assert.Single(Sent), IgnoreStatus.Added);
                 Achievements++;
+
                 return true;
             });
             Service = new(clients, Store, achievements, new AccountSessionGate());
@@ -218,6 +227,7 @@ public sealed class PlayerIgnoreServiceTests
         private GameClient? Lookup(string name, GameClient target)
         {
             Lookups++;
+
             return name == "target" ? target : null;
         }
     }
@@ -226,6 +236,7 @@ public sealed class PlayerIgnoreServiceTests
     {
         var proxy = DispatchProxy.Create<T, RecordingProxy>();
         ((RecordingProxy)(object)proxy).Call = invoke;
+
         return proxy;
     }
     public class RecordingProxy : DispatchProxy
@@ -242,14 +253,25 @@ public sealed class PlayerIgnoreServiceTests
         {
             Writes.Add(ignored);
             await BeforeWrite(userId, targetId, ignored);
+
             return !Refused;
         }
     }
     private sealed class RecordingService : IPlayerIgnoreService
     {
         public List<string> Calls = [];
-        public Task Ignore(GameClient session, string username) { Calls.Add("ignore " + username); return Task.CompletedTask; }
-        public Task Unignore(GameClient session, string username) { Calls.Add("unignore " + username); return Task.CompletedTask; }
+        public Task Ignore(GameClient session, string username)
+        {
+            Calls.Add("ignore " + username);
+
+            return Task.CompletedTask;
+        }
+        public Task Unignore(GameClient session, string username)
+        {
+            Calls.Add("unignore " + username);
+
+            return Task.CompletedTask;
+        }
     }
     private sealed class ProbeDatabase(string connectionString) : IDatabase
     {

@@ -15,23 +15,29 @@ public sealed class WiredVariableOperandTests
     [InlineData(WiredVariableTarget.Furni)]
     public void TypedExecutorAssignsAndComparesEachHoldersOwnReference(WiredVariableTarget target)
     {
-        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); room.Id = 1; room.OwnerId = 5;
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        room.Id = 1;
+        room.OwnerId = 5;
         var items = new[] { new Item { Id = 301, OwnerId = 5 }, new Item { Id = 302, OwnerId = 5 } };
         var users = new[] { new RoomUser(901, 1, 1, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused), new RoomUser(902, 1, 2, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) };
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Enter), new(() => items, () => users), new UnusedOperations());
-        context.SelectorPool.FurniIds.UnionWith(items.Select(x => x.Id)); context.SelectorPool.UserIds.UnionWith(users.Select(x => x.VirtualId));
+        context.SelectorPool.FurniIds.UnionWith(items.Select(x => x.Id));
+        context.SelectorPool.UserIds.UnionWith(users.Select(x => x.VirtualId));
         var frame = WiredVariableRuntimeFrames.Create(context);
         var holders = frame.Holders.Where(x => x.Target == target).ToArray();
-        var directory = new Directory(target, target); var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
-        for (var i = 0; i < holders.Length; i++)
-        {
+        var directory = new Directory(target, target);
+        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
+
+        for (var i = 0; i < holders.Length; i++) {
             module.Mutate(new(target, "custom:10"), holders[i], WiredVariableMutation.Give, 0, frame);
             module.Mutate(new(target, "custom:11"), holders[i], WiredVariableMutation.Give, (i + 1) * 10, frame);
         }
+
         var box = Assert.IsType<WiredVariableConfiguredBox>(WiredVariableBoxFactory.Create(room,
             new Item { Id = 50, Definition = new() { InteractionName = "wf_act_change_var_val" } }, module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000))));
         var configuration = Config(target, target);
-        Assert.True(box.TryValidateConfiguration(configuration, out var validated, out _)); box.ApplyConfiguration(validated);
+        Assert.True(box.TryValidateConfiguration(configuration, out var validated, out _));
+        box.ApplyConfiguration(validated);
         Assert.True(box.Execute(context));
         Assert.Equal(new[] { 10, 20 }, holders.Select(x => module.Read(new(target, "custom:10"), x, frame)!.Value));
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
@@ -43,7 +49,11 @@ public sealed class WiredVariableOperandTests
         Assert.Empty(module.DrainChanges());
         var reversed = new WiredVariableFrame(1, frame.Holders) { Signal = holders.Reverse().ToArray() };
         reversed.Selector.AddRange(holders);
-        foreach (var holder in holders) module.Mutate(new(target, "custom:10"), holder, WiredVariableMutation.Set, 0, reversed);
+
+        foreach (var holder in holders) {
+            module.Mutate(new(target, "custom:10"), holder, WiredVariableMutation.Set, 0, reversed);
+        }
+
         Assert.True(executor.Execute("wf_act_change_var_val", configuration with { IntParams = [(int)target, 0, 1, 0, (int)target, 200, 200, 201, 201] }, reversed));
         Assert.Equal(new[] { 10, 20 }, holders.Select(x => module.Read(new(target, "custom:10"), x, reversed)!.Value));
     }
@@ -53,10 +63,18 @@ public sealed class WiredVariableOperandTests
     {
         var users = Enumerable.Range(1, 3).Select(i => new WiredVariableHolder(WiredVariableTarget.User, 900 + i, i)).ToArray();
         var furniture = new[] { new WiredVariableHolder(WiredVariableTarget.Furni, 301, 301), new WiredVariableHolder(WiredVariableTarget.Furni, 302, 302) };
-        var frame = new WiredVariableFrame(1, users.Concat(furniture).ToArray()); frame.Selector.AddRange(frame.Holders);
+        var frame = new WiredVariableFrame(1, users.Concat(furniture).ToArray());
+        frame.Selector.AddRange(frame.Holders);
         var module = new WiredVariableModule(1, new Directory(WiredVariableTarget.User, WiredVariableTarget.Furni), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
-        foreach (var user in users) module.Mutate(new(user.Target, "custom:10"), user, WiredVariableMutation.Give, 0, frame);
-        for (var i = 0; i < furniture.Length; i++) module.Mutate(new(furniture[i].Target, "custom:11"), furniture[i], WiredVariableMutation.Give, (i + 1) * 10, frame);
+
+        foreach (var user in users) {
+            module.Mutate(new(user.Target, "custom:10"), user, WiredVariableMutation.Give, 0, frame);
+        }
+
+        for (var i = 0; i < furniture.Length; i++) {
+            module.Mutate(new(furniture[i].Target, "custom:11"), furniture[i], WiredVariableMutation.Give, (i + 1) * 10, frame);
+        }
+
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         Assert.True(executor.Execute("wf_act_change_var_val", Config(WiredVariableTarget.User, WiredVariableTarget.Furni), frame));
         Assert.Equal(new[] { 10, 20, 10 }, users.Select(x => module.Read(new(x.Target, "custom:10"), x, frame)!.Value));
@@ -70,20 +88,29 @@ public sealed class WiredVariableOperandTests
     public void PresenceNegatesAggregateAndEmptySelectionNeverMatches(int count, int present, bool positiveAll, bool positiveAny, bool negativeAll, bool negativeAny)
     {
         var holders = Enumerable.Range(1, count).Select(i => new WiredVariableHolder(WiredVariableTarget.User, 900 + i, i)).ToArray();
-        var frame = new WiredVariableFrame(1, holders); frame.Selector.AddRange(holders);
+        var frame = new WiredVariableFrame(1, holders);
+        frame.Selector.AddRange(holders);
         var module = new WiredVariableModule(1, new Directory(WiredVariableTarget.User, WiredVariableTarget.User), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
-        foreach (var holder in holders.Take(present)) module.Mutate(new(holder.Target, "custom:10"), holder, WiredVariableMutation.Give, 1, frame);
+
+        foreach (var holder in holders.Take(present)) {
+            module.Mutate(new(holder.Target, "custom:10"), holder, WiredVariableMutation.Give, 1, frame);
+        }
+
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
-        var all = new WiredConfiguration { IntParams = [0, 200, 0, 0], Text = "custom:10" }; var any = all with { IntParams = [0, 200, 0, 1] };
-        Assert.Equal(positiveAll, executor.Execute("wf_cnd_has_var", all, frame)); Assert.Equal(positiveAny, executor.Execute("wf_cnd_has_var", any, frame));
-        Assert.Equal(negativeAll, executor.Execute("wf_cnd_neg_has_var", all, frame)); Assert.Equal(negativeAny, executor.Execute("wf_cnd_neg_has_var", any, frame));
+        var all = new WiredConfiguration { IntParams = [0, 200, 0, 0], Text = "custom:10" };
+        var any = all with { IntParams = [0, 200, 0, 1] };
+        Assert.Equal(positiveAll, executor.Execute("wf_cnd_has_var", all, frame));
+        Assert.Equal(positiveAny, executor.Execute("wf_cnd_has_var", any, frame));
+        Assert.Equal(negativeAll, executor.Execute("wf_cnd_neg_has_var", all, frame));
+        Assert.Equal(negativeAny, executor.Execute("wf_cnd_neg_has_var", any, frame));
     }
 
     [Fact]
     public void AgeConditionUsesOneUtcSampleAndHandlesExactFutureAndMissingTimes()
     {
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 900, 1);
-        var frame = new WiredVariableFrame(1, [holder]); frame.Selector.Add(holder);
+        var frame = new WiredVariableFrame(1, [holder]);
+        frame.Selector.Add(holder);
         var store = new MemoryWiredVariableStore();
         store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, DateTimeOffset.FromUnixTimeMilliseconds(1000), null));
         var module = new WiredVariableModule(1, new AgeDirectory(), store,
@@ -108,7 +135,8 @@ public sealed class WiredVariableOperandTests
     public void AgeConditionComparesLongDurationsAtExactTickBoundariesWithoutOverflow()
     {
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 900, 1);
-        var frame = new WiredVariableFrame(1, [holder]); frame.Selector.Add(holder);
+        var frame = new WiredVariableFrame(1, [holder]);
+        frame.Selector.Add(holder);
         var store = new MemoryWiredVariableStore();
         var now = new DateTimeOffset(2200, 1, 1, 0, 0, 0, TimeSpan.Zero);
         const long hundredYearsInTicks = 100L * 31536000000 * TimeSpan.TicksPerMillisecond;
@@ -172,7 +200,12 @@ public sealed class WiredVariableOperandTests
     {
         public DateTimeOffset Now { get; } = now;
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
     private sealed class UnusedOperations : IWiredRuntimeOperations
     {

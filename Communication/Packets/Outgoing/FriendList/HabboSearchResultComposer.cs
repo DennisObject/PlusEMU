@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using System.Globalization;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Messenger;
@@ -20,8 +20,8 @@ public class HabboSearchResultComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_friends.Length);
-        foreach (var entry in _friends)
-        {
+
+        foreach (var entry in _friends) {
             var friend = entry.User;
             var online = entry.Online;
             packet.WriteInteger(friend.UserId);
@@ -34,9 +34,10 @@ public class HabboSearchResultComposer : IServerPacket
             packet.WriteString(online ? friend.Figure : "");
             packet.WriteString(friend.LastOnlineAt?.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture) ?? "0");
         }
+
         packet.WriteInteger(_otherUsers.Length);
-        foreach (var entry in _otherUsers)
-        {
+
+        foreach (var entry in _otherUsers) {
             var otherUser = entry.User;
             var online = entry.Online;
             packet.WriteInteger(otherUser.UserId);

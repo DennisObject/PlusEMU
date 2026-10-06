@@ -16,8 +16,8 @@ internal static class WeeklyLeaderboardWire
 
         //Used to generate the ranking numbers.
         packet.WriteInteger(rows.Length); //Count
-        for (var index = 0; index < rows.Length; index++)
-        {
+
+        for (var index = 0; index < rows.Length; index++) {
             var row = rows[index];
             packet.WriteInteger(row.UserId); //Id
             packet.WriteInteger(row.Score); //Score
@@ -26,6 +26,7 @@ internal static class WeeklyLeaderboardWire
             packet.WriteString(row.Look); //Figure
             packet.WriteString(row.Gender); //Gender
         }
+
         packet.WriteInteger(0); //
         packet.WriteInteger(gameId); //Game Id?
     }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
@@ -30,29 +30,43 @@ internal class BotChangesClothesBox : IWiredItem
     {
         var unknown = packet.ReadInt();
         var botConfiguration = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         StringData = botConfiguration;
     }
 
     public bool Execute(params object[] @params)
     {
-        if (@params == null || @params.Length == 0)
+        if (@params == null || @params.Length == 0) {
             return false;
-        if (string.IsNullOrEmpty(StringData))
+        }
+
+        if (string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var stuff = StringData.Split('\t');
-        if (stuff.Length != 2)
+
+        if (stuff.Length != 2) {
             return false; //This is important, incase a cunt scripts.
+        }
+
         var username = stuff[0];
         var user = Instance.GetRoomUserManager().GetBotByName(username);
-        if (user == null)
+
+        if (user == null) {
             return false;
+        }
+
         var figure = stuff[1];
         _botStore.SaveAppearance(user.BotData.Id, Instance.RoomId, figure, "M");
         user.BotData.Look = figure;
         user.BotData.Gender = "M";
         Instance.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user.BotData)));
+
         return true;
     }
 }

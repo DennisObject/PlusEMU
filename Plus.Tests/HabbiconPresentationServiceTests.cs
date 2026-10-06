@@ -18,14 +18,16 @@ public sealed class HabbiconPresentationServiceTests
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"))
         {
-            Database = "information_schema", AllowZeroDateTime = true, ConvertZeroDateTime = true
+            Database = "information_schema",
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
         };
         var schema = "task_habbicon_presentation_" + Guid.NewGuid().ToString("N")[..12];
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             // The real store's missing tables cause a MySqlException before any claim or charge can commit.
             var domain = new HabbiconService(new HabbiconDatabaseTests.TestDatabase(options.ConnectionString),
@@ -45,8 +47,7 @@ public sealed class HabbiconPresentationServiceTests
             Assert.Equal(100, habbo.Credits);
             Assert.Equal(3, logger.Errors);
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE `{schema}`");
         }
     }

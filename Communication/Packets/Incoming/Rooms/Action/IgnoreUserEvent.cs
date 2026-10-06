@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Ignores;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Action;

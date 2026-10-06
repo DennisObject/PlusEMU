@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users;
@@ -27,18 +27,24 @@ internal class MipCommand : ITargetChatCommand
     public async Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
         using var deadline = new CancellationTokenSource(ModerationManager.BanBudget);
-        if (!session.GetHabbo().Access.Outranks(target.Access))
-        {
+
+        if (!session.GetHabbo().Access.Outranks(target.Access)) {
             session.SendWhisper("Oops, you cannot ban that user.");
+
             return;
         }
+
         var expiresAt = _clock.GetUtcNow().AddSeconds(78892200);
         var username = target.Username;
         string reason;
-        if (parameters.Any())
+
+        if (parameters.Any()) {
             reason = CommandManager.MergeParams(parameters);
-        else
+        }
+        else {
             reason = "No reason specified.";
+        }
+
 #pragma warning disable CS0618 // The handshake's machine id lives on the session; the stored one is the fallback.
         var machineId = string.IsNullOrEmpty(target.Client?.MachineId) ? target.MachineId : target.Client.MachineId;
 #pragma warning restore CS0618

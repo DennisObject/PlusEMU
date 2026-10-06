@@ -20,6 +20,7 @@ public sealed partial class WiredRoomVariables
     {
         var definitions = Module.DescribeDefinitions(_definitions.Keys).Select(description => description with
         { TextConnector = MetadataOn(description.Definition.ItemId, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>() }).ToArray();
+
         return new(definitions.Concat(definitions.SelectMany(DerivedDescriptions)).ToArray());
     }
     public bool FxDirty { get; private set; } = true;
@@ -29,58 +30,105 @@ public sealed partial class WiredRoomVariables
         Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? builtinWrite = null,
         Action<Item, WiredVariableFrame>? stateChanged = null)
     {
-        _room = room; _clock = clock;
+        _room = room;
+        _clock = clock;
         Module = new(room.Id, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), clock,
             new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite, stateChanged), ResolveDerived);
-        Editor = new(Module); Fx = new(Module);
+        Editor = new(Module);
+        Fx = new(Module);
         _persistence = new(database, Module, clock);
     }
 
     public IWiredConfiguredItem? CreateBox(Item item)
     {
-        if (item.Definition.WiredDescriptor is { } descriptor)
-        {
-            if (descriptor.CanonicalName == "wf_trg_var_changed") return new WiredVariableChangedTrigger(_room, item, descriptor);
-            if (descriptor.CanonicalName == "wf_xtra_text_input_variable") return new WiredVariableTextInputBox(_room, item, descriptor);
-            if (WiredVariableMetadataBox.Supports(descriptor.CanonicalName)) return new WiredVariableMetadataBox(_room, item, descriptor);
-            if (WiredVariableAddonBox.Supports(descriptor.CanonicalName)) return new WiredVariableAddonBox(_room, item, descriptor, Module,
+        if (item.Definition.WiredDescriptor is { } descriptor) {
+            if (descriptor.CanonicalName == "wf_trg_var_changed") {
+                return new WiredVariableChangedTrigger(_room, item, descriptor);
+            }
+
+            if (descriptor.CanonicalName == "wf_xtra_text_input_variable") {
+                return new WiredVariableTextInputBox(_room, item, descriptor);
+            }
+
+            if (WiredVariableMetadataBox.Supports(descriptor.CanonicalName)) {
+                return new WiredVariableMetadataBox(_room, item, descriptor);
+            }
+
+            if (WiredVariableAddonBox.Supports(descriptor.CanonicalName)) {
+                return new WiredVariableAddonBox(_room, item, descriptor, Module,
                 id => MetadataOn(id, "wf_xtra_var_text_connector")?.TextConnector ?? new Dictionary<int, string>());
+            }
         }
+
         return WiredVariableBoxFactory.Create(_room, item, Module, _clock, _persistence);
     }
     /// <summary>Call after hydration from the companion configuration store. Database failures must abort activation.</summary>
     public void ConfigurationLoaded(IWiredConfiguredItem box)
     {
-        if (box is WiredVariableTextInputBox textInput) { _textInputs[box.Item.Id] = textInput; return; }
-        if (box is WiredVariableMetadataBox metadata) { _metadata[box.Item.Id] = metadata; FxDirty = true; return; }
-        if (box is not WiredVariableDefinitionBox definition || !definition.HasPersistedConfiguration) return;
+        if (box is WiredVariableTextInputBox textInput) {
+            _textInputs[box.Item.Id] = textInput;
+
+            return;
+        }
+
+        if (box is WiredVariableMetadataBox metadata) {
+            _metadata[box.Item.Id] = metadata;
+            FxDirty = true;
+
+            return;
+        }
+
+        if (box is not WiredVariableDefinitionBox definition || !definition.HasPersistedConfiguration) {
+            return;
+        }
+
         _definitions[box.Item.Id] = definition;
-        if (definition.Descriptor.CanonicalName == "wf_var_room" && !Module.InitializeGlobal(box.Item.Id))
+
+        if (definition.Descriptor.CanonicalName == "wf_var_room" && !Module.InitializeGlobal(box.Item.Id)) {
             throw new InvalidOperationException("The room variable could not be initialized from its authoritative definition.");
+        }
+
         FxDirty = true;
     }
     /// <summary>Memory-only publication hook, called after atomic persistence and ApplyConfiguration.</summary>
     public void ConfigurationSaved(IWiredConfiguredItem box)
     {
-        if (box is WiredVariableTextInputBox textInput) _textInputs[box.Item.Id] = textInput;
-        if (box is WiredVariableMetadataBox metadata) _metadata[box.Item.Id] = metadata;
-        if (box is WiredVariableDefinitionBox definition)
-        {
+        if (box is WiredVariableTextInputBox textInput) {
+            _textInputs[box.Item.Id] = textInput;
+        }
+
+        if (box is WiredVariableMetadataBox metadata) {
+            _metadata[box.Item.Id] = metadata;
+        }
+
+        if (box is WiredVariableDefinitionBox definition) {
             _definitions[box.Item.Id] = definition;
         }
+
         FxDirty = true;
     }
     public void HolderLeft(WiredVariableHolder holder)
     {
-        Module.HolderLeft(holder); Fx.DetachHolder(holder);
-        if (holder.Target == WiredVariableTarget.User && holder.CanPersist) Fx.RemoveViewer(holder.StableId);
+        Module.HolderLeft(holder);
+        Fx.DetachHolder(holder);
+
+        if (holder.Target == WiredVariableTarget.User && holder.CanPersist) {
+            Fx.RemoveViewer(holder.StableId);
+        }
+
         FxDirty = true;
     }
     public void ItemDetached(Item item) => ItemDetached(item.Id, WiredVariableRuntimeFrames.FurniHolder(item));
     public void ItemDetached(uint itemId)
     {
         var item = _room.GetRoomItemHandler()?.GetItem(itemId);
-        if (item is not null) { ItemDetached(item); return; }
+
+        if (item is not null) {
+            ItemDetached(item);
+
+            return;
+        }
+
         // Without an attached Item, only durable identity is known. Temporary callers must pass the actual Item.
         ItemDetached(itemId, new(WiredVariableTarget.Furni, itemId, unchecked((int)itemId)));
     }
@@ -88,19 +136,31 @@ public sealed partial class WiredRoomVariables
     {
         _textInputs.Remove(itemId);
         _metadata.Remove(itemId);
-        _definitions.Remove(itemId); Module.DetachDefinition(itemId);
-        if (holder is { } detached) HolderLeft(detached);
+        _definitions.Remove(itemId);
+        Module.DetachDefinition(itemId);
+
+        if (holder is { } detached) {
+            HolderLeft(detached);
+        }
+
         FxDirty = true;
     }
     /// <summary>Only actual deletion of an owning item, never inventory pickup.</summary>
     public int DefinitionDeleted(uint itemId)
     {
-        var removed = Module.DeleteDefinition(itemId); ItemDetached(itemId); return removed;
+        var removed = Module.DeleteDefinition(itemId);
+        ItemDetached(itemId);
+
+        return removed;
     }
     public IReadOnlyList<WiredVariableChange> DrainChanges()
     {
         var changes = Module.DrainChanges();
-        if (changes.Count > 0) FxDirty = true;
+
+        if (changes.Count > 0) {
+            FxDirty = true;
+        }
+
         return changes;
     }
     public void InvalidateFx() => FxDirty = true;

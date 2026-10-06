@@ -8,6 +8,7 @@ internal sealed class GetRoomSettingsEvent(IRoomSettingsService settings) : IPac
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         settings.Show(session, packet.ReadUInt());
+
         return Task.CompletedTask;
     }
 }

@@ -100,8 +100,11 @@ public class StressBotTests
         var speeches = regularData.RandomSpeech;
         var regular = manager.DeployBot(new(42, 0, "generic", "stand", "Regular", "", regularData.Look,
             1, 1, 0, 0, 0, 0, 0, 0, ref speeches, "M", 0, 1, false, 60, false, 0), null!);
-        foreach (var bot in manager.GetUserList())
+
+        foreach (var bot in manager.GetUserList()) {
             map.AddUserToMap(bot, bot.Coordinate);
+        }
+
         Assert.True(manager.QueueStressBots(0, 7, replies.Add));
         manager.ProcessStressBots();
         Assert.Same(regular, Assert.Single(manager.GetUserList()));
@@ -116,13 +119,17 @@ public class StressBotTests
         var accepted = 0;
         Parallel.For(0, 40, _ =>
         {
-            if (manager.QueueStressBots(500, 7, _ => { }))
+            if (manager.QueueStressBots(500, 7, _ => { })) {
                 Interlocked.Increment(ref accepted);
+            }
         });
         Assert.Equal(8, accepted);
         Assert.Empty(manager.GetUserList());
-        for (var i = 0; i < accepted; i++)
+
+        for (var i = 0; i < accepted; i++) {
             manager.ProcessStressBots();
+        }
+
         Assert.Equal(1000, manager.GetUserList().Count);
     }
 
@@ -133,8 +140,11 @@ public class StressBotTests
         manager.QueueStressBots(500, 7, _ => { });
         manager.ProcessStressBots();
         var bots = manager.GetUserList().ToList();
-        foreach (var bot in bots.Skip(1))
+
+        foreach (var bot in bots.Skip(1)) {
             map.AddUserToMap(bot, new(2, 2));
+        }
+
         var walking = bots[0];
         walking.MoveTo(2, 2, walking.BotData.IsTemporary);
         Assert.Equal(2, walking.GoalX);
@@ -185,15 +195,20 @@ public class StressBotTests
         var model = new RoomModel("test", 1, 1, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false);
         var map = new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         var gameMap = new byte[4, 4];
-        for (var x = 0; x < 4; x++)
-        for (var y = 0; y < 4; y++)
-            gameMap[x, y] = 1;
+
+        for (var x = 0; x < 4; x++) {
+            for (var y = 0; y < 4; y++) {
+                gameMap[x, y] = 1;
+            }
+        }
+
         typeof(Gamemap).GetProperty(nameof(Gamemap.GameMap))!.SetValue(map, gameMap);
         var manager = new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused,
             new TestBotAiFactory((_, virtualId) => new GenericBot(virtualId, new FakeWordFilter())), TestGameClientManager.Empty, TestItemRuntime.Travel);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, manager);
         TestRoomUserSnapshots.Install(room);
+
         return (manager, map);
     }
 

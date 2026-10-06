@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -21,17 +21,22 @@ internal class GameEndsBox : IWiredItem
     public bool BoolData { get; set; }
     public string ItemsData { get; set; } = string.Empty;
 
-    public void HandleSave(IIncomingPacket packet) { }
+    public void HandleSave(IIncomingPacket packet)
+    {
+    }
 
     public bool Execute(params object[] @params)
     {
         var accepted = false;
-        foreach (var user in Instance.GetRoomUserManager().GetRoomUsers().ToList())
-        {
+
+        foreach (var user in Instance.GetRoomUserManager().GetRoomUsers().ToList()) {
             var player = user?.GetClient()?.GetHabbo();
-            if (player != null)
+
+            if (player != null) {
                 accepted |= Instance.GetWired().RunStack(this, player);
+            }
         }
+
         return accepted;
     }
 }

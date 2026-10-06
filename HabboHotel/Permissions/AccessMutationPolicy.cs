@@ -14,6 +14,7 @@ internal static class AccessMutationPolicy
     public static bool CanGrant(UserAccess actor, string pattern, IEnumerable<string> registry)
     {
         var keys = registry.Where(key => UserAccess.Matches(pattern, key)).ToArray();
+
         return keys.Length > 0 && keys.All(actor.Can);
     }
 }

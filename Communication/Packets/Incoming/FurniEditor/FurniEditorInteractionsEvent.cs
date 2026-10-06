@@ -16,6 +16,7 @@ public class FurniEditorInteractionsEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         FurniEditorResponder.Read(session, () => new FurniEditorInteractionsResultComposer(_furniEditor.Interactions(session.GetHabbo())));
+
         return Task.CompletedTask;
     }
 }

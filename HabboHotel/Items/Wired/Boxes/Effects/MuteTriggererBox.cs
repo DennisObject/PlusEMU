@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
@@ -17,8 +17,10 @@ internal class MuteTriggererBox : IWiredItem
         Item = item;
         _clock = clock;
         SetItems = new();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
     }
 
     public Room Instance { get; set; }
@@ -31,8 +33,10 @@ internal class MuteTriggererBox : IWiredItem
 
     public void HandleSave(IIncomingPacket packet)
     {
-        if (SetItems.Count > 0)
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         var unknown = packet.ReadInt();
         var time = packet.ReadInt();
         var message = packet.ReadString();
@@ -41,29 +45,42 @@ internal class MuteTriggererBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length != 1)
-            return false;
-        var player = (Habbo)@params[0];
-        if (player == null)
-            return false;
-        var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
-        if (user == null)
-            return false;
-        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id)
-        {
-            player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Mute Exception: Unmutable Player", 0, 0));
+        if (@params.Length != 1) {
             return false;
         }
+
+        var player = (Habbo)@params[0];
+
+        if (player == null) {
+            return false;
+        }
+
+        var user = Instance.GetRoomUserManager().GetRoomUserByHabbo(player.Id);
+
+        if (user == null) {
+            return false;
+        }
+
+        if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id) {
+            player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Mute Exception: Unmutable Player", 0, 0));
+
+            return false;
+        }
+
         var time = StringData != null ? int.Parse(StringData.Split(';')[0]) : 0;
         var message = StringData != null ? StringData.Split(';')[1] : "No message!";
-        if (time > 0)
-        {
+
+        if (time > 0) {
             var now = _clock.GetUtcNow();
-            if (!RoomMuteDeadline.TryCreate(now, time, out var mutedUntil))
+
+            if (!RoomMuteDeadline.TryCreate(now, time, out var mutedUntil)) {
                 return false;
+            }
+
             player.Client.Send(new WhisperComposer(user.VirtualId, $"Wired Mute: Muted for {time}! Message: {message}", 0, 0));
             Instance.MutedUsers[player.Id] = mutedUntil;
         }
+
         return true;
     }
 }

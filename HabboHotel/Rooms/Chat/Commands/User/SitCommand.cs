@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 
@@ -13,18 +13,22 @@ internal class SitCommand : IChatCommand
     public void Execute(GameClient session, Room room, string[] parameters)
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
-        if (user == null)
+
+        if (user == null) {
             return;
-        if (user.Statusses.ContainsKey("lie") || user.IsLying || user.RidingHorse || user.IsWalking)
+        }
+
+        if (user.Statusses.ContainsKey("lie") || user.IsLying || user.RidingHorse || user.IsWalking) {
             return;
-        if (!user.Statusses.ContainsKey("sit"))
-        {
-            if (user.RotBody % 2 == 0)
-            {
-                if (user == null)
+        }
+
+        if (!user.Statusses.ContainsKey("sit")) {
+            if (user.RotBody % 2 == 0) {
+                if (user == null) {
                     return;
-                try
-                {
+                }
+
+                try {
                     user.Statusses.Add("sit", "1.0");
                     user.Z -= 0.35;
                     user.IsSitting = true;
@@ -32,8 +36,7 @@ internal class SitCommand : IChatCommand
                 }
                 catch { }
             }
-            else
-            {
+            else {
                 user.RotBody--;
                 user.Statusses.Add("sit", "1.0");
                 user.Z -= 0.35;
@@ -41,8 +44,7 @@ internal class SitCommand : IChatCommand
                 user.UpdateNeeded = true;
             }
         }
-        else if (user.IsSitting)
-        {
+        else if (user.IsSitting) {
             user.Z += 0.35;
             user.Statusses.Remove("sit");
             user.Statusses.Remove("1.0");

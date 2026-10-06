@@ -17,8 +17,8 @@ public sealed class CatalogGiftStoreDatabaseTests
         using var server = new MySqlConnection(connectionString);
         server.Open();
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             using var connection = new MySqlConnection(
                 new MySqlConnectionStringBuilder(connectionString) { Database = schema }.ConnectionString);
             connection.Open();
@@ -42,29 +42,28 @@ public sealed class CatalogGiftStoreDatabaseTests
             };
             var content = new ItemDefinition { Id = 50, Type = ItemType.Floor };
 
-            using (var rollback = connection.BeginTransaction())
-            {
+            using (var rollback = connection.BeginTransaction()) {
                 store.Create(connection, rollback, 2, present, content, "wrapped", "inside");
                 Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items", transaction: rollback));
                 Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_presents", transaction: rollback));
                 rollback.Rollback();
             }
+
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items"));
             Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_presents"));
 
-            using (var commit = connection.BeginTransaction())
-            {
+            using (var commit = connection.BeginTransaction()) {
                 var gift = store.Create(connection, commit, 2, present, content, "wrapped", "inside");
                 commit.Commit();
                 Assert.Equal(gift.Id, connection.ExecuteScalar<uint>("SELECT item_id FROM user_presents"));
             }
+
             Assert.Equal((2, 60u, "wrapped"), connection.QuerySingle<(int UserId, uint BaseItem, string ExtraData)>(
                 "SELECT user_id, base_item, extra_data FROM items"));
             Assert.Equal((50u, "inside"), connection.QuerySingle<(uint BaseId, string ExtraData)>(
                 "SELECT base_id, extra_data FROM user_presents"));
         }
-        finally
-        {
+        finally {
             server.Execute($"DROP DATABASE `{schema}`");
         }
     }

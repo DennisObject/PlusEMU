@@ -24,48 +24,53 @@ public sealed class PetPlacementService(
     public void Place(Room room, GameClient session, int petId, int x, int y)
     {
         var habbo = session.GetHabbo();
-        if (!ReferenceEquals(habbo.CurrentRoom, room))
-            return;
 
-        if (!room.AllowPets && !room.CheckRights(session, true))
-        {
-            session.Send(new RoomErrorNotifComposer(PetPlacementError.RoomDisallowsPets));
+        if (!ReferenceEquals(habbo.CurrentRoom, room)) {
             return;
         }
 
-        if (room.GetRoomUserManager().PetCount >= Convert.ToInt32(settings.TryGetValue("room.pets.placement_limit")))
-        {
+        if (!room.AllowPets && !room.CheckRights(session, true)) {
+            session.Send(new RoomErrorNotifComposer(PetPlacementError.RoomDisallowsPets));
+
+            return;
+        }
+
+        if (room.GetRoomUserManager().PetCount >= Convert.ToInt32(settings.TryGetValue("room.pets.placement_limit"))) {
             session.Send(new RoomErrorNotifComposer(PetPlacementError.RoomLimitReached));
+
             return;
         }
 
         if (!habbo.Inventory.Pets.Pets.TryGetValue(petId, out var pet)
             || pet.PetId <= 0
-            || pet.OwnerId != habbo.Id)
+            || pet.OwnerId != habbo.Id) {
             return;
+        }
 
-        lock (pet)
-        {
-            if (pet.PlacedInRoom)
-            {
+        lock (pet) {
+            if (pet.PlacedInRoom) {
                 session.SendNotification("This pet is already in the room?");
+
                 return;
             }
 
             if (!room.GetGameMap().ValidTile(x, y)
                 || !room.GetGameMap().SquareIsOpen(x, y, false)
-                || !room.GetGameMap().CanWalk(x, y, false))
-            {
+                || !room.GetGameMap().CanWalk(x, y, false)) {
                 session.Send(new RoomErrorNotifComposer(PetPlacementError.InvalidTile));
+
                 return;
             }
 
             var z = room.GetGameMap().SqAbsoluteHeight(x, y);
-            if (!store.TryMove(Move(pet, room.RoomId, x, y, z)))
-                return;
 
-            if (room.GetRoomUserManager().TryGetPet(pet.PetId, out var oldPet))
+            if (!store.TryMove(Move(pet, room.RoomId, x, y, z))) {
+                return;
+            }
+
+            if (room.GetRoomUserManager().TryGetPet(pet.PetId, out var oldPet)) {
                 room.GetRoomUserManager().RemoveBot(oldPet.VirtualId, false);
+            }
 
             pet.X = x;
             pet.Y = y;
@@ -85,36 +90,43 @@ public sealed class PetPlacementService(
     public void PickUp(Room room, GameClient session, int petId)
     {
         var habbo = session.GetHabbo();
-        if (!ReferenceEquals(habbo.CurrentRoom, room))
-            return;
 
-        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet))
-        {
+        if (!ReferenceEquals(habbo.CurrentRoom, room)) {
+            return;
+        }
+
+        if (!room.GetRoomUserManager().TryGetPet(petId, out var pet)) {
             RestoreAvatarPet(room, session, petId);
+
             return;
         }
 
         var data = pet.PetData;
-        if (data == null || data.PetId <= 0 || data.RoomId != room.RoomId)
-            return;
-        if (habbo.Id != data.OwnerId && !room.CheckRights(session, true))
-        {
-            session.SendWhisper("You can only pickup your own pets, to kick a pet you must have room rights.");
+
+        if (data == null || data.PetId <= 0 || data.RoomId != room.RoomId) {
             return;
         }
 
-        lock (data)
-        {
-            if (data.RoomId != room.RoomId || !data.PlacedInRoom || !store.TryMove(Move(data, 0, 0, 0, 0)))
+        if (habbo.Id != data.OwnerId && !room.CheckRights(session, true)) {
+            session.SendWhisper("You can only pickup your own pets, to kick a pet you must have room rights.");
+
+            return;
+        }
+
+        lock (data) {
+            if (data.RoomId != room.RoomId || !data.PlacedInRoom || !store.TryMove(Move(data, 0, 0, 0, 0))) {
                 return;
+            }
 
             DetachRider(room, pet);
             data.RoomId = 0;
             data.PlacedInRoom = false;
             data.DbState = PetDatabaseUpdateState.Updated;
             var owner = data.OwnerId == habbo.Id ? session : clients.GetClientByUserId(data.OwnerId);
-            if (owner?.GetHabbo() is { } ownerHabbo && ownerHabbo.Inventory.Pets.AddPet(data))
+
+            if (owner?.GetHabbo() is { } ownerHabbo && ownerHabbo.Inventory.Pets.AddPet(data)) {
                 owner.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(ownerHabbo.Inventory.Pets.Pets.Values)));
+            }
 
             room.GetRoomUserManager().RemoveBot(pet.VirtualId, false);
         }
@@ -126,19 +138,21 @@ public sealed class PetPlacementService(
 
     private static void DetachRider(Room room, RoomUser pet)
     {
-        if (!pet.RidingHorse)
+        if (!pet.RidingHorse) {
             return;
+        }
 
-        if (room.UsesV2Movement)
-        {
+        if (room.UsesV2Movement) {
             room.GetGameMap().Navigation!.Mounts.DetachPickedUpHorse(pet);
+
             return;
         }
 
         var rider = room.GetRoomUserManager().GetRoomUserByVirtualId(pet.HorseId);
-        if (rider == null)
-        {
+
+        if (rider == null) {
             pet.RidingHorse = false;
+
             return;
         }
 
@@ -150,13 +164,16 @@ public sealed class PetPlacementService(
     private static void RestoreAvatarPet(Room room, GameClient session, int petId)
     {
         if (!room.CheckRights(session) && room.WhoCanKick != 2 && room.Group == null
-            || room.Group != null && !room.CheckRights(session, false, true))
+            || room.Group != null && !room.CheckRights(session, false, true)) {
             return;
+        }
 
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(petId);
         var userHabbo = user?.GetClient()?.GetHabbo();
-        if (user == null || userHabbo == null)
+
+        if (user == null || userHabbo == null) {
             return;
+        }
 
         userHabbo.PetId = 0;
         room.SendPacket(new UserRemoveComposer(user.VirtualId));

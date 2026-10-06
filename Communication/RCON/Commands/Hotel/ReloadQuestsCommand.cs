@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Quests;
 
 namespace Plus.Communication.RCON.Commands.Hotel;
 
@@ -18,6 +18,7 @@ internal class ReloadQuestsCommand : IRconCommand
     public Task<bool> TryExecute(string[] parameters)
     {
         _questManager.Init();
+
         return Task.FromResult(true);
     }
 }

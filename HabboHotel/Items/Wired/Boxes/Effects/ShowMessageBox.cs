@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
@@ -41,24 +41,42 @@ internal class ShowMessageBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params == null || @params.Length == 0)
+        if (@params == null || @params.Length == 0) {
             return false;
+        }
+
         var player = (Habbo)@params[0];
-        if (player == null || player.Client == null || string.IsNullOrWhiteSpace(StringData))
+
+        if (player == null || player.Client == null || string.IsNullOrWhiteSpace(StringData)) {
             return false;
+        }
+
         var user = player.CurrentRoom.GetRoomUserManager().GetRoomUserByHabbo(player.Username);
-        if (user == null)
+
+        if (user == null) {
             return false;
+        }
+
         var message = StringData;
-        if (StringData.Contains("%USERNAME%"))
+
+        if (StringData.Contains("%USERNAME%")) {
             message = message.Replace("%USERNAME%", player.Username);
-        if (StringData.Contains("%ROOMNAME%"))
+        }
+
+        if (StringData.Contains("%ROOMNAME%")) {
             message = message.Replace("%ROOMNAME%", player.CurrentRoom.Name);
-        if (StringData.Contains("%USERCOUNT%"))
+        }
+
+        if (StringData.Contains("%USERCOUNT%")) {
             message = message.Replace("%USERCOUNT%", player.CurrentRoom.UserCount.ToString());
-        if (StringData.Contains("%USERSONLINE%"))
+        }
+
+        if (StringData.Contains("%USERSONLINE%")) {
             message = message.Replace("%USERSONLINE%", _clients.Count.ToString());
+        }
+
         player.Client.Send(new WhisperComposer(user.VirtualId, message, 0, 34));
+
         return true;
     }
 }

@@ -1,11 +1,10 @@
-﻿namespace Plus.HabboHotel.Users.Messenger.FriendBar;
+namespace Plus.HabboHotel.Users.Messenger.FriendBar;
 
 public static class FriendBarStateUtility
 {
     public static FriendBarState GetEnum(int state)
     {
-        switch (state)
-        {
+        switch (state) {
             default:
             case 0:
                 return FriendBarState.Closed;
@@ -16,8 +15,7 @@ public static class FriendBarStateUtility
 
     public static int GetInt(FriendBarState state)
     {
-        switch (state)
-        {
+        switch (state) {
             default:
             case FriendBarState.Closed:
                 return 0;

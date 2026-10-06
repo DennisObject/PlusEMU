@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -25,47 +25,74 @@ internal class TeleportBotToFurniBox : IWiredItem
     {
         var unknown = packet.ReadInt();
         var botName = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
-        var furniCount = packet.ReadInt();
-        for (var i = 0; i < furniCount; i++)
-        {
-            var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
-            if (selectedItem != null)
-                SetItems.TryAdd(selectedItem.Id, selectedItem);
         }
+
+        var furniCount = packet.ReadInt();
+
+        for (var i = 0; i < furniCount; i++) {
+            var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
+
+            if (selectedItem != null) {
+                SetItems.TryAdd(selectedItem.Id, selectedItem);
+            }
+        }
+
         StringData = botName;
     }
 
     public bool Execute(params object[] @params)
     {
-        if (string.IsNullOrEmpty(StringData))
+        if (string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var user = Instance.GetRoomUserManager().GetBotByName(StringData);
-        if (user == null)
+
+        if (user == null) {
             return false;
+        }
+
         var items = SetItems.Values.ToList();
         items = items.OrderBy(x => Random.Shared.Next()).ToList();
-        if (items.Count == 0)
+
+        if (items.Count == 0) {
             return false;
-        var item = items.First();
-        if (item == null)
-            return false;
-        if (!Instance.GetRoomItemHandler().GetFloor.Contains(item))
-        {
-            SetItems.TryRemove(item.Id, out item);
-            if (items.Contains(item))
-                items.Remove(item);
-            if (SetItems.Count == 0 || items.Count == 0)
-                return false;
-            item = items.First();
-            if (item == null)
-                return false;
         }
-        if (Instance.GetGameMap() == null)
+
+        var item = items.First();
+
+        if (item == null) {
             return false;
+        }
+
+        if (!Instance.GetRoomItemHandler().GetFloor.Contains(item)) {
+            SetItems.TryRemove(item.Id, out item);
+
+            if (items.Contains(item)) {
+                items.Remove(item);
+            }
+
+            if (SetItems.Count == 0 || items.Count == 0) {
+                return false;
+            }
+
+            item = items.First();
+
+            if (item == null) {
+                return false;
+            }
+        }
+
+        if (Instance.GetGameMap() == null) {
+            return false;
+        }
+
         Instance.GetGameMap().TeleportToItem(user, item);
         Instance.GetRoomUserManager().UpdateUserStatusses();
+
         return true;
     }
 }

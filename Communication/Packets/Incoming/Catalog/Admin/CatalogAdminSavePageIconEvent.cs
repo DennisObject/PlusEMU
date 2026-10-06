@@ -17,6 +17,7 @@ public class CatalogAdminSavePageIconEvent : IPacketEvent
         int pageId = packet.ReadInt(), iconId = packet.ReadInt();
         var envelope = CatalogAdminPacketReader.Envelope(packet, CatalogAdminPacketReader.CatalogType(packet.ReadString()));
         CatalogAdminResponder.Send(session, "savePageIcon", envelope, _catalogAdmin.SavePageIcon(session.GetHabbo(), envelope, pageId, iconId));
+
         return Task.CompletedTask;
     }
 }

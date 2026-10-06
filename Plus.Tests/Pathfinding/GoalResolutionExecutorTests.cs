@@ -14,7 +14,11 @@ public partial class PlacedFurniRoomTests
         var actor = ExecutorConfiguredActor(new() { Engine = PathfindingEngine.V2, UnreachablePolicy = policy });
         _room.GetGameMap().SetFloorStatus(3, 1, 0);
         actor.MoveTo(3, 1);
-        for (var cycle = 0; cycle < 8; cycle++) ExecutorTick();
+
+        for (var cycle = 0; cycle < 8; cycle++) {
+            ExecutorTick();
+        }
+
         Assert.Equal((expectedX, 1), (actor.X, actor.Y));
         Assert.False(actor.Movement.HasIntent);
         Assert.False(actor.HasStatus("mv"));
@@ -23,10 +27,18 @@ public partial class PlacedFurniRoomTests
     [Fact]
     public void GoalResolutionExecutorBudgetCancellationNeverRunsNearestFallback()
     {
-        var actor = ExecutorConfiguredActor(new() { Engine = PathfindingEngine.V2,
-            UnreachablePolicy = "nearest", MaxExpansionsPerSearch = 1 });
+        var actor = ExecutorConfiguredActor(new()
+        {
+            Engine = PathfindingEngine.V2,
+            UnreachablePolicy = "nearest",
+            MaxExpansionsPerSearch = 1
+        });
         actor.MoveTo(3, 1);
-        for (var cycle = 0; cycle < 8; cycle++) ExecutorTick();
+
+        for (var cycle = 0; cycle < 8; cycle++) {
+            ExecutorTick();
+        }
+
         Assert.Equal((0, 1), (actor.X, actor.Y));
         Assert.False(actor.Movement.HasIntent);
         Assert.False(actor.HasStatus("mv"));
@@ -36,9 +48,12 @@ public partial class PlacedFurniRoomTests
     {
         var actor = ExecutorActor(0, 1);
         ExecutorObserveLanding((_, _) => { });
-        actor.MoveTo(3, 3); ExecutorTick(); ExecutorTick();
+        actor.MoveTo(3, 3);
+        ExecutorTick();
+        ExecutorTick();
         Assert.Equal((0, 1), (actor.X, actor.Y));
-        Assert.False(actor.Movement.HasIntent); Assert.False(actor.HasStatus("mv"));
+        Assert.False(actor.Movement.HasIntent);
+        Assert.False(actor.HasStatus("mv"));
     }
     [Fact]
     public void CommandIntakeResolvesTheBedPillowBeforeADeferredSearch()
@@ -46,10 +61,13 @@ public partial class PlacedFurniRoomTests
         var bed = Add(10, 1, 1, height: .5, type: InteractionType.Bed, width: 2, length: 2);
         InitializeNativeState(bed);
         var actor = ExecutorConfiguredActor(new() { Engine = PathfindingEngine.V2, MaxExpansionsPerRoomTick = 0 });
-        actor.MoveTo(2, 2); ExecutorTick();
+        actor.MoveTo(2, 2);
+        ExecutorTick();
         Assert.Equal((1, 1), (actor.GoalX, actor.GoalY));
-        Assert.True(actor.Movement.HasIntent); Assert.False(actor.HasStatus("mv"));
-        ExecutorAdditionalBot(1, 1, 2); ExecutorTick();
+        Assert.True(actor.Movement.HasIntent);
+        Assert.False(actor.HasStatus("mv"));
+        ExecutorAdditionalBot(1, 1, 2);
+        ExecutorTick();
         Assert.Equal((1, 1), (actor.GoalX, actor.GoalY));
     }
 }

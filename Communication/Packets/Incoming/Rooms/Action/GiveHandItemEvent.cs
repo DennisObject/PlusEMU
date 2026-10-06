@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Incoming.Rooms;
+using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -10,6 +10,7 @@ internal class GiveHandItemEvent(IRoomAvatarActionService actions) : RoomPacketE
     {
         var userId = packet.ReadInt();
         actions.GiveHandItem(room, session, userId);
+
         return Task.CompletedTask;
     }
 }

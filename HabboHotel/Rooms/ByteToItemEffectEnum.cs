@@ -1,11 +1,10 @@
-﻿namespace Plus.HabboHotel.Rooms;
+namespace Plus.HabboHotel.Rooms;
 
 public static class ByteToItemEffectEnum
 {
     public static ItemEffectType Parse(byte number)
     {
-        switch (number)
-        {
+        switch (number) {
             case 0:
                 return ItemEffectType.None;
             case 1:

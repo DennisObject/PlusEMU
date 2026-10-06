@@ -49,24 +49,34 @@ public sealed class FurnidataStore : IFurnidataStore
     public FurnidataLookup Lookup(string classname, int spriteId)
     {
         string path = _configuration.FurnidataPath;
-        try
-        {
+
+        try {
             var source = Resolve();
-            if (source == null)
+
+            if (source == null) {
                 return new("{}", Diagnostic("source_missing", spriteId, classname, path, string.IsNullOrWhiteSpace(path) ? "CONFIG_MISSING" : "MISSING", ""));
+            }
+
             var index = IndexFor(source);
             var key = classname.Trim().ToLowerInvariant();
-            if (index.ByClassname.TryGetValue(key, out var exact))
+
+            if (index.ByClassname.TryGetValue(key, out var exact)) {
                 return new(exact, Diagnostic("matched_classname", spriteId, classname, path, "OK", ""));
+            }
+
             int star = key.IndexOf('*');
-            if (star > 0 && index.ByClassname.TryGetValue(key[..star], out var stripped))
+
+            if (star > 0 && index.ByClassname.TryGetValue(key[..star], out var stripped)) {
                 return new(stripped, Diagnostic("matched_classname_stripped", spriteId, classname, path, "OK", ""));
-            if (index.ById.TryGetValue(spriteId, out var byId))
+            }
+
+            if (index.ById.TryGetValue(spriteId, out var byId)) {
                 return new(byId, Diagnostic("matched_id", spriteId, classname, path, "OK", ""));
+            }
+
             return new("{}", Diagnostic(index.Empty ? "manifest_empty" : "not_found", spriteId, classname, path, "OK", ""));
         }
-        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException or FurnidataException)
-        {
+        catch (Exception e) when (e is IOException or JsonException or UnauthorizedAccessException or FurnidataException) {
             // IO messages carry server paths; staff only learn that the file could not be read.
             return new("{}", Diagnostic("error", spriteId, classname, path, "ERROR", e is FurnidataException ? e.Message : "The furnidata file could not be read"));
         }
@@ -75,22 +85,26 @@ public sealed class FurnidataStore : IFurnidataStore
     public FurnidataEdit Edit(FurnidataTarget target, Action<JsonObject> edit) => Write(target, entry =>
     {
         edit(entry);
+
         return entry;
     });
 
     public FurnidataEdit Restore(FurnidataTarget target, string expectedCurrent, string entryJson) => Write(target, current =>
     {
-        if (current.ToJsonString(Compact) != expectedCurrent)
+        if (current.ToJsonString(Compact) != expectedCurrent) {
             throw new FurnidataException("The furnidata entry changed since that edit; revert refused");
+        }
+
         return JsonNode.Parse(entryJson) as JsonObject ?? throw new FurnidataException("The logged entry is not a JSON object");
     });
 
     private FurnidataEdit Write(FurnidataTarget target, Func<JsonObject, JsonObject> change)
     {
-        if (string.IsNullOrWhiteSpace(target.Classname))
+        if (string.IsNullOrWhiteSpace(target.Classname)) {
             throw new FurnidataException("The furniture has no classname");
-        lock (_writeSync)
-        {
+        }
+
+        lock (_writeSync) {
             var source = Resolve() ?? throw new FurnidataException("Furnidata source not configured");
             var text = File.ReadAllText(source.FullName, Encoding.UTF8);
             var root = JsonNode.Parse(text) as JsonObject ?? throw new FurnidataException("Furnidata is not a JSON object");
@@ -99,18 +113,28 @@ public sealed class FurnidataStore : IFurnidataStore
             var current = (JsonObject)array[position]!;
             var before = current.ToJsonString(Compact);
             var updated = change((JsonObject)JsonNode.Parse(before)!);
-            if (!string.Equals(Text(updated["classname"]), Text(current["classname"]), StringComparison.OrdinalIgnoreCase) || Number(updated["id"]) != Number(current["id"]))
+
+            if (!string.Equals(Text(updated["classname"]), Text(current["classname"]), StringComparison.OrdinalIgnoreCase) || Number(updated["id"]) != Number(current["id"])) {
                 throw new FurnidataException("An edit cannot change the classname or id");
+            }
+
             var after = updated.ToJsonString(Compact);
             var result = new FurnidataEdit(before, after, isWall, Number(updated["id"]), Text(updated["classname"]), Text(updated["name"]), Text(updated["description"]));
-            if (!result.Changed)
+
+            if (!result.Changed) {
                 return result;
+            }
+
             array[position] = updated;
             var output = root.ToJsonString(text.Contains('\n') ? Indented : Compact);
-            if (text.EndsWith('\n'))
+
+            if (text.EndsWith('\n')) {
                 output += "\n";
+            }
+
             Replace(source, output);
             _index = null;
+
             return result;
         }
     }
@@ -121,40 +145,48 @@ public sealed class FurnidataStore : IFurnidataStore
 
     private static (JsonArray Array, int Position) Find(JsonObject root, FurnidataTarget target)
     {
-        if (root[target.IsWallItem ? "wallitemtypes" : "roomitemtypes"]?["furnitype"] is not JsonArray types)
+        if (root[target.IsWallItem ? "wallitemtypes" : "roomitemtypes"]?["furnitype"] is not JsonArray types) {
             throw new FurnidataException("No furnidata entry for this classname");
+        }
+
         var matches = Enumerable.Range(0, types.Count)
             .Where(i => types[i] is JsonObject entry && string.Equals(Text(entry["classname"]), target.Classname, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (matches.Count > 1)
-        {
+
+        if (matches.Count > 1) {
             matches = matches.Where(i => Number(types[i]!["id"]) == target.Id).ToList();
-            if (matches.Count != 1)
+
+            if (matches.Count != 1) {
                 throw new FurnidataException("Several furnidata entries share this classname and sprite id");
+            }
         }
+
         return matches is [var position] ? (types, position) : throw new FurnidataException("No furnidata entry for this classname");
     }
 
     private void Replace(FileInfo target, string content)
     {
         var bytes = Encoding.UTF8.GetBytes(content);
-        if (bytes.LongLength > _configuration.FurnidataMaxBytes)
+
+        if (bytes.LongLength > _configuration.FurnidataMaxBytes) {
             throw new FurnidataException("Furnidata would exceed the configured size limit");
+        }
+
         var directory = target.DirectoryName!;
         var temp = Path.Combine(directory, $".{target.Name}.{Guid.NewGuid():N}.tmp");
-        try
-        {
-            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            {
+
+        try {
+            using (var stream = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None)) {
                 stream.Write(bytes);
                 stream.Flush(flushToDisk: true);
             }
+
             File.Copy(target.FullName, target.FullName + ".bak", overwrite: true);
             File.Move(temp, target.FullName, overwrite: true);
         }
-        finally
-        {
-            if (File.Exists(temp))
+        finally {
+            if (File.Exists(temp)) {
                 File.Delete(temp);
+            }
         }
     }
 
@@ -162,43 +194,63 @@ public sealed class FurnidataStore : IFurnidataStore
     private FileInfo? Resolve()
     {
         var configured = _configuration.FurnidataPath;
+
         if (string.IsNullOrWhiteSpace(configured) || !Path.IsPathFullyQualified(configured)
-            || !configured.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            || !configured.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) {
             return null;
+        }
+
         var file = new FileInfo(Path.GetFullPath(configured));
-        if (file.LinkTarget != null && file.ResolveLinkTarget(returnFinalTarget: true) is FileInfo target)
+
+        if (file.LinkTarget != null && file.ResolveLinkTarget(returnFinalTarget: true) is FileInfo target) {
             file = target;
-        if (!file.Exists)
+        }
+
+        if (!file.Exists) {
             return null;
-        if (file.Length > _configuration.FurnidataMaxBytes)
+        }
+
+        if (file.Length > _configuration.FurnidataMaxBytes) {
             throw new FurnidataException("Furnidata exceeds the configured size limit");
+        }
+
         return file;
     }
 
     private Index IndexFor(FileInfo source)
     {
         var stamp = (source.FullName, source.LastWriteTimeUtc, source.Length);
-        if (_index is { } cached && cached.Stamp == stamp)
+
+        if (_index is { } cached && cached.Stamp == stamp) {
             return cached;
+        }
+
         var byClassname = new Dictionary<string, string>();
         var byId = new Dictionary<int, string>();
         using var document = JsonDocument.Parse(File.ReadAllBytes(source.FullName));
-        foreach (var section in Sections)
-        {
+
+        foreach (var section in Sections) {
             if (!document.RootElement.TryGetProperty(section, out var sectionElement) || !sectionElement.TryGetProperty("furnitype", out var types)
-                || types.ValueKind != JsonValueKind.Array)
+                || types.ValueKind != JsonValueKind.Array) {
                 continue;
-            foreach (var entry in types.EnumerateArray())
-            {
+            }
+
+            foreach (var entry in types.EnumerateArray()) {
                 var json = JsonSerializer.Serialize(entry, Compact);
-                if (entry.TryGetProperty("classname", out var name) && name.ValueKind == JsonValueKind.String)
+
+                if (entry.TryGetProperty("classname", out var name) && name.ValueKind == JsonValueKind.String) {
                     byClassname.TryAdd(name.GetString()!.Trim().ToLowerInvariant(), json);
-                if (entry.TryGetProperty("id", out var id) && id.TryGetInt32(out var number))
+                }
+
+                if (entry.TryGetProperty("id", out var id) && id.TryGetInt32(out var number)) {
                     byId.TryAdd(number, json);
+                }
             }
         }
+
         var index = new Index(stamp, byClassname, byId, byClassname.Count == 0 && byId.Count == 0);
         _index = index;
+
         return index;
     }
 

@@ -1,4 +1,4 @@
-﻿namespace Plus.Utilities;
+namespace Plus.Utilities;
 
 public static class ConvertExtensions
 {

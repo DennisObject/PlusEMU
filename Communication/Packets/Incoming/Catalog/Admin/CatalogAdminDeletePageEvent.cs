@@ -16,6 +16,7 @@ public class CatalogAdminDeletePageEvent : IPacketEvent
     {
         var (pageId, envelope) = CatalogAdminPacketReader.Target(packet);
         CatalogAdminResponder.Send(session, "deletePage", envelope, _catalogAdmin.DeletePage(session.GetHabbo(), envelope, pageId));
+
         return Task.CompletedTask;
     }
 }

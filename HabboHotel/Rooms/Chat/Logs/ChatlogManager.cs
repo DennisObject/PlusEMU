@@ -1,4 +1,4 @@
-﻿using Dapper;
+using Dapper;
 using Plus.Database;
 
 namespace Plus.HabboHotel.Rooms.Chat.Logs;
@@ -21,35 +21,37 @@ public sealed class ChatlogManager : IChatlogManager
     public void StoreChatlog(ChatlogEntry entry)
     {
         _lock.EnterUpgradeableReadLock();
-        try
-        {
+
+        try {
             _chatlogs.Add(entry);
             OnChatlogStore();
         }
-        finally
-        {
+        finally {
             _lock.ExitUpgradeableReadLock();
         }
     }
 
     private void OnChatlogStore()
     {
-        if (_chatlogs.Count >= FlushOnCount)
+        if (_chatlogs.Count >= FlushOnCount) {
             FlushAndSave();
+        }
     }
 
     public void FlushAndSave()
     {
         _lock.EnterWriteLock();
-        try
-        {
-            if (_chatlogs.Count == 0)
+
+        try {
+            if (_chatlogs.Count == 0) {
                 return;
+            }
+
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
-            foreach (var entry in _chatlogs)
-            {
+
+            foreach (var entry in _chatlogs) {
                 connection.Execute("""
                     INSERT INTO chatlogs (user_id, room_id, `timestamp`, message)
                     VALUES (@PlayerId, @RoomId, @CreatedAt, @Message)
@@ -61,11 +63,11 @@ public sealed class ChatlogManager : IChatlogManager
                     entry.Message
                 }, transaction);
             }
+
             transaction.Commit();
             _chatlogs.Clear();
         }
-        finally
-        {
+        finally {
             _lock.ExitWriteLock();
         }
     }

@@ -13,6 +13,7 @@ public sealed record TradeOfferSnapshot(int UserId, ImmutableArray<TradeItemWire
         var data = items.Select(item => new TradeItemWireData(item.Id, item.Definition.Type.ToString().ToLowerInvariant(),
             item.Definition.SpriteId, item.UniqueNumber, item.UniqueSeries, item.Definition.Type == ItemType.Floor)).ToImmutableArray();
         var credits = items.Where(item => item.Definition.InteractionType == InteractionType.Exchange).Sum(item => item.Definition.BehaviourData);
+
         return new TradeOfferSnapshot(user.RoomUser.UserId, data, credits);
     }).ToImmutableArray();
 }

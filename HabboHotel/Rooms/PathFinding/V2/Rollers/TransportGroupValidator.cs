@@ -13,11 +13,19 @@ internal sealed class TransportGroupValidator(Room room, RollerTransport transpo
     private bool Unchanged(RollerMove move)
     {
         var snapshot = move.Snapshot;
+
         if (!InPlace(move.Roller, move) || move.Roller.Rotation != snapshot.RollerRotation
-            || move.Roller.GetZ != snapshot.RollerZ) return false;
-        if (move.Cargo is { } cargo) return InPlace(cargo, move) && cargo.GetZ == snapshot.SourceZ
+            || move.Roller.GetZ != snapshot.RollerZ) {
+            return false;
+        }
+
+        if (move.Cargo is { } cargo) {
+            return InPlace(cargo, move) && cargo.GetZ == snapshot.SourceZ
             && cargo.Rotation == snapshot.CargoRotation && CarriedZStillResolves(cargo, move);
+        }
+
         var actor = move.Actor!;
+
         return ReferenceEquals(room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId), actor)
             && actor.X == move.Origin.X && actor.Y == move.Origin.Y && actor.Z == snapshot.SourceZ
             && actor.Movement.LocationRevision == snapshot.ActorRevision && transport.CanRide(actor);

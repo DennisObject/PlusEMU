@@ -22,15 +22,22 @@ public sealed class WiredVariableFxTests
         var reference = new WiredVariableReference(WiredVariableTarget.User, "custom:10");
         var before = new WiredVariableFrame(1, [viewer, old]);
         module.Mutate(reference, old, WiredVariableMutation.Give, 25, before);
-        var binding = new WiredVariableFxBinding(new(50,true,0,3000,0,0,0,0,0,0,100,ImmutableSortedDictionary<string,string>.Empty), reference,2,null,0,null,null);
+        var binding = new WiredVariableFxBinding(new(50, true, 0, 3000, 0, 0, 0, 0, 0, 0, 100, ImmutableSortedDictionary<string, string>.Empty), reference, 2, null, 0, null, null);
         var tracker = new WiredVariableFxTracker(module);
         var first = tracker.Update(viewer, before, [binding], [old], _ => 0);
         Assert.True(tracker.Acknowledge(viewer.StableId, first));
         var pending = tracker.Update(viewer, before, [binding], [old], _ => 0);
         var after = new WiredVariableFrame(1, [viewer, replacement]);
-        if (!samePlayer) module.Mutate(reference, replacement, WiredVariableMutation.Give, 25, after);
+
+        if (!samePlayer) {
+            module.Mutate(reference, replacement, WiredVariableMutation.Give, 25, after);
+        }
+
         // Identity discrimination also catches a different holder before a detach callback arrives.
-        if (!samePlayer) Assert.True(Assert.Single(tracker.Update(viewer, after, [binding], [replacement], _ => 0).Statuses).Initialize);
+        if (!samePlayer) {
+            Assert.True(Assert.Single(tracker.Update(viewer, after, [binding], [replacement], _ => 0).Statuses).Initialize);
+        }
+
         tracker.DetachHolder(old);
         Assert.False(tracker.Acknowledge(viewer.StableId, pending));
         var reentered = tracker.Update(viewer, after, [binding], [replacement], _ => 0);
@@ -41,7 +48,8 @@ public sealed class WiredVariableFxTests
     [Fact]
     public void OverrideUsesStablePlayerIdWhileWireUsesEntityIdAndAudienceLossRemovesStatus()
     {
-        var directory = new Directory(); var store = new MemoryWiredVariableStore();
+        var directory = new Directory();
+        var store = new MemoryWiredVariableStore();
         var module = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 900, 7);
         var viewer = new WiredVariableHolder(WiredVariableTarget.User, 901, 8);
@@ -56,48 +64,58 @@ public sealed class WiredVariableFxTests
         Assert.True(WiredVariableFxSettings.TryDecode("wf_xtra_var_fx_progress", 50, configuration, score, out var binding, out _));
         var tracker = new WiredVariableFxTracker(module);
         var first = tracker.Update(viewer, frame, [binding!], [holder], _ => 0);
-        Assert.True(first.InitializeAll); Assert.Single(first.Configs);
+        Assert.True(first.InitializeAll);
+        Assert.Single(first.Configs);
         var status = Assert.Single(first.Statuses);
-        Assert.Equal(7, status.Key.EntityId); Assert.Equal("user:10", status.Key.VariableId); Assert.Equal(200, status.Max); Assert.Equal(25, status.Value);
+        Assert.Equal(7, status.Key.EntityId);
+        Assert.Equal("user:10", status.Key.VariableId);
+        Assert.Equal(200, status.Max);
+        Assert.Equal(25, status.Value);
         Assert.Equal(new uint[] { 9473, 9475 }, WiredVariableFxComposer.ComposeBatch(first).Select(x => x.MessageId));
         var retry = tracker.Update(viewer, frame, [binding!], [holder], _ => 0);
-        Assert.Single(retry.Configs); Assert.Single(retry.Statuses); // Failed send was not acknowledged.
+        Assert.Single(retry.Configs);
+        Assert.Single(retry.Statuses); // Failed send was not acknowledged.
         Assert.False(tracker.Acknowledge(viewer.StableId, first));
         Assert.True(tracker.Acknowledge(viewer.StableId, retry));
         var unchanged = tracker.Update(viewer, frame, [binding!], [holder], _ => 0);
-        Assert.Empty(unchanged.Statuses); Assert.Empty(unchanged.Configs);
+        Assert.Empty(unchanged.Statuses);
+        Assert.Empty(unchanged.Configs);
         module.Mutate(audience, viewer, WiredVariableMutation.Remove, 0, frame);
         var lost = tracker.Update(viewer, frame, [binding!], [holder], _ => 0);
-        Assert.Equal(status.Key, Assert.Single(lost.RemovedStatuses)); Assert.Empty(lost.Statuses);
+        Assert.Equal(status.Key, Assert.Single(lost.RemovedStatuses));
+        Assert.Empty(lost.Statuses);
     }
 
     [Fact]
     public void WireSignedLongAndRemovalKeyMatchClientReader()
     {
         var key = new WiredVariableFxKey(40, "custom:22", true, 7);
-        var status = new WiredVariableFxStatus(key, true, -4294967297L, null, null, ImmutableSortedDictionary<string,string>.Empty);
+        var status = new WiredVariableFxStatus(key, true, -4294967297L, null, null, ImmutableSortedDictionary<string, string>.Empty);
         var batch = new WiredVariableFxBatch(true, [], [], [status], []);
-        var packet = new Packet(); WiredVariableFxComposer.ComposeBatch(batch).Single().Compose(packet);
+        var packet = new Packet();
+        WiredVariableFxComposer.ComposeBatch(batch).Single().Compose(packet);
         Assert.Equal(new object[] { true, 1, "40|custom:22", true, true, 7, -2, -1, false, 0 }, packet.Values);
-        var removed = new Packet(); WiredVariableFxComposer.ComposeBatch(batch with { Statuses = [], RemovedStatuses = [key] }).Single().Compose(removed);
+        var removed = new Packet();
+        WiredVariableFxComposer.ComposeBatch(batch with { Statuses = [], RemovedStatuses = [key] }).Single().Compose(removed);
         Assert.Equal(new object[] { 1, "40|custom:22|u|7" }, removed.Values);
     }
 
     [Fact]
     public void ScalarEditorExecutionChangesSelectedStableHolderAndChecksQuantifier()
     {
-        var directory = new Directory(); var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
+        var directory = new Directory();
+        var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var holder = new WiredVariableHolder(WiredVariableTarget.User, 321, 8);
         var other = new WiredVariableHolder(WiredVariableTarget.User, 123, 9);
         var frame = new WiredVariableFrame(1, [holder, other]) { Trigger = [holder] };
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
-        Assert.True(executor.Execute("wf_act_give_var", new() { IntParams = [0,0,10,0,0], Text = "10" }, frame));
-        Assert.True(executor.Execute("wf_act_change_var_val", new() { IntParams = [0,1,0,5,0,0,0,0,0], Text = "custom:10\t\t" }, frame));
-        Assert.Equal(15, module.Read(new(WiredVariableTarget.User,"custom:10"), holder, frame)!.Value);
-        Assert.True(executor.Execute("wf_cnd_var_val_match", new() { IntParams = [0,2,0,15,0,0,0,0,0,0], Text = "custom:10\t\t" }, frame));
+        Assert.True(executor.Execute("wf_act_give_var", new() { IntParams = [0, 0, 10, 0, 0], Text = "10" }, frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", new() { IntParams = [0, 1, 0, 5, 0, 0, 0, 0, 0], Text = "custom:10\t\t" }, frame));
+        Assert.Equal(15, module.Read(new(WiredVariableTarget.User, "custom:10"), holder, frame)!.Value);
+        Assert.True(executor.Execute("wf_cnd_var_val_match", new() { IntParams = [0, 2, 0, 15, 0, 0, 0, 0, 0, 0], Text = "custom:10\t\t" }, frame));
         frame.Selector.AddRange([holder, other]);
-        Assert.False(executor.Execute("wf_cnd_has_var", new() { IntParams = [0,200,0,0], Text = "custom:10" }, frame));
-        Assert.True(executor.Execute("wf_cnd_has_var", new() { IntParams = [0,200,0,1], Text = "custom:10" }, frame));
+        Assert.False(executor.Execute("wf_cnd_has_var", new() { IntParams = [0, 200, 0, 0], Text = "custom:10" }, frame));
+        Assert.True(executor.Execute("wf_cnd_has_var", new() { IntParams = [0, 200, 0, 1], Text = "custom:10" }, frame));
     }
 
     private sealed class Directory : IWiredVariableDirectory

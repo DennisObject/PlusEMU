@@ -11,8 +11,8 @@ public sealed class SellablePetBreedsComposer(PetPaletteSnapshot snapshot) : ISe
     {
         packet.WriteString(snapshot.Type);
         packet.WriteInteger(snapshot.Races.Length);
-        foreach (var race in snapshot.Races)
-        {
+
+        foreach (var race in snapshot.Races) {
             packet.WriteInteger(snapshot.PetId);
             packet.WriteInteger(race.Breed);
             packet.WriteInteger(race.Palette);

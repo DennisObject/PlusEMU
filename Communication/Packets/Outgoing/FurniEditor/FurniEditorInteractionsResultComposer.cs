@@ -13,7 +13,9 @@ public sealed class FurniEditorInteractionsResultComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_interactions.Count);
-        foreach (var interaction in _interactions)
+
+        foreach (var interaction in _interactions) {
             packet.WriteString(interaction);
+        }
     }
 }

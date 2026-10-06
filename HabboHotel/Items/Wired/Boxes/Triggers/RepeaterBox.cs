@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -41,6 +41,7 @@ internal class RepeaterBox : IWiredItem, IWiredCycle
             .OfType<Plus.HabboHotel.Users.Habbo>()
             .Select(player => new object[] { player })
             .ToArray();
+
         return Instance.GetWired().RunPeriodicStack(this, actors);
     }
 

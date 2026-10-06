@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Games;
 
@@ -17,8 +17,8 @@ public class GameListComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_games.Length);
-        foreach (var game in _games)
-        {
+
+        foreach (var game in _games) {
             packet.WriteInteger(game.Id);
             packet.WriteString(game.Name);
             packet.WriteString(game.ColourOne);

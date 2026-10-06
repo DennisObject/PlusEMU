@@ -31,12 +31,16 @@ public sealed class RoomItemStore(IDatabase database) : IRoomItemStore
     public void SaveMoved(IReadOnlyList<RoomItemSave> items)
     {
         using var connection = database.Connection();
-        foreach (var item in items)
-        {
-            if (!string.IsNullOrEmpty(item.ExtraData))
+
+        foreach (var item in items) {
+            if (!string.IsNullOrEmpty(item.ExtraData)) {
                 connection.Execute("UPDATE items SET extra_data = @extraData WHERE id = @id LIMIT 1", new { extraData = item.ExtraData, item.Id });
-            if (item.SaveWallPosition)
+            }
+
+            if (item.SaveWallPosition) {
                 connection.Execute("UPDATE items SET wall_pos = @wallPosition WHERE id = @id LIMIT 1", new { item.WallPosition, item.Id });
+            }
+
             connection.Execute("UPDATE items SET x = @x, y = @y, z = @z, rot = @rotation WHERE id = @id LIMIT 1",
                 new { item.X, item.Y, item.Z, item.Rotation, item.Id });
         }

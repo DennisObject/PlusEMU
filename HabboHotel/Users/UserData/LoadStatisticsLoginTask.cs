@@ -21,15 +21,16 @@ internal class LoadStatisticsLoginTask : IUserDataLoadingTask
 
     public async Task Load(Habbo habbo)
     {
-        if (habbo == null) throw new ArgumentNullException(nameof(habbo));
+        if (habbo == null) {
+            throw new ArgumentNullException(nameof(habbo));
+        }
 
-        try
-        {
+        try {
             var stats = await _habboStatsService.LoadHabboStats(habbo.Id);
 
             var day = TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), _clock.LocalTimeZone).ToString("MM/dd");
-            if (stats.RespectsTimestamp != day)
-            {
+
+            if (stats.RespectsTimestamp != day) {
                 var dailyRespects = 10;
                 stats.DailyRespectPoints = dailyRespects;
                 stats.DailyPetRespectPoints = dailyRespects;
@@ -38,15 +39,13 @@ internal class LoadStatisticsLoginTask : IUserDataLoadingTask
                 await _habboStatsService.UpdateDailyRespectsAndTimestamp(habbo.Id, dailyRespects, stats.RespectsTimestamp);
             }
 
-            if (!_groups.TryGetGroup(stats.FavouriteGroupId, out var group))
-            {
+            if (!_groups.TryGetGroup(stats.FavouriteGroupId, out var group)) {
                 stats.FavouriteGroupId = 0;
             }
 
             habbo.HabboStats = stats;
         }
-        catch (Exception e)
-        {
+        catch (Exception e) {
             _logger.LogError(e, "Failed to load statistics for {UserId}", habbo.Id);
         }
     }

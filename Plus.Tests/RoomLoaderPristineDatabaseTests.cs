@@ -22,8 +22,8 @@ public sealed class RoomLoaderPristineDatabaseTests
         connection.Open();
         var schema = "room_loaders_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             connection.Execute($"USE `{schema}`");
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
             connection.Execute(CreateTable(pristine, "users"));
@@ -97,8 +97,7 @@ public sealed class RoomLoaderPristineDatabaseTests
             connection.Execute("UPDATE bots_petdata SET type = @type WHERE id = 12", new { type = (uint)int.MaxValue + 1 });
             AssertOverflow(() => RoomPetsComponent.LoadData(connection, 12));
         }
-        finally
-        {
+        finally {
             connection.Execute("USE information_schema");
             connection.Execute($"DROP DATABASE `{schema}`");
         }
@@ -110,6 +109,7 @@ public sealed class RoomLoaderPristineDatabaseTests
         Assert.True(start >= 0, $"Missing pristine CREATE TABLE for {table}.");
         var end = pristine.IndexOf(';', start);
         Assert.True(end >= 0, $"Unterminated pristine CREATE TABLE for {table}.");
+
         return pristine[start..(end + 1)];
     }
 

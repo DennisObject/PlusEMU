@@ -27,7 +27,8 @@ public sealed class RoomDecorationServiceTests
         var wrongOwner = Inventory(7, 99, InteractionType.Wallpaper, "paper");
         client.GetHabbo().Inventory = InventoryWith(wrongOwner);
         service.Apply(room, client, new(7));
-        wrongOwner.OwnerId = 1; wrongOwner.Definition.InteractionType = InteractionType.Gate;
+        wrongOwner.OwnerId = 1;
+        wrongOwner.Definition.InteractionType = InteractionType.Gate;
         service.Apply(room, client, new(7));
         client.GetHabbo().CurrentRoom = null;
         wrongOwner.Definition.InteractionType = InteractionType.Wallpaper;
@@ -105,43 +106,81 @@ public sealed class RoomDecorationServiceTests
     private static (Room Room, GameClient Client, List<(uint Header, byte[] Payload)> Sent) Context(string owner, string username = "owner")
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 9; room.OwnerName = owner; room.Type = "private"; room.Wallpaper = "old"; room.UsersWithRights = [];
+        room.Id = 9;
+        room.OwnerName = owner;
+        room.Type = "private";
+        room.Wallpaper = "old";
+        room.UsersWithRights = [];
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = username == owner ? 1 : 2, Username = username, CurrentRoom = room });
+
         return (room, client, sent);
     }
 
     private static InventoryItem Inventory(uint id, uint owner, InteractionType type, string data) => new()
     {
-        Id = id, OwnerId = owner, Definition = new() { Type = ItemType.Floor, InteractionType = type }, ExtraData = new LegacyDataFormat { Data = data }
+        Id = id,
+        OwnerId = owner,
+        Definition = new() { Type = ItemType.Floor, InteractionType = type },
+        ExtraData = new LegacyDataFormat { Data = data }
     };
 
     private static InventoryComponent InventoryWith(InventoryItem item) => new() { Furniture = new FurnitureInventoryComponent([item], []) };
 
     private static T Proxy<T>() where T : class => DispatchProxy.Create<T, EmptyProxy>();
-    public class EmptyProxy : DispatchProxy { protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod?.ReturnType == typeof(bool) ? false : null; }
+    public class EmptyProxy : DispatchProxy
+    {
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args) => targetMethod?.ReturnType == typeof(bool) ? false : null;
+    }
 
     private static IIncomingPacket Packet(params object[] values)
     {
         using var stream = new MemoryStream();
-        foreach (var value in values)
-            if (value is string text) { var bytes = Encoding.UTF8.GetBytes(text); stream.WriteByte((byte)(bytes.Length >> 8)); stream.WriteByte((byte)bytes.Length); stream.Write(bytes); }
-            else { Span<byte> bytes = stackalloc byte[4]; System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes, (int)value); stream.Write(bytes); }
+
+        foreach (var value in values) {
+            if (value is string text) {
+                var bytes = Encoding.UTF8.GetBytes(text);
+                stream.WriteByte((byte)(bytes.Length >> 8));
+                stream.WriteByte((byte)bytes.Length);
+                stream.Write(bytes);
+            }
+            else {
+                Span<byte> bytes = stackalloc byte[4];
+                System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes, (int)value);
+                stream.Write(bytes);
+            }
+        }
+
         return new Plus.Communication.Flash.FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
     private sealed class DecorationStore(Action? before = null) : IRoomDecorationStore
     {
         public int Writes; public bool Fail;
-        public void Apply(uint roomId, uint itemId, int userId, RoomDecorationKind kind, string data) { before?.Invoke(); Writes++; if (Fail) throw new InvalidOperationException("forced"); }
+        public void Apply(uint roomId, uint itemId, int userId, RoomDecorationKind kind, string data)
+        {
+            before?.Invoke();
+            Writes++;
+
+            if (Fail) {
+                throw new InvalidOperationException("forced");
+            }
+        }
     }
-    private sealed class FloorStore : IFloorPlanStore { public int Writes; public void Save(uint roomId, string modelName, FloorPlanSave.Decision decision) => Writes++; }
+    private sealed class FloorStore : IFloorPlanStore
+    {
+        public int Writes; public void Save(uint roomId, string modelName, FloorPlanSave.Decision decision) => Writes++;
+    }
     private sealed class FloorCapture : IFloorPlanUpdateService
     {
         public Room? Room; public FloorPlanUpdateRequest Body;
         public void ShowEntryTile(GameClient session) => throw new NotSupportedException();
         public void ShowOccupiedTiles(GameClient session) => throw new NotSupportedException();
-        public void Update(Room room, GameClient session, FloorPlanUpdateRequest body) { Room = room; Body = body; }
+        public void Update(Room room, GameClient session, FloorPlanUpdateRequest body)
+        {
+            Room = room;
+            Body = body;
+        }
     }
 }

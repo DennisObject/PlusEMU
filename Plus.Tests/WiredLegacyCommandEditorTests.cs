@@ -43,11 +43,16 @@ public class WiredLegacyCommandEditorTests
         Assert.False(opened.ReadBool());
         Assert.Equal(0, opened.ReadInt()); // No furniture input for a command trigger.
         Assert.Equal(0, opened.ReadInt());
-        Assert.Equal(91, opened.ReadInt()); Assert.Equal(7u, opened.ReadUInt());
-        Assert.Equal(":first", opened.ReadString()); Assert.Equal(3, opened.ReadInt());
-        Assert.Equal(0, opened.ReadInt()); Assert.Equal(1, opened.ReadInt());
+        Assert.Equal(91, opened.ReadInt());
+        Assert.Equal(7u, opened.ReadUInt());
+        Assert.Equal(":first", opened.ReadString());
+        Assert.Equal(3, opened.ReadInt());
+        Assert.Equal(0, opened.ReadInt());
+        Assert.Equal(1, opened.ReadInt());
         Assert.Equal(ownerOnly ? 1 : 0, opened.ReadInt());
-        Assert.Equal(0, opened.ReadInt()); Assert.Equal(0, opened.ReadInt()); Assert.Equal(0, opened.ReadInt());
+        Assert.Equal(0, opened.ReadInt());
+        Assert.Equal(0, opened.ReadInt());
+        Assert.Equal(0, opened.ReadInt());
         Assert.False(opened.HasDataRemaining());
 
         await world.Command(world.Owner, ":first", true);
@@ -61,7 +66,8 @@ public class WiredLegacyCommandEditorTests
         Assert.Equal(":first", world.Box.StringData);
         Assert.Throws<IOException>(() => world.Wired.PublishLegacy(world.Box, candidate,
             () => throw new IOException("Database write failed.")));
-        Assert.Equal(":first", world.Box.StringData); Assert.Equal(ownerOnly, world.Box.BoolData);
+        Assert.Equal(":first", world.Box.StringData);
+        Assert.Equal(ownerOnly, world.Box.BoolData);
         await world.Command(world.Owner, ":first", true);
         await world.Command(world.Owner, ":second", false);
 
@@ -69,7 +75,8 @@ public class WiredLegacyCommandEditorTests
         Assert.True(world.Wired.PublishLegacy(world.Box, candidate, () =>
         {
             Assert.Equal(":first", world.Box.StringData);
-            Assert.Equal(":second", candidate.StringData); Assert.Equal(ownerOnly, candidate.BoolData);
+            Assert.Equal(":second", candidate.StringData);
+            Assert.Equal(ownerOnly, candidate.BoolData);
             persisted = true;
         }));
         Assert.True(persisted);
@@ -95,7 +102,8 @@ public class WiredLegacyCommandEditorTests
         Assert.False(WiredLegacyCustomEditor.TryPrepare(box, new() { IntParams = [match, hide, owner], Text = ":second" },
             _ => throw new Exception("Factory must not run."), out _, out var error));
         Assert.Contains("Command Wired", error);
-        Assert.Equal(":first", box.StringData); Assert.True(box.BoolData);
+        Assert.Equal(":first", box.StringData);
+        Assert.True(box.BoolData);
     }
 
     private sealed class World : IDisposable
@@ -110,15 +118,29 @@ public class WiredLegacyCommandEditorTests
 
         public World(bool ownerOnly)
         {
-            Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room)); Room.OwnerId = 42;
-            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards); var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
-            Set(Room, "_roomItemHandling", items); Set(Room, "_roomUserManager", users);
+            Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+            Room.OwnerId = 42;
+            var items = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
+            var users = new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel);
+            Set(Room, "_roomItemHandling", items);
+            Set(Room, "_roomUserManager", users);
             _commands = new CommandManager([new Command("first"), new Command("second")], null!, null!, new FixedTimeProvider(FixedTimeProvider.Epoch));
-            Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, _commands, TestWiredAccess.Unused, TestItemRuntime.Travel); Set(Room, "_wiredComponent", Wired);
-            Owner = AddUser(42, 1, users); Guest = AddUser(43, 2, users);
-            var item = new Item { Id = 7, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new()
-                { ItemName = "wf_trg_says_something", SpriteId = 91, WiredType = WiredBoxType.TriggerUserSaysCommand,
-                  InteractionType = InteractionType.WiredTrigger } };
+            Wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, _commands, TestWiredAccess.Unused, TestItemRuntime.Travel);
+            Set(Room, "_wiredComponent", Wired);
+            Owner = AddUser(42, 1, users);
+            Guest = AddUser(43, 2, users);
+            var item = new Item
+            {
+                Id = 7,
+                ExtraData = new LegacyDataFormat { Data = "1" },
+                Definition = new()
+                {
+                    ItemName = "wf_trg_says_something",
+                    SpriteId = 91,
+                    WiredType = WiredBoxType.TriggerUserSaysCommand,
+                    InteractionType = InteractionType.WiredTrigger
+                }
+            };
             ((ConcurrentDictionary<uint, Item>)Get(items, "_floorItems")).TryAdd(item.Id, item);
             Box = new UserSaysCommandBox(Room, item, _commands) { StringData = ":first", BoolData = ownerOnly, ItemsData = "legacy snapshot bytes" };
             Assert.True(Wired.AddBox(Box));
@@ -126,7 +148,8 @@ public class WiredLegacyCommandEditorTests
 
         private Habbo AddUser(int id, int virtualId, RoomUserManager users)
         {
-            var packets = new List<byte[]>(); _packets[id] = packets;
+            var packets = new List<byte[]>();
+            _packets[id] = packets;
             var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
             {
                 Revision = new() { InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [ServerPacketHeader.WhisperComposer] = 100 } },
@@ -136,22 +159,34 @@ public class WiredLegacyCommandEditorTests
             client.SetHabbo(habbo);
             var user = new RoomUser(id, 0, virtualId, Room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
             ((ConcurrentDictionary<int, RoomUser>)Get(users, "_users")).TryAdd(virtualId, user);
+
             return habbo;
         }
 
         public async Task Command(Habbo actor, string command, bool accepted)
         {
-            actor.WiredInteraction = false; _packets[actor.Id].Clear();
+            actor.WiredInteraction = false;
+            _packets[actor.Id].Clear();
             Assert.True(await _commands.Parse(actor.Client, command));
             Assert.Equal(accepted, actor.WiredInteraction);
-            if (!accepted) { Assert.Empty(_packets[actor.Id]); return; }
+
+            if (!accepted) {
+                Assert.Empty(_packets[actor.Id]);
+
+                return;
+            }
+
             var payload = Assert.Single(_packets[actor.Id]);
             var packet = new FlashIncomingPacket { Buffer = payload.AsMemory(6) };
             Assert.Equal(actor.Id == 42 ? 1 : 2, packet.ReadInt());
-            Assert.Equal(command, packet.ReadString()); Assert.Equal(0, packet.ReadInt()); Assert.Equal(0, packet.ReadInt());
+            Assert.Equal(command, packet.ReadString());
+            Assert.Equal(0, packet.ReadInt());
+            Assert.Equal(0, packet.ReadInt());
         }
 
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
         private static void Set(object value, string field, object data) => value.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(value, data);
         private static object Get(object value, string field) => value.GetType().GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(value)!;
     }
@@ -161,6 +196,8 @@ public class WiredLegacyCommandEditorTests
         public string Key => key;
         public string Parameters => "";
         public string Description => "Command editor regression fixture";
-        public void Execute(GameClient session, Room room, string[] parameters) { }
+        public void Execute(GameClient session, Room room, string[] parameters)
+        {
+        }
     }
 }

@@ -11,6 +11,7 @@ internal sealed class PetLoader(IDatabase database) : IPetLoader
     public List<Pet> GetPetsForUser(int userId)
     {
         using var connection = database.Connection();
+
         return Load(connection, userId).Select(row => new Pet(checked((int)row.Id), checked((int)row.UserId), row.RoomId, row.Name, checked((int)row.Type), row.Race,
                 row.Color, row.Experience, row.Energy, row.Nutrition, row.Respect, row.CreatedAt,
                 row.X, row.Y, row.Z, row.HaveSaddle, row.AnyoneRide, row.Hairdye, row.Pethair, row.GnomeClothing, row.OwnerName)).ToList();

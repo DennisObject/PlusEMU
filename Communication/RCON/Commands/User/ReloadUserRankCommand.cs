@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
 
@@ -23,16 +23,22 @@ internal class ReloadUserRankCommand : IRconCommand
 
     public Task<bool> TryExecute(string[] parameters)
     {
-        if (parameters.Length == 0 || !int.TryParse(parameters[0], out var userId))
+        if (parameters.Length == 0 || !int.TryParse(parameters[0], out var userId)) {
             return Task.FromResult(false);
+        }
+
         var client = _gameClientManager.GetClientByUserId(userId);
-        if (client == null || client.GetHabbo() == null)
+
+        if (client == null || client.GetHabbo() == null) {
             return Task.FromResult(false);
+        }
+
         _accessControl.Refresh(userId);
-        if (client.GetHabbo().Access.Can(PermissionKeys.ModerationTickets))
-        {
+
+        if (client.GetHabbo().Access.Can(PermissionKeys.ModerationTickets)) {
             _tickets.SendInitialization(client);
         }
+
         return Task.FromResult(true);
     }
 }

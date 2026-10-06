@@ -10,6 +10,7 @@ internal sealed class SetMannequinNameEvent(IRoomItemMetadataService metadata) :
         var itemId = packet.ReadUInt();
         var name = packet.ReadString();
         metadata.SetMannequinName(session, new(itemId, name));
+
         return Task.CompletedTask;
     }
 }

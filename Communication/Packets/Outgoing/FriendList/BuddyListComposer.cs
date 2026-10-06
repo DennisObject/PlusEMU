@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Messenger;
 
@@ -13,7 +13,9 @@ public class BuddyListComposer(ImmutableArray<MessengerBuddySnapshot> friends, i
         packet.WriteInteger(pages); // Pages
         packet.WriteInteger(page); // Page
         packet.WriteInteger(friends.Length);
-        foreach (var friend in friends)
+
+        foreach (var friend in friends) {
             MessengerBuddyWire.Write(packet, friend);
+        }
     }
 }

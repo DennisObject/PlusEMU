@@ -8,6 +8,7 @@ internal sealed class FriendFurniConfirmLockEvent(ILoveLockService loveLocks) : 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         loveLocks.Confirm(session, new(packet.ReadUInt(), packet.ReadBool()));
+
         return Task.CompletedTask;
     }
 }

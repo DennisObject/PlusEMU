@@ -22,8 +22,9 @@ public sealed class EditorDatabaseFactAttribute : FactAttribute
 
     public EditorDatabaseFactAttribute()
     {
-        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable)))
+        if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(Variable))) {
             Skip = $"Set {Variable} to a disposable task_editor_tests_ schema holding the PlusEMU schema including the role-based access-control update.";
+        }
     }
 }
 
@@ -40,11 +41,17 @@ public sealed class EditorDatabaseTests : IDisposable
     public EditorDatabaseTests()
     {
         var builder = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) ?? "Database=none") { AllowUserVariables = true };
-        if (!builder.Database.StartsWith("task_editor_tests_", StringComparison.Ordinal))
+
+        if (!builder.Database.StartsWith("task_editor_tests_", StringComparison.Ordinal)) {
             throw new InvalidOperationException("Editor database tests require a disposable task_editor_tests_ schema.");
+        }
+
         _database = new(builder.ConnectionString);
-        if (Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) == null)
+
+        if (Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) == null) {
             return;
+        }
+
         Cleanup();
         var catalogManager = DispatchProxy.Create<ICatalogManager, CatalogProxy>();
         ((CatalogProxy)(object)catalogManager).Pages = _cache;
@@ -53,8 +60,10 @@ public sealed class EditorDatabaseTests : IDisposable
 
     public void Dispose()
     {
-        if (Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) != null)
+        if (Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) != null) {
             Cleanup();
+        }
+
         Directory.Delete(_directory, recursive: true);
     }
 
@@ -121,8 +130,8 @@ public sealed class EditorDatabaseTests : IDisposable
         var saved = _catalog.SavePage(staff, Envelope(before), child with { Caption = $"{Tag} renamed", PageText2 = "second" });
         Assert.True(saved.Success);
         Assert.Equal(before + 1, saved.Revision);
-        using (var connection = _database.Connection())
-        {
+
+        using (var connection = _database.Connection()) {
             var (beforeJson, afterJson) = connection.QuerySingle<(string, string)>("SELECT before_json, after_json FROM catalog_admin_log WHERE id = @id", new { id = saved.Revision });
             Assert.Contains($"\"caption\":\"{Tag} child\"", beforeJson);
             Assert.Contains($"\"caption\":\"{Tag} renamed\"", afterJson);
@@ -205,8 +214,8 @@ public sealed class EditorDatabaseTests : IDisposable
         var saved = _catalog.SaveOffer(staff, Envelope(Revision()), details with { CostCredits = 9, CatalogName = $"{Tag} saved" });
         Assert.True(saved.Success, saved.Message);
         Assert.Equal(900001, saved.EntityId);
-        using (var connection = _database.Connection())
-        {
+
+        using (var connection = _database.Connection()) {
             var names = connection.Query<(int, string, int)>("SELECT page_id, catalog_name, cost_credits FROM catalog_items WHERE offer_id = 900001 ORDER BY page_id").ToList();
             Assert.Equal([(first.PageId, $"{Tag} offer", 3), (second.PageId, $"{Tag} saved", 9)], names);
         }
@@ -346,8 +355,11 @@ public sealed class EditorDatabaseTests : IDisposable
         var hiddenPage = CreatePage(owner, "refs_hidden", -1, requiredPermission: EditorTestSupport.RestrictedPagePermission);
         var visiblePage = CreatePage(owner, "refs_visible", -1);
         var furni = InsertFurniture($"{Tag}_refs", 990011);
-        foreach (var page in new[] { hiddenPage, visiblePage })
+
+        foreach (var page in new[] { hiddenPage, visiblePage }) {
             Assert.True(_catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, page.PageId, -1)).Success);
+        }
+
         var editor = Furni(Path.Combine(_directory, "none.json"));
 
         Assert.Equal([visiblePage.PageId], editor.Detail(staff, furni).CatalogRefs.Select(reference => reference.PageId));
@@ -462,6 +474,7 @@ public sealed class EditorDatabaseTests : IDisposable
     private FurniEditorService Furni(string furnidataPath)
     {
         var clients = DispatchProxy.Create<IGameClientManager, CatalogProxy>();
+
         return new FurniEditorService(_database, new FurnidataStore(Options.Create(new FurniEditorConfiguration { FurnidataPath = furnidataPath })),
             DispatchProxy.Create<IFurniEditorTextImporter, EditorPermissionTests.Recorder>(), (ICatalogCacheRefresher)(object)_refresher, clients,
             NullLogger<FurniEditorService>.Instance, TimeProvider.System);
@@ -473,6 +486,7 @@ public sealed class EditorDatabaseTests : IDisposable
             "", "", "", "", "", "", "", 0, "");
         var outcome = _catalog.CreatePage(staff, Envelope(Revision()), page);
         Assert.True(outcome.Success, outcome.Message);
+
         return Assert.IsType<CatalogAdminPage>(outcome.Entity);
     }
 
@@ -481,9 +495,12 @@ public sealed class EditorDatabaseTests : IDisposable
     {
         using var connection = _database.Connection();
         var pages = connection.Query<CatalogPage>("SELECT id AS Id, parent_id AS ParentId, enabled = 1 AS Enabled, visible = 1 AS Visible, required_permission AS RequiredPermission FROM catalog_pages WHERE page_link LIKE 'e3test%' ORDER BY id").ToList();
-        foreach (var page in pages)
+
+        foreach (var page in pages) {
             page.Items = connection.Query<CatalogItem>("SELECT id AS Id, offer_id AS OfferId, page_id AS PageId FROM catalog_items WHERE page_id = @Id ORDER BY order_num, id", page)
                 .ToDictionary(item => item.Id);
+        }
+
         new CatalogOfferIndex().Build(pages);
         _cache.Clear();
         _cache.AddRange(pages);
@@ -515,12 +532,14 @@ public sealed class EditorDatabaseTests : IDisposable
     private T Scalar<T>(string sql, int id)
     {
         using var connection = _database.Connection();
+
         return connection.QuerySingle<T>(sql, new { id });
     }
 
     private List<T> Query<T>(string sql)
     {
         using var connection = _database.Connection();
+
         return connection.Query<T>(sql).ToList();
     }
 

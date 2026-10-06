@@ -1,4 +1,4 @@
-﻿using NetCoreServer;
+using NetCoreServer;
 
 namespace Plus.HabboHotel.GameClients;
 
@@ -11,9 +11,13 @@ public class WsSessionProxy : WsSession
         _client.Id = Id;
         _client.SendCallback = args =>
         {
-            if (!Socket.Connected) return false;
+            if (!Socket.Connected) {
+                return false;
+            }
+
             var buffer = args.MemoryBuffer.ToArray();
             SendBinaryAsync(buffer, 0, buffer.Length);
+
             // The WebSocket queue owns a copy; no SocketAsyncEventArgs operation is pending.
             return false;
         };

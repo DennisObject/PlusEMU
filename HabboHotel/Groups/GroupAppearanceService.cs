@@ -31,57 +31,72 @@ public sealed class GroupAppearanceService(
     {
         var name = wordFilter.CheckMessage(request.Name);
         var description = wordFilter.CheckMessage(request.Description);
-        if (!TryGetOwnedGroup(session, request.GroupId, out var group))
+
+        if (!TryGetOwnedGroup(session, request.GroupId, out var group)) {
             return Task.CompletedTask;
-        lock (group)
-        {
-            if (!store.UpdateIdentity(group.Id, name, description))
+        }
+
+        lock (group) {
+            if (!store.UpdateIdentity(group.Id, name, description)) {
                 return Task.CompletedTask;
+            }
+
             group.Name = name;
             group.Description = description;
             SendGroupInfo(session, group);
         }
+
         return Task.CompletedTask;
     }
 
     public Task UpdateBadge(GameClient session, int groupId, ImmutableArray<GroupBadgePartRequest> parts)
     {
-        if (!TryGetOwnedGroup(session, groupId, out var group) || !TryBuildBadge(parts, out var badge))
+        if (!TryGetOwnedGroup(session, groupId, out var group) || !TryBuildBadge(parts, out var badge)) {
             return Task.CompletedTask;
-        lock (group)
-        {
-            if (!store.UpdateBadge(group.Id, badge))
+        }
+
+        lock (group) {
+            if (!store.UpdateBadge(group.Id, badge)) {
                 return Task.CompletedTask;
+            }
+
             group.Badge = badge;
             SendGroupInfo(session, group);
         }
+
         return Task.CompletedTask;
     }
 
     public Task UpdateColours(GameClient session, GroupColoursRequest request)
     {
-        if (!TryGetOwnedGroup(session, request.GroupId, out var group))
+        if (!TryGetOwnedGroup(session, request.GroupId, out var group)) {
             return Task.CompletedTask;
-        lock (group)
-        {
-            if (!store.UpdateColours(group.Id, request.MainColour, request.SecondaryColour))
+        }
+
+        lock (group) {
+            if (!store.UpdateColours(group.Id, request.MainColour, request.SecondaryColour)) {
                 return Task.CompletedTask;
+            }
+
             group.Colour1 = request.MainColour;
             group.Colour2 = request.SecondaryColour;
             SendGroupInfo(session, group);
             PublishGuildItems(session, group.Id);
         }
+
         return Task.CompletedTask;
     }
 
     private bool TryGetOwnedGroup(GameClient session, int groupId, out Group group)
     {
-        if (!groups.TryGetGroup(groupId, out var found) || found.CreatorId != session.GetHabbo().Id)
-        {
+        if (!groups.TryGetGroup(groupId, out var found) || found.CreatorId != session.GetHabbo().Id) {
             group = null!;
+
             return false;
         }
+
         group = found;
+
         return true;
     }
 
@@ -91,32 +106,42 @@ public sealed class GroupAppearanceService(
     private static bool TryBuildBadge(ImmutableArray<GroupBadgePartRequest> parts, out string badge)
     {
         badge = string.Empty;
-        if (parts.IsDefaultOrEmpty || parts.Length > 5)
+
+        if (parts.IsDefaultOrEmpty || parts.Length > 5) {
             return false;
-        for (var i = 0; i < parts.Length; i++)
-        {
+        }
+
+        for (var i = 0; i < parts.Length; i++) {
             var part = parts[i];
             badge += BadgePartUtility.WorkBadgeParts(i == 0,
                 part.Symbol.ToString(CultureInfo.InvariantCulture),
                 part.Colour.ToString(CultureInfo.InvariantCulture),
                 part.Position.ToString(CultureInfo.InvariantCulture));
         }
-        if (string.IsNullOrWhiteSpace(badge))
+
+        if (string.IsNullOrWhiteSpace(badge)) {
             badge = "b05114s06114";
+        }
+
         return true;
     }
 
     private static void PublishGuildItems(GameClient session, int groupId)
     {
         var room = session.GetHabbo().CurrentRoom;
-        if (room == null)
+
+        if (room == null) {
             return;
+        }
+
         var snapshots = room.GetRoomItemHandler().GetFloor
             .Where(item => item.GroupId == groupId && item.Definition.InteractionType is
                 InteractionType.GuildItem or InteractionType.GuildGate or InteractionType.GuildForum)
             .Select(RoomItemSnapshot.Capture)
             .ToImmutableArray();
-        foreach (var snapshot in snapshots)
+
+        foreach (var snapshot in snapshots) {
             room.SendPacket(new ObjectUpdateComposer(snapshot));
+        }
     }
 }

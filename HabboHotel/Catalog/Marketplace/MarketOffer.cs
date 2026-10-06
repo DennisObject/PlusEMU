@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Catalog.Marketplace;
+namespace Plus.HabboHotel.Catalog.Marketplace;
 
 public class MarketOffer
 {
@@ -16,7 +16,7 @@ public class MarketOffer
     {
     }
 
-    public uint OfferId { get; set;  }
+    public uint OfferId { get; set; }
     public int ItemType { get; set; }
     public uint SpriteId { get; set; }
     public int TotalPrice { get; set; }

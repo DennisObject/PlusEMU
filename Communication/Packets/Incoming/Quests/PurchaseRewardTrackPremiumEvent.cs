@@ -8,6 +8,7 @@ internal sealed class PurchaseRewardTrackPremiumEvent(IRewardTrackManager reward
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         rewards.PurchasePremium(session, packet.ReadString());
+
         return Task.CompletedTask;
     }
 }

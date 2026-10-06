@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.LandingView.Promotions;
+namespace Plus.HabboHotel.LandingView.Promotions;
 
 public class Promotion
 {

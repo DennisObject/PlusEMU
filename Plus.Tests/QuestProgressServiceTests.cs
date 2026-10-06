@@ -99,6 +99,7 @@ public sealed class QuestProgressServiceTests
     private static (FlashGameClient Client, List<(uint Header, byte[] Payload)> Sent) Client(int userId, int questId = 0)
     {
         var stats = new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, questId, 0, 0, "", 0);
+
         return HabbiconTestSupport.Client(new() { Id = userId, HabboStats = stats });
     }
 
@@ -113,16 +114,25 @@ public sealed class QuestProgressServiceTests
         public void Start(int userId, int questId)
         {
             beforeStart?.Invoke();
-            if (Fail) throw new InvalidOperationException("forced failure");
+
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
+
             Starts.Add((userId, questId));
         }
         public void Cancel(int userId, int questId)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
         }
         public void SaveProgress(int userId, int questId, int progress, bool completed)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
+
             Progress.Add((userId, questId, progress, completed));
         }
     }
@@ -136,11 +146,14 @@ public sealed class QuestProgressServiceTests
         public Quest GetNextQuestInSeries(string category, int number)
         {
             NextRequest = (category, number);
+
             return _quests.Values.SingleOrDefault(quest => quest.Category == category && quest.Number == number)!;
         }
         public void GetList(GameClient session, ClientPacket message) => ListRequests++;
         public int GetAmountOfQuestsInCategory(string category) => _quests.Values.Count(quest => quest.Category == category);
-        public void Init() { }
+        public void Init()
+        {
+        }
         public void ProgressUserQuest(GameClient session, QuestType type, int data = 0) => throw new NotSupportedException();
         public void QuestReminder(GameClient session, int questId) => throw new NotSupportedException();
     }

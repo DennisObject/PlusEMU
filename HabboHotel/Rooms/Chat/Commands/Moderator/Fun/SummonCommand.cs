@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Rooms.Session;
+using Plus.Communication.Packets.Outgoing.Rooms.Session;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users;
 
@@ -22,18 +22,25 @@ internal class SummonCommand : ITargetChatCommand
 
     public Task Execute(GameClient session, Room room, Habbo target, string[] parameters)
     {
-        if (!session.GetHabbo().Access.Outranks(target.Access))
-            return Task.CompletedTask;
-        if (target.Username == session.GetHabbo().Username)
-        {
-            session.SendWhisper("Get a life.");
+        if (!session.GetHabbo().Access.Outranks(target.Access)) {
             return Task.CompletedTask;
         }
+
+        if (target.Username == session.GetHabbo().Username) {
+            session.SendWhisper("Get a life.");
+
+            return Task.CompletedTask;
+        }
+
         target.Client.SendNotification($"You have been summoned to {session.GetHabbo().Username}!");
-        if (!target.InRoom)
+
+        if (!target.InRoom) {
             target.Client.Send(new RoomForwardComposer(session.GetHabbo().CurrentRoom!.Id));
-        else
+        }
+        else {
             target.PrepareRoom(session.GetHabbo().CurrentRoom.Id, "");
+        }
+
         return Task.CompletedTask;
     }
 }

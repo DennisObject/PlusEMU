@@ -105,25 +105,29 @@ public sealed class RoomInteractionServiceTests
         var (room, client, sent) = Context("owner");
         var item = AddItem(room, InteractionType.Postit);
         item.LegacyDataString = "FFFF33 old";
-        var store = new RecordingStore { Fail = fail, BeforeUpdate = () =>
+        var store = new RecordingStore
+        {
+            Fail = fail,
+            BeforeUpdate = () =>
         {
             Assert.Equal("FFFF33 old", item.LegacyDataString);
             Assert.Empty(sent);
-        }};
+        }
+        };
         var service = new RoomInteractionService(store);
-        if (fail)
-        {
+
+        if (fail) {
             Assert.Throws<InvalidOperationException>(() => service.UpdateSticky(room, client, item.Id, "9CCEFF", "edited"));
             Assert.Equal("FFFF33 old", item.LegacyDataString);
             Assert.Empty(sent);
         }
-        else
-        {
+        else {
             service.UpdateSticky(room, client, item.Id, "9CCEFF", "edited");
             Assert.Equal("9CCEFF edited", item.LegacyDataString);
             Assert.Single(sent);
             Assert.Equal(ServerPacketHeader.ItemUpdateComposer, sent[0].Header);
         }
+
         Assert.Equal("9CCEFF edited", store.UpdatedData);
         Assert.Equal(1, store.Updates);
     }
@@ -169,11 +173,13 @@ public sealed class RoomInteractionServiceTests
         server.Open();
         var schema = "task_refactor_tests_sticky_" + Guid.NewGuid().ToString("N");
         server.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var connectionString = new MySqlConnectionStringBuilder(root)
             {
-                Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true
+                Database = schema,
+                AllowZeroDateTime = true,
+                ConvertZeroDateTime = true
             }.ConnectionString;
             using var connection = new MySqlConnection(connectionString);
             connection.Open();
@@ -188,7 +194,9 @@ public sealed class RoomInteractionServiceTests
             Assert.Throws<MySqlException>(() => store.UpdateSticky(7, 9, "failure"));
             Assert.Equal("FFFF33 edited", connection.QuerySingle<string>("SELECT extra_data FROM items WHERE id=7"));
         }
-        finally { server.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            server.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 
     private sealed class StickyDatabase(string connectionString) : IDatabase
@@ -209,7 +217,10 @@ public sealed class RoomInteractionServiceTests
     private static (Room Room, GameClient Client, List<(uint Header, byte[] Payload)> Sent) Context(string owner, string username = "owner")
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        room.Id = 9; room.OwnerName = owner; room.Type = "private"; room.UsersWithRights = [];
+        room.Id = 9;
+        room.OwnerName = owner;
+        room.Type = "private";
+        room.UsersWithRights = [];
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = username == owner ? 1 : 2, Username = username, CurrentRoom = room });
@@ -217,11 +228,13 @@ public sealed class RoomInteractionServiceTests
         {
             var bytes = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
             sent.Add((System.Buffers.Binary.BinaryPrimitives.ReadUInt16BigEndian(bytes.AsSpan(4, 2)), bytes[6..]));
+
             return true;
         };
         var viewer = new RoomUser(client.GetHabbo().Id, room.Id, 1, room, client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomUserManager())!;
         users[1] = viewer;
+
         return (room, client, sent);
     }
 
@@ -231,6 +244,7 @@ public sealed class RoomInteractionServiceTests
         var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
         typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
         floor[item.Id] = item;
+
         return item;
     }
 
@@ -241,10 +255,35 @@ public sealed class RoomInteractionServiceTests
         public Action? BeforeUpdate;
         public string? UpdatedData;
         public int Updates;
-        public void UpdateSticky(uint itemId, uint roomId, string data) { BeforeUpdate?.Invoke(); Updates++; UpdatedData = data; if (Fail) throw new InvalidOperationException("forced"); }
+        public void UpdateSticky(uint itemId, uint roomId, string data)
+        {
+            BeforeUpdate?.Invoke();
+            Updates++;
+            UpdatedData = data;
+
+            if (Fail) {
+                throw new InvalidOperationException("forced");
+            }
+        }
         public int Ratings { get; private set; }
         public int Deletions { get; private set; }
-        public int AddRating(uint roomId, int rating) { Ratings++; if (Fail) throw new InvalidOperationException("forced"); return ResultingScore; }
-        public void DeleteSticky(uint itemId, uint roomId) { Deletions++; if (Fail) throw new InvalidOperationException("forced"); }
+        public int AddRating(uint roomId, int rating)
+        {
+            Ratings++;
+
+            if (Fail) {
+                throw new InvalidOperationException("forced");
+            }
+
+            return ResultingScore;
+        }
+        public void DeleteSticky(uint itemId, uint roomId)
+        {
+            Deletions++;
+
+            if (Fail) {
+                throw new InvalidOperationException("forced");
+            }
+        }
     }
 }

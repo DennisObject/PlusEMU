@@ -21,6 +21,7 @@ public class CatalogStudioUndoEvent : IPacketEvent
         var outcome = _catalogAdmin.Undo(session.GetHabbo(), envelope, groupId);
         IReadOnlyList<(string, int)> changed = outcome.Success ? [(outcome.EntityType, outcome.EntityId)] : [];
         session.Send(new CatalogStudioOperationComposer(operationId, outcome.Success, outcome.Code, outcome.Message, outcome.Revision, changed));
+
         return Task.CompletedTask;
     }
 }

@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.GameClients;
 using Plus.Utilities.DependencyInjection;
 
 namespace Plus.Communication.Packets;

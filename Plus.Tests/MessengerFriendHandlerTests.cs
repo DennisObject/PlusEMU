@@ -37,7 +37,10 @@ public sealed class MessengerFriendHandlerTests
         var calls = new List<string>();
         var values = new object[51 + 1];
         values[0] = 51;
-        for (var i = 1; i < values.Length; i++) values[i] = i;
+
+        for (var i = 1; i < values.Length; i++) {
+            values[i] = i;
+        }
 
         await new AcceptFriendEvent(new RecordingFriends(calls)).Parse(Session(), Packet(values));
 
@@ -82,31 +85,59 @@ public sealed class MessengerFriendHandlerTests
     {
         var client = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         client.SetHabbo(new Habbo { Id = 1, Username = "Alice", Access = UserAccess.Empty });
+
         return client;
     }
 
     private static IIncomingPacket Packet(params object[] values)
     {
         using var stream = new MemoryStream();
-        foreach (var value in values)
-        {
+
+        foreach (var value in values) {
             var bytes = new byte[4];
-            switch (value)
-            {
-                case int number: BinaryPrimitives.WriteInt32BigEndian(bytes, number); stream.Write(bytes); break;
-                case bool flag: stream.WriteByte(flag ? (byte)1 : (byte)0); break;
-                default: throw new NotSupportedException();
+
+            switch (value) {
+                case int number:
+                    BinaryPrimitives.WriteInt32BigEndian(bytes, number);
+                    stream.Write(bytes);
+                    break;
+                case bool flag:
+                    stream.WriteByte(flag ? (byte)1 : (byte)0);
+                    break;
+                default:
+                    throw new NotSupportedException();
             }
         }
+
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
     private sealed class RecordingFriends(List<string> calls) : IMessengerFriendMutationService
     {
-        public Task<FriendRequestError?> AcceptRequestAsync(Habbo habbo, int fromId) { calls.Add($"accept {fromId}"); return Task.FromResult<FriendRequestError?>(null); }
-        public Task<FriendRequestError?> DeclineRequestAsync(Habbo habbo, int fromId) { calls.Add($"decline {fromId}"); return Task.FromResult<FriendRequestError?>(null); }
-        public Task DeclineAllRequestsAsync(Habbo habbo) { calls.Add("decline-all"); return Task.CompletedTask; }
+        public Task<FriendRequestError?> AcceptRequestAsync(Habbo habbo, int fromId)
+        {
+            calls.Add($"accept {fromId}");
+
+            return Task.FromResult<FriendRequestError?>(null);
+        }
+        public Task<FriendRequestError?> DeclineRequestAsync(Habbo habbo, int fromId)
+        {
+            calls.Add($"decline {fromId}");
+
+            return Task.FromResult<FriendRequestError?>(null);
+        }
+        public Task DeclineAllRequestsAsync(Habbo habbo)
+        {
+            calls.Add("decline-all");
+
+            return Task.CompletedTask;
+        }
         public Task<FriendRequestOutcome> SendRequestAsync(Habbo habbo, int toId) => throw new NotSupportedException();
-        public Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds) { calls.Add("remove " + string.Join(",", friendIds)); return Task.CompletedTask; }
+        public Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds)
+        {
+            calls.Add("remove " + string.Join(",", friendIds));
+
+            return Task.CompletedTask;
+        }
     }
 }

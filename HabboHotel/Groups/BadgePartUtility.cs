@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Groups;
+namespace Plus.HabboHotel.Groups;
 
 public static class BadgePartUtility
 {
@@ -8,7 +8,11 @@ public static class BadgePartUtility
         partId = int.Parse(partId) < 10 ? $"0{partId}" : partId;
         colour = int.Parse(colour) < 10 ? $"0{colour}" : colour;
         parts += partId + colour + position;
-        if (!isBase && (parts == "s00000" || parts == "s000000")) return string.Empty;
+
+        if (!isBase && (parts == "s00000" || parts == "s000000")) {
+            return string.Empty;
+        }
+
         return parts;
     }
 }

@@ -18,6 +18,7 @@ public class CatalogStudioLoadHistoryEvent : IPacketEvent
         packet.ReadInt(); // draft version: PlusEMU has only the live one
         int offset = packet.ReadInt(), limit = packet.ReadInt();
         CatalogAdminResponder.Read(session, () => new CatalogStudioHistoryComposer(_catalogAdmin.History(session.GetHabbo(), offset, limit)));
+
         return Task.CompletedTask;
     }
 }

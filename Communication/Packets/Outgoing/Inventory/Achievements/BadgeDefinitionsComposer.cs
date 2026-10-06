@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 
@@ -17,12 +17,12 @@ public class BadgeDefinitionsComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_achievements.Length);
-        foreach (var achievement in _achievements)
-        {
+
+        foreach (var achievement in _achievements) {
             packet.WriteString(achievement.Name);
             packet.WriteInteger(achievement.Levels.Length);
-            foreach (var level in achievement.Levels)
-            {
+
+            foreach (var level in achievement.Levels) {
                 packet.WriteInteger(level.Level);
                 packet.WriteInteger(level.Requirement);
             }

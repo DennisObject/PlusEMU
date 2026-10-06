@@ -43,7 +43,7 @@ public sealed class FurniEditorClockTests
         var clock = new Clock(new DateTimeOffset(2040, 1, 1, 12, 0, 0, TimeSpan.FromHours(5.5)));
         var handler = new Handler();
         using var importer = new FurniEditorTextImporter(Options.Create(new FurniEditorConfiguration
-            { ImportUrl = "https://www.habbo.com/furnidata.json" }), clock, handler);
+        { ImportUrl = "https://www.habbo.com/furnidata.json" }), clock, handler);
         Assert.Equal("Name 1", (await importer.Find("chair"))!.Name);
         Assert.Equal(1, handler.Requests);
         clock.Now = clock.Now.AddMinutes(10).AddTicks(-1);
@@ -69,6 +69,7 @@ public sealed class FurniEditorClockTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Requests++;
+
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("{\"roomitemtypes\":{\"furnitype\":[{\"classname\":\"chair\",\"name\":\"Name " + Requests + "\",\"description\":\"Text\"}]}}")
@@ -80,6 +81,11 @@ public sealed class FurniEditorClockTests
     {
         public DateTimeOffset Now = now;
         public int Reads;
-        public override DateTimeOffset GetUtcNow() { Interlocked.Increment(ref Reads); return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Interlocked.Increment(ref Reads);
+
+            return Now;
+        }
     }
 }

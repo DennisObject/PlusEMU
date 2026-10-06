@@ -16,6 +16,7 @@ public static class PetAppearanceSnapshots
     public static HorseAppearanceSnapshot Horse(RoomUser user)
     {
         var pet = user.PetData;
+
         return new(pet.VirtualId, pet.PetId, pet.Type, int.Parse(pet.Race, CultureInfo.InvariantCulture),
             pet.Color.ToLowerInvariant(), pet.PetHair, pet.HairDye, pet.Saddle, user.RidingHorse);
     }

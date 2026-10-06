@@ -125,8 +125,12 @@ public sealed class PristineStagedLoaderDatabaseTests
             var room = new Room(data, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
             var rooms = PristineStagedDatabase.Proxy<IRoomManager>((method, args) =>
             {
-                if (method != "TryGetRoom") throw new InvalidOperationException(method);
+                if (method != "TryGetRoom") {
+                    throw new InvalidOperationException(method);
+                }
+
                 args[1] = (uint)args[0]! == room.Id ? room : null;
+
                 return args[1] != null;
             });
             var chatlogs = new Chatlogs();

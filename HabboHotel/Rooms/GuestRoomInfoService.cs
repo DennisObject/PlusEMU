@@ -44,8 +44,9 @@ public sealed class GuestRoomInfoService(IRoomDataLoader rooms, TimeProvider clo
 {
     public GuestRoomInfoSnapshot? Capture(uint roomId, Habbo viewer, bool isLoading, bool checkEntry)
     {
-        if (!rooms.TryGetData(roomId, out var data))
+        if (!rooms.TryGetData(roomId, out var data)) {
             return null;
+        }
 
         return Capture(data, viewer, isLoading, checkEntry, clock);
     }
@@ -57,6 +58,7 @@ public sealed class GuestRoomInfoService(IRoomDataLoader rooms, TimeProvider clo
     {
         var group = data.Group;
         var promotion = data.Promotion;
+
         return new(
             isLoading,
             data.Id,

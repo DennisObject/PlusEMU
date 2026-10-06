@@ -29,12 +29,12 @@ public sealed class ItemTravelStoreDatabaseTests
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             var database = new ProbeDatabase(options.ConnectionString);
-            using (var connection = database.Connection())
-            {
+
+            using (var connection = database.Connection()) {
                 connection.Execute("""
                     CREATE TABLE items_hopper (hopper_id INT UNSIGNED NOT NULL, room_id INT UNSIGNED NOT NULL);
                     CREATE TABLE room_items_tele_links (tele_one_id INT UNSIGNED NOT NULL, tele_two_id INT UNSIGNED NOT NULL);
@@ -44,6 +44,7 @@ public sealed class ItemTravelStoreDatabaseTests
                     INSERT INTO items VALUES (8,42);
                     """);
             }
+
             var store = new ItemTravelStore(database);
 
             Assert.Equal(10u, store.FindOtherHopperRoom(20));
@@ -73,8 +74,7 @@ public sealed class ItemTravelStoreDatabaseTests
             Assert.Equal([(9999u, 9999u)], probe.Query<(uint, uint)>(
                 "SELECT hopper_id,room_id FROM items_hopper").ToArray());
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -84,23 +84,29 @@ public sealed class ItemTravelStoreDatabaseTests
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE"))
         {
-            Database = "information_schema", Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true
+            Database = "information_schema",
+            Pooling = false,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
         };
         var schema = "task_mannequin_" + Guid.NewGuid().ToString("N")[..12];
         using var admin = new MySqlConnection(options.ConnectionString);
         admin.Open();
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             var database = new ProbeDatabase(options.ConnectionString);
-            using (var connection = database.Connection())
+
+            using (var connection = database.Connection()) {
                 connection.Execute("""
                     CREATE TABLE users (id INT PRIMARY KEY, look VARCHAR(200), gender VARCHAR(10));
                     INSERT INTO users VALUES (7,'old-look','M');
                     CREATE TRIGGER reject_mannequin BEFORE UPDATE ON users FOR EACH ROW
                         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced mannequin failure';
                     """);
+            }
+
             var habbo = new Habbo { Id = 7, Look = "old-look", Gender = "M", Clothing = new(), Access = UserAccess.Empty };
             var (session, sent) = HabbiconTestSupport.Client(habbo);
             var figures = DispatchProxy.Create<IFigureDataManager, FigureProxy>();
@@ -114,8 +120,7 @@ public sealed class ItemTravelStoreDatabaseTests
             using var probe = database.Connection();
             Assert.Equal(("old-look", "M"), probe.QuerySingle<(string, string)>("SELECT look,gender FROM users WHERE id=7"));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }

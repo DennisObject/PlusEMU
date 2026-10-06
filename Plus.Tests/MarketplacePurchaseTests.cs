@@ -113,6 +113,7 @@ public class MarketplacePurchaseTests
             "get_MarketCounts" => counts,
             _ => throw new InvalidOperationException(method),
         });
+
         return new MarketplacePurchaseService(store, items, marketplace, Search(), new FixedClock(Now));
     }
 
@@ -133,7 +134,9 @@ public class MarketplacePurchaseTests
 
         public ClaimStore(params object[] results)
         {
-            foreach (var result in results) _results.Enqueue(result);
+            foreach (var result in results) {
+                _results.Enqueue(result);
+            }
         }
 
         public List<MarketplacePurchaseRequest> Requests { get; } = new();
@@ -142,6 +145,7 @@ public class MarketplacePurchaseTests
         {
             Requests.Add(request);
             var next = _results.Count > 0 ? _results.Dequeue() : Refusal(MarketplacePurchaseRefusal.Sold);
+
             return next switch
             {
                 Exception error => throw error,

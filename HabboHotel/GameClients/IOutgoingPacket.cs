@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.GameClients;
+namespace Plus.HabboHotel.GameClients;
 
 public interface IOutgoingPacket
 {

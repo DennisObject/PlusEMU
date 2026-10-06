@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.Encryption.Crypto.RSA;
+namespace Plus.Communication.Encryption.Crypto.RSA;
 
 public enum Pkcs1PadType
 {

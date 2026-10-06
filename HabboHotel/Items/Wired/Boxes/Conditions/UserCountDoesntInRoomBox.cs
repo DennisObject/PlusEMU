@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -31,14 +31,21 @@ internal class UserCountDoesntInRoomBox : IWiredItem
 
     public bool Execute(params object[] @params)
     {
-        if (@params.Length == 0)
+        if (@params.Length == 0) {
             return false;
-        if (string.IsNullOrEmpty(StringData))
+        }
+
+        if (string.IsNullOrEmpty(StringData)) {
             return false;
+        }
+
         var countOne = StringData != null ? int.Parse(StringData.Split(';')[0]) : 1;
         var countTwo = StringData != null ? int.Parse(StringData.Split(';')[1]) : 50;
-        if (Instance.UserCount >= countOne && Instance.UserCount <= countTwo)
+
+        if (Instance.UserCount >= countOne && Instance.UserCount <= countTwo) {
             return false;
+        }
+
         return true;
     }
 }

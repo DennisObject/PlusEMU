@@ -9,9 +9,12 @@ public static class WiredLegacyEditorProjection
     public static bool TryGetConfiguration(IWiredItem original, out WiredBoxDescriptor descriptor,
         out WiredConfiguration configuration)
     {
-        if (WiredLegacyCustomEditor.IsCustom(original))
+        if (WiredLegacyCustomEditor.IsCustom(original)) {
             return WiredLegacyCustomEditor.TryGetConfiguration(original, out descriptor, out configuration);
+        }
+
         configuration = new();
+
         return TryGetDescriptor(original, out descriptor)
             && (WiredLegacyAddonConfigurationAdapter.TryConvert(original, descriptor, out configuration)
                 || WiredLegacyConfigurationAdapter.TryConvert(original, descriptor, out configuration));
@@ -20,13 +23,17 @@ public static class WiredLegacyEditorProjection
     public static bool TryGetDescriptor(IWiredItem original, out WiredBoxDescriptor descriptor)
     {
         descriptor = null!;
-        if (WiredLegacyCustomEditor.IsCustom(original))
+
+        if (WiredLegacyCustomEditor.IsCustom(original)) {
             return false;
-        if (original.Item.Definition.WiredDescriptor is { } named)
-        {
+        }
+
+        if (original.Item.Definition.WiredDescriptor is { } named) {
             descriptor = named;
+
             return true;
         }
+
         var name = original.Type switch
         {
             WiredBoxType.TriggerRoomEnter => "wf_trg_enter_room",
@@ -79,6 +86,7 @@ public static class WiredLegacyEditorProjection
             WiredBoxType.AddonRandomEffect => "wf_xtra_random",
             _ => null
         };
+
         return WiredBoxRegistry.TryGet(name, out descriptor);
     }
 }

@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -30,34 +30,46 @@ internal class FurniHasNoUsersBox : IWiredItem
     {
         var unknown = packet.ReadInt();
         var unknown2 = packet.ReadString();
-        if (SetItems.Count > 0)
+
+        if (SetItems.Count > 0) {
             SetItems.Clear();
+        }
+
         var furniCount = packet.ReadInt();
-        for (var i = 0; i < furniCount; i++)
-        {
+
+        for (var i = 0; i < furniCount; i++) {
             var selectedItem = Instance.GetRoomItemHandler().GetItem(packet.ReadUInt());
-            if (selectedItem != null)
+
+            if (selectedItem != null) {
                 SetItems.TryAdd(selectedItem.Id, selectedItem);
+            }
         }
     }
 
     public bool Execute(params object[] @params)
     {
-        foreach (var item in SetItems.Values.ToList())
-        {
-            if (item == null || !Instance.GetRoomItemHandler().GetFloor.Contains(item))
+        foreach (var item in SetItems.Values.ToList()) {
+            if (item == null || !Instance.GetRoomItemHandler().GetFloor.Contains(item)) {
                 continue;
-            var hasUsers = false;
-            foreach (var tile in item.GetAffectedTiles.Values)
-            {
-                if (Instance.GetGameMap().SquareHasUsers(tile.X, tile.Y))
-                    hasUsers = true;
             }
-            if (Instance.GetGameMap().SquareHasUsers(item.GetX, item.GetY))
+
+            var hasUsers = false;
+
+            foreach (var tile in item.GetAffectedTiles.Values) {
+                if (Instance.GetGameMap().SquareHasUsers(tile.X, tile.Y)) {
+                    hasUsers = true;
+                }
+            }
+
+            if (Instance.GetGameMap().SquareHasUsers(item.GetX, item.GetY)) {
                 hasUsers = true;
-            if (hasUsers)
+            }
+
+            if (hasUsers) {
                 return false;
+            }
         }
+
         return true;
     }
 }

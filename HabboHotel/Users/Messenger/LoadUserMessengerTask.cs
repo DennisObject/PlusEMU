@@ -1,4 +1,4 @@
-﻿using Plus.Core.Settings;
+using Plus.Core.Settings;
 using Plus.HabboHotel.Friends;
 using Plus.HabboHotel.Users.UserData;
 

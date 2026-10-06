@@ -86,6 +86,7 @@ public sealed class AccountStoreDatabaseTests : IDisposable
     private static async Task<string> Name(int id)
     {
         using var connection = new MySqlConnection(AuthTestDatabase.ConnectionString);
+
         return await connection.QuerySingleAsync<string>("SELECT username FROM users WHERE id = @id", new { id });
     }
 
@@ -93,6 +94,7 @@ public sealed class AccountStoreDatabaseTests : IDisposable
     {
         Assert.NotNull(id);
         _users.Add(id.Value);
+
         return id.Value;
     }
 

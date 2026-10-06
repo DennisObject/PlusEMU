@@ -17,7 +17,11 @@ public sealed class AvatarWardrobeService(IFigureDataManager figures, IAvatarWar
     public async Task ShowWardrobe(GameClient session)
     {
         var userId = session.GetHabbo().Id;
-        if (!await userData.HabboExists(userId)) return;
+
+        if (!await userData.HabboExists(userId)) {
+            return;
+        }
+
         var slots = await store.LoadSlots(userId);
         session.Send(new WardrobeComposer(new WardrobeSnapshot(slots)));
     }

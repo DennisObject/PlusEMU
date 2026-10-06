@@ -20,8 +20,9 @@ public sealed class PetPlacementDatabaseFactAttribute : FactAttribute
 {
     public PetPlacementDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null)
+        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") is null) {
             Skip = "Opt-in isolated pet placement MariaDB probe.";
+        }
     }
 }
 
@@ -137,8 +138,10 @@ public sealed class PetPlacementServiceTests
         world.Packets.Clear();
         world.Store.BeforeMove = move =>
         {
-            if (move.RoomId != 0)
+            if (move.RoomId != 0) {
                 return;
+            }
+
             Assert.Equal(42u, move.PreviousRoomId);
             Assert.True(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out _));
             Assert.DoesNotContain(world.Pet.PetId, world.Client.GetHabbo().Inventory.Pets.Pets.Keys);
@@ -164,8 +167,8 @@ public sealed class PetPlacementServiceTests
         root.Open();
         var schema = "task_refactor_tests_pets_" + Guid.NewGuid().ToString("N");
         root.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             var builder = new MySqlConnectionStringBuilder(rootBuilder.ConnectionString) { Database = schema };
             using var connection = new MySqlConnection(builder.ConnectionString);
             connection.Open();
@@ -193,8 +196,7 @@ public sealed class PetPlacementServiceTests
             Assert.False(store.TryMove(new(12, 99, 42, 0, 0, 0, 0, 10, 20, 30, 40)));
             Assert.Equal(42u, connection.ExecuteScalar<uint>("SELECT room_id FROM bots WHERE id = 12"));
         }
-        finally
-        {
+        finally {
             root.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -219,6 +221,7 @@ public sealed class PetPlacementServiceTests
                 : null);
         var settings = CatalogSnapshotTestSupport.Proxy<Plus.Core.Settings.ISettingsManager>((method, arguments) =>
             method == "TryGetValue" && (string)arguments![0]! == "room.pets.placement_limit" ? "5" : null);
+
         return new(room, pet, client, packets, store, new(store, clients, settings));
     }
 
@@ -230,6 +233,7 @@ public sealed class PetPlacementServiceTests
         Set(room, "_gamemap", new Gamemap(room, model, TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
         Set(room, "_roomUserManager", new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         Set(room, "_userSnapshots", CatalogSnapshotTestSupport.Proxy<IRoomUserSnapshotService>((_, _) => null));
+
         return room;
     }
 
@@ -249,6 +253,7 @@ public sealed class PetPlacementServiceTests
         pet.Energy = 20;
         pet.Nutrition = 30;
         pet.Respect = 4;
+
         return pet;
     }
 
@@ -280,6 +285,7 @@ public sealed class PetPlacementServiceTests
         {
             BeforeMove?.Invoke(move);
             Moves.Add(move);
+
             return Result;
         }
     }

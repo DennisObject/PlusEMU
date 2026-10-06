@@ -1,4 +1,4 @@
-﻿using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
+using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 
 namespace Plus.HabboHotel.Users.Effects;
 
@@ -38,6 +38,7 @@ public sealed class AvatarEffect
         // A timestamp in the future or missing counts as no time used yet, so the remaining time never exceeds the duration.
         var used = ActivatedAt is { } activatedAt ? Math.Max(0, (now - activatedAt).TotalSeconds) : 0;
         var remaining = Activated ? Duration - used : Duration;
+
         return Math.Max(0, remaining);
     }
 

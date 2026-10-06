@@ -17,8 +17,10 @@ internal sealed class HousekeepingAssignRoleEvent(IAccessControl access, IHousek
         runner.Run(session, "role.assign", PermissionKeys.HousekeepingRolesManage, actor =>
         {
             var result = access.Apply(actor, revision, new AssignAccessRole(username, roleId, expiresAt));
+
             return new HousekeepingOutcome(result.Ok, result.Id, result.Message, HousekeepingTarget.Hotel, "role.assign");
         });
+
         return Task.CompletedTask;
     }
 }

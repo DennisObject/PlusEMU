@@ -155,11 +155,17 @@ public sealed class RoomPromotionServiceTests
     private sealed class Loader : IRoomDataLoader
     {
         public RoomData? Data { get; set; }
-        public bool TryGetData(uint roomId, out RoomData? data) { data = Data; return data != null; }
+        public bool TryGetData(uint roomId, out RoomData? data)
+        {
+            data = Data;
+
+            return data != null;
+        }
         public int? LastOwnerId { get; private set; }
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId)
         {
             LastOwnerId = ownerId;
+
             return Data == null ? [] : [Data];
         }
     }
@@ -174,7 +180,11 @@ public sealed class RoomPromotionServiceTests
         private void Write()
         {
             BeforeWrite?.Invoke();
-            if (Fail) throw new InvalidOperationException("Forced persistence failure.");
+
+            if (Fail) {
+                throw new InvalidOperationException("Forced persistence failure.");
+            }
+
             Writes++;
         }
     }
@@ -182,7 +192,12 @@ public sealed class RoomPromotionServiceTests
     private sealed class Clock : TimeProvider
     {
         public int Reads { get; private set; }
-        public override DateTimeOffset GetUtcNow() { Reads++; return Now; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return Now;
+        }
     }
 
     private sealed class CaptureService : IRoomPromotionService
@@ -194,6 +209,7 @@ public sealed class RoomPromotionServiceTests
         public Task Purchase(Plus.HabboHotel.GameClients.GameClient session, PurchaseRoomPromotionRequest request)
         {
             PurchaseRequest = request;
+
             return Task.CompletedTask;
         }
         public void Edit(Plus.HabboHotel.GameClients.GameClient session, EditRoomPromotionRequest request) => EditRequest = request;
@@ -203,6 +219,7 @@ public sealed class RoomPromotionServiceTests
     {
         var proxy = DispatchProxy.Create<T, CallbackProxy>();
         ((CallbackProxy)(object)proxy).Callback = callback;
+
         return proxy;
     }
 

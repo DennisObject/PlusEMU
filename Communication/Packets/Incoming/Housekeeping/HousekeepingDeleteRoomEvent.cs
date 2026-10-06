@@ -20,6 +20,7 @@ internal class HousekeepingDeleteRoomEvent : IPacketEvent
     {
         var roomId = packet.ReadInt();
         _runner.Run(session, "room.delete", HousekeepingRights.RoomOwnership, actor => _rooms.Delete(actor, roomId));
+
         return Task.CompletedTask;
     }
 }

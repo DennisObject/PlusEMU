@@ -22,8 +22,9 @@ public sealed class FoundationSchemaDatabaseFactAttribute : FactAttribute
 {
     public FoundationSchemaDatabaseFactAttribute()
     {
-        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") == null)
+        if (Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE") == null) {
             Skip = "Opt-in GUID schema foundation boundary probe.";
+        }
     }
 }
 
@@ -40,8 +41,8 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
         admin.Open();
         var schema = "task_foundation_schema_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
@@ -54,8 +55,8 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
             var (client, sent) = HabbiconTestSupport.Client(habbo);
             var mimic = new DisableMimicCommand(database);
             var effects = new DisableForcedFxCommand(database);
-            foreach (var expected in new[] { true, false })
-            {
+
+            foreach (var expected in new[] { true, false }) {
                 mimic.Execute(client, null!, []);
                 effects.Execute(client, null!, []);
                 Assert.Equal(expected, habbo.AllowMimic);
@@ -63,6 +64,7 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
                 Assert.Equal(expected, connection.ExecuteScalar<bool>("SELECT allow_mimic FROM users_settings WHERE user_id=7"));
                 Assert.Equal(expected, connection.ExecuteScalar<bool>("SELECT disable_forced_effects FROM users_settings WHERE user_id=7"));
             }
+
             connection.Execute("CREATE TRIGGER reject_settings BEFORE UPDATE ON users_settings FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced'");
             Assert.Throws<MySqlException>(() => mimic.Execute(client, null!, []));
             Assert.Throws<MySqlException>(() => effects.Execute(client, null!, []));
@@ -81,7 +83,9 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
             Assert.Null(dates[1]);
             Assert.Equal(DateTimeOffset.UnixEpoch, dates[2]);
         }
-        finally { admin.Execute($"DROP DATABASE IF EXISTS `{schema}`"); }
+        finally {
+            admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
+        }
     }
     [FoundationSchemaDatabaseFact]
     public void TonerLoadsExistingAndDefaultRowsFromNativeBooleans()
@@ -92,8 +96,8 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
         admin.Open();
         var schema = "task_foundation_toner_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
@@ -114,8 +118,7 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
             Assert.Equal(3, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM room_items_toner"));
             Assert.False(connection.QuerySingle<bool>("SELECT enabled FROM room_items_toner WHERE id=9"));
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -129,8 +132,8 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
         admin.Open();
         var schema = "task_foundation_home_" + Guid.NewGuid().ToString("N");
         admin.Execute($"CREATE DATABASE `{schema}`");
-        try
-        {
+
+        try {
             options.Database = schema;
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
@@ -175,19 +178,29 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
             habbo.Persistence = persistence;
             var update = Task.Run(() => gatedNavigator.SaveHomeRoom(client, 42));
             Task? save = null;
-            try
-            {
+
+            try {
                 Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
                 save = Task.Run(() => { saving.Set(); habbo.Save(); });
                 Assert.True(saving.Wait(TimeSpan.FromSeconds(5)));
                 Assert.NotSame(save, await Task.WhenAny(save, Task.Delay(150)));
             }
-            finally
-            {
+            finally {
                 release.Set();
-                try { await update.WaitAsync(TimeSpan.FromSeconds(10)); } catch { }
-                if (save != null) { try { await save.WaitAsync(TimeSpan.FromSeconds(10)); } catch { } }
+
+                try {
+                    await update.WaitAsync(TimeSpan.FromSeconds(10));
+                }
+                catch { }
+
+                if (save != null) {
+                    try {
+                        await save.WaitAsync(TimeSpan.FromSeconds(10));
+                    }
+                    catch { }
+                }
             }
+
             await update;
             await save!;
             Assert.Equal(42u, habbo.HomeRoom);
@@ -201,8 +214,7 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
             Assert.Equal(42u, connection.ExecuteScalar<uint>("SELECT home_room FROM users_settings WHERE user_id=7"));
             Assert.Empty(sent);
         }
-        finally
-        {
+        finally {
             admin.Execute($"DROP DATABASE IF EXISTS `{schema}`");
         }
     }
@@ -211,8 +223,12 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
         public Action Save = null!;
         protected override object? Invoke(MethodInfo? method, object?[]? args)
         {
-            if (method!.Name != nameof(IUserPersistenceService.Save)) throw new NotSupportedException(method.Name);
+            if (method!.Name != nameof(IUserPersistenceService.Save)) {
+                throw new NotSupportedException(method.Name);
+            }
+
             Save();
+
             return null;
         }
     }
@@ -221,9 +237,13 @@ public sealed class FoundationSchemaBoundaryDatabaseTests
         public bool TryGetData(uint roomId, [NotNullWhen(true)] out RoomData? room)
         {
             room = roomId == 42 ? new RoomData { Id = roomId } : null;
+
             return room != null;
         }
         public List<RoomData> GetRoomsDataByOwnerSortByName(int ownerId) => [];
     }
-    private sealed class DateRow { public DateTimeOffset? Value { get; set; } }
+    private sealed class DateRow
+    {
+        public DateTimeOffset? Value { get; set; }
+    }
 }

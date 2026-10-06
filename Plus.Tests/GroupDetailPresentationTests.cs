@@ -26,6 +26,7 @@ public sealed class GroupDetailPresentationTests
         var presentation = CatalogSnapshotTestSupport.Proxy<IGroupPresentationService>((method, args) =>
         {
             calls.Add((method, args));
+
             return null;
         });
         await new GetGroupInfoEvent(presentation).Parse(null!, HabbiconTestSupport.Incoming(9, true));
@@ -62,7 +63,9 @@ public sealed class GroupDetailPresentationTests
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, items);
         var item = new Item
         {
-            Id = 92, RoomId = 42, IsTemporary = temporary,
+            Id = 92,
+            RoomId = 42,
+            IsTemporary = temporary,
             Definition = new ItemDefinition { Id = 92, Type = ItemType.Floor, InteractionType = type },
             ExtraData = FurniObjectData.Empty
         };
@@ -71,10 +74,14 @@ public sealed class GroupDetailPresentationTests
         floor[item.Id] = item;
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7, CurrentRoom = room });
         Service(Group()).ShowFurnitureSettings(client, item.Id, 9);
-        if (allowed)
+
+        if (allowed) {
             Assert.Equal(new[] { ServerPacketHeader.GroupFurniSettingsComposer, ServerPacketHeader.GroupInfoComposer }, sent.Select(p => p.Header));
-        else
+        }
+        else {
             Assert.Empty(sent);
+        }
+
         sent.Clear();
         Service(Group()).ShowFurnitureSettings(client, 999, 9);
         Assert.Empty(sent);

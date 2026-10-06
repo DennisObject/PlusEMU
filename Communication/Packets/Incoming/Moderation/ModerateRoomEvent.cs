@@ -15,6 +15,7 @@ internal sealed class ModerateRoomEvent(IModeratorActionService moderation) : IP
         var renamed = packet.ReadInt() == 1;
         var kickAll = packet.ReadInt() == 1;
         moderation.ModerateRoom(session, new(roomId, locked, renamed, kickAll));
+
         return Task.CompletedTask;
     }
 }

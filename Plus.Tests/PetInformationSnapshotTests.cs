@@ -15,16 +15,28 @@ public sealed class PetInformationSnapshotTests
     {
         var now = DateTimeOffset.FromUnixTimeSeconds(2_200_000_000);
         var pet = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
-        pet.PetId = 42; pet.Name = "Horse"; pet.OwnerId = 7; pet.OwnerName = "Owner";
-        pet.Experience = 300; pet.ExperienceLevels = [100, 200, 400];
-        pet.Energy = 55; pet.Nutrition = 60; pet.Respect = 8; pet.Saddle = 9; pet.AnyoneCanRide = 1;
+        pet.PetId = 42;
+        pet.Name = "Horse";
+        pet.OwnerId = 7;
+        pet.OwnerName = "Owner";
+        pet.Experience = 300;
+        pet.ExperienceLevels = [100, 200, 400];
+        pet.Energy = 55;
+        pet.Nutrition = 60;
+        pet.Respect = 8;
+        pet.Saddle = 9;
+        pet.AnyoneCanRide = 1;
         pet.CreatedAt = now.AddDays(-2);
         var composer = new PetInformationComposer(new PetInformationService(new FixedClock(now)).Capture(pet));
         var expected = new object[] { 42, "Horse", 3, 20, 300, 400, 55, 100, 60, 150, 8, 7, 2, "Owner", 1,
             true, false, 0, 1, false, true, false, 0, -1, -1, -1, false };
         Assert.Equal(expected, Writes(composer));
-        pet.Name = "Changed"; pet.Experience = 0; pet.ExperienceLevels[2] = 999;
-        pet.OwnerName = "changed"; pet.Saddle = 0; pet.AnyoneCanRide = 0;
+        pet.Name = "Changed";
+        pet.Experience = 0;
+        pet.ExperienceLevels[2] = 999;
+        pet.OwnerName = "changed";
+        pet.Saddle = 0;
+        pet.AnyoneCanRide = 0;
         Assert.Equal(expected, Writes(composer));
         Assert.Equal(expected, Writes(composer));
     }
@@ -48,8 +60,13 @@ public sealed class PetInformationSnapshotTests
     [InlineData(2_199_827_200L, 2)]
     public void AccountAgeHandlesNullAndFutureDates(long? created, int expectedAge)
     {
-        var habbo = new Habbo { Id = 7, Username = "Owner", AccountCreatedAt = created.HasValue ? DateTimeOffset.FromUnixTimeSeconds(created.Value) : null,
-            HabboStats = new(0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0) };
+        var habbo = new Habbo
+        {
+            Id = 7,
+            Username = "Owner",
+            AccountCreatedAt = created.HasValue ? DateTimeOffset.FromUnixTimeSeconds(created.Value) : null,
+            HabboStats = new(0, 0, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
+        };
         var snapshot = PetInformationService.Capture(habbo, DateTimeOffset.FromUnixTimeSeconds(2_200_000_000));
         Assert.Equal(expectedAge, snapshot.AgeInDays);
         Assert.Equal((7, "Owner", 8, false, 0), (snapshot.OwnerId, snapshot.OwnerName, snapshot.Respect, snapshot.HasSaddle, snapshot.AnyoneCanRide));
@@ -102,9 +119,13 @@ public sealed class PetInformationSnapshotTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(packet);
+
         return packet.Writes.ToArray();
     }
-    private sealed class FixedClock(DateTimeOffset now) : TimeProvider { public override DateTimeOffset GetUtcNow() => now; }
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+    }
     private sealed class RecordingService : IPetInformationService
     {
         public (GameClient Session, int PetId)? Request { get; private set; }

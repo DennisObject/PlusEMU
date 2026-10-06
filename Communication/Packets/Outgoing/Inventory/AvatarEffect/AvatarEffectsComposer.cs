@@ -1,4 +1,4 @@
-﻿using System.Collections.Immutable;
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Effects;
 
@@ -11,8 +11,8 @@ public class AvatarEffectsComposer(ImmutableArray<AvatarEffectEntry> effects) : 
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(effects.Length);
-        foreach (var effect in effects)
-        {
+
+        foreach (var effect in effects) {
             packet.WriteInteger(effect.SpriteId); //Effect Id
             packet.WriteInteger(0); //Type, 0 = Hand, 1 = Full
             packet.WriteInteger(effect.Duration);

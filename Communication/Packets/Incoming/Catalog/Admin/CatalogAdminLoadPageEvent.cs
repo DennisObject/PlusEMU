@@ -17,6 +17,7 @@ public class CatalogAdminLoadPageEvent : IPacketEvent
     {
         int pageId = packet.ReadInt();
         CatalogAdminResponder.Read(session, () => new CatalogAdminPageDetailsComposer(_catalogAdmin.LoadPage(session.GetHabbo(), pageId)));
+
         return Task.CompletedTask;
     }
 }

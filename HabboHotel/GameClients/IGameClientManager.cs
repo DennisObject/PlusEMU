@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Permissions;
 using Plus.Communication.Packets;
 using Plus.HabboHotel.Users.Messenger;

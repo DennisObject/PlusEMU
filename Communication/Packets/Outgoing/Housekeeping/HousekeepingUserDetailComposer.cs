@@ -13,7 +13,11 @@ public class HousekeepingUserDetailComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteBoolean(_user != null);
-        if (_user == null) return;
+
+        if (_user == null) {
+            return;
+        }
+
         packet.WriteInteger(_user.Id);
         packet.WriteString(_user.Username);
         packet.WriteString(_user.Motto);

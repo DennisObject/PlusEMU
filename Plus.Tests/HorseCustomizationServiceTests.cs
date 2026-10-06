@@ -70,6 +70,7 @@ public sealed class HorseCustomizationServiceTests
         var pets = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager)
             .GetField("_pets", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(manager)!;
         pets[pet.PetId] = roomUser;
+
         return (room, pet);
     }
 
@@ -79,12 +80,17 @@ public sealed class HorseCustomizationServiceTests
         public List<(int PetId, string Column, object Value)> Updates { get; } = [];
         public void UpdatePet(int petId, string column, object value)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
+
             Updates.Add((petId, column, value));
         }
         public void ConsumeItem(int petId, string column, object value, uint itemId, uint roomId, int ownerId)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
         }
     }
 }

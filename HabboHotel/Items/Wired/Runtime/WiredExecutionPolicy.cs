@@ -2,7 +2,10 @@ using Plus.HabboHotel.Items.Wired.Modern.Addons;
 
 namespace Plus.HabboHotel.Items.Wired.Runtime;
 
-public enum WiredConditionMode { All, Any, None, NoneMatch, NotAll, LessThan, Exactly, MoreThan }
+public enum WiredConditionMode
+{
+    All, Any, None, NoneMatch, NotAll, LessThan, Exactly, MoreThan
+}
 
 public sealed class WiredExecutionPolicy
 {

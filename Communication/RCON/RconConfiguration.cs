@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.RCON;
+namespace Plus.Communication.RCON;
 
 public class RconConfiguration
 {

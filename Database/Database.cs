@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Microsoft.Extensions.Options;
 using MySqlConnector;
 using Dapper;
@@ -32,8 +32,7 @@ public sealed class Database : IDatabase
 
     public bool IsConnected()
     {
-        try
-        {
+        try {
             var con = new MySqlConnection(_connectionStr);
             con.Open();
             var cmd = con.CreateCommand();
@@ -42,10 +41,10 @@ public sealed class Database : IDatabase
             cmd.Dispose();
             con.Close();
         }
-        catch (MySqlException)
-        {
+        catch (MySqlException) {
             return false;
         }
+
         return true;
     }
 

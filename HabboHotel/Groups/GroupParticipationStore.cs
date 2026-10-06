@@ -27,18 +27,25 @@ public sealed class GroupParticipationStore(IDatabase database) : IGroupParticip
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        if (!LockAccount(connection, transaction, userId) || !LockGroup(connection, transaction, groupId))
+
+        if (!LockAccount(connection, transaction, userId) || !LockGroup(connection, transaction, groupId)) {
             return GroupJoinOutcome.Refused;
+        }
+
         var memberships = connection.ExecuteScalar<int>(
             "SELECT COUNT(*) FROM group_memberships AS m INNER JOIN `groups` AS g ON m.group_id = g.id WHERE m.user_id = @userId",
             new { userId }, transaction);
-        if (memberships >= membershipLimit)
+
+        if (memberships >= membershipLimit) {
             return GroupJoinOutcome.LimitReached;
+        }
+
         // The tables have no unique keys, so presence is checked under the lock before each insert.
         var outcome = request
             ? InsertRequest(connection, transaction, userId, groupId)
             : InsertMembership(connection, transaction, userId, groupId);
         transaction.Commit();
+
         return outcome;
     }
 
@@ -47,12 +54,18 @@ public sealed class GroupParticipationStore(IDatabase database) : IGroupParticip
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        if (!LockAccount(connection, transaction, userId) || groupId != 0 && !LockGroup(connection, transaction, groupId))
+
+        if (!LockAccount(connection, transaction, userId) || groupId != 0 && !LockGroup(connection, transaction, groupId)) {
             return false;
-        if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_statistics WHERE id = @userId", new { userId }, transaction) != 1)
+        }
+
+        if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_statistics WHERE id = @userId", new { userId }, transaction) != 1) {
             return false;
+        }
+
         connection.Execute("UPDATE user_statistics SET groupid = @groupId WHERE id = @userId", new { userId, groupId }, transaction);
         transaction.Commit();
+
         return true;
     }
 
@@ -65,17 +78,23 @@ public sealed class GroupParticipationStore(IDatabase database) : IGroupParticip
 
     private static GroupJoinOutcome InsertRequest(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int userId, int groupId)
     {
-        if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM group_requests WHERE user_id = @userId AND group_id = @groupId", new { userId, groupId }, transaction) > 0)
+        if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM group_requests WHERE user_id = @userId AND group_id = @groupId", new { userId, groupId }, transaction) > 0) {
             return GroupJoinOutcome.AlreadyPresent;
+        }
+
         connection.Execute("INSERT INTO group_requests (user_id, group_id) VALUES (@userId, @groupId)", new { userId, groupId }, transaction);
+
         return GroupJoinOutcome.Inserted;
     }
 
     private static GroupJoinOutcome InsertMembership(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int userId, int groupId)
     {
-        if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM group_memberships WHERE user_id = @userId AND group_id = @groupId", new { userId, groupId }, transaction) > 0)
+        if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM group_memberships WHERE user_id = @userId AND group_id = @groupId", new { userId, groupId }, transaction) > 0) {
             return GroupJoinOutcome.AlreadyPresent;
+        }
+
         connection.Execute("INSERT INTO group_memberships (user_id, group_id) VALUES (@userId, @groupId)", new { userId, groupId }, transaction);
+
         return GroupJoinOutcome.Inserted;
     }
 }

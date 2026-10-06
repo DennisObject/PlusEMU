@@ -18,9 +18,17 @@ public sealed class RoomBannedUsersService(ICacheManager cache) : IRoomBannedUse
     public void Send(GameClient client)
     {
         var room = client.GetHabbo().CurrentRoom;
-        if (room == null || !room.CheckRights(client, true)) return;
+
+        if (room == null || !room.CheckRights(client, true)) {
+            return;
+        }
+
         var ids = room.GetBans().BannedUsers().ToArray();
-        if (ids.Length == 0) return;
+
+        if (ids.Length == 0) {
+            return;
+        }
+
         var users = ids.Select(id => cache.GenerateUser(id) is { } user
             ? new BannedRoomUser(user.Id, user.Username)
             : new BannedRoomUser(0, "Unknown Error")).ToImmutableArray();

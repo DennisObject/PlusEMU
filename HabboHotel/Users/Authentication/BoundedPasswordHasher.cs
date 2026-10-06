@@ -39,31 +39,27 @@ public class BoundedPasswordHasher : IBoundedPasswordHasher
 
     private async Task<T> Run<T>(Func<T> hash, CancellationToken cancellationToken)
     {
-        if (!_slots.Wait(0))
-        {
-            if (Interlocked.Increment(ref _queued) > _maxQueued)
-            {
+        if (!_slots.Wait(0)) {
+            if (Interlocked.Increment(ref _queued) > _maxQueued) {
                 Interlocked.Decrement(ref _queued);
                 throw new PasswordCheckQueueFullException();
             }
-            try
-            {
+
+            try {
                 await _slots.WaitAsync(cancellationToken);
             }
-            finally
-            {
+            finally {
                 Interlocked.Decrement(ref _queued);
             }
         }
 
-        try
-        {
+        try {
             // A caller that went away while queued gives its slot back without hashing.
             cancellationToken.ThrowIfCancellationRequested();
+
             return hash();
         }
-        finally
-        {
+        finally {
             _slots.Release();
         }
     }

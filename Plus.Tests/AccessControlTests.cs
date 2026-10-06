@@ -142,8 +142,15 @@ public sealed class AccessControlTests
     {
         // The SQL expands each old threshold onto each individual role; higher weight grants nothing by itself.
         var roleGrants = new List<string>();
-        if (migratedRank >= 4) roleGrants.Add(PermissionKeys.CameraUse);
-        if (migratedRank >= 5) roleGrants.Add(PermissionKeys.ModerationTool);
+
+        if (migratedRank >= 4) {
+            roleGrants.Add(PermissionKeys.CameraUse);
+        }
+
+        if (migratedRank >= 5) {
+            roleGrants.Add(PermissionKeys.ModerationTool);
+        }
+
         var access = Access(Role(migratedRank, migratedRank * 10, roleGrants.ToArray()));
         Assert.Equal(camera, access.Can(PermissionKeys.CameraUse));
         Assert.Equal(moderation, access.Can(PermissionKeys.ModerationTool));

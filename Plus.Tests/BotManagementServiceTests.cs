@@ -92,6 +92,7 @@ public sealed class BotManagementServiceTests
         client.SendCallback = args =>
         {
             sent.Add(args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray());
+
             return true;
         };
         var handler = new OpenBotActionEvent(service);
@@ -120,8 +121,8 @@ public sealed class BotManagementServiceTests
         var composer = new OpenBotActionComposer(new(bot.Id, 5, bot.Name));
         bot.Id = 99;
         bot.Name = "changed";
-        for (var i = 0; i < 2; i++)
-        {
+
+        for (var i = 0; i < 2; i++) {
             var packet = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(packet);
             Assert.Equal(new object[] { 31, 5, "Helper" }, packet.Writes);
@@ -145,6 +146,7 @@ public sealed class BotManagementServiceTests
         var habbo = new Habbo { Id = actorId, CurrentRoom = room, Access = EditorTestSupport.Access([]) };
         var (client, _) = HabbiconTestSupport.Client(habbo);
         var store = new RecordingStore();
+
         return (new(store, null!), store, bot, client);
     }
 
@@ -161,12 +163,16 @@ public sealed class BotManagementServiceTests
         {
             SpeechWrites++;
             LastSpeech = (botId, roomId, automatic, interval, mix);
+
             return speech;
         }
         public void SaveName(int botId, uint roomId, string name) => throw new NotSupportedException();
         public void SaveWalkingMode(int botId, uint roomId, string mode)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
+
             WalkingModes.Add((botId, mode));
         }
     }

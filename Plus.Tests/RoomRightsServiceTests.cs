@@ -31,16 +31,36 @@ public sealed class RoomRightsServiceTests
         room.UsersWithRights = [2, 99];
         var (owner, sent) = HabbiconTestSupport.Client(new Habbo
         {
-            Id = 1, Username = "owner", CurrentRoom = room, Access = EditorTestSupport.Access([])
+            Id = 1,
+            Username = "owner",
+            CurrentRoom = room,
+            Access = EditorTestSupport.Access([])
         });
         var service = new RoomRightsService(new RecordingStore(), null!, new Cache(new() { Id = 2, Username = "guest" }));
         service.Show(owner);
         var response = Assert.Single(sent);
         Assert.Equal(ServerPacketHeader.RoomRightsListComposer, response.Header);
         var expected = new List<byte>();
-        void Integer(int value) { var bytes = new byte[4]; BinaryPrimitives.WriteInt32BigEndian(bytes, value); expected.AddRange(bytes); }
-        void String(string value) { var bytes = Encoding.UTF8.GetBytes(value); var length = new byte[2]; BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)bytes.Length); expected.AddRange(length); expected.AddRange(bytes); }
-        Integer(42); Integer(2); Integer(2); String("guest"); Integer(0); String("Unknown Error");
+        void Integer(int value)
+        {
+            var bytes = new byte[4];
+            BinaryPrimitives.WriteInt32BigEndian(bytes, value);
+            expected.AddRange(bytes);
+        }
+        void String(string value)
+        {
+            var bytes = Encoding.UTF8.GetBytes(value);
+            var length = new byte[2];
+            BinaryPrimitives.WriteUInt16BigEndian(length, (ushort)bytes.Length);
+            expected.AddRange(length);
+            expected.AddRange(bytes);
+        }
+        Integer(42);
+        Integer(2);
+        Integer(2);
+        String("guest");
+        Integer(0);
+        String("Unknown Error");
         Assert.Equal(expected, response.Payload);
     }
 
@@ -51,7 +71,10 @@ public sealed class RoomRightsServiceTests
         room.UsersWithRights = [2];
         var (visitor, sent) = HabbiconTestSupport.Client(new Habbo
         {
-            Id = 3, Username = "visitor", CurrentRoom = room, Access = EditorTestSupport.Access([])
+            Id = 3,
+            Username = "visitor",
+            CurrentRoom = room,
+            Access = EditorTestSupport.Access([])
         });
         var cache = new Cache(null);
         var service = new RoomRightsService(new RecordingStore(), null!, cache);
@@ -113,6 +136,7 @@ public sealed class RoomRightsServiceTests
         room.UsersWithRights = [];
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!
             .SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
+
         return room;
     }
 
@@ -122,24 +146,46 @@ public sealed class RoomRightsServiceTests
         public List<(uint RoomId, int UserId)> Assignments { get; } = [];
         public void Assign(uint roomId, int userId)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
+
             Assignments.Add((roomId, userId));
         }
         public void Remove(uint roomId, IReadOnlyList<int> userIds)
         {
-            if (Fail) throw new InvalidOperationException("forced failure");
+            if (Fail) {
+                throw new InvalidOperationException("forced failure");
+            }
         }
     }
 
     private sealed class Cache(CachedUser? user) : ICacheManager
     {
         public int Reads;
-        public CachedUser? GenerateUser(int id) { Reads++; return user?.Id == id ? user : null; }
+        public CachedUser? GenerateUser(int id)
+        {
+            Reads++;
+
+            return user?.Id == id ? user : null;
+        }
         public bool ContainsUser(int id) => false;
-        public bool TryRemoveUser(int id, out CachedUser cachedUser) { cachedUser = null!; return false; }
-        public bool TryGetUser(int id, out CachedUser cachedUser) { cachedUser = null!; return false; }
+        public bool TryRemoveUser(int id, out CachedUser cachedUser)
+        {
+            cachedUser = null!;
+
+            return false;
+        }
+        public bool TryGetUser(int id, out CachedUser cachedUser)
+        {
+            cachedUser = null!;
+
+            return false;
+        }
         public ICollection<CachedUser> GetUserCache() => [];
-        public void Init() { }
+        public void Init()
+        {
+        }
     }
 
     private sealed class RecordingRights : IRoomRightsService

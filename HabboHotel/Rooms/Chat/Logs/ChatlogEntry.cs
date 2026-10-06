@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Rooms.Chat.Logs;
 
@@ -13,10 +13,14 @@ public sealed class ChatlogEntry
         RoomId = roomId;
         Message = message;
         CreatedAt = createdAt.ToUniversalTime();
-        if (player != null)
+
+        if (player != null) {
             _playerReference = new(player);
-        if (instance != null)
+        }
+
+        if (instance != null) {
             _roomReference = new(instance);
+        }
     }
 
     public int PlayerId { get; }

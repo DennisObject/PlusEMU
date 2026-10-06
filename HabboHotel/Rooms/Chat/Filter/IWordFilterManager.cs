@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms.Chat.Filter;
+namespace Plus.HabboHotel.Rooms.Chat.Filter;
 
 public interface IWordFilterManager
 {

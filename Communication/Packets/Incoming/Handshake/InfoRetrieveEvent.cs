@@ -8,6 +8,7 @@ public class InfoRetrieveEvent(IUserProfileService profiles) : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         profiles.ShowUserObject(session);
+
         return Task.CompletedTask;
     }
 }

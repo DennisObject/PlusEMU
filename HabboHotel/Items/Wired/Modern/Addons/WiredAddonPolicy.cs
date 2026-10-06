@@ -2,7 +2,10 @@ using Plus.HabboHotel.Items.Wired.Modern.Selectors;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Addons;
 
-public enum WiredConditionEvaluation { All, Any, SomeButNotAll, None, LessThan, Exactly, MoreThan }
+public enum WiredConditionEvaluation
+{
+    All, Any, SomeButNotAll, None, LessThan, Exactly, MoreThan
+}
 public sealed record WiredConditionPolicy(WiredConditionEvaluation Mode, int Source, int Count,
     IReadOnlySet<uint> ConditionIds);
 
@@ -16,7 +19,10 @@ public sealed record WiredCarryPolicy(bool SameTile, IReadOnlySet<int> UserIds);
 public sealed record WiredPhysicsPolicy(bool KeepAltitude, IReadOnlySet<uint> ThroughFurni,
     IReadOnlySet<int> ThroughUsers, IReadOnlySet<uint> BlockingFurni);
 public sealed record WiredCurvePolicy(int Type, int Intensity, int Strength);
-public enum WiredProjectileDistance { Normal, Overshoot, Fixed }
+public enum WiredProjectileDistance
+{
+    Normal, Overshoot, Fixed
+}
 public sealed record WiredProjectilePolicy(IReadOnlySet<uint> ItemIds, int? DirectionSystem,
     int RotationOffset, int? CurveStrength, WiredProjectileDistance Distance, int DistanceTiles);
 
@@ -38,7 +44,10 @@ public sealed class WiredAddonPolicy
 
     public string FormatText(WiredAddonInputs input, string text)
     {
-        foreach (var formatter in TextFormatters) text = formatter(input, text);
+        foreach (var formatter in TextFormatters) {
+            text = formatter(input, text);
+        }
+
         return text;
     }
 
@@ -47,12 +56,16 @@ public sealed class WiredAddonPolicy
         var result = selection.Copy();
         Limit(result.FurniIds, FurniLimit, random);
         Limit(result.UserIds, UserLimit, random);
+
         return result;
     }
 
     private static void Limit<T>(HashSet<T> values, int? limit, Random random)
     {
-        if (limit is not > 0 || values.Count <= limit.Value) return;
+        if (limit is not > 0 || values.Count <= limit.Value) {
+            return;
+        }
+
         var candidates = values.ToArray();
         random.Shuffle(candidates);
         values.Clear();
@@ -65,8 +78,12 @@ public static class WiredConditionPolicyEvaluator
 {
     public static bool Matches(WiredConditionEvaluation mode, int matched, int total, int count)
     {
-        if (total <= 0) return true;
+        if (total <= 0) {
+            return true;
+        }
+
         count = Math.Clamp(count, mode == WiredConditionEvaluation.LessThan ? 1 : 0, 100);
+
         return mode switch
         {
             WiredConditionEvaluation.All => matched >= total,

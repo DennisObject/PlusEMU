@@ -21,20 +21,29 @@ internal static class FurniExtraData
 
     public static bool RejectsClientImage(IReadOnlyList<string> values)
     {
-        for (var index = 0; index < values.Count; index++)
-        {
+        for (var index = 0; index < values.Count; index++) {
             var value = values[index] ?? "";
-            if (index % 2 == 0 && ClientImageKeys.Contains(value))
+
+            if (index % 2 == 0 && ClientImageKeys.Contains(value)) {
                 return true;
-            if (ExternalAddress.IsMatch(value) || EmbeddedImageKey.IsMatch(value))
+            }
+
+            if (ExternalAddress.IsMatch(value) || EmbeddedImageKey.IsMatch(value)) {
                 return true;
+            }
         }
 
         // Branding is decoded by MapDataFormat.Store. Validate exactly that representation
         // as well, including escaped keys, values and injected pair separators.
         var decoded = new MapDataFormat();
-        try { decoded.Store(Branding(values)); }
-        catch (ArgumentException) { return true; }
+
+        try {
+            decoded.Store(Branding(values));
+        }
+        catch (ArgumentException) {
+            return true;
+        }
+
         return decoded.Data.Any(pair => ClientImageKeys.Contains(pair.Key)
             || ExternalAddress.IsMatch(pair.Key) || ExternalAddress.IsMatch(pair.Value)
             || EmbeddedImageKey.IsMatch(pair.Key) || EmbeddedImageKey.IsMatch(pair.Value));
@@ -43,22 +52,26 @@ internal static class FurniExtraData
     public static IFurniObjectData Load(ItemDefinition definition, string stored, bool keepLegacy)
     {
         stored ??= "";
-        switch (definition.InteractionType)
-        {
-            case InteractionType.CrackableEgg:
-            {
-                var data = definition.CreateData();
-                if (stored.Length > 0)
-                    data.Store(stored);
-                return data;
-            }
-            case InteractionType.Background:
-            {
-                var data = definition.CreateData();
-                if (stored.Length > 0)
-                    data.Store(BackgroundPairs(stored));
-                return data;
-            }
+
+        switch (definition.InteractionType) {
+            case InteractionType.CrackableEgg: {
+                    var data = definition.CreateData();
+
+                    if (stored.Length > 0) {
+                        data.Store(stored);
+                    }
+
+                    return data;
+                }
+            case InteractionType.Background: {
+                    var data = definition.CreateData();
+
+                    if (stored.Length > 0) {
+                        data.Store(BackgroundPairs(stored));
+                    }
+
+                    return data;
+                }
             default:
                 return keepLegacy ? new LegacyDataFormat { Data = stored } : FurniObjectData.Empty;
         }
@@ -66,11 +79,16 @@ internal static class FurniExtraData
 
     public static string BackgroundPairs(string stored)
     {
-        if (stored.Contains('\n'))
+        if (stored.Contains('\n')) {
             return stored;
+        }
+
         var fields = stored.Split('\t');
-        if (fields.Length < 2 || fields.Length % 2 != 0)
+
+        if (fields.Length < 2 || fields.Length % 2 != 0) {
             return stored;
+        }
+
         return string.Join("\n", Enumerable.Range(0, fields.Length / 2).Select(index => $"{fields[index * 2]}\t{fields[index * 2 + 1]}"));
     }
 
@@ -79,6 +97,7 @@ internal static class FurniExtraData
         var fields = new List<string> { "state", "0" };
         fields.AddRange(values);
         var pairs = fields.Count / 2;
+
         return string.Join("\n", Enumerable.Range(0, pairs).Select(index => $"{fields[index * 2]}\t{fields[index * 2 + 1]}"));
     }
 }

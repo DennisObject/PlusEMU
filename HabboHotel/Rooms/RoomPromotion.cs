@@ -1,4 +1,4 @@
-﻿namespace Plus.HabboHotel.Rooms;
+namespace Plus.HabboHotel.Rooms;
 
 public class RoomPromotion
 {
@@ -39,8 +39,10 @@ public class RoomPromotion
 
     internal int MinutesLeftAt(DateTimeOffset now)
     {
-        if (HasExpiredAt(now))
+        if (HasExpiredAt(now)) {
             return 0;
+        }
+
         return (int)Math.Min(int.MaxValue, Math.Ceiling((ExpiresAt!.Value - now).TotalMinutes));
     }
 }

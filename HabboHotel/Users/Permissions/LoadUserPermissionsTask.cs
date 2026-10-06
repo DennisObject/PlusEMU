@@ -9,6 +9,7 @@ internal sealed class LoadUserPermissionsTask(IAccessControl accessControl) : IU
     public Task Load(Habbo habbo)
     {
         habbo.Access = accessControl.Resolve(habbo.Id);
+
         return Task.CompletedTask;
     }
 
@@ -16,6 +17,7 @@ internal sealed class LoadUserPermissionsTask(IAccessControl accessControl) : IU
     {
         // Loading happens before attachment; re-read once registered to cover mutations during login.
         habbo.Access = accessControl.Resolve(habbo.Id);
+
         return Task.CompletedTask;
     }
 }

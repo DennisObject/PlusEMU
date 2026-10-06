@@ -19,6 +19,7 @@ public sealed class AvatarEffectStore(IDatabase database) : IAvatarEffectStore
         using var connection = database.Connection();
         var rows = connection.Query<EffectRow>("SELECT `id`, `user_id` AS UserId, `effect_id` AS SpriteId, `total_duration` AS Duration, " +
             "`is_activated` AS Activated, `activated_stamp` AS TimestampActivated, `quantity` FROM `user_effects` WHERE `user_id` = @userId", new { userId });
+
         return rows.Select(row => new AvatarEffect(row.Id, checked((int)row.UserId), row.SpriteId, row.Duration, row.Activated,
             row.TimestampActivated, row.Quantity, this)).ToList();
     }
@@ -28,6 +29,7 @@ public sealed class AvatarEffectStore(IDatabase database) : IAvatarEffectStore
         using var connection = database.Connection();
         var id = connection.ExecuteScalar<int>("INSERT INTO `user_effects` (`user_id`,`effect_id`,`total_duration`,`is_activated`,`activated_stamp`,`quantity`) " +
             "VALUES (@userId, @spriteId, @duration, false, NULL, 1); SELECT LAST_INSERT_ID()", new { userId, spriteId, duration });
+
         return new(id, userId, spriteId, duration, false, null, 1, this);
     }
 
@@ -51,8 +53,9 @@ public sealed class AvatarEffectStore(IDatabase database) : IAvatarEffectStore
 
     private static void RequireUpdatedRow(int affected, int id)
     {
-        if (affected != 1)
+        if (affected != 1) {
             throw new DBConcurrencyException($"Avatar effect {id} no longer exists.");
+        }
     }
 
     private sealed class EffectRow

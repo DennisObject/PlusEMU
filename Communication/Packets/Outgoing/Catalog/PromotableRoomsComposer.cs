@@ -12,8 +12,8 @@ public sealed class PromotableRoomsComposer(ImmutableArray<PromotableRoomSnapsho
     {
         packet.WriteBoolean(true);
         packet.WriteInteger(rooms.Length);
-        foreach (var room in rooms)
-        {
+
+        foreach (var room in rooms) {
             packet.WriteUInteger(room.Id);
             packet.WriteString(room.Name);
             packet.WriteBoolean(false);

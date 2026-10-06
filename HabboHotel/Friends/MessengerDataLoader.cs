@@ -18,7 +18,8 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         _database = database;
         _gameClientManager = gameClientManager;
-        _permissions = permissions; _settings = settings;
+        _permissions = permissions;
+        _settings = settings;
         _clock = clock;
     }
 
@@ -26,12 +27,14 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         using var connection = _database.Connection();
         var query = "SELECT users.id,users.username,users.motto,users.look,users.last_online AS LastOnlineAt, messenger_friendships.relationship FROM users JOIN users_settings ON users_settings.user_id = users.id JOIN messenger_friendships ON users.id = messenger_friendships.user_two_id WHERE messenger_friendships.user_one_id = @userId";
+
         return (await connection.QueryAsync<MessengerBuddy>(query, new { userId })).ToList();
     }
 
     public async Task<List<MessengerRequest>> GetRequestsForUser(int userId)
     {
         using var connection = _database.Connection();
+
         return (await connection.QueryAsync<MessengerRequest>("SELECT messenger_requests.from_id,messenger_requests.to_id,users.username FROM users JOIN messenger_requests ON users.id = messenger_requests.from_id WHERE messenger_requests.to_id = @userId",
             new
             {
@@ -42,6 +45,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
     public async Task<List<int>> GetOutstandingRequestsForUser(int userId)
     {
         using var connection = _database.Connection();
+
         return (await connection.QueryAsync<int>("SELECT to_id FROM messenger_requests WHERE from_id = @userId", new { userId })).ToList();
     }
 
@@ -58,19 +62,29 @@ internal class MessengerDataLoader : IMessengerDataLoader
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
-        if (!await LockExactPair(connection, transaction, acceptorId, fromId)) return new(FriendRequestError.NoFriendRequest);
-        if (await connection.ExecuteAsync("DELETE FROM messenger_requests WHERE from_id = @fromId AND to_id = @acceptorId", new { fromId, acceptorId }, transaction) != 1)
+
+        if (!await LockExactPair(connection, transaction, acceptorId, fromId)) {
             return new(FriendRequestError.NoFriendRequest);
-        foreach (var id in new[] { acceptorId, fromId })
-        {
-            var friends = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = @id", new { id }, transaction);
-            if (friends >= Plus.HabboHotel.Subscriptions.ClubLimits.For(access[id], "friends", _settings)) return new(FriendRequestError.FriendLimitReached);
         }
+
+        if (await connection.ExecuteAsync("DELETE FROM messenger_requests WHERE from_id = @fromId AND to_id = @acceptorId", new { fromId, acceptorId }, transaction) != 1) {
+            return new(FriendRequestError.NoFriendRequest);
+        }
+
+        foreach (var id in new[] { acceptorId, fromId }) {
+            var friends = await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = @id", new { id }, transaction);
+
+            if (friends >= Plus.HabboHotel.Subscriptions.ClubLimits.For(access[id], "friends", _settings)) {
+                return new(FriendRequestError.FriendLimitReached);
+            }
+        }
+
         await InsertFriendshipIfMissing(connection, transaction, acceptorId, fromId);
         await InsertFriendshipIfMissing(connection, transaction, fromId, acceptorId);
         var from = await BuddyFor(connection, transaction, acceptorId, fromId) ?? throw new InvalidOperationException("Accepted friend view missing.");
         var to = await BuddyFor(connection, transaction, fromId, acceptorId) ?? throw new InvalidOperationException("Requester friend view missing.");
         transaction.Commit();
+
         return new(null, from, to);
     }
 
@@ -78,14 +92,19 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         using var connection = _database.Connection();
         var buddy = await connection.QuerySingleAsync<MessengerBuddy>("SELECT users.id,users.username,users.motto,users.look,users.last_online AS LastOnlineAt FROM users WHERE id = @userId", new { userId });
+
         return buddy;
     }
 
     // Both accounts must exist and be distinct; their rows are locked in ascending id order.
     private static async Task<bool> LockExactPair(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int first, int second)
     {
-        if (first == second) return false;
+        if (first == second) {
+            return false;
+        }
+
         var ids = new[] { first, second }.OrderBy(id => id).ToArray();
+
         return (await connection.QueryAsync<int>("SELECT id FROM users WHERE id IN @ids ORDER BY id FOR UPDATE", new { ids }, transaction)).Count() == 2;
     }
 
@@ -99,16 +118,23 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         using var connection = _database.Connection();
         var buddy = await connection.QuerySingleOrDefaultAsync<MessengerBuddy>("SELECT users.id,users.username,users.motto,users.look,users.last_online AS LastOnlineAt, messenger_friendships.relationship FROM users INNER JOIN messenger_friendships ON users.id = messenger_friendships.user_two_id WHERE users.id = @friendId AND messenger_friendships.user_one_id = @userId", new { userId, friendId });
+
         return buddy;
     }
 
     public void BroadcastStatusUpdate(Habbo habbo, MessengerEventTypes eventType, string value)
     {
-        foreach (var client in habbo.Messenger.Friends.Keys.Select(f => _gameClientManager.GetClientByUserId(f)))
-        {
-            if (client == null) continue;
+        foreach (var client in habbo.Messenger.Friends.Keys.Select(f => _gameClientManager.GetClientByUserId(f))) {
+            if (client == null) {
+                continue;
+            }
+
             var messenger = client.GetHabbo().Messenger;
-            if (!messenger.Friends.TryGetValue(habbo.Id, out var buddy)) continue;
+
+            if (!messenger.Friends.TryGetValue(habbo.Id, out var buddy)) {
+                continue;
+            }
+
             messenger.UpdateFriendStatus(buddy, eventType, value);
         }
     }
@@ -137,6 +163,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
         var rows = (await connection.QueryAsync<OfflineMessageRow>("SELECT id AS Id, from_id AS FromId, message AS Message, timestamp AS SentAt FROM messenger_offline_messages WHERE to_id = @userId ORDER BY id FOR UPDATE", new { userId }, transaction)).ToList();
         await DeleteReadOfflineMessages(connection, transaction, rows.Select(row => row.Id).ToArray());
         transaction.Commit();
+
         return rows.GroupBy(row => row.FromId).ToDictionary(group => group.Key, group => group
             .OrderBy(row => row.SentAt).ThenBy(row => row.Id)
             .Select(row => (row.Message, MessengerTime.SecondsBetween(readAt, row.SentAt))).ToList());
@@ -152,7 +179,10 @@ internal class MessengerDataLoader : IMessengerDataLoader
 
     internal static async Task DeleteReadOfflineMessages(System.Data.IDbConnection connection, System.Data.IDbTransaction transaction, int[] ids)
     {
-        if (ids.Length == 0) return;
+        if (ids.Length == 0) {
+            return;
+        }
+
         await connection.ExecuteAsync("DELETE FROM messenger_offline_messages WHERE id IN @ids", new { ids }, transaction);
     }
 
@@ -160,6 +190,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
     public async Task<int> GetFriendCount(int userId)
     {
         using var connection = _database.Connection();
+
         return await connection.ExecuteScalarAsync<int>("SELECT count(0) FROM messenger_friendships WHERE user_one_id = @userid OR user_two_id = @userid", new { userid = userId });
     }
 
@@ -168,9 +199,14 @@ internal class MessengerDataLoader : IMessengerDataLoader
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
-        if (!await LockExactPair(connection, transaction, userOneId, userTwoId)) return 0;
+
+        if (!await LockExactPair(connection, transaction, userOneId, userTwoId)) {
+            return 0;
+        }
+
         var removed = await connection.ExecuteAsync("DELETE FROM messenger_friendships WHERE (user_one_id = @userOneId AND user_two_id = @userTwoId) OR (user_one_id = @userTwoId AND user_two_id = @userOneId)", new { userOneId, userTwoId }, transaction);
         transaction.Commit();
+
         return removed;
     }
 
@@ -186,10 +222,18 @@ internal class MessengerDataLoader : IMessengerDataLoader
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
-        if (!await LockExactPair(connection, transaction, fromUserId, toUserId)) return false;
-        if (await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_requests WHERE from_id = @fromUserId AND to_id = @toUserId", new { fromUserId, toUserId }, transaction) > 0) return false;
+
+        if (!await LockExactPair(connection, transaction, fromUserId, toUserId)) {
+            return false;
+        }
+
+        if (await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM messenger_requests WHERE from_id = @fromUserId AND to_id = @toUserId", new { fromUserId, toUserId }, transaction) > 0) {
+            return false;
+        }
+
         await connection.ExecuteAsync("INSERT INTO messenger_requests (from_id, to_id) VALUES (@fromUserId, @toUserId)", new { fromUserId, toUserId }, transaction);
         transaction.Commit();
+
         return true;
     }
 
@@ -199,9 +243,14 @@ internal class MessengerDataLoader : IMessengerDataLoader
         using var connection = _database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction(System.Data.IsolationLevel.ReadCommitted);
-        if (!await LockExactPair(connection, transaction, fromUserId, toUserId)) return 0;
+
+        if (!await LockExactPair(connection, transaction, fromUserId, toUserId)) {
+            return 0;
+        }
+
         var removed = await connection.ExecuteAsync("DELETE FROM messenger_requests WHERE from_id = @fromUserId AND to_id = @toUserId", new { fromUserId, toUserId }, transaction);
         transaction.Commit();
+
         return removed;
     }
 
@@ -209,6 +258,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
     {
         using var connection = _database.Connection();
         var (userId, blocked) = await connection.QuerySingleOrDefaultAsync<(int, bool)>("SELECT users.`id`, settings.`block_newfriends` FROM `users` INNER JOIN `users_settings` settings ON settings.user_id = users.id WHERE users.`username` = @name LIMIT 1", new { name });
+
         return (userId, blocked);
     }
 
@@ -224,6 +274,7 @@ internal class MessengerDataLoader : IMessengerDataLoader
                 Username = g.First().username,
                 Look = g.First().look
             }, g.First().count));
+
         return relationships;
     }
 }

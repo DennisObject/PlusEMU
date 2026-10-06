@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Users.Navigator.SavedSearches;
+using Plus.HabboHotel.Users.Navigator.SavedSearches;
 using System.Collections.Concurrent;
 
 namespace Plus.HabboHotel.Users.Navigator;

@@ -36,11 +36,13 @@ public sealed class GroupCreationPresentationTests
         {
             Assert.Equal(nameof(IRoomDataLoader.GetRoomsDataByOwnerSortByName), method);
             Assert.Equal(7, args[0]);
+
             return source;
         });
         var settings = CatalogSnapshotTestSupport.Proxy<ISettingsManager>((_, args) =>
         {
             Assert.Equal("catalog.group.purchase.cost", args[0]);
+
             return "20";
         });
         var service = new GroupPresentationService(

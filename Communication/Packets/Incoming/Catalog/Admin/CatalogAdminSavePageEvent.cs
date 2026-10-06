@@ -16,6 +16,7 @@ public class CatalogAdminSavePageEvent : IPacketEvent
     {
         var (page, envelope) = CatalogAdminPacketReader.SavePage(packet);
         CatalogAdminResponder.Send(session, "savePage", envelope, _catalogAdmin.SavePage(session.GetHabbo(), envelope, page));
+
         return Task.CompletedTask;
     }
 }

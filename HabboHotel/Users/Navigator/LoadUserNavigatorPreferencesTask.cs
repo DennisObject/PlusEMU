@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Navigator;
+using Plus.HabboHotel.Navigator;
 using Plus.HabboHotel.Users.UserData;
 
 namespace Plus.HabboHotel.Users.Navigator;

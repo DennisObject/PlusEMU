@@ -24,25 +24,28 @@ public static class FurniEditorUpdatePayload
 
     public static (List<FurniEditorColumnChange> Changes, string? Error) Validate(string json, FurniEditorItem current, Func<string, bool> knownInteraction)
     {
-        if (json.Length > MaxJsonLength)
+        if (json.Length > MaxJsonLength) {
             return ([], "Update is too large");
+        }
+
         JsonElement root;
-        try
-        {
+
+        try {
             using var document = JsonDocument.Parse(json);
             root = document.RootElement.Clone();
         }
-        catch (JsonException)
-        {
+        catch (JsonException) {
             return ([], "Invalid JSON data");
         }
-        if (root.ValueKind != JsonValueKind.Object)
+
+        if (root.ValueKind != JsonValueKind.Object) {
             return ([], "Invalid JSON data");
+        }
 
         var changes = new List<FurniEditorColumnChange>();
         int? effectMale = null, effectFemale = null;
-        foreach (var property in root.EnumerateObject())
-        {
+
+        foreach (var property in root.EnumerateObject()) {
             string field = property.Name;
             var value = property.Value;
             string? error = field switch
@@ -63,11 +66,16 @@ public static class FurniEditorUpdatePayload
                 _ when FlagColumns.TryGetValue(field, out var column) => Flag(changes, field, column, value, FlagValue(current, field)),
                 _ => null
             };
-            if (error != null)
+
+            if (error != null) {
                 return ([], error);
+            }
         }
-        if (Effect(changes, effectMale, effectFemale, current.EffectId) is { } effectError)
+
+        if (Effect(changes, effectMale, effectFemale, current.EffectId) is { } effectError) {
             return ([], effectError);
+        }
+
         return (changes, null);
     }
 
@@ -85,79 +93,119 @@ public static class FurniEditorUpdatePayload
 
     private static string? Text(List<FurniEditorColumnChange> changes, string field, string column, JsonElement value, string current, int maxLength)
     {
-        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } text || text.Length > maxLength || text.Any(char.IsControl))
+        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } text || text.Length > maxLength || text.Any(char.IsControl)) {
             return $"Invalid value for {field}";
-        if (text != current)
+        }
+
+        if (text != current) {
             changes.Add(new(field, column, text, current));
+        }
+
         return null;
     }
 
     private static string? Int(List<FurniEditorColumnChange> changes, string field, string column, JsonElement value, int current, int min, int max)
     {
-        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var number) || number < min || number > max)
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var number) || number < min || number > max) {
             return $"Invalid value for {field}";
-        if (number != current)
+        }
+
+        if (number != current) {
             changes.Add(new(field, column, number, current));
+        }
+
         return null;
     }
 
     private static string? Height(List<FurniEditorColumnChange> changes, JsonElement value, double current)
     {
-        if (value.ValueKind != JsonValueKind.Number || !value.TryGetDouble(out var height) || !double.IsFinite(height) || height is < 0 or > 99.99)
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetDouble(out var height) || !double.IsFinite(height) || height is < 0 or > 99.99) {
             return "Invalid value for stackHeight";
+        }
+
         height = Math.Round(height, 2);
-        if (Math.Abs(height - current) > 0.0001)
+
+        if (Math.Abs(height - current) > 0.0001) {
             changes.Add(new("stackHeight", "stack_height", height, current));
+        }
+
         return null;
     }
 
     // An interaction without a handler would quietly behave as plain furniture once loaded, so it is refused.
     private static string? Interaction(List<FurniEditorColumnChange> changes, JsonElement value, string current, Func<string, bool> knownInteraction)
     {
-        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } raw)
+        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } raw) {
             return "Invalid value for interactionType";
+        }
+
         var type = raw.Trim().ToLowerInvariant();
-        if (type.Length == 0)
+
+        if (type.Length == 0) {
             type = "default";
-        if (type == current.ToLowerInvariant())
+        }
+
+        if (type == current.ToLowerInvariant()) {
             return null;
-        if (type.Length > 25 || !knownInteraction(type))
+        }
+
+        if (type.Length > 25 || !knownInteraction(type)) {
             return $"Unknown interaction type: {raw}";
+        }
+
         changes.Add(new("interactionType", "interaction_type", type, current));
+
         return null;
     }
 
     // Comma separated numbers; the item loader parses every entry, so anything else is refused here.
     private static string? NumberList(List<FurniEditorColumnChange> changes, string field, string column, JsonElement value, string current, int maxLength, bool integers)
     {
-        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } raw)
+        if (value.ValueKind != JsonValueKind.String || value.GetString() is not { } raw) {
             return $"Invalid value for {field}";
+        }
+
         var text = raw.Replace(" ", string.Empty);
-        if (text == current.Replace(" ", string.Empty))
+
+        if (text == current.Replace(" ", string.Empty)) {
             return null;
-        if (text.Length == 0)
+        }
+
+        if (text.Length == 0) {
             text = "0";
-        if (text.Length > maxLength)
+        }
+
+        if (text.Length > maxLength) {
             return $"{field} is limited to {maxLength} characters";
-        foreach (var entry in text.Split(','))
-        {
+        }
+
+        foreach (var entry in text.Split(',')) {
             bool valid = integers
                 ? int.TryParse(entry, NumberStyles.None, CultureInfo.InvariantCulture, out _)
                 : double.TryParse(entry, NumberStyles.AllowDecimalPoint, CultureInfo.InvariantCulture, out var number) && number <= 99.99;
-            if (!valid)
+
+            if (!valid) {
                 return $"Invalid value for {field}: use comma separated {(integers ? "whole numbers" : "heights")}";
+            }
         }
-        if (text != current)
+
+        if (text != current) {
             changes.Add(new(field, column, text, current));
+        }
+
         return null;
     }
 
     private static string? Flag(List<FurniEditorColumnChange> changes, string field, string column, JsonElement value, bool current)
     {
-        if (Bool(value) is not { } flag)
+        if (Bool(value) is not { } flag) {
             return $"Invalid value for {field}";
-        if (flag != current)
+        }
+
+        if (flag != current) {
             changes.Add(new(field, column, flag ? "1" : "0", current ? "1" : "0"));
+        }
+
         return null;
     }
 
@@ -176,20 +224,29 @@ public static class FurniEditorUpdatePayload
     private static string? ReadEffect(JsonElement value, out int? effect)
     {
         effect = null;
-        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var number) || number is < 0 or > 999)
+
+        if (value.ValueKind != JsonValueKind.Number || !value.TryGetInt32(out var number) || number is < 0 or > 999) {
             return "Invalid effect id";
+        }
+
         effect = number;
+
         return null;
     }
 
     // PlusEMU has one effect id for both genders.
     private static string? Effect(List<FurniEditorColumnChange> changes, int? male, int? female, int current)
     {
-        if (male != null && female != null && male != female)
+        if (male != null && female != null && male != female) {
             return "This hotel uses one effect id for both genders";
+        }
+
         var effect = male ?? female;
-        if (effect != null && effect != current)
+
+        if (effect != null && effect != current) {
             changes.Add(new("effectId", "effect_id", effect.Value, current));
+        }
+
         return null;
     }
 }

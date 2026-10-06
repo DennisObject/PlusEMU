@@ -16,6 +16,7 @@ public class CatalogAdminSetPageEnabledEvent : IPacketEvent
     {
         var (pageId, enabled, envelope) = CatalogAdminPacketReader.PageFlag(packet);
         CatalogAdminResponder.Send(session, "toggleEnabled", envelope, _catalogAdmin.SetPageEnabled(session.GetHabbo(), envelope, pageId, enabled));
+
         return Task.CompletedTask;
     }
 }

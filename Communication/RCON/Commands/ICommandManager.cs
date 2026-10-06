@@ -1,4 +1,4 @@
-﻿namespace Plus.Communication.RCON.Commands;
+namespace Plus.Communication.RCON.Commands;
 
 public interface ICommandManager
 {

@@ -119,26 +119,26 @@ public sealed class CacheLifetimeTests
         process.Init(() =>
         {
             var call = Interlocked.Increment(ref calls);
-            if (call == 1)
-            {
+
+            if (call == 1) {
                 entered.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
             }
-            else if (call == 2)
+            else if (call == 2) {
                 throw new InvalidOperationException("probe");
+            }
         });
         Assert.Equal(TimeSpan.FromMinutes(20), clock.DueTime);
         Assert.Equal(TimeSpan.FromMinutes(20), clock.Period);
 
         var first = Task.Run(clock.Fire);
-        try
-        {
+
+        try {
             Assert.True(entered.Wait(TimeSpan.FromSeconds(5)));
             clock.Fire();
             Assert.Equal(1, Volatile.Read(ref calls));
         }
-        finally
-        {
+        finally {
             release.Set();
             await first;
         }
@@ -163,6 +163,7 @@ public sealed class CacheLifetimeTests
     {
         var proxy = DispatchProxy.Create<IGameClientManager, ClientLookup>();
         ((ClientLookup)(object)proxy).Clients = clients.ToDictionary(x => x.Id, x => x.Client);
+
         return proxy;
     }
 
@@ -186,7 +187,9 @@ public sealed class CacheLifetimeTests
     {
         public Action? Sweep { get; private set; }
         public void Init(Action sweep) => Sweep = sweep;
-        public void Dispose() { }
+        public void Dispose()
+        {
+        }
     }
 
     private sealed class CountingClock(DateTimeOffset now) : TimeProvider
@@ -195,7 +198,12 @@ public sealed class CacheLifetimeTests
         public int Reads { get; private set; }
         public override TimeZoneInfo LocalTimeZone =>
             TimeZoneInfo.CreateCustomTimeZone("cache-plus-nine", TimeSpan.FromHours(9), "test", "test");
-        public override DateTimeOffset GetUtcNow() { Reads++; return UtcNow; }
+        public override DateTimeOffset GetUtcNow()
+        {
+            Reads++;
+
+            return UtcNow;
+        }
         public void ResetReads() => Reads = 0;
     }
 
@@ -214,9 +222,15 @@ public sealed class CacheLifetimeTests
             _state = state;
             DueTime = dueTime;
             Period = period;
+
             return _timer = new();
         }
-        public void Fire() { if (_timer?.Disposed != true) _callback!(_state); }
+        public void Fire()
+        {
+            if (_timer?.Disposed != true) {
+                _callback!(_state);
+            }
+        }
         public void FireEvenIfDisposed() => _callback!(_state);
 
         private sealed class ManualTimer : ITimer
@@ -224,7 +238,12 @@ public sealed class CacheLifetimeTests
             public bool Disposed { get; private set; }
             public bool Change(TimeSpan dueTime, TimeSpan period) => !Disposed;
             public void Dispose() => Disposed = true;
-            public ValueTask DisposeAsync() { Dispose(); return ValueTask.CompletedTask; }
+            public ValueTask DisposeAsync()
+            {
+                Dispose();
+
+                return ValueTask.CompletedTask;
+            }
         }
     }
 
@@ -236,8 +255,9 @@ public sealed class CacheLifetimeTests
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
             Func<TState, Exception?, string> formatter)
         {
-            if (logLevel >= LogLevel.Error)
+            if (logLevel >= LogLevel.Error) {
                 Errors++;
+            }
         }
     }
 }

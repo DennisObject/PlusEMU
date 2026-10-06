@@ -1,4 +1,4 @@
-﻿using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items;
 
 namespace Plus.Communication.RCON.Commands.Hotel;
 
@@ -17,6 +17,7 @@ internal class ReloadItemsCommand : IRconCommand
     public Task<bool> TryExecute(string[] parameters)
     {
         _itemDataManager.Init();
+
         return Task.FromResult(true);
     }
 }

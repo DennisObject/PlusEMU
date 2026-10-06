@@ -9,8 +9,13 @@ internal class RemoveRightsEvent(IRoomRightsService rights) : RoomPacketEvent
     {
         var amount = packet.ReadInt();
         var userIds = new List<int>();
-        for (var index = 0; index < amount && index <= 100; index++) userIds.Add(packet.ReadInt());
+
+        for (var index = 0; index < amount && index <= 100; index++) {
+            userIds.Add(packet.ReadInt());
+        }
+
         rights.Remove(room, session, userIds);
+
         return Task.CompletedTask;
     }
 }

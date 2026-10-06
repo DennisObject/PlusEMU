@@ -1,11 +1,10 @@
-﻿namespace Plus.HabboHotel.Rewards;
+namespace Plus.HabboHotel.Rewards;
 
 public static class RewardTypeUtility
 {
     public static RewardType GetType(string type)
     {
-        switch (type.ToLower())
-        {
+        switch (type.ToLower()) {
             case "badge":
                 return RewardType.Badge;
             case "credits":

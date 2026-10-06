@@ -9,6 +9,7 @@ internal class ModifyWhoCanRideHorseEvent(IHorseCustomizationService horses) : R
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         horses.ToggleRiding(room, session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }
