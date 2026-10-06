@@ -192,6 +192,33 @@ public class ModernWiredBehaviorTests
     }
 
     [Fact]
+    public void RepeaterDeadlinesStayOnTheirGridWhateverThePollTimes()
+    {
+        var timers = new WiredTimedTriggers();
+        var config = new WiredConfiguration { IntParams = [2] };
+        Assert.False(timers.TryFire("wf_trg_period_short", 1, config, 1000, 0, 0));
+        Assert.True(timers.TryFire("wf_trg_period_short", 1, config, 1130, 0, 0));
+        // Late by 30ms: the next deadline is still 1200, not 1230.
+        Assert.False(timers.TryFire("wf_trg_period_short", 1, config, 1199, 0, 0));
+        Assert.True(timers.TryFire("wf_trg_period_short", 1, config, 1200, 0, 0));
+        // A poll long after skips the deadlines it slept through instead of firing for each.
+        Assert.True(timers.TryFire("wf_trg_period_short", 1, config, long.MaxValue / 2, 0, 0));
+        Assert.False(timers.TryFire("wf_trg_period_short", 1, config, long.MaxValue / 2, 0, 0));
+    }
+
+    [Theory]
+    [InlineData("wf_trg_period_short", 10)]
+    [InlineData("wf_trg_periodically", 120)]
+    [InlineData("wf_trg_period_long", 120)]
+    [InlineData("wf_trg_at_time_long", 120)]
+    [InlineData("wf_trg_at_given_time", 1200)]
+    public void TimedTriggersAcceptTheirEditorRangeOnly(string name, int max)
+    {
+        foreach (var (units, valid) in new[] { (0, false), (1, true), (max, true), (max + 1, false) })
+            Assert.Equal(valid, WiredTriggerConfiguration.TryValidate(name, new() { IntParams = [units] }, out _, out _));
+    }
+
+    [Fact]
     public void ScoreTriggerFiresOnACrossingWithMatchingTeam()
     {
         var config = new WiredConfiguration { IntParams = [10, 2] };

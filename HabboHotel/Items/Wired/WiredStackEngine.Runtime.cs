@@ -25,7 +25,6 @@ internal sealed partial class WiredStackEngine
     private readonly Dictionary<uint, (int X, int Y, double Z)> _runtimePositions = [];
     private int _fastWork;
     private Action<bool>? _fastWorkObserver;
-    private long _lastTimerPoll = -1;
     private int _timerCursor;
 
     public void BindRuntime(Room room, WiredTargetResolver targets, IWiredRuntimeOperations operations,
@@ -351,30 +350,27 @@ internal sealed partial class WiredStackEngine
             if (_dispatches.TryPeek(out var head) && ReferenceEquals(head, pending)) RemoveDispatchHead();
         }
         _pollExternal?.Invoke(now);
-        if (_lastTimerPoll < 0 || now - _lastTimerPoll >= 50)
+        // Every pass polls: the room paces passes, and each timer keeps its own deadlines.
+        WiredRuntimeContext? snapshot = null;
+        var timers = _items.Values.OfType<IWiredTimedTrigger>().Where(RuntimeSupported)
+            .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
+        for (var polled = 0; polled < timers.Length && !OutOfBudget(); polled++)
         {
-            _lastTimerPoll = now;
-            WiredRuntimeContext? snapshot = null;
-            var timers = _items.Values.OfType<IWiredTimedTrigger>().Where(RuntimeSupported)
-                .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
-            for (var polled = 0; polled < timers.Length && !OutOfBudget(); polled++)
+            _timerCursor %= timers.Length;
+            var timer = timers[_timerCursor];
+            _timerCursor = (_timerCursor + 1) % timers.Length;
+            if (!IsAttached(timer)) continue;
+            _remaining--;
+            try
             {
-                _timerCursor %= timers.Length;
-                var timer = timers[_timerCursor];
-                _timerCursor = (_timerCursor + 1) % timers.Length;
-                if (!IsAttached(timer)) continue;
-                _remaining--;
-                try
-                {
-                    if (timer.Poll(now) is not { } @event) continue;
-                    snapshot ??= CreateContext(@event, 0);
-                    var context = snapshot.Fork(@event, 0);
-                    context.Trigger = timer;
-                    SeedEvent(context);
-                    if (RunRuntimeStack(timer, context, null)) Flash(timer);
-                }
-                catch (Exception error) { _error(error); }
+                if (timer.Poll(now) is not { } @event) continue;
+                snapshot ??= CreateContext(@event, 0);
+                var context = snapshot.Fork(@event, 0);
+                context.Trigger = timer;
+                SeedEvent(context);
+                if (RunRuntimeStack(timer, context, null)) Flash(timer);
             }
+            catch (Exception error) { _error(error); }
         }
     }
 

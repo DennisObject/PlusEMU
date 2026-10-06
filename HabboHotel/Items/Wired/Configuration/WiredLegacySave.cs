@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Plus.Communication.Flash;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
@@ -30,8 +31,7 @@ public static class WiredLegacySave
                 or WiredBoxType.ConditionDontMatchStateAndPosition
             && proposed.IntParams.Any(value => value is < 0 or > 1))
             return false;
-        if (original.Type == WiredBoxType.TriggerRepeat
-            && proposed.IntParams[0] is < 0 or > WiredConfigurationLimits.DelayPulses)
+        if (original.Type == WiredBoxType.TriggerRepeat && !IsRepeaterDelay(proposed.IntParams[0]))
             return false;
         if (original.Type == WiredBoxType.EffectSetRollerSpeed && !int.TryParse(proposed.Text, out _))
             return false;
@@ -106,8 +106,7 @@ public static class WiredLegacySave
                 or WiredBoxType.ConditionDontMatchStateAndPosition
             && proposed.IntParams.Any(value => value is < 0 or > 1))
             return false;
-        if (original.Type == WiredBoxType.TriggerRepeat
-            && proposed.IntParams[0] is < 0 or > WiredConfigurationLimits.DelayPulses)
+        if (original.Type == WiredBoxType.TriggerRepeat && !IsRepeaterDelay(proposed.IntParams[0]))
             return false;
         if (original.Type == WiredBoxType.EffectSetRollerSpeed && !int.TryParse(proposed.Text, out _))
             return false;
@@ -226,6 +225,10 @@ public static class WiredLegacySave
         or WiredBoxType.EffectBotFollowsUserBox or WiredBoxType.EffectBotGivesHanditemBox
         or WiredBoxType.EffectGiveReward or WiredBoxType.EffectKickUser
         or WiredBoxType.EffectMuteTriggerer or WiredBoxType.EffectSetRollerSpeed;
+
+    // The legacy repeater is wf_trg_periodically: half-second units over the same editor range.
+    private static bool IsRepeaterDelay(int units) =>
+        units >= 1 && units <= WiredTriggerConfiguration.MaxTimedUnits("wf_trg_periodically");
 
     private static int ExpectedIntCount(WiredBoxType type) => type switch
     {

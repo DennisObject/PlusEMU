@@ -23,6 +23,11 @@ public static class WiredTriggerConfiguration
     };
     public static bool IsTimed(string name) => name is "wf_trg_at_given_time" or "wf_trg_at_time_long"
         or "wf_trg_periodically" or "wf_trg_period_short" or "wf_trg_period_long";
+    // The most units each timed editor offers (Octane sliders, Turbo d5a54747 param rules); the least is 1.
+    public static int MaxTimedUnits(string name) => name switch
+    {
+        "wf_trg_period_short" => 10, "wf_trg_at_given_time" => 1200, _ => 120
+    };
 
     public static WiredConfiguration Defaults(string name)
     {
@@ -80,7 +85,7 @@ public static class WiredTriggerConfiguration
             case "wf_trg_user_performs_action":
                 if (p.Length != 5 || p[0] is < 1 or > 11 || !Bit(1) || p[2] is < 0 or > 17 || !Bit(3) || p[4] is < 0 or > 4) return false; break;
             case "wf_trg_at_given_time": case "wf_trg_at_time_long": case "wf_trg_periodically": case "wf_trg_period_short": case "wf_trg_period_long":
-                if (p.Length != 1 || p[0] is < 1 or > 3600) return false; break;
+                if (p.Length != 1 || p[0] < 1 || p[0] > MaxTimedUnits(name)) return false; break;
             case "wf_trg_game_starts": case "wf_trg_game_ends": case "wf_trg_collision":
                 if (p.Length != 0) return false; break;
             default: return false;

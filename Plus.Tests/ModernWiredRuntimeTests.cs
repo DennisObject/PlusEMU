@@ -441,6 +441,41 @@ public class ModernWiredRuntimeTests
             throw new NotSupportedException();
     }
 
+    [Theory]
+    [InlineData(1, new[] { 1, 2, 3, 4, 5, 6 })]
+    [InlineData(2, new[] { 2, 4, 6 })]
+    [InlineData(3, new[] { 3, 6 })]
+    public void LegacyRepeaterFiresEveryDelayRoomTicks(int delay, int[] firingTicks)
+    {
+        using var f = new TeleportFixture();
+        var item = MakeItem(300, "wf_trg_periodically");
+        item.Definition.InteractionType = InteractionType.WiredTrigger;
+        item.SetState(2, 2, 0, Gamemap.GetAffectedTiles(1, 1, 2, 2, 0)); f.Items[item.Id] = item;
+        var repeater = new Plus.HabboHotel.Items.Wired.Boxes.Triggers.RepeaterBox(f.Room, item) { Delay = delay };
+        Assert.True(f.Engine.Add(repeater));
+
+        // The full room pass ticks every half second and runs the repeater on the tick that finds it at zero:
+        // a delay of N half-seconds fires every N ticks, as the editor's N x 0.5s says.
+        var fired = new List<int>();
+        for (var tick = 1; tick <= 6; tick++)
+        {
+            if (repeater.TickCount == 0) fired.Add(tick);
+            f.Engine.OnCycle();
+        }
+
+        Assert.Equal(firingTicks, fired);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void LegacyRepeaterConvertsWithinTheEditorRange()
+    {
+        var (room, _, _) = World();
+        var repeater = new Plus.HabboHotel.Items.Wired.Boxes.Triggers.RepeaterBox(room, MakeItem(100, "wf_trg_periodically")) { Delay = 300 };
+        Assert.True(WiredLegacyConfigurationAdapter.TryConvert(repeater, Descriptor("wf_trg_periodically"), out var config));
+        Assert.Equal(new[] { 120 }, config.IntParams);
+    }
+
     [Fact]
     public void LegacyEditorConversionPreservesSavedSnapshotAndPlaceholderText()
     {

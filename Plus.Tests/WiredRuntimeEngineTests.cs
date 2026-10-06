@@ -5,6 +5,7 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Addons;
+using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
 using Xunit;
@@ -307,8 +308,97 @@ public class WiredRuntimeEngineTests
         Assert.Equal(1, f.UserReads);
     }
 
+    [Theory]
+    [InlineData("wf_trg_period_short", 1, 50, 10_000)]
+    [InlineData("wf_trg_period_short", 3, 150, 10_000)]
+    [InlineData("wf_trg_periodically", 1, 500, 30_000)]
+    [InlineData("wf_trg_period_long", 1, 5000, 120_000)]
+    public void RepeatersFireOnEveryDeadlineAPassReachesAndNeverEarly(string name, int units, int interval, int duration)
+    {
+        var f = new Fixture();
+        var fired = new List<long>();
+        RealTimer(f, name, units);
+        f.Action(_ => { fired.Add(f.Now); return true; });
+        // The room asks every 50ms or so on the manager's clock; the engine's clock reads up to 3ms off either way.
+        var random = new Random(17);
+        var passes = new List<long>();
+        for (long t = 0; t <= duration; t += 50 + random.Next(-3, 4)) passes.Add(t);
+        foreach (var pass in passes) { f.Now = pass; f.Engine.OnFastCycle(); }
+
+        // Deadlines stay on the grid set when the box armed at the first pass: one emission for the first pass at or
+        // after a deadline, none before it, and a pass that already passed the next deadline does not fire twice.
+        var expected = new List<long>();
+        var lastDeadline = 0L;
+        foreach (var pass in passes.Skip(1))
+        {
+            var deadline = pass / interval * interval;
+            if (deadline <= lastDeadline) continue;
+            expected.Add(pass); lastDeadline = deadline;
+        }
+        Assert.Equal(expected, fired);
+        Assert.InRange(fired.Count, duration / interval * 95 / 100, duration / interval);
+        Assert.Empty(f.Errors);
+    }
+
     [Fact]
-    public void EmptyFastPassDoesNotReadRoomStateAndTimedBoxesPollAtFiftyMs()
+    public void ARepeaterLateOnItsDeadlineKeepsItsPhaseAndSkipsWhatItMissed()
+    {
+        var f = new Fixture();
+        var fired = new List<long>();
+        RealTimer(f, "wf_trg_periodically", 1);
+        f.Action(_ => { fired.Add(f.Now); return true; });
+
+        foreach (var pass in new long[] { 0, 2730, 2999, 3000, 3499, 3500 }) { f.Now = pass; f.Engine.OnFastCycle(); }
+
+        // 2730 is five deadlines late: one emission, no burst, and the next deadline is still 3000.
+        Assert.Equal([2730L, 3000L, 3500L], fired);
+    }
+
+    [Fact]
+    public void ADueRepeaterFiresEvenWhenThePreviousPassWasUnder50MsAgo()
+    {
+        var f = new Fixture();
+        var fired = new List<long>();
+        RealTimer(f, "wf_trg_period_short", 1);
+        f.Action(_ => { fired.Add(f.Now); return true; });
+
+        // A late pass at 60 serves the 50ms deadline; the 100ms deadline is due at the next pass, 45ms later.
+        foreach (var pass in new long[] { 0, 60, 105, 120, 150 }) { f.Now = pass; f.Engine.OnFastCycle(); }
+
+        Assert.Equal([60L, 105L, 150L], fired);
+    }
+
+    [Fact]
+    public void ALimitedBudgetSharesDueRepeatersFairlyWithoutExtraEmissions()
+    {
+        var f = new Fixture(new() { MaxExecutionsPerPass = 3 });
+        var fired = new List<long>[4];
+        for (var i = 0; i < fired.Length; i++)
+        {
+            var times = fired[i] = [];
+            RealTimer(f, "wf_trg_period_short", 1, x: i);
+            f.Action(_ => { times.Add(f.Now); return true; }, x: i);
+        }
+
+        for (long t = 0; t <= 5000; t += 50) { f.Now = t; f.Engine.OnFastCycle(); }
+
+        Assert.All(fired, times => Assert.InRange(times.Count, 1, 100));
+        Assert.InRange(fired.Max(x => x.Count) - fired.Min(x => x.Count), 0, 1);
+        Assert.Empty(f.Errors);
+    }
+
+    private static WiredModernTimedTrigger RealTimer(Fixture f, string name, int units, int x = 0)
+    {
+        Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
+        var timer = new WiredModernTimedTrigger(f.Room, f.Furni(name, x), descriptor);
+        Assert.True(timer.TryValidateConfiguration(new() { IntParams = [units] }, out var config, out var error), error);
+        timer.ApplyConfiguration(config);
+        Assert.True(f.Engine.Add(timer));
+        return timer;
+    }
+
+    [Fact]
+    public void EmptyFastPassDoesNotReadRoomStateAndTimedBoxesPollOnEveryPass()
     {
         var f = new Fixture();
         for (var i = 0; i < 10000; i++) f.Engine.OnFastCycle();
@@ -318,9 +408,9 @@ public class WiredRuntimeEngineTests
         Assert.True(f.Engine.NeedsFastCycle);
         f.Engine.OnFastCycle();
         Assert.Equal(1, timer.Polls); Assert.Equal(1, action.Calls);
-        f.Advance(49); Assert.Equal(1, timer.Polls);
-        f.Advance(1); Assert.Equal(2, timer.Polls); Assert.Equal(2, action.Calls);
-        f.Engine.OnCycle(); Assert.Equal(2, timer.Polls);
+        // The room paces the passes; a timer decides for itself whether a deadline is due.
+        f.Advance(49); Assert.Equal(2, timer.Polls);
+        f.Engine.OnCycle(); Assert.Equal(3, timer.Polls); Assert.Equal(3, action.Calls);
         f.Engine.Remove(timer.Item.Id); Assert.False(f.Engine.NeedsFastCycle);
     }
 
