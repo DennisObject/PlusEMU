@@ -7,6 +7,25 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 /// <summary>Validates the current Octane editors and decodes named source roles without changing wire fields.</summary>
 public static class WiredMovementConfiguration
 {
+    // wf_act_move_rotate: index = current Octane editor option, value = stored direction/turn.
+    private static readonly int[] EditorMovement = [-1, 8, 9, 10, 4, 2, 0, 6, 1, 3, 5, 7];
+    private static readonly int[] EditorRotation = [0, 2, 4, 6];
+
+    /// <summary>Shows stored four-field move/rotate settings in the three-field editor order they were saved from.</summary>
+    public static WiredConfiguration ForEditor(string name, WiredConfiguration stored)
+    {
+        if (!name.Equals("wf_act_move_rotate", StringComparison.OrdinalIgnoreCase)
+            || stored.IntParams.IsDefault || stored.IntParams.Length != 4)
+            return stored;
+        var p = stored.IntParams;
+        var movement = Array.IndexOf(EditorMovement, p[0]);
+        var rotation = Array.IndexOf(EditorRotation, p[1]);
+        // Runtime-only turns and the user-blocking flag have no editor control; send those settings as stored.
+        if (movement < 0 || rotation < 0 || p[3] != 0)
+            return stored;
+        return stored with { IntParams = [movement, rotation, p[2]] };
+    }
+
     public static bool TryValidate(string name, WiredConfiguration proposed,
         out WiredConfiguration validated, out string error)
     {
@@ -45,7 +64,7 @@ public static class WiredMovementConfiguration
                 if (p.Length is not (3 or 4) || !Range(0, -1, p.Length == 3 ? 11 : 10) || !Source(2)
                     || !Range(1, 0, p.Length == 3 ? 3 : 6) || p.Length == 4 && !Range(3, 0, 1)) return false;
                 if (p.Length == 3)
-                    proposed = proposed with { IntParams = [p[0] switch { 0 => -1, 1 => 8, 2 => 9, 3 => 10, 4 => 4, 5 => 2, 6 => 0, 7 => 6, 8 => 1, 9 => 3, 10 => 5, 11 => 7, _ => -1 }, p[1] switch { 1 => 2, 2 => 4, 3 => 6, _ => 0 }, p[2], 0] };
+                    proposed = proposed with { IntParams = [p[0] < 0 ? -1 : EditorMovement[p[0]], EditorRotation[p[1]], p[2], 0] };
                 furni["movers"] = p[2];
                 break;
             case "wf_act_move_furni_as_group":

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
@@ -12,7 +13,8 @@ public sealed record WiredEditorSnapshot(
 
     public static WiredEditorSnapshot Capture(Item item, WiredBoxDescriptor descriptor, WiredConfiguration configuration,
         int furniLimit = WiredConfigurationLimits.SelectedItems, IReadOnlyList<int>? blockedItems = null) =>
-        new(item.Id, item.Definition.SpriteId, descriptor, configuration, furniLimit,
+        new(item.Id, item.Definition.SpriteId, descriptor,
+            WiredMovementConfiguration.ForEditor(descriptor.CanonicalName, configuration), furniLimit,
             blockedItems?.ToImmutableArray() ?? []);
 
     public static WiredEditorSnapshot Trigger(IWiredItem box, IReadOnlyList<int> blockedItems) =>

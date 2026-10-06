@@ -36,6 +36,7 @@ using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Communication.Packets.Incoming.Rooms.Furni.Wired;
 using Plus.Communication.Packets.Incoming.WiredVariables;
+using Plus.Communication.Packets.Outgoing.Rooms.Furni.Wired;
 
 namespace Plus.Tests;
 
@@ -646,6 +647,90 @@ public class ModernWiredRuntimeTests
             (_, _, _, _, _) => throw new Exception("Flag must select occupied-user blocking path"), (_, _, _, _, _) => false, (_, _) => { },
             (_, _, _, value, _) => { rotation = value; return true; }));
         Assert.Equal(expected, rotation);
+    }
+
+    [Fact]
+    public void MoveRotateEditorReopensEveryCurrentChoiceAndUnchangedResaveKeepsSettings()
+    {
+        // Current Octane order: 0 none, 1 random, 2 horizontal, 3 vertical, then S E N W NE SE SW NW; turns none, cw, ccw, random.
+        int[] storedDirection = [-1, 8, 9, 10, 4, 2, 0, 6, 1, 3, 5, 7];
+        int[] storedTurn = [0, 2, 4, 6];
+        Point[] compass = [new(0, 1), new(1, 0), new(0, -1), new(-1, 0), new(1, -1), new(1, 1), new(-1, 1), new(-1, -1)];
+        var (room, _, _) = World();
+        for (var movement = 0; movement <= 11; movement++)
+            for (var rotation = 0; rotation <= 3; rotation++)
+            {
+                var box = ActionBox(room, "wf_act_move_rotate");
+                Assert.True(WiredConfigurationSave.TrySave(box, SavePacket([movement, rotation, 100], [8, 9], 4), TestWiredConfigurationStore.Instance, out var error), error);
+                var saved = box.Configuration;
+                Assert.Equal(new[] { storedDirection[movement], storedTurn[rotation], 100, 0 }, saved.IntParams);
+                if (movement >= 4) Assert.Equal(compass[movement - 4], WiredRoomOperations.Offset(saved.IntParams[0]));
+
+                var editor = EditorFields(WiredEditorSnapshot.Capture(box));
+                Assert.Equal(new[] { movement, rotation, 100 }, editor.Ints);
+                Assert.Equal(new uint[] { 8, 9 }, editor.Selected);
+                Assert.Equal(4, editor.Delay);
+                Assert.Same(saved, box.Configuration);
+
+                Assert.True(WiredConfigurationSave.TrySave(box, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out error), error);
+                Assert.Equal(saved.IntParams.AsEnumerable(), box.Configuration.IntParams);
+                Assert.Equal(saved.SelectedItems.AsEnumerable(), box.Configuration.SelectedItems);
+                Assert.Equal(saved.FurniSources, box.Configuration.FurniSources);
+                Assert.Equal(saved.Delay, box.Configuration.Delay);
+            }
+    }
+
+    [Fact]
+    public void LegacyMoveRotateBoxReopensInCurrentEditorOrderAndResavesTheSameMove()
+    {
+        var (room, _, _) = World();
+        for (var movement = 0; movement <= 7; movement++)
+            for (var rotation = 0; rotation <= 3; rotation++)
+            {
+                var legacy = new MoveAndRotateBox(null!, MakeItem(7, "wf_act_move_rotate")) { StringData = $"{movement};{rotation}", Delay = 3 };
+                legacy.SetItems.TryAdd(8, MakeItem(8, "test"));
+                Assert.True(WiredLegacyEditorProjection.TryGetConfiguration(legacy, out var descriptor, out var stored));
+                var editor = EditorFields(WiredEditorSnapshot.Capture(legacy.Item, descriptor, stored));
+                Assert.Equal(3, editor.Ints.Length);
+
+                var box = ActionBox(room, "wf_act_move_rotate");
+                Assert.True(WiredConfigurationSave.TrySave(box, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out var error), error);
+                Assert.Equal(stored.IntParams.AsEnumerable(), box.Configuration.IntParams);
+                Assert.Equal(new uint[] { 8 }, box.Configuration.SelectedItems);
+                Assert.Equal(3, box.Configuration.Delay);
+            }
+    }
+
+    [Theory]
+    [InlineData(0, 1, 0)] [InlineData(0, 3, 0)] [InlineData(0, 5, 0)] [InlineData(0, 0, 1)] [InlineData(2, 6, 1)]
+    public void MoveRotateSettingsWithoutAnEditorControlReopenAsStored(int direction, int turn, int blocking)
+    {
+        var (room, _, _) = World();
+        var box = ActionBox(room, "wf_act_move_rotate");
+        Assert.True(WiredConfigurationSave.TrySave(box, SavePacket([direction, turn, 100, blocking], [8], 0), TestWiredConfigurationStore.Instance, out var error), error);
+        Assert.Equal(new[] { direction, turn, 100, blocking }, EditorFields(WiredEditorSnapshot.Capture(box)).Ints);
+    }
+
+    private static WiredConfiguration SavePacket(int[] ints, uint[] selected, int delay)
+    {
+        object[] values = [ints.Length, .. ints.Cast<object>(), "", selected.Length, .. selected.Select(id => (object)(int)id), delay, 0];
+        Assert.True(WiredLegacyProtocol.TryRead(Request(values), WiredBoxCategory.Action, out var configuration));
+        return configuration;
+    }
+
+    private static (int[] Ints, uint[] Selected, int Delay) EditorFields(WiredEditorSnapshot snapshot)
+    {
+        var fields = new List<object>(); var packet = DispatchProxy.Create<IOutgoingPacket, RecordingProxy>();
+        ((RecordingProxy)(object)packet).InvokeMethod = (_, args) => { fields.Add(args![0]!); return null; };
+        new WiredConfiguredConfigComposer(snapshot).Compose(packet);
+        // false, furni limit, picks, sprite, item id, text, ints, selection code, editor code, delay, blocked sprites.
+        var selected = fields.Skip(3).Take((int)fields[2]).Cast<uint>().ToArray();
+        var at = 3 + selected.Length + 3;
+        var ints = fields.Skip(at + 1).Take((int)fields[at]).Cast<int>().ToArray();
+        at += 1 + ints.Length;
+        Assert.Equal(4, (int)fields[at + 1]);
+        Assert.Equal(at + 4, fields.Count);
+        return (ints, selected, (int)fields[at + 2]);
     }
 
     [Fact]
