@@ -51,6 +51,37 @@ public class ModernWiredRuntimeTests
             clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, definitions ?? TestWiredDefinitions.Unused, TestItemRuntime.Travel);
 
     [Fact]
+    public void ElapsedConditionsStartTheRoomTimerOnFirstUseAndShareItsEpoch()
+    {
+        var (room, _, _) = World();
+        var instant = new DateTimeOffset(2040, 4, 5, 6, 7, 8, TimeSpan.Zero);
+        var now = instant.ToOffset(TimeSpan.FromHours(9));
+        var less = Condition("wf_cnd_time_less_than");
+        var more = Condition("wf_cnd_time_more_than");
+
+        Assert.True(less.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+        Assert.Equal(instant, room.LastTimerResetAt);
+        Assert.False(more.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+
+        now = instant.AddMilliseconds(999).ToOffset(TimeSpan.FromHours(-7));
+        Assert.True(less.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+        Assert.False(more.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+        now = instant.AddMilliseconds(1001);
+        Assert.False(less.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+        Assert.True(more.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+        Assert.Equal(instant, room.LastTimerResetAt);
+
+        WiredModernCondition Condition(string name)
+        {
+            var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name),
+                TestGroupManager.Empty, _ => null, () => now);
+            Assert.True(condition.TryValidateConfiguration(new() { IntParams = [2] }, out var configuration, out var error), error);
+            condition.ApplyConfiguration(configuration);
+            return condition;
+        }
+    }
+
+    [Fact]
     public void TimerResetAndElapsedConditionsUseCapturedUtcInstantsAtExactBoundaries()
     {
         var (room, _, _) = World();
