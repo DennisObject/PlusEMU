@@ -476,6 +476,7 @@ public class WiredStackEngineTests
         fixture.Effect();
         fixture.Effect();
         fixture.Engine.RunStack(trigger, []);
+        fixture.Engine.RunStack(trigger, []); // separate passes in one window add up
 
         for (var i = 0; i < 20; i++) {
             fixture.Engine.GetBoxes(trigger, InteractionType.WiredEffect); // inspection passes run nothing
@@ -485,11 +486,11 @@ public class WiredStackEngineTests
 
         fixture.Advance(1000);
         var window = fixture.Engine.ReadStats();
-        Assert.Equal((1000, 3, 0, 0), (window.WindowMs, window.PeakExecutions, window.PeakDepth, window.Pending));
+        Assert.Equal((1000, 6, 0, 0), (window.WindowMs, window.Executions, window.PeakDepth, window.Pending));
         Assert.True(window.AverageMs <= window.PeakMs);
 
         fixture.Advance(2500); // an idle gap leaves nothing to report
-        Assert.Equal(0, fixture.Engine.ReadStats().PeakExecutions);
+        Assert.Equal(0, fixture.Engine.ReadStats().Executions);
     }
 
     [Fact]
