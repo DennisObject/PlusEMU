@@ -23,6 +23,12 @@ jobs:
         with:
           global-json-file: global.json
 
+      # Installers always take the latest release, so only a passing build is published.
+      - name: Test
+        run: |
+          dotnet build "Plus Emulator.sln" --configuration Release --property:Platform="Any CPU" --maxcpucount:1
+          dotnet test Plus.Tests --configuration Release --no-build
+
       - name: Publish self-contained builds
         run: |
           for rid in linux-x64 linux-arm64 win-x64; do
@@ -46,4 +52,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="v$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
+          if gh release view "$tag" > /dev/null 2>&1; then echo "$tag is already released"; exit 0; fi
           gh release create "$tag" dist/* --target "$GITHUB_SHA" --title "PlusEMU $tag" --generate-notes --latest
