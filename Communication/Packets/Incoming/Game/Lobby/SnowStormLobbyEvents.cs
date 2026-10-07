@@ -27,3 +27,16 @@ internal sealed class Game2LeaveLobbyEvent(ISnowStormManager manager) : IPacketE
         return Task.CompletedTask;
     }
 }
+
+/// <summary>Arena voting (Plus extra): the field type of the arena the player wants.</summary>
+internal sealed class Game2VoteArenaEvent(ISnowStormManager manager) : IPacketEvent
+{
+    public Task Parse(GameClient session, IIncomingPacket packet)
+    {
+        if (SnowStormPacketReader.TryReadInts(packet, 1, out var values)) {
+            manager.VoteArena(session, values[0]);
+        }
+
+        return Task.CompletedTask;
+    }
+}

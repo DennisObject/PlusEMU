@@ -341,7 +341,8 @@
     "PurchaseSnowWarGameTokensOfferEvent": 391,
     "GetForumThreadEvent": 3900,
     "UpdateForumReadMarkersEvent": 1855,
-    "GetForumsUnreadCountEvent": 2908
+    "GetForumsUnreadCountEvent": 2908,
+    "Game2VoteArenaEvent": 6015
   },
   "OutgoingHeaders": {
     "SimplePollStartComposer": 2665,
@@ -681,6 +682,7 @@
     "Game2TotalGroupLeaderboardComposer": 1769,
     "Game2WeeklyGroupLeaderboardComposer": 2956,
     "SnowWarGameTokensComposer": 3419,
-    "ForumsUnreadCountComposer": 2379
+    "ForumsUnreadCountComposer": 2379,
+    "SnowStormArenaVotesComposer": 5033
   }
 }

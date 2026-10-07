@@ -20,6 +20,9 @@ public interface ISnowStormManager
 
     void Chat(GameClient session, string message);
 
+    /// <summary>Votes for the arena (field type) the player's lobby will play on.</summary>
+    void VoteArena(GameClient session, int fieldType);
+
     void SetMoveTarget(GameClient session, int x, int y, int turn, int subturn);
 
     void ThrowAtPosition(GameClient session, int x, int y, int trajectory, int turn, int subturn);

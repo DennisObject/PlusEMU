@@ -417,6 +417,7 @@ public static class ServerPacketHeader
     public const uint Game2UserBlockedComposer = 3508;
     public const uint Game2TotalLeaderboardComposer = 2594;
     public const uint Game2FriendsLeaderboardComposer = 5032; // wire 47
+    public const uint SnowStormArenaVotesComposer = 5033; // wire 5030
     public const uint Game2WeeklyFriendsLeaderboardComposer = 2270;
     public const uint Game2TotalGroupLeaderboardComposer = 1769;
     public const uint Game2WeeklyGroupLeaderboardComposer = 2956;
