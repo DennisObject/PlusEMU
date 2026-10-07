@@ -6,5 +6,5 @@ namespace Plus.Communication.Packets.Incoming.Game.Score;
 /// <summary>gameTypeId, weekOffset, startRank (-1 = around me), direction, viewSize, windowSize.</summary>
 internal sealed class Game2GetWeeklyLeaderboardEvent(ISnowStormDirectory directory) : IPacketEvent
 {
-    public Task Parse(GameClient session, IIncomingPacket packet) => SnowStormLeaderboardRequest.Weekly(directory, session, packet, SnowStormLeaderboardKind.Weekly);
+    public Task Parse(GameClient session, IIncomingPacket packet) => SnowStormLeaderboardReader.Weekly(directory, session, packet, SnowStormLeaderboardKind.Weekly);
 }
