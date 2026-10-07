@@ -6,6 +6,7 @@ using Plus.Communication.Packets.Outgoing;
 using Plus.Core.FigureData;
 using Plus.Core.Language;
 using Plus.Core.Settings;
+using Plus.HabboHotel.Campaigns;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.Cache;
@@ -47,7 +48,7 @@ public class SsoLoginServiceTests
     {
         var (client, sent) = HabbiconTestSupport.Client(new Habbo());
         var authenticate = Proxy<IAuthenticator>((_, _) => Task.FromResult<AuthenticationError?>(AuthenticationError.InvalidSSO));
-        var service = new SsoLoginService(authenticate, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+        var service = new SsoLoginService(authenticate, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
 
         await service.Login(client, "invalid");
 
@@ -88,7 +89,8 @@ public class SsoLoginServiceTests
                 Proxy<IUserProcessStore>((_, _) => null), Proxy<IAchievementManager>((_, _) => null), settings),
             Proxy<IModeratorTicketService>((method, _) => throw new NotSupportedException(method)),
             Proxy<IAvatarEffectService>((_, _) => ImmutableArray<AvatarEffectEntry>.Empty),
-            Proxy<IRewardTrackManager>((_, _) => { calls.Add("tracks"); return null; }));
+            Proxy<IRewardTrackManager>((_, _) => { calls.Add("tracks"); return null; }),
+            Proxy<ICampaignCalendarService>((_, _) => { calls.Add("calendar"); return null; }));
 
         var pending = service.Login(client, "valid");
 
@@ -113,7 +115,7 @@ public class SsoLoginServiceTests
 
             rewardCompletion.SetResult();
             await pending;
-            Assert.Equal("tracks", calls[^1]);
+            Assert.Equal(new[] { "tracks", "calendar" }, calls.TakeLast(2));
         }
         finally {
             rewardCompletion.TrySetResult();

@@ -119,7 +119,7 @@ public class ClubMembershipService(IDatabase database, IAccessControl permission
     }
 
     // Returns null before any write when the new expiry cannot be represented.
-    private static DateTimeOffset? Extend(IDbConnection connection, IDbTransaction transaction, int userId, DateTimeOffset now, int days)
+    internal static DateTimeOffset? Extend(IDbConnection connection, IDbTransaction transaction, int userId, DateTimeOffset now, int days)
     {
         var row = connection.QuerySingleOrDefault<ClubMembershipRow>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id = @userId FOR UPDATE", new { userId }, transaction);
         var old = row?.ToMembership() ?? ClubMembership.None;

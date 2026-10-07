@@ -1,3 +1,4 @@
+using Plus.HabboHotel.Campaigns;
 using Plus.HabboHotel.Subscriptions;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Inventory.Achievements;
@@ -44,6 +45,7 @@ public sealed class SsoLoginService : ISsoLoginService
     private readonly ClubLifecycle _clubLifecycle;
     private readonly IUserProcessFactory _processFactory;
     private readonly IAvatarEffectService _avatarEffects;
+    private readonly ICampaignCalendarService _calendars;
 
     public SsoLoginService(IAuthenticator authenticate,
         IBadgeManager badgeManager,
@@ -53,9 +55,10 @@ public sealed class SsoLoginService : ISsoLoginService
         ILanguageManager languageManager,
         ISettingsManager settingsManager,
         IRewardManager rewardManager, ClubLifecycle clubLifecycle, ClientAccessLists clientAccessLists,
-        IUserProcessFactory processFactory, IModeratorTicketService tickets, IAvatarEffectService avatarEffects, IRewardTrackManager rewardTracks)
+        IUserProcessFactory processFactory, IModeratorTicketService tickets, IAvatarEffectService avatarEffects, IRewardTrackManager rewardTracks, ICampaignCalendarService calendars)
     {
         _authenticate = authenticate;
+        _calendars = calendars;
         _rewardTracks = rewardTracks;
         _avatarEffects = avatarEffects;
         _badgeManager = badgeManager;
@@ -118,6 +121,7 @@ public sealed class SsoLoginService : ISsoLoginService
 
             await _rewardManager.CheckRewards(session);
             _rewardTracks.SendTracks(session);
+            _calendars.Present(session);
         }
     }
 }
