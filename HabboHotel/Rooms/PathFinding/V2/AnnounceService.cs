@@ -98,7 +98,7 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
             return false;
         }
 
-        if (!context.Claims.TryClaim(actor, slot, ClaimKindFor(profile, slot, purpose), mask)) {
+        if (!context.Claims.TryClaim(actor, slot, ClaimMatrix.KindFor(profile, navigation.Grid.Flags[slot], purpose), mask)) {
             return false;
         }
 
@@ -111,14 +111,6 @@ internal sealed class AnnounceService(Room room, RoomNavigation navigation, Move
         if (!committed && actor.Movement.PendingCount == 0) {
             context.FloorEffects.Apply(actor, actor.X, actor.Y, actor.Movement.CurrentRef);
         }
-    }
-    private ClaimKind ClaimKindFor(ActorProfile profile, int slot, StepPurpose purpose)
-    {
-        if (profile.LegacyOverride || profile.IgnoreUsers || (navigation.Grid.Flags[slot] & NavFlags.Door) != 0) {
-            return ClaimKind.Shared;
-        }
-
-        return !profile.Walkthrough ? ClaimKind.Exclusive : purpose == StepPurpose.Goal ? ClaimKind.Goal : ClaimKind.Shared;
     }
     private void Publish(RoomUser actor, NavPosition target)
     {
