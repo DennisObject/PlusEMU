@@ -145,9 +145,10 @@ public class SnowStormPacketTests
         Assert.Equal(new object[] { 0, 8, 2, 1, 4, "Ann", "hd-1", "F", 1, 2, 1, "00", 1, "snst_tree1", 1, 1, 0, 1, 1, 3200, 0, 1440, false, 0, "0" },
             Write(new Game2EnterArenaComposer(0, 8, 2, [new SnowStormArenaPlayer(4, "Ann", "hd-1", "F", 1)],
                 new SnowStormArenaLevel(level, ImmutableDictionary<int, ImmutableArray<KeyValuePair<string, string>>>.Empty))));
-        var backdrop = SnowStormArenas.ForGame(new SnowStormArenaDefinition(8, "Arctic Island", level, new Dictionary<int, IReadOnlyList<(int X, int Y)>>()), "/bg.png");
+        var backdrop = SnowStormArenas.ForGame(new SnowStormArenaDefinition(8, "Arctic Island", level, new Dictionary<int, IReadOnlyList<(int X, int Y)>>(),
+            new SnowStormBackdrop(0, 0, -1160, 1554, 10000)), "/bg.png");
         Assert.Equal(new object[] { 0, 8, 2, 0, 2, 1, "00", 2, "snst_tree1", 1, 1, 0, 1, 1, 3200, 0, 1440, false, 0, "0",
-                "ads_background", 2, 0, 19, 1, 1, 0, 1, 0, true, 1, 5, "state", "0", "imageUrl", "/bg.png", "offsetX", "0", "offsetY", "0", "offsetZ", "10000" },
+                "ads_background", 2, 0, 0, 1, 1, 0, 1, 0, true, 1, 5, "state", "0", "imageUrl", "/bg.png", "offsetX", "-1160", "offsetY", "1554", "offsetZ", "10000" },
             Write(new Game2EnterArenaComposer(0, 8, 2, [], backdrop)));
         Assert.Equal(new object[] { 50, 2, 4, 5 }, Write(new Game2StageStillLoadingComposer(50, [4, 5])));
 

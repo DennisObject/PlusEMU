@@ -92,6 +92,7 @@
     "snst_ballpile 36 24 0",
     "snst_ballpile 8 29 0"
   ],
+  "backdrop": { "x": 0, "y": 22, "offsetX": -1106, "offsetY": 1496, "offsetZ": 9920 },
   "spawns": {
   }
 }

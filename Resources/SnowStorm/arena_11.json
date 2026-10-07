@@ -119,6 +119,7 @@
     "snst_fence 30 26 2",
     "xm09_man_b 14 9 4 1280"
   ],
+  "backdrop": { "x": 0, "y": 22, "offsetX": -1096, "offsetY": 1444, "offsetZ": 9950 },
   "spawns": {
   }
 }

@@ -6,12 +6,19 @@ using Plus.HabboHotel.Games.SnowStorm.Simulation;
 
 namespace Plus.HabboHotel.Games.SnowStorm;
 
-/// <summary>An official arena: AIR field type (8 Arctic Island, 9 Dragon Top, 11 Fight Night), level and team spawn tiles.</summary>
+/// <summary>
+/// An official arena: AIR field type (8 Arctic Island, 9 Dragon Top, 11 Fight Night), level, team spawn tiles and where
+/// its painted backdrop goes.
+/// </summary>
 public sealed record SnowStormArenaDefinition(
     int FieldType,
     string Name,
     SnowStormLevelData Level,
-    IReadOnlyDictionary<int, IReadOnlyList<(int X, int Y)>> Spawns);
+    IReadOnlyDictionary<int, IReadOnlyList<(int X, int Y)>> Spawns,
+    SnowStormBackdrop? Backdrop = null);
+
+/// <summary>The ads_background anchor tile and its MapStuffData offsets (offsetX/offsetY in 64-units, as fitted to the heightmap).</summary>
+public sealed record SnowStormBackdrop(int X, int Y, int OffsetX, int OffsetY, int OffsetZ);
 
 /// <summary>
 /// The level one game is played on and the furni MapStuffData (by fuse id) of its decoration, e.g. the official backdrop.
@@ -49,14 +56,6 @@ public sealed class SnowStormArenas : ISnowStormArenas
         ["xm09_man_c"] = (1, 1, 800)
     };
 
-    // Polaris addOfficialBackground: an ads_background at (0, y) facing 45°, lifted by offsetZ.
-    private static readonly IReadOnlyDictionary<int, (int Y, int OffsetZ)> Backgrounds = new Dictionary<int, (int, int)>
-    {
-        [8] = (19, 10000),
-        [9] = (22, 9920),
-        [11] = (22, 9950)
-    };
-
     private readonly Lazy<IReadOnlyList<SnowStormArenaDefinition>> _arenas;
 
     public SnowStormArenas(ILogger<SnowStormArenas> logger) : this(Path.Join(AppContext.BaseDirectory, "snowstorm"), logger) { }
@@ -81,16 +80,17 @@ public sealed class SnowStormArenas : ISnowStormArenas
     {
         var level = arena.Level;
 
-        if (string.IsNullOrWhiteSpace(backgroundUrl) || !Backgrounds.TryGetValue(arena.FieldType, out var background)) {
+        if (string.IsNullOrWhiteSpace(backgroundUrl) || arena.Backdrop is not { } background) {
             return new(level, ImmutableDictionary<int, ImmutableArray<KeyValuePair<string, string>>>.Empty);
         }
 
         var id = level.FuseObjects.Count + 1;
-        var backdrop = new SnowStormFuseObject("ads_background", id, 0, background.Y, 1, 1, 0, 1, 0, true, "0");
+        // Like Polaris addOfficialBackground the backdrop faces 45° (the furni's only diagonal direction).
+        var backdrop = new SnowStormFuseObject("ads_background", id, background.X, background.Y, 1, 1, 0, 1, 0, true, "0");
         ImmutableArray<KeyValuePair<string, string>> stuff =
         [
-            new("state", "0"), new("imageUrl", backgroundUrl), new("offsetX", "0"), new("offsetY", "0"),
-            new("offsetZ", background.OffsetZ.ToString(System.Globalization.CultureInfo.InvariantCulture))
+            new("state", "0"), new("imageUrl", backgroundUrl), new("offsetX", Text(background.OffsetX)), new("offsetY", Text(background.OffsetY)),
+            new("offsetZ", Text(background.OffsetZ))
         ];
 
         return new(level with { FuseObjects = [.. level.FuseObjects, backdrop] }, ImmutableDictionary<int, ImmutableArray<KeyValuePair<string, string>>>.Empty.Add(id, stuff));
@@ -125,8 +125,15 @@ public sealed class SnowStormArenas : ISnowStormArenas
             team => int.Parse(team.Key),
             team => (IReadOnlyList<(int X, int Y)>)team.Value.Where(tile => tile.Length == 2).Select(tile => (tile[0], tile[1])).ToImmutableArray());
 
-        return new(file.FieldType, file.Name ?? string.Empty, new SnowStormLevelData(width, rows.Length, string.Join('\r', rows), objects.ToImmutable()), spawns);
+        if (file.Backdrop is { } backdrop && (backdrop.X < 0 || backdrop.Y < 0 || backdrop.X >= width || backdrop.Y >= rows.Length)) {
+            throw new InvalidDataException($"Arena {file.FieldType} has its backdrop outside the heightmap.");
+        }
+
+        return new(file.FieldType, file.Name ?? string.Empty, new SnowStormLevelData(width, rows.Length, string.Join('\r', rows), objects.ToImmutable()), spawns,
+            file.Backdrop);
     }
+
+    private static string Text(int value) => value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private static IReadOnlyList<SnowStormArenaDefinition> Load(string directory, ILogger logger)
     {
@@ -157,5 +164,6 @@ public sealed class SnowStormArenas : ISnowStormArenas
         public string[]? Heightmap { get; set; }
         public string[]? Items { get; set; }
         public Dictionary<string, int[][]>? Spawns { get; set; }
+        public SnowStormBackdrop? Backdrop { get; set; }
     }
 }

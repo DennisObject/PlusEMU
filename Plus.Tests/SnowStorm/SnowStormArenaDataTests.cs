@@ -47,14 +47,15 @@ public class SnowStormArenaDataTests
     {
         var arenas = SnowStormTestSupport.Arenas();
 
-        foreach (var (fieldType, y, offsetZ) in new[] { (8, 19, "10000"), (9, 22, "9920"), (11, 22, "9950") }) {
+        foreach (var (fieldType, y, offsetX, offsetY, offsetZ) in new[] { (8, 19, "-1160", "1554", "10000"), (9, 22, "-1106", "1496", "9920"), (11, 22, "-1096", "1444", "9950") }) {
             Assert.True(arenas.TryGet(fieldType, out var arena));
             var url = SnowStormSettings.Default.Backgrounds[fieldType];
             var game = SnowStormArenas.ForGame(arena, url);
             var backdrop = game.Level.FuseObjects[^1];
             Assert.Equal(new SnowStormFuseObject("ads_background", arena.Level.FuseObjects.Count + 1, 0, y, 1, 1, 0, 1, 0, true, "0"), backdrop);
             Assert.Equal(url, game.MapStuff[backdrop.Id].Single(pair => pair.Key == "imageUrl").Value);
-            Assert.Equal(offsetZ, game.MapStuff[backdrop.Id].Single(pair => pair.Key == "offsetZ").Value);
+            Assert.Equal(new[] { offsetX, offsetY, offsetZ },
+                new[] { "offsetX", "offsetY", "offsetZ" }.Select(key => game.MapStuff[backdrop.Id].Single(pair => pair.Key == key).Value));
 
             var with = SnowStormArena.Create(game.Level, 2);
             var without = SnowStormArena.Create(arena.Level, 2);
@@ -80,6 +81,7 @@ public class SnowStormArenaDataTests
         Assert.Throws<InvalidDataException>(() => SnowStormArenas.Parse("""{ "fieldType": 1, "heightmap": ["00", "0"], "items": [] }"""));
         Assert.Throws<InvalidDataException>(() => SnowStormArenas.Parse("""{ "fieldType": 1, "heightmap": ["00"], "items": ["unknown_furni 0 0 0"] }"""));
         Assert.Throws<InvalidDataException>(() => SnowStormArenas.Parse("""{ "fieldType": 1, "heightmap": ["00"], "items": ["snst_block1 5 0 0"] }"""));
+        Assert.Throws<InvalidDataException>(() => SnowStormArenas.Parse("""{ "fieldType": 1, "heightmap": ["00"], "items": [], "backdrop": { "x": 0, "y": 3 } }"""));
         var parsed = SnowStormArenas.Parse("""{ "fieldType": 1, "name": "Tiny", "heightmap": ["0x"], "items": ["snst_fence 0 0 2"], "spawns": { "1": [[0, 0]] } }""");
         Assert.Equal(new SnowStormFuseObject("snst_fence", 1, 0, 0, 1, 2, 960, 2, 0, false, "0"), Assert.Single(parsed.Level.FuseObjects));
         Assert.Equal("0x", parsed.Level.HeightMap);
