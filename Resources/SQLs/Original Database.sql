@@ -25515,3 +25515,8 @@ INSERT IGNORE INTO role_permissions (role_id, permission_key)
  SELECT role_id, 'command.giverole' FROM role_permissions WHERE permission_key = 'housekeeping.roles.manage';
 INSERT IGNORE INTO role_permissions (role_id, permission_key)
  SELECT role_id, 'command.takerole' FROM role_permissions WHERE permission_key = 'housekeeping.roles.manage';
+
+-- 49_IceTagPole
+-- Restore only the official pole's missing interaction; retain custom definitions and all IDs.
+UPDATE furniture SET interaction_type = 'icetag_pole'
+WHERE item_name = 'es_tagging' AND sprite_id = 3741 AND interaction_type = 'default';
