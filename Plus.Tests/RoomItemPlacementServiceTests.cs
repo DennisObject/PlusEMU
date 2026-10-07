@@ -188,6 +188,64 @@ public partial class PlacedFurniRoomTests
         Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
     }
 
+    [Theory]
+    [InlineData(ItemType.Floor, "30 1 1 0")]
+    [InlineData(ItemType.Wall, "30 :w=1,1 l=0,0 l")]
+    public void ConsumedItemReservationPreventsConcurrentPlacementUntilReleased(ItemType type, string placement)
+    {
+        var item = new InventoryItem { Id = 30, Definition = Furni(30, InteractionType.None, WiredBoxType.None, type).Definition };
+        Inventory(item);
+        var rewards = 0;
+        var service = PlacementService(() => rewards++);
+        Assert.True(item.TryReserve());
+
+        try {
+            service.Place(_room, _client, placement);
+            Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
+            Assert.Empty(_client.Sent);
+            Assert.Equal(0, rewards);
+        }
+        finally {
+            item.ReleaseReservation();
+        }
+
+        service.Place(_room, _client, placement);
+        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.NotNull(_room.GetRoomItemHandler().GetItem(30));
+        Assert.Equal(1, rewards);
+    }
+
+    [Fact]
+    public void FailedPlacementReleasesItsReservationWithoutConsumingTheItem()
+    {
+        var item = new InventoryItem { Id = 30, Definition = Furni(30, InteractionType.None, WiredBoxType.None).Definition };
+        Inventory(item);
+        PlacementService(() => throw new InvalidOperationException()).Place(_room, _client, "30 x 1 0");
+        Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
+        Assert.True(item.TryReserve());
+        item.ReleaseReservation();
+    }
+
+    [Fact]
+    public void ReservedStickyCannotBePlaced()
+    {
+        var item = new InventoryItem { Id = 30, Definition = Furni(30, InteractionType.Postit, WiredBoxType.None, ItemType.Wall).Definition };
+        Inventory(item);
+        Assert.True(item.TryReserve());
+
+        try {
+            PlacementService(() => throw new InvalidOperationException()).PlaceSticky(_room, _client, 30, ":w=1,1 l=0,0 l");
+            Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
+            Assert.Empty(_client.Sent);
+        }
+        finally {
+            item.ReleaseReservation();
+        }
+    }
+
     [Fact]
     public async Task MoveHandlerConsumesAllFourPrimitivesBeforeDelegation()
     {

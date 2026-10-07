@@ -76,6 +76,11 @@ public static class ItemTypeExtensions
 
 public class InventoryItem
 {
+    private int _reserved;
+
+    internal bool TryReserve() => Interlocked.CompareExchange(ref _reserved, 1, 0) == 0;
+    internal void ReleaseReservation() => Volatile.Write(ref _reserved, 0);
+
     public uint Id { get; set; }
     public uint OwnerId { get; set; }
     public bool IsFloorItem => Definition.Type == ItemType.Floor;
