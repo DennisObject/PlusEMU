@@ -519,7 +519,8 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public void OnEvent(Item item)
     {
-        if (item.LegacyDataString == "1") {
+        // A box saved mid-flash loads as "1" with no reset pending, so only a pending reset means it is still lit.
+        if (item.LegacyDataString == "1" && item.UpdateNeeded) {
             return;
         }
 
