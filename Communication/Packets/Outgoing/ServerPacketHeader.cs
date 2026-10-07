@@ -380,4 +380,6 @@ public static class ServerPacketHeader
     public const uint HousekeepingRoleMembersComposer = 9211;
     public const uint HousekeepingUserOverridesComposer = 9212;
     public const uint HousekeepingRolesAuditComposer = 9213;
+    public const uint QuizDataComposer = 2927;
+    public const uint QuizResultsComposer = 2772;
 }

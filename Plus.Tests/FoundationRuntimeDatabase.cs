@@ -39,7 +39,8 @@ internal static class FoundationRuntimeDatabase
 
     private static async Task ImportPristine(MySqlConnectionStringBuilder options)
     {
-        Assert.True(Path.IsPathRooted(options.Server), "The smoke fixture requires an explicitly supplied Unix socket.");
+        Assert.True(Path.IsPathRooted(options.Server) || options.Server is "127.0.0.1" or "localhost",
+            "The smoke fixture requires an explicitly supplied Unix socket or loopback server.");
         var start = new ProcessStartInfo("mariadb")
         {
             RedirectStandardInput = true,
@@ -48,8 +49,12 @@ internal static class FoundationRuntimeDatabase
             UseShellExecute = false
         };
 
-        foreach (var argument in new[] { "--protocol=SOCKET", "--socket=" + options.Server, "--user=" + options.UserID,
-                     "--database=" + options.Database, "--default-character-set=utf8mb4" }) {
+        var transport = Path.IsPathRooted(options.Server)
+            ? new[] { "--protocol=SOCKET", "--socket=" + options.Server }
+            : new[] { "--protocol=TCP", "--host=" + options.Server, "--port=" + options.Port };
+
+        foreach (var argument in transport.Concat(new[] { "--user=" + options.UserID,
+                     "--database=" + options.Database, "--default-character-set=utf8mb4" })) {
             start.ArgumentList.Add(argument);
         }
 

@@ -45,6 +45,11 @@ public class AchievementManager : IAchievementManager, IStartable
         }
 
         var habbo = session.GetHabbo();
+
+        if (habbo == null || habbo.AccessClosed) {
+            return false;
+        }
+
         var userData = habbo.GetAchievementData(group);
 
         if (userData == null) {
