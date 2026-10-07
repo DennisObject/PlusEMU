@@ -372,7 +372,10 @@
     "HousekeepingAssignRoleEvent": 9138,
     "HousekeepingRevokeRoleEvent": 9139,
     "HousekeepingSetUserOverrideEvent": 9140,
-    "HousekeepingRemoveUserOverrideEvent": 9141
+    "HousekeepingRemoveUserOverrideEvent": 9141,
+    "GetForumThreadEvent": 3900,
+    "UpdateForumReadMarkersEvent": 1855,
+    "GetForumsUnreadCountEvent": 2908
   },
   "OutgoingHeaders": {
     "AllowedChatStylesComposer": 9340,
@@ -701,6 +704,7 @@
     "HousekeepingRolesComposer": 9210,
     "HousekeepingRoleMembersComposer": 9211,
     "HousekeepingUserOverridesComposer": 9212,
-    "HousekeepingRolesAuditComposer": 9213
+    "HousekeepingRolesAuditComposer": 9213,
+    "ForumsUnreadCountComposer": 2379
   }
 }

@@ -315,7 +315,10 @@
     "PurchaseBasicMembershipExtensionEvent": 6001,
     "PurchaseVipMembershipExtensionEvent": 3407,
     "SelectClubGiftEvent": 2276,
-    "GetClubOffersEvent": 362
+    "GetClubOffersEvent": 362,
+    "GetForumThreadEvent": 3900,
+    "UpdateForumReadMarkersEvent": 1855,
+    "GetForumsUnreadCountEvent": 2908
   },
   "OutgoingHeaders": {
     "InitDiffieHandshakeComposer": 3531,
@@ -617,6 +620,7 @@
     "ClubGiftReceivedComposer": 659,
     "PickMonthlyClubGiftComposer": 2188,
     "AllowedChatStylesComposer": 9340,
-    "CreatableRoomModelsComposer": 9341
+    "CreatableRoomModelsComposer": 9341,
+    "ForumsUnreadCountComposer": 2379
   }
 }

@@ -194,6 +194,7 @@ public static class ServerPacketHeader
     public const uint ThreadsListDataComposer = 1056; //1538
     public const uint ThreadUpdatedComposer = 951; //3226
     public const uint ThreadReplyComposer = 1003; //1936
+    public const uint ForumsUnreadCountComposer = 9851;
 
     // Sound
     public const uint SoundSettingsComposer = 1949; //2921
