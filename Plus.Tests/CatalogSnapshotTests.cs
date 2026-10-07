@@ -28,8 +28,14 @@ public class CatalogSnapshotTests
     [Fact]
     public void AttachedBadgeOfferIsAdvertisedAsUngiftableWhileOrdinaryFurnitureRemainsGiftable()
     {
-        var item = new CatalogItem { Id = 30, OfferId = 30, CatalogName = "chair", Amount = 1,
-            Definition = Def(InteractionType.None, "s", gift: true, type: ItemType.Floor) };
+        var item = new CatalogItem
+        {
+            Id = 30,
+            OfferId = 30,
+            CatalogName = "chair",
+            Amount = 1,
+            Definition = Def(InteractionType.None, "s", gift: true, type: ItemType.Floor)
+        };
         Assert.True(Snapshots().CaptureOffer(item).CanGift);
         item.Badge = "ACH_Bonus";
         Assert.False(Snapshots().CaptureOffer(item).CanGift);
