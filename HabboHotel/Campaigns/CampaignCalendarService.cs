@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets;
+using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Campaign;
 using Plus.Communication.Packets.Outgoing.Inventory.Badges;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
