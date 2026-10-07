@@ -25761,6 +25761,10 @@ CREATE TABLE IF NOT EXISTS user_talent_rewards (
   PRIMARY KEY (user_id, type, level)
 ) ENGINE=InnoDB;
 
+-- 49_IceTagPole
+-- Restore only the official pole's missing interaction; retain custom definitions and all IDs.
+UPDATE furniture SET interaction_type = 'icetag_pole'
+WHERE item_name = 'es_tagging' AND sprite_id = 3741 AND interaction_type = 'default';
 -- 50_RoomWordQuizCommand
 INSERT IGNORE INTO acl_permissions (`key`, category, description, is_orphan)
 VALUES ('command.wordquiz', 'command', 'Start a timed yes/no question in an owned room.', FALSE);

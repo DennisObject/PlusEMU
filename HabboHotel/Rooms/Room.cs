@@ -43,6 +43,7 @@ public class Room
     private TimeProvider? _interactionClock;
     private IRoomUserSnapshotService _userSnapshots;
     private Soccer _soccer;
+    private IceTagGame? _iceTag;
 
     public bool IsCrashed;
     public DateTimeOffset? LastRegenerationAt;
@@ -195,6 +196,16 @@ public class Room
     public bool CanTradeInRoom => true;
 
     public Gamemap GetGameMap() => _gamemap;
+    internal IceTagGame GetIceTag() => LazyInitializer.EnsureInitialized(ref _iceTag, () => new(this, _achievements, InteractionClock));
+    internal void IceTagLeave(RoomUser user) => _iceTag?.Leave(user);
+    internal void IceTagAdmitted(Item item)
+    {
+        if (item.Definition.InteractionType == InteractionType.IceTagPole) {
+            GetIceTag().RegisterPole(item);
+        }
+    }
+    internal int UpdateIceTag(RoomUser user, Item? field) => field != null ? GetIceTag().Update(user, field) : _iceTag?.Update(user, null) ?? -1;
+    internal void IceTagLookTo(RoomUser user, int x, int y) => _iceTag?.LookTo(user, x, y);
 
     public RoomItemHandling GetRoomItemHandler()
     {
@@ -396,6 +407,7 @@ public class Room
 
         try {
             GetWired().OnFastCycle();
+            _iceTag?.Cycle();
         }
         catch (Exception e) {
             ExceptionLogger.LogException(e);
@@ -957,7 +969,11 @@ public class Room
         }
     }
 
-    private void ProcessWiredOwned() => RunOwnedPass(() => GetWired().OnFastCycle());
+    private void ProcessWiredOwned() => RunOwnedPass(() =>
+    {
+        GetWired().OnFastCycle();
+        _iceTag?.Cycle();
+    });
 
     // The fast pass owns the room for the gate sequencer, so Wired closes run inline and in order.
     private void RunOwnedPass(Action pass)
