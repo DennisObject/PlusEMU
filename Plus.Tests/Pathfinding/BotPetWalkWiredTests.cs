@@ -16,7 +16,10 @@ namespace Plus.Tests;
 
 public partial class PlacedFurniRoomTests
 {
-    public enum WalkActorKind { Habbo, Bot, Pet }
+    public enum WalkActorKind
+    {
+        Habbo, Bot, Pet
+    }
 
     [Theory]
     [InlineData(WalkActorKind.Bot, false)]
