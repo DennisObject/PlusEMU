@@ -40,7 +40,7 @@ public partial class PlacedFurniRoomTests
         var progressed = false;
         var store = new PickupStore(request =>
         {
-            Assert.Equal(new RoomItemPickup(30, RoomId, 7, 7, InteractionType.None), request);
+            Assert.Equal(new RoomItemPickup(30, RoomId, 7, 7, InteractionType.None, false), request);
             Assert.Same(item, _room.GetRoomItemHandler().GetItem(item.Id));
             Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
             Assert.Empty(_client.Sent);
@@ -166,16 +166,16 @@ public class RoomItemPickupStoreTests
             using var connection = new MySqlConnection(builder.ConnectionString);
             connection.Open();
             connection.Execute("""
-                CREATE TABLE items(id INT PRIMARY KEY, room_id INT NOT NULL, user_id INT NOT NULL);
+                CREATE TABLE items(id INT PRIMARY KEY, room_id INT NOT NULL, user_id INT NOT NULL, extra_data TEXT NOT NULL);
                 CREATE TABLE room_items_moodlight(item_id INT PRIMARY KEY);
                 CREATE TABLE room_items_toner(id INT PRIMARY KEY);
-                INSERT INTO items VALUES(30,42,99);
+                INSERT INTO items VALUES(30,42,99,'preserved');
                 INSERT INTO room_items_moodlight VALUES(30);
                 CREATE TRIGGER reject_cleanup BEFORE DELETE ON room_items_moodlight
                     FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced pickup rollback';
                 """);
             var store = new RoomItemPickupStore(new PickupDatabase(builder.ConnectionString));
-            var request = new RoomItemPickup(30, 42, 99, 7, InteractionType.Moodlight);
+            var request = new RoomItemPickup(30, 42, 99, 7, InteractionType.Moodlight, false);
             Assert.Throws<MySqlException>(() => store.PickUp(request));
             Assert.Equal((42, 99), connection.QuerySingle<(int, int)>("SELECT room_id,user_id FROM items"));
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM room_items_moodlight"));

@@ -28,6 +28,7 @@ public sealed class RoomDeletionDatabaseTests : IDisposable
         _database = new(connectionString);
         Dispose();
         using var connection = _database.Connection();
+        connection.Execute(RoomMusicDatabaseTests.Fixture.SchemaSql);
         connection.Execute("""
             INSERT INTO users(id,username,auth_ticket) VALUES (@UserId,'room_cleanup_probe','');
             INSERT INTO users_settings(user_id,home_room) VALUES (@UserId,@RoomId);

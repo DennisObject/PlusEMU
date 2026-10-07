@@ -71,6 +71,26 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
 
     private void PlaceReserved(Room room, GameClient session, string[] data, InventoryItem inventoryItem)
     {
+        if (!Music.RoomMusicDefinition.IsPlayer(inventoryItem.Definition)) {
+            PlaceReservedCore(room, session, data, inventoryItem);
+
+            return;
+        }
+
+        if (!room.Music.TryBeginPlacement()) {
+            return;
+        }
+
+        try {
+            PlaceReservedCore(room, session, data, inventoryItem);
+        }
+        finally {
+            room.Music.EndPlacement();
+        }
+    }
+
+    private void PlaceReservedCore(Room room, GameClient session, string[] data, InventoryItem inventoryItem)
+    {
         var itemId = inventoryItem.Id;
         var item = inventoryItem.ToRoomObject(session.GetHabbo());
 

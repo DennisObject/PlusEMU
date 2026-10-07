@@ -30,7 +30,7 @@ public sealed class FurnitureInventoryPersistenceTests
             Assert.Empty(context.Sent);
         });
 
-        Assert.True(new InventoryClearService(store, context.Gate).TryClear(context.Client, context.Room));
+        Assert.True(new InventoryClearService(store, context.Gate, TestGameClientManager.Empty).TryClear(context.Client, context.Room));
 
         Assert.Equal(new[] { "gate-enter", "store", "gate-exit" }, context.Events);
         Assert.Null(context.Habbo.Inventory.Furniture.GetItem(7));
@@ -48,7 +48,7 @@ public sealed class FurnitureInventoryPersistenceTests
         var context = Context();
         var store = new RecordingStore(() => context.Events.Add("store")) { Failure = new InvalidOperationException("forced") };
 
-        Assert.Throws<InvalidOperationException>(() => new InventoryClearService(store, context.Gate).TryClear(context.Client, context.Room));
+        Assert.Throws<InvalidOperationException>(() => new InventoryClearService(store, context.Gate, TestGameClientManager.Empty).TryClear(context.Client, context.Room));
 
         Assert.NotNull(context.Habbo.Inventory.Furniture.GetItem(7));
         Assert.Empty(context.Sent);
@@ -62,7 +62,7 @@ public sealed class FurnitureInventoryPersistenceTests
         context.RoomUser.IsTrading = true;
         var store = new RecordingStore();
 
-        Assert.False(new InventoryClearService(store, context.Gate).TryClear(context.Client, context.Room));
+        Assert.False(new InventoryClearService(store, context.Gate, TestGameClientManager.Empty).TryClear(context.Client, context.Room));
 
         Assert.Equal(0, store.Calls);
         Assert.NotNull(context.Habbo.Inventory.Furniture.GetItem(7));
@@ -75,19 +75,19 @@ public sealed class FurnitureInventoryPersistenceTests
         var stale = Context();
         stale.Habbo.Client = null!;
         var staleStore = new RecordingStore();
-        Assert.False(new InventoryClearService(staleStore, stale.Gate).TryClear(stale.Client, stale.Room));
+        Assert.False(new InventoryClearService(staleStore, stale.Gate, TestGameClientManager.Empty).TryClear(stale.Client, stale.Room));
         Assert.Equal(0, staleStore.Calls);
 
         var closed = Context();
         typeof(Habbo).GetField("_disconnected", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(closed.Habbo, true);
         var closedStore = new RecordingStore();
-        Assert.False(new InventoryClearService(closedStore, closed.Gate).TryClear(closed.Client, closed.Room));
+        Assert.False(new InventoryClearService(closedStore, closed.Gate, TestGameClientManager.Empty).TryClear(closed.Client, closed.Room));
         Assert.Equal(0, closedStore.Calls);
 
         var wrongRoom = Context();
         wrongRoom.Habbo.CurrentRoom = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var wrongRoomStore = new RecordingStore();
-        Assert.False(new InventoryClearService(wrongRoomStore, wrongRoom.Gate).TryClear(wrongRoom.Client, wrongRoom.Room));
+        Assert.False(new InventoryClearService(wrongRoomStore, wrongRoom.Gate, TestGameClientManager.Empty).TryClear(wrongRoom.Client, wrongRoom.Room));
         Assert.Equal(0, wrongRoomStore.Calls);
     }
 
@@ -137,7 +137,7 @@ public sealed class FurnitureInventoryPersistenceTests
             {
                 started.TrySetResult();
 
-                return new InventoryClearService(store, gate).TryClear(context.Client, context.Room);
+                return new InventoryClearService(store, gate, TestGameClientManager.Empty).TryClear(context.Client, context.Room);
             });
             await started.Task;
             await Assert.ThrowsAsync<TimeoutException>(() => worker.WaitAsync(TimeSpan.FromMilliseconds(100)));
@@ -194,6 +194,7 @@ public sealed class FurnitureInventoryPersistenceTests
                     (13,1,9,100,'room',7,70),(14,2,0,100,'other',8,80);
                 INSERT INTO items_groups VALUES (10,3);
                 """);
+            await connection.ExecuteAsync(RoomMusicDatabaseTests.Fixture.SchemaSql);
             var definitions = new Definitions(
                 new ItemDefinition { Id = 100, Type = ItemType.Floor },
                 new ItemDefinition { Id = 101, Type = ItemType.Wall });
@@ -206,7 +207,7 @@ public sealed class FurnitureInventoryPersistenceTests
             Assert.Equal(new uint[] { 40, 60 }, loaded.Select(item => item.UniqueSeries));
             Assert.All(loaded, item => Assert.Equal("", item.ExtraData.Serialize()));
 
-            var store = new InventoryClearStore(database);
+            var store = new InventoryClearStore(database, definitions);
             await connection.ExecuteAsync("""
                 CREATE TRIGGER fail_inventory_clear BEFORE DELETE ON items FOR EACH ROW
                 BEGIN
@@ -217,7 +218,7 @@ public sealed class FurnitureInventoryPersistenceTests
                 """);
             var failedClear = Context(1, 10);
             await Assert.ThrowsAsync<MySqlException>(() => Task.Run(() =>
-                new InventoryClearService(store, failedClear.Gate).TryClear(failedClear.Client, failedClear.Room)));
+                new InventoryClearService(store, failedClear.Gate, TestGameClientManager.Empty).TryClear(failedClear.Client, failedClear.Room)));
             Assert.Equal(new uint[] { 10, 11, 12 }, await connection.QueryAsync<uint>(
                 "SELECT id FROM items WHERE user_id=1 AND room_id=0 ORDER BY id"));
             Assert.NotNull(failedClear.Habbo.Inventory.Furniture.GetItem(10));
@@ -232,7 +233,7 @@ public sealed class FurnitureInventoryPersistenceTests
             await connection.ExecuteAsync("DELETE FROM users WHERE id=2");
             var missingOwner = Context(2, 14);
             await Assert.ThrowsAsync<InvalidOperationException>(() => Task.Run(() =>
-                new InventoryClearService(store, missingOwner.Gate).TryClear(missingOwner.Client, missingOwner.Room)));
+                new InventoryClearService(store, missingOwner.Gate, TestGameClientManager.Empty).TryClear(missingOwner.Client, missingOwner.Room)));
             Assert.Equal(1, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM items WHERE id=14 AND user_id=2 AND room_id=0"));
             Assert.NotNull(missingOwner.Habbo.Inventory.Furniture.GetItem(14));
             Assert.Empty(missingOwner.Sent);
@@ -279,7 +280,9 @@ public sealed class FurnitureInventoryPersistenceTests
         public int Calls { get; private set; }
         public Exception? Failure { get; init; }
 
-        public void DeleteAll(int userId)
+        public InventoryItem? AvailableDisc(uint discId, uint ownerId) => null;
+
+        public IReadOnlyList<InventoryItem> DeleteAll(int userId)
         {
             Calls++;
             before?.Invoke();
@@ -287,6 +290,8 @@ public sealed class FurnitureInventoryPersistenceTests
             if (Failure != null) {
                 throw Failure;
             }
+
+            return [];
         }
     }
 

@@ -396,7 +396,14 @@
     "Game2GetTotalGroupLeaderboardEvent": 1776,
     "Game2GetWeeklyGroupLeaderboardEvent": 2691,
     "GetSnowWarGameTokensOfferEvent": 980,
-    "PurchaseSnowWarGameTokensOfferEvent": 391
+    "PurchaseSnowWarGameTokensOfferEvent": 391,
+    "AddJukeboxDiskEvent": 753,
+    "RemoveJukeboxDiskEvent": 3050,
+    "GetJukeboxPlaylistEvent": 1435,
+    "GetSoundMachinePlaylistEvent": 3498,
+    "GetUserSongDisksEvent": 2304,
+    "GetNowPlayingEvent": 1325,
+    "GetOfficialSongIdEvent": 3189
   },
   "OutgoingHeaders": {
     "CraftableProductsComposer": 1000,
@@ -766,6 +773,12 @@
     "Game2WeeklyFriendsLeaderboardComposer": 2270,
     "Game2TotalGroupLeaderboardComposer": 1769,
     "Game2WeeklyGroupLeaderboardComposer": 2956,
-    "SnowWarGameTokensComposer": 3419
+    "SnowWarGameTokensComposer": 3419,
+    "JukeboxPlaylistComposer": 34,
+    "JukeboxPlaylistFullComposer": 105,
+    "NowPlayingComposer": 469,
+    "OfficialSongIdComposer": 1381,
+    "SoundMachinePlaylistComposer": 1748,
+    "SongDisksInventoryComposer": 2602
   }
 }

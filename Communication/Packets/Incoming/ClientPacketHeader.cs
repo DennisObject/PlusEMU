@@ -508,4 +508,12 @@ public static class ClientPacketHeader
     public const uint HousekeepingRevokeRoleEvent = 9139;
     public const uint HousekeepingSetUserOverrideEvent = 9140;
     public const uint HousekeepingRemoveUserOverrideEvent = 9141;
+    // Room music
+    public const uint AddJukeboxDiskEvent = 9600;
+    public const uint RemoveJukeboxDiskEvent = 9601;
+    public const uint GetJukeboxPlaylistEvent = 9602;
+    public const uint GetSoundMachinePlaylistEvent = 9603;
+    public const uint GetUserSongDisksEvent = 9604;
+    public const uint GetNowPlayingEvent = 9605;
+    public const uint GetOfficialSongIdEvent = 9606;
 }

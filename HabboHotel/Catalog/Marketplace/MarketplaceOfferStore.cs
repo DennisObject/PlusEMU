@@ -11,7 +11,7 @@ public sealed record MarketplaceSoldOffer(uint OfferId, int AskingPrice);
 public interface IMarketplaceOfferStore
 {
     // Writes the offer and removes the furni row in one transaction. Throws, with nothing committed, unless exactly one furni row was removed.
-    void ListFurni(MarketplaceListing listing);
+    bool ListFurni(MarketplaceListing listing);
 
     // Claims the user's sold offers in one transaction. Returns the total owed, or null (nothing changed) when a claim is negative,
     // overflows, or accepts rejects the total.
@@ -20,13 +20,18 @@ public interface IMarketplaceOfferStore
 
 public sealed class MarketplaceOfferStore(IDatabase database) : IMarketplaceOfferStore
 {
-    public void ListFurni(MarketplaceListing listing)
+    public bool ListFurni(MarketplaceListing listing)
     {
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
 
         try {
+            if (connection.ExecuteScalar<int>("SELECT COUNT(*) FROM room_music_playlist WHERE player_id=@FurniId OR disc_id=@FurniId",
+                new { listing.FurniId }, transaction) != 0) {
+                return false;
+            }
+
             connection.Execute("INSERT INTO `catalog_marketplace_offers` (`furni_id`,`item_id`,`user_id`,`asking_price`,`total_price`,`public_name`,`sprite_id`,`item_type`,`listed_at`,`extra_data`,`limited_number`,`limited_stack`) " +
                 "VALUES (@FurniId,@ItemId,@UserId,@AskingPrice,@TotalPrice,@PublicName,@SpriteId,@ItemType,@ListedAt,@ExtraData,@LimitedNumber,@LimitedStack)",
                 new
@@ -53,6 +58,8 @@ public sealed class MarketplaceOfferStore(IDatabase database) : IMarketplaceOffe
             }
 
             transaction.Commit();
+
+            return true;
         }
         catch {
             transaction.Rollback();

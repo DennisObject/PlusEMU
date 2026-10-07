@@ -120,6 +120,10 @@ public class Room
         LastRegenerationAt = interactionClock.GetUtcNow();
     }
 
+    private Music.RoomMusicComponent? _music;
+    public Music.RoomMusicComponent Music => _music ?? throw new InvalidOperationException("The room music component has not been initialized.");
+    internal void SetMusic(Music.RoomMusicComponent music) => _music = music;
+
     internal void SetBans(BansComponent bans) => _bansComponent = bans;
     internal void SetFilter(FilterComponent filter) => _filterComponent = filter;
     internal void SetTrading(TradingComponent trading) => _tradingComponent = trading;
@@ -374,8 +378,13 @@ public class Room
     internal void ProcessWiredOnly()
     {
         if (UsesV2Movement) {
-            lock (NavigationSync) {
-                ProcessWiredOwned();
+            try {
+                lock (NavigationSync) {
+                    ProcessWiredOwned();
+                }
+            }
+            finally {
+                _music?.PublishPending();
             }
 
             return;
@@ -398,8 +407,13 @@ public class Room
     internal void RunFastPass(Action pass)
     {
         if (UsesV2Movement) {
-            lock (NavigationSync) {
-                RunOwnedPass(pass);
+            try {
+                lock (NavigationSync) {
+                    RunOwnedPass(pass);
+                }
+            }
+            finally {
+                _music?.PublishPending();
             }
 
             return;
@@ -420,8 +434,13 @@ public class Room
     public void ProcessRoom()
     {
         if (UsesV2Movement) {
-            lock (NavigationSync) {
-                ProcessRoomOwned();
+            try {
+                lock (NavigationSync) {
+                    ProcessRoomOwned();
+                }
+            }
+            finally {
+                _music?.PublishPending();
             }
 
             return;
@@ -452,6 +471,7 @@ public class Room
             try {
                 GetGameMap().Navigation?.ApplyDirty();
                 GetRoomItemHandler().OnCycle();
+                _music?.Cycle();
             }
             catch (Exception e) {
                 ExceptionLogger.LogException(e);
@@ -566,6 +586,7 @@ public class Room
         }
 
         GetRoomItemHandler().OnCycle();
+        _music?.Cycle();
     }
 
     private void CycleActors()

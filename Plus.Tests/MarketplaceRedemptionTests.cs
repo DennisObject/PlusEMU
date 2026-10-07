@@ -107,7 +107,7 @@ public class MarketplaceRedemptionTests
     {
         public List<int> Sold { get; } = prices.ToList();
 
-        public void ListFurni(MarketplaceListing listing) => throw new NotSupportedException();
+        public bool ListFurni(MarketplaceListing listing) => throw new NotSupportedException();
 
         public int? ClaimSold(int userId, Func<int, bool> accepts)
         {

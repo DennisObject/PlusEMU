@@ -11,6 +11,7 @@ namespace Plus.HabboHotel.Rooms;
 public interface IRoomItemPickupService
 {
     Task PickUp(GameClient session, uint itemId);
+    bool TryPickUp(GameClient session, uint itemId);
 }
 
 public sealed class RoomItemPickupService(
@@ -20,17 +21,29 @@ public sealed class RoomItemPickupService(
 {
     public Task PickUp(GameClient session, uint itemId)
     {
+        TryPickUp(session, itemId);
+
+        return Task.CompletedTask;
+    }
+
+    public bool TryPickUp(GameClient session, uint itemId)
+    {
         var habbo = session.GetHabbo();
+
+        if (habbo == null || habbo.AccessClosed) {
+            return false;
+        }
+
         var room = habbo.CurrentRoom;
 
         if (room == null) {
-            return Task.CompletedTask;
+            return false;
         }
 
         var item = room.GetRoomItemHandler().GetItem(itemId);
 
         if (item == null) {
-            return Task.CompletedTask;
+            return false;
         }
 
         lock (item) {
@@ -38,7 +51,7 @@ public sealed class RoomItemPickupService(
                 !ReferenceEquals(room.GetRoomItemHandler().GetItem(itemId), item) || item.IsTemporary ||
                 item.RoomId != room.Id || item.OwnerId is 0 or > int.MaxValue ||
                 item.Definition.InteractionType == InteractionType.Postit) {
-                return Task.CompletedTask;
+                return false;
             }
 
             var ownerId = (int)item.OwnerId;
@@ -46,7 +59,7 @@ public sealed class RoomItemPickupService(
 
             if (ownerId != habbo.Id && !mayTake && !room.CheckRights(session, false) &&
                 !(room.Group != null && room.CheckRights(session, false, true))) {
-                return Task.CompletedTask;
+                return false;
             }
 
             var receiver = ownerId == habbo.Id || mayTake ? session : clients.GetClientByUserId(ownerId);
@@ -55,8 +68,13 @@ public sealed class RoomItemPickupService(
             var inventoryItem = item.ToInventoryItem();
             inventoryItem.OwnerId = (uint)recipientId;
 
-            if (!store.PickUp(new(item.Id, room.Id, ownerId, recipientId, item.Definition.InteractionType))) {
-                return Task.CompletedTask;
+            if (!store.PickUp(new(item.Id, room.Id, ownerId, recipientId, item.Definition.InteractionType, Music.RoomMusicDefinition.IsPlayer(item.Definition)))) {
+                return false;
+            }
+
+            if (Music.RoomMusicDefinition.IsPlayer(item.Definition)) {
+                item.LegacyDataString = "0";
+                inventoryItem.ExtraData = item.ExtraData;
             }
 
             if (item.Definition.InteractionType is InteractionType.Tent or InteractionType.TentSmall) {
@@ -73,7 +91,7 @@ public sealed class RoomItemPickupService(
 
             quests.ProgressUserQuest(session, QuestType.FurniPick);
 
-            return Task.CompletedTask;
+            return true;
         }
     }
 }

@@ -8,20 +8,33 @@ namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
 internal class PickAllCommand : IChatCommand
 {
     private readonly IDatabase _database;
+    private readonly IRoomItemPickupService _pickup;
     public string Key => "pickall";
 
     public string Parameters => "";
 
     public string Description => "Picks up all of the furniture from your room.";
 
-    public PickAllCommand(IDatabase database)
+    public PickAllCommand(IDatabase database, IRoomItemPickupService pickup)
     {
         _database = database;
+        _pickup = pickup;
     }
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
         if (!room.CheckRights(session, true)) {
+            return;
+        }
+
+        foreach (var player in room.GetRoomItemHandler().GetFloor.Where(item => item.UserId == session.GetHabbo().Id
+                     && Music.RoomMusicDefinition.IsPlayer(item.Definition)).ToArray()) {
+            if (!_pickup.TryPickUp(session, player.Id)) {
+                return;
+            }
+        }
+
+        if (room.GetRoomItemHandler().GetFloor.Any(item => Music.RoomMusicDefinition.IsPlayer(item.Definition) && item.UserId == session.GetHabbo().Id)) {
             return;
         }
 
