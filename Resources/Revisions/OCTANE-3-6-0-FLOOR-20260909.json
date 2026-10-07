@@ -1,6 +1,8 @@
 {
   "Name": "OCTANE-3-6-0-FLOOR-20260909",
   "IncomingHeaders": {
+    "GetQuizQuestionsEvent": 1296,
+    "PostQuizAnswersEvent": 3720,
     "InitDiffieHandshakeEvent": 3110,
     "CompleteDiffieHandshakeEvent": 773,
     "UniqueIdEvent": 2490,
@@ -375,6 +377,8 @@
     "HousekeepingRemoveUserOverrideEvent": 9141
   },
   "OutgoingHeaders": {
+    "QuizDataComposer": 2927,
+    "QuizResultsComposer": 2772,
     "AllowedChatStylesComposer": 9340,
     "CreatableRoomModelsComposer": 9341,
     "InitDiffieHandshakeComposer": 1347,

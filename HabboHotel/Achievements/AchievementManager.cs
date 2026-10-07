@@ -45,6 +45,11 @@ public class AchievementManager : IAchievementManager, IStartable
         }
 
         var habbo = session.GetHabbo();
+
+        if (habbo == null || habbo.AccessClosed) {
+            return false;
+        }
+
         var userData = habbo.GetAchievementData(group);
 
         if (userData == null) {
@@ -100,7 +105,7 @@ public class AchievementManager : IAchievementManager, IStartable
             BroadcastAchievement(habbo, MessengerEventTypes.AchievementUnlocked, group + targetLevel);
 
             lock (habbo.WalletSync) {
-                if (habbo.WalletClosed) {
+                if (habbo.AccessClosed) {
                     return false;
                 }
 

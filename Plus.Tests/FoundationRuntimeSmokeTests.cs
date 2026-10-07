@@ -94,6 +94,9 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 Assert.True(habbo.AllowMimic);
                 Assert.True(habbo.DisableForcedEffects);
                 Assert.Equal(123, habbo.HabboStats.AchievementPoints);
+                Assert.Equal((1, 0), (habbo.GetAchievementData("ACH_SafetyQuizGraduate")!.Level, habbo.GetAchievementData("ACH_SafetyQuizGraduate")!.Progress));
+                Assert.Equal((2, 3), (habbo.GetAchievementData("ACH_FixtureProgress")!.Level, habbo.GetAchievementData("ACH_FixtureProgress")!.Progress));
+                Assert.Null(habbo.GetAchievementData("ACH_OtherUserOnly"));
                 Assert.NotNull(habbo.Messenger);
                 Assert.NotNull(habbo.IgnoresComponent);
                 Assert.Equal(10, Assert.Single(habbo.Inventory.Bots.Bots).Key);
@@ -182,6 +185,8 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
         INSERT INTO users_settings (user_id, home_room, allow_mimic, disable_forced_effects) VALUES (7, 42, TRUE, TRUE);
         INSERT INTO user_statistics (id, AchievementScore) VALUES (7, 123);
         INSERT INTO user_info (user_id) VALUES (7);
+        INSERT INTO user_achievements (userid, `group`, level, progress) VALUES
+            (7, 'ACH_SafetyQuizGraduate', 1, 0), (7, 'ACH_FixtureProgress', 2, 3), (8, 'ACH_OtherUserOnly', 1, 0);
         INSERT INTO room_models (id, door_x, door_y, door_z, door_dir, heightmap, public_items)
             VALUES ('smoke', 0, 1, 0, 2, '000\r000\r000', '');
         INSERT INTO rooms (id, owner, caption, model_name, allow_pets) VALUES (42, '7', 'Smoke room', 'smoke', TRUE);
