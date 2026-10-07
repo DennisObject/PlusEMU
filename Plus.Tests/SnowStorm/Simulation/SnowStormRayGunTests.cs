@@ -55,18 +55,20 @@ public class SnowStormRayGunTests
         Assert.Equal(5, human.SnowballCount);
         Assert.Equal(2, human.ThrowTimer);
         var snowballs = arena.Objects.OfType<SnowStormSnowball>().ToList();
-        Assert.Equal(Enumerable.Range(first, 7), snowballs.Select(snowball => snowball.Id));
+        Assert.Equal(Enumerable.Range(first, SnowStormRayGun.BurstSize), snowballs.Select(snowball => snowball.Id));
 
         for (var index = 0; index < targets.Length; index++) {
             var expected = new SnowStormSnowball(99);
             expected.Initialize(World(useX), World(useY), SnowStormSnowball.InitialHeight, SnowStormSnowball.TrajectoryDefaultThrow,
                 World(targets[index].X), World(targets[index].Y), human);
+            // One turn of flight has used up three subturns of time to live.
             Assert.Equal((expected.Direction360, expected.Trajectory, expected.TimeToLive, expected.PlanarVelocity),
-                (snowballs[index].Direction360, snowballs[index].Trajectory, snowballs[index].TimeToLive + 3, snowballs[index].PlanarVelocity));
+                (snowballs[index].Direction360, snowballs[index].Trajectory, snowballs[index].TimeToLive + SnowStormArena.SubturnsPerTurn,
+                    snowballs[index].PlanarVelocity));
             Assert.Same(human, snowballs[index].Thrower);
         }
 
-        Assert.Equal(first + 7, arena.AllocateObjectId());
+        Assert.Equal(first + SnowStormRayGun.BurstSize, arena.AllocateObjectId());
     }
 
     [Fact]

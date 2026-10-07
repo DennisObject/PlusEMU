@@ -188,7 +188,7 @@ public sealed class SnowStormServerRules(SnowStormArena arena)
         var scheduled = new List<SnowStormScheduledEvent>();
 
         foreach (var human in arena.Humans) {
-            var gun = StandsStill(human)
+            var gun = human.HasStoppedOnTile
                 ? arena.RayGuns.FirstOrDefault(rayGun => rayGun.UseX == human.CurrentTileX && rayGun.UseY == human.CurrentTileY)
                 : null;
 
@@ -209,17 +209,6 @@ public sealed class SnowStormServerRules(SnowStormArena arena)
         }
 
         return scheduled;
-    }
-
-    // The walk ended here: on the tile centre, no next tile, and the move target inside this tile.
-    private static bool StandsStill(SnowStormHuman human)
-    {
-        int x = SnowStormMath.TileToWorld(human.CurrentTileX);
-        int y = SnowStormMath.TileToWorld(human.CurrentTileY);
-
-        return !human.HasNextTile && human.X == x && human.Y == y
-            && SnowStormMath.Abs(human.MoveTargetX - x) < SnowStormMath.TileHalfWidth
-            && SnowStormMath.Abs(human.MoveTargetY - y) < SnowStormMath.TileHalfWidth;
     }
 
     private static bool HasAvailable(SnowStormSnowballSource source, Dictionary<int, int> reserved) =>

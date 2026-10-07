@@ -11,19 +11,9 @@ public sealed record SnowStormRayGun(int FuseObjectId, int X, int Y, int Directi
     public const int BurstSize = 7;
     private const int BurstRange = 15;
 
-    public int ForwardX => Direction switch
-    {
-        2 => 1,
-        6 => -1,
-        _ => 0
-    };
+    public int ForwardX => Forward(Direction).X;
 
-    public int ForwardY => Direction switch
-    {
-        4 => 1,
-        0 => -1,
-        _ => 0
-    };
+    public int ForwardY => Forward(Direction).Y;
 
     /// <summary>The gun of a fuse object, or null when it is not a ray gun facing a cardinal direction.</summary>
     public static SnowStormRayGun? From(SnowStormFuseObject fuseObject)
@@ -32,17 +22,15 @@ public sealed record SnowStormRayGun(int FuseObjectId, int X, int Y, int Directi
             return null;
         }
 
+        var (forwardX, forwardY) = Forward(fuseObject.Direction);
         // Footprint dimensions swap for east/west facing, as in the AIR tile footprint rule.
-        var (width, length) = fuseObject.Direction is 2 or 6
+        var (width, length) = forwardX != 0
             ? (fuseObject.YDimension, fuseObject.XDimension)
             : (fuseObject.XDimension, fuseObject.YDimension);
-        var gun = new SnowStormRayGun(fuseObject.Id, fuseObject.X, fuseObject.Y, fuseObject.Direction, 0, 0);
 
-        return gun with
-        {
-            UseX = gun.X + (gun.ForwardX < 0 ? width : gun.ForwardX > 0 ? -1 : 0),
-            UseY = gun.Y + (gun.ForwardY < 0 ? length : gun.ForwardY > 0 ? -1 : 0)
-        };
+        return new SnowStormRayGun(fuseObject.Id, fuseObject.X, fuseObject.Y, fuseObject.Direction,
+            fuseObject.X + (forwardX < 0 ? width : -forwardX),
+            fuseObject.Y + (forwardY < 0 ? length : -forwardY));
     }
 
     /// <summary>Burst targets in tiles: the centre 15 tiles ahead, then (0,1), (1,0), (-1,1), (-1,-1), (1,-1), (1,1) around it.</summary>
@@ -53,4 +41,13 @@ public sealed record SnowStormRayGun(int FuseObjectId, int X, int Y, int Directi
 
         return [(x, y), (x, y + 1), (x + 1, y), (x - 1, y + 1), (x - 1, y - 1), (x + 1, y - 1), (x + 1, y + 1)];
     }
+
+    private static (int X, int Y) Forward(int direction) => direction switch
+    {
+        2 => (1, 0),
+        6 => (-1, 0),
+        4 => (0, 1),
+        0 => (0, -1),
+        _ => (0, 0)
+    };
 }

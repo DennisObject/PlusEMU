@@ -127,6 +127,10 @@ public sealed class SnowStormHuman : SnowStormGameObject
 
     public int RemainingSnowballCapacity => MaximumSnowballCount - SnowballCount;
 
+    /// <summary>The walk ended here: on the current tile centre, not stepping, with the move target inside this tile.</summary>
+    public bool HasStoppedOnTile =>
+        _nextTile == null && X == _currentTile.WorldX && Y == _currentTile.WorldY && _currentTile.LocationIsInTileRange(MoveTargetX, MoveTargetY);
+
     public override int GetVariable(int index) => index switch
     {
         0 => TypeHuman,
