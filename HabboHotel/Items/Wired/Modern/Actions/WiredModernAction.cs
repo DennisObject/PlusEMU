@@ -300,7 +300,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                         if (FurnitureStateEvents.TakeFollowedWrite(item)) {
                             _publish(new(WiredEventKind.StateChanged) { Actor = FurnitureStateEvents.Present(context.Room, context.Event.Actor), EventItem = item });
                         }
-                    }) is GateTransition.Applied or GateTransition.Queued);
+                    }) is GateTransition.Applied or GateTransition.Queued,
+                (movers, step) => _movement.MoveTogether(context, movers, step));
         }
 
         // Reset timers always covers the whole room, unlimited, so it resolves its own targets.
@@ -416,15 +417,19 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 return changed;
             case "wf_act_move_to_dir":
                 _directions.Retain(context.Targets.AllFurni());
+                // Leading edge first, so a blocked front that turns can still follow the line behind it.
+                var leading = items.OrderByDescending(item =>
+                {
+                    var offset = WiredRoomOperations.Offset(_directions.Heading(item, Param(config, 0)));
 
-                foreach (var item in items) {
-                    changed |= _directions.MoveHeading(item, Param(config, 0), HeadingTurnRule(Param(config, 1)), Param(config, 3) == 1,
-                        (x, y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null),
-                        (x, y) => context.Room.GetGameMap().ValidTile(x, y) ? context.Room.GetGameMap().GetRoomUsers(new(x, y)).ToArray() : [],
-                        (furni, actor) => _publish(new(WiredEventKind.Collision) { Actor = actor, EventItem = furni }));
-                }
+                    return item.GetX * offset.X + item.GetY * offset.Y;
+                }).ToArray();
 
-                return changed;
+                return _movement.MoveTogether(context, leading, (item, move) => _directions.MoveHeading(item, Param(config, 0),
+                    HeadingTurnRule(Param(config, 1)), Param(config, 3) == 1,
+                    (x, y) => move(x, y, item.Rotation),
+                    (x, y) => context.Room.GetGameMap().ValidTile(x, y) ? context.Room.GetGameMap().GetRoomUsers(new(x, y)).ToArray() : [],
+                    (furni, actor) => _publish(new(WiredEventKind.Collision) { Actor = actor, EventItem = furni })));
             case "wf_act_move_rotate_user":
                 foreach (var user in Users(context, config, "users")) {
                     if (Param(config, 0) >= 0) {

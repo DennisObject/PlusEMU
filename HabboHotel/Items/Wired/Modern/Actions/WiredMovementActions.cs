@@ -12,6 +12,8 @@ public sealed class WiredMovementActions
 {
     public delegate bool MoveFurniture(Item item, int x, int y, int rotation, double? height);
     public delegate bool MoveAvatar(RoomUser avatar, Item target, bool slide, bool fastTeleport, int walkMode);
+    /// <summary>Runs each mover's step; the step commits through the given (x, y, rotation) move.</summary>
+    public delegate bool MoveTogether(IReadOnlyList<Item> movers, Func<Item, Func<int, int, int, bool>, bool> step);
 
     public static readonly IReadOnlySet<string> Names = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -23,7 +25,7 @@ public sealed class WiredMovementActions
     public bool Execute(string name, WiredConfiguration configuration, IReadOnlyList<Item> movers,
         IReadOnlyList<Item> targets, IReadOnlyList<RoomUser> users,
         MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState,
-        Func<Item, Func<string, string?>, bool>? toggleState = null)
+        Func<Item, Func<string, string?>, bool>? toggleState = null, MoveTogether? together = null)
     {
         if (!WiredMovementConfiguration.TryValidate(name, configuration, out configuration, out _)) {
             return false;
@@ -59,7 +61,10 @@ public sealed class WiredMovementActions
 
                 break;
             case "wf_act_move_rotate":
-                foreach (var item in movers) {
+                together ??= (items, step) => items.Aggregate(false,
+                    (any, item) => step(item, (x, y, rotation) => move(item, x, y, rotation, null)) | any);
+                affected = together(movers, (item, step) =>
+                {
                     var direction = MovementDirection(Param(0));
                     var offset = WiredRoomOperations.Offset(direction);
                     var rotation = Param(1) switch
@@ -70,8 +75,9 @@ public sealed class WiredMovementActions
                         6 => (item.Rotation + (Random.Shared.Next(2) == 0 ? 2 : 6)) % 8,
                         _ => item.Rotation
                     };
-                    affected |= move(item, item.GetX + offset.X, item.GetY + offset.Y, rotation, null);
-                }
+
+                    return step(item.GetX + offset.X, item.GetY + offset.Y, rotation);
+                });
 
                 break;
             case "wf_act_move_furni_as_group":

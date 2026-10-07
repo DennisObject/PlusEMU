@@ -10,7 +10,7 @@ public sealed class WiredDirectionalActions
     public bool MoveHeading(Item item, int initial, int turn, bool blockUsers,
         Func<int, int, bool> move, Func<int, int, RoomUser[]> usersAt, Action<Item, RoomUser> collision)
     {
-        var heading = _headings.GetValueOrDefault(item, initial);
+        var heading = Heading(item, initial);
         var moved = false;
 
         for (var attempt = 0; attempt < 8; attempt++) {
@@ -39,6 +39,7 @@ public sealed class WiredDirectionalActions
 
         return moved;
     }
+    public int Heading(Item item, int initial) => _headings.GetValueOrDefault(item, initial);
     public void Retain(IEnumerable<Item> attached)
     {
         var live = attached.ToHashSet();
