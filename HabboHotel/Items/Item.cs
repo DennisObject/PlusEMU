@@ -6,6 +6,7 @@ using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games.Freeze;
@@ -1601,9 +1602,19 @@ public class Item
     public void UserWalksOnFurni(RoomUser? user)
     {
         var room = GetRoom();
-        var client = user?.GetClient();
 
-        if (room == null || user == null || client == null || client.GetHabbo() == null) {
+        if (room == null || user == null) {
+            return;
+        }
+
+        var habbo = user.GetClient()?.GetHabbo();
+
+        // Bots and pets can trigger modern walk stacks; legacy boxes and tents still need a Habbo.
+        if (habbo == null) {
+            if (user.IsBot) {
+                room.GetWired().Dispatch(new(WiredEventKind.WalkOn) { Actor = user, EventItem = this });
+            }
+
             return;
         }
 
@@ -1611,16 +1622,25 @@ public class Item
             room.AddUserToTent(Id, user);
         }
 
-        room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOnFurni, client.GetHabbo(), this);
+        room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOnFurni, habbo, this);
         user.LastItem = this;
     }
 
     public void UserWalksOffFurni(RoomUser? user)
     {
         var room = GetRoom();
-        var client = user?.GetClient();
 
-        if (room == null || user == null || client == null || client.GetHabbo() == null) {
+        if (room == null || user == null) {
+            return;
+        }
+
+        var habbo = user.GetClient()?.GetHabbo();
+
+        if (habbo == null) {
+            if (user.IsBot) {
+                room.GetWired().Dispatch(new(WiredEventKind.WalkOff) { Actor = user, EventItem = this });
+            }
+
             return;
         }
 
@@ -1628,7 +1648,7 @@ public class Item
             room.RemoveUserFromTent(Id, user);
         }
 
-        room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOffFurni, client.GetHabbo(), this);
+        room.GetWired().TriggerEvent(WiredBoxType.TriggerWalkOffFurni, habbo, this);
     }
 
     public void Destroy()
