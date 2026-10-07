@@ -43,6 +43,22 @@ public sealed class CraftingDatabaseTests
     }
 
     [CraftingDatabaseFact]
+    public void PersistedLimitedIngredientsRejectStaleSelectionsWithoutConsumingStockOrDiscovery()
+    {
+        using var fixture = new Fixture();
+        var recipe = Assert.Single(fixture.Store.Load(100, 7));
+        foreach (var column in new[] { "limited_number", "limited_stack" }) {
+            fixture.Connection.Execute($"UPDATE items SET {column}=1 WHERE id=20");
+            Assert.Null(fixture.Store.Craft(7, 42, 10, recipe, [20, 21], true));
+            Assert.Equal(2, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE id IN (20,21)"));
+            Assert.Equal(2, fixture.Connection.ExecuteScalar<int>("SELECT remaining FROM crafting_recipes WHERE id=1"));
+            Assert.Equal(0, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_crafting_recipes"));
+            Assert.Equal(0, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items WHERE base_item=102"));
+            fixture.Connection.Execute($"UPDATE items SET {column}=0 WHERE id=20");
+        }
+    }
+
+    [CraftingDatabaseFact]
     public void FailedOutputInsertRollsBackIngredientsStockAndDiscovery()
     {
         using var fixture = new Fixture();

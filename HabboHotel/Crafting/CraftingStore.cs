@@ -69,9 +69,9 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         }
 
         var selected = connection.Query<ItemRow>(
-            "SELECT id,base_item AS ItemId FROM items WHERE id IN @itemIds AND user_id=@userId AND room_id=0 ORDER BY id FOR UPDATE",
+            "SELECT id,base_item AS ItemId,limited_number AS LimitedNumber,limited_stack AS LimitedStack FROM items WHERE id IN @itemIds AND user_id=@userId AND room_id=0 ORDER BY id FOR UPDATE",
             new { itemIds, userId }, transaction).ToArray();
-        if (selected.Length != itemIds.Count || !current.Matches(selected.GroupBy(item => item.ItemId).ToDictionary(group => group.Key, group => group.Count()))) {
+        if (selected.Length != itemIds.Count || selected.Any(item => item.LimitedNumber != 0 || item.LimitedStack != 0) || !current.Matches(selected.GroupBy(item => item.ItemId).ToDictionary(group => group.Key, group => group.Count()))) {
             return null;
         }
 
@@ -133,5 +133,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
     {
         public uint Id { get; set; }
         public uint ItemId { get; set; }
+        public uint LimitedNumber { get; set; }
+        public uint LimitedStack { get; set; }
     }
 }

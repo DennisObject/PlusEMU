@@ -71,6 +71,32 @@ public partial class PlacedFurniRoomTests
         });
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void CraftingPreservesLimitedIngredientsForNormalAndSecretRecipes(bool secret, bool seriesOnly)
+    {
+        var (service, store, ingredients) = CraftingFixture(secret);
+        ingredients[0].UniqueNumber = seriesOnly ? 0u : 1u;
+        ingredients[0].UniqueSeries = seriesOnly ? 100u : 0u;
+        if (secret) {
+            service.CraftSecret(_client, 10, [20, 21]);
+        }
+        else {
+            service.Craft(_client, 10, "recipe");
+        }
+
+        Assert.Empty(store.Consumed);
+        Assert.All(ingredients, item => Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(item.Id)));
+        var result = new FlashIncomingPacket { Buffer = Assert.Single(_client.Packets).Body };
+        Assert.False(result.ReadBool());
+        Assert.False(result.HasDataRemaining());
+        Assert.True(ingredients[0].TryReserve());
+        ingredients[0].ReleaseReservation();
+    }
+
     [Fact]
     public void FailedCraftingWriteKeepsLiveInventoryAndReleasesReservations()
     {

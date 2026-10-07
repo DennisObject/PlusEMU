@@ -87,7 +87,7 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
             }
 
             selected ??= recipe.Ingredients.SelectMany(ingredient => habbo.Inventory.Furniture.GetItems
-                .Where(item => item.Definition.Id == ingredient.ItemId && item.OwnerId == (uint)habbo.Id)
+                .Where(item => item.Definition.Id == ingredient.ItemId && item.OwnerId == (uint)habbo.Id && item.UniqueNumber == 0 && item.UniqueSeries == 0)
                 .OrderBy(item => item.Id).Take(ingredient.Amount)).ToArray();
             if (!recipe.Matches(Counts(selected))) {
                 session.Send(new CraftingResultComposer(null));
@@ -177,7 +177,7 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
         }
         var habbo = session.GetHabbo();
         var selected = itemIds.Select(habbo.Inventory.Furniture.GetItem).ToArray();
-        return selected.Any(item => item is null || item.OwnerId != (uint)habbo.Id) ? null : selected.Select(item => item!).ToArray();
+        return selected.Any(item => item is null || item.OwnerId != (uint)habbo.Id || item.UniqueNumber != 0 || item.UniqueSeries != 0) ? null : selected.Select(item => item!).ToArray();
     }
 
     private static bool Active(GameClient session, Plus.HabboHotel.Users.Habbo habbo) =>
