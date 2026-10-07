@@ -95,7 +95,7 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public void OwnerSupportRemovalReleasesAnotherActorsPendingBatchClaimsInline()
+    public void OwnerSupportRemovalKeepsAnotherActorsPendingStepOnTheStillWalkableTile()
     {
         var landing = ExecutorFloor(10, 1, 1);
         var removed = ExecutorFloor(11, 3, 2);
@@ -111,10 +111,9 @@ public partial class PlacedFurniRoomTests
         Assert.NotEqual(TargetOccupancy.None, GeometryClaimsAt(3, 2));
         ExecutorTick();
         var publication = Assert.Single(observed);
-        Assert.Equal(0, publication.Pending);
-        Assert.Equal(TargetOccupancy.None, publication.Claims);
-        Assert.True(publication.Intent);
-        Assert.Equal((2, 2), (waiting.X, waiting.Y));
+        Assert.Equal(1, publication.Pending);
+        Assert.NotEqual(TargetOccupancy.None, publication.Claims);
+        Assert.Equal((3, 2), (waiting.X, waiting.Y));
         Assert.Equal((1, 1), (first.X, first.Y));
         Assert.Same(landing, first.LastItem);
     }
