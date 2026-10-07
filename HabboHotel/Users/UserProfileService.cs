@@ -6,8 +6,10 @@ using Plus.Communication.Packets.Outgoing.Sound;
 using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.Core.FigureData;
+using Plus.Core.Settings;
 using Plus.Database;
 using Plus.HabboHotel.Achievements;
+using Plus.HabboHotel.Camera;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Quests;
@@ -45,7 +47,7 @@ public sealed class UserProfileService(
     IQuestManager questManager,
     IWordFilterManager wordFilterManager,
     IDatabase database, TimeProvider clock, IChatStyleManager styles,
-    IRewardTrackManager rewardTrackManager, IAccountSessionGate accountSessionGate) : IUserProfileService
+    IRewardTrackManager rewardTrackManager, IAccountSessionGate accountSessionGate, ISettingsManager settings) : IUserProfileService
 {
     public void ApplyMannequin(GameClient session, FigureUpdateRequest request)
     {
@@ -80,7 +82,8 @@ public sealed class UserProfileService(
     public void ShowUserObject(GameClient session)
     {
         session.Send(new UserObjectComposer(UserObjectSnapshot.Capture(session.GetHabbo())));
-        session.Send(new UserPerksComposer());
+        // The client only shows the toolbar camera when this perk is allowed.
+        session.Send(new UserPerksComposer(CameraAccess.HasPermission(settings, session.GetHabbo())));
     }
 
     public async Task SetChatPreference(GameClient session, bool enabled)

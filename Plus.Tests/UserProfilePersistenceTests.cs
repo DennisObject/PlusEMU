@@ -245,7 +245,7 @@ public sealed class UserProfilePersistenceTests
                 }
 
                 return null;
-            }), gate ?? new AccountSessionGate());
+            }), gate ?? new AccountSessionGate(), null!);
     }
 
     private static T Proxy<T>(Func<string, object?[], object?> call) where T : class

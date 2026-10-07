@@ -111,7 +111,7 @@ public sealed class ItemTravelStoreDatabaseTests
             var (session, sent) = HabbiconTestSupport.Client(habbo);
             var figures = DispatchProxy.Create<IFigureDataManager, FigureProxy>();
             var profiles = new UserProfileService(figures, null!, null!, null!, database, TimeProvider.System,
-                null!, null!, new AccountSessionGate());
+                null!, null!, new AccountSessionGate(), null!);
 
             Assert.Throws<MySqlException>(() => profiles.ApplyMannequin(session, new("F", "new-look")));
 

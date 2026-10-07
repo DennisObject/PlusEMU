@@ -15,7 +15,7 @@ public class CatalogStructureWireTests
     {
         var packet = new HabbiconTestSupport.RecordingPacket();
 
-        new UserPerksComposer().Compose(packet);
+        new UserPerksComposer(false).Compose(packet);
 
         Assert.Equal(14, packet.Writes[0]);
         Assert.DoesNotContain("BUILDER_AT_WORK", packet.Writes);

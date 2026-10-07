@@ -2,7 +2,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Handshake;
 
-public class UserPerksComposer : IServerPacket
+public class UserPerksComposer(bool cameraAllowed) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.UserPerksComposer;
 
@@ -46,7 +46,7 @@ public class UserPerksComposer : IServerPacket
         packet.WriteBoolean(false);
         packet.WriteString("CAMERA");
         packet.WriteString(""); // ??
-        packet.WriteBoolean(false);
+        packet.WriteBoolean(cameraAllowed);
         packet.WriteString("NAVIGATOR_PHASE_TWO_2014");
         packet.WriteString(""); // ??
         packet.WriteBoolean(true);
