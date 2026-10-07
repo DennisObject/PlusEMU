@@ -1,6 +1,9 @@
 {
   "Name": "NITRO-1-6-6",
   "IncomingHeaders": {
+    "PollStartEvent": 109,
+    "PollRejectEvent": 1773,
+    "PollAnswerEvent": 3505,
     "InitDiffieHandshakeEvent": 3110,
     "CompleteDiffieHandshakeEvent": 773,
     "UniqueIdEvent": 2490,
@@ -655,8 +658,8 @@
     "MarketplaceCancelOfferResultComposer": 0,
     "NavigatorSettingsComposer": 2875,
     "MessengerInitComposer": 1605,
-    "PollContentsComposer": 3826,
-    "PollOfferComposer": 1074,
+    "PollContentsComposer": 2997,
+    "PollOfferComposer": 3785,
     "RoomUseHabbiconComposer": 9410,
     "UserHabbiconsComposer": 9465,
     "UserHabbiconStatusChangedComposer": 9466,

@@ -4,6 +4,7 @@ using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.Polls;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Messenger;
 using Xunit;
@@ -55,7 +56,14 @@ public partial class PlacedFurniRoomTests
             return null;
         });
 
-        new RoomEntryService(quests, clock).Enter(_client);
+        var polls = Proxy<IRoomPollService>((method, args) =>
+        {
+            Assert.Equal(nameof(IRoomPollService.Offer), method);
+            Assert.Same(_client, args[0]);
+            Assert.Contains(ServerPacketHeader.RoomEventComposer, _client.Sent);
+            return null;
+        });
+        new RoomEntryService(quests, clock, polls).Enter(_client);
 
         Assert.NotNull(_room.GetRoomUserManager().GetRoomUserByHabbo(7));
         Assert.Equal(1, reminders);
@@ -90,7 +98,7 @@ public partial class PlacedFurniRoomTests
         user.UserId = 7;
         user.InternalRoomId = user.VirtualId;
         var clock = new EntryClock();
-        var service = new RoomEntryService(null!, clock);
+        var service = new RoomEntryService(null!, clock, null!);
         service.Enter(_client);
         Assert.Null(_client.GetHabbo().CurrentRoom);
         Assert.DoesNotContain(user, _room.GetRoomUserManager().GetRoomUsers());
