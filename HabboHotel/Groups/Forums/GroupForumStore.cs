@@ -41,6 +41,7 @@ namespace Plus.HabboHotel.Groups.Forums
             if (kind is < 0 or > 2 || start < 0 || count is < 1 or > 50) {
                 return new(kind, 0, start, []);
             }
+
             using var connection = database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
@@ -49,6 +50,7 @@ namespace Plus.HabboHotel.Groups.Forums
             var total = connection.ExecuteScalar<int>("SELECT COUNT(*)" + ForumFrom + where, args, transaction);
             var order = kind == 1 ? "COALESCE(f.message_count,0) DESC,m.created_at DESC,g.id" : "m.created_at DESC,g.id";
             var rows = connection.Query<ForumRow>("SELECT " + ForumColumns + ForumFrom + where + " ORDER BY " + order + " LIMIT @count OFFSET @start", args, transaction);
+
             return new(kind, total, start, rows.Select(row => Summary(row, viewer, now)).ToImmutableArray());
         }
 
@@ -63,38 +65,49 @@ namespace Plus.HabboHotel.Groups.Forums
                 ? Thread(row, forum, viewer, now) : null);
 
         public ForumMessagesPage? Messages(ForumViewer viewer, int groupId, int threadId, int start, int count, DateTimeOffset now) => WithForum(viewer, groupId, false,
-            (connection, transaction, forum) => {
+            (connection, transaction, forum) =>
+            {
                 if (!Can(forum, viewer, forum.ReadPermission) || start < 0 || count is < 1 or > 50 || ReadThread(connection, transaction, forum, threadId) is not { } thread) {
                     return null;
                 }
+
                 var rows = connection.Query<MessageRow>("SELECT " + MessageColumns + MessageFrom +
                     " WHERE m.group_id=@groupId AND m.thread_id=@threadId ORDER BY m.message_index LIMIT @count OFFSET @start",
                     new { groupId, threadId, start, count }, transaction);
+
                 return new ForumMessagesPage(groupId, threadId, start, rows.Select(row => Message(row, thread, forum, viewer, now)).ToImmutableArray());
             });
 
         public ForumPostResult? Post(ForumViewer viewer, int groupId, int threadId, string title, string body, DateTimeOffset now) => WithForum(viewer, groupId, true,
-            (connection, transaction, forum) => {
+            (connection, transaction, forum) =>
+            {
                 var newThread = threadId == 0;
+
                 if (threadId < 0 || body.Length is < 10 or > 4000 || newThread && title.Length is < 10 or > 120 ||
                     !Can(forum, viewer, forum.ReadPermission) || !Can(forum, viewer, newThread ? forum.ThreadPermission : forum.PostPermission)) {
                     return null;
                 }
+
                 var thread = newThread ? null : ReadThread(connection, transaction, forum, threadId);
+
                 if (!newThread && (thread == null || !Visible(thread.State, forum, viewer) || thread.Locked && !Moderates(forum, viewer))) {
                     return null;
                 }
+
                 connection.Execute("INSERT IGNORE INTO group_forum_post_limits(user_id,posted_at) VALUES(@userId,@before)",
                     new { userId = viewer.UserId, before = now.AddSeconds(-30).UtcDateTime }, transaction);
                 var posted = connection.QuerySingle<DateTimeOffset>("SELECT posted_at FROM group_forum_post_limits WHERE user_id=@userId FOR UPDATE", new { userId = viewer.UserId }, transaction);
+
                 if (now < posted.AddSeconds(30) || forum.Messages == int.MaxValue || thread?.Messages == int.MaxValue) {
                     return null;
                 }
+
                 if (newThread) {
                     connection.Execute("INSERT INTO group_forum_threads(group_id,author_id,title,created_at,updated_at) VALUES(@groupId,@userId,@title,@now,@now)",
                         new { groupId, userId = viewer.UserId, title, now = now.UtcDateTime }, transaction);
                     threadId = connection.ExecuteScalar<int>("SELECT LAST_INSERT_ID()", transaction: transaction);
                 }
+
                 var messageId = forum.Messages + 1;
                 connection.Execute("INSERT INTO group_forum_messages(group_id,id,thread_id,message_index,author_id,body,created_at) VALUES(@groupId,@messageId,@threadId,@index,@userId,@body,@now)",
                     new { groupId, messageId, threadId, index = thread?.Messages ?? 0, userId = viewer.UserId, body, now = now.UtcDateTime }, transaction);
@@ -104,55 +117,71 @@ namespace Plus.HabboHotel.Groups.Forums
                     new { groupId, threadId, messageId, userId = viewer.UserId, now = now.UtcDateTime }, transaction);
                 thread = ReadThread(connection, transaction, forum, threadId)!;
                 var message = ReadMessage(connection, transaction, groupId, threadId, messageId)!;
+
                 return new ForumPostResult(Thread(thread, forum, viewer, now), Message(message, thread, forum, viewer, now), newThread);
             });
 
         public GroupForumSnapshot? Settings(ForumViewer viewer, int groupId, ForumPermissions permissions, DateTimeOffset now) => WithForum(viewer, groupId, true,
-            (connection, transaction, forum) => {
+            (connection, transaction, forum) =>
+            {
                 if (!permissions.Valid || forum.OwnerId != (uint)viewer.UserId && !viewer.Staff) {
                     return null;
                 }
+
                 connection.Execute("UPDATE group_forums SET read_permission=@read,post_permission=@post,thread_permission=@start,moderate_permission=@moderate WHERE group_id=@groupId",
                     new { groupId, permissions.Read, permissions.Post, permissions.Start, permissions.Moderate }, transaction);
                 forum.ReadPermission = permissions.Read;
                 forum.PostPermission = permissions.Post;
                 forum.ThreadPermission = permissions.Start;
                 forum.ModeratePermission = permissions.Moderate;
+
                 return Summary(forum, viewer, now);
             });
 
         public ForumThreadSnapshot? UpdateThread(ForumViewer viewer, int groupId, int threadId, bool pinned, bool locked, DateTimeOffset now) => WithForum(viewer, groupId, true,
-            (connection, transaction, forum) => {
+            (connection, transaction, forum) =>
+            {
                 var row = ReadThread(connection, transaction, forum, threadId);
+
                 if (row == null || !Can(forum, viewer, forum.ReadPermission) || !Moderates(forum, viewer) || !Visible(row.State, forum, viewer)) {
                     return null;
                 }
+
                 connection.Execute("UPDATE group_forum_threads SET pinned=@pinned,locked=@locked WHERE group_id=@groupId AND id=@threadId", new { groupId, threadId, pinned, locked }, transaction);
                 row.Pinned = pinned;
                 row.Locked = locked;
+
                 return Thread(row, forum, viewer, now);
             });
 
         public ForumThreadSnapshot? ModerateThread(ForumViewer viewer, int groupId, int threadId, int state, DateTimeOffset now) => WithForum(viewer, groupId, true,
-            (connection, transaction, forum) => {
+            (connection, transaction, forum) =>
+            {
                 var row = ReadThread(connection, transaction, forum, threadId);
+
                 if (row == null || !Can(forum, viewer, forum.ReadPermission) || !ModerationAllowed(forum, viewer, row.State, state)) {
                     return null;
                 }
+
                 connection.Execute("UPDATE group_forum_threads SET state=@state,moderator_id=@userId,moderated_at=@now WHERE group_id=@groupId AND id=@threadId",
                     new { groupId, threadId, state, userId = viewer.UserId, now = now.UtcDateTime }, transaction);
+
                 return Thread(ReadThread(connection, transaction, forum, threadId)!, forum, viewer, now);
             });
 
         public ForumMessageSnapshot? ModerateMessage(ForumViewer viewer, int groupId, int threadId, int messageId, int state, DateTimeOffset now) => WithForum(viewer, groupId, true,
-            (connection, transaction, forum) => {
+            (connection, transaction, forum) =>
+            {
                 var thread = ReadThread(connection, transaction, forum, threadId);
                 var row = ReadMessage(connection, transaction, groupId, threadId, messageId);
+
                 if (thread == null || row == null || !Can(forum, viewer, forum.ReadPermission) || !ModerationAllowed(forum, viewer, row.State, state) || !Visible(thread.State, forum, viewer)) {
                     return null;
                 }
+
                 connection.Execute("UPDATE group_forum_messages SET state=@state,moderator_id=@userId,moderated_at=@now WHERE group_id=@groupId AND thread_id=@threadId AND id=@messageId",
                     new { groupId, threadId, messageId, state, userId = viewer.UserId, now = now.UtcDateTime }, transaction);
+
                 return Message(ReadMessage(connection, transaction, groupId, threadId, messageId)!, thread, forum, viewer, now);
             });
 
@@ -161,15 +190,19 @@ namespace Plus.HabboHotel.Groups.Forums
             if (markers.Count > 100) {
                 return;
             }
+
             foreach (var marker in markers) {
-                WithForum(viewer, marker.GroupId, true, (connection, transaction, forum) => {
+                WithForum(viewer, marker.GroupId, true, (connection, transaction, forum) =>
+                {
                     if (marker.MessageId < 0 || !Can(forum, viewer, forum.ReadPermission)) {
                         return null;
                     }
+
                     var messageId = Math.Min(marker.MessageId, forum.Messages);
                     connection.Execute("INSERT INTO group_forum_read_markers(group_id,user_id,last_message_id) VALUES(@groupId,@userId,@messageId) " +
                         "ON DUPLICATE KEY UPDATE last_message_id=GREATEST(last_message_id,@messageId)",
                         new { groupId = marker.GroupId, userId = viewer.UserId, messageId }, transaction);
+
                     return new object();
                 });
             }
@@ -178,6 +211,7 @@ namespace Plus.HabboHotel.Groups.Forums
         public int Unread(ForumViewer viewer)
         {
             using var connection = database.Connection();
+
             return connection.ExecuteScalar<int>("SELECT COUNT(*)" + ForumFrom + " WHERE g.forum_enabled=TRUE AND " + Readable +
                 " AND (g.owner_id=@userId OR " + Member + ") AND COALESCE(f.message_count,0)>COALESCE(r.last_message_id,0)", new { userId = viewer.UserId, staff = viewer.Staff });
         }
@@ -187,31 +221,40 @@ namespace Plus.HabboHotel.Groups.Forums
             if (groupId <= 0 || viewer.UserId <= 0) {
                 return null;
             }
+
             using var connection = database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
             var args = new { groupId, userId = viewer.UserId, staff = viewer.Staff };
+
             if (write) {
                 if (connection.ExecuteScalar<uint?>("SELECT id FROM `groups` WHERE id=@groupId AND forum_enabled=TRUE FOR UPDATE", args, transaction) == null) {
                     return null;
                 }
+
                 connection.Execute("INSERT IGNORE INTO group_forums(group_id) VALUES(@groupId)", args, transaction);
             }
+
             var forum = connection.QuerySingleOrDefault<ForumRow>("SELECT " + ForumColumns + ForumFrom +
                 " WHERE g.id=@groupId AND g.forum_enabled=TRUE", args, transaction);
+
             if (forum == null) {
                 return null;
             }
+
             if (write) {
                 // Membership changes do not lock the group, so hold the exact viewer rows through commit.
                 var ranks = connection.Query<string>("SELECT `rank` FROM group_memberships WHERE group_id=@groupId AND user_id=@userId FOR UPDATE", args, transaction).ToArray();
                 forum.Member = ranks.Length != 0;
                 forum.Admin = ranks.Any(rank => rank != "0");
             }
+
             var result = operation(connection, transaction, forum);
+
             if (write && result != null) {
                 transaction.Commit();
             }
+
             return result;
         }
 

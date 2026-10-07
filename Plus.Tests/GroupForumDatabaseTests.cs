@@ -210,8 +210,10 @@ namespace Plus.Tests
             using var revoke = fixture.Connection.BeginTransaction();
             fixture.Connection.Execute("UPDATE group_memberships SET `rank`='0' WHERE group_id=10 AND user_id=3", transaction: revoke);
             using var ready = new ManualResetEventSlim();
-            var operation = Task.Run(() => {
+            var operation = Task.Run(() =>
+            {
                 ready.Set();
+
                 return fixture.Store.ModerateThread(Admin, 10, thread.Id, 10, Now);
             });
             Assert.True(ready.Wait(TimeSpan.FromSeconds(5)));
@@ -241,22 +243,28 @@ namespace Plus.Tests
 
             public Fixture()
             {
-                var builder = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("GROUP_FORUM_DATABASE")!) {
-                    Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true
+                var builder = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("GROUP_FORUM_DATABASE")!)
+                {
+                    Pooling = false,
+                    AllowZeroDateTime = true,
+                    ConvertZeroDateTime = true
                 };
                 _root = new(builder.ConnectionString);
                 _root.Open();
                 _root.Execute($"CREATE DATABASE `{_schema}`");
                 builder.Database = _schema;
                 Connection = new(builder.ConnectionString);
+
                 try {
                     Connection.Open();
                     var dump = File.ReadAllText(Path.Combine(RepositoryRoot(), "Resources", "SQLs", "Original Database.sql"));
+
                     foreach (var table in new[] { "users", "groups", "group_memberships" }) {
                         var ddl = Regex.Match(dump, @"CREATE TABLE(?: IF NOT EXISTS)? `" + table + @"`\s*\([\s\S]*?\) ENGINE=[^;]*;").Value;
                         Assert.NotEmpty(ddl);
                         Connection.Execute(ddl);
                     }
+
                     var migration = File.ReadAllText(Path.Combine(RepositoryRoot(), "Database", "Migrations", "54_GroupForums.sql"));
                     Connection.Execute(migration);
                     Connection.Execute(migration);
@@ -284,8 +292,13 @@ namespace Plus.Tests
             public void Dispose()
             {
                 Connection.Dispose();
-                try { _root.Execute($"DROP DATABASE `{_schema}`"); }
-                finally { _root.Dispose(); }
+
+                try {
+                    _root.Execute($"DROP DATABASE `{_schema}`");
+                }
+                finally {
+                    _root.Dispose();
+                }
             }
         }
 
@@ -298,9 +311,11 @@ namespace Plus.Tests
         internal static string RepositoryRoot()
         {
             var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
             while (directory != null && !File.Exists(Path.Combine(directory.FullName, "Plus Emulator.csproj"))) {
                 directory = directory.Parent;
             }
+
             return directory!.FullName;
         }
     }

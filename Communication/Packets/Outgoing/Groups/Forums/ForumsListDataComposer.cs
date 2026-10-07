@@ -13,6 +13,7 @@ namespace Plus.Communication.Packets.Outgoing.Groups.Forums
             packet.WriteInteger(page.Total);
             packet.WriteInteger(page.Start);
             packet.WriteInteger(page.Forums.Length);
+
             foreach (var forum in page.Forums) {
                 ForumWire.Forum(packet, forum);
             }

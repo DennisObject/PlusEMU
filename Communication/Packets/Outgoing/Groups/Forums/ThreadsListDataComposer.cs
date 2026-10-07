@@ -12,6 +12,7 @@ namespace Plus.Communication.Packets.Outgoing.Groups.Forums
             packet.WriteInteger(page.GroupId);
             packet.WriteInteger(page.Start);
             packet.WriteInteger(page.Threads.Length);
+
             foreach (var thread in page.Threads) {
                 ForumWire.Thread(packet, thread);
             }

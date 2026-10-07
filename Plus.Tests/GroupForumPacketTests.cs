@@ -59,6 +59,7 @@ namespace Plus.Tests
                 (new UpdateThreadEvent(service), [10, 20, true, false], "UpdateThread"),
                 (new GetForumsUnreadCountEvent(service), [], "ShowUnread")
             };
+
             foreach (var (handler, values, method) in cases) {
                 var packet = Incoming(values);
                 await handler.Parse(client, packet);
@@ -68,6 +69,7 @@ namespace Plus.Tests
                 Assert.Equal(values, call.Args[1..]);
                 Assert.False(packet.HasDataRemaining());
             }
+
             var settings = Incoming(10, 1, 2, 3, 2);
             await new UpdateForumSettingsEvent(service).Parse(client, settings);
             Assert.Equal("UpdateSettings", calls[^1].Name);
@@ -89,18 +91,22 @@ namespace Plus.Tests
         {
             var (client, sent) = Session(new Habbo { Id = 7, Access = UserAccess.Empty });
             var filterCalls = new List<string>();
-            var filter = CatalogSnapshotTestSupport.Proxy<IWordFilterManager>((name, args) => {
+            var filter = CatalogSnapshotTestSupport.Proxy<IWordFilterManager>((name, args) =>
+            {
                 Assert.Equal("CheckMessage", name);
                 filterCalls.Add((string)args[0]!);
+
                 return ((string)args[0]!).Replace("bad", "***");
             });
-            var store = CatalogSnapshotTestSupport.Proxy<IGroupForumStore>((name, args) => {
+            var store = CatalogSnapshotTestSupport.Proxy<IGroupForumStore>((name, args) =>
+            {
                 Assert.Equal("Post", name);
                 Assert.Equal(new ForumViewer(7, false), args[0]);
                 Assert.Equal(Now, args[5]);
                 Assert.Equal("A *** title text", args[3]);
                 Assert.Equal("A *** message body", args[4]);
                 Assert.Empty(sent);
+
                 return new ForumPostResult(Thread, Message, true);
             });
             var service = new GroupForumService(store, new FixedClock(), filter, NullLogger<GroupForumService>.Instance);
@@ -120,9 +126,11 @@ namespace Plus.Tests
             var user = new Habbo { Id = 7, Access = UserAccess.Create([], [new(PermissionKeys.ModerationTool, false), new(PermissionKeys.ChatFilterBypass, false)]) };
             var (client, sent) = Session(user);
             var calls = 0;
-            var store = CatalogSnapshotTestSupport.Proxy<IGroupForumStore>((name, args) => {
+            var store = CatalogSnapshotTestSupport.Proxy<IGroupForumStore>((name, args) =>
+            {
                 calls++;
                 Assert.Equal(new ForumViewer(7, true), args[0]);
+
                 return Forum;
             });
             var filter = CatalogSnapshotTestSupport.Proxy<IWordFilterManager>((_, _) => throw new InvalidOperationException("unused filter"));
@@ -171,9 +179,11 @@ namespace Plus.Tests
         {
             var user = new Habbo { Id = 7, Access = UserAccess.Empty };
             var (client, sent) = Session(user);
-            var store = CatalogSnapshotTestSupport.Proxy<IGroupForumStore>((name, _) => {
+            var store = CatalogSnapshotTestSupport.Proxy<IGroupForumStore>((name, _) =>
+            {
                 Assert.Equal("Forum", name);
                 user.Dispose();
+
                 return Forum;
             });
             var service = new GroupForumService(store, new FixedClock(), null!, NullLogger<GroupForumService>.Instance);
@@ -205,8 +215,10 @@ namespace Plus.Tests
             var (old, sent) = Session(user);
             var (replacement, _) = HabbiconTestSupport.Client(user);
             Assert.Same(old, user.Client);
-            var store = CatalogSnapshotTestSupport.Proxy<IGroupForumStore>((_, _) => {
+            var store = CatalogSnapshotTestSupport.Proxy<IGroupForumStore>((_, _) =>
+            {
                 user.Client = replacement;
+
                 return Forum;
             });
             var service = new GroupForumService(store, new FixedClock(), null!, NullLogger<GroupForumService>.Instance);
@@ -261,28 +273,43 @@ namespace Plus.Tests
         [Fact]
         public void EveryForumSymbolResolvesToItsCurrentHeaderWithoutCollisions()
         {
-            var incoming = new Dictionary<string, uint> {
-                [nameof(GetForumStatsEvent)] = 3149, [nameof(GetForumsListDataEvent)] = 873,
-                [nameof(GetThreadsListDataEvent)] = 436, [nameof(GetThreadDataEvent)] = 232,
-                [nameof(GetForumThreadEvent)] = 3900, [nameof(PostGroupContentEvent)] = 3529,
-                [nameof(DeleteGroupThreadEvent)] = 1397, [nameof(DeleteGroupPostEvent)] = 286,
-                [nameof(UpdateThreadEvent)] = 3045, [nameof(UpdateForumSettingsEvent)] = 2214,
-                [nameof(UpdateForumReadMarkersEvent)] = 1855, [nameof(GetForumsUnreadCountEvent)] = 2908
+            var incoming = new Dictionary<string, uint>
+            {
+                [nameof(GetForumStatsEvent)] = 3149,
+                [nameof(GetForumsListDataEvent)] = 873,
+                [nameof(GetThreadsListDataEvent)] = 436,
+                [nameof(GetThreadDataEvent)] = 232,
+                [nameof(GetForumThreadEvent)] = 3900,
+                [nameof(PostGroupContentEvent)] = 3529,
+                [nameof(DeleteGroupThreadEvent)] = 1397,
+                [nameof(DeleteGroupPostEvent)] = 286,
+                [nameof(UpdateThreadEvent)] = 3045,
+                [nameof(UpdateForumSettingsEvent)] = 2214,
+                [nameof(UpdateForumReadMarkersEvent)] = 1855,
+                [nameof(GetForumsUnreadCountEvent)] = 2908
             };
-            var outgoing = new Dictionary<string, uint> {
-                [nameof(ForumDataComposer)] = 3011, [nameof(ForumsListDataComposer)] = 3001,
-                [nameof(ThreadsListDataComposer)] = 1073, [nameof(ThreadDataComposer)] = 509,
-                [nameof(ThreadCreatedComposer)] = 1862, [nameof(ThreadUpdatedComposer)] = 2528,
-                [nameof(ThreadReplyComposer)] = 2049, [nameof(PostUpdatedComposer)] = 324,
+            var outgoing = new Dictionary<string, uint>
+            {
+                [nameof(ForumDataComposer)] = 3011,
+                [nameof(ForumsListDataComposer)] = 3001,
+                [nameof(ThreadsListDataComposer)] = 1073,
+                [nameof(ThreadDataComposer)] = 509,
+                [nameof(ThreadCreatedComposer)] = 1862,
+                [nameof(ThreadUpdatedComposer)] = 2528,
+                [nameof(ThreadReplyComposer)] = 2049,
+                [nameof(PostUpdatedComposer)] = 324,
                 [nameof(ForumsUnreadCountComposer)] = 2379
             };
+
             foreach (var (type, headers) in new[] { (typeof(ClientPacketHeader), incoming), (typeof(ServerPacketHeader), outgoing) }) {
                 var ids = type.GetFields(BindingFlags.Public | BindingFlags.Static).Select(field => (uint)field.GetRawConstantValue()!).Where(id => id > 0).ToArray();
                 Assert.Equal(ids.Length, ids.Distinct().Count());
                 Assert.All(headers.Keys, name => Assert.NotNull(type.GetField(name)));
             }
+
             foreach (var file in Directory.GetFiles(Path.Combine(GroupForumDatabaseTests.RepositoryRoot(), "Resources", "Revisions"), "*.json")) {
                 using var json = JsonDocument.Parse(File.ReadAllText(file));
+
                 foreach (var (key, headers, type) in new[] { ("IncomingHeaders", incoming, typeof(ClientPacketHeader)), ("OutgoingHeaders", outgoing, typeof(ServerPacketHeader)) }) {
                     foreach (var (name, header) in headers) {
                         var expected = Path.GetFileName(file) == "example.json" && name is not nameof(GetForumThreadEvent) and not nameof(UpdateForumReadMarkersEvent) and not nameof(GetForumsUnreadCountEvent) and not nameof(ForumsUnreadCountComposer)
@@ -297,6 +324,7 @@ namespace Plus.Tests
         {
             var session = HabbiconTestSupport.Client(user);
             user.Client = session.Client;
+
             return session;
         }
 
