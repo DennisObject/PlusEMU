@@ -1,13 +1,15 @@
 using Plus.HabboHotel.GameClients;
-using Plus.Communication.Packets.Outgoing.Game;
+using Plus.HabboHotel.Games.SnowStorm;
 
 namespace Plus.Communication.Packets.Incoming.Game.Directory;
 
-internal class Game2GetAccountGameStatusEvent : IPacketEvent
+internal sealed class Game2GetAccountGameStatusEvent(ISnowStormDirectory directory) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        session.Send(new GameAccountStatusComposer(packet.ReadInt()));
+        if (SnowStormPacketReader.TryReadInts(packet, 1, out var values)) {
+            directory.ShowAccountStatus(session, values[0]);
+        }
 
         return Task.CompletedTask;
     }
