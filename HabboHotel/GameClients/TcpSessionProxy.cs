@@ -32,7 +32,7 @@ public class TcpSessionProxy : TcpSession
         base.OnConnected();
     }
 
-    protected override void OnDisconnected() => _client.OnDisconnected();
+    protected override void OnDisconnected() => _client.OnTransportDisconnected();
 
     protected override void OnReceived(byte[] buffer, long offset, long size) => _client.OnReceived(buffer, offset, size);
 }

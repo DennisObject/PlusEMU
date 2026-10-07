@@ -62,6 +62,16 @@ public abstract class GameClient
     internal event Action? CameraContextEnded;
     internal void EndCameraContext() => CameraContextEnded?.Invoke();
 
+    /// <summary>
+    /// NetCoreServer can raise a disconnect while it still holds this session's send lock, and logout takes room
+    /// and Wired locks whose holders may be sending to this session. Clean up off the transport thread.
+    /// </summary>
+    internal void OnTransportDisconnected()
+    {
+        Close();
+        ThreadPool.UnsafeQueueUserWorkItem(static client => client.OnDisconnected(), this, false);
+    }
+
     internal void OnDisconnected()
     {
         Habbo? habbo;
