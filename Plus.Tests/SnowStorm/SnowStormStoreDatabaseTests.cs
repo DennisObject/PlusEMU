@@ -75,7 +75,8 @@ public class SnowStormStoreDatabaseTests
     {
         var server = Environment.GetEnvironmentVariable(Variable)!;
         var schema = "snowwar_tests_" + Guid.NewGuid().ToString("N")[..12];
-        var options = new MySqlConnectionStringBuilder(server) { Database = schema, AllowUserVariables = true };
+        // Same date options as Plus.Database: DATE columns then read back as MySqlDateTime, not DateTime.
+        var options = new MySqlConnectionStringBuilder(server) { Database = schema, AllowZeroDateTime = true, ConvertZeroDateTime = true };
 
         using (var admin = new MySqlConnection(server)) {
             admin.Execute($"CREATE DATABASE `{schema}`");

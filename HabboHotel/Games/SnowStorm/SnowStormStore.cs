@@ -60,11 +60,10 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
     public SnowStormAccount GetAccount(int userId, DateOnly today)
     {
         using var connection = database.Connection();
-        var tokens = connection.QuerySingleOrDefault<TokenRow>("SELECT games AS Games, free_games_date AS FreeGamesDate, free_games_used AS FreeGamesUsed FROM snowwar_game_tokens WHERE user_id = @userId",
-            new { userId });
+        var tokens = connection.QuerySingleOrDefault<TokenRow>(TokenSelect + " WHERE user_id = @userId", new { userId, today = Date(today) });
         var played = connection.ExecuteScalar<long?>("SELECT SUM(matches) FROM snowwar_scores WHERE user_id = @userId", new { userId }) ?? 0;
 
-        return new((int)Math.Min(int.MaxValue, played), tokens?.UsedOn(today) ?? 0, tokens?.Games ?? 0);
+        return new((int)Math.Min(int.MaxValue, played), tokens?.FreeGamesUsed ?? 0, tokens?.Games ?? 0);
     }
 
     public bool TryConsumeGame(int userId, DateOnly today, int freeGamesPerDay)
@@ -77,9 +76,8 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
         connection.Open();
         using var transaction = connection.BeginTransaction();
         connection.Execute("INSERT IGNORE INTO snowwar_game_tokens (user_id) VALUES (@userId)", new { userId }, transaction);
-        var row = connection.QuerySingle<TokenRow>("SELECT games AS Games, free_games_date AS FreeGamesDate, free_games_used AS FreeGamesUsed FROM snowwar_game_tokens WHERE user_id = @userId FOR UPDATE",
-            new { userId }, transaction);
-        var used = row.UsedOn(today);
+        var row = connection.QuerySingle<TokenRow>(TokenSelect + " WHERE user_id = @userId FOR UPDATE", new { userId, today = Date(today) }, transaction);
+        var used = row.FreeGamesUsed;
         var games = row.Games;
 
         if (used < freeGamesPerDay) {
@@ -93,7 +91,7 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
         }
 
         connection.Execute("UPDATE snowwar_game_tokens SET games = @games, free_games_date = @today, free_games_used = @used WHERE user_id = @userId",
-            new { userId, games, used, today = today.ToDateTime(TimeOnly.MinValue) }, transaction);
+            new { userId, games, used, today = Date(today) }, transaction);
         transaction.Commit();
 
         return true;
@@ -119,15 +117,15 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
 
         using var connection = database.Connection();
         connection.Execute("INSERT INTO snowwar_scores (user_id, week_start, score, matches) VALUES (@UserId, @week, @Score, 1) ON DUPLICATE KEY UPDATE score = score + VALUES(score), matches = matches + 1",
-            scores.Select(score => new { score.UserId, Score = Math.Max(0, score.Score), week = weekStart.ToDateTime(TimeOnly.MinValue) }));
+            scores.Select(score => new { score.UserId, Score = Math.Max(0, score.Score), week = Date(weekStart) }));
     }
 
     public SnowStormLeaderboardPage LoadLeaderboard(SnowStormLeaderboardRequest request, DateTimeOffset now)
     {
         using var connection = database.Connection();
         var current = WeekStart(now);
-        var first = connection.ExecuteScalar<DateTime?>("SELECT MIN(week_start) FROM snowwar_scores");
-        var maxOffset = first is { } oldest ? Math.Max(0, (current.DayNumber - DateOnly.FromDateTime(oldest).DayNumber) / 7) : 0;
+        var weeks = connection.ExecuteScalar<long?>("SELECT DATEDIFF(@current, MIN(week_start)) DIV 7 FROM snowwar_scores", new { current = Date(current) });
+        var maxOffset = (int)Math.Clamp(weeks ?? 0, 0, int.MaxValue);
         var offset = request.Weekly ? Math.Clamp(request.WeekOffset, 0, maxOffset) : 0;
         var week = current.AddDays(-7 * offset);
         var limit = Math.Clamp(Math.Max(request.ViewSize, request.WindowSize), 1, MaxPageSize);
@@ -140,7 +138,7 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
             : $"WITH scores AS ({scores}), ranked AS (SELECT scores.user_id AS id, scores.score, RANK() OVER (ORDER BY scores.score DESC) AS position, users.username AS name, users.look AS figure, LOWER(users.gender) AS gender " +
               "FROM scores INNER JOIN users ON users.id = scores.user_id WHERE scores.score > 0" +
               (request.Friends ? " AND (scores.user_id = @viewer OR EXISTS (SELECT 1 FROM messenger_friendships WHERE user_one_id = @viewer AND user_two_id = scores.user_id))" : "") + ")";
-        var args = new { week = week.ToDateTime(TimeOnly.MinValue), viewer = request.ViewerId, limit, start = 1, focus = 0 };
+        var args = new { week = Date(week), viewer = request.ViewerId, limit, start = 1, focus = 0 };
         var focus = request.Group ? connection.ExecuteScalar<int?>("SELECT groupid FROM user_statistics WHERE id = @viewer", args) ?? 0 : request.ViewerId;
         var start = request.StartRank;
 
@@ -155,7 +153,7 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
         var total = connection.ExecuteScalar<int>(ranked + " SELECT COUNT(*) FROM ranked", args);
 
         return new(entries, total, GameTypeId,
-            request.Weekly ? new SnowStormLeaderboardWeek(ISOWeek.GetYear(week.ToDateTime(TimeOnly.MinValue)), ISOWeek.GetWeekOfYear(week.ToDateTime(TimeOnly.MinValue)), maxOffset, offset, MinutesUntilReset(now)) : null,
+            request.Weekly ? new SnowStormLeaderboardWeek(ISOWeek.GetYear(Date(week)), ISOWeek.GetWeekOfYear(Date(week)), maxOffset, offset, MinutesUntilReset(now)) : null,
             request.Group ? focus : 0);
     }
 
@@ -216,17 +214,19 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
     public static int MinutesUntilReset(DateTimeOffset now) =>
         (int)Math.Max(0, (WeekStart(now).AddDays(7).ToDateTime(TimeOnly.MinValue) - now.UtcDateTime).TotalMinutes);
 
+    // Dates are compared in SQL: with Plus' AllowZeroDateTime connections DATE columns read back as MySqlDateTime.
+    private const string TokenSelect = "SELECT games AS Games, IF(free_games_date = @today, free_games_used, 0) AS FreeGamesUsed FROM snowwar_game_tokens";
+
     private const string OfferSelect = "SELECT id AS Id, localization_id AS LocalizationId, price_credits AS PriceCredits, price_points AS PricePoints, points_type AS PointsType, games AS Games FROM snowwar_token_offers";
+
+    private static DateTime Date(DateOnly date) => date.ToDateTime(TimeOnly.MinValue);
 
     private static int Clamp(long score) => (int)Math.Clamp(score, 0, int.MaxValue);
 
     private sealed class TokenRow
     {
         public int Games { get; set; }
-        public DateTime? FreeGamesDate { get; set; }
         public int FreeGamesUsed { get; set; }
-
-        public int UsedOn(DateOnly today) => FreeGamesDate is { } date && DateOnly.FromDateTime(date) == today ? FreeGamesUsed : 0;
     }
 
     private sealed class EntryRow
