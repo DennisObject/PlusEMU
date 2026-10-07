@@ -273,6 +273,13 @@ public sealed class SnowStormHuman : SnowStormGameObject
 
     internal void StartThrowTimer() => ThrowTimer = SnowballThrowInterval;
 
+    // Ray gun burst (Plus extra): face the gun's direction and take the throw posture; no ammo is spent.
+    internal void FireRayGun(int direction8)
+    {
+        BodyDirection = direction8;
+        StartThrowTimer();
+    }
+
     internal void StartMakingSnowball()
     {
         if (!CanMakeSnowballs) {

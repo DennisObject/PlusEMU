@@ -4,9 +4,9 @@ namespace Plus.HabboHotel.Games.SnowStorm.Simulation;
 
 /// <summary>
 /// Server-only decisions the AIR client never makes (Polaris rules): input validation, machine refills (event 11),
-/// snowball pickups (event 12) and spawn placement. Everything is emitted as events so both simulations stay in step.
-/// One instance per game; call <see cref="ScheduleRefillsAndPickups"/> once per turn after
-/// <see cref="SnowStormArena.RunTurn"/>.
+/// snowball pickups (event 12), Plus ray gun bursts (event 100) and spawn placement. Everything is emitted as events so
+/// both simulations stay in step. One instance per game; call <see cref="ScheduleRefillsAndPickups"/> (and
+/// <see cref="ScheduleRayGunBursts"/> when ray guns are on) once per turn after <see cref="SnowStormArena.RunTurn"/>.
 /// </summary>
 public sealed class SnowStormServerRules(SnowStormArena arena)
 {
@@ -18,8 +18,13 @@ public sealed class SnowStormServerRules(SnowStormArena arena)
 
     private const int CenterTile = 25;
 
+    /// <summary>Subturns a ray gun needs between two bursts.</summary>
+    public const int RayGunCooldown = 60;
+
     private readonly Dictionary<int, int> _machineTimers = [];
     private readonly Dictionary<int, int> _pickupTimers = [];
+    private readonly Dictionary<int, int> _rayGunLastBurst = [];
+    private readonly HashSet<int> _rayGunArrivals = [];
 
     /// <summary>AIR <c>class_2527.calculateDirectionTowardsCenter</c>: Direction8 from a tile towards tile (25, 25).</summary>
     public static int DirectionTowardsCenter(int tileX, int tileY) =>
@@ -168,6 +173,53 @@ public sealed class SnowStormServerRules(SnowStormArena arena)
         }
 
         return scheduled;
+    }
+
+    /// <summary>
+    /// Plus ray guns: a human whose walk ended on a gun's use tile fires it once per arrival (in state 0 or 3), unless
+    /// that gun burst within the last <see cref="RayGunCooldown"/> subturns. Schedules event 100 at
+    /// (<see cref="SnowStormArena.Turn"/>, 0) with 7 consecutive new snowball ids. Call after <see cref="SnowStormArena.RunTurn"/>.
+    /// </summary>
+    public IReadOnlyList<SnowStormScheduledEvent> ScheduleRayGunBursts()
+    {
+        int turn = arena.Turn;
+        int subturn = turn * SnowStormArena.SubturnsPerTurn;
+        var leaving = arena.PendingEvents().OfType<SnowStormHumanLeftGame>().Select(pending => pending.HumanId).ToHashSet();
+        var scheduled = new List<SnowStormScheduledEvent>();
+
+        foreach (var human in arena.Humans) {
+            var gun = StandsStill(human)
+                ? arena.RayGuns.FirstOrDefault(rayGun => rayGun.UseX == human.CurrentTileX && rayGun.UseY == human.CurrentTileY)
+                : null;
+
+            if (gun == null) {
+                _rayGunArrivals.Remove(human.Id);
+                continue;
+            }
+
+            // An arrival counts once the human may act (state 0 or 3), so a stun or snowball on the tile only delays it.
+            if (!human.CanMove || !_rayGunArrivals.Add(human.Id) || leaving.Contains(human.Id)
+                || _rayGunLastBurst.TryGetValue(gun.FuseObjectId, out int last) && subturn - last < RayGunCooldown) {
+                continue;
+            }
+
+            _rayGunLastBurst[gun.FuseObjectId] = subturn;
+            scheduled.Add(Schedule(turn, 0,
+                new SnowStormRayGunBurst(human.Id, gun.FuseObjectId, arena.AllocateObjectIds(SnowStormRayGun.BurstSize))));
+        }
+
+        return scheduled;
+    }
+
+    // The walk ended here: on the tile centre, no next tile, and the move target inside this tile.
+    private static bool StandsStill(SnowStormHuman human)
+    {
+        int x = SnowStormMath.TileToWorld(human.CurrentTileX);
+        int y = SnowStormMath.TileToWorld(human.CurrentTileY);
+
+        return !human.HasNextTile && human.X == x && human.Y == y
+            && SnowStormMath.Abs(human.MoveTargetX - x) < SnowStormMath.TileHalfWidth
+            && SnowStormMath.Abs(human.MoveTargetY - y) < SnowStormMath.TileHalfWidth;
     }
 
     private static bool HasAvailable(SnowStormSnowballSource source, Dictionary<int, int> reserved) =>

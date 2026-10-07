@@ -2,7 +2,7 @@ namespace Plus.HabboHotel.Games.SnowStorm.Simulation;
 
 /// <summary>
 /// A GameStatus event (AIR <c>SnowWarGameEventData</c>). <see cref="Fields"/> are the ints that follow the event type on
-/// the wire, in order. Only types 1, 2, 3, 4, 7, 8, 11 and 12 exist.
+/// the wire, in order. AIR has types 1, 2, 3, 4, 7, 8, 11 and 12; type 100 is the Plus ray gun extra.
 /// </summary>
 public abstract record SnowStormEvent(int Type)
 {
@@ -55,6 +55,15 @@ public sealed record SnowStormMachineCreatesSnowball(int MachineId) : SnowStormE
 public sealed record SnowStormHumanGetsSnowball(int HumanId, int SourceId) : SnowStormEvent(12)
 {
     public override int[] Fields => [HumanId, SourceId];
+}
+
+/// <summary>
+/// Type 100 (Plus extra): the human faces the gun, gets the throw posture and launches 7 default throws with ids
+/// <see cref="FirstSnowballId"/>.. +6 from its location, without spending ammo.
+/// </summary>
+public sealed record SnowStormRayGunBurst(int HumanId, int RayGunFuseObjectId, int FirstSnowballId) : SnowStormEvent(100)
+{
+    public override int[] Fields => [HumanId, RayGunFuseObjectId, FirstSnowballId];
 }
 
 /// <summary>An event queued at (<see cref="Turn"/>, <see cref="Subturn"/>), subturn 0..2.</summary>
