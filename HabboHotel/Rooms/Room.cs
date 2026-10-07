@@ -938,7 +938,8 @@ public class Room
         }
     }
 
-    private void ProcessWiredOwned() => RunOwnedPass(() => {
+    private void ProcessWiredOwned() => RunOwnedPass(() =>
+    {
         GetWired().OnFastCycle();
         _iceTag?.Cycle();
     });

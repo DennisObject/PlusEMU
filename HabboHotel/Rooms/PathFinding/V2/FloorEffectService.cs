@@ -22,6 +22,7 @@ public sealed class FloorEffectService(Room room, Action<GameClient> progressSwi
             var value = EffectValue(x, y, surface, actor.Movement.SupportZ);
 
             Item? ice = null;
+
             if (value == 3) {
                 var grid = room.GetGameMap().Navigation?.Grid;
                 var slot = SurfaceContacts.ContactSlot(grid, x, y, surface, actor.Movement.SupportZ);
@@ -31,9 +32,11 @@ public sealed class FloorEffectService(Room room, Action<GameClient> progressSwi
 
             var currentRoom = habbo.CurrentRoom;
             var iceEffect = room.UpdateIceTag(actor, ice);
+
             if (!ReferenceEquals(habbo.CurrentRoom, currentRoom)) {
                 return;
             }
+
             if (value > 0 && habbo.Effects.CurrentEffect == 0) {
                 actor.CurrentItemEffect = ItemEffectType.None;
             }

@@ -23,6 +23,7 @@ public sealed class IceTagDatabaseTests
         connection.Open();
         var schema = "task_ice_tag_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try {
             connection.Execute($"USE `{schema}`");
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));

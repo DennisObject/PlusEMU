@@ -27,6 +27,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
         GameClient? awardClient = null;
         var minutes = 0;
         int effect;
+
         lock (_sync) {
             if (field == null && !_players.ContainsKey(actor)) {
                 return -1;
@@ -38,6 +39,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
 
             var now = clock.GetUtcNow();
             _players.TryGetValue(actor, out var visit);
+
             if (field == null || field.Definition.InteractionType != InteractionType.IceSkates || !Owns(field) || actor.Team != Team.None || actor.RidingHorse) {
                 if (visit != null) {
                     minutes = Minutes(visit, now);
@@ -77,6 +79,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
         }
 
         Award(awardClient, minutes);
+
         return effect;
     }
 
@@ -86,6 +89,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
         Item? pulse;
         long placement = 0, movement = 0;
         var restoreSource = false;
+
         lock (_sync) {
             if (!Owns(actor) || !_players.TryGetValue(actor, out var source) || !source.Tagged || !ValidPole(source) || !OnField(actor, source)
                 || Math.Max(Math.Abs((long)actor.X - x), Math.Abs((long)actor.Y - y)) != 1) {
@@ -93,6 +97,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
             }
 
             target = _players.Keys.FirstOrDefault(player => player.X == x && player.Y == y && Owns(player) && OnField(player, _players[player]));
+
             if (target == null || ReferenceEquals(target, actor) || _players[target].Tagged) {
                 return;
             }
@@ -103,6 +108,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
             next.Pole = free ?? source.Pole;
             next.PolePlacement = next.Pole!.Placement;
             next.Tagged = true;
+
             if (free == null) {
                 source.Tagged = false;
                 source.Pole = null;
@@ -121,6 +127,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
         }
 
         Apply(target, Effect(target, true));
+
         if (pulse != null && Owns(pulse) && pulse.Placement == placement && pulse.MovementGeneration == movement) {
             pulse.LegacyDataString = "1";
             pulse.UpdateState();
@@ -131,6 +138,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
     {
         GameClient? client;
         int minutes;
+
         lock (_sync) {
             if (!_players.Remove(actor, out var visit)) {
                 return;
@@ -161,10 +169,12 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
     {
         RoomUser[] players;
         List<RoomUser> untag = [];
+
         lock (_sync) {
             _pulses.Remove(item);
             _poles.Remove(item);
             players = _players.Where(pair => ReferenceEquals(pair.Value.Field, item)).Select(pair => pair.Key).ToArray();
+
             foreach (var (actor, visit) in _players) {
                 if (ReferenceEquals(visit.Pole, item)) {
                     visit.Pole = null;
@@ -192,11 +202,14 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
         List<(Item Pole, long Placement, long Movement)> reset = [];
         RoomUser[] stale;
         List<RoomUser> untag = [];
+
         lock (_sync) {
             var now = clock.GetUtcNow();
+
             foreach (var (pole, pulse) in _pulses.ToArray()) {
                 if (!Owns(pole) || pole.Placement != pulse.Placement || pole.MovementGeneration != pulse.Movement || now >= pulse.Until) {
                     _pulses.Remove(pole);
+
                     if (Owns(pole) && pole.Placement == pulse.Placement && pole.MovementGeneration == pulse.Movement) {
                         reset.Add((pole, pulse.Placement, pulse.Movement));
                     }
@@ -205,10 +218,12 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
 
             stale = _players.Where(pair => !Owns(pair.Key) || !OnField(pair.Key, pair.Value)).Select(pair => pair.Key).ToArray();
             _poles.RemoveWhere(pole => !Owns(pole));
+
             foreach (var (actor, visit) in _players) {
                 if (visit.Tagged && !ValidPole(visit)) {
                     visit.Tagged = false;
                     visit.Pole = null;
+
                     if (!stale.Contains(actor)) {
                         untag.Add(actor);
                     }
@@ -263,6 +278,7 @@ internal sealed class IceTagGame(Room room, IAchievementManager achievements, Ti
     private void Apply(RoomUser actor, int effect)
     {
         var habbo = actor.GetClient()?.GetHabbo();
+
         if (habbo != null && Owns(actor)) {
             actor.CurrentItemEffect = ItemEffectType.Iceskates;
             habbo.Effects?.ApplyEffect(effect);

@@ -64,6 +64,7 @@ public partial class PlacedFurniRoomTests
         var actor = IcePlayer(_client, 0, 1);
         var actions = new RoomAvatarActionService(_interactionClock, Proxy<Plus.HabboHotel.Quests.IQuestManager>((method, _) => throw new InvalidOperationException(method)), TestNavigationRewards.Instance);
         actions.Move(_client, 1, 1);
+
         for (var i = 0; i < 12; i++) {
             _room.ProcessRoom();
         }
@@ -72,6 +73,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(45, _client.GetHabbo().Effects.CurrentEffect);
         _interactionClock.Now = _interactionClock.Now.AddMinutes(1);
         actions.Move(_client, 0, 1);
+
         for (var i = 0; i < 12; i++) {
             _room.ProcessRoom();
         }
@@ -314,6 +316,7 @@ public partial class PlacedFurniRoomTests
         var awards = new List<(int, string, int)>();
         Set("_achievements", new TestRoomAchievements((client, group, amount) => awards.Add((client.GetHabbo().Id, group, amount))));
         _room.WordFilterList = [];
+
         if (v2) {
             var map = _room.GetGameMap();
             var navigation = new RoomNavigation(_room, map.StaticModel, new() { Engine = PathfindingEngine.V2 }, TestLogging.Navigation,
@@ -322,6 +325,7 @@ public partial class PlacedFurniRoomTests
         }
 
         _gameField.SetValue(null, Proxy<IGame>((method, _) => throw new InvalidOperationException(method)));
+
         return awards;
     }
 
@@ -329,6 +333,7 @@ public partial class PlacedFurniRoomTests
     {
         var client = new TestClient();
         client.SetHabbo(new Habbo { Id = id, Username = $"skater{id}", CurrentRoom = _room, Access = UserAccess.Empty, Gender = gender });
+
         return client;
     }
 
@@ -343,9 +348,11 @@ public partial class PlacedFurniRoomTests
         Assert.True(_room.GetRoomUserManager().AddAvatarToRoom(client));
         var actor = Assert.IsType<RoomUser>(_room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id));
         actor.SetPos(x, y, 0);
+
         if (_room.UsesV2Movement) {
             _room.ProcessRoom();
         }
+
         return actor;
     }
 
@@ -357,6 +364,7 @@ public partial class PlacedFurniRoomTests
         item.Definition.Width = item.Definition.Length = 2;
         item.Definition.Height = 0.01;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(_client, item, x, y, 0, true, false, false));
+
         return item;
     }
 
@@ -367,6 +375,7 @@ public partial class PlacedFurniRoomTests
         item.Definition.ItemName = "es_tagging";
         item.Definition.Walkable = false;
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(_client, item, x, y, 0, true, false, false));
+
         return item;
     }
 

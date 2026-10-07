@@ -1074,6 +1074,7 @@ public class RoomItemHandling
         if (inputs == null) {
             if (_floorItems.TryAdd(item.Id, item)) {
                 _room.IceTagAdmitted(item);
+
                 return true;
             }
 

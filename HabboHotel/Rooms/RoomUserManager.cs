@@ -1626,6 +1626,7 @@ public class RoomUserManager
             var currentRoom = habbo.CurrentRoom;
             var iceEffect = _room.UpdateIceTag(user, newCurrentUserItemEffect == 3
                 ? _room.GetGameMap().GetCoordinatedItems(new(x, y)).OrderByDescending(item => item.TotalHeight).FirstOrDefault(item => item.Definition.InteractionType == InteractionType.IceSkates) : null);
+
             if (!ReferenceEquals(habbo.CurrentRoom, currentRoom)) {
                 return;
             }
