@@ -1025,6 +1025,20 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public void BoxSavedMidFlashFlashesAgainOnItsNextEvent()
+    {
+        var (room, _, _) = World();
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+        var box = MakeItem(100, "wf_act_move_to_dir");
+        box.LegacyDataString = "1";
+
+        wired.OnEvent(box);
+
+        Assert.True(box.UpdateNeeded);
+        Assert.Equal(2, box.UpdateCounter);
+    }
+
+    [Fact]
     public void FurniToFurniAndManualPlacementStillStackOntoStackableFurniture()
     {
         var (room, map, items) = World(new RecordingPlacementStore());
@@ -1299,11 +1313,11 @@ public class ModernWiredRuntimeTests
     }
 
     [Theory]
-    [InlineData(4, 0, 1)]
-    [InlineData(6, 0, -1)]
+    [InlineData(4, 0, -1)]
+    [InlineData(6, 0, 1)]
     [InlineData(8, 1, -1)]
     [InlineData(11, -1, -1)]
-    public void FurnitureMoveUsesActualPolarisDirectionNumbers(int raw, int dx, int dy)
+    public void FurnitureMoveFollowsAirEditorDirectionNumbers(int raw, int dx, int dy)
     {
         var item = MakeItem(1, "test");
         var moves = new List<Point>();
@@ -1347,10 +1361,10 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void MoveRotateEditorReopensEveryCurrentChoiceAndUnchangedResaveKeepsSettings()
     {
-        // Current Octane order: 0 none, 1 random, 2 horizontal, 3 vertical, then S E N W NE SE SW NW; turns none, cw, ccw, random.
-        int[] storedDirection = [-1, 8, 9, 10, 4, 2, 0, 6, 1, 3, 5, 7];
+        // AIR order: 0 none, 1 random, 2 horizontal, 3 vertical, then N E S W NE SE SW NW; turns none, cw, ccw, random.
+        int[] storedDirection = [-1, 8, 9, 10, 0, 2, 4, 6, 1, 3, 5, 7];
         int[] storedTurn = [0, 2, 4, 6];
-        Point[] compass = [new(0, 1), new(1, 0), new(0, -1), new(-1, 0), new(1, -1), new(1, 1), new(-1, 1), new(-1, -1)];
+        Point[] compass = [new(0, -1), new(1, 0), new(0, 1), new(-1, 0), new(1, -1), new(1, 1), new(-1, 1), new(-1, -1)];
         var (room, _, _) = World();
 
         for (var movement = 0; movement <= 11; movement++) {
@@ -1468,10 +1482,10 @@ public class ModernWiredRuntimeTests
     }
 
     [Theory]
-    [InlineData(6, -1, 0, 0, 6, 0)]
+    [InlineData(6, -1, 4, 0, 6, 0)]
     [InlineData(-1, -1, -1, 0, 0, 0)]
     [InlineData(0, 2, -1, 4, 0, 2)]
-    [InlineData(4, 3, 4, 6, 4, 3)]
+    [InlineData(4, 3, 0, 6, 4, 3)]
     public void SavedThreeFieldRowsLoadAsTheSameMoveAndReopenInEditorOrder(int movement, int rotation, int direction, int turn, int shownMovement, int shownRotation)
     {
         var (room, _, _) = World();
