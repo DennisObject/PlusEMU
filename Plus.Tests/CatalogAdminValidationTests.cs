@@ -29,15 +29,13 @@ public class CatalogAdminValidationTests
     [InlineData("caption", "bad\u0001caption")]
     [InlineData("captionSave", "bad link")]
     [InlineData("pageLayout", "../../etc")]
-    [InlineData("pageText1", "two|texts")]
     public void RejectsBadText(string field, string value)
     {
         var page = field switch
         {
             "caption" => Valid with { Caption = value },
             "captionSave" => Valid with { CaptionSave = value },
-            "pageLayout" => Valid with { PageLayout = value },
-            _ => Valid with { PageText1 = value }
+            _ => Valid with { PageLayout = value }
         };
         Assert.Contains(field, Check(page).Keys);
     }
@@ -108,16 +106,20 @@ public class CatalogAdminValidationTests
         Assert.Contains("pointsType", CheckOffer(Offer with { PointsType = 101 }).Keys);
         Assert.Contains("amount", CheckOffer(Offer with { Amount = 0 }).Keys);
         Assert.Contains("songId", CheckOffer(Offer with { SongId = 3 }).Keys);
-        var sold = new CatalogOfferRow { Id = 5, PageId = 1, ItemId = "10", LimitedStack = 100, LimitedSells = 40 };
+        var sold = new CatalogOfferRow { Id = 5, PageId = 1, ItemId = "10", ProductPosition = 0, LimitedStack = 100, LimitedSells = 40 };
         Assert.Contains("limitedStack", CheckOffer(Offer with { LimitedStack = 39 }, sold).Keys);
         Assert.Empty(CheckOffer(Offer with { LimitedStack = 40 }, sold));
-        var habbicon = new CatalogOfferRow { Id = 6, PageId = 1, ItemId = "0", HabbiconId = 61 };
-        Assert.Empty(CheckOffer(Offer with { ItemIds = "0" }, habbicon));
+        var habbicon = new CatalogOfferRow { Id = 6, PageId = 1, HabbiconId = 61 };
+        Assert.Empty(CheckOffer(Offer with { ItemIds = "" }, habbicon));
         Assert.Contains("itemIds", CheckOffer(Offer with { ItemIds = "10" }, habbicon).Keys);
+        // An effect, badge, bot, pet or bundle offer has no single furniture to change either.
+        var bundle = new CatalogOfferRow { Id = 7, PageId = 1 };
+        Assert.Contains("itemIds", CheckOffer(Offer with { ItemIds = "10" }, bundle).Keys);
+        Assert.Contains("offerIdGroup", CheckOffer(Offer with { OfferIdClient = CatalogOfferIndex.CustomOfferIdBase }).Keys);
     }
 
     [Fact]
-    public void PageStringsKeepPositionsTheEditorDoesNotKnow()
+    public void PageSlotsKeepPositionsTheEditorDoesNotKnow()
     {
         var row = new CatalogPageRow
         {
@@ -127,8 +129,8 @@ public class CatalogAdminValidationTests
             PageLink = "old",
             PageLayout = "default_3x3",
             RequiredPermission = EditorTestSupport.RestrictedPagePermission,
-            PageStrings1 = "head|teaser",
-            PageStrings2 = "one|two|details|teaser text|fifth"
+            Images = ["head", "teaser"],
+            Texts = ["one", "two", "details", "teaser text", "fifth"]
         };
 
         var page = CatalogAdminMapping.ToPage(row);
@@ -136,10 +138,11 @@ public class CatalogAdminValidationTests
             (page.CatalogType, page.PageHeadline, page.PageTeaser, page.PageSpecial, page.PageText1, page.PageText2, page.PageTextDetails, page.PageTextTeaser, page.RequiredPermission));
 
         var saved = CatalogAdminMapping.Apply(page with { PageText1 = "new one", OrderNum = -1 }, row);
-        Assert.Equal("head|teaser", saved.PageStrings1);
-        Assert.Equal("new one|two|details|teaser text|fifth", saved.PageStrings2);
+        Assert.Equal(["head", "teaser"], saved.Images);
+        Assert.Equal(["new one", "two", "details", "teaser text", "fifth"], saved.Texts);
+        Assert.Equal(["one", "two", "details", "teaser text", "fifth"], row.Texts);
         Assert.Equal((EditorTestSupport.RestrictedPagePermission, 0), (saved.RequiredPermission, saved.OrderNum));
-        Assert.Equal("new|teaser", CatalogAdminMapping.WithImages(row, "new", "teaser").PageStrings1);
+        Assert.Equal(["new", "teaser"], CatalogAdminMapping.WithImages(row, "new", "teaser").Images);
         Assert.Null(CatalogAdminMapping.Apply(page with { RequiredPermission = "" }, row).RequiredPermission);
     }
 
@@ -147,7 +150,7 @@ public class CatalogAdminValidationTests
     public void OfferPointsMapToDucketsOrDiamonds()
     {
         var row = CatalogAdminMapping.Apply(Offer with { CostPoints = 25, PointsType = 5, ClubOnly = true, OfferIdClient = 0 }, null);
-        Assert.Equal((0, 25, 1, -1), (row.CostPixels, row.CostDiamonds, row.ClubLevel, row.OfferId));
+        Assert.Equal((0, 25, 1, -1), (row.CostPixels, row.CostDiamonds, row.ClubLevel, row.OfficialOfferId));
         var back = CatalogAdminMapping.ToOffer(row, 77, "NORMAL");
         Assert.Equal((25, 5, true, 77), (back.CostPoints, back.PointsType, back.ClubOnly, back.OfferId));
         var vip = new CatalogOfferRow { ClubLevel = 2 };

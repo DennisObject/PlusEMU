@@ -127,8 +127,8 @@ public static partial class CatalogAdminValidation
             errors["extradata"] = "Extra data is limited to 1024 characters.";
         }
 
-        if (offer.OfferIdClient < -1) {
-            errors["offerIdGroup"] = "Offer id cannot be negative.";
+        if (offer.OfferIdClient is < -1 or >= CatalogOfferIndex.CustomOfferIdBase) {
+            errors["offerIdGroup"] = $"An official offer id is between 1 and {CatalogOfferIndex.CustomOfferIdBase - 1}, or -1 for none.";
         }
 
         if (offer.LimitedStack is < 0 or > MaxPrice) {
@@ -214,10 +214,10 @@ public static partial class CatalogAdminValidation
     {
         var itemIds = offer.ItemIds.Trim();
 
-        // Habbicon offers sell an icon, not furniture; their item id is kept as it is.
-        if (existing is { HabbiconId: > 0 }) {
+        // Habbicons, effects, badges, bots, pets and bundles are not one piece of furniture; what they sell is kept as it is.
+        if (existing is { HasEditableItem: false }) {
             if (itemIds != existing.ItemId) {
-                errors["itemIds"] = "The item of a habbicon offer cannot change.";
+                errors["itemIds"] = "What this offer sells cannot change in the editor.";
             }
 
             return;
@@ -237,10 +237,7 @@ public static partial class CatalogAdminValidation
             return;
         }
 
-        if (value.Contains('|')) {
-            errors[field] = "'|' separates page texts and cannot be used.";
-        }
-        else if (value.Length > maxLength) {
+        if (value.Length > maxLength) {
             errors[field] = $"Limited to {maxLength} characters.";
         }
     }

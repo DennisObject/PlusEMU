@@ -25,19 +25,12 @@ public class CatalogPage
 
     public string Layout { get; set; } = string.Empty;
 
+    public List<string> Images { get; set; } = new();
 
-    public string? PageStrings1 { get; set; }
+    public List<string> Texts { get; set; } = new();
 
-    public string? PageStrings2 { get; set; }
-
-    public List<string> PageStringsList1 { get; set; } = new();
-
-    public List<string> PageStringsList2 { get; set; } = new();
-
-    public Dictionary<int, CatalogItem> Items { get; set; } = new();
-
-    // Offers by WireOfferId, in display order. Pages, purchases, gifts and preselection all resolve here.
-    public Dictionary<int, CatalogItem> Offers { get; set; } = new();
+    // Offers by id, in display order. Pages, purchases, gifts and preselection all resolve here.
+    public Dictionary<int, CatalogOffer> Offers { get; set; } = new();
 
     // Permission gates. Hidden pages (Visible = false) stay reachable by link, as on the official hotel.
     public bool IsAvailableTo(Habbo habbo)
@@ -49,13 +42,4 @@ public class CatalogPage
     }
 
     public bool CanOpen(Habbo habbo) => Enabled && IsAvailableTo(habbo);
-
-    public CatalogItem? GetItem(int pId)
-    {
-        if (Items.ContainsKey(pId)) {
-            return Items[pId];
-        }
-
-        return null;
-    }
 }

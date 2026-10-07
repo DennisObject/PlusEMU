@@ -46,11 +46,21 @@ public sealed class CatalogPageRow
     public int RequiredClubLevel { get; set; }
     public int OrderNum { get; set; }
     public string PageLayout { get; set; } = string.Empty;
-    public string PageStrings1 { get; set; } = string.Empty;
-    public string PageStrings2 { get; set; } = string.Empty;
-    public CatalogPageRow Copy() => (CatalogPageRow)MemberwiseClone();
+    public List<string> Images { get; set; } = new();
+    public List<string> Texts { get; set; } = new();
+
+    public CatalogPageRow Copy()
+    {
+        var copy = (CatalogPageRow)MemberwiseClone();
+        copy.Images = new(Images);
+        copy.Texts = new(Texts);
+
+        return copy;
+    }
 }
 
+// An offer as placed on one page. ItemId names the furniture of a single-furniture offer and is empty otherwise;
+// only such offers can change what they sell in the editor.
 public sealed class CatalogOfferRow
 {
     public int Id { get; set; }
@@ -63,12 +73,20 @@ public sealed class CatalogOfferRow
     public int Amount { get; set; }
     public int LimitedSells { get; set; }
     public int LimitedStack { get; set; }
-    public bool OfferActive { get; set; }
+    public bool BulkPurchase { get; set; }
+    public bool Enabled { get; set; }
     public string Extradata { get; set; } = string.Empty;
-    public int OfferId { get; set; }
     public int ClubLevel { get; set; }
     public int OrderNum { get; set; }
     public int HabbiconId { get; set; }
+
+    // Position of the product the editor edits; -1 when there is none to edit.
+    public int ProductPosition { get; set; } = -1;
+
+    public bool HasEditableItem => HabbiconId == 0 && ProductPosition >= 0;
+
+    // The official Habbo offer id, or -1 for an offer numbered by this hotel.
+    public int OfficialOfferId => Id is > 0 and < CatalogOfferIndex.CustomOfferIdBase ? Id : -1;
 
     public CatalogOfferRow Copy() => (CatalogOfferRow)MemberwiseClone();
 }

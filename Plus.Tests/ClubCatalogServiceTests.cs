@@ -103,17 +103,17 @@ public sealed class ClubCatalogServiceTests
         var definition = Definition();
         var item = Item(definition);
         var gift = new ClubGiftReceivedSnapshot(
-            item.CatalogName,
-            item.Definition.ProductType,
-            item.Definition.SpriteId,
+            item.LocalizationKey,
+            item.Product.WireType,
+            item.Product.ClassId,
             item.Amount);
         var first = new HabbiconTestSupport.RecordingPacket();
         new ClubGiftReceivedComposer(gift).Compose(first);
 
-        item.CatalogName = "changed";
-        item.Definition.ProductType = "i";
-        item.Definition.SpriteId = 999;
-        item.Amount = 99;
+        item.LocalizationKey = "changed";
+        definition.ProductType = "i";
+        definition.SpriteId = 999;
+        item.Products = [item.Product with { Amount = 99 }];
         var second = new HabbiconTestSupport.RecordingPacket();
         new ClubGiftReceivedComposer(gift).Compose(second);
 
@@ -164,14 +164,11 @@ public sealed class ClubCatalogServiceTests
         InteractionType = InteractionType.None
     };
 
-    private static CatalogItem Item(ItemDefinition definition) => new()
+    private static CatalogOffer Item(ItemDefinition definition) => new()
     {
-        Id = 7,
-        OfferId = 70,
-        CatalogName = "club_chair",
-        Definition = definition,
-        Amount = 1,
-        HaveOffer = true
+        Id = 70,
+        LocalizationKey = "club_chair",
+        Products = [new CatalogProduct { Type = CatalogProductType.Furni, Definition = definition }]
     };
 
     private sealed record TestContext(
@@ -215,7 +212,7 @@ public sealed class ClubCatalogServiceTests
 
     private sealed class RecordingRewards(bool claimSucceeds) : IClubRewards
     {
-        private readonly CatalogItem _item = Item(Definition());
+        private readonly CatalogOffer _item = Item(Definition());
         public int Claims { get; private set; }
         public int GiftReads { get; private set; }
 
@@ -295,7 +292,7 @@ public sealed class ClubCatalogServiceTests
             ImmutableArray<CatalogOfferSnapshot>.Empty,
             ImmutableArray<ClubGiftEntry>.Empty);
 
-        public CatalogOfferSnapshot CaptureOffer(CatalogItem item) => throw new NotSupportedException();
+        public CatalogOfferSnapshot CaptureOffer(CatalogOffer offer) => throw new NotSupportedException();
         public CatalogPageSnapshot CapturePage(CatalogPage page, int preselectOfferId) => throw new NotSupportedException();
         public CatalogIndexSnapshot CaptureIndex(Habbo habbo, ICollection<CatalogPage> pages) => throw new NotSupportedException();
     }

@@ -12,9 +12,8 @@ public interface ICatalogManager
     Task Init();
     bool TryGetBot(uint itemId, [NotNullWhen(true)] out CatalogBot? bot);
     bool TryGetPage(int pageId, [NotNullWhen(true)] out CatalogPage? page);
-    bool TryGetDeal(int dealId, [NotNullWhen(true)] out CatalogDeal? deal);
-    // First page the user can open that sells this official offer id.
-    bool TryGetOffer(int offerId, Habbo habbo, [NotNullWhen(true)] out CatalogPage? page, [NotNullWhen(true)] out CatalogItem? item);
+    // First page the user can open that sells this offer.
+    bool TryGetOffer(int offerId, Habbo habbo, [NotNullWhen(true)] out CatalogPage? page, [NotNullWhen(true)] out CatalogOffer? offer);
     ICollection<CatalogPage> Pages { get; }
     ICollection<CatalogPromotion> Promotions { get; }
     ICollection<ClubOffer> ClubOffers { get; }

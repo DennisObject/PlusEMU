@@ -46,17 +46,15 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
     private const int MaxHistoryPage = 100;
 
     private readonly IDatabase _database;
-    private readonly ICatalogManager _catalogManager;
     private readonly ICatalogCacheRefresher _refresher;
     private readonly ILogger<CatalogAdminService> _logger;
     private readonly ConcurrentDictionary<int, int> _viewedPages = new();
     // One emulator process owns the catalog, so serialising here keeps revision checks and writes atomic.
     private readonly object _sync = new();
 
-    public CatalogAdminService(IDatabase database, ICatalogManager catalogManager, ICatalogCacheRefresher refresher, ILogger<CatalogAdminService> logger)
+    public CatalogAdminService(IDatabase database, ICatalogCacheRefresher refresher, ILogger<CatalogAdminService> logger)
     {
         _database = database;
-        _catalogManager = catalogManager;
         _refresher = refresher;
         _logger = logger;
     }
@@ -123,6 +121,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
             var draft = page with { PageId = 0 };
             Reject(CatalogAdminValidation.Page(draft, null, actor.Access, store.Page));
             var row = CatalogAdminMapping.Apply(draft, null);
+            RequireStoredReferences(store, row);
 
             if (draft.OrderNum < 0) {
                 row.OrderNum = store.NextPageOrder(row.ParentId);
@@ -140,6 +139,7 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
             var existing = store.Page(page.PageId) ?? throw NotFound("Page");
             Reject(CatalogAdminValidation.Page(page, existing, actor.Access, store.Page));
             var row = CatalogAdminMapping.Apply(page, existing);
+            RequireStoredReferences(store, row);
             store.UpdatePage(row);
 
             return PageChange("UPDATE", existing, row, "Page saved");
@@ -310,6 +310,20 @@ public sealed partial class CatalogAdminService : ICatalogAdminService
         }
 
         return page;
+    }
+
+    // A page link is unique and a required permission must be a known one.
+    private static void RequireStoredReferences(CatalogAdminStore store, CatalogPageRow row)
+    {
+        if (row.PageLink.Length > 0 && store.PageWithLink(row.PageLink) is { } other && other != row.Id) {
+            throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, "Another page already uses this link.",
+                new Dictionary<string, string> { ["captionSave"] = "Another page already uses this link." });
+        }
+
+        if (row.RequiredPermission != null && !store.PermissionExists(row.RequiredPermission)) {
+            throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, "Unknown permission.",
+                new Dictionary<string, string> { ["requiredPermission"] = "Unknown permission." });
+        }
     }
 
     private static CatalogAdminRejected NotFound(string what) => new(CatalogAdminCodes.NotFound, $"{what} not found.");

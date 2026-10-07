@@ -68,12 +68,12 @@ public sealed class ClubCatalogService(
             return Task.CompletedTask;
         }
 
-        var definition = claim.Gift.Item.Definition;
+        var product = claim.Gift.Offer.Product;
         var received = new ClubGiftReceivedSnapshot(
-            claim.Gift.Item.CatalogName,
-            definition.ProductType,
-            definition.SpriteId,
-            claim.Gift.Item.Amount);
+            claim.Gift.Offer.LocalizationKey,
+            product.WireType,
+            product.ClassId,
+            product.Amount);
         var itemIds = claim.Items.Select(item => item.Id).ToArray();
         var gifts = rewards.Gifts(habbo);
         var giftList = snapshots.CaptureClubGifts(gifts);

@@ -25,8 +25,7 @@ public class EditorPermissionTests
     {
         var refresher = DispatchProxy.Create<ICatalogCacheRefresher, Recorder>();
 
-        return (new CatalogAdminService(EditorTestSupport.UntouchableDatabase(), DispatchProxy.Create<ICatalogManager, Recorder>(),
-            refresher, NullLogger<CatalogAdminService>.Instance), (Recorder)(object)refresher);
+        return (new CatalogAdminService(EditorTestSupport.UntouchableDatabase(), refresher, NullLogger<CatalogAdminService>.Instance), (Recorder)(object)refresher);
     }
 
     private static (FurniEditorService Service, Recorder Refresher) Furni()

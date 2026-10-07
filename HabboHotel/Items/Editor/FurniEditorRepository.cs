@@ -89,40 +89,32 @@ internal sealed class FurniEditorRepository
 
     public int UsageCount(uint id) => _connection.QuerySingle<int>("SELECT COUNT(*) FROM items WHERE base_item = @id", new { id }, _transaction);
 
-    // catalog_items.item_id is text; comparing with text keeps its index usable.
     // Filter by the same resolved permissions as the catalog before limiting the results.
     public List<FurniEditorCatalogRef> CatalogRefs(uint id, UserAccess access) => _connection.Query<FurniEditorCatalogRef>("""
-        SELECT ci.id AS Id, ci.catalog_name AS CatalogName, ci.cost_credits AS CostCredits, ci.cost_pixels AS CostPixels,
-        ci.cost_diamonds AS CostDiamonds, ci.page_id AS PageId, COALESCE(cp.caption, '') AS PageName
-        FROM catalog_items ci LEFT JOIN catalog_pages cp ON cp.id = ci.page_id
-        WHERE ci.item_id = @itemId AND (cp.required_permission IS NULL OR cp.required_permission = '' OR cp.required_permission IN @keys) ORDER BY ci.id LIMIT @limit
-        """, new { itemId = id.ToString(), keys = access.Keys.ToArray(), limit = MaxCatalogRefs }, _transaction).ToList();
+        SELECT o.id AS Id, o.localization_key AS CatalogName, o.cost_credits AS CostCredits, IF(o.points_type = 0, o.cost_points, 0) AS CostPixels,
+        IF(o.points_type = 5, o.cost_points, 0) AS CostDiamonds, cp.id AS PageId, cp.caption AS PageName
+        FROM catalog_offer_products p INNER JOIN catalog_offers o ON o.id = p.offer_id
+        INNER JOIN catalog_page_offers po ON po.offer_id = o.id INNER JOIN catalog_pages cp ON cp.id = po.page_id
+        WHERE p.furniture_id = @id AND (cp.required_permission IS NULL OR cp.required_permission IN @keys) ORDER BY o.id, cp.id LIMIT @limit
+        """, new { id, keys = access.Keys.ToArray(), limit = MaxCatalogRefs }, _transaction).ToList();
 
-    // Everything that still needs this definition: placed or owned furni, catalog offers and deals ("id*amount;..."),
+    // Everything that still needs this definition: placed or owned furni, catalog offers (bundles included),
     // unopened gifts and open marketplace listings (a listed item only exists as its definition id).
     public List<string> References(uint id)
     {
         var references = new List<string>();
-        var parameters = new { id, itemId = id.ToString() };
         void Count(string sql, string label)
         {
-            int count = _connection.QuerySingle<int>(sql, parameters, _transaction);
+            int count = _connection.QuerySingle<int>(sql, new { id }, _transaction);
 
             if (count > 0) {
                 references.Add($"{count} {label}");
             }
         }
         Count("SELECT COUNT(*) FROM items WHERE base_item = @id", "placed or owned items");
-        Count("SELECT COUNT(*) FROM catalog_items WHERE item_id = @itemId", "catalog offers");
+        Count("SELECT COUNT(DISTINCT offer_id) FROM catalog_offer_products WHERE furniture_id = @id", "catalog offers");
         Count("SELECT COUNT(*) FROM user_presents WHERE base_id = @id", "unopened gifts");
         Count("SELECT COUNT(*) FROM catalog_marketplace_offers WHERE item_id = @id AND state = '1'", "open marketplace offers");
-        var deals = _connection.Query<(int Id, string Items)>("SELECT id, items FROM catalog_deals WHERE items LIKE CONCAT('%', @itemId, '%')", parameters, _transaction)
-            .Where(deal => deal.Items.Split(';').Any(entry => entry.Split('*')[0].Trim() == parameters.itemId))
-            .Select(deal => $"#{deal.Id}").ToList();
-
-        if (deals.Count > 0) {
-            references.Add($"catalog deals {string.Join(", ", deals)}");
-        }
 
         return references;
     }

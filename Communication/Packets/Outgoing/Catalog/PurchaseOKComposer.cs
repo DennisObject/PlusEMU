@@ -17,7 +17,7 @@ public class PurchaseOKComposer : IServerPacket
     {
         if (_confirmation != null) {
 
-            packet.WriteUInteger(_confirmation.Id);
+            packet.WriteInteger(_confirmation.OfferId);
             packet.WriteString(_confirmation.Name);
             packet.WriteBoolean(false);
             packet.WriteInteger(_confirmation.Credits);
@@ -33,7 +33,7 @@ public class PurchaseOKComposer : IServerPacket
                 packet.WriteBoolean(false);
             }
             else {
-                packet.WriteInteger(_confirmation.SpriteId);
+                packet.WriteInteger(_confirmation.ClassId);
                 packet.WriteString("");
                 packet.WriteInteger(1);
                 packet.WriteInteger(0);

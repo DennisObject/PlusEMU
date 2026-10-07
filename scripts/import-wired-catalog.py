@@ -20,12 +20,29 @@ TABLES = {
                   'allow_recycle', 'allow_trade', 'allow_marketplace_sell', 'allow_gift',
                   'allow_inventory_stack', 'behaviour_data', 'interaction_modes_count', 'vending_ids',
                   'height_adjustable', 'effect_id', 'is_rare', 'clothing_id', 'extra_rot'],
-    'catalog_pages': ['id', 'parent_id', 'page_link', 'caption', 'page_layout', 'required_permission',
-                      'visible', 'enabled', 'icon_image', 'required_club_level', 'order_num', 'page_strings_1', 'page_strings_2'],
-    'catalog_items': ['id', 'page_id', 'item_id', 'catalog_name', 'cost_credits', 'cost_pixels',
-                      'cost_diamonds', 'amount', 'limited_sells', 'limited_stack', 'offer_active',
-                      'extradata', 'badge', 'offer_id'],
+    'catalog_pages': ['id', 'parent_id', 'link', 'caption', 'layout', 'required_permission',
+                      'visible', 'enabled', 'icon', 'required_club_level', 'position'],
+    'catalog_page_images': ['page_id', 'slot', 'image'],
+    'catalog_page_texts': ['page_id', 'slot', 'text'],
+    'catalog_offers': ['id', 'localization_key', 'cost_credits', 'cost_points', 'points_type', 'club_level',
+                       'bulk_purchase', 'enabled', 'preview_image'],
+    'catalog_offer_products': ['offer_id', 'position', 'product_type', 'furniture_id', 'effect_id', 'badge_code',
+                               'bot_preset_id', 'pet_type', 'habbicon_id', 'amount', 'extra_param'],
+    'catalog_offer_limited': ['offer_id', 'stack', 'sold'],
+    'catalog_page_offers': ['page_id', 'offer_id', 'position'],
 }
+PRIMARY = {table: ('id',) for table in ('furniture', 'catalog_pages', 'catalog_offers')}
+PRIMARY.update({'catalog_page_images': ('page_id', 'slot'), 'catalog_page_texts': ('page_id', 'slot'),
+                'catalog_offer_products': ('offer_id', 'position'), 'catalog_offer_limited': ('offer_id',),
+                'catalog_page_offers': ('page_id', 'offer_id')})
+PAGE_IMAGES = ['catalog_wired_header1', '']
+PAGE_TEXTS = ['Wired furniture available in this engine.', '']
+# Offers without an official Habbo offer id are numbered from here.
+CUSTOM_OFFER_ID_BASE = 1000000000
+
+
+def key(table, row):
+    return tuple(row[column] for column in PRIMARY[table])
 
 
 def guard():
@@ -71,15 +88,17 @@ class Database:
 
 
 def read_snapshot(db, lock=False):
+    names = ','.join(f"'{table}'" for table in TABLES)
     engines = db.query("SELECT JSON_OBJECT('table',TABLE_NAME,'engine',ENGINE) FROM information_schema.TABLES "
-                       "WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('furniture','catalog_pages','catalog_items');")
+                       f"WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ({names});")
     if len(engines) != len(TABLES) or any(row['engine'] != 'InnoDB' for row in engines):
-        raise ValueError('All three catalogue tables must exist and use transactional InnoDB.')
+        raise ValueError('All catalogue tables must exist and use transactional InnoDB.')
     snapshot = {}
     for table, columns in TABLES.items():
         pairs = ','.join(f"'{col}'," + (f"CAST(`{col}` AS UNSIGNED)" if col in ('visible', 'enabled') else f"`{col}`") for col in columns)
         # Full index scans lock records and gaps on apply. No hotel users/items are read.
-        snapshot[table] = db.query(f'SELECT JSON_OBJECT({pairs}) FROM `{table}` ORDER BY id' + (' FOR UPDATE;' if lock else ';'))
+        order = ','.join(PRIMARY[table])
+        snapshot[table] = db.query(f'SELECT JSON_OBJECT({pairs}) FROM `{table}` ORDER BY {order}' + (' FOR UPDATE;' if lock else ';'))
     return snapshot
 
 
@@ -166,18 +185,34 @@ def validate_ledger(manifest, ledger):
     return support
 
 
+def page_strings(snapshot, table, column, page):
+    return [row[column] for row in snapshot[table] if row['page_id'] == page['id']]
+
+
 def plan(manifest, ledger, snapshot):
     support = validate_ledger(manifest, ledger)
-    pages = [p for p in snapshot['catalog_pages'] if p['page_link'].lower() == PAGE_LINK]
+    pages = [p for p in snapshot['catalog_pages'] if (p['link'] or '').lower() == PAGE_LINK]
     if len(pages) > 1:
         raise ValueError('Duplicate import page link.')
     page = pages[0] if pages else None
-    expected_page = dict(parent_id=-1, caption='Recently Added', page_layout='default_3x3', required_permission=None,
-                         visible=1, enabled=1, icon_image=1, required_club_level=0, order_num=999,
-                         page_strings_1='catalog_wired_header1|',
-                         page_strings_2='Wired furniture available in this engine.|')
-    if page and any(page[key] != value for key, value in expected_page.items()):
+    expected_page = dict(parent_id=None, caption='Recently Added', layout='default_3x3', required_permission=None,
+                         visible=1, enabled=1, icon=1, required_club_level=0, position=999)
+    if page and (any(page[key] != value for key, value in expected_page.items())
+                 or page_strings(snapshot, 'catalog_page_images', 'image', page) != PAGE_IMAGES
+                 or page_strings(snapshot, 'catalog_page_texts', 'text', page) != PAGE_TEXTS):
         raise ValueError('Import page link belongs to a different page configuration.')
+    offers_by_id = {o['id']: o for o in snapshot['catalog_offers']}
+    products = {}
+    for product in snapshot['catalog_offer_products']:
+        products.setdefault(product['offer_id'], []).append(product)
+    limited = {row['offer_id'] for row in snapshot['catalog_offer_limited']}
+    on_page = {row['offer_id'] for row in snapshot['catalog_page_offers'] if page and row['page_id'] == page['id']}
+
+    def sells_only(offer_id, definition_id):
+        sold = products.get(offer_id, [])
+        return definition_id is not None and len(sold) == 1 and sold[0]['product_type'] == 'furni' \
+            and sold[0]['furniture_id'] == definition_id and sold[0]['amount'] == 1 and sold[0]['extra_param'] == ''
+
     definitions, offers, excluded, reused = [], [], [], []
     for entry in manifest['entries']:
         name = entry['name']
@@ -201,20 +236,25 @@ def plan(manifest, ledger, snapshot):
                 excluded.append({'name': name, 'reason': 'sprite_already_owned', 'existing_names': [r['item_name'] for r in collisions]})
                 continue
             definitions.append(entry)
-        if entry['offer_id'] > 0 and any(r['offer_id'] == entry['offer_id'] and
-                (row is None or r['item_id'] != str(row['id'])) for r in snapshot['catalog_items']):
-            raise ValueError('Official offer ID belongs to another product: ' + name)
-        current = [r for r in snapshot['catalog_items'] if page and r['page_id'] == page['id'] and r['catalog_name'].lower() == name]
+        official = entry['offer_id'] if entry['offer_id'] > 0 else None
+        if official in offers_by_id:
+            if not sells_only(official, row['id'] if row else None):
+                raise ValueError('Official offer ID belongs to another product: ' + name)
+            # The hotel already sells this offer; it is only placed on the import page.
+            if official not in on_page:
+                offers.append({'name': name, 'definition_id': row['id'], 'offer_id': official, 'exists': True})
+            continue
+        current = [o for o in snapshot['catalog_offers'] if o['id'] in on_page and o['localization_key'].lower() == name]
         if len(current) > 1:
             raise ValueError('Duplicate import offer: ' + name)
         if current:
-            expected = dict(item_id=str(row['id']) if row else None, cost_credits=0, cost_pixels=0,
-                            cost_diamonds=0, amount=1, limited_sells=0, limited_stack=0,
-                            offer_active=1, extradata='', badge='', offer_id=entry['offer_id'])
-            if any(current[0][k] != value for k, value in expected.items()):
+            offer = current[0]
+            expected = dict(cost_credits=0, cost_points=0, points_type=0, club_level=0, bulk_purchase=1, enabled=1)
+            if any(offer[k] != value for k, value in expected.items()) or offer['id'] in limited or not sells_only(offer['id'], row['id'] if row else None) \
+                    or (official is not None and offer['id'] != official):
                 raise ValueError('Import offer has conflicting item/pricing: ' + name)
         else:
-            offers.append({'name': name, 'definition_id': row['id'] if row else None, 'offer_id': entry['offer_id']})
+            offers.append({'name': name, 'definition_id': row['id'] if row else None, 'offer_id': entry['offer_id'], 'exists': False})
     return {'engine_commit': ledger['engineCommit'],
             'factory_implemented': sum(r['support'] == 'Implemented' for r in ledger['boxes']),
             'auxiliary_supported': sum(r['supported'] for r in ledger.get('auxiliaries', [])),
@@ -238,10 +278,13 @@ def insert(table, row):
 def statements(result):
     sql = []
     if result['new_page']:
-        sql += [insert('catalog_pages', dict(parent_id=-1, caption='Recently Added', icon_image=1,
-                 visible=1, enabled=1, required_permission=None, required_club_level=0, order_num=999, page_link=PAGE_LINK,
-                 page_layout='default_3x3', page_strings_1='catalog_wired_header1|',
-                 page_strings_2='Wired furniture available in this engine.|')), 'SET @wired_page=LAST_INSERT_ID();']
+        sql += [insert('catalog_pages', dict(parent_id=None, caption='Recently Added', icon=1, visible=1, enabled=1,
+                 required_permission=None, required_club_level=0, position=999, link=PAGE_LINK, layout='default_3x3')),
+                'SET @wired_page=LAST_INSERT_ID();']
+        sql += ['INSERT INTO `catalog_page_images` (`page_id`,`slot`,`image`) VALUES (@wired_page,' + str(slot) + ',' + literal(image) + ');'
+                for slot, image in enumerate(PAGE_IMAGES)]
+        sql += ['INSERT INTO `catalog_page_texts` (`page_id`,`slot`,`text`) VALUES (@wired_page,' + str(slot) + ',' + literal(text) + ');'
+                for slot, text in enumerate(PAGE_TEXTS)]
     elif result['offers']:
         sql.append(f"SET @wired_page={result['page_id']};")
     new = {r['name']: r for r in result['definitions']}
@@ -259,8 +302,16 @@ def statements(result):
         else:
             sql.append(f"SET @wired_item={offer['definition_id']};")
         # Variables are created only by this function, never from input SQL.
-        sql.append('INSERT INTO catalog_items (page_id,item_id,catalog_name,cost_credits,cost_pixels,cost_diamonds,amount,offer_id) '
-                   + 'VALUES (@wired_page,CAST(@wired_item AS CHAR),' + literal(name) + ',0,0,0,1,' + literal(offer['offer_id']) + ');')
+        if offer['offer_id'] > 0:
+            sql.append(f"SET @wired_offer={int(offer['offer_id'])};")
+        else:
+            sql.append(f'SET @wired_offer=(SELECT GREATEST(COALESCE(MAX(`id`),0)+1,{CUSTOM_OFFER_ID_BASE}) FROM `catalog_offers` WHERE `id`>={CUSTOM_OFFER_ID_BASE});')
+        if not offer.get('exists'):
+            sql.append('INSERT INTO `catalog_offers` (`id`,`localization_key`,`cost_credits`,`cost_points`,`points_type`,`club_level`,`bulk_purchase`,`enabled`) '
+                       + 'VALUES (@wired_offer,' + literal(name) + ',0,0,0,0,1,1);')
+            sql.append('INSERT INTO `catalog_offer_products` (`offer_id`,`position`,`product_type`,`furniture_id`,`amount`) VALUES (@wired_offer,0,\'furni\',@wired_item,1);')
+        sql.append('INSERT INTO `catalog_page_offers` (`page_id`,`offer_id`,`position`) SELECT @wired_page,@wired_offer,COALESCE(MAX(`position`)+1,0) '
+                   + 'FROM `catalog_page_offers` WHERE `page_id`=@wired_page;')
     return '\n'.join(sql)
 
 

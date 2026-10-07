@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Dapper;
 using MySqlConnector;
-using Plus.HabboHotel.Catalog;
 using Xunit;
 
 namespace Plus.Tests;
@@ -36,10 +35,7 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
         }
 
         var before = connection.Query<Row>("SELECT * FROM catalog_items ORDER BY id").ToArray();
-        var page = Page(connection);
-        var index = new CatalogOfferIndex();
-        index.Build([page]);
-        Assert.All(entries, entry => Assert.False(index.TryGet(entry.Offer, EditorTestSupport.Player(), out _, out _)));
+        Assert.All(before, row => Assert.Equal(-1, row.offer_id));
 
         connection.Execute(Migration);
 
@@ -49,14 +45,6 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
         for (var i = 0; i < entries.Length; i++) {
             Assert.Equal(entries[i].Offer, after[i].offer_id);
             Assert.Equal(before[i], after[i] with { offer_id = before[i].offer_id });
-        }
-
-        index.Build([Page(connection)]);
-
-        for (var i = 0; i < entries.Length; i++) {
-            Assert.True(index.TryGet(entries[i].Offer, EditorTestSupport.Player(), out _, out var item));
-            Assert.Equal(i + 1, item.Id);
-            Assert.Equal(3, item.CostCredits);
         }
 
         connection.Execute(Migration);
@@ -139,25 +127,6 @@ public sealed class WiredCatalogOfferDatabaseTests : IDisposable
         using var admin = new MySqlConnection(Environment.GetEnvironmentVariable(WiredCatalogDatabaseFactAttribute.Variable));
         admin.Open();
         admin.Execute($"DROP DATABASE `{_schema}`");
-    }
-
-    private static CatalogPage Page(MySqlConnection connection)
-    {
-        var page = new CatalogPage { Id = 912363, ParentId = -1, Enabled = true, Visible = true };
-
-        foreach (var row in connection.Query<Row>("SELECT * FROM catalog_items ORDER BY id")) {
-            page.Items[row.id] = new CatalogItem
-            {
-                Id = row.id,
-                ItemId = uint.Parse(row.item_id),
-                PageId = row.page_id,
-                OfferId = row.offer_id,
-                CostCredits = row.cost_credits,
-                ClubLevel = row.club_level
-            };
-        }
-
-        return page;
     }
 
     private sealed record Row(int id, int page_id, string item_id, int offer_id, int cost_credits, int offer_active, int club_level);

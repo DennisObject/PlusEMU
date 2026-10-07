@@ -41,10 +41,8 @@ public class CatalogStructureWireTests
         var page = new CatalogPage { Id = id, ParentId = parentId, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", RequiredPermission = requiredPermission };
 
         foreach (var offerId in offerIds) {
-            page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id };
+            page.Offers[offerId] = new CatalogOffer { Id = offerId };
         }
-
-        new CatalogOfferIndex().Build([page]);
 
         return page;
     }
@@ -109,55 +107,21 @@ public class CatalogStructureWireTests
         Assert.Equal(TimeSpan.Zero, new CatalogPromotion().RemainingAt(now));
     }
 
-    private static CatalogItem Item(int id, int offerId, int pageId) => new() { Id = id, OfferId = offerId, PageId = pageId };
-
-    [Fact]
-    public void PagesKeepOfficialOfferIdsAndGiveEveryOtherRowAUniqueId()
-    {
-        // Row 4 sells offer 5 and row 5 sells offer 18: buying "5" must return row 4, the one the page showed as 5.
-        var page = Page(55, -1);
-        page.Items = new()
-        {
-            [4] = Item(4, 5, 55),
-            [5] = Item(5, 18, 55),
-            [6] = Item(6, -1, 55),
-            [18] = Item(18, -1, 55),
-            [827] = Item(827, 590, 55),
-            [828] = Item(828, 590, 55)
-        };
-        var index = new CatalogOfferIndex();
-
-        index.Build([page]);
-
-        Assert.Equal(6, page.Offers.Count);
-        Assert.True(index.TryGet(590, EditorTestSupport.Player(), out _, out var shared));
-        Assert.Equal(827, shared.Id);
-        Assert.Equal(4, page.Offers[5].Id);
-        Assert.Equal(5, page.Offers[18].Id);
-        Assert.Equal(6, page.Offers[6].Id);
-        // A legacy row whose id is an official offer id on the page moves aside instead of shadowing it.
-        Assert.Equal(18, page.Offers[CatalogOfferIndex.ClashingRowIdBase + 18].Id);
-        // The first row naming a shared offer id keeps it; later ones keep their row ids.
-        Assert.Equal(827, page.Offers[590].Id);
-        Assert.Equal(828, page.Offers[828].Id);
-        Assert.Equal([5, 18, 590], CatalogOfferIndex.OfficialOfferIds(page).Order());
-    }
-
     [Fact]
     public void SharedOffersStayOnEveryPageAndLookupsSkipPagesTheUserCannotOpen()
     {
         var user = EditorTestSupport.Player();
         var staff = Page(1, -1, requiredPermission: EditorTestSupport.RestrictedPagePermission);
         var normal = Page(2, -1);
-        staff.Items = new() { [10] = Item(10, 6, 1) };
-        normal.Items = new() { [20] = Item(20, 6, 2) };
+        var shared = new CatalogOffer { Id = 6 };
+        staff.Offers[6] = shared;
+        normal.Offers[6] = shared;
         var index = new CatalogOfferIndex();
         index.Build([staff, normal]);
 
-        Assert.All(new[] { staff, normal }, page => Assert.True(page.Offers.ContainsKey(6)));
-        Assert.True(index.TryGet(6, user, out var found, out var item));
+        Assert.True(index.TryGet(6, user, out var found, out var offer));
         Assert.Equal(2, found.Id);
-        Assert.Equal(20, item.Id);
+        Assert.Same(shared, offer);
         Assert.False(index.TryGet(99, user, out _, out _));
     }
 }

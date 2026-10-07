@@ -5,7 +5,7 @@ using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Subscriptions;
 
-public sealed record ClubGift(CatalogItem Item, int DaysRequired);
+public sealed record ClubGift(CatalogOffer Offer, int DaysRequired);
 public sealed record ClubGiftInfo(int DaysUntilNextGift, int Available, long PastDays, IReadOnlyList<ClubGift> Gifts);
 public sealed record ClubGiftClaim(ClubGift Gift, IReadOnlyList<InventoryItem> Items);
 public sealed record ClubKickback(int Streak, string FirstDate, double Percentage, int Missed, int Rewarded,

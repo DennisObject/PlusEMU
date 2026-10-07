@@ -116,7 +116,7 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
             return Task.CompletedTask;
         }
 
-        if (!page.Offers.TryGetValue(itemId, out var item)) {
+        if (!page.Offers.TryGetValue(itemId, out var item) || !item.Enabled) {
             return Task.CompletedTask;
         }
 
@@ -124,9 +124,12 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
             return Task.CompletedTask;
         }
 
+        // Only a single piece of furniture can be wrapped, so the offer's definition is known from here on.
         if (!ItemUtility.CanGiftItem(item)) {
             return Task.CompletedTask;
         }
+
+        var definition = item.Definition!;
 
         if (!_itemManager.Gifts.TryGetValue(spriteId, out var presentId) || !_itemManager.Items.TryGetValue(presentId, out var presentData) || presentData.InteractionType != InteractionType.Gift) {
             return Task.CompletedTask;
@@ -180,11 +183,11 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                 return Task.CompletedTask;
             }
 
-            var extra_data = GiftWrap.PresentData(giftUser, giftMessage, session.GetHabbo().Id, item.Definition.Id, spriteId, boxId, ribbonId);
+            var extra_data = GiftWrap.PresentData(giftUser, giftMessage, session.GetHabbo().Id, definition.Id, spriteId, boxId, ribbonId);
             string? itemExtraData = null;
             var progressPetAchievement = false;
 
-            switch (item.Definition.InteractionType) {
+            switch (definition.InteractionType) {
                 case InteractionType.None:
                     itemExtraData = "";
                     break;
@@ -231,7 +234,7 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                     itemExtraData = $"{data}{Convert.ToChar(9)}{sender.Username}{Convert.ToChar(9)}{utcNow.Day}-{utcNow.Month}-{utcNow.Year}";
                     break;
                 default:
-                    itemExtraData = item.Definition.InteractionType is InteractionType.CameraPicture or InteractionType.Background
+                    itemExtraData = definition.InteractionType is InteractionType.CameraPicture or InteractionType.Background
                         || FurniExtraData.RejectsClientImage(new[] { data })
                         ? ""
                         : data;
@@ -246,11 +249,11 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                     return false;
                 }
 
-                giveItem = _giftStore.Create(connection, transaction, habbo.Id, presentData, item.Definition,
+                giveItem = _giftStore.Create(connection, transaction, habbo.Id, presentData, definition,
                     extra_data, itemExtraData ?? "");
 
                 return true;
-            }, ClubRewards.EligibleCatalogPurchase(item.CatalogName))) {
+            }, ClubRewards.EligibleCatalogPurchase(item.LocalizationKey))) {
                 session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
 
                 return Task.CompletedTask;
@@ -282,7 +285,7 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                 }
             }
 
-            session.Send(new PurchaseOKComposer(CatalogPurchaseConfirmation.Capture(item, presentData)));
+            session.Send(new PurchaseOKComposer(CatalogPurchaseConfirmation.Capture(item, new CatalogProduct { Type = CatalogProductType.Furni, Definition = presentData })));
 
             if (item.CostCredits > 0) {
                 session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));

@@ -91,7 +91,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
 
         var utcNow = _clock.GetUtcNow();
         var pageId = request.PageId;
-        var itemId = request.OfferId;
+        var offerId = request.OfferId;
         var extraData = request.ExtraData;
         var amount = request.Amount;
 
@@ -110,26 +110,24 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                 return;
             }
 
-            PurchaseClubOffer(session, itemId, utcNow);
+            PurchaseClubOffer(session, offerId, utcNow);
 
             return;
         }
 
-        if (!page.Offers.TryGetValue(itemId, out var item)) {
+        if (!page.Offers.TryGetValue(offerId, out var offer) || !offer.Enabled || !offer.CanPurchase(session.GetHabbo())) {
             return;
         }
 
-        if (!item.CanPurchase(session.GetHabbo())) {
-            return;
-        }
+        var product = offer.Product;
 
-        if (item.HabbiconId > 0) {
+        if (product.Type == CatalogProductType.Habbicon) {
             try {
-                if (amount != 1 || item.Amount != 1 || item.IsLimited) {
+                if (amount != 1 || offer.IsLimited) {
                     throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
                 }
 
-                var change = _habbicons.BuyCatalog(session.GetHabbo(), item.HabbiconId, item.CostCredits, item.CostPixels, item.CostDiamonds);
+                var change = _habbicons.BuyCatalog(session.GetHabbo(), product.HabbiconId, offer.CostCredits, offer.CostPixels, offer.CostDiamonds);
                 HabbiconMessages.Publish(session, change);
                 session.Send(new PurchaseOKComposer());
             }
@@ -137,21 +135,21 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                 session.Send(new PurchaseErrorComposer((PurchaseError)rejected.Code));
             }
             catch (MySqlConnector.MySqlException exception) {
-                _logger.LogError(exception, "Failed to purchase habbicon {HabbiconId}", item.HabbiconId);
+                _logger.LogError(exception, "Failed to purchase habbicon {HabbiconId}", product.HabbiconId);
                 session.Send(new PurchaseErrorComposer(PurchaseError.DeliveryFailed));
             }
 
             return;
         }
 
-        if (amount < 1 || amount > 100 || !item.HaveOffer) {
+        if (amount < 1 || amount > 100 || !ItemUtility.CanSelectAmount(offer)) {
             amount = 1;
         }
 
-        var amountPurchase = item.Amount > 1 ? item.Amount : amount;
-        var totalCreditsCost = amount > 1 ? item.CostCredits * amount - (int)Math.Floor((double)amount / 6) * item.CostCredits : item.CostCredits;
-        var totalPixelCost = amount > 1 ? item.CostPixels * amount - (int)Math.Floor((double)amount / 6) * item.CostPixels : item.CostPixels;
-        var totalDiamondCost = amount > 1 ? item.CostDiamonds * amount - (int)Math.Floor((double)amount / 6) * item.CostDiamonds : item.CostDiamonds;
+        var amountPurchase = product.Amount > 1 ? product.Amount : amount;
+        var totalCreditsCost = amount > 1 ? offer.CostCredits * amount - (int)Math.Floor((double)amount / 6) * offer.CostCredits : offer.CostCredits;
+        var totalPixelCost = amount > 1 ? offer.CostPixels * amount - (int)Math.Floor((double)amount / 6) * offer.CostPixels : offer.CostPixels;
+        var totalDiamondCost = amount > 1 ? offer.CostDiamonds * amount - (int)Math.Floor((double)amount / 6) * offer.CostDiamonds : offer.CostDiamonds;
 
         if (session.GetHabbo().Credits < totalCreditsCost || session.GetHabbo().Duckets < totalPixelCost || session.GetHabbo().Diamonds < totalDiamondCost) {
             return;
@@ -160,67 +158,29 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         var limitedEditionSells = 0u;
         var limitedEditionStack = 0u;
 
-        switch (item.Definition.InteractionType) {
-            case InteractionType.None:
-                extraData = "";
-                break;
-            case InteractionType.GuildItem:
-            case InteractionType.GuildGate:
-                if (FurniExtraData.RejectsClientImage(new[] { extraData })) {
-                    extraData = "";
+        switch (product.Type) {
+            case CatalogProductType.Furni when !offer.IsBundle:
+                if (ReadFurniExtraData(session, product.Definition!, extraData, utcNow) is not { } furniExtraData) {
+                    return;
                 }
 
+                extraData = furniExtraData;
                 break;
-            case InteractionType.Pet:
+            case CatalogProductType.Pet:
                 if (!PetUtility.TryReadPurchase(extraData, out _, out _, out _)) {
                     return;
                 }
 
                 break;
-            case InteractionType.Floor:
-            case InteractionType.Wallpaper:
-            case InteractionType.Landscape:
-                double number = 0;
-
-                try {
-                    number = string.IsNullOrEmpty(extraData) ? 0 : double.Parse(extraData, CultureInfo.InvariantCulture);
-                }
-                catch (Exception e) {
-                    _logger.LogWarning(e, "Invalid catalog floor extra data {ExtraData}", extraData);
-                }
-
-                extraData = number.ToString(CultureInfo.InvariantCulture);
-                break; // maintain extra data // todo: validate
-            case InteractionType.Postit:
-                extraData = "FFFF33";
-                break;
-            case InteractionType.Moodlight:
-                extraData = "1,1,1,#000000,255";
-                break;
-            case InteractionType.Trophy:
-                extraData = $"{session.GetHabbo().Username}{Convert.ToChar(9)}{utcNow.Day}-{utcNow.Month}-{utcNow.Year}{Convert.ToChar(9)}{extraData}";
-                break;
-            case InteractionType.Mannequin:
-                extraData = $"m{Convert.ToChar(5)}.ch-210-1321.lg-285-92{Convert.ToChar(5)}Default Mannequin";
-                break;
-            case InteractionType.BadgeDisplay:
-                if (!session.GetHabbo().Inventory.Badges.HasBadge(extraData)) {
-                    session.Send(new BroadcastMessageAlertComposer("Oops, it appears that you do not own this badge."));
+            case CatalogProductType.Badge:
+                if (session.GetHabbo().Inventory.Badges.HasBadge(product.BadgeCode)) {
+                    session.Send(new PurchaseErrorComposer(PurchaseError.Rejected));
 
                     return;
                 }
 
-                extraData = $"{extraData}{Convert.ToChar(9)}{session.GetHabbo().Username}{Convert.ToChar(9)}{utcNow.Day}-{utcNow.Month}-{utcNow.Year}";
+                extraData = "";
                 break;
-            case InteractionType.Badge: {
-                    if (session.GetHabbo().Inventory.Badges.HasBadge(item.Definition.ItemName)) {
-                        session.Send(new PurchaseErrorComposer(PurchaseError.Rejected));
-
-                        return;
-                    }
-
-                    break;
-                }
             default:
                 extraData = "";
                 break;
@@ -230,26 +190,27 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         {
             var soldOut = false;
 
-            if (!item.CanPurchase(session.GetHabbo()) || !_clubRewards.Charge(session.GetHabbo(), totalCreditsCost, totalPixelCost, totalDiamondCost, (connection, transaction) =>
+            if (!offer.CanPurchase(session.GetHabbo()) || !_clubRewards.Charge(session.GetHabbo(), totalCreditsCost, totalPixelCost, totalDiamondCost, (connection, transaction) =>
             {
-                if (!item.CanPurchase(session.GetHabbo())) {
+                if (!offer.CanPurchase(session.GetHabbo())) {
                     return false;
                 }
 
-                if (item.IsLimited) {
-                    if (CatalogLimitedStock.Reserve(connection, transaction, item.Id) is not { } serial) {
+                if (offer.IsLimited) {
+                    if (CatalogLimitedStock.Reserve(connection, transaction, offer.Id) is not { } serial) {
                         soldOut = true;
 
                         return false;
                     }
 
                     limitedEditionSells = (uint)serial;
-                    limitedEditionStack = item.LimitedEditionStack;
+                    limitedEditionStack = offer.LimitedStack;
                 }
 
                 return deliver?.Invoke(connection, transaction) ?? true;
-            }, ClubRewards.EligibleCatalogPurchase(item.CatalogName))) {
+            }, ClubRewards.EligibleCatalogPurchase(offer.LocalizationKey))) {
                 if (soldOut) {
+                    offer.LimitedSells = offer.LimitedStack;
                     session.SendNotification("This item has sold out! You have not been charged.");
                     session.Send(new CatalogUpdatedComposer());
                     session.Send(new PurchaseOKComposer());
@@ -258,8 +219,8 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                 return false;
             }
 
-            if (item.IsLimited) {
-                item.LimitedEditionSells = Math.Max(item.LimitedEditionSells, limitedEditionSells);
+            if (offer.IsLimited) {
+                offer.LimitedSells = Math.Max(offer.LimitedSells, limitedEditionSells);
             }
 
             if (totalCreditsCost > 0) {
@@ -277,186 +238,81 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
             return true;
         }
 
-        Bot? purchasedBot = null;
-
-        if (item.Definition.ProductType == "r") {
-            if (!_catalogManager.TryGetBot(item.Definition.Id, out var botPreset)) {
-                session.SendNotification("Oops! There was an error whilst purchasing this bot. It seems that there is no bot data for the bot!");
-
-                return;
-            }
-
-            if (!ChargePurchase((connection, transaction) =>
-                {
-                    purchasedBot = _botPurchases.Create(connection, transaction, botPreset, session.GetHabbo().Id);
-
-                    return true;
-                })) {
-                return;
-            }
-        }
-        else if (item.Definition.ProductType != "p" && !ChargePurchase()) {
-            return;
-        }
-
-        switch (item.Definition.ProductType) {
-            default:
-                var generatedGenericItems = new List<Item>();
-                Item newItem;
-
-                switch (item.Definition.InteractionType) {
-                    default:
-                        if (amountPurchase > 1) {
-                            var items = _itemFactory.CreateMultipleItems(item.Definition, session.GetHabbo(), extraData, amountPurchase);
-
-                            if (items != null) {
-                                generatedGenericItems.AddRange(items);
-                            }
-                        }
-                        else {
-                            newItem = _itemFactory.CreateSingleItemNullable(item.Definition, session.GetHabbo(), extraData, extraData, 0, limitedEditionSells, limitedEditionStack);
-
-                            if (newItem != null) {
-                                generatedGenericItems.Add(newItem);
-                            }
-                        }
-
-                        break;
-                    case InteractionType.GuildGate:
-                    case InteractionType.GuildItem:
-                    case InteractionType.GuildForum:
-                        if (amountPurchase > 1) {
-                            var items = _itemFactory.CreateMultipleItems(item.Definition, session.GetHabbo(), extraData, amountPurchase, Convert.ToInt32(extraData));
-
-                            if (items != null) {
-                                generatedGenericItems.AddRange(items);
-                            }
-                        }
-                        else {
-                            newItem = _itemFactory.CreateSingleItemNullable(item.Definition, session.GetHabbo(), extraData, extraData, Convert.ToInt32(extraData));
-
-                            if (newItem != null) {
-                                generatedGenericItems.Add(newItem);
-                            }
-                        }
-
-                        break;
-                    case InteractionType.Arrow:
-                    case InteractionType.Teleport:
-                        for (var i = 0; i < amountPurchase; i++) {
-                            var teleItems = _itemFactory.CreateTeleporterItems(item.Definition, session.GetHabbo());
-
-                            if (teleItems != null) {
-                                generatedGenericItems.AddRange(teleItems);
-                            }
-                        }
-
-                        break;
-                    case InteractionType.Moodlight: {
-                            if (amountPurchase > 1) {
-                                var items = _itemFactory.CreateMultipleItems(item.Definition, session.GetHabbo(), extraData, amountPurchase);
-
-                                if (items != null) {
-                                    generatedGenericItems.AddRange(items);
-
-                                    foreach (var I in items) {
-                                        _itemFactory.CreateMoodlightData(I);
-                                    }
-                                }
-                            }
-                            else {
-                                newItem = _itemFactory.CreateSingleItemNullable(item.Definition, session.GetHabbo(), extraData, extraData);
-
-                                if (newItem != null) {
-                                    generatedGenericItems.Add(newItem);
-                                    _itemFactory.CreateMoodlightData(newItem);
-                                }
-                            }
-                        }
-                        break;
-                    case InteractionType.Toner: {
-                            if (amountPurchase > 1) {
-                                var items = _itemFactory.CreateMultipleItems(item.Definition, session.GetHabbo(), extraData, amountPurchase);
-
-                                if (items != null) {
-                                    generatedGenericItems.AddRange(items);
-
-                                    foreach (var I in items) {
-                                        _itemFactory.CreateTonerData(I);
-                                    }
-                                }
-                            }
-                            else {
-                                newItem = _itemFactory.CreateSingleItemNullable(item.Definition, session.GetHabbo(), extraData, extraData);
-
-                                if (newItem != null) {
-                                    generatedGenericItems.Add(newItem);
-                                    _itemFactory.CreateTonerData(newItem);
-                                }
-                            }
-                        }
-                        break;
-                    case InteractionType.Deal: {
-                            if (_catalogManager.TryGetDeal(item.Definition.BehaviourData, out var deal)) {
-                                foreach (var catalogItem in deal.ItemDataList.ToList()) {
-                                    var items = _itemFactory.CreateMultipleItems(catalogItem.Definition, session.GetHabbo(), "", amountPurchase);
-
-                                    if (items != null) {
-                                        generatedGenericItems.AddRange(items);
-                                    }
-                                }
-                            }
-
-                            break;
-                        }
-                }
-
-                foreach (var purchasedItem in generatedGenericItems) {
-                    if (session.GetHabbo().Inventory.Furniture.AddItem(purchasedItem.ToInventoryItem())) {
-                        //Session.SendMessage(new FurniListAddComposer(PurchasedItem));
-                        session.Send(new FurniListNotificationComposer(purchasedItem.Id, 1));
+        switch (product.Type) {
+            case CatalogProductType.Furni: {
+                    if (!ChargePurchase()) {
+                        return;
                     }
+
+                    var generatedGenericItems = offer.IsBundle
+                        ? offer.Products.Where(bundled => bundled.Type == CatalogProductType.Furni)
+                            .SelectMany(bundled => CreateFurni(session, bundled.Definition!, "", bundled.Amount, 0, 0)).ToList()
+                        : CreateFurni(session, product.Definition!, extraData, amountPurchase, limitedEditionSells, limitedEditionStack);
+
+                    foreach (var purchasedItem in generatedGenericItems) {
+                        if (session.GetHabbo().Inventory.Furniture.AddItem(purchasedItem.ToInventoryItem())) {
+                            session.Send(new FurniListNotificationComposer(purchasedItem.Id, 1));
+                        }
+                    }
+
+                    if (generatedGenericItems.Count > 0) {
+                        _rewardTracks.Progress(session, RewardTrackActions.BuyFromCatalogue);
+                    }
+
+                    break;
                 }
+            case CatalogProductType.Effect: {
+                    if (!ChargePurchase()) {
+                        return;
+                    }
 
-                if (generatedGenericItems.Count > 0) {
-                    _rewardTracks.Progress(session, RewardTrackActions.BuyFromCatalogue);
-                }
-
-                break;
-            case "e":
-                AvatarEffect effect;
-
-                if (session.GetHabbo().Effects.HasEffect(item.Definition.SpriteId)) {
-                    effect = session.GetHabbo().Effects.GetEffectNullable(item.Definition.SpriteId);
+                    var habbo = session.GetHabbo();
+                    var effect = habbo.Effects.GetEffectNullable(product.EffectId);
 
                     if (effect != null) {
                         effect.AddToQuantity();
                     }
-                }
-                else {
-                    var habbo = session.GetHabbo();
-                    effect = _avatarEffects.Create(habbo.Id, item.Definition.SpriteId, 3600);
-                    habbo.Effects.TryAdd(effect);
-                }
+                    else {
+                        effect = _avatarEffects.Create(habbo.Id, product.EffectId, 3600);
+                        habbo.Effects.TryAdd(effect);
+                    }
 
-                if (effect != null) // && Session.GetHabbo().Effects().TryAdd(Effect))
-{
-                    session.Send(new AvatarEffectAddedComposer(item.Definition.SpriteId, 3600));
+                    session.Send(new AvatarEffectAddedComposer(product.EffectId, 3600));
+                    break;
                 }
+            case CatalogProductType.Bot: {
+                    if (!_catalogManager.TryGetBot((uint)product.BotPresetId, out var botPreset)) {
+                        session.SendNotification("Oops! There was an error whilst purchasing this bot. It seems that there is no bot data for the bot!");
 
-                break;
-            case "r":
-                var bot = purchasedBot ?? throw new InvalidOperationException("The committed bot purchase did not return a bot.");
-                session.GetHabbo().Inventory.Bots.AddBot(bot);
-                session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
-                session.Send(new FurniListNotificationComposer((uint)bot.Id, 5));
-                break;
-            case "b": {
-                    await _badgeManager.GiveBadge(session.GetHabbo(), item.Definition.ItemName);
+                        return;
+                    }
+
+                    Bot? bot = null;
+
+                    if (!ChargePurchase((connection, transaction) =>
+                        {
+                            bot = _botPurchases.Create(connection, transaction, botPreset, session.GetHabbo().Id);
+
+                            return true;
+                        })) {
+                        return;
+                    }
+
+                    session.GetHabbo().Inventory.Bots.AddBot(bot!);
+                    session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
+                    session.Send(new FurniListNotificationComposer((uint)bot!.Id, 5));
+                    break;
+                }
+            case CatalogProductType.Badge: {
+                    if (!ChargePurchase()) {
+                        return;
+                    }
+
+                    await _badgeManager.GiveBadge(session.GetHabbo(), product.BadgeCode);
                     session.Send(new FurniListNotificationComposer(0, 4));
                     break;
                 }
-            case "p": {
+            case CatalogProductType.Pet: {
                     if (!PetUtility.TryReadPurchase(extraData, out var petName, out var race, out var color)) {
                         return;
                     }
@@ -464,14 +320,14 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                     Plus.HabboHotel.Rooms.AI.Pet? pet = null;
 
                     if (!ChargePurchase((connection, transaction) => (pet = PetUtility.CreatePet(connection, transaction,
-                            utcNow, session.GetHabbo().Username, session.GetHabbo().Id, petName, item.Definition.BehaviourData, race, color)) != null)) {
+                            utcNow, session.GetHabbo().Username, session.GetHabbo().Id, petName, product.PetType, race, color)) != null)) {
                         session.SendNotification("Oops! There was an error whilst purchasing this pet.");
 
                         return;
                     }
 
                     session.GetHabbo().Inventory.Pets.AddPet(pet!);
-                    pet.RoomId = 0;
+                    pet!.RoomId = 0;
                     pet.PlacedInRoom = false;
                     session.Send(new FurniListNotificationComposer((uint)pet.PetId, 3));
                     session.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(session.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
@@ -490,14 +346,104 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                 }
         }
 
-        if (!string.IsNullOrEmpty(item.Badge) &&
-            _badgeManager.Badges.TryGetValue(item.Badge, out var badge) &&
-            (string.IsNullOrEmpty(badge.RequiredRight) || session.GetHabbo().Access.Can(badge.RequiredRight))) {
-            await _badgeManager.GiveBadge(session.GetHabbo(), badge.Code);
+        foreach (var badgeCode in offer.AttachedBadges) {
+            if (_badgeManager.Badges.TryGetValue(badgeCode, out var badge) &&
+                (string.IsNullOrEmpty(badge.RequiredRight) || session.GetHabbo().Access.Can(badge.RequiredRight))) {
+                await _badgeManager.GiveBadge(session.GetHabbo(), badge.Code);
+            }
         }
 
-        session.Send(new PurchaseOKComposer(CatalogPurchaseConfirmation.Capture(item, item.Definition)));
+        session.Send(new PurchaseOKComposer(CatalogPurchaseConfirmation.Capture(offer)));
         session.Send(new FurniListUpdateComposer());
+    }
+
+    // The extra data a bought piece of furniture starts with; null when the purchase must be refused.
+    private string? ReadFurniExtraData(GameClient session, ItemDefinition definition, string extraData, DateTimeOffset utcNow)
+    {
+        switch (definition.InteractionType) {
+            case InteractionType.GuildItem:
+            case InteractionType.GuildGate:
+                return FurniExtraData.RejectsClientImage(new[] { extraData }) ? "" : extraData;
+            case InteractionType.Floor:
+            case InteractionType.Wallpaper:
+            case InteractionType.Landscape:
+                double number = 0;
+
+                try {
+                    number = string.IsNullOrEmpty(extraData) ? 0 : double.Parse(extraData, CultureInfo.InvariantCulture);
+                }
+                catch (Exception e) {
+                    _logger.LogWarning(e, "Invalid catalog floor extra data {ExtraData}", extraData);
+                }
+
+                return number.ToString(CultureInfo.InvariantCulture); // maintain extra data // todo: validate
+            case InteractionType.Postit:
+                return "FFFF33";
+            case InteractionType.Moodlight:
+                return "1,1,1,#000000,255";
+            case InteractionType.Trophy:
+                return $"{session.GetHabbo().Username}{Convert.ToChar(9)}{utcNow.Day}-{utcNow.Month}-{utcNow.Year}{Convert.ToChar(9)}{extraData}";
+            case InteractionType.Mannequin:
+                return $"m{Convert.ToChar(5)}.ch-210-1321.lg-285-92{Convert.ToChar(5)}Default Mannequin";
+            case InteractionType.BadgeDisplay:
+                if (!session.GetHabbo().Inventory.Badges.HasBadge(extraData)) {
+                    session.Send(new BroadcastMessageAlertComposer("Oops, it appears that you do not own this badge."));
+
+                    return null;
+                }
+
+                return $"{extraData}{Convert.ToChar(9)}{session.GetHabbo().Username}{Convert.ToChar(9)}{utcNow.Day}-{utcNow.Month}-{utcNow.Year}";
+            default:
+                return "";
+        }
+    }
+
+    private List<Item> CreateFurni(GameClient session, ItemDefinition definition, string extraData, int amount, uint limitedEditionSells, uint limitedEditionStack)
+    {
+        var items = new List<Item>();
+
+        switch (definition.InteractionType) {
+            case InteractionType.GuildGate:
+            case InteractionType.GuildItem:
+            case InteractionType.GuildForum:
+                var groupId = int.TryParse(extraData, NumberStyles.Integer, CultureInfo.InvariantCulture, out var group) ? group : 0;
+
+                if (amount > 1) {
+                    items.AddRange(_itemFactory.CreateMultipleItems(definition, session.GetHabbo(), extraData, amount, groupId) ?? []);
+                }
+                else if (_itemFactory.CreateSingleItemNullable(definition, session.GetHabbo(), extraData, extraData, groupId) is { } guildItem) {
+                    items.Add(guildItem);
+                }
+
+                break;
+            case InteractionType.Arrow:
+            case InteractionType.Teleport:
+                for (var i = 0; i < amount; i++) {
+                    items.AddRange(_itemFactory.CreateTeleporterItems(definition, session.GetHabbo()) ?? []);
+                }
+
+                break;
+            default:
+                if (amount > 1) {
+                    items.AddRange(_itemFactory.CreateMultipleItems(definition, session.GetHabbo(), extraData, amount) ?? []);
+                }
+                else if (_itemFactory.CreateSingleItemNullable(definition, session.GetHabbo(), extraData, extraData, 0, limitedEditionSells, limitedEditionStack) is { } item) {
+                    items.Add(item);
+                }
+
+                break;
+        }
+
+        foreach (var item in items) {
+            if (definition.InteractionType == InteractionType.Moodlight) {
+                _itemFactory.CreateMoodlightData(item);
+            }
+            else if (definition.InteractionType == InteractionType.Toner) {
+                _itemFactory.CreateTonerData(item);
+            }
+        }
+
+        return items;
     }
 
     private void PurchaseClubOffer(GameClient session, int offerId, DateTimeOffset utcNow)

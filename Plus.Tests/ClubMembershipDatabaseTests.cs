@@ -33,6 +33,9 @@ public sealed class ClubDatabaseCollection;
 public class ClubMembershipDatabaseTests : IDisposable
 {
     private const int User = 957001, Offer = 957101;
+
+    // The original catalog's club gift row 65398 had no official offer id, so migration 52 numbered it 1000000000 + 65398.
+    private const int GiftOffer = 1_000_065_398;
     private readonly HabbiconDatabaseTests.TestDatabase _database;
     private readonly AccessControl _access;
     private readonly ClubMembershipService _memberships;
@@ -40,7 +43,7 @@ public class ClubMembershipDatabaseTests : IDisposable
     private readonly ClubMembershipTests.Clock _clock = new();
     private readonly Habbo _habbo;
     private readonly List<(uint Header, byte[] Body)> _sent;
-    private readonly CatalogItem _gift;
+    private readonly CatalogOffer _gift;
     private readonly Clients _clients;
 
     public ClubMembershipDatabaseTests()
@@ -74,12 +77,12 @@ public class ClubMembershipDatabaseTests : IDisposable
         _access.Init();
         _habbo.Access = _access.Resolve(User);
         _memberships = new(_database, _access, _clock);
-        _gift = new CatalogItem
+        _gift = new CatalogOffer
         {
-            Id = 65398,
-            CatalogName = "hc_arab_chair",
-            Amount = 1,
-            Definition = new ItemDefinition { Id = 65398, ItemName = "hc_arab_chair", SpriteId = 6341, Type = ItemType.Floor, InteractionType = InteractionType.None }
+            Id = GiftOffer,
+            LocalizationKey = "hc_arab_chair",
+            Products = [new CatalogProduct { Type = CatalogProductType.Furni,
+                Definition = new ItemDefinition { Id = 65398, ItemName = "hc_arab_chair", SpriteId = 6341, Type = ItemType.Floor, InteractionType = InteractionType.None } }]
         };
         var page = new CatalogPage { Id = 8, Enabled = true, Layout = "club_gift" };
         page.Offers.Add(_gift.Id, _gift);
@@ -287,13 +290,13 @@ public class ClubMembershipDatabaseTests : IDisposable
         _memberships.Purchase(_habbo, Month);
         _clock.Now = _clock.Now.AddSeconds(1);
         Assert.Null(_rewards.Claim(_habbo, "not_a_gift"));
-        Sql("UPDATE club_gift_offers SET days_required = 100 WHERE catalog_item_id = 65398");
+        Sql("UPDATE club_gift_offers SET days_required = 100 WHERE offer_id = 1000065398");
 
         try {
             Assert.Null(_rewards.Claim(_habbo, "hc_arab_chair"));
         }
         finally {
-            Sql("UPDATE club_gift_offers SET days_required = 0 WHERE catalog_item_id = 65398");
+            Sql("UPDATE club_gift_offers SET days_required = 0 WHERE offer_id = 1000065398");
         }
 
         _gift.ClubLevel = 3;
@@ -335,16 +338,16 @@ public class ClubMembershipDatabaseTests : IDisposable
     [ClubDatabaseFact]
     public void FailedDeliveryReturnsReservedLimitedStock()
     {
-        Sql("UPDATE catalog_items SET limited_stack = 1, limited_sells = 0 WHERE id = 65398");
+        Sql("INSERT INTO catalog_offer_limited (offer_id, stack, sold) VALUES (1000065398, 1, 0)");
 
         try {
             Assert.False(_rewards.Charge(_habbo, 99, deliver: (connection, transaction) =>
-            { Assert.Equal(1, CatalogLimitedStock.Reserve(connection, transaction, 65398)); return false; }));
-            Assert.Equal(0, Scalar("SELECT limited_sells FROM catalog_items WHERE id = 65398"));
+            { Assert.Equal(1, CatalogLimitedStock.Reserve(connection, transaction, GiftOffer)); return false; }));
+            Assert.Equal(0, Scalar("SELECT sold FROM catalog_offer_limited WHERE offer_id = 1000065398"));
             Assert.Equal(1000, _habbo.Credits);
         }
         finally {
-            Sql("UPDATE catalog_items SET limited_stack = 0, limited_sells = 0 WHERE id = 65398");
+            Sql("DELETE FROM catalog_offer_limited WHERE offer_id = 1000065398");
         }
     }
     [ClubDatabaseFact]

@@ -48,7 +48,7 @@ public class ClubMembershipTests
         Assert.Equal(2, ClubAccess.LevelFor(access));
         var style = new ChatStyle(1, "HC", "", true);
         var model = new RoomModel("club", 0, 0, 0, 0, "00\r00", 2, 0, false);
-        var item = new CatalogItem { ClubLevel = 2 };
+        var item = new CatalogOffer { ClubLevel = 2 };
         var habbo = new Habbo { Access = access };
         Assert.True(style.CanUse(access));
         Assert.True(model.CanCreate(access));
