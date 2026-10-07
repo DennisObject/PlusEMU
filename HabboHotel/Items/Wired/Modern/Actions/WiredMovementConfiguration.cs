@@ -8,7 +8,8 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 public static class WiredMovementConfiguration
 {
     // wf_act_move_rotate: index = current Octane editor option, value = stored direction/turn.
-    private static readonly int[] EditorMovement = [-1, 8, 9, 10, 4, 2, 0, 6, 1, 3, 5, 7];
+    // AIR's move/rotate radios: 4 ↗ 8 → 5 ↘ 9 ↓ 6 ↙ 10 ← 7 ↖ 11 ↑ (icons move_0..move_7).
+    private static readonly int[] EditorMovement = [-1, 8, 9, 10, 0, 2, 4, 6, 1, 3, 5, 7];
     private static readonly int[] EditorRotation = [0, 2, 4, 6];
 
     /// <summary>Shows stored four-field move/rotate settings in the three-field editor order they were saved from.</summary>
