@@ -7,6 +7,7 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Messenger;
 using Plus.HabboHotel.Users;
 using Plus.Core;
+using Plus.HabboHotel.Talents;
 
 namespace Plus.HabboHotel.Achievements;
 
@@ -16,12 +17,14 @@ public class AchievementManager : IAchievementManager, IStartable
     private readonly IAchievementLevelFactory _achievementLevelFactory;
     private readonly IDatabase _database;
     private readonly IBadgeManager _badgeManager;
+    private readonly ITalentTrackProgressionService _talents;
 
-    public AchievementManager(IAchievementLevelFactory achievementLevelFactory, IDatabase database, IBadgeManager badgeManager)
+    public AchievementManager(IAchievementLevelFactory achievementLevelFactory, IDatabase database, IBadgeManager badgeManager, ITalentTrackProgressionService talents)
     {
         _achievementLevelFactory = achievementLevelFactory;
         _database = database;
         _badgeManager = badgeManager;
+        _talents = talents;
         Achievements = new();
     }
 
@@ -117,6 +120,7 @@ public class AchievementManager : IAchievementManager, IStartable
                 session.Send(new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(data, newTarget, newLevelData, totalLevels, habbo.GetAchievementData(group))));
             }
 
+            _talents.Progress(habbo, Achievements);
             return true;
         }
 
@@ -130,6 +134,7 @@ public class AchievementManager : IAchievementManager, IStartable
 
         session.Send(new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(data, targetLevel, level, totalLevels, habbo.GetAchievementData(group))));
 
+        _talents.Progress(habbo, Achievements);
         return false;
     }
 

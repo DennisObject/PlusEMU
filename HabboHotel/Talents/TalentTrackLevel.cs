@@ -9,21 +9,8 @@ public class TalentTrackLevel
         Type = type;
         Level = level;
 
-        foreach (var str in dataActions.Split('|')) {
-            if (Actions == null) {
-                Actions = new();
-            }
-
-            Actions.Add(str);
-        }
-
-        foreach (var str in dataGifts.Split('|')) {
-            if (Gifts == null) {
-                Gifts = new();
-            }
-
-            Gifts.Add(str);
-        }
+        Actions = dataActions.Split('|', StringSplitOptions.RemoveEmptyEntries).ToList();
+        Gifts = dataGifts.Split('|', StringSplitOptions.RemoveEmptyEntries).ToList();
 
         _subLevels = subLevels.ToDictionary(subLevel => subLevel.Level);
     }

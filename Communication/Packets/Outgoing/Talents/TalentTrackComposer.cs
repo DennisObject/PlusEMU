@@ -15,15 +15,15 @@ public class TalentTrackComposer(string type, ImmutableArray<TalentTrackLevelSna
 
         foreach (var level in levels) {
             packet.WriteInteger(level.Level); //First level
-            packet.WriteInteger(0); //Progress, 0 = nothing, 1 = started, 2 = done
+            packet.WriteInteger(level.State);
             packet.WriteInteger(level.SubLevels.Length);
 
             foreach (var sub in level.SubLevels) {
-                packet.WriteInteger(0); //Achievement Id
-                packet.WriteInteger(0); //Achievement level
+                packet.WriteInteger(sub.AchievementId);
+                packet.WriteInteger(sub.RequiredLevel);
                 packet.WriteString(sub.Badge); //Achievement name
-                packet.WriteInteger(0); //Progress, 0 = nothing, 1 = started, 2 = done
-                packet.WriteInteger(0); //My actual progress
+                packet.WriteInteger(sub.State);
+                packet.WriteInteger(sub.Progress);
                 packet.WriteInteger(sub.RequiredProgress);
             }
 

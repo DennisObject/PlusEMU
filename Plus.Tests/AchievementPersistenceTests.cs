@@ -11,6 +11,7 @@ using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Talents;
 using Xunit;
 
 namespace Plus.Tests;
@@ -218,7 +219,7 @@ public sealed class AchievementPersistenceTests
         {
             var badges = CatalogSnapshotTestSupport.Proxy<IBadgeManager>((method, _) =>
                 method == "GiveBadge" ? giveBadge?.Invoke() ?? Task.CompletedTask : throw new InvalidOperationException(method));
-            var manager = new AchievementManager(null!, Database, badges);
+            var manager = new AchievementManager(null!, Database, badges, CatalogSnapshotTestSupport.Proxy<ITalentTrackProgressionService>((method, _) => method == "Progress" ? null : throw new InvalidOperationException(method)));
             var achievement = new Achievement { Id = 1, GroupName = Group, Category = "identity" };
             achievement.AddLevel(new AchievementLevel(1, 20, 7, 1));
             manager.Achievements.Add(Group, achievement);
