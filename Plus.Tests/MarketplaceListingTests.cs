@@ -219,7 +219,7 @@ public class MarketplaceListingTests
         public bool OwnedAtWrite { get; set; }
         public Action? BeforeWrite { get; set; }
 
-        public void ListFurni(MarketplaceListing listing)
+        public bool ListFurni(MarketplaceListing listing)
         {
             BeforeWrite?.Invoke();
 
@@ -228,6 +228,8 @@ public class MarketplaceListingTests
             }
 
             Listings.Add(listing);
+
+            return true;
         }
 
         public int? ClaimSold(int userId, Func<int, bool> accepts) => throw new NotSupportedException();

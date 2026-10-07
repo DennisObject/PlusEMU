@@ -10,7 +10,7 @@ public sealed record InventoryItemSnapshot(uint Id, string Type, int SpriteId, F
     {
         var definition = item.Definition;
 
-        return new(item.Id, definition.Type.ToCharCode(), definition.SpriteId, definition.Category,
+        return new(item.Id, definition.Type.ToCharCode(), definition.SpriteId, Plus.HabboHotel.Rooms.Music.RoomMusicDefinition.IsDisc(definition) ? FurniCategory.TraxSong : definition.Category,
             FurnitureDataSnapshot.Capture(item.ExtraData), item.UniqueNumber, item.UniqueSeries,
             definition.AllowEcotronRecycle, definition.AllowTrade, item.ShouldStackInInventory(),
             item.UniqueNumber == 0 && definition.AllowInventoryStack, definition.AllowMarketplaceSell, item.IsWallItem);

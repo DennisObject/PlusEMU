@@ -1,11 +1,23 @@
+using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Rooms.Music;
 
 namespace Plus.Communication.Packets.Outgoing.Sound;
 
-// TODO @80O: Implement
-public class TraxSongInfoComposer : IServerPacket
+public sealed class TraxSongInfoComposer(ImmutableArray<MusicSong> songs) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.TraxSongInfoComposer;
+    public void Compose(IOutgoingPacket packet)
+    {
+        packet.WriteInteger(songs.Length);
 
-    public void Compose(IOutgoingPacket packet) => packet.WriteInteger(0); //Count;
+        foreach (var song in songs) {
+            packet.WriteInteger(song.Id);
+            packet.WriteString(song.Code);
+            packet.WriteString(song.Name);
+            packet.WriteString(song.Data);
+            packet.WriteInteger(song.LengthMs);
+            packet.WriteString(song.Creator);
+        }
+    }
 }

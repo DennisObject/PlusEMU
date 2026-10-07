@@ -249,7 +249,17 @@ public class RoomItemHandling
 
             if (item.IsFloorItem) {
                 if (!_room.GetGameMap().ValidTile(item.GetX, item.GetY)) {
-                    _store.ClearRoom(item.Id);
+                    if (Music.RoomMusicDefinition.IsPlayer(item.Definition)) {
+                        if (!_room.Music.ReturnInvalidPlayer(item)) {
+                            continue;
+                        }
+
+                        item.LegacyDataString = "0";
+                    }
+                    else {
+                        _store.ClearRoom(item.Id);
+                    }
+
                     var client = _clients.GetClientByUserId(item.UserId);
 
                     if (client != null) {
@@ -281,6 +291,12 @@ public class RoomItemHandling
                     _wallItems.TryAdd(item.Id, item);
                 }
             }
+        }
+
+        var musicPlayer = _floorItems.Values.Where(item => Music.RoomMusicDefinition.IsPlayer(item.Definition)).OrderBy(item => item.Id).FirstOrDefault();
+
+        if (musicPlayer != null) {
+            _room.Music.Attach(musicPlayer);
         }
 
         foreach (var item in _floorItems.Values.ToList()) {

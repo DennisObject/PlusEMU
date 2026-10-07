@@ -380,4 +380,11 @@ public static class ServerPacketHeader
     public const uint HousekeepingRoleMembersComposer = 9211;
     public const uint HousekeepingUserOverridesComposer = 9212;
     public const uint HousekeepingRolesAuditComposer = 9213;
+    // Room music
+    public const uint JukeboxPlaylistComposer = 9600;
+    public const uint JukeboxPlaylistFullComposer = 9601;
+    public const uint NowPlayingComposer = 9602;
+    public const uint OfficialSongIdComposer = 9603;
+    public const uint SoundMachinePlaylistComposer = 9604;
+    public const uint SongDisksInventoryComposer = 9605;
 }

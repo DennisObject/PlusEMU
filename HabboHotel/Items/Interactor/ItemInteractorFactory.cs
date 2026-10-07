@@ -18,6 +18,10 @@ public sealed class ItemInteractorFactory(
 {
     public IFurniInteractor Create(Item item, TimeProvider timeProvider)
     {
+        if (Plus.HabboHotel.Rooms.Music.RoomMusicDefinition.IsPlayer(item.Definition)) {
+            return new InteractorRoomMusic();
+        }
+
         if (item.IsWired) {
             return new InteractorWired();
         }

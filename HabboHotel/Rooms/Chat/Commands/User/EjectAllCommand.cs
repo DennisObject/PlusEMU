@@ -10,16 +10,18 @@ internal class EjectAllCommand : IChatCommand
 {
     private readonly IGameClientManager _gameClientManager;
     private readonly IDatabase _database;
+    private readonly IRoomItemPickupService _pickup;
     public string Key => "ejectall";
 
     public string Parameters => "";
 
     public string Description => "Removes all of the items from the room.";
 
-    public EjectAllCommand(IGameClientManager gameClientManager, IDatabase database)
+    public EjectAllCommand(IGameClientManager gameClientManager, IDatabase database, IRoomItemPickupService pickup)
     {
         _gameClientManager = gameClientManager;
         _database = database;
+        _pickup = pickup;
     }
 
     public void Execute(GameClient session, Room room, string[] parameters)
@@ -32,6 +34,11 @@ internal class EjectAllCommand : IChatCommand
 
             foreach (var item in room.GetRoomItemHandler().GetWallAndFloor.ToList()) {
                 if (item == null || item.UserId == session.GetHabbo().Id) {
+                    continue;
+                }
+
+                if (Music.RoomMusicDefinition.IsPlayer(item.Definition)) {
+                    _pickup.TryPickUp(session, item.Id);
                     continue;
                 }
 
@@ -52,6 +59,11 @@ internal class EjectAllCommand : IChatCommand
         else {
             foreach (var item in room.GetRoomItemHandler().GetWallAndFloor.ToList()) {
                 if (item == null || item.UserId != session.GetHabbo().Id) {
+                    continue;
+                }
+
+                if (Music.RoomMusicDefinition.IsPlayer(item.Definition)) {
+                    _pickup.TryPickUp(session, item.Id);
                     continue;
                 }
 
