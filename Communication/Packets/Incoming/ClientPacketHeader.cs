@@ -286,7 +286,7 @@ public static class ClientPacketHeader
     public const uint UpdateThreadEvent = 2980; //1522
     public const uint AcceptGroupMembershipEvent = 2996; //2259
     public const uint GetMarketplaceConfigurationEvent = 2811; //1604
-    public const uint Game2GetWeeklyLeaderboardEvent = 285; //2106
+    public const uint Game2GetWeeklyLeaderboardEvent = 6029;
     public const uint BuyOfferEvent = 904; //3699
     public const uint RemoveSaddleFromHorseEvent = 844; //1892
     public const uint GiveRoomScoreEvent = 3261; //336
@@ -396,14 +396,27 @@ public static class ClientPacketHeader
     //public const uint GetCraftingRecipeEvent =;
     //public const uint GetCraftingRecipesAvailableEvent =;
 
-    //game
-    //public const uint Game2ExitGameEvent =;
-    //public const uint Game2GameChatEvent =;
-    //public const uint Game2LoadStageReadyEvent =;
-    //public const uint Game2PlayAgainEvent =;
-    //public const uint Game2CheckGameDirectoryStatusEvent =;
-    //public const uint Game2GetAccountGameStatusEvent =;
-    //public const uint Game2RequestFullStatusUpdateEvent =;
+    // SnowStorm (AIR Game2 payloads); internal IDs match Octane's wire IDs.
+    public const uint Game2CheckGameDirectoryStatusEvent = 3259;
+    public const uint Game2GetAccountGameStatusEvent = 11;
+    public const uint Game2QuickJoinEvent = 6012;
+    public const uint Game2LeaveLobbyEvent = 6013;
+    public const uint Game2LoadStageReadyEvent = 6000;
+    public const uint Game2ExitGameEvent = 6016;
+    public const uint Game2GameChatEvent = 6009;
+    public const uint Game2PlayAgainEvent = 6008;
+    public const uint Game2SetUserMoveTargetEvent = 6003;
+    public const uint Game2ThrowSnowballAtPositionEvent = 6004;
+    public const uint Game2ThrowSnowballAtHumanEvent = 6005;
+    public const uint Game2MakeSnowballEvent = 6006;
+    public const uint Game2RequestFullStatusUpdateEvent = 6007;
+    public const uint Game2GetTotalLeaderboardEvent = 6027;
+    public const uint Game2GetFriendsLeaderboardEvent = 6028;
+    public const uint Game2GetWeeklyFriendsLeaderboardEvent = 6030;
+    public const uint Game2GetTotalGroupLeaderboardEvent = 1776;
+    public const uint Game2GetWeeklyGroupLeaderboardEvent = 2691;
+    public const uint GetSnowWarGameTokensOfferEvent = 980;
+    public const uint PurchaseSnowWarGameTokensOfferEvent = 391;
 
 
 
@@ -496,3 +509,4 @@ public static class ClientPacketHeader
     public const uint HousekeepingSetUserOverrideEvent = 9140;
     public const uint HousekeepingRemoveUserOverrideEvent = 9141;
 }
+

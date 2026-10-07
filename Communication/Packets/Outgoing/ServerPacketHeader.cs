@@ -380,4 +380,41 @@ public static class ServerPacketHeader
     public const uint HousekeepingRoleMembersComposer = 9211;
     public const uint HousekeepingUserOverridesComposer = 9212;
     public const uint HousekeepingRolesAuditComposer = 9213;
+    // SnowStorm (AIR Game2 payloads); internal IDs match Octane's wire IDs except where noted.
+    public const uint Game2GameDirectoryStatusComposer = 5030; // wire 2246
+    public const uint Game2GameCreatedComposer = 5000;
+    public const uint Game2InArenaQueueComposer = 5001;
+    public const uint Game2GameLongDataComposer = 5002;
+    public const uint Game2StartCounterComposer = 5003;
+    public const uint Game2UserJoinedGameComposer = 5004;
+    public const uint Game2UserLeftGameComposer = 5005;
+    public const uint Game2StopCounterComposer = 5008;
+    public const uint Game2GameStartedComposer = 5009;
+    public const uint Game2EnterArenaComposer = 5011;
+    public const uint Game2ArenaEnteredComposer = 5013;
+    public const uint Game2EnterArenaFailedComposer = 5014;
+    public const uint Game2GameStatusComposer = 5015;
+    public const uint Game2FullGameStatusComposer = 5016;
+    public const uint Game2StageStartingComposer = 5017;
+    public const uint Game2StageLoadComposer = 5018;
+    public const uint Game2RejoinPreviousRoomComposer = 5019;
+    public const uint Game2StageStillLoadingComposer = 5020;
+    public const uint Game2GameEndingComposer = 5022;
+    public const uint Game2GameChatComposer = 5023;
+    public const uint Game2StageRunningComposer = 5024;
+    public const uint Game2StageEndingComposer = 5025;
+    public const uint Game2PlayerExitedGameArenaComposer = 5027;
+    public const uint Game2PlayerRematchesComposer = 5029;
+    public const uint Game2JoiningGameFailedComposer = 1730;
+    public const uint Game2StartingGameFailedComposer = 2142;
+    public const uint Game2GameCancelledComposer = 5031; // wire 3493
+    public const uint Game2GameNotFoundComposer = 444;
+    public const uint Game2UserBlockedComposer = 3508;
+    public const uint Game2TotalLeaderboardComposer = 2594;
+    public const uint Game2FriendsLeaderboardComposer = 5032; // wire 47
+    public const uint Game2WeeklyFriendsLeaderboardComposer = 2270;
+    public const uint Game2TotalGroupLeaderboardComposer = 1769;
+    public const uint Game2WeeklyGroupLeaderboardComposer = 2956;
+    public const uint SnowWarGameTokensComposer = 3419;
 }
+
