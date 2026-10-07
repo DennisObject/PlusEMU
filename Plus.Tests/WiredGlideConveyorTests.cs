@@ -200,6 +200,34 @@ public sealed class WiredGlideConveyorTests
         Assert.Equal(9, f.Items[119].GetX);
     }
 
+    // Live: a user beside the line clicks the front tile while the conveyor runs. Its tile leaves and returns between room
+    // ticks, so the target height flips between the tile top and the floor; the step must still land on the walkable tile.
+    [Fact]
+    public void LiveRoom14UserStepsOntoTheFrontTileWhileTheLineMoves()
+    {
+        var f = new Fixture(Picked(LiveRoom14), live: true);
+        var user = f.Walker(1, 3, 12, 4, 12);
+        user.MoveTo(4, 13);
+
+        f.Advance(1000);
+
+        Assert.Equal(13, user.Y);
+        Assert.InRange(user.X, 4, 10);
+    }
+
+    // Once landed, the conveyor carries the user who stepped on to the unpicked end tile.
+    [Fact]
+    public void LiveRoom14UserWhoStepsOntoTheMovingLineGlidesToTheEndTile()
+    {
+        var f = new Fixture(Picked(LiveRoom14), live: true);
+        var user = f.Walker(1, 3, 12, 4, 12);
+        user.MoveTo(4, 13);
+
+        f.Advance(4000);
+
+        Assert.Equal((10, 13, 0.1), (user.X, user.Y, user.Z));
+    }
+
     private static (uint Id, int X, int Y, double Z, int Rot, string Name, string? Json)[] Picked(
         (uint Id, int X, int Y, double Z, int Rot, string Name, string? Json)[] layout) =>
         layout.Select(entry => entry.Id == 107 ? entry with { Json = Source(entry.Json!, 100) } : entry).ToArray();
@@ -329,7 +357,10 @@ public sealed class WiredGlideConveyorTests
         }
 
         // A user who walked in from (x, y - 1), as the v2 executor places them.
-        public RoomUser Walker(int virtualId, int x, int y)
+        public RoomUser Walker(int virtualId, int x, int y) => Walker(virtualId, x, y - 1, x, y);
+
+        // A user who walked in from (fromX, fromY).
+        public RoomUser Walker(int virtualId, int fromX, int fromY, int x, int y)
         {
             var client = new Client();
             client.SetHabbo(new Habbo
@@ -344,9 +375,9 @@ public sealed class WiredGlideConveyorTests
             var user = new RoomUser(virtualId, 14, virtualId, _room, client, TestChatEmotions.Unused, new TestRewardProgress())
             {
                 InternalRoomId = virtualId,
-                X = x,
-                Y = y - 1,
-                Z = _map.SqAbsoluteHeight(x, y - 1)
+                X = fromX,
+                Y = fromY,
+                Z = _map.SqAbsoluteHeight(fromX, fromY)
             };
             _users[user.VirtualId] = user;
             _room.RunFastPass(() => _map.Navigation!.Admit(user));
