@@ -126,6 +126,9 @@ public static class ClientPacketHeader
     // Group Forums
     public const uint PostGroupContentEvent = 1499; //477
     public const uint GetForumStatsEvent = 1126; //872
+    public const uint GetForumThreadEvent = 9850;
+    public const uint UpdateForumReadMarkersEvent = 9852;
+    public const uint GetForumsUnreadCountEvent = 9853;
 
     // Sound
 
