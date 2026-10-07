@@ -358,7 +358,9 @@ public sealed class MarketplaceDatabaseTests
         return new Habbo { Id = SellerId, Username = "seller", Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([item], []) } };
     }
 
-    private MarketplaceListingService Listing() => new(Store(), new Manager(), new FixedClock(Now));
+    private MarketplaceListingService Listing() => new(Store(), new Manager(), new FixedClock(Now),
+        CatalogSnapshotTestSupport.Proxy<Plus.Core.Settings.ISettingsManager>((method, _) =>
+            method == "TryGetValue" ? "0" : throw new InvalidOperationException(method)));
 
     private MarketplaceOffersSnapshot Search(Manager manager, int min, int max, int mode) =>
         new MarketplaceOfferSearchService(new MySqlDatabase(_connectionString), manager, new FixedClock(Now)).Search(min, max, "", mode);

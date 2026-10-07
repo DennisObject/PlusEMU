@@ -2,6 +2,7 @@ using System.Data;
 using System.Buffers.Binary;
 using System.Reflection;
 using System.Text;
+using Plus.Core.Settings;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Marketplace;
 using Plus.Communication.Packets.Outgoing;
@@ -100,7 +101,7 @@ public class MarketplaceListingTests
             typeof(Habbo).GetField("_disconnected", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(habbo, true);
         }
 
-        Assert.False(new MarketplaceListingService(store, Manager(), new FixedClock(Now)).TryList(habbo, item.Id, 100));
+        Assert.False(new MarketplaceListingService(store, Manager(), new FixedClock(Now), Settings()).TryList(habbo, item.Id, 100));
 
         Assert.Empty(store.Listings);
         Assert.NotNull(habbo.Inventory.Furniture.GetItem(item.Id));
@@ -111,7 +112,7 @@ public class MarketplaceListingTests
     {
         var store = new RecordingStore();
         var (habbo, item) = Owner(ItemType.Floor);
-        var listing = new MarketplaceListingService(store, Manager(comission: int.MaxValue), new FixedClock(Now));
+        var listing = new MarketplaceListingService(store, Manager(comission: int.MaxValue), new FixedClock(Now), Settings());
 
         Assert.False(listing.TryList(habbo, item.Id, 100));
 
@@ -148,7 +149,7 @@ public class MarketplaceListingTests
     {
         var database = new GroupManagementTests.RecordingDatabase();
         var (habbo, item) = Owner(ItemType.Floor);
-        var listing = new MarketplaceListingService(new MarketplaceOfferStore(database), Manager(), new FixedClock(Now));
+        var listing = new MarketplaceListingService(new MarketplaceOfferStore(database), Manager(), new FixedClock(Now), Settings());
 
         Assert.True(listing.TryList(habbo, item.Id, 100));
 
@@ -165,7 +166,7 @@ public class MarketplaceListingTests
     {
         var database = new GroupManagementTests.RecordingDatabase { FailInsert = true };
         var (habbo, item) = Owner(ItemType.Floor);
-        var listing = new MarketplaceListingService(new MarketplaceOfferStore(database), Manager(), new FixedClock(Now));
+        var listing = new MarketplaceListingService(new MarketplaceOfferStore(database), Manager(), new FixedClock(Now), Settings());
 
         Assert.Throws<InvalidOperationException>(() => listing.TryList(habbo, item.Id, 100));
 
@@ -174,8 +175,48 @@ public class MarketplaceListingTests
         Assert.NotNull(habbo.Inventory.Furniture.GetItem(item.Id));
     }
 
+    [Theory]
+    [InlineData(false, false, false, true)]
+    [InlineData(true, false, false, false)]
+    [InlineData(true, true, false, true)]
+    [InlineData(true, false, true, true)]
+    [InlineData(true, true, true, true)]
+    public void OptionalRareAndLimitedPolicyPreservesDefaultListings(bool enabled, bool rare, bool limited, bool accepted)
+    {
+        var store = new RecordingStore();
+        var (habbo, item) = Owner(ItemType.Floor);
+        item.Definition.IsRare = rare;
+        item.UniqueNumber = limited ? 3u : 0u;
+        item.UniqueSeries = limited ? 4u : 0u;
+        var listing = new MarketplaceListingService(store, Manager(), new FixedClock(Now), Settings(() => enabled));
+
+        Assert.Equal(accepted, listing.TryList(habbo, item.Id, 100));
+        Assert.Equal(accepted ? 1 : 0, store.Listings.Count);
+        Assert.Equal(!accepted, habbo.Inventory.Furniture.GetItem(item.Id) != null);
+    }
+
+    [Fact]
+    public void ReloadedPolicyAppliesToTheNextListing()
+    {
+        var enabled = true;
+        var store = new RecordingStore();
+        var (habbo, item) = Owner(ItemType.Floor);
+        item.UniqueNumber = item.UniqueSeries = 0;
+        var listing = new MarketplaceListingService(store, Manager(), new FixedClock(Now), Settings(() => enabled));
+
+        Assert.False(listing.TryList(habbo, item.Id, 100));
+        Assert.Empty(store.Listings);
+        enabled = false;
+        Assert.True(listing.TryList(habbo, item.Id, 100));
+        Assert.Single(store.Listings);
+    }
+
+    private static ISettingsManager Settings(Func<bool>? enabled = null) =>
+        CatalogSnapshotTestSupport.Proxy<ISettingsManager>((method, args) => method == "TryGetValue" &&
+            (string)args[0]! == "catalog.marketplace.only_rare_ltd" ? enabled?.Invoke() == true ? "1" : "0" : throw new InvalidOperationException(method));
+
     private static MakeOfferEvent Offer(IMarketplaceOfferStore store) =>
-        new(new MarketplaceListingService(store, Manager(), new FixedClock(Now)));
+        new(new MarketplaceListingService(store, Manager(), new FixedClock(Now), Settings()));
 
     private static IMarketplaceManager Manager(int? comission = null) => CatalogSnapshotTestSupport.Proxy<IMarketplaceManager>((method, args) => method switch
     {

@@ -1,3 +1,4 @@
+using Plus.Core.Settings;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory.Furniture;
@@ -10,7 +11,7 @@ public interface IMarketplaceListingService
     bool TryList(Habbo habbo, uint itemId, int sellingPrice);
 }
 
-public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMarketplaceManager marketplace, TimeProvider time) : IMarketplaceListingService
+public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMarketplaceManager marketplace, TimeProvider time, ISettingsManager settings) : IMarketplaceListingService
 {
     private const int MaximumSellingPrice = 70000000;
 
@@ -25,6 +26,11 @@ public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMar
             var item = habbo.Inventory.Furniture.GetItem(itemId);
 
             if (item == null || (long)item.OwnerId != habbo.Id || !item.Definition.AllowTrade || !item.Definition.AllowMarketplaceSell) {
+                return false;
+            }
+
+            if (settings.TryGetValue("catalog.marketplace.only_rare_ltd") == "1" &&
+                !item.Definition.IsRare && item.UniqueNumber == 0) {
                 return false;
             }
 
