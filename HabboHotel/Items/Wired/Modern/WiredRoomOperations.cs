@@ -8,12 +8,13 @@ using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Wired.Modern;
 
+/// <summary>Step: a wired step to another tile, where any other furniture blocks (stackable and helpers too) unless moved through.</summary>
 public sealed record WiredCollisionPolicy(IReadOnlySet<uint> ThroughFurni, IReadOnlySet<int> ThroughUsers,
-    IReadOnlySet<uint> BlockingFurni)
+    IReadOnlySet<uint> BlockingFurni, bool Step = false)
 {
     public bool BlocksUsers(IEnumerable<RoomUser> users) => users.Any(user => !ThroughUsers.Contains(user.VirtualId));
     public bool BlocksFurni(Item item) => BlockingFurni.Contains(item.Id)
-        || !item.Definition.Stackable && !ThroughFurni.Contains(item.Id);
+        || (Step || !item.Definition.Stackable) && !ThroughFurni.Contains(item.Id);
 }
 
 /// <summary>Movement and queries share the same footprint and placement checks.</summary>
@@ -111,7 +112,7 @@ public static class WiredRoomOperations
             var others = map.GetCoordinatedItems(point).Where(other => other.Id != item.Id).ToArray();
 
             if (others.Any(other => collision?.BlockingFurni.Contains(other.Id) == true)
-                || !magic && !placement.HasHelper && !throughFurni && others.Any(other => collision?.BlocksFurni(other) ?? !other.Definition.Stackable)) {
+                || (collision?.Step == true || !magic && !placement.HasHelper) && !throughFurni && others.Any(other => collision?.BlocksFurni(other) ?? !other.Definition.Stackable)) {
                 return false;
             }
 

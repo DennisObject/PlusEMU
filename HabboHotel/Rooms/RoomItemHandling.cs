@@ -654,7 +654,7 @@ public class RoomItemHandling
 
                     if (wiredCollision != null && map.GetCoordinatedItems(tile).Any(other => other.Id != item.Id
                         && (wiredCollision.BlockingFurni.Contains(other.Id)
-                            || !magic && !placement.HasHelper && wiredCollision.BlocksFurni(other)))) {
+                            || (wiredCollision.Step || !magic && !placement.HasHelper) && wiredCollision.BlocksFurni(other)))) {
                         return false;
                     }
 

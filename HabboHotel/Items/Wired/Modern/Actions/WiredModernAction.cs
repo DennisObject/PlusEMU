@@ -278,7 +278,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 config.FurniSources.ContainsKey("movers") ? Furni(context, config, "movers") : [],
                 config.FurniSources.ContainsKey("targets") ? Furni(context, config, "targets", name == "wf_act_furni_to_furni") : [],
                 config.UserSources.ContainsKey("users") ? Users(context, config, "users") : [],
-                (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height),
+                (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height,
+                    WiredMovementActions.Steps.Contains(name)),
                 (user, target, slide, fast, walkMode) => slide
                     ? _movement.MoveAvatar(context, user, target.GetX, target.GetY, true, walkMode)
                     : Teleport(context, user, target, fast),
@@ -390,7 +391,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                         }
 
                         var random = WiredRoomOperations.Offset(Random.Shared.Next(4) * 2);
-                        changed |= _movement.MoveFurniture(context, item, item.GetX + random.X, item.GetY + random.Y, item.Rotation, null);
+                        changed |= _movement.MoveFurniture(context, item, item.GetX + random.X, item.GetY + random.Y, item.Rotation, null, step: true);
                         continue;
                     }
 
@@ -407,7 +408,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                     }
 
                     foreach (var candidate in name == "wf_act_chase" ? candidates.Take(1) : candidates) {
-                        if (_movement.MoveFurniture(context, item, candidate.X, candidate.Y, item.Rotation, null)) {
+                        if (_movement.MoveFurniture(context, item, candidate.X, candidate.Y, item.Rotation, null, step: true)) {
                             changed = true;
                             break;
                         }

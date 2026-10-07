@@ -22,6 +22,12 @@ public sealed class WiredMovementActions
         "wf_act_toggle_state", "wf_act_toggle_to_rnd", "wf_act_teleport_to", "wf_act_user_to_furni"
     };
 
+    /// <summary>Furniture movers stepping to a derived tile, not onto a furni, user or snapshot position.</summary>
+    public static readonly IReadOnlySet<string> Steps = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "wf_act_rel_mov", "wf_act_move_rotate", "wf_act_move_furni_as_group", "wf_act_move_furni_to"
+    };
+
     public bool Execute(string name, WiredConfiguration configuration, IReadOnlyList<Item> movers,
         IReadOnlyList<Item> targets, IReadOnlyList<RoomUser> users,
         MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState,

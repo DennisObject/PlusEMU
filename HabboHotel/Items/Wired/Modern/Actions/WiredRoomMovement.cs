@@ -8,7 +8,8 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 /// <summary>Mutates the actual room and emits the active renderer's animation format.</summary>
 public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition)
 {
-    public bool MoveFurniture(WiredRuntimeContext context, Item item, int x, int y, int rotation, double? height)
+    /// <summary>A step to another tile is blocked by any other furniture unless physics moves it through.</summary>
+    public bool MoveFurniture(WiredRuntimeContext context, Item item, int x, int y, int rotation, double? height, bool step = false)
     {
         var policy = context.Policy.Addons;
         var room = context.Room;
@@ -16,7 +17,7 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         var targetHeight = height ?? room.GetGameMap().Model.SqFloorHeight[Math.Clamp(x, 0, room.GetGameMap().Model.MapSizeX - 1), Math.Clamp(y, 0, room.GetGameMap().Model.MapSizeY - 1)];
         var options = WiredMovementPolicy.Resolve(policy, source, x, y, targetHeight, rotation, explicitHeight: height.HasValue);
         var physics = policy.Physics;
-        var collision = Collision(physics);
+        var collision = Collision(physics, step && (x != item.GetX || y != item.GetY));
         var carried = room.GetRoomUserManager().GetRoomUsers().Where(user => policy.Carry?.UserIds.Contains(user.VirtualId) == true
             && WiredRoomOperations.IsOnItem(user, item)
             && (policy.Carry.SameTile || Math.Abs(user.Z - item.TotalHeight) < 0.001)).ToArray();
@@ -60,7 +61,7 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
     /// </summary>
     public bool MoveTogether(WiredRuntimeContext context, IReadOnlyList<Item> movers, Func<Item, Func<int, int, int, bool>, bool> step)
     {
-        var collision = Collision(context.Policy.Addons.Physics);
+        var physics = context.Policy.Addons.Physics;
         var pending = movers.ToHashSet();
         var changed = false;
 
@@ -73,6 +74,8 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
 
         bool Move(Item item, int x, int y, int rotation)
         {
+            var collision = Collision(physics, x != item.GetX || y != item.GetY);
+
             foreach (var ahead in WiredRoomOperations.Footprint(item, x, y, rotation)
                          .SelectMany(point => context.Room.GetGameMap().GetCoordinatedItems(point)).Distinct().ToArray()) {
                 if (pending.Contains(ahead) && (collision?.BlocksFurni(ahead) ?? !ahead.Definition.Stackable)) {
@@ -80,7 +83,7 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
                 }
             }
 
-            return MoveFurniture(context, item, x, y, rotation, null);
+            return MoveFurniture(context, item, x, y, rotation, null, step: true);
         }
 
         foreach (var item in movers) {
@@ -141,8 +144,9 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         return true;
     }
 
-    private static WiredCollisionPolicy? Collision(WiredPhysicsPolicy? physics) => physics == null ? null
-        : new(physics.ThroughFurni, physics.ThroughUsers, physics.BlockingFurni);
+    internal static WiredCollisionPolicy? Collision(WiredPhysicsPolicy? physics, bool step) => physics == null
+        ? step ? new(new HashSet<uint>(), new HashSet<int>(), new HashSet<uint>(), true) : null
+        : new(physics.ThroughFurni, physics.ThroughUsers, physics.BlockingFurni, step);
     private static bool ValidAvatarDestination(Room room, int x, int y) => room.GetGameMap().ValidTile(x, y)
         && room.GetGameMap().Model.SqState[x, y] == SquareState.Open;
     public static WiredSelectorFurniture Furniture(Item item) => new(item.Id, (int)item.Definition.Id,
