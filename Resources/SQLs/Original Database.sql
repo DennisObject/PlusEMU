@@ -24327,6 +24327,7 @@ INSERT INTO `server_settings` VALUES ('room.item.gifts.enabled', '1', 'Disables 
 INSERT INTO `server_settings` VALUES ('room.item.placement_limit', '7500', 'How many items a room can hold.');
 INSERT INTO `server_settings` VALUES ('room.pets.placement_limit', '25', 'How many pets a room can hold.');
 INSERT INTO `server_settings` VALUES ('room.promotion.lifespan', '120', 'The lifespan of a room promotion.');
+INSERT INTO `server_settings` VALUES ('catalog.marketplace.only_rare_ltd', '0', 'Limit marketplace listings to rare or LTD furniture when enabled.');
 INSERT INTO `server_settings` VALUES ('trading.auto_exchange_redeemables', '0', 'When enabled credits that are traded will automatically be redeemed.');
 INSERT INTO `server_settings` VALUES ('user.currency_scheduler.credit_reward', '100', 'The amount of credits a user will recieve every x minutes');
 INSERT INTO `server_settings` VALUES ('user.currency_scheduler.ducket_reward', '100', 'The amount of pixels a user will recieve every x minutes');
