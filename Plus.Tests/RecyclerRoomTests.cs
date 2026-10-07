@@ -18,9 +18,11 @@ public partial class PlacedFurniRoomTests
     public void RecyclerCommitsBeforeAnyLiveRemovalAndDeliversAnUnopenedEcotronBox()
     {
         var (service, store, inputs, _) = RecyclerFixture();
-        store.BeforeCommit = () => {
+        store.BeforeCommit = () =>
+        {
             Assert.Empty(_client.Packets);
-            Assert.All(inputs, item => {
+            Assert.All(inputs, item =>
+            {
                 Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
                 Assert.False(item.TryReserve());
             });
@@ -118,16 +120,19 @@ public partial class PlacedFurniRoomTests
     public void OwnedEcotronOpeningDeliversContentsToInventoryAndRemovesOnlyTheCapturedRoomItem(bool v2, bool wallReward)
     {
         var (service, store, _, box) = RecyclerFixture(v2, wallReward);
-        store.BeforeOpen = () => {
+        store.BeforeOpen = () =>
+        {
             Assert.Same(box, _room.GetRoomItemHandler().GetItem(box.Id));
             Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(100));
             Assert.Empty(_client.Packets);
         };
         Assert.True(service.TryOpen(_client, box.Id));
+
         if (v2) {
             Assert.Equal(0, store.Opens);
             ExecutorTick();
         }
+
         Assert.Equal(1, store.Opens);
         Assert.Null(_room.GetRoomItemHandler().GetItem(box.Id));
         Assert.Null(box.GetRoom());
@@ -197,7 +202,8 @@ public partial class PlacedFurniRoomTests
     {
         var (service, _, _, _) = RecyclerFixture();
         var habbo = _client.GetHabbo();
-        _client.BeforeCapture = header => {
+        _client.BeforeCapture = header =>
+        {
             if (header == ServerPacketHeader.FurniListRemoveComposer) {
                 Assert.Equal(99u, Assert.Single(habbo.Inventory.Furniture.GetItems).Id);
                 typeof(GameClient).GetField("_habbo", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(_client, null);
@@ -231,14 +237,17 @@ public partial class PlacedFurniRoomTests
         var replacement = Furni(box.Id, InteractionType.None, WiredBoxType.None);
         replacement.ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat { Data = "replacement" };
         IReadOnlyList<Plus.HabboHotel.Rooms.RoomItemSave>? saved = null;
-        var recording = Proxy<Plus.HabboHotel.Rooms.IRoomItemStore>((method, args) => {
+        var recording = Proxy<Plus.HabboHotel.Rooms.IRoomItemStore>((method, args) =>
+        {
             if (method == "SaveMoved") {
                 saved = (IReadOnlyList<Plus.HabboHotel.Rooms.RoomItemSave>)args[0]!;
             }
+
             return null;
         });
         typeof(Plus.HabboHotel.Rooms.RoomItemHandling).GetField("_store", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(handler, recording);
-        _client.BeforeCapture = header => {
+        _client.BeforeCapture = header =>
+        {
             if (header == ServerPacketHeader.ObjectRemoveComposer) {
                 Assert.True(handler.SetFloorItem(null!, replacement, 3, 1, 0, true, false, false));
                 handler.UpdateItem(replacement);
@@ -287,12 +296,14 @@ public partial class PlacedFurniRoomTests
         var habbo = _client.GetHabbo();
         habbo.Client = _client;
         habbo.Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []) };
+
         if (v2) {
             ExecutorActor(0, 1);
         }
         else {
             Assert.True(_room.GetRoomUserManager().AddAvatarToRoom(_client));
         }
+
         var box = Furni(10, InteractionType.None, WiredBoxType.None);
         box.Definition.Id = 100;
         box.Definition.ItemName = "ecotron_box";
@@ -300,20 +311,31 @@ public partial class PlacedFurniRoomTests
         box.ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat { Data = "3-2-2040" };
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, box, 2, 2, 0, true, false, false));
         var input = new ItemDefinition { Id = 101, ItemName = "input", SpriteId = 41, AllowEcotronRecycle = true };
-        var output = new ItemDefinition { Id = 102, ItemName = "reward", SpriteId = 42,
-            ProductType = wallReward ? "i" : "s", Type = wallReward ? ItemType.Wall : ItemType.Floor };
+        var output = new ItemDefinition
+        {
+            Id = 102,
+            ItemName = "reward",
+            SpriteId = 42,
+            ProductType = wallReward ? "i" : "s",
+            Type = wallReward ? ItemType.Wall : ItemType.Floor
+        };
         var inputs = new[] { new InventoryItem { Id = 20, OwnerId = 7, Definition = input }, new InventoryItem { Id = 21, OwnerId = 7, Definition = input } };
+
         foreach (var item in inputs) {
             Assert.True(habbo.Inventory.Furniture.AddItem(item));
         }
+
         var store = new RecyclerRecordingStore();
         var data = new RecyclerDefinitions([box.Definition, input, output]);
+
         if (ambiguousBox) {
             data.Items.Add(103, new ItemDefinition { Id = 103, ItemName = "ecotron_box", SpriteId = 3095 });
         }
+
         var service = new RecyclerService(store, data, _interactionClock, new RecyclerTestRandom([]), TestLogging.For<RecyclerService>());
         _client.Sent.Clear();
         _client.Packets.Clear();
+
         return (service, store, inputs, box);
     }
 
@@ -333,6 +355,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal((7, 100u), (userId, boxDefinitionId));
             BeforeCommit?.Invoke();
             Consumed = inputs.Select(input => input.Id).ToArray();
+
             return new(99, "3-2-2040");
         }
         public GiftContent? FindBox(uint itemId, int ownerId, uint roomId, uint boxDefinitionId) => Content;
@@ -341,6 +364,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal((10u, 7, 42u, 100u), (itemId, ownerId, roomId, boxDefinitionId));
             BeforeOpen?.Invoke();
             Opens++;
+
             return 100;
         }
     }
@@ -363,6 +387,7 @@ internal sealed class RecyclerTestRandom(IEnumerable<int> draws) : IRecyclerRand
         Bounds.Add(maximum);
         var draw = _draws.Count == 0 ? 0 : _draws.Dequeue();
         Assert.InRange(draw, 0, maximum - 1);
+
         return draw;
     }
 }

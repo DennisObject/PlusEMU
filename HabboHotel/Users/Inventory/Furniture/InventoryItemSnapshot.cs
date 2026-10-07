@@ -13,6 +13,7 @@ public sealed record InventoryItemSnapshot(uint Id, string Type, int SpriteId, F
 
         var category = RecyclerBox.IsDefinition(definition)
             ? FurniCategory.EcotronBox : definition.Category;
+
         return new(item.Id, definition.Type.ToCharCode(), definition.SpriteId, category,
             FurnitureDataSnapshot.Capture(item.ExtraData), item.UniqueNumber, item.UniqueSeries,
             definition.AllowEcotronRecycle, definition.AllowTrade, item.ShouldStackInInventory(),

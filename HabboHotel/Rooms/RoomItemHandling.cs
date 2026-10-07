@@ -419,6 +419,7 @@ public class RoomItemHandling
         _room.GetGameMap().FlushPlacementUpdates();
         _room.GetRoomUserManager().UpdateUserStatusses();
         item.Detach(_room);
+
         return true;
     }
 

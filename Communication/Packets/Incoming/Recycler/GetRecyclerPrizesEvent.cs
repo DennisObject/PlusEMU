@@ -8,6 +8,7 @@ internal sealed class GetRecyclerPrizesEvent(IRecyclerService recycler) : IPacke
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         recycler.GetPrizes(session);
+
         return Task.CompletedTask;
     }
 }

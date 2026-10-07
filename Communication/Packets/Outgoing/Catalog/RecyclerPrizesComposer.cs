@@ -11,10 +11,12 @@ public sealed class RecyclerPrizesComposer(ImmutableArray<RecyclerPrizeList> lev
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(levels.Length);
+
         foreach (var level in levels) {
             packet.WriteInteger(level.Level);
             packet.WriteInteger(level.Chance);
             packet.WriteInteger(level.Products.Length);
+
             foreach (var product in level.Products) {
                 packet.WriteString(product.Code);
                 packet.WriteInteger(1);

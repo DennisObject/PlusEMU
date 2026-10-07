@@ -8,6 +8,7 @@ internal sealed class GetRecyclerStatusEvent(IRecyclerService recycler) : IPacke
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         recycler.GetStatus(session);
+
         return Task.CompletedTask;
     }
 }

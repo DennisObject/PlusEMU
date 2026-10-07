@@ -66,13 +66,16 @@ public sealed class RecyclerPacketTests
     public async Task AllShippedBrowserRevisionsMapTheThreeRequestsAndThreeResponses()
     {
         var directory = Directory.CreateTempSubdirectory("recycler-revisions-").FullName;
+
         try {
             foreach (var file in Directory.GetFiles(HabbiconPacketTests.Repo("Resources/Revisions"), "*.json")) {
                 File.Copy(file, Path.Join(directory, Path.GetFileName(file)));
             }
+
             var cache = new Plus.Communication.Revisions.RevisionsCache();
             typeof(Plus.Communication.Revisions.RevisionsCache).GetField("_directory", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(cache, directory);
             await cache.Start();
+
             foreach (var name in new[] { "NITRO-1-6-6", "NITRO-3-6-0", "OCTANE-3-6-0-FLOOR-20260909" }) {
                 var revision = cache.Revisions[name];
                 Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetRecyclerPrizesEvent, revision.IncomingIdToInternalIdMapping[398]);
@@ -92,15 +95,21 @@ public sealed class RecyclerPacketTests
     public void EcotronInventoryCategorySurvivesReloadWithoutMutatingSharedFurnitureDefinitions()
     {
         var definition = new ItemDefinition { ItemName = "ecotron_box", SpriteId = 3095, Type = Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor };
+
         foreach (var id in new uint[] { 10, 11 }) {
-            var item = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem { Id = id, Definition = definition,
-                ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat { Data = "3-2-2040" } };
+            var item = new Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem
+            {
+                Id = id,
+                Definition = definition,
+                ExtraData = new Plus.HabboHotel.Items.DataFormat.LegacyDataFormat { Data = "3-2-2040" }
+            };
             var snapshot = Plus.HabboHotel.Users.Inventory.Furniture.InventoryItemSnapshot.Capture(item);
             Assert.Equal(Plus.HabboHotel.Users.Inventory.Furniture.FurniCategory.EcotronBox, snapshot.Category);
             var packet = new HabbiconTestSupport.RecordingPacket();
             new Plus.Communication.Packets.Outgoing.Inventory.Furni.FurniListAddComposer(snapshot).Compose(packet);
             Assert.Equal(10, packet.Writes[4]);
         }
+
         Assert.Equal(Plus.HabboHotel.Users.Inventory.Furniture.FurniCategory.Default, definition.Category);
         definition.SpriteId = 7;
         Assert.Equal(definition.Category, Plus.HabboHotel.Users.Inventory.Furniture.InventoryItemSnapshot.Capture(new() { Id = 12, Definition = definition }).Category);
@@ -131,11 +140,21 @@ public sealed class RecyclerPacketTests
         public void GetPrizes(GameClient session) => Calls.Add("prizes");
         public void GetStatus(GameClient session) => Calls.Add("status");
         public void Recycle(GameClient session, IReadOnlyList<uint> ids) => Calls.Add("recycle:" + string.Join(',', ids));
-        public bool TryOpen(GameClient session, uint id) { Calls.Add("open:" + id); return IsBox; }
+        public bool TryOpen(GameClient session, uint id)
+        {
+            Calls.Add("open:" + id);
+
+            return IsBox;
+        }
     }
     private sealed class Gifts : IGiftOpeningService
     {
         public uint Opened { get; private set; }
-        public Task OpenAsync(GameClient session, uint id) { Opened = id; return Task.CompletedTask; }
+        public Task OpenAsync(GameClient session, uint id)
+        {
+            Opened = id;
+
+            return Task.CompletedTask;
+        }
     }
 }

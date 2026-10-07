@@ -9,6 +9,7 @@ internal sealed class OpenGiftEvent(IGiftOpeningService gifts, IRecyclerService 
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var id = packet.ReadUInt();
+
         return recycler.TryOpen(session, id) ? Task.CompletedTask : gifts.OpenAsync(session, id);
     }
 }

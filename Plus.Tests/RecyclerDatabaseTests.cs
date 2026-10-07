@@ -173,11 +173,13 @@ public sealed class RecyclerDatabaseTests
         Task<RecycledBox?>? second = null;
         var firstThread = 0;
         fixture.ConnectionOpened = thread => Interlocked.CompareExchange(ref firstThread, thread, 0);
+
         try {
             first = Task.Factory.StartNew(() => fixture.Store.Recycle(7, 100, config, prize, [new(20, 101), new(21, 101)], Now),
                 CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
             var waiting = false;
             var deadline = DateTime.UtcNow.AddSeconds(5);
+
             while (!waiting && DateTime.UtcNow < deadline) {
                 waiting = fixture.Connection.ExecuteScalar<int>("""
                     SELECT COUNT(*) FROM information_schema.INNODB_LOCK_WAITS w
@@ -185,15 +187,18 @@ public sealed class RecyclerDatabaseTests
                     INNER JOIN information_schema.INNODB_TRX blocker ON blocker.trx_id=w.blocking_trx_id
                     WHERE t.trx_mysql_thread_id=@thread AND blocker.trx_mysql_thread_id=@holder
                     """, new { thread = Volatile.Read(ref firstThread), holder = holder.ServerThread }) > 0;
+
                 if (!waiting) {
                     await Task.Delay(250);
                 }
             }
+
             if (!waiting) {
                 var states = fixture.Connection.Query<string>("SELECT CONCAT(trx_state,':',COALESCE(trx_query,'')) FROM information_schema.INNODB_TRX WHERE trx_mysql_thread_id=@thread", new { thread = Volatile.Read(ref firstThread) });
                 var result = first.IsCompleted ? (await first is null ? "refused" : "committed") : first.Status.ToString();
                 Console.WriteLine($"Owned connection {firstThread}, task {result}: {string.Join(" | ", states)}");
             }
+
             Assert.True(waiting, $"First owner never reached the deliberately locked input (task: {first.Status}).");
             second = Task.Factory.StartNew(() => fixture.Store.Recycle(8, 100, config, prize, [new(22, 101), new(25, 101)], Now),
                 CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
@@ -203,13 +208,16 @@ public sealed class RecyclerDatabaseTests
         }
         finally {
             held.Rollback();
+
             if (first is not null) {
                 await first;
             }
+
             if (second is not null) {
                 await second;
             }
         }
+
         Assert.NotNull(await first!);
         Assert.Equal(2, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_presents"));
         Assert.Equal(2, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_recycler"));
@@ -235,13 +243,16 @@ public sealed class RecyclerDatabaseTests
             Connection = new MySqlConnection(options.ConnectionString);
             Source = new Database(options.ConnectionString, thread => ConnectionOpened?.Invoke(thread));
             Store = new RecyclerStore(Source);
+
             try {
                 Connection.Open();
                 var dump = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+
                 foreach (var name in new[] { "items", "furniture", "user_presents", "items_groups" }) {
                     var start = dump.IndexOf($"CREATE TABLE `{name}` (", StringComparison.Ordinal);
                     Connection.Execute(dump[start..(dump.IndexOf(';', start) + 1)]);
                 }
+
                 Connection.Execute("CREATE TABLE users(id INT PRIMARY KEY); INSERT INTO users VALUES(7),(8)");
                 Connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/51_Recycler.sql")));
                 Assert.False(Store.Load().Enabled);
@@ -264,6 +275,7 @@ public sealed class RecyclerDatabaseTests
             var config = Store.Load();
             var box = Assert.IsType<RecycledBox>(Store.Recycle(7, 100, config, config.Levels[0].Prizes[0], [new(20, 101), new(21, 101)], Now));
             Connection.Execute("UPDATE items SET room_id=42 WHERE id=@id", new { id = box.Id });
+
             return box;
         }
         public void Dispose()
@@ -278,11 +290,13 @@ public sealed class RecyclerDatabaseTests
             public IDbConnection Connection()
             {
                 var connection = new MySqlConnection(connectionString);
-                connection.StateChange += (_, state) => {
+                connection.StateChange += (_, state) =>
+                {
                     if (state.CurrentState == ConnectionState.Open) {
                         opened(connection.ServerThread);
                     }
                 };
+
                 return connection;
             }
         }

@@ -14,6 +14,7 @@ internal static class RecyclerBox
     public static ItemDefinition? Find(IEnumerable<ItemDefinition> definitions)
     {
         var boxes = definitions.Where(IsIdentity).Take(2).ToArray();
+
         return boxes.Length == 1 && IsDefinition(boxes[0]) ? boxes[0] : null;
     }
 }
