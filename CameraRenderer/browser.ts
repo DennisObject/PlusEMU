@@ -2,6 +2,7 @@ import { buildAvatarEffectLibraries, avatarEffectsReady } from './effect-librari
 import
 {
     AvatarAction,
+    ColorConverter,
     FloorHeightMapMessageParser,
     FurnitureStackingHeightMap,
     GetAssetManager,
@@ -17,6 +18,7 @@ import
     GetEventDispatcher,
     LegacyDataType,
     LegacyWallGeometry,
+    OctaneAdjustmentFilter,
     OctaneRectangle,
     OctaneSprite,
     OctaneTexture,
@@ -27,6 +29,7 @@ import
     RoomGeometry,
     RoomInstance,
     RoomObjectCategory,
+    RoomObjectDimmerStateUpdateEvent,
     RoomObjectUserType,
     RoomObjectVariable,
     RoomPlaneParser,
@@ -730,6 +733,31 @@ async function encodeCrop(roomId: number, viewport: CameraViewport, effects: Cam
     }
 }
 
+// Mirrors the client: a room loaded with its moodlight off is left alone, the planes take the
+// dimmer color, and outside "background only" the room display gets the same adjustment
+// filter as useRoom.
+function applyMoodlight(roomId: number, dimmer: RoomObjectDimmerStateUpdateEvent): void
+{
+    const engine = GetRoomEngine();
+    const backgroundOnly = (dimmer.effectId === 2);
+
+    engine.updateObjectRoomColor(roomId, dimmer.color, dimmer.brightness, backgroundOnly);
+
+    if(backgroundOnly) return;
+
+    const master = engine.getRoomInstanceRenderingCanvas(roomId, CANVAS_ID)?.master;
+
+    if(!master) fail('Room display is missing');
+
+    const color = ColorConverter.hslToRGB((ColorConverter.rgbToHSL(dimmer.color) & 0xFFFF00) + dimmer.brightness);
+    const filter = new OctaneAdjustmentFilter();
+
+    filter.red = ((color >> 16) & 0xFF) / 255;
+    filter.green = ((color >> 8) & 0xFF) / 255;
+    filter.blue = (color & 0xFF) / 255;
+    master.filters = [filter];
+}
+
 async function renderRoom(job: CameraJob): Promise<string>
 {
     const requested = readJob(job);
@@ -746,9 +774,20 @@ async function renderRoom(job: CameraJob): Promise<string>
 
         if(/download|could not load|missing library/i.test(message)) failed.push(message);
     };
+    // The client applies a moodlight from its UI (useFurnitureDimmerWidget, useRoom), and
+    // RoomEngine.init, which routes furniture events, is never run here. Keep the dimmer
+    // logic's own state for the room being rendered and apply it once the room is ready:
+    // a cached dimmer reports before the room logic's first update, and a color change at
+    // room time 0 is ignored.
+    let dimmerState: RoomObjectDimmerStateUpdateEvent = null;
+    const onDimmerState = (event: RoomObjectDimmerStateUpdateEvent) =>
+    {
+        if(event?.object && (engine.getRoomObjectWall(roomId, event.object.id) === event.object)) dimmerState = event;
+    };
     let opened = false;
 
     GetEventDispatcher().addEventListener<RoomContentLoadedEvent>(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
+    GetEventDispatcher().addEventListener<RoomObjectDimmerStateUpdateEvent>(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
     window.addEventListener('unhandledrejection', onRejection);
 
     try
@@ -765,6 +804,9 @@ async function renderRoom(job: CameraJob): Promise<string>
         const users = placeUsers(requested.scene);
 
         await waitUntilReady(roomId, users, placed.floorItems.length, placed.wallItems.length, failed);
+
+        if(dimmerState?.state) applyMoodlight(roomId, dimmerState);
+
         stripAdvertisements(roomId);
         applyGestures(roomId, users);
 
@@ -779,6 +821,7 @@ async function renderRoom(job: CameraJob): Promise<string>
     finally
     {
         GetEventDispatcher().removeEventListener(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
+        GetEventDispatcher().removeEventListener(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
         window.removeEventListener('unhandledrejection', onRejection);
 
         if(opened) engine.destroyRoom(roomId);

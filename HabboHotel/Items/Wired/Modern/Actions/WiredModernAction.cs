@@ -278,7 +278,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 config.FurniSources.ContainsKey("movers") ? Furni(context, config, "movers") : [],
                 config.FurniSources.ContainsKey("targets") ? Furni(context, config, "targets", name == "wf_act_furni_to_furni") : [],
                 config.UserSources.ContainsKey("users") ? Users(context, config, "users") : [],
-                (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height),
+                (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height,
+                    WiredMovementActions.Steps.Contains(name)),
                 (user, target, slide, fast, walkMode) => slide
                     ? _movement.MoveAvatar(context, user, target.GetX, target.GetY, true, walkMode)
                     : Teleport(context, user, target, fast),
@@ -381,23 +382,24 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                 return changed;
             case "wf_act_chase":
             case "wf_act_flee":
-                foreach (var item in items) {
+                return _movement.MoveTogether(context, items, (item, move) =>
+                {
                     var nearest = WiredDirectionalActions.Nearest(item, context.Targets.AllUsers());
 
                     if (nearest == null) {
                         if (name == "wf_act_flee") {
-                            continue;
+                            return false;
                         }
 
                         var random = WiredRoomOperations.Offset(Random.Shared.Next(4) * 2);
-                        changed |= _movement.MoveFurniture(context, item, item.GetX + random.X, item.GetY + random.Y, item.Rotation, null);
-                        continue;
+
+                        return move(item.GetX + random.X, item.GetY + random.Y, item.Rotation);
                     }
 
                     if (name == "wf_act_chase" && Math.Max(Math.Abs(nearest.X - item.GetX), Math.Abs(nearest.Y - item.GetY)) <= 1) {
                         _publish(new(WiredEventKind.Collision) { Actor = nearest, EventItem = item });
-                        changed = true;
-                        continue;
+
+                        return true;
                     }
 
                     var candidates = WiredDirectionalActions.Steps(item, nearest, name == "wf_act_flee").ToArray();
@@ -406,15 +408,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                         candidates = [new(item.GetX + Random.Shared.Next(-1, 2), item.GetY)];
                     }
 
-                    foreach (var candidate in name == "wf_act_chase" ? candidates.Take(1) : candidates) {
-                        if (_movement.MoveFurniture(context, item, candidate.X, candidate.Y, item.Rotation, null)) {
-                            changed = true;
-                            break;
-                        }
-                    }
-                }
-
-                return changed;
+                    return (name == "wf_act_chase" ? candidates.Take(1) : candidates).Any(candidate => move(candidate.X, candidate.Y, item.Rotation));
+                });
             case "wf_act_move_to_dir":
                 _directions.Retain(context.Targets.AllFurni());
                 // Leading edge first, so a blocked front that turns can still follow the line behind it.
@@ -425,11 +420,19 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
                     return item.GetX * offset.X + item.GetY * offset.Y;
                 }).ToArray();
 
-                return _movement.MoveTogether(context, leading, (item, move) => _directions.MoveHeading(item, Param(config, 0),
+                // A stack keeps its bottom item's heading, so it stays together on later steps too.
+                var units = WiredRoomMovement.Units(leading);
+                changed = _movement.MoveTogether(context, leading, (item, move) => _directions.MoveHeading(item, Param(config, 0),
                     HeadingTurnRule(Param(config, 1)), Param(config, 3) == 1,
                     (x, y) => move(x, y, item.Rotation),
                     (x, y) => context.Room.GetGameMap().ValidTile(x, y) ? context.Room.GetGameMap().GetRoomUsers(new(x, y)).ToArray() : [],
                     (furni, actor) => _publish(new(WiredEventKind.Collision) { Actor = actor, EventItem = furni })));
+
+                foreach (var unit in units) {
+                    _directions.Follow(unit[0], unit.Skip(1));
+                }
+
+                return changed;
             case "wf_act_move_rotate_user":
                 foreach (var user in Users(context, config, "users")) {
                     if (Param(config, 0) >= 0) {

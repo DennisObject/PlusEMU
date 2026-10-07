@@ -652,9 +652,9 @@ public class RoomItemHandling
 
                     var placement = map.ResolvePlacement(tile.X, tile.Y, item.Id, wiredCollision);
 
-                    if (wiredCollision != null && map.GetCoordinatedItems(tile).Any(other => other.Id != item.Id
+                    if (wiredCollision != null && map.GetCoordinatedItems(tile).Any(other => other.Id != item.Id && !wiredCollision.MovesWith(other)
                         && (wiredCollision.BlockingFurni.Contains(other.Id)
-                            || !magic && !placement.HasHelper && wiredCollision.BlocksFurni(other)))) {
+                            || (wiredCollision.Step || !magic && !placement.HasHelper) && wiredCollision.BlocksFurni(other)))) {
                         return false;
                     }
 

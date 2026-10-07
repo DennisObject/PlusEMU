@@ -89,7 +89,8 @@ public sealed class WiredModernCondition : WiredModernBox
             case "wf_cnd_has_altitude":
                 return WiredItemConditions.MatchesAltitude(config, Items());
             case "wf_cnd_valid_moves":
-                return WiredItemConditions.ValidMoves(Items(), (item, x, y) => WiredRoomOperations.CanMoveItem(context.Room, item, x, y, item.Rotation));
+                return WiredItemConditions.ValidMoves(Items(), (item, x, y) => WiredRoomOperations.CanMoveItem(context.Room, item, x, y, item.Rotation,
+                    collision: WiredRoomMovement.Collision(context.Policy.Addons.Physics, step: true)));
             case "wf_cnd_slc_quantity":
                 return WiredItemConditions.SelectionQuantity(config,
                 Param(config, 2) == 1 ? Items().Length : 0, Param(config, 2) == 0 ? Avatars().Length : 0);
