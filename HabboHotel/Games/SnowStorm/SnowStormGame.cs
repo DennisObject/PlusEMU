@@ -39,6 +39,7 @@ internal sealed class SnowStormGame
     private readonly SnowStormSettings _config;
     private readonly ISnowStormStore _store;
     private readonly ILogger _logger;
+    private readonly Action<Action> _background;
     private readonly SnowStormArena _arena;
     private readonly SnowStormArenaLevel _level;
     private readonly SnowStormServerRules _rules;
@@ -53,7 +54,8 @@ internal sealed class SnowStormGame
     private DateTimeOffset _runStart;
     private int _turnsRun;
 
-    public SnowStormGame(int id, SnowStormLobby lobby, SnowStormSettings config, ISnowStormStore store, ILogger logger, Random random)
+    /// <param name="background">Runs database work off the ticker.</param>
+    public SnowStormGame(int id, SnowStormLobby lobby, SnowStormSettings config, ISnowStormStore store, ILogger logger, Random random, Action<Action> background)
     {
         Id = id;
         Lobby = lobby.Snapshot();
@@ -62,6 +64,7 @@ internal sealed class SnowStormGame
         _config = config;
         _store = store;
         _logger = logger;
+        _background = background;
         _totalTurns = (int)(TimeSpan.FromSeconds(config.GameLengthSeconds) / TurnDuration);
         _level = SnowStormArenas.ForGame(lobby.Arena, config.Backgrounds.GetValueOrDefault(lobby.Arena.FieldType));
         _arena = SnowStormArena.Create(_level.Level, SnowStormSettings.TeamCount);
@@ -240,10 +243,20 @@ internal sealed class SnowStormGame
         _turnsRun++;
 
         // Inputs go to the earliest slot not yet broadcast (the next turn), never into the past and at most one turn later.
+        // Only a player's latest move target counts, so spammed moves never multiply the broadcast events.
         var earliest = _arena.Turn;
+        var lastMoves = new Dictionary<int, int>();
 
-        foreach (var (userId, kind, values, turn, subturn) in _inputs) {
-            if (!_humanIds.TryGetValue(userId, out var humanId)) {
+        for (var index = 0; index < _inputs.Count; index++) {
+            if (_inputs[index].Kind == SnowStormInput.Move) {
+                lastMoves[_inputs[index].UserId] = index;
+            }
+        }
+
+        for (var index = 0; index < _inputs.Count; index++) {
+            var (userId, kind, values, turn, subturn) = _inputs[index];
+
+            if (!_humanIds.TryGetValue(userId, out var humanId) || kind == SnowStormInput.Move && lastMoves[userId] != index) {
                 continue;
             }
 
@@ -286,12 +299,16 @@ internal sealed class SnowStormGame
             player.TotalScore += scores.FirstOrDefault(score => score.UserId == player.UserId).Score;
         }
 
-        try {
-            _store.RecordScores(SnowStormStore.WeekStart(now), scores);
-        }
-        catch (Exception exception) {
-            _logger.LogError(exception, "Unable to record the scores of SnowStorm game {GameId}", Id);
-        }
+        var week = SnowStormStore.WeekStart(now);
+        _background(() =>
+        {
+            try {
+                _store.RecordScores(week, scores);
+            }
+            catch (Exception exception) {
+                _logger.LogError(exception, "Unable to record the scores of SnowStorm game {GameId}", Id);
+            }
+        });
     }
 
     private SnowStormGameResult Result()

@@ -509,4 +509,3 @@ public static class ClientPacketHeader
     public const uint HousekeepingSetUserOverrideEvent = 9140;
     public const uint HousekeepingRemoveUserOverrideEvent = 9141;
 }
-

@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Catalog;
@@ -36,6 +37,9 @@ public sealed class SnowStormDirectory(
     // AIR Game2GameDirectoryStatus: 0 = available, anything else keeps games_main closed.
     private const int Available = 0;
     private const int Unavailable = 2;
+    private static readonly TimeSpan LeaderboardInterval = TimeSpan.FromSeconds(1);
+
+    private readonly ConcurrentDictionary<(int UserId, SnowStormLeaderboardKind Kind), DateTimeOffset> _lastLeaderboard = new();
 
     public void ShowDirectoryStatus(GameClient session)
     {
@@ -68,14 +72,19 @@ public sealed class SnowStormDirectory(
 
     public void ShowLeaderboard(GameClient session, SnowStormLeaderboardKind kind, int gameTypeId, int weekOffset, int startRank, int viewSize, int windowSize)
     {
-        if (gameTypeId != GameTypeId) {
+        var now = clock.GetUtcNow();
+        var key = (session.GetHabbo().Id, kind);
+
+        // Leaderboards aggregate every score row, so each table is served at most once a second per player.
+        if (gameTypeId != GameTypeId || _lastLeaderboard.TryGetValue(key, out var last) && now - last < LeaderboardInterval) {
             return;
         }
 
+        _lastLeaderboard[key] = now;
         SnowStormLeaderboardPage page;
 
         try {
-            page = store.LoadLeaderboard(new(kind, session.GetHabbo().Id, weekOffset, startRank, viewSize, windowSize), clock.GetUtcNow());
+            page = store.LoadLeaderboard(new(kind, key.Item1, weekOffset, startRank, viewSize, windowSize), now);
         }
         catch (Exception exception) {
             logger.LogError(exception, "Unable to load the SnowStorm {Kind} leaderboard", kind);
@@ -137,7 +146,7 @@ public sealed class SnowStormDirectory(
     private SnowStormAccount? Account(int userId)
     {
         try {
-            return store.GetAccount(userId, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime));
+            return store.GetAccount(userId, SnowStormStore.Today(clock.GetUtcNow()));
         }
         catch (Exception exception) {
             logger.LogError(exception, "Unable to load the SnowStorm account of {UserId}", userId);

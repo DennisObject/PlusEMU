@@ -40,6 +40,9 @@ public interface ISnowStormStore
     /// <summary>Uses one of today's free games, else one bought game. False when the player has none left.</summary>
     bool TryConsumeGame(int userId, DateOnly today, int freeGamesPerDay);
 
+    /// <summary>Gives back a used game as a bought one, for a player who paid but never got to play.</summary>
+    void RefundGame(int userId);
+
     IReadOnlyDictionary<int, int> GetTotalScores(IReadOnlyCollection<int> userIds);
 
     void RecordScores(DateOnly weekStart, IReadOnlyList<(int UserId, int Score)> scores);
@@ -95,6 +98,12 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
         transaction.Commit();
 
         return true;
+    }
+
+    public void RefundGame(int userId)
+    {
+        using var connection = database.Connection();
+        connection.Execute("INSERT INTO snowwar_game_tokens (user_id, games) VALUES (@userId, 1) ON DUPLICATE KEY UPDATE games = games + 1", new { userId });
     }
 
     public IReadOnlyDictionary<int, int> GetTotalScores(IReadOnlyCollection<int> userIds)
@@ -203,10 +212,13 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
         }
     }
 
+    /// <summary>Free games and weeks are counted in UTC days.</summary>
+    public static DateOnly Today(DateTimeOffset now) => DateOnly.FromDateTime(now.UtcDateTime);
+
     /// <summary>Weekly tables reset on Monday 00:00 UTC.</summary>
     public static DateOnly WeekStart(DateTimeOffset now)
     {
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var today = Today(now);
 
         return today.AddDays(-(((int)today.DayOfWeek + 6) % 7));
     }

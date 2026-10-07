@@ -27,12 +27,15 @@ public sealed class SnowStormManager(
     internal const int JoinFailedActiveInstance = 6;
     internal const int JoinFailedNoGamesLeft = 8;
     private const int MaxChatLength = 100;
+    // In-game inputs one player may have queued between two ticks; more are dropped.
+    private const int MaxPendingInputs = 12;
     private static readonly TimeSpan ChatInterval = TimeSpan.FromMilliseconds(750);
     private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(50);
 
     private readonly ConcurrentQueue<Action<DateTimeOffset>> _commands = new();
     private readonly ConcurrentDictionary<int, DateTimeOffset> _blocks = new();
     private readonly ConcurrentDictionary<int, DateTimeOffset> _lastChat = new();
+    private readonly ConcurrentDictionary<int, int> _pendingInputs = new();
     private readonly List<SnowStormLobby> _lobbies = [];
     private readonly List<SnowStormGame> _games = [];
     private readonly Dictionary<int, SnowStormLobby> _lobbyOf = [];
@@ -46,6 +49,9 @@ public sealed class SnowStormManager(
     private int _nextArena;
 
     public int StartOrder => 80;
+
+    /// <summary>Runs database work (paying for games, refunds, scores) off the ticker; tests run it inline.</summary>
+    internal Action<Action> Background { get; set; } = work => Task.Run(work);
 
     public Task Start()
     {
@@ -78,7 +84,7 @@ public sealed class SnowStormManager(
         int totalScore;
 
         try {
-            if (store.GetAccount(habbo.Id, Today()).GamesLeft(config.FreeGamesPerDay) == 0) {
+            if (store.GetAccount(habbo.Id, SnowStormStore.Today(clock.GetUtcNow())).GamesLeft(config.FreeGamesPerDay) == 0) {
                 session.Send(new Game2JoiningGameFailedComposer(JoinFailedNoGamesLeft));
 
                 return;
@@ -96,6 +102,14 @@ public sealed class SnowStormManager(
         var player = new SnowStormParticipant(session, habbo.Id, habbo.Username, habbo.Look, habbo.Gender.ToUpperInvariant(),
             habbo.CurrentRoom is { } room ? (int)room.Id : -1, totalScore);
         Track(habbo);
+
+        // The session may have closed before the disconnect hook was attached; then no leave would ever be queued.
+        if (habbo.AccessClosed) {
+            Untrack(habbo.Id);
+
+            return;
+        }
+
         _commands.Enqueue(now => Join(player, config, now));
     }
 
@@ -177,6 +191,11 @@ public sealed class SnowStormManager(
             }
 
             Run(() => AdvanceLobbies(config, now));
+
+            // Finish starts whose payment already completed (inline in tests).
+            while (_commands.TryDequeue(out var command)) {
+                Run(() => command(now));
+            }
         }
         finally {
             Volatile.Write(ref _ticking, 0);
@@ -199,8 +218,22 @@ public sealed class SnowStormManager(
         _commands.Enqueue(now => command(userId, now));
     }
 
-    private void Input(GameClient session, SnowStormInput kind, int[] values, int turn, int subturn) =>
-        Enqueue(session, (userId, _) => GameOf(userId)?.QueueInput(userId, kind, values, turn, subturn));
+    private void Input(GameClient session, SnowStormInput kind, int[] values, int turn, int subturn)
+    {
+        var userId = session.GetHabbo().Id;
+
+        if (_pendingInputs.AddOrUpdate(userId, 1, (_, count) => count + 1) > MaxPendingInputs) {
+            _pendingInputs.AddOrUpdate(userId, 0, (_, count) => count - 1);
+
+            return;
+        }
+
+        _commands.Enqueue(_ =>
+        {
+            _pendingInputs.AddOrUpdate(userId, 0, (_, count) => count - 1);
+            GameOf(userId)?.QueueInput(userId, kind, values, turn, subturn);
+        });
+    }
 
     private SnowStormGame? GameOf(int userId) => _gameOf.GetValueOrDefault(userId);
 
@@ -228,7 +261,7 @@ public sealed class SnowStormManager(
             return;
         }
 
-        var lobby = _lobbies.FirstOrDefault(candidate => !candidate.IsFull);
+        var lobby = _lobbies.FirstOrDefault(candidate => !candidate.IsFull && !candidate.Starting);
         var created = lobby == null;
 
         if (lobby == null) {
@@ -281,15 +314,12 @@ public sealed class SnowStormManager(
 
     private void Leave(int userId, bool notify, DateTimeOffset now)
     {
-        if (_lobbyOf.Remove(userId, out var lobby)) {
-            lobby.Players.RemoveAll(player => player.UserId == userId);
+        if (_lobbyOf.TryGetValue(userId, out var lobby) && lobby.Players.FirstOrDefault(member => member.UserId == userId) is { } leaver) {
+            RemoveFromLobby(lobby, leaver);
 
-            foreach (var member in lobby.Players) {
-                member.Session.Send(new Game2UserLeftGameComposer(userId));
-            }
-
-            if (lobby.Players.Count == 0) {
-                _lobbies.Remove(lobby);
+            // A player already charged for a start that was aborted gets the game back.
+            if (leaver.Paid) {
+                Refund(userId);
             }
         }
 
@@ -297,7 +327,8 @@ public sealed class SnowStormManager(
             var player = game.Participants.FirstOrDefault(member => member.UserId == userId);
 
             if (player != null) {
-                var block = notify && game.Phase == SnowStormGamePhase.Running ? SnowStormSettings.Read(settings).LeaveBlockSeconds : 0;
+                // Closing the client mid-game blocks like ExitGame; only the messages to the leaver need a live session.
+                var block = game.Phase == SnowStormGamePhase.Running ? SnowStormSettings.Read(settings).LeaveBlockSeconds : 0;
 
                 if (block > 0) {
                     _blocks[userId] = now + TimeSpan.FromSeconds(block);
@@ -345,11 +376,12 @@ public sealed class SnowStormManager(
 
     private void AdvanceLobbies(SnowStormSettings config, DateTimeOffset now)
     {
-        foreach (var lobby in _lobbies.ToList()) {
+        foreach (var lobby in _lobbies.Where(lobby => !lobby.Starting).ToList()) {
             if (lobby.Players.Count < config.MinPlayers) {
                 if (lobby.CountdownEnd != null || lobby.QueuedAt != null) {
                     lobby.CountdownEnd = null;
                     lobby.QueuedAt = null;
+                    lobby.QueuePosition = 0;
                     Broadcast(lobby, new Game2StopCounterComposer());
                 }
 
@@ -367,16 +399,19 @@ public sealed class SnowStormManager(
             }
         }
 
-        var queued = _lobbies.Where(lobby => lobby.QueuedAt != null).OrderBy(lobby => lobby.QueuedAt).ToList();
+        var queued = _lobbies.Where(lobby => lobby.QueuedAt != null && !lobby.Starting).OrderBy(lobby => lobby.QueuedAt).ToList();
+        var waiting = queued.ToList();
 
         foreach (var lobby in queued) {
-            if (_games.Count(game => game.Phase != SnowStormGamePhase.Ended) < config.MaxConcurrentGames) {
-                StartGame(lobby, config, now);
+            // Lobbies still paying for their start already hold an arena slot.
+            if (_games.Count(game => game.Phase != SnowStormGamePhase.Ended) + _lobbies.Count(candidate => candidate.Starting) < config.MaxConcurrentGames) {
+                waiting.Remove(lobby);
+                StartGame(lobby, config);
 
                 continue;
             }
 
-            var position = queued.Where(candidate => _lobbies.Contains(candidate)).ToList().IndexOf(lobby) + 1;
+            var position = waiting.IndexOf(lobby) + 1;
 
             if (position != lobby.QueuePosition) {
                 lobby.QueuePosition = position;
@@ -385,57 +420,138 @@ public sealed class SnowStormManager(
         }
     }
 
-    private void StartGame(SnowStormLobby lobby, SnowStormSettings config, DateTimeOffset now)
+    // Paying for the players' games hits the database, so it runs off the ticker and the start finishes as a command.
+    private void StartGame(SnowStormLobby lobby, SnowStormSettings config)
     {
-        _lobbies.Remove(lobby);
+        lobby.Starting = true;
+        var unpaid = lobby.Players.Where(player => !player.Paid).Select(player => player.UserId).ToList();
+        Background(() =>
+        {
+            var paid = new Dictionary<int, bool?>();
 
-        foreach (var player in lobby.Players.ToList()) {
-            _lobbyOf.Remove(player.UserId);
+            foreach (var userId in unpaid) {
+                try {
+                    paid[userId] = store.TryConsumeGame(userId, SnowStormStore.Today(clock.GetUtcNow()), config.FreeGamesPerDay);
+                }
+                catch (Exception exception) {
+                    logger.LogError(exception, "Unable to use a SnowStorm game of {UserId}", userId);
+                    paid[userId] = null;
+                }
+            }
 
-            try {
-                player.Paid = player.Paid || store.TryConsumeGame(player.UserId, DateOnly.FromDateTime(now.UtcDateTime), config.FreeGamesPerDay);
-            }
-            catch (Exception exception) {
-                logger.LogError(exception, "Unable to use a SnowStorm game of {UserId}", player.UserId);
+            _commands.Enqueue(now => FinishStart(lobby, paid, config, now));
+        });
+    }
+
+    /// <param name="paid">Per unpaid player: true when a game was used, false when none was left, null on a database error.</param>
+    private void FinishStart(SnowStormLobby lobby, Dictionary<int, bool?> paid, SnowStormSettings config, DateTimeOffset now)
+    {
+        lobby.Starting = false;
+
+        foreach (var (userId, result) in paid) {
+            var player = lobby.Players.FirstOrDefault(member => member.UserId == userId);
+
+            if (player == null) {
+                // Left while paying.
+                if (result == true) {
+                    Refund(userId);
+                }
+
+                continue;
             }
 
-            if (!player.Paid) {
-                lobby.Players.Remove(player);
-                player.Session.Send(new Game2JoiningGameFailedComposer(JoinFailedNoGamesLeft));
-                Untrack(player.UserId);
+            if (result == true) {
+                player.Paid = true;
+
+                continue;
             }
+
+            RemoveFromLobby(lobby, player);
+            player.Session.Send(new Game2JoiningGameFailedComposer(result == false ? JoinFailedNoGamesLeft : JoinFailedGeneric));
+            Untrack(userId);
+        }
+
+        if (!_lobbies.Contains(lobby)) {
+            return;
         }
 
         if (lobby.Players.Count < config.MinPlayers) {
             // Not enough paid-up players left: the rest keep waiting, already paid for their next start.
+            lobby.CountdownEnd = null;
             lobby.QueuedAt = null;
             lobby.QueuePosition = 0;
-            _lobbies.Add(lobby);
-
-            foreach (var player in lobby.Players) {
-                _lobbyOf[player.UserId] = lobby;
-                player.Session.Send(new Game2StopCounterComposer());
-            }
+            Broadcast(lobby, new Game2StopCounterComposer());
 
             return;
         }
 
         lobby.BalanceTeams();
-        var game = new SnowStormGame(++_nextId, lobby, config, store, logger, _random);
+        SnowStormGame game;
+
+        try {
+            game = new SnowStormGame(++_nextId, lobby, config, store, logger, _random, Background);
+        }
+        catch (Exception exception) {
+            // E.g. no free spawn tile for every player: give the games back and close the lobby.
+            logger.LogError(exception, "Unable to start SnowStorm game on arena {FieldType}", lobby.Arena.FieldType);
+
+            foreach (var player in lobby.Players.ToList()) {
+                RemoveFromLobby(lobby, player, notifyOthers: false);
+                player.Session.Send(new Game2StartingGameFailedComposer(JoinFailedGeneric));
+                Refund(player.UserId);
+                Untrack(player.UserId);
+            }
+
+            return;
+        }
+
+        _lobbies.Remove(lobby);
         _games.Add(game);
 
         foreach (var player in game.Participants) {
             player.Paid = false;
+            _lobbyOf.Remove(player.UserId);
             _gameOf[player.UserId] = game;
         }
 
         game.Start(now);
     }
 
+    private void RemoveFromLobby(SnowStormLobby lobby, SnowStormParticipant player, bool notifyOthers = true)
+    {
+        lobby.Players.Remove(player);
+        _lobbyOf.Remove(player.UserId);
+
+        if (notifyOthers) {
+            foreach (var member in lobby.Players) {
+                member.Session.Send(new Game2UserLeftGameComposer(player.UserId));
+            }
+        }
+
+        if (lobby.Players.Count == 0) {
+            _lobbies.Remove(lobby);
+        }
+    }
+
+    private void Refund(int userId)
+    {
+        if (SnowStormSettings.Read(settings).FreeGamesPerDay < 0) {
+            return;
+        }
+
+        Background(() =>
+        {
+            try {
+                store.RefundGame(userId);
+            }
+            catch (Exception exception) {
+                logger.LogError(exception, "Unable to refund a SnowStorm game to {UserId}", userId);
+            }
+        });
+    }
+
     private static void Broadcast(SnowStormLobby lobby, Communication.Packets.IServerPacket composer) =>
         GameClient.SendBroadcast(composer, lobby.Players.Select(player => player.Session).ToList());
-
-    private DateOnly Today() => DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
 
     private void Track(Habbo habbo)
     {
@@ -463,6 +579,8 @@ public sealed class SnowStormManager(
                 habbo.Disposed -= Disconnected;
             }
         }
+
+        _lastChat.TryRemove(userId, out _);
     }
 
     // Raised under the wallet lock: only queue the leave, the tick does the rest.

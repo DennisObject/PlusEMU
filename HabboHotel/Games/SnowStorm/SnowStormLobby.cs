@@ -23,6 +23,9 @@ internal sealed class SnowStormLobby(int id, SnowStormArenaDefinition arena, int
 
     public int QueuePosition { get; set; }
 
+    /// <summary>The players' games are being paid off the ticker; the lobby takes no joins until the start finishes.</summary>
+    public bool Starting { get; set; }
+
     /// <summary>The smaller team, team 1 on a tie, so teams never differ by more than one.</summary>
     public int NextTeam() =>
         Players.Count(player => player.TeamId == 1) <= Players.Count(player => player.TeamId == 2) ? 1 : 2;

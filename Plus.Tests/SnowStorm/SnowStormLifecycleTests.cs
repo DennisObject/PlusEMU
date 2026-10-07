@@ -19,8 +19,7 @@ public class SnowStormLifecycleTests
 
     private SnowStormLifecycleTests(params (string, string)[] extra)
     {
-        var settings = new Settings([("gamecenter.snowwar.enabled", "1"), ("gamecenter.snowwar.arenas", "8"), .. extra]);
-        _manager = new SnowStormManager(_store, Arenas(), settings, new Filter(), _clock, NullLogger<SnowStormManager>.Instance);
+        _manager = Manager(_store, _clock, null, [("gamecenter.snowwar.arenas", "8"), .. extra]);
     }
 
     [Fact]
@@ -231,8 +230,7 @@ public class SnowStormLifecycleTests
     [Fact]
     public void FullLobbiesWaitInTheArenaQueueWhileTheOnlySlotIsBusy()
     {
-        var manager = new SnowStormManager(_store, Arenas(), new Settings(("gamecenter.snowwar.enabled", "1"), ("gamecenter.snowwar.queue.match.max", "2")),
-            new Filter(), _clock, NullLogger<SnowStormManager>.Instance);
+        var manager = Manager(_store, _clock, null, ("gamecenter.snowwar.queue.match.max", "2"));
         var players = Enumerable.Range(1, 4).Select(id => Player(id, "P" + id)).ToList();
 
         foreach (var player in players) {

@@ -15,6 +15,16 @@ internal static class SnowStormTestSupport
 
     public static SnowStormArenas Arenas() => new(ArenaDirectory, NullLogger<SnowStormArenas>.Instance);
 
+    /// <summary>A manager whose database work (payments, refunds, scores) runs inline on the tick.</summary>
+    public static SnowStormManager Manager(ISnowStormStore store, TimeProvider clock, ISnowStormArenas? arenas = null, params (string Key, string Value)[] settings)
+    {
+        var manager = new SnowStormManager(store, arenas ?? Arenas(), new Settings([("gamecenter.snowwar.enabled", "1"), .. settings]), new Filter(), clock,
+            NullLogger<SnowStormManager>.Instance);
+        manager.Background = work => work();
+
+        return manager;
+    }
+
     public static (GameClient Client, List<(uint Header, byte[] Payload)> Sent, Habbo Habbo) Player(int id, string name)
     {
         var habbo = new Habbo { Id = id, Username = name, Look = "hd-180-1.ch-210-66", Gender = "m" };
@@ -60,6 +70,8 @@ internal static class SnowStormTestSupport
     {
         public Dictionary<int, SnowStormAccount> Accounts { get; } = [];
         public List<int> Consumed { get; } = [];
+        public List<int> Refunds { get; } = [];
+        public HashSet<int> Broken { get; } = [];
         public List<(DateOnly Week, int UserId, int Score)> Recorded { get; } = [];
         public List<SnowStormLeaderboardRequest> Requests { get; } = [];
 
@@ -67,6 +79,10 @@ internal static class SnowStormTestSupport
 
         public bool TryConsumeGame(int userId, DateOnly today, int freeGamesPerDay)
         {
+            if (Broken.Contains(userId)) {
+                throw new InvalidOperationException("database down");
+            }
+
             if (GetAccount(userId, today).GamesLeft(freeGamesPerDay) == 0) {
                 return false;
             }
@@ -75,6 +91,8 @@ internal static class SnowStormTestSupport
 
             return true;
         }
+
+        public void RefundGame(int userId) => Refunds.Add(userId);
 
         public IReadOnlyDictionary<int, int> GetTotalScores(IReadOnlyCollection<int> userIds) => userIds.ToDictionary(id => id, id => 120);
 

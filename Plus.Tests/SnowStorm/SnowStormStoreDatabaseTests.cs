@@ -32,6 +32,10 @@ public class SnowStormStoreDatabaseTests
             Assert.Equal(40, habbo.Credits);
             Assert.True(store.TryConsumeGame(1, Today, 2));
             Assert.Equal(new SnowStormAccount(0, 2, 9), store.GetAccount(1, Today));
+            store.RefundGame(1);
+            store.RefundGame(3);
+            Assert.Equal(new SnowStormAccount(0, 2, 10), store.GetAccount(1, Today));
+            Assert.Equal(1, store.GetAccount(3, Today).Tokens);
             Assert.Equal(0, store.GetAccount(1, Today.AddDays(1)).FreeGamesUsedToday);
             Assert.Null(store.Purchase(habbo, 99));
             Assert.Equal(["GET_SNOWWAR_TOKENS", "GET_SNOWWAR_TOKENS2", "GET_SNOWWAR_TOKENS3"], store.GetOffers().Select(offer => offer.LocalizationId));
