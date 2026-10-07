@@ -416,5 +416,9 @@ public static class ServerPacketHeader
     public const uint Game2TotalGroupLeaderboardComposer = 1769;
     public const uint Game2WeeklyGroupLeaderboardComposer = 2956;
     public const uint SnowWarGameTokensComposer = 3419;
+    public const uint CraftableProductsComposer = 509;
+    public const uint CraftingRecipeComposer = 1724;
+    public const uint CraftingResultComposer = 2726;
+    public const uint CraftingRecipesAvailableComposer = 2439;
 }
 

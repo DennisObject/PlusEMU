@@ -160,6 +160,9 @@
     "RedeemVoucherEvent": 339,
     "ThrowDiceEvent": 1990,
     "CraftSecretEvent": 1251,
+    "CraftEvent": 3591,
+    "GetCraftableProductsEvent": 633,
+    "GetCraftingRecipeEvent": 1173,
     "GetGameListEvent": 705,
     "SetRelationshipEvent": 3768,
     "RequestFriendEvent": 3157,
@@ -189,7 +192,6 @@
     "UnignoreUserEvent": 2061,
     "OpenGiftEvent": 3558,
     "ApplyDecorationEvent": 711,
-    "GetRecipeConfigEvent": 633,
     "ScrGetUserInfoEvent": 3166,
     "RemoveGroupMemberEvent": 593,
     "ConfirmRemoveGroupMemberEvent": 3593,
@@ -394,6 +396,10 @@
     "PurchaseSnowWarGameTokensOfferEvent": 391
   },
   "OutgoingHeaders": {
+    "CraftableProductsComposer": 1000,
+    "CraftingRecipeComposer": 2774,
+    "CraftingResultComposer": 618,
+    "CraftingRecipesAvailableComposer": 2124,
     "AllowedChatStylesComposer": 9340,
     "CreatableRoomModelsComposer": 9341,
     "InitDiffieHandshakeComposer": 1347,

@@ -1,8 +1,14 @@
+using Plus.HabboHotel.Crafting;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Crafting;
 
-internal class GetCraftingRecipeEvent : IPacketEvent
+internal sealed class GetCraftingRecipeEvent(ICraftingService crafting) : IPacketEvent
 {
-    public Task Parse(GameClient session, IIncomingPacket packet) => throw new NotImplementedException();
+    public Task Parse(GameClient session, IIncomingPacket packet)
+    {
+        crafting.GetRecipe(session, packet.ReadString());
+
+        return Task.CompletedTask;
+    }
 }

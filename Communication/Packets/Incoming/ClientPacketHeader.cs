@@ -225,7 +225,7 @@ public static class ClientPacketHeader
     public const uint SaveWiredConditionConfigEvent = 2370; //488
     public const uint RedeemVoucherEvent = 1384; //489
     public const uint ThrowDiceEvent = 3427; //1182
-    public const uint CraftSecretEvent = 3623; //1622
+    public const uint CraftSecretEvent = 3191; //1622
     public const uint GetGameListEvent = 705; //2993
     public const uint SetRelationshipEvent = 1514; //2112
     public const uint RequestFriendEvent = 1706; //3775
@@ -299,7 +299,7 @@ public static class ClientPacketHeader
     public const uint HabboSearchEvent = 1194; //3375
     public const uint PickTicketEvent = 1807; //3973
     public const uint GetGiftWrappingConfigurationEvent = 1570; //1928
-    public const uint GetCraftingRecipesAvailableEvent = 1869; //1653
+    public const uint GetCraftingRecipesAvailableEvent = 3431; //1653
     public const uint GetThreadDataEvent = 2324; //1559
     public const uint ManageGroupEvent = 737; //2547
     public const uint PlacePetEvent = 1495; //223
@@ -390,10 +390,10 @@ public static class ClientPacketHeader
     //public const uint VoteForRoomEvent =;
 
     //crafting
-    //public const uint CraftEvent =;
+    public const uint CraftEvent = 3922;
     //public const uint CraftSecretEvent =;
-    //public const uint GetCraftableProductsEvent =;
-    //public const uint GetCraftingRecipeEvent =;
+    public const uint GetCraftableProductsEvent = 2664;
+    public const uint GetCraftingRecipeEvent = 2453;
     //public const uint GetCraftingRecipesAvailableEvent =;
 
     // SnowStorm (AIR Game2 payloads); internal IDs match Octane's wire IDs.
