@@ -149,7 +149,7 @@ public static class ClientPacketHeader
     public const uint LetUserInEvent = 1781; //2356
     public const uint GetMarketplaceItemStatsEvent = 1561; //1203
     public const uint GetSellablePetPalettesEvent = 599; //2505
-    public const uint ForceOpenCalendarBoxEvent = 1275; //2879
+    public const uint OpenCampaignCalendarDoorAsStaffEvent = 1275; //2879
     public const uint SetUIFlagsEvent = 3841; //716
     public const uint DeleteRoomEvent = 439; //722
     public const uint SetSoundSettingsEvent = 608; //3820
@@ -278,7 +278,7 @@ public static class ClientPacketHeader
     public const uint GetBotInventoryEvent = 775; //363
     public const uint GetRentableSpaceEvent = 2035; //793
     public const uint OpenBotActionEvent = 3236; //2544
-    public const uint OpenCalendarBoxEvent = 1229; //724
+    public const uint OpenCampaignCalendarDoorEvent = 1229; //724
     public const uint DeleteGroupPostEvent = 1991; //317
     public const uint UpdateGroupBadgeEvent = 1589; //2959
     public const uint PlaceObjectEvent = 1809; //579

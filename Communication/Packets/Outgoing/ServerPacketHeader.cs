@@ -264,7 +264,7 @@ public static class ServerPacketHeader
     public const uint SendBullyReportComposer = 39; //2094
     public const uint VoucherRedeemErrorComposer = 2279; //3670
     public const uint PurchaseErrorComposer = 1331; //3016
-    public const uint UnknownCalendarComposer = 128; //1799
+    public const uint CampaignCalendarDoorOpenedComposer = 128; //1799
     public const uint FriendListUpdateComposer = 1190; //1611
 
     public const uint UserFlatCatsComposer = 3379; //377
@@ -433,5 +433,6 @@ public static class ServerPacketHeader
     public const uint SongDisksInventoryComposer = 9605;
     public const uint QuizDataComposer = 2927;
     public const uint QuizResultsComposer = 2772;
+    public const uint CampaignCalendarDataComposer = 2531;
 }
 
