@@ -56,7 +56,7 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
             var privileged = state.Profile.LegacyOverride || state.Origin == MoveOrigin.Interaction;
             var slot = context.Graph.Slot(target, state.PendingView);
 
-            if (!tiles.Contains(target.Tile) || slot >= 0 && (Grid.Active(slot) || privileged)) {
+            if (!tiles.Contains(target.Tile) || slot >= 0 && (Grid.Active(slot) || privileged) || Retarget(actor, index)) {
                 continue;
             }
 
@@ -70,6 +70,31 @@ internal sealed class GeometryPublicationService(MovementContext context, Rebind
         }
 
         return false;
+    }
+
+    // The announced surface was rebuilt away (furniture moved or changed height) but its tile may still stand:
+    // the step keeps its claim on the surface it would land on, and the commit re-validates it as usual.
+    private bool Retarget(RoomUser actor, int index)
+    {
+        var state = actor.Movement;
+        var target = state.Pending[index];
+        var landing = context.Graph.ResolveLanding(target, state.PendingView, context.Graph.Position(target, state.PendingView).Z);
+
+        if (landing.Support is not { } replacement) {
+            return false;
+        }
+
+        var slot = landing.Position.Slot;
+        var purpose = state.PendingPurpose[index];
+        var mask = ClaimMatrix.BlockingMask(state.Profile, Grid.Flags[slot], purpose, OccupancyView.Execution);
+
+        if (!context.Claims.TryClaim(actor, slot, ClaimMatrix.KindFor(state.Profile, Grid.Flags[slot], purpose), mask)) {
+            return false;
+        }
+
+        state.Pending[index] = replacement;
+
+        return true;
     }
 
     private int LiveSlot(SurfaceRef surface)

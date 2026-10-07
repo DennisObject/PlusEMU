@@ -60,6 +60,16 @@ public static class ClaimMatrix
             ? TargetOccupancy.Stationary | TargetOccupancy.GoalClaim | TargetOccupancy.RollerClaim | TargetOccupancy.OffGraph
             : TargetOccupancy.Stationary | TargetOccupancy.OffGraph;
     }
+
+    // The claim an announced step takes on its target (§6.4).
+    public static ClaimKind KindFor(ActorProfile actor, NavFlags target, StepPurpose purpose)
+    {
+        if (actor.LegacyOverride || actor.IgnoreUsers || (target & NavFlags.Door) != 0) {
+            return ClaimKind.Shared;
+        }
+
+        return !actor.Walkthrough ? ClaimKind.Exclusive : purpose == StepPurpose.Goal ? ClaimKind.Goal : ClaimKind.Shared;
+    }
 }
 
 public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, ActorAccessResolver? access = null)
