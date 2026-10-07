@@ -218,7 +218,7 @@ public sealed class RoomModelAccessTests
     private static IDatabase ReaderDatabase(DataTable data, Action? read = null) =>
         Proxy<IDatabase>((method, _) => method == "Connection" ? new ReaderConnection(data, read) : throw new InvalidOperationException(method));
 
-    private sealed class ReaderConnection(DataTable data, Action? read) : DbConnection
+    internal sealed class ReaderConnection(DataTable data, Action? read) : DbConnection
     {
         private ConnectionState _state;
         public override string ConnectionString { get; set; } = "room-model-memory";

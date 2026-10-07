@@ -19,7 +19,7 @@ public class SettingsManager : ISettingsManager
     public async Task Reload()
     {
         using var connection = _database.Connection();
-        _settings = (await connection.QueryAsync<(string, string)>("SELECT `key`, `value` FROM `server_settings`")).ToDictionary(x => x.Item1, x => x.Item2.ToLower());
+        _settings = (await connection.QueryAsync<(string, string)>("SELECT `key`, `value` FROM `server_settings`")).ToDictionary(x => x.Item1, x => x.Item2);
         _logger.LogInformation("Loaded " + _settings.Count + " server settings.");
     }
 
