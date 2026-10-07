@@ -335,7 +335,8 @@
     "Game2GetTotalGroupLeaderboardEvent": 1776,
     "Game2GetWeeklyGroupLeaderboardEvent": 2691,
     "GetSnowWarGameTokensOfferEvent": 980,
-    "PurchaseSnowWarGameTokensOfferEvent": 391
+    "PurchaseSnowWarGameTokensOfferEvent": 391,
+    "Game2VoteArenaEvent": 6015
   },
   "OutgoingHeaders": {
     "InitDiffieHandshakeComposer": 3531,
@@ -672,6 +673,7 @@
     "Game2WeeklyFriendsLeaderboardComposer": 2270,
     "Game2TotalGroupLeaderboardComposer": 1769,
     "Game2WeeklyGroupLeaderboardComposer": 2956,
-    "SnowWarGameTokensComposer": 3419
+    "SnowWarGameTokensComposer": 3419,
+    "SnowStormArenaVotesComposer": 5033
   }
 }

@@ -104,7 +104,7 @@ public class SnowStormRobustnessTests
         players[0].Sent.Clear();
         manager.QuickJoin(players[0].Client);
         manager.Tick();
-        Assert.Equal([ServerPacketHeader.Game2GameCreatedComposer], players[0].Sent.Select(packet => packet.Header));
+        Assert.Equal([ServerPacketHeader.Game2GameCreatedComposer, ServerPacketHeader.SnowStormArenaVotesComposer], players[0].Sent.Select(packet => packet.Header));
     }
 
     [Fact]

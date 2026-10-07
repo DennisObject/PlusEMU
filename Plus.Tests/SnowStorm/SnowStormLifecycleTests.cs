@@ -27,13 +27,13 @@ public class SnowStormLifecycleTests
     {
         _manager.QuickJoin(_ann.Client);
         _manager.Tick();
-        Assert.Equal([ServerPacketHeader.Game2GameCreatedComposer], Headers(_ann));
+        Assert.Equal([ServerPacketHeader.Game2GameCreatedComposer, ServerPacketHeader.SnowStormArenaVotesComposer], Headers(_ann));
 
         Clear();
         _manager.QuickJoin(_bo.Client);
         _manager.Tick();
-        Assert.Equal([ServerPacketHeader.Game2UserJoinedGameComposer, ServerPacketHeader.Game2StartCounterComposer], Headers(_ann));
-        Assert.Equal([ServerPacketHeader.Game2GameLongDataComposer, ServerPacketHeader.Game2StartCounterComposer], Headers(_bo));
+        Assert.Equal([ServerPacketHeader.Game2UserJoinedGameComposer, ServerPacketHeader.SnowStormArenaVotesComposer, ServerPacketHeader.Game2StartCounterComposer], Headers(_ann));
+        Assert.Equal([ServerPacketHeader.Game2GameLongDataComposer, ServerPacketHeader.SnowStormArenaVotesComposer, ServerPacketHeader.Game2StartCounterComposer], Headers(_bo));
         var lobby = Read(Last(_bo, ServerPacketHeader.Game2GameLongDataComposer));
         Assert.Equal(1, lobby.ReadInt()); // game id
         Assert.Equal("Arctic Island", lobby.ReadString());
@@ -139,7 +139,8 @@ public class SnowStormLifecycleTests
         _manager.Tick();
         Assert.Equal(-1, Read(Last(_bo, ServerPacketHeader.Game2RejoinPreviousRoomComposer)).ReadInt());
         Assert.DoesNotContain(_bo.Sent, packet => packet.Header == ServerPacketHeader.Game2GameCreatedComposer);
-        Assert.Equal([ServerPacketHeader.Game2PlayerRematchesComposer, ServerPacketHeader.Game2RejoinPreviousRoomComposer, ServerPacketHeader.Game2GameCreatedComposer],
+        Assert.Equal([ServerPacketHeader.Game2PlayerRematchesComposer, ServerPacketHeader.Game2RejoinPreviousRoomComposer, ServerPacketHeader.Game2GameCreatedComposer,
+            ServerPacketHeader.SnowStormArenaVotesComposer],
             Headers(_ann));
         var rematch = Read(Last(_ann, ServerPacketHeader.Game2GameCreatedComposer));
         Assert.NotEqual(1, rematch.ReadInt());
@@ -201,7 +202,7 @@ public class SnowStormLifecycleTests
         Clear();
         _manager.LeaveLobby(_bo.Client);
         _manager.Tick();
-        Assert.Equal([ServerPacketHeader.Game2UserLeftGameComposer, ServerPacketHeader.Game2StopCounterComposer], Headers(_ann));
+        Assert.Equal([ServerPacketHeader.Game2UserLeftGameComposer, ServerPacketHeader.SnowStormArenaVotesComposer, ServerPacketHeader.Game2StopCounterComposer], Headers(_ann));
         Assert.Equal(2, Read(_ann.Sent[0].Payload).ReadInt());
 
         Clear();
@@ -209,7 +210,7 @@ public class SnowStormLifecycleTests
         _manager.Tick();
         _manager.QuickJoin(_bo.Client);
         _manager.Tick();
-        Assert.Equal([ServerPacketHeader.Game2GameCreatedComposer], Headers(_bo));
+        Assert.Equal([ServerPacketHeader.Game2GameCreatedComposer, ServerPacketHeader.SnowStormArenaVotesComposer], Headers(_bo));
         Assert.Empty(_ann.Sent);
     }
 
