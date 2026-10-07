@@ -61,6 +61,44 @@ public sealed class AchievementPersistenceTests
     }
 
     [RoomComponentDatabaseFact]
+    public async Task DisposalDuringBadgeWaitRejectsTheLevelCommitWithoutClosingTheWallet()
+    {
+        using var fixture = new Fixture();
+        using var enteredBadge = new ManualResetEventSlim();
+        var releaseBadge = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var manager = fixture.Manager(() =>
+        {
+            enteredBadge.Set();
+
+            return releaseBadge.Task;
+        });
+        var writes = 0;
+        fixture.Database.BeforeConnection = () => Interlocked.Increment(ref writes);
+        var award = Task.Run(() => manager.ProgressAchievement(fixture.Client, Group, 1));
+
+        try {
+            Assert.True(enteredBadge.Wait(TimeSpan.FromSeconds(5)));
+            fixture.Habbo.Dispose();
+            Assert.True(fixture.Habbo.AccessClosed);
+            Assert.False(fixture.Habbo.WalletClosed);
+            Assert.Same(fixture.Client, fixture.Habbo.Client);
+        }
+        finally {
+            releaseBadge.TrySetResult();
+            await award.WaitAsync(TimeSpan.FromSeconds(5));
+        }
+
+        Assert.False(await award);
+        Assert.Equal(0, writes);
+        Assert.Equal(0, fixture.StoredLevels());
+        Assert.Equal((0, 0, 0), (fixture.Habbo.GetAchievementData(Group)!.Level,
+            fixture.Habbo.Duckets, fixture.Habbo.HabboStats.AchievementPoints));
+        Assert.DoesNotContain(fixture.Sent, packet => packet.Header is
+            ServerPacketHeader.HabboActivityPointNotificationComposer or ServerPacketHeader.AchievementScoreComposer
+            or ServerPacketHeader.AchievementProgressedComposer);
+    }
+
+    [RoomComponentDatabaseFact]
     public async Task SaveWaitsForAnAdmittedLevelCommitAndIncludesItsAward()
     {
         using var fixture = new Fixture();

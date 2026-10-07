@@ -1,6 +1,8 @@
 {
   "Name": "NITRO-1-6-6",
   "IncomingHeaders": {
+    "GetQuizQuestionsEvent": 1296,
+    "PostQuizAnswersEvent": 3720,
     "InitDiffieHandshakeEvent": 3110,
     "CompleteDiffieHandshakeEvent": 773,
     "UniqueIdEvent": 2490,
@@ -405,6 +407,8 @@
     "GetOfficialSongIdEvent": 3189
   },
   "OutgoingHeaders": {
+    "QuizDataComposer": 2927,
+    "QuizResultsComposer": 2772,
     "AllowedChatStylesComposer": 9340,
     "CreatableRoomModelsComposer": 9341,
     "InitDiffieHandshakeComposer": 1347,

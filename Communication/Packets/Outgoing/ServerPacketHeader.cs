@@ -429,5 +429,7 @@ public static class ServerPacketHeader
     public const uint OfficialSongIdComposer = 9603;
     public const uint SoundMachinePlaylistComposer = 9604;
     public const uint SongDisksInventoryComposer = 9605;
+    public const uint QuizDataComposer = 2927;
+    public const uint QuizResultsComposer = 2772;
 }
 

@@ -1,6 +1,8 @@
 {
   "Name": "NITRO-3-6-0",
   "IncomingHeaders": {
+    "GetQuizQuestionsEvent": 1296,
+    "PostQuizAnswersEvent": 3720,
     "InitDiffieHandshakeEvent": 3110,
     "CompleteDiffieHandshakeEvent": 773,
     "UniqueIdEvent": 2490,
@@ -409,6 +411,8 @@
     "CraftingRecipeComposer": 2774,
     "CraftingResultComposer": 618,
     "CraftingRecipesAvailableComposer": 2124,
+    "QuizDataComposer": 2927,
+    "QuizResultsComposer": 2772,
     "AllowedChatStylesComposer": 9340,
     "CreatableRoomModelsComposer": 9341,
     "InitDiffieHandshakeComposer": 1347,
