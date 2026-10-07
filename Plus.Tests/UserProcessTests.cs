@@ -241,6 +241,40 @@ public class UserProcessTests
         Assert.False(client.IsAuthenticated);
     }
 
+    [Fact]
+    public void TransportDisconnectCleansUpOffTheTransportThread()
+    {
+        var clock = new ManualClock();
+        var (habbo, _) = Player(clock);
+        var client = new Plus.Communication.Flash.FlashGameClient(TestGameServer.Instance,
+            new Plus.Communication.Flash.FlashPacketFactory(), new Logger<GameClient>());
+        client.SetHabbo(habbo);
+        habbo.Client = client;
+        // Stands in for NetCoreServer's send lock, which a Wired cycle sending to this session also waits for.
+        var sendLock = new object();
+        using var saved = new ManualResetEventSlim();
+        using var process = Process(clock, new Store((_, _, _, _) => { }));
+        using var disconnect = new DisconnectContext(habbo, process, Proxy<IUserPersistenceService>((_, _) =>
+        {
+            lock (sendLock) {
+                saved.Set();
+            }
+
+            return null;
+        }));
+
+        lock (sendLock) {
+            client.OnTransportDisconnected();
+
+            Assert.True(client.Closed.IsCancellationRequested);
+            Assert.False(saved.IsSet);
+        }
+
+        Assert.True(saved.Wait(TimeSpan.FromSeconds(10)));
+        Assert.True(SpinWait.SpinUntil(() => habbo.Client == null, TimeSpan.FromSeconds(10)));
+        Assert.Equal(1, disconnect.Unregisters);
+    }
+
     [RoomComponentDatabaseFact]
     public async Task DisconnectSavesTheCommittedDailyResetBeforeUnregistering()
     {
