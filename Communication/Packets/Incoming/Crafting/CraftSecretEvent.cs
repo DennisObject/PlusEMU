@@ -9,6 +9,7 @@ internal sealed class CraftSecretEvent(ICraftingService crafting) : IPacketEvent
     {
         var altarId = packet.ReadUInt();
         crafting.CraftSecret(session, altarId, CraftingPacket.ReadItems(packet));
+
         return Task.CompletedTask;
     }
 }

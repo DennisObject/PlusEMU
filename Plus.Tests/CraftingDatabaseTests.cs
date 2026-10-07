@@ -47,6 +47,7 @@ public sealed class CraftingDatabaseTests
     {
         using var fixture = new Fixture();
         var recipe = Assert.Single(fixture.Store.Load(100, 7));
+
         foreach (var column in new[] { "limited_number", "limited_stack" }) {
             fixture.Connection.Execute($"UPDATE items SET {column}=1 WHERE id=20");
             Assert.Null(fixture.Store.Craft(7, 42, 10, recipe, [20, 21], true));
@@ -158,6 +159,7 @@ public sealed class CraftingDatabaseTests
             options.Database = _schema;
             Connection = new MySqlConnection(options.ConnectionString);
             Store = new CraftingStore(new Database(options.ConnectionString));
+
             try {
                 Connection.Open();
                 var dump = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));

@@ -8,6 +8,7 @@ internal sealed class GetCraftingRecipeEvent(ICraftingService crafting) : IPacke
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         crafting.GetRecipe(session, packet.ReadString());
+
         return Task.CompletedTask;
     }
 }

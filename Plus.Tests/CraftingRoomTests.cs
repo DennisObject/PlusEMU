@@ -19,8 +19,10 @@ public partial class PlacedFurniRoomTests
     public void CraftingPublishesOnlyAfterCommitAndReleasesExactlyItsInventoryReservations()
     {
         var (service, store, ingredients) = CraftingFixture();
-        store.BeforeCommit = () => {
-            Assert.All(ingredients, item => {
+        store.BeforeCommit = () =>
+        {
+            Assert.All(ingredients, item =>
+            {
                 Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
                 Assert.False(item.TryReserve());
             });
@@ -40,6 +42,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("product", result.ReadString());
         Assert.Equal("output", result.ReadString());
         Assert.False(result.HasDataRemaining());
+
         foreach (var item in ingredients) {
             Assert.True(item.TryReserve());
             item.ReleaseReservation();
@@ -65,7 +68,8 @@ public partial class PlacedFurniRoomTests
         service.CraftSecret(_client, 10, [20, 21]);
         Assert.Empty(store.Consumed);
         Assert.Equal(2, _client.GetHabbo().Inventory.Furniture.GetItems.Count());
-        Assert.All(_client.Packets, packet => {
+        Assert.All(_client.Packets, packet =>
+        {
             Assert.Equal(ServerPacketHeader.CraftingResultComposer, packet.Header);
             Assert.False(new FlashIncomingPacket { Buffer = packet.Body }.ReadBool());
         });
@@ -81,6 +85,7 @@ public partial class PlacedFurniRoomTests
         var (service, store, ingredients) = CraftingFixture(secret);
         ingredients[0].UniqueNumber = seriesOnly ? 0u : 1u;
         ingredients[0].UniqueSeries = seriesOnly ? 100u : 0u;
+
         if (secret) {
             service.CraftSecret(_client, 10, [20, 21]);
         }
@@ -105,6 +110,7 @@ public partial class PlacedFurniRoomTests
         service.CraftSecret(_client, 10, [20, 21]);
         Assert.Equal(2, _client.GetHabbo().Inventory.Furniture.GetItems.Count());
         Assert.Equal(ServerPacketHeader.CraftingResultComposer, Assert.Single(_client.Packets).Header);
+
         foreach (var item in ingredients) {
             Assert.True(item.TryReserve());
             item.ReleaseReservation();
@@ -128,12 +134,14 @@ public partial class PlacedFurniRoomTests
     public void NormalCraftingRefusesForeignAltarsAndPreservesIngredientsOnFailure(bool failedWrite)
     {
         var (service, store, _) = CraftingFixture(false);
+
         if (failedWrite) {
             store.BeforeCommit = () => throw new CraftingFailure();
         }
         else {
             _room.GetRoomItemHandler().GetItem(10)!.OwnerId = 8;
         }
+
         service.Craft(_client, 10, "recipe");
         Assert.Empty(store.Consumed);
         Assert.Equal(2, _client.GetHabbo().Inventory.Furniture.GetItems.Count());
@@ -156,7 +164,8 @@ public partial class PlacedFurniRoomTests
     {
         var (service, _, _) = CraftingFixture(award: () => throw new InvalidOperationException("Detached achievements must not run."));
         var habbo = _client.GetHabbo();
-        _client.BeforeCapture = header => {
+        _client.BeforeCapture = header =>
+        {
             if (header == ServerPacketHeader.FurniListRemoveComposer) {
                 Assert.Equal(102u, Assert.Single(habbo.Inventory.Furniture.GetItems).Definition.Id);
                 typeof(GameClient).GetField("_habbo", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(_client, null);
@@ -172,7 +181,8 @@ public partial class PlacedFurniRoomTests
     {
         var (service, _, _) = CraftingFixture(wallReward: true);
         service.CraftSecret(_client, 10, [20, 21]);
-        var packet = new FlashIncomingPacket {
+        var packet = new FlashIncomingPacket
+        {
             Buffer = _client.Packets.Single(packet => packet.Header == ServerPacketHeader.FurniListNotificationComposer).Body
         };
         Assert.Equal(1, packet.ReadInt());
@@ -194,21 +204,27 @@ public partial class PlacedFurniRoomTests
         var input = new ItemDefinition { Id = 101, ItemName = "input", Type = ItemType.Floor, ProductType = "s" };
         var output = new ItemDefinition { Id = 102, ItemName = "output", Type = wallReward ? ItemType.Wall : ItemType.Floor, ProductType = "s" };
         var ingredients = new[] { new InventoryItem { Id = 20, OwnerId = 7, Definition = input }, new InventoryItem { Id = 21, OwnerId = 7, Definition = input } };
+
         foreach (var item in ingredients) {
             Assert.True(habbo.Inventory.Furniture.AddItem(item));
         }
+
         var store = new CraftingRecordingStore(secret, discovered);
         var service = new CraftingService(store, new CraftingDefinitions([input, output]),
-            Proxy<IAchievementManager>((method, _) => {
+            Proxy<IAchievementManager>((method, _) =>
+            {
                 if (method != "ProgressAchievement") {
                     throw new InvalidOperationException(method);
                 }
+
                 award?.Invoke();
+
                 return false;
             }),
             TestLogging.For<CraftingService>());
         _client.Sent.Clear();
         _client.Packets.Clear();
+
         return (service, store, ingredients);
     }
 
@@ -220,6 +236,7 @@ public partial class PlacedFurniRoomTests
         public ImmutableArray<CraftingRecipe> Load(uint altarDefinitionId, int userId)
         {
             Assert.Equal((100u, 7), (altarDefinitionId, userId));
+
             return [_recipe];
         }
         public CraftingRecipe? Find(string code, int userId) => throw new NotSupportedException();
@@ -229,6 +246,7 @@ public partial class PlacedFurniRoomTests
             Assert.Same(_recipe, recipe);
             BeforeCommit?.Invoke();
             Consumed = ids.ToArray();
+
             return new(99, recipe, recipe.Secret && !recipe.Discovered);
         }
     }

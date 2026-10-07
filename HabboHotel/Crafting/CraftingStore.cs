@@ -24,6 +24,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         var rows = connection.Query<RecipeRow>("SELECT " + RecipeColumns +
             " FROM crafting_recipes r INNER JOIN crafting_altars_recipes a ON a.recipe_id=r.id WHERE a.altar_item_id=@altarDefinitionId AND r.enabled=1 ORDER BY r.id",
             new { altarDefinitionId, userId }).ToArray();
+
         return ReadRecipes(connection, rows).ToImmutableArray();
     }
 
@@ -32,6 +33,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         using var connection = database.Connection();
         var row = connection.QuerySingleOrDefault<RecipeRow>("SELECT " + RecipeColumns +
             " FROM crafting_recipes r WHERE r.code=@code AND r.enabled=1", new { code, userId });
+
         return row is null ? null : ReadRecipes(connection, [row]).SingleOrDefault();
     }
 
@@ -44,6 +46,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
+
         if (connection.ExecuteScalar<int?>("SELECT id FROM users WHERE id=@userId FOR UPDATE", new { userId }, transaction) is null) {
             return null;
         }
@@ -51,12 +54,14 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         var altar = connection.QuerySingleOrDefault<ItemRow>(
             "SELECT id,base_item AS ItemId FROM items WHERE id=@altarId AND user_id=@userId AND room_id=@roomId FOR UPDATE",
             new { altarId, userId, roomId }, transaction);
+
         if (altar is null || roomId == 0) {
             return null;
         }
 
         var row = connection.QuerySingleOrDefault<RecipeRow>("SELECT " + RecipeColumns +
             " FROM crafting_recipes r WHERE r.id=@id AND r.enabled=1 FOR UPDATE", new { id = recipe.Id, userId }, transaction);
+
         if (row is null || row.RewardId != recipe.RewardId || row.Code != recipe.Code || row.ProductCode != recipe.ProductCode
             || connection.ExecuteScalar<int>("SELECT COUNT(*) FROM crafting_altars_recipes WHERE altar_item_id=@itemId AND recipe_id=@id",
                 new { itemId = altar.ItemId, id = recipe.Id }, transaction) != 1) {
@@ -64,6 +69,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         }
 
         var current = ReadRecipes(connection, [row], transaction).SingleOrDefault();
+
         if (current is null || !current.Available || (!secretCraft && current.Secret && !current.Discovered)) {
             return null;
         }
@@ -71,6 +77,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         var selected = connection.Query<ItemRow>(
             "SELECT id,base_item AS ItemId,limited_number AS LimitedNumber,limited_stack AS LimitedStack FROM items WHERE id IN @itemIds AND user_id=@userId AND room_id=0 ORDER BY id FOR UPDATE",
             new { itemIds, userId }, transaction).ToArray();
+
         if (selected.Length != itemIds.Count || selected.Any(item => item.LimitedNumber != 0 || item.LimitedStack != 0) || !current.Matches(selected.GroupBy(item => item.ItemId).ToDictionary(group => group.Key, group => group.Count()))) {
             return null;
         }
@@ -81,6 +88,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         }
 
         var removed = connection.Execute("DELETE FROM items WHERE id IN @itemIds AND user_id=@userId AND room_id=0", new { itemIds, userId }, transaction);
+
         if (removed != itemIds.Count) {
             throw new DBConcurrencyException("Crafting ingredients changed during consumption.");
         }
@@ -91,6 +99,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         var discovered = current.Secret && connection.Execute(
             "INSERT IGNORE INTO user_crafting_recipes(user_id,recipe_id) VALUES(@userId,@recipeId)", new { userId, recipeId = current.Id }, transaction) == 1;
         transaction.Commit();
+
         return new(id, current, discovered);
     }
 
@@ -103,6 +112,7 @@ public sealed class CraftingStore(IDatabase database) : ICraftingStore
         var ingredients = connection.Query<IngredientRow>(
             "SELECT recipe_id AS RecipeId,item_id AS ItemId,amount FROM crafting_recipes_ingredients WHERE recipe_id IN @ids ORDER BY recipe_id,item_id" + (transaction is null ? "" : " FOR UPDATE"),
             new { ids = rows.Select(row => row.Id).ToArray() }, transaction).ToLookup(row => row.RecipeId);
+
         return rows.Select(row => new CraftingRecipe(row.Id, row.Code, row.ProductCode, row.RewardId, row.Secret,
             row.Discovered, row.Remaining, row.Achievement,
             ingredients[row.Id].Select(ingredient => new CraftingIngredient(ingredient.ItemId, ingredient.Amount)).ToImmutableArray()))

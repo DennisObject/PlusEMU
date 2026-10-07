@@ -9,6 +9,7 @@ internal sealed class GetCraftingRecipesAvailableEvent(ICraftingService crafting
     {
         var altarId = packet.ReadUInt();
         crafting.GetAvailable(session, altarId, CraftingPacket.ReadItems(packet));
+
         return Task.CompletedTask;
     }
 }

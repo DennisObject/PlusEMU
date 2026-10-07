@@ -8,6 +8,7 @@ internal sealed class GetCraftableProductsEvent(ICraftingService crafting) : IPa
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         crafting.GetProducts(session, packet.ReadUInt());
+
         return Task.CompletedTask;
     }
 }

@@ -39,9 +39,11 @@ public sealed class CraftingPacketTests
         var incoming = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = stream.ToArray()[6..] };
         Assert.Equal(1, incoming.ReadInt());
         Assert.Equal("recipe", incoming.ReadString());
+
         if (native) {
             Assert.Equal("product", incoming.ReadString());
         }
+
         Assert.Equal("furniture", incoming.ReadString());
         Assert.Equal(1, incoming.ReadInt());
         Assert.Equal("ingredient", incoming.ReadString());
@@ -82,14 +84,17 @@ public sealed class CraftingPacketTests
     public async Task EverySupportedBrowserRevisionMapsAllFiveRequestsAndFourResponses()
     {
         var directory = Directory.CreateTempSubdirectory("crafting-revisions-").FullName;
+
         try {
             foreach (var file in Directory.GetFiles(HabbiconPacketTests.Repo("Resources/Revisions"), "*.json")) {
                 File.Copy(file, Path.Join(directory, Path.GetFileName(file)));
             }
+
             var cache = new Plus.Communication.Revisions.RevisionsCache();
             typeof(Plus.Communication.Revisions.RevisionsCache).GetField("_directory",
                 System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(cache, directory);
             await cache.Start();
+
             foreach (var name in new[] { "NITRO-1-6-6", "NITRO-3-6-0", "OCTANE-3-6-0-FLOOR-20260909" }) {
                 var revision = cache.Revisions[name];
                 Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.CraftEvent, revision.IncomingIdToInternalIdMapping[3591]);
