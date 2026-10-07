@@ -96,6 +96,8 @@ public partial class PlacedFurniRoomTests
         PlacementService(() => throw new InvalidOperationException("Sticky placement must not reward ordinary placement"))
             .PlaceSticky(_room, _client, 30, ":w=1,1 l=0,0 l");
         Assert.Equal(1, writes);
+        Assert.True(inventory.TryReserve());
+        inventory.ReleaseReservation();
 
         if (fail) {
             Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
