@@ -58,6 +58,9 @@ public static class InteractionTypes
                 return InteractionType.Roller;
             case "fbgate":
                 return InteractionType.FootballGate;
+            case "icetag_pole":
+                return InteractionType.IceTagPole;
+            case "icetag_field":
             case "iceskates":
                 return InteractionType.IceSkates;
             case "rollerskate":

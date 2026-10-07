@@ -121,5 +121,6 @@ public enum InteractionType
     Skateboard,
     WiredSelector,
     WiredAddon,
-    WiredVariable
+    WiredVariable,
+    IceTagPole
 }

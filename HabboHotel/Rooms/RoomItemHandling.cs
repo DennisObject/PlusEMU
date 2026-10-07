@@ -744,6 +744,10 @@ public class RoomItemHandling
             }
         }
 
+        if (newItem && !onRoller && session != null && item.Definition.InteractionType == InteractionType.IceSkates) {
+            _room.GetIceTag().Placed(session, item);
+        }
+
         if (sendMessage) {
             if (newItem) {
                 _room.SendObject(item);
@@ -1069,6 +1073,7 @@ public class RoomItemHandling
 
         if (inputs == null) {
             if (_floorItems.TryAdd(item.Id, item)) {
+                _room.IceTagAdmitted(item);
                 return true;
             }
 
@@ -1095,6 +1100,7 @@ public class RoomItemHandling
             }
 
             inputs.Attach(item);
+            _room.IceTagAdmitted(item);
 
             return true;
         }

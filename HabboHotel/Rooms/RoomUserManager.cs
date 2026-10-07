@@ -259,6 +259,7 @@ public class RoomUserManager
                 _bots.TryRemove(new KeyValuePair<int, RoomUser>(user.BotData.Id, user));
             }
 
+            _room.IceTagLeave(user);
             _room.GetWired()?.BeforeActorLeaves(user);
             user.BotAi.OnSelfLeaveRoom(kicked);
             _room.SendPacket(new UserRemoveComposer(user.VirtualId));
@@ -495,6 +496,7 @@ public class RoomUserManager
             }
 
             if (user != null) {
+                _room.IceTagLeave(user);
                 _room.GetWired()?.BeforeActorLeaves(user);
             }
 
@@ -638,6 +640,7 @@ public class RoomUserManager
             }
 
             if (!actorLeavePrepared) {
+                _room.IceTagLeave(user);
                 _room.GetWired()?.BeforeActorLeaves(user);
             }
 
@@ -1620,6 +1623,12 @@ public class RoomUserManager
 
         try {
             var newCurrentUserItemEffect = _room.GetGameMap().EffectMap[x, y];
+            var currentRoom = habbo.CurrentRoom;
+            var iceEffect = _room.UpdateIceTag(user, newCurrentUserItemEffect == 3
+                ? _room.GetGameMap().GetCoordinatedItems(new(x, y)).OrderByDescending(item => item.TotalHeight).FirstOrDefault(item => item.Definition.InteractionType == InteractionType.IceSkates) : null);
+            if (!ReferenceEquals(habbo.CurrentRoom, currentRoom)) {
+                return;
+            }
 
             if (newCurrentUserItemEffect > 0) {
                 if (habbo.Effects.CurrentEffect == 0) {
@@ -1628,10 +1637,10 @@ public class RoomUserManager
 
                 var type = ByteToItemEffectEnum.Parse(newCurrentUserItemEffect);
 
-                if (type != user.CurrentItemEffect) {
+                if (type != user.CurrentItemEffect || type == ItemEffectType.Iceskates && iceEffect >= 0 && habbo.Effects.CurrentEffect != iceEffect) {
                     switch (type) {
                         case ItemEffectType.Iceskates: {
-                                habbo.Effects.ApplyEffect(habbo.Gender == "M" ? 38 : 39);
+                                habbo.Effects.ApplyEffect(iceEffect >= 0 ? iceEffect : habbo.Gender == "M" ? 38 : 39);
                                 user.CurrentItemEffect = ItemEffectType.Iceskates;
                                 break;
                             }
@@ -1724,6 +1733,7 @@ public class RoomUserManager
             }
 
             foreach (var user in users) {
+                _room.IceTagLeave(user);
                 _room.GetWired()?.BeforeActorLeaves(user);
             }
 

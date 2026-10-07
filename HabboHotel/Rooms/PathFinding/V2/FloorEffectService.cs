@@ -21,17 +21,30 @@ public sealed class FloorEffectService(Room room, Action<GameClient> progressSwi
         try {
             var value = EffectValue(x, y, surface, actor.Movement.SupportZ);
 
+            Item? ice = null;
+            if (value == 3) {
+                var grid = room.GetGameMap().Navigation?.Grid;
+                var slot = SurfaceContacts.ContactSlot(grid, x, y, surface, actor.Movement.SupportZ);
+                ice = SurfaceContacts.Filter(grid, x, y, slot, room.GetGameMap().GetCoordinatedItems(new(x, y)))
+                    .OrderByDescending(item => item.TotalHeight).FirstOrDefault(item => item.Definition.InteractionType == InteractionType.IceSkates);
+            }
+
+            var currentRoom = habbo.CurrentRoom;
+            var iceEffect = room.UpdateIceTag(actor, ice);
+            if (!ReferenceEquals(habbo.CurrentRoom, currentRoom)) {
+                return;
+            }
             if (value > 0 && habbo.Effects.CurrentEffect == 0) {
                 actor.CurrentItemEffect = ItemEffectType.None;
             }
 
             var kind = ByteToItemEffectEnum.Parse(value);
 
-            if (kind == actor.CurrentItemEffect) {
+            if (kind == actor.CurrentItemEffect && (iceEffect < 0 || habbo.Effects.CurrentEffect == iceEffect)) {
                 return;
             }
 
-            habbo.Effects.ApplyEffect(EffectId(kind, habbo.Gender));
+            habbo.Effects.ApplyEffect(kind == ItemEffectType.Iceskates && iceEffect >= 0 ? iceEffect : EffectId(kind, habbo.Gender));
             actor.CurrentItemEffect = kind;
 
             if (kind == ItemEffectType.Swim) {

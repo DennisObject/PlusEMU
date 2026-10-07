@@ -24,6 +24,7 @@ public sealed class ItemInteractorFactory(
 
         return item.Definition.InteractionType switch
         {
+            InteractionType.IceSkates or InteractionType.IceTagPole => new InteractorIceTag(),
             InteractionType.Gate => new InteractorGate(),
             InteractionType.Teleport => new InteractorTeleport(timeProvider),
             InteractionType.Hopper => new InteractorHopper(travelStore),

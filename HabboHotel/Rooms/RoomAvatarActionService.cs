@@ -255,6 +255,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
         var rot = Rotation.Calculate(user.X, user.Y, x, y);
         user.SetRot(rot, false);
         user.UpdateNeeded = true;
+        room.IceTagLookTo(user, x, y);
     }
 
     public void SetTyping(GameClient session, bool typing)
