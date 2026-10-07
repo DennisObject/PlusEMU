@@ -67,7 +67,7 @@ public sealed class SnowStormSnowball : SnowStormGameObject
     internal override int BoundingRadius => Radius;
 
     // AIR SnowBallGameObject.initialize: distances are measured in 200-unit steps and clamped, never rejected.
-    internal void Initialize(int x, int y, int z, int trajectory, int targetX, int targetY, SnowStormHuman thrower)
+    internal void Initialize(int x, int y, int z, int trajectory, int targetX, int targetY, SnowStormHuman? thrower)
     {
         IsActive = true;
         X = x;
