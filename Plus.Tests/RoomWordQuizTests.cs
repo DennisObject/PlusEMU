@@ -24,6 +24,7 @@ public partial class PlacedFurniRoomTests
         quiz.Initiate(_room);
         quiz.Initiated();
         Set("_components", new IRoomComponent[] { quiz });
+
         return (quiz, new());
     }
 
@@ -35,6 +36,7 @@ public partial class PlacedFurniRoomTests
         var reader = new FlashIncomingPacket { Buffer = _client.Packets.Last(packet => packet.Header == ServerPacketHeader.SimplePollStartComposer).Body };
         reader.ReadString();
         Assert.Equal(0, reader.ReadInt());
+
         return reader.ReadInt();
     }
 
@@ -82,9 +84,11 @@ public partial class PlacedFurniRoomTests
         await handler.Parse(_client, HabbiconTestSupport.Incoming(0, id, 1, "1"));
         await handler.Parse(_client, HabbiconTestSupport.Incoming(0, id, 1, "0"));
         Assert.Single(_client.Sent, header => header == ServerPacketHeader.SimplePollAnswerComposer);
+
         if (v2) {
             _room.EnableV2Movement();
         }
+
         _interactionClock.Now = _interactionClock.Now.AddMilliseconds(1999);
         _room.ProcessRoom();
         Assert.DoesNotContain(ServerPacketHeader.SimplePollAnswersComposer, _client.Sent);
@@ -139,10 +143,12 @@ public partial class PlacedFurniRoomTests
         var actor = new RoomUser(8, RoomId, 2, _room, entrant, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var users = (ConcurrentDictionary<int, RoomUser>)typeof(RoomUserManager).GetField("_users", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(_room.GetRoomUserManager())!;
         Assert.True(users.TryAdd(2, actor));
+
         if (departed) {
             Assert.True(users.TryRemove(1, out _));
             _client.GetHabbo().CurrentRoom = null;
         }
+
         _interactionClock.Now = _interactionClock.Now.AddMilliseconds(250);
         service.Show(entrant);
         var start = new FlashIncomingPacket { Buffer = entrant.Packets.Single(packet => packet.Header == ServerPacketHeader.SimplePollStartComposer).Body };
@@ -193,7 +199,8 @@ public partial class PlacedFurniRoomTests
         using var sending = new ManualResetEventSlim();
         using var release = new ManualResetEventSlim();
         using var restarting = new ManualResetEventSlim();
-        _client.BeforeCapture = header => {
+        _client.BeforeCapture = header =>
+        {
             if (header == ServerPacketHeader.SimplePollAnswerComposer) {
                 sending.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
@@ -201,11 +208,14 @@ public partial class PlacedFurniRoomTests
         };
         var answer = Task.Run(() => service.Answer(_client, 0, id, ["1"]));
         Task<bool>? restart = null;
+
         try {
             Assert.True(sending.Wait(TimeSpan.FromSeconds(5)));
             _interactionClock.Now = _interactionClock.Now.AddSeconds(1);
-            restart = Task.Run(() => {
+            restart = Task.Run(() =>
+            {
                 restarting.Set();
+
                 return service.Start(_client, "New?", 1);
             });
             Assert.True(restarting.Wait(TimeSpan.FromSeconds(5)));
@@ -214,6 +224,7 @@ public partial class PlacedFurniRoomTests
         finally {
             release.Set();
         }
+
         await answer;
         Assert.True(await restart!);
         Assert.Equal(new[] { ServerPacketHeader.SimplePollStartComposer, ServerPacketHeader.SimplePollAnswerComposer,
@@ -226,10 +237,12 @@ public partial class PlacedFurniRoomTests
         var (quiz, service) = WordQuiz();
         Assert.True(service.Start(_client, "Old?", 1));
         var id = WordQuestionId();
-        _client.BeforeCapture = header => {
+        _client.BeforeCapture = header =>
+        {
             if (header != ServerPacketHeader.SimplePollAnswerComposer) {
                 return;
             }
+
             _interactionClock.Now = _interactionClock.Now.AddSeconds(1);
             Assert.False(service.Start(_client, "Nested?", 1));
             using var disposed = new ManualResetEventSlim();
@@ -262,10 +275,12 @@ public partial class PlacedFurniRoomTests
         _room.UsersWithRights = [];
         _room.WordFilterList = [];
         Set("_tents", new Dictionary<uint, List<RoomUser>>());
-        entrant.BeforeCapture = header => {
+        entrant.BeforeCapture = header =>
+        {
             if (header != ServerPacketHeader.SimplePollStartComposer) {
                 return;
             }
+
             if (disposeRoom) {
                 _room.Dispose();
                 Assert.Null(_room.GetRoomUserManager());

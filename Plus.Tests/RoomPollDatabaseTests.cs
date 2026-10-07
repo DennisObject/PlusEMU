@@ -25,12 +25,15 @@ public sealed class RoomPollDatabaseTests
     {
         var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("ROOM_POLL_DATABASE")!)
         {
-            Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true
+            Pooling = false,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true
         };
         using var connection = new MySqlConnection(options.ConnectionString);
         connection.Open();
         var schema = "room_polls_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try {
             connection.Execute($"USE `{schema}`");
             var migration = File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/46_RoomPolls.sql"));

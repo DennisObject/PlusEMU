@@ -8,6 +8,7 @@ internal sealed class PollRejectEvent(IRoomPollService polls) : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         polls.Reject(session, packet.ReadInt());
+
         return Task.CompletedTask;
     }
 }

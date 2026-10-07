@@ -61,6 +61,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(nameof(IRoomPollService.Offer), method);
             Assert.Same(_client, args[0]);
             Assert.Contains(ServerPacketHeader.RoomEventComposer, _client.Sent);
+
             return null;
         });
         new RoomEntryService(quests, clock, polls, EntryWordQuiz).Enter(_client);

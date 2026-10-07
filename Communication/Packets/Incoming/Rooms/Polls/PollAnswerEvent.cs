@@ -10,11 +10,13 @@ internal sealed class PollAnswerEvent(IRoomPollService polls, IRoomWordQuizServi
         var pollId = packet.ReadInt();
         var questionId = packet.ReadInt();
         var count = packet.ReadInt();
+
         if (count is < 0 or > 64) {
             return Task.CompletedTask;
         }
 
         var answers = new string[count];
+
         for (var i = 0; i < count; i++) {
             answers[i] = packet.ReadString();
         }
@@ -25,6 +27,7 @@ internal sealed class PollAnswerEvent(IRoomPollService polls, IRoomWordQuizServi
         else {
             polls.Answer(session, pollId, questionId, answers);
         }
+
         return Task.CompletedTask;
     }
 }

@@ -14,6 +14,7 @@ public sealed record RoomPollSnapshot(int Id, uint RoomId, string Type, string T
     public bool IsAvailable(PollQuestionSnapshot question, IReadOnlyDictionary<int, string[]> answers)
     {
         var parent = Questions.FirstOrDefault(parent => parent.Children.Contains(question));
+
         return parent == null || Nps && answers.TryGetValue(parent.Id, out var values) &&
             parent.Choices.Any(choice => values.Contains(choice.Value) && choice.Category != 0 && choice.Category == question.Category);
     }

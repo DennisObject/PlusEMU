@@ -20,6 +20,7 @@ public partial class PlacedFurniRoomTests
         var store = Proxy<IRoomPollStore>((method, args) =>
         {
             calls.Add(method);
+
             return method switch
             {
                 nameof(IRoomPollStore.Load) => poll,
@@ -85,6 +86,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(2, args[2]);
             actual = (string[])args[3]!;
             calls++;
+
             return null;
         });
         var handler = new PollAnswerEvent(polls, Proxy<IRoomWordQuizService>((method, _) => throw new InvalidOperationException(method)));

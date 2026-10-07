@@ -18,12 +18,15 @@ public sealed class RoomWordQuizService : IRoomWordQuizService
     {
         var habbo = session.GetHabbo();
         var room = habbo?.CurrentRoom;
+
         if (room == null || habbo == null || !habbo.Access.Can(PermissionKeys.CommandWordquiz) ||
             room.OwnerId != habbo.Id && !habbo.Access.Can(PermissionKeys.RoomOwnerAny) ||
             seconds is < 1 or > 300 || string.IsNullOrWhiteSpace(question) || question.Length > 500) {
             return false;
         }
+
         var id = Interlocked.Decrement(ref _nextQuestionId);
+
         return id < 0 && Component(room)?.Start(session, id, question.Trim(), seconds) == true;
     }
 

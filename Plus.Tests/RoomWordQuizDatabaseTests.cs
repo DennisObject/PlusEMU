@@ -24,14 +24,17 @@ public sealed class RoomWordQuizDatabaseTests
         connection.Open();
         var schema = "room_word_quiz_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try {
             connection.Execute($"USE `{schema}`");
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+
             foreach (var table in new[] { "roles", "acl_permissions", "role_permissions" }) {
                 var ddl = Regex.Match(pristine, $@"CREATE TABLE {table} \([\s\S]*?\) ENGINE=[^;]+;").Value;
                 Assert.NotEmpty(ddl);
                 connection.Execute(ddl);
             }
+
             connection.Execute("INSERT INTO roles(id,slug,name) VALUES(1,'default','User'),(2,'custom','Custom'); " +
                 "INSERT INTO acl_permissions(`key`,category,description) VALUES('command.wordquiz','custom','Preserve'); " +
                 "INSERT INTO role_permissions(role_id,permission_key) VALUES(2,'command.existing')");

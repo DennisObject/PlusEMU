@@ -12,9 +12,11 @@ public sealed class PollContentsComposer(RoomPollSnapshot poll) : IServerPacket
         packet.WriteString(poll.Title);
         packet.WriteString(poll.EndMessage);
         packet.WriteInteger(poll.Questions.Length);
+
         foreach (var question in poll.Questions) {
             WriteQuestion(packet, question);
             packet.WriteInteger(question.Children.Length);
+
             foreach (var child in question.Children) {
                 WriteQuestion(packet, child);
             }
@@ -32,6 +34,7 @@ public sealed class PollContentsComposer(RoomPollSnapshot poll) : IServerPacket
         packet.WriteInteger(question.Category);
         packet.WriteInteger(question.AnswerType);
         packet.WriteInteger(question.Choices.Length);
+
         if (question.Type is 1 or 2) {
             foreach (var choice in question.Choices) {
                 packet.WriteString(choice.Value);

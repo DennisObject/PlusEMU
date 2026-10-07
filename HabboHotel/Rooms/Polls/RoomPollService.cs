@@ -22,6 +22,7 @@ public sealed class RoomPollService(IRoomPollStore store, TimeProvider clock) : 
     {
         _surveys.Remove(session);
         var habbo = session.GetHabbo();
+
         if (habbo?.CurrentRoom is not { } room) {
             return;
         }
@@ -31,6 +32,7 @@ public sealed class RoomPollService(IRoomPollStore store, TimeProvider clock) : 
         }
 
         var poll = store.Load(room.RoomId);
+
         if (poll != null && !store.Completed(poll.Id, habbo.Id)) {
             session.Send(new PollOfferComposer(poll));
         }
@@ -39,21 +41,25 @@ public sealed class RoomPollService(IRoomPollStore store, TimeProvider clock) : 
     public void Start(GameClient session, int pollId)
     {
         var habbo = session.GetHabbo();
+
         if (habbo?.CurrentRoom is not { } room) {
             return;
         }
 
         var actor = room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id);
+
         if (actor == null) {
             return;
         }
 
         var poll = store.Load(room.RoomId);
+
         if (poll == null || poll.Id != pollId || store.Completed(poll.Id, habbo.Id)) {
             return;
         }
 
         var survey = _surveys.GetValue(session, _ => new Survey());
+
         lock (survey) {
             survey.Room = new(room);
             survey.Actor = new(actor);
@@ -70,6 +76,7 @@ public sealed class RoomPollService(IRoomPollStore store, TimeProvider clock) : 
 
         lock (survey) {
             var habbo = session.GetHabbo();
+
             if (habbo == null || survey.Poll is not { } poll || poll.Id != pollId ||
                 survey.Room == null || !survey.Room.TryGetTarget(out var room) ||
                 survey.Actor == null || !survey.Actor.TryGetTarget(out var actor) ||

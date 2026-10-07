@@ -21,25 +21,32 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
     private bool _disposed;
 
     public void Initiate(Room room) => _room = room;
-    public void Initiated() { }
+    public void Initiated()
+    {
+    }
 
     public bool Start(GameClient session, int questionId, string question, int seconds)
     {
         if (!EnterPublication()) {
             return false;
         }
+
         try {
             RoomWordQuizSnapshot? finished;
             RoomWordQuizSnapshot current;
+
             lock (_sync) {
                 if (_disposed || Admitted(session) == null || questionId >= 0) {
                     return false;
                 }
+
                 var now = clock.GetUtcNow();
                 finished = Finish(now);
+
                 if (_questionId != 0) {
                     return false;
                 }
+
                 _questionId = questionId;
                 _question = question;
                 _deadline = now.AddSeconds(seconds);
@@ -48,10 +55,13 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
                 _voters.Clear();
                 current = Snapshot(now);
             }
+
             PublishFinished(finished);
+
             if (!_room.MDisposed) {
                 _room.SendPacket(new SimplePollStartComposer(current));
             }
+
             return true;
 
         }
@@ -65,17 +75,21 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
         if (!EnterPublication()) {
             return;
         }
+
         try {
             RoomWordQuizSnapshot? finished;
             RoomWordQuizSnapshot? current = null;
             var userId = 0;
+
             lock (_sync) {
                 if (_disposed || Admitted(session) is not { } habbo) {
                     return;
                 }
+
                 var now = clock.GetUtcNow();
                 finished = Finish(now);
                 userId = habbo.Id;
+
                 if (_questionId == questionId && answer is "0" or "1" && _voters.Add(userId)) {
                     if (answer == "0") {
                         _no++;
@@ -83,12 +97,15 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
                     else {
                         _yes++;
                     }
+
                     _lastVoter = userId;
                     _lastAnswer = answer;
                     current = Snapshot(now);
                 }
             }
+
             PublishFinished(finished);
+
             if (current != null && !_room.MDisposed) {
                 _room.SendPacket(new SimplePollAnswerComposer(userId, answer, current.No, current.Yes));
             }
@@ -104,26 +121,33 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
         if (!EnterPublication()) {
             return;
         }
+
         try {
             RoomWordQuizSnapshot? finished;
             RoomWordQuizSnapshot? current = null;
             var voter = 0;
             var answer = "";
+
             lock (_sync) {
                 if (_disposed || Admitted(session) == null) {
                     return;
                 }
+
                 var now = clock.GetUtcNow();
                 finished = Finish(now);
+
                 if (_questionId != 0) {
                     current = Snapshot(now);
                     voter = _lastVoter;
                     answer = _lastAnswer;
                 }
             }
+
             PublishFinished(finished);
+
             if (current != null && !_room.MDisposed) {
                 session.Send(new SimplePollStartComposer(current));
+
                 // AIR discards answer events whose avatar has already left; never invent a vote to carry totals.
                 if (Admitted(session) != null && voter != 0 &&
                     _room.GetRoomUserManager()?.GetRoomUserByHabbo(voter)?.GetClient() is { } voterSession && Admitted(voterSession) != null) {
@@ -142,14 +166,18 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
         if (!EnterPublication()) {
             return;
         }
+
         try {
             RoomWordQuizSnapshot? finished;
+
             lock (_sync) {
                 if (_disposed || _room.MDisposed || _questionId == 0) {
                     return;
                 }
+
                 finished = Finish(clock.GetUtcNow());
             }
+
             PublishFinished(finished);
 
         }
@@ -166,16 +194,19 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
         if (_questionId == 0 || now < _deadline) {
             return null;
         }
+
         var snapshot = Snapshot(now);
         _questionId = 0;
         _question = "";
         _voters.Clear();
+
         return snapshot;
     }
 
     private Habbo? Admitted(GameClient session)
     {
         var habbo = session.GetHabbo();
+
         return habbo != null && !habbo.WalletClosed && !_room.MDisposed && ReferenceEquals(habbo.CurrentRoom, _room) &&
             _room.GetRoomUserManager()?.GetRoomUserByHabbo(habbo.Id) is { } actor &&
             ReferenceEquals(actor.GetClient(), session) ? habbo : null;
@@ -193,11 +224,15 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
     private bool EnterPublication()
     {
         Monitor.Enter(_publicationGate);
+
         if (_publishing) {
             Monitor.Exit(_publicationGate);
+
             return false;
         }
+
         _publishing = true;
+
         return true;
     }
 
