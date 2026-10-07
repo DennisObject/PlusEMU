@@ -56,7 +56,8 @@ public sealed class CampaignCalendarTests
         Assert.Equal(ServerPacketHeader.CampaignCalendarDataComposer, Assert.Single(sent).Header);
         sent.Clear();
         var original = client.SendCallback;
-        client.SendCallback = args => {
+        client.SendCallback = args =>
+        {
             Assert.Equal((13, 24, 35), (user.Credits, user.Duckets, user.Diamonds));
             Assert.True(user.Inventory.Badges.HasBadge("TEST"));
             Assert.True(user.Inventory.Furniture.HasItem(99));
@@ -114,9 +115,18 @@ public sealed class CampaignCalendarTests
         user.Client = client;
         var store = new Store { Fail = failure == "write" };
 
-        if (failure == "badge") { store.Prize = Reward with { Badge = "missing" }; }
-        if (failure == "item") { store.Prize = Reward with { ItemId = 1234 }; }
-        if (failure == "overflow") { user.Credits = int.MaxValue; }
+        if (failure == "badge") {
+            store.Prize = Reward with { Badge = "missing" };
+        }
+
+        if (failure == "item") {
+            store.Prize = Reward with { ItemId = 1234 };
+        }
+
+        if (failure == "overflow") {
+            user.Credits = int.MaxValue;
+        }
+
         var old = (user.Credits, user.Duckets, user.Diamonds);
         Service(store).Open(client, "configured", 6);
         Assert.Equal(old, (user.Credits, user.Duckets, user.Diamonds));
@@ -147,8 +157,13 @@ public sealed class CampaignCalendarTests
         Assert.Empty(sent);
     }
 
-    internal static Habbo User() => new() {
-        Id = 7, Credits = 10, Duckets = 20, Diamonds = 30, Access = UserAccess.Empty,
+    internal static Habbo User() => new()
+    {
+        Id = 7,
+        Credits = 10,
+        Duckets = 20,
+        Diamonds = 30,
+        Access = UserAccess.Empty,
         Inventory = new InventoryComponent { Badges = new([]), Furniture = new([], []) }
     };
 
@@ -181,8 +196,14 @@ public sealed class CampaignCalendarTests
         public CalendarGrant? Claim(int userId, CalendarCampaign campaign, CalendarReward reward, int day, bool staff,
             DateTimeOffset now, int credits, int duckets, int diamonds, string badge)
         {
-            if (Fail) { throw new InvalidOperationException("failed transaction"); }
-            if (!_days.Add(day)) { return null; }
+            if (Fail) {
+                throw new InvalidOperationException("failed transaction");
+            }
+
+            if (!_days.Add(day)) {
+                return null;
+            }
+
             Writes++;
             Day = day;
             Name = campaign.Name;

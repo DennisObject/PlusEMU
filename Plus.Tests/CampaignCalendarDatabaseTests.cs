@@ -123,8 +123,14 @@ public sealed class CampaignCalendarDatabaseTests
                 foreach (var table in new[] { "users", "furniture", "items", "user_badges", "user_club_memberships", "club_membership_intervals" }) {
                     var start = pristine.IndexOf($"CREATE TABLE `{table}` (", StringComparison.Ordinal);
 
-                    if (start < 0) { start = pristine.IndexOf($"CREATE TABLE IF NOT EXISTS {table} (", StringComparison.Ordinal); }
-                    if (start < 0) { start = pristine.IndexOf($"CREATE TABLE {table} (", StringComparison.Ordinal); }
+                    if (start < 0) {
+                        start = pristine.IndexOf($"CREATE TABLE IF NOT EXISTS {table} (", StringComparison.Ordinal);
+                    }
+
+                    if (start < 0) {
+                        start = pristine.IndexOf($"CREATE TABLE {table} (", StringComparison.Ordinal);
+                    }
+
                     Assert.True(start >= 0, table);
                     Connection.Execute(pristine[start..(pristine.IndexOf(';', start) + 1)]);
                 }
@@ -137,7 +143,10 @@ public sealed class CampaignCalendarDatabaseTests
                 Connection.Execute("INSERT INTO campaign_calendars(id,name,image,starts_at,days,enabled) VALUES(1,'configured','calendar.png',@start,24,TRUE)", new { start = CampaignCalendarTests.Now.AddDays(-6).UtcDateTime });
                 Connection.Execute("INSERT INTO campaign_calendar_rewards(id,campaign_id,product_name,custom_image,credits,duckets,diamonds,badge,item_id,hc_days) VALUES(2,1,'calendar_product_%credits%','reward.png',3,4,5,'TEST',10,2)");
             }
-            catch { Dispose(); throw; }
+            catch {
+                Dispose();
+                throw;
+            }
         }
         IDbConnection IDatabase.Connection() => new MySqlConnection(_options.ConnectionString);
         public bool IsConnected() => true;

@@ -36,6 +36,7 @@ public sealed class CampaignCalendarService(ICampaignCalendarStore store, IItemD
             if (offer == null) {
                 return;
             }
+
             var data = offer.Campaign.Capture(now, store.Opened(habbo.Id, offer.Campaign.Id));
 
             if (ReferenceEquals(session.GetHabbo(), habbo) && ReferenceEquals(habbo.Client, session) && !habbo.AccessClosed) {
@@ -110,8 +111,12 @@ public sealed class CampaignCalendarService(ICampaignCalendarStore store, IItemD
                 }
 
                 if (definition != null) {
-                    item = new InventoryItem { OwnerId = (uint)habbo.Id, Definition = definition,
-                        ExtraData = FurniExtraData.Load(definition, "", keepLegacy: false) };
+                    item = new InventoryItem
+                    {
+                        OwnerId = (uint)habbo.Id,
+                        Definition = definition,
+                        ExtraData = FurniExtraData.Load(definition, "", keepLegacy: false)
+                    };
                 }
 
                 var pixels = reward.Duckets * (habbo.Access.Membership.Active(now) ? offer.Campaign.ClubDucketsMultiplier : 1);
