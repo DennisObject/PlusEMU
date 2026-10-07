@@ -846,6 +846,132 @@ public class ModernWiredRuntimeTests
         Assert.Equal(new Point(1, 1), item.Coordinate);
     }
 
+    [Theory]
+    [InlineData("wf_act_move_to_dir", true)]
+    [InlineData("wf_act_move_to_dir", false)]
+    [InlineData("wf_act_move_rotate", true)]
+    [InlineData("wf_act_move_rotate", false)]
+    public void LineBlockedByItselfWaitsBehindItsFrontAtAWall(string name, bool frontFirst)
+    {
+        var (room, line) = TileLine(0, -1, 1, frontFirst);
+        var action = LineBox(room, name, 6, line);
+
+        for (var pulse = 0; pulse < 3; pulse++) {
+            Assert.False(Pulse(room, action, line, blockedBySelf: true));
+        }
+
+        Assert.Equal(new[] { 0, 1, 2, 3, 4, 5, 6 }, line.Select(item => item.GetX));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void GappedLineBlockedByItselfClosesUpBehindItsWaitingFrontWithoutStacking(bool frontFirst)
+    {
+        var (room, line) = TileLine(0, -1, 2, frontFirst);
+        var action = LineBox(room, "wf_act_move_to_dir", 6, line);
+
+        Assert.True(Pulse(room, action, line, blockedBySelf: true));
+        Assert.Equal(new[] { 0, 1, 3, 5, 7, 9, 11 }, line.Select(item => item.GetX));
+
+        for (var pulse = 0; pulse < 6; pulse++) {
+            Pulse(room, action, line, blockedBySelf: true);
+        }
+
+        Assert.Equal(new[] { 0, 1, 2, 3, 4, 5, 6 }, line.Select(item => item.GetX));
+    }
+
+    [Theory]
+    [InlineData("wf_act_move_to_dir", 1, true)]
+    [InlineData("wf_act_move_to_dir", 1, false)]
+    [InlineData("wf_act_move_to_dir", 2, true)]
+    [InlineData("wf_act_move_to_dir", 2, false)]
+    [InlineData("wf_act_move_rotate", 1, true)]
+    [InlineData("wf_act_move_rotate", 1, false)]
+    public void LineBlockedByItselfKeepsItsSpacingInFreeSpace(string name, int spacing, bool frontFirst)
+    {
+        var (room, line) = TileLine(6 * spacing, 1, spacing, frontFirst);
+        var action = LineBox(room, name, 2, line);
+
+        for (var pulse = 1; pulse <= 2; pulse++) {
+            Assert.True(Pulse(room, action, line, blockedBySelf: true));
+            Assert.Equal(Enumerable.Range(0, line.Length).Select(i => 6 * spacing - spacing * i + pulse), line.Select(item => item.GetX));
+        }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void LineBlockedByItselfTurnsBackTogetherAtAWall(bool frontFirst)
+    {
+        var (room, line) = TileLine(0, -1, 1, frontFirst);
+        var action = LineBox(room, "wf_act_move_to_dir", 6, line, turn: 5);
+
+        Assert.True(Pulse(room, action, line, blockedBySelf: true));
+
+        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7 }, line.Select(item => item.GetX));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void LineWithoutPhysicsStacksOntoItsWaitingFrontAtAWall(bool frontFirst)
+    {
+        var (room, line) = TileLine(0, -1, 1, frontFirst);
+        var action = LineBox(room, "wf_act_move_to_dir", 6, line);
+
+        Assert.True(Pulse(room, action, line, blockedBySelf: false));
+        Assert.Equal(new[] { 0, 0, 1, 2, 3, 4, 5 }, line.Select(item => item.GetX));
+
+        for (var pulse = 0; pulse < 5; pulse++) {
+            Pulse(room, action, line, blockedBySelf: false);
+        }
+
+        Assert.All(line, item => Assert.Equal(new Point(0, 1), item.Coordinate));
+    }
+
+    // Seven stackable color tiles on y = 1 with line[0] leading along dx; the ids decide whether the front or the back runs first.
+    private static (Room Room, Item[] Line) TileLine(int frontX, int dx, int spacing, bool frontFirst)
+    {
+        var (room, map, items) = World(heightmap: string.Join('\r', Enumerable.Repeat(new string('0', 16), 3)));
+        var line = new Item[7];
+
+        for (var i = 0; i < line.Length; i++) {
+            var x = frontX - dx * spacing * i;
+            var item = MakeItem((uint)(frontFirst ? i + 1 : line.Length - i), "color_tile");
+            item.Definition.Stackable = true;
+            item.SetState(x, 1, 0, Gamemap.GetAffectedTiles(1, 1, x, 1, 0));
+            items[item.Id] = item;
+            map.AddToMap(item);
+            line[i] = item;
+        }
+
+        return (room, line);
+    }
+
+    private static WiredModernAction LineBox(Room room, string name, int direction, Item[] line, int turn = 0)
+    {
+        var action = ActionBox(room, name);
+        int[] ints = name == "wf_act_move_to_dir" ? [direction, turn, 100, 0] : [direction, 0, 100, 0];
+        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket(ints, line.Select(item => item.Id).ToArray(), 0), TestWiredConfigurationStore.Instance, out var error), error);
+
+        return action;
+    }
+
+    // One repeater pulse; blockedBySelf is the physics add-on's "blocked by furniture" sourcing the movers themselves.
+    // Picked furni resolve in ascending id order, as the room's lookup does.
+    private static bool Pulse(Room room, WiredModernAction action, Item[] line, bool blockedBySelf)
+    {
+        var context = Context(room, new(WiredEventKind.Use), line.OrderBy(item => item.Id).ToArray(), []);
+        context.Policy.Addons.DisableAnimation = true;
+
+        if (blockedBySelf) {
+            context.Policy.Addons.Physics = new(false, new HashSet<uint>(), new HashSet<int>(), line.Select(item => item.Id).ToHashSet());
+        }
+
+        return action.Execute(context);
+    }
+
     [Fact]
     public void ChaseQueriesNearestWithinThreeAndOrdersLongAxisFirst()
     {
@@ -2547,18 +2673,18 @@ public class ModernWiredRuntimeTests
             PublicName = name
         }
     };
-    private static (Room Room, Gamemap Map, ConcurrentDictionary<uint, Item> Items) World(IRoomItemStore? store = null)
+    private static (Room Room, Gamemap Map, ConcurrentDictionary<uint, Item> Items) World(IRoomItemStore? store = null, string heightmap = "000\r000\r000")
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         typeof(Room).GetField("_interactionClock", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, TimeProvider.System);
-        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, "000\r000\r000", 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+        var map = new Gamemap(room, new RoomModel("wired-test", 0, 0, 0, 0, heightmap, 0, 0, true), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
         var handler = new RoomItemHandling(room, store ?? TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, map);
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, handler);
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         TestRoomUserSnapshots.Install(room);
-        typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[3, 3]);
-        typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[3, 3]);
+        typeof(Gamemap).GetProperty("GameMap")!.SetValue(map, new byte[map.Model.MapSizeX, map.Model.MapSizeY]);
+        typeof(Gamemap).GetProperty("EffectMap")!.SetValue(map, new byte[map.Model.MapSizeX, map.Model.MapSizeY]);
 
         return (room, map, (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!);
     }

@@ -16,7 +16,7 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         var targetHeight = height ?? room.GetGameMap().Model.SqFloorHeight[Math.Clamp(x, 0, room.GetGameMap().Model.MapSizeX - 1), Math.Clamp(y, 0, room.GetGameMap().Model.MapSizeY - 1)];
         var options = WiredMovementPolicy.Resolve(policy, source, x, y, targetHeight, rotation, explicitHeight: height.HasValue);
         var physics = policy.Physics;
-        var collision = physics == null ? null : new WiredCollisionPolicy(physics.ThroughFurni, physics.ThroughUsers, physics.BlockingFurni);
+        var collision = Collision(physics);
         var carried = room.GetRoomUserManager().GetRoomUsers().Where(user => policy.Carry?.UserIds.Contains(user.VirtualId) == true
             && WiredRoomOperations.IsOnItem(user, item)
             && (policy.Carry.SameTile || Math.Abs(user.Z - item.TotalHeight) < 0.001)).ToArray();
@@ -52,6 +52,42 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Resolves one execution's furniture steps together: before a mover enters a tile, a still-pending mover there
+    /// that would block it takes its own step first, so a line follows its front or waits behind it in any order.
+    /// </summary>
+    public bool MoveTogether(WiredRuntimeContext context, IReadOnlyList<Item> movers, Func<Item, Func<int, int, int, bool>, bool> step)
+    {
+        var collision = Collision(context.Policy.Addons.Physics);
+        var pending = movers.ToHashSet();
+        var changed = false;
+
+        void Step(Item item)
+        {
+            if (pending.Remove(item) && step(item, (x, y, rotation) => Move(item, x, y, rotation))) {
+                changed = true;
+            }
+        }
+
+        bool Move(Item item, int x, int y, int rotation)
+        {
+            foreach (var ahead in WiredRoomOperations.Footprint(item, x, y, rotation)
+                         .SelectMany(point => context.Room.GetGameMap().GetCoordinatedItems(point)).Distinct().ToArray()) {
+                if (pending.Contains(ahead) && (collision?.BlocksFurni(ahead) ?? !ahead.Definition.Stackable)) {
+                    Step(ahead);
+                }
+            }
+
+            return MoveFurniture(context, item, x, y, rotation, null);
+        }
+
+        foreach (var item in movers) {
+            Step(item);
+        }
+
+        return changed;
     }
 
     public bool MoveAvatar(WiredRuntimeContext context, RoomUser user, int x, int y, bool animate,
@@ -105,6 +141,8 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         return true;
     }
 
+    private static WiredCollisionPolicy? Collision(WiredPhysicsPolicy? physics) => physics == null ? null
+        : new(physics.ThroughFurni, physics.ThroughUsers, physics.BlockingFurni);
     private static bool ValidAvatarDestination(Room room, int x, int y) => room.GetGameMap().ValidTile(x, y)
         && room.GetGameMap().Model.SqState[x, y] == SquareState.Open;
     public static WiredSelectorFurniture Furniture(Item item) => new(item.Id, (int)item.Definition.Id,
