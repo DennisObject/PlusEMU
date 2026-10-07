@@ -100,7 +100,7 @@ public class SnowStormStoreDatabaseTests
                     INSERT INTO user_statistics VALUES (1, 7), (2, 0), (3, 7), (4, 0);
                     """);
                 // The update must be rerunnable.
-                var update = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/27_SnowStorm.sql"));
+                var update = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/57_SnowStorm.sql"));
                 connection.Execute(update);
                 connection.Execute(update);
                 Assert.Equal("1", connection.ExecuteScalar<string>("SELECT `value` FROM server_settings WHERE `key` = 'gamecenter.snowwar.enabled'"));

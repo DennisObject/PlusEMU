@@ -25516,7 +25516,7 @@ INSERT IGNORE INTO role_permissions (role_id, permission_key)
 INSERT IGNORE INTO role_permissions (role_id, permission_key)
  SELECT role_id, 'command.takerole' FROM role_permissions WHERE permission_key = 'housekeeping.roles.manage';
 
--- 27_SnowStorm
+-- 57_SnowStorm
 -- Arenas ship as snowstorm/arena_<fieldType>.json next to the emulator.
 -- Score per user per UTC week (weeks start on Monday). All-time tables sum the weeks.
 CREATE TABLE IF NOT EXISTS snowwar_scores (
