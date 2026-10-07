@@ -182,6 +182,19 @@ public class AchievementSnapshotTests
         Assert.Equal(1, BinaryPrimitives.ReadInt32BigEndian(list.AsSpan(4)));
     }
 
+    [Fact]
+    public async Task SnowStormGameAchievementsLeaveTheRealGamesLeftAlone()
+    {
+        var manager = Proxy<IAchievementManager>((method, args) => method == "GetGameAchievements" && (int)args[0]! == 0
+            ? new List<Achievement>()
+            : throw new InvalidOperationException(method));
+        var (client, sent) = HabbiconTestSupport.Client(UserWith(level: 2, progress: 10, "GAME_HANDLER"));
+
+        await new GetGameAchievementsEvent(new AchievementShowcaseService(manager, Service)).Parse(client, Packet(0));
+
+        Assert.Equal(new[] { ServerPacketHeader.PlayableGamesComposer, ServerPacketHeader.GameAchievementListComposer }, sent.Select(message => message.Header));
+    }
+
     private static IEnumerable<string> BaselineLines()
     {
         var lines = new List<string>();
