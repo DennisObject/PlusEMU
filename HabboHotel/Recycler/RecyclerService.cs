@@ -76,7 +76,7 @@ public sealed class RecyclerService(IRecyclerStore store, IItemDataManager defin
             var items = definitions.Items;
             var box = RecyclerBox.Find(items.Values);
 
-            if (!Active(session, habbo) || room is null || room.Type != "private" || !Valid(configuration, items) || box is null
+            if (!Active(session, habbo) || room is null || !Valid(configuration, items) || box is null
                 || !Admitted(session, habbo, room)
                 || itemIds.Count != configuration.Slots || itemIds.Distinct().Count() != itemIds.Count || itemIds.Any(id => id == 0)) {
                 session.Send(new RecyclerFinishedComposer(2, 0));
@@ -206,7 +206,7 @@ public sealed class RecyclerService(IRecyclerStore store, IItemDataManager defin
                 var items = definitions.Items;
                 var box = RecyclerBox.Find(items.Values);
 
-                if (!Active(session, habbo) || !ReferenceEquals(habbo.CurrentRoom, room) || room.Type != "private"
+                if (!Active(session, habbo) || !ReferenceEquals(habbo.CurrentRoom, room)
                     || !Admitted(session, habbo, room)
                     || !room.CheckRights(session, false, true) || box is null || item.Definition.Id != box.Id || item.IsTemporary
                     || item.OwnerId != (uint)habbo.Id || item.RoomId != room.Id || item.Placement != placement

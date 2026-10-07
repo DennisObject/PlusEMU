@@ -14,10 +14,13 @@ namespace Plus.Tests;
 
 public partial class PlacedFurniRoomTests
 {
-    [Fact]
-    public void RecyclerCommitsBeforeAnyLiveRemovalAndDeliversAnUnopenedEcotronBox()
+    [Theory]
+    [InlineData("private")]
+    [InlineData("public")]
+    public void RecyclerCommitsBeforeAnyLiveRemovalAndDeliversAnUnopenedEcotronBox(string roomType)
     {
         var (service, store, inputs, _) = RecyclerFixture();
+        _room.Type = roomType;
         store.BeforeCommit = () =>
         {
             Assert.Empty(_client.Packets);
@@ -113,13 +116,18 @@ public partial class PlacedFurniRoomTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(false, true)]
-    [InlineData(true, false)]
-    [InlineData(true, true)]
-    public void OwnedEcotronOpeningDeliversContentsToInventoryAndRemovesOnlyTheCapturedRoomItem(bool v2, bool wallReward)
+    [InlineData(false, false, "private")]
+    [InlineData(false, true, "private")]
+    [InlineData(true, false, "private")]
+    [InlineData(true, true, "private")]
+    [InlineData(false, false, "public")]
+    [InlineData(false, true, "public")]
+    [InlineData(true, false, "public")]
+    [InlineData(true, true, "public")]
+    public void OwnedEcotronOpeningDeliversContentsToInventoryAndRemovesOnlyTheCapturedRoomItem(bool v2, bool wallReward, string roomType)
     {
         var (service, store, _, box) = RecyclerFixture(v2, wallReward);
+        _room.Type = roomType;
         store.BeforeOpen = () =>
         {
             Assert.Same(box, _room.GetRoomItemHandler().GetItem(box.Id));
