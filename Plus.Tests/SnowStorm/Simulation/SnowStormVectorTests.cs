@@ -18,7 +18,8 @@ namespace Plus.Tests.SnowStorm.Simulation;
 //                                "canStandOn", "stuff" }] },
 //   "initialObjects": [{ "variables": int[] (type, id, ...), "strings"?: [name, mission, figure, sex] }],  // StageStarting
 //   "turnCount": int,
-//   "events": [{ "turn", "subturn", "type", "fields": int[] }],  // apply order; turn T = the events of GameStatus(T - 1)
+//   "events": [{ "turn", "subturn", "type", "fields": int[] }],  // apply order; turn T = the events of GameStatus(T - 1);
+//                                                                // type 100 = Plus ray gun burst (humanId, rayGunFuseObjectId, firstSnowballId)
 //   "checksums": int[turnCount],                                // checksums[T] = checksum after simulating turn T
 //   "dumps": [{ "turn", "checksum", "objects": [same as initialObjects] }],  // state after turn 49, 99, ... and the last
 //   "final": { "teamScores": int[], "players": [{ "humanId", "userId", "team", "score", "kills", "deaths",
@@ -38,7 +39,7 @@ public class SnowStormVectorTests
         WriteIndented = true
     };
 
-    public static TheoryData<string> Scenarios => ["arctic_island_2v2", "knockdown_chain", "lob_over_trees"];
+    public static TheoryData<string> Scenarios => ["arctic_island_2v2", "knockdown_chain", "lob_over_trees", "ray_gun_burst"];
 
     [Theory]
     [MemberData(nameof(Scenarios))]
@@ -76,6 +77,12 @@ public class SnowStormVectorTests
             case "knockdown_chain":
                 Assert.True(stats.Sum(stat => stat.Kills) >= 2);
                 break;
+            case "ray_gun_burst":
+                Assert.Equal(6, events.Count(scheduled => scheduled.Type == 100));
+                // More hits than ordinary throws: the bursts land.
+                Assert.True(stats.Sum(stat => stat.SnowballHits) > events.Count(scheduled => scheduled.Type == 8));
+                Assert.Equal(0, stats.Sum(stat => stat.SnowballsThrown) - events.Count(scheduled => scheduled.Type is 3 or 4));
+                break;
             case "lob_over_trees":
                 Assert.Contains(run.Arena.Objects.OfType<SnowStormTree>(), tree => tree.Hits == tree.MaxHits);
                 Assert.True(stats.Sum(stat => stat.SnowballHits) > 0);
@@ -88,6 +95,7 @@ public class SnowStormVectorTests
         "arctic_island_2v2" => ArcticIsland2v2(),
         "knockdown_chain" => KnockdownChain(),
         "lob_over_trees" => LobOverTrees(),
+        "ray_gun_burst" => RayGunBurst(),
         _ => throw new ArgumentException(name)
     };
 
@@ -203,8 +211,52 @@ public class SnowStormVectorTests
             });
     }
 
+    // Plus ray guns on Arctic Island: two blue players walk onto the use tiles of the north and west guns, leave and come
+    // back; red players stand in the burst zones 15 tiles ahead, and one red walks onto the east gun.
+    private static ScenarioRun RayGunBurst()
+    {
+        var arena = SnowStormArena.Create(ArcticIslandFixture.Level(), 2);
+        var rules = new SnowStormServerRules(arena);
+        var northGunner = arena.AddHuman(Player(1, 1), 25, 12, 4);
+        var westGunner = arena.AddHuman(Player(2, 1), 20, 40, 6);
+        var islander = arena.AddHuman(Player(3, 2), 28, 26, 0);
+        var eastGunner = arena.AddHuman(Player(4, 2), 32, 36, 6);
+
+        return Simulate("ray_gun_burst", "Arctic Island with Plus ray guns: bursts on arrival, once per arrival, 60-subturn cooldown, hits.",
+            arena, rules, 300, turn =>
+            {
+                switch (turn) {
+                    case 1:
+                        rules.TryScheduleMove(turn, 0, northGunner.Id, World(28), World(11));
+                        rules.TryScheduleMove(turn, 1, westGunner.Id, World(16), World(37));
+                        break;
+                    case 60:
+                        rules.TryScheduleMove(turn, 0, northGunner.Id, World(28), World(9));
+                        rules.TryScheduleMove(turn, 2, eastGunner.Id, World(43), World(33));
+                        break;
+                    case 70:
+                        rules.TryScheduleMove(turn, 0, northGunner.Id, World(28), World(11));
+                        rules.TryScheduleThrowAtHuman(turn, 1, islander.Id, northGunner.Id, SnowStormSnowball.TrajectoryLongLob);
+                        break;
+                    case 100:
+                        rules.TryScheduleMove(turn, 0, westGunner.Id, World(26), World(34));
+                        break;
+                    case 150:
+                        rules.TryScheduleMove(turn, 0, northGunner.Id, World(28), World(10));
+                        break;
+                    case 200:
+                        rules.TryScheduleMove(turn, 0, northGunner.Id, World(28), World(11));
+                        rules.TryScheduleMove(turn, 1, eastGunner.Id, World(42), World(31));
+                        break;
+                    case 230:
+                        rules.TryScheduleMove(turn, 0, eastGunner.Id, World(43), World(33));
+                        break;
+                }
+            }, rayGuns: true);
+    }
+
     private static ScenarioRun Simulate(string name, string description, SnowStormArena arena, SnowStormServerRules rules, int turnCount,
-        Action<int> inputs)
+        Action<int> inputs, bool rayGuns = false)
     {
         var level = arena.Level;
         var initialObjects = arena.Snapshot().Select(ObjectJson.From).ToList();
@@ -225,6 +277,10 @@ public class SnowStormVectorTests
             Assert.Empty(arena.GetScheduledEvents(turn));
             checksums.Add(result.Checksum);
             rules.ScheduleRefillsAndPickups();
+
+            if (rayGuns) {
+                rules.ScheduleRayGunBursts();
+            }
 
             if ((turn + 1) % DumpInterval == 0 || turn == turnCount - 1) {
                 dumps.Add(new DumpJson(turn, result.Checksum, arena.Snapshot().Select(ObjectJson.From).ToList()));
