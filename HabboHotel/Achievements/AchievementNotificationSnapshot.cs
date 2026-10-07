@@ -1,4 +1,5 @@
 using System.Globalization;
+using Plus.HabboHotel.Badges.Rarity;
 
 namespace Plus.HabboHotel.Achievements;
 
@@ -13,14 +14,16 @@ public static class AchievementNotificationSnapshot
 }
 
 public sealed record AchievementUnlockSnapshot(int Id, int Level, string Badge, string PreviousBadge,
-    int PointReward, int PixelReward, string Category)
+    int PointReward, int PixelReward, string Category, BadgeRarity Rarity)
 {
-    public static AchievementUnlockSnapshot Capture(Achievement achievement, int level, int pointReward, int pixelReward)
+    public static AchievementUnlockSnapshot Capture(Achievement achievement, int level, int pointReward, int pixelReward,
+        BadgeRarityTable? rarity = null)
     {
         var name = achievement.GroupName ?? string.Empty;
+        var badge = name + level.ToString(CultureInfo.InvariantCulture);
 
-        return new(achievement.Id, level, name + level.ToString(CultureInfo.InvariantCulture),
+        return new(achievement.Id, level, badge,
             level > 1 ? name + (level - 1).ToString(CultureInfo.InvariantCulture) : string.Empty,
-            pointReward, pixelReward, achievement.Category ?? string.Empty);
+            pointReward, pixelReward, achievement.Category ?? string.Empty, (rarity ?? BadgeRarityTable.Current).Get(badge));
     }
 }

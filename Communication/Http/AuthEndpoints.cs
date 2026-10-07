@@ -161,7 +161,7 @@ public class AuthEndpoints
         return Results.Json(new { ok = true });
     }
 
-    private static string? BearerToken(HttpRequest request)
+    internal static string? BearerToken(HttpRequest request)
     {
         var header = request.Headers.Authorization.ToString();
 

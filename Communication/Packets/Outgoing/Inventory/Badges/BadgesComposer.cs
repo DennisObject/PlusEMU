@@ -9,11 +9,14 @@ public sealed class BadgesComposer(BadgeInventorySnapshot snapshot) : IServerPac
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(snapshot.Codes.Length);
+        packet.WriteInteger(snapshot.Badges.Length);
 
-        foreach (var code in snapshot.Codes) {
+        // WIN63 class_3622: badge id, code, owner count, rarity id.
+        foreach (var badge in snapshot.Badges) {
             packet.WriteInteger(1);
-            packet.WriteString(code);
+            packet.WriteString(badge.Code);
+            packet.WriteInteger(badge.Rarity.OwnerCount);
+            packet.WriteInteger((int)badge.Rarity.Tier);
         }
 
         packet.WriteInteger(snapshot.Equipped.Length);
