@@ -7,6 +7,7 @@ using System.Text;
 using Dapper;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets;
+using Plus.Core;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Notifications;
 using Plus.Database;
@@ -266,7 +267,7 @@ public class GameClientManager : IGameClientManager
             if (client.GetHabbo() != null) {
                 try {
                     client.GetHabbo().Save();
-                    Console.Clear();
+                    ConsoleWindow.Clear();
                     _logger.LogInformation("<<- SERVER SHUTDOWN ->> IVNENTORY IS SAVING");
                 }
                 catch { }

@@ -380,7 +380,7 @@ public class RoomManager : IRoomManager, IStartable
             }
 
             UnloadRoom(room.Id);
-            Console.Clear();
+            ConsoleWindow.Clear();
             _logger.LogInformation("<<- SERVER SHUTDOWN ->> ROOM ITEM SAVE: " + string.Format("{0:0.##}", (double)i / length * 100) + "%");
             i++;
         }

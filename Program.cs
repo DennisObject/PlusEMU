@@ -79,7 +79,7 @@ public static class Program
         }
 
         Console.ForegroundColor = ConsoleColor.White;
-        Console.CursorVisible = false;
+        ConsoleWindow.HideCursor();
         AppDomain.CurrentDomain.UnhandledException += OnUnhandledException;
 
         // Start
