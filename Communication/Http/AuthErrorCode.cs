@@ -11,6 +11,7 @@ public static class AuthErrorCode
     public const string Validation = "validation";
     public const string InvalidTicket = "invalid_ticket";
     public const string InvalidRememberToken = "invalid_remember_token";
+    public const string InvalidAccessToken = "invalid_access_token";
     public const string NotImplemented = "not_implemented";
     public const string InvalidRequest = "invalid_request";
     public const string NotFound = "not_found";

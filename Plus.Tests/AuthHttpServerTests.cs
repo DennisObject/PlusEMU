@@ -273,6 +273,82 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Null(await _tokens.FindUser(token.Value));
     }
 
+    [Fact]
+    public async Task TicketRenewalSpendsTheBearerForANewTicketAndItsSuccessor()
+    {
+        var row = _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        await Start();
+        var login = await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse" }));
+        var first = login.GetProperty("accessToken").GetString()!;
+        Assert.Equal(row.Id, await _tickets.Consume(login.GetProperty("ssoTicket").GetString()!));
+
+        var response = await Post("/api/auth/ticket", new { }, bearer: first);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var renewed = await Json(response);
+        Assert.Equal(row.Id, renewed.GetProperty("userId").GetInt32());
+        Assert.Equal("Dennis", renewed.GetProperty("username").GetString());
+        Assert.Equal(row.Id, _tickets.Live[renewed.GetProperty("ssoTicket").GetString()!]);
+        var second = renewed.GetProperty("accessToken").GetString()!;
+        Assert.Equal(row.Id, _tokens.Live[second]);
+        Assert.False(_tokens.Live.ContainsKey(first));
+        Assert.Equal(login.GetProperty("accessTokenExpiresAt").GetInt64(), renewed.GetProperty("accessTokenExpiresAt").GetInt64());
+        Assert.False(renewed.TryGetProperty("rememberToken", out _));
+
+        var replay = await Post("/api/auth/ticket", new { }, bearer: first);
+        Assert.Equal(HttpStatusCode.Unauthorized, replay.StatusCode);
+        Assert.Equal(AuthErrorCode.InvalidAccessToken, (await Json(replay)).GetProperty("code").GetString());
+        Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/ticket", new { }, bearer: second)).StatusCode);
+    }
+
+    [Fact]
+    public async Task TicketRenewalRefusesMissingUnknownAndLoggedOutBearers()
+    {
+        _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        await Start();
+        var token = (await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse" }))).GetProperty("accessToken").GetString()!;
+        await Post("/api/auth/logout", new { }, bearer: token);
+
+        foreach (var bearer in new[] { null, SecureToken.Generate(), token }) {
+            var refused = await Post("/api/auth/ticket", new { }, bearer: bearer);
+
+            Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
+            Assert.Equal(AuthErrorCode.InvalidAccessToken, (await Json(refused)).GetProperty("code").GetString());
+        }
+
+        Assert.Empty(_tickets.Live);
+    }
+
+    [Fact]
+    public async Task ABannedUsersTicketRenewalIsRefusedAndRevokesEverything()
+    {
+        _accounts.Add("Dennis", Hasher.Hash("correct horse"));
+        await Start();
+        var token = (await Json(await Post("/api/auth/login", new { username = "Dennis", password = "correct horse", remember = true }))).GetProperty("accessToken").GetString()!;
+        _bans.ByUsernameOrAddress["Dennis"] = new LoginBan("Scamming", DateTimeOffset.FromUnixTimeSeconds(2_000_000_000));
+
+        var response = await Post("/api/auth/ticket", new { }, bearer: token);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(AuthErrorCode.Banned, (await Json(response)).GetProperty("code").GetString());
+        Assert.Empty(_tickets.Live);
+        Assert.Empty(_tokens.Live);
+    }
+
+    [Fact]
+    public async Task TicketRenewalSharesTheAuthRateLimit()
+    {
+        await Start(c => c.RequestsPerMinute = 2);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post("/api/auth/ticket", new { }, bearer: SecureToken.Generate())).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Post("/api/auth/check-username", new { username = "Fresh" })).StatusCode);
+
+        var limited = await Post("/api/auth/ticket", new { }, bearer: SecureToken.Generate());
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+        Assert.Equal(AuthErrorCode.RateLimited, (await Json(limited)).GetProperty("code").GetString());
+    }
+
     [Theory]
     [InlineData("/api/auth/login")]
     [InlineData("/api/auth/login/")]

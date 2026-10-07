@@ -273,18 +273,24 @@ internal sealed class FakeAccessTokens : IAccessTokenStore
 {
     public readonly Dictionary<string, int> Live = [];
     private readonly Dictionary<string, string?> _sessions = [];
+    private readonly Dictionary<string, DateTimeOffset> _expiries = [];
 
-    public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null)
+    public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) =>
+        IssueAt(userId, sessionId, default, scope);
+
+    public Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null, DateTimeOffset? notAfter = null)
     {
-        var token = new IssuedToken(SecureToken.Generate(), DateTimeOffset.FromUnixTimeSeconds(2000));
+        var expiresAt = DateTimeOffset.FromUnixTimeSeconds(2000);
+        var token = new IssuedToken(SecureToken.Generate(), notAfter < expiresAt ? notAfter.Value : expiresAt);
         Live[token.Value] = userId;
         _sessions[token.Value] = sessionId;
+        _expiries[token.Value] = token.ExpiresAt;
 
         return Task.FromResult(token);
     }
 
-    public Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null) =>
-        Issue(userId, sessionId, scope);
+    public Task<DateTimeOffset?> SpendAt(string token, CredentialInstant instant, CredentialScope scope) =>
+        Task.FromResult(Live.Remove(token) ? _expiries[token] : (DateTimeOffset?)null);
 
     public Task<int?> FindUser(string token) => Task.FromResult(Live.TryGetValue(token, out var id) ? id : (int?)null);
 

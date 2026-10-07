@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Registration;
@@ -47,6 +48,7 @@ public class AuthEndpoints
         auth.MapPost("/sso-token", ExchangeSsoTicket);
         auth.MapPost("/remember", Remember);
         auth.MapPost("/refresh", Refresh);
+        auth.MapPost("/ticket", RenewTicket);
         auth.MapPost("/logout", Logout);
         // Starter rooms are not implemented; an empty list lets the client skip that step.
         auth.MapGet("/room-templates", () => Results.Json(new { templates = Array.Empty<object>() }));
@@ -125,6 +127,29 @@ public class AuthEndpoints
             ResumeStatus.Banned => Banned(result.Ban!),
             _ => Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidRememberToken, "Please log in again.")
         };
+    }
+
+    /// <summary>A new game ticket for the bearer's session (a reconnect after its ticket was used),
+    /// with the successor of the spent bearer token.</summary>
+    private async Task<IResult> RenewTicket(HttpContext context, ILogger<AuthEndpoints> logger)
+    {
+        var address = AuthHttpServer.ClientAddress(context);
+        var result = await _sessions.RenewTicket(BearerToken(context.Request) ?? "", address);
+
+        switch (result.Status) {
+            case ResumeStatus.Resumed:
+                logger.LogInformation("Renewed the game ticket of user {UserId} from {Address}.", result.Session!.UserId, address);
+
+                return Session(result.Session);
+            case ResumeStatus.Banned:
+                logger.LogInformation("Refused a game ticket renewal for a banned user from {Address}.", address);
+
+                return Banned(result.Ban!);
+            default:
+                logger.LogInformation("Refused a game ticket renewal with an invalid access token from {Address}.", address);
+
+                return Error(StatusCodes.Status401Unauthorized, AuthErrorCode.InvalidAccessToken, "Please log in again.");
+        }
     }
 
     private async Task<IResult> CheckUsername(UsernameRequest body) => string.IsNullOrWhiteSpace(body.Username)

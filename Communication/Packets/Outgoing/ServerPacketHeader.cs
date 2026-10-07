@@ -14,6 +14,7 @@ public static class ServerPacketHeader
     public const uint KickbackInfoComposer = 4001; //3277
     public const uint UserRightsComposer = 3315; //1862
     public const uint GenericErrorComposer = 905; //169
+    public const uint DisconnectReasonComposer = 4000;
     public const uint SetUniqueIdComposer = 3731; //2935
     public const uint AvailabilityStatusComposer = 3690; //2468
 

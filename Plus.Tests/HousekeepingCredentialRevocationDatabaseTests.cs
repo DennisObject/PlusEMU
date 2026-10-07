@@ -640,5 +640,6 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         public Task Logout(string? accessToken, string? ssoTicket, string? rememberToken) => inner.Logout(accessToken, ssoTicket, rememberToken);
         public Task<ResumeResult> Resume(string rememberToken, string address, bool withTicket) => inner.Resume(rememberToken, address, withTicket);
         public Task<IssuedToken?> ExchangeTicket(string ticket) => inner.ExchangeTicket(ticket);
+        public Task<ResumeResult> RenewTicket(string accessToken, string address) => inner.RenewTicket(accessToken, address);
     }
 }

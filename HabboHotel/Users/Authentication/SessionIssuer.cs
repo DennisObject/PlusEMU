@@ -30,6 +30,14 @@ public interface ISessionIssuer
     /// credentials were revoked meanwhile.</summary>
     Task<IssuedToken?> ExchangeTicket(string ticket);
 
+    /// <summary>
+    /// Trades a live access token for a fresh game ticket and a successor access token in the token's
+    /// session, e.g. to log in again after a dropped connection. The presented token is spent, and its
+    /// successor expires when it would have, so renewing never extends a session. A ban or a deleted
+    /// account revokes all of the user's credentials.
+    /// </summary>
+    Task<ResumeResult> RenewTicket(string accessToken, string address);
+
     /// <summary>Ends the login sessions the given credentials belong to (one device): their ticket,
     /// access tokens and remember family. Other devices stay signed in.</summary>
     Task Logout(string? accessToken, string? ssoTicket, string? rememberToken);
@@ -150,6 +158,46 @@ public class SessionIssuer : ISessionIssuer
             async scope => token = await _accessTokens.IssueAt(userId, sessionId, instant, scope));
 
         return token;
+    }
+
+    public async Task<ResumeResult> RenewTicket(string accessToken, string address)
+    {
+        var instant = CredentialInstant.Capture(_time);
+
+        if (string.IsNullOrEmpty(accessToken) || await _accessTokens.FindOwner(accessToken) is not { SessionId: { } sessionId } owner) {
+            return new(ResumeStatus.Invalid);
+        }
+
+        var userId = owner.UserId;
+
+        if (await _accounts.UsernameById(userId) is not { } username) {
+            await RevokeAll(userId);
+
+            return new(ResumeStatus.Invalid);
+        }
+
+        if (await _bans.FindAt(username, address, instant.UtcNow) is { } ban) {
+            await RevokeAll(userId);
+
+            return new(ResumeStatus.Banned, Ban: ban);
+        }
+
+        // A revoke landing after this read bumps the generation or revokes the token; either way the
+        // locked write below issues nothing.
+        var generation = await _generations.Current(userId);
+        AuthSession? session = null;
+        await _generations.WriteInSession(userId, generation, sessionId, async scope =>
+        {
+            if (await _accessTokens.SpendAt(accessToken, instant, scope) is not { } expiresAt) {
+                return;
+            }
+
+            await _accounts.RecordAddress(userId, address, scope);
+            session = new(userId, username, await _ssoTickets.IssueAt(userId, sessionId, instant, scope),
+                await _accessTokens.IssueAt(userId, sessionId, instant, scope, expiresAt));
+        });
+
+        return session == null ? new(ResumeStatus.Invalid) : new(ResumeStatus.Resumed, session);
     }
 
     public async Task Logout(string? accessToken, string? ssoTicket, string? rememberToken)

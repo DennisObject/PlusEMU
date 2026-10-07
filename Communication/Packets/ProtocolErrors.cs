@@ -42,6 +42,11 @@ public enum GenericError
     TradeLocked = -13001
 }
 
+public enum DisconnectReason
+{
+    InvalidLoginTicket = 22
+}
+
 public enum TradingError
 {
     PartnerUnavailable = 4,

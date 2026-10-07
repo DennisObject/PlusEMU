@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Reflection;
 using Plus.Communication.Attributes;
@@ -43,16 +44,36 @@ public class SsoLoginServiceTests
         await pending;
     }
 
-    [Fact]
-    public async Task AuthenticationFailureDoesNotPublishInitialization()
+    [Theory]
+    [InlineData(AuthenticationError.EmptySSO)]
+    [InlineData(AuthenticationError.InvalidSSO)]
+    [InlineData(AuthenticationError.NoAccountFound)]
+    [InlineData(AuthenticationError.LoginProhibited)]
+    public async Task RefusedTicketIsAnsweredWithTheReasonAndTheConnectionCloses(AuthenticationError error)
     {
         var (client, sent) = HabbiconTestSupport.Client(new Habbo());
-        var authenticate = Proxy<IAuthenticator>((_, _) => Task.FromResult<AuthenticationError?>(AuthenticationError.InvalidSSO));
+        var authenticate = Proxy<IAuthenticator>((_, _) => Task.FromResult<AuthenticationError?>(error));
         var service = new SsoLoginService(authenticate, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
 
-        await service.Login(client, "invalid");
+        await service.Login(client, "spent");
+
+        Assert.Equal(new[] { ServerPacketHeader.GenericErrorComposer, ServerPacketHeader.DisconnectReasonComposer }, sent.Select(packet => packet.Header));
+        Assert.Equal(-3, BinaryPrimitives.ReadInt32BigEndian(sent[0].Payload));
+        Assert.Equal(22, BinaryPrimitives.ReadInt32BigEndian(sent[1].Payload));
+        Assert.True(client.Closed.IsCancellationRequested);
+    }
+
+    [Fact]
+    public async Task LoginEndedByAClosedConnectionSendsNothing()
+    {
+        var (client, sent) = HabbiconTestSupport.Client(new Habbo());
+        var authenticate = Proxy<IAuthenticator>((_, _) => Task.FromResult<AuthenticationError?>(AuthenticationError.SessionClosed));
+        var service = new SsoLoginService(authenticate, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!, null!);
+
+        await service.Login(client, "ticket");
 
         Assert.Empty(sent);
+        Assert.True(client.Closed.IsCancellationRequested);
     }
 
     [Fact]
