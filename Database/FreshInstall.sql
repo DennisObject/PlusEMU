@@ -1875,6 +1875,60 @@ CREATE TABLE `server_status` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `snowwar_game_tokens`
+--
+
+DROP TABLE IF EXISTS `snowwar_game_tokens`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `snowwar_game_tokens` (
+  `user_id` int(11) NOT NULL,
+  `games` int(11) NOT NULL DEFAULT 0,
+  `free_games_date` date DEFAULT NULL,
+  `free_games_used` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `snowwar_scores`
+--
+
+DROP TABLE IF EXISTS `snowwar_scores`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `snowwar_scores` (
+  `user_id` int(11) NOT NULL,
+  `week_start` date NOT NULL,
+  `score` bigint(20) NOT NULL DEFAULT 0,
+  `matches` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`user_id`,`week_start`),
+  KEY `week_score` (`week_start`,`score`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `snowwar_token_offers`
+--
+
+DROP TABLE IF EXISTS `snowwar_token_offers`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `snowwar_token_offers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `localization_id` varchar(64) NOT NULL,
+  `price_credits` int(11) NOT NULL DEFAULT 0,
+  `price_points` int(11) NOT NULL DEFAULT 0,
+  `points_type` int(11) NOT NULL DEFAULT 0,
+  `games` int(11) NOT NULL DEFAULT 0,
+  `enabled` tinyint(1) NOT NULL DEFAULT 1,
+  `order_num` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `localization_id` (`localization_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `talents`
 --
 
@@ -26072,6 +26126,20 @@ INSERT INTO `server_settings` VALUES
 ('club.limit.visitors.member','75','Habbo Club policy.'),
 ('club.limit.visitors.normal','50','Habbo Club policy.'),
 ('club.payday.percentage','10','Habbo Club policy.'),
+('gamecenter.game.leave.block.seconds','180','Seconds a player who leaves a running SnowStorm game cannot join another.'),
+('gamecenter.games.free.daily','10','Free SnowStorm games per user per UTC day; -1 for unlimited.'),
+('gamecenter.snowwar.arenas','8,9,11','SnowStorm arena field types played in rotation (8 Arctic Island, 9 Dragon Top, 11 Fight Night).'),
+('gamecenter.snowwar.artic.bg','/c_images/snowstorm_client/official/snst_bg_1_a_big.png','Arctic Island backdrop image URL; empty for none. Plus lowercases setting values.'),
+('gamecenter.snowwar.dragoncave.bg','/c_images/snowstorm_client/official/snst_bg_2_big.png','Dragon Top backdrop image URL; empty for none. Plus lowercases setting values.'),
+('gamecenter.snowwar.enabled','1','SnowStorm on (1) or off (0).'),
+('gamecenter.snowwar.fightnight.bg','/c_images/snowstorm_client/official/snst_bg_3_noscale.png','Fight Night backdrop image URL; empty for none. Plus lowercases setting values.'),
+('gamecenter.snowwar.game.length.seconds','180','SnowStorm match length in seconds.'),
+('gamecenter.snowwar.game.start.time','15','SnowStorm lobby and rematch countdown in seconds.'),
+('gamecenter.snowwar.games.max.concurrent','1','SnowStorm games running at once; full lobbies wait in the arena queue.'),
+('gamecenter.snowwar.players.min','2','Players a SnowStorm lobby needs before its countdown starts.'),
+('gamecenter.snowwar.preparing.seconds','5','Seconds between StageStarting and StageRunning (the AIR countdown shows 5..1).'),
+('gamecenter.snowwar.queue.match.max','8','Players per SnowStorm game (2-8, two teams).'),
+('gamecenter.snowwar.restart.seconds','30','Seconds the SnowStorm results and rematch window stays open.'),
 ('group.delete.member.limit','500','If the group has more members than this value allows, it cannot be deleted.'),
 ('messenger.buddy_limit','5000','The amount of friends a user can have.'),
 ('room.chat.filter.banned_phrases.chances','6','The amount of banned/filtered words a user can say before being banned.'),
@@ -26086,6 +26154,19 @@ INSERT INTO `server_settings` VALUES
 ('user.currency_scheduler.tick','15','The time a user will have to wait for Credits/Pixels update in minutes'),
 ('user.login.message.enabled','0','If this is enabled, a message from the server_locale table will be given to the user.');
 /*!40000 ALTER TABLE `server_settings` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Dumping data for table `snowwar_token_offers`
+--
+
+LOCK TABLES `snowwar_token_offers` WRITE;
+/*!40000 ALTER TABLE `snowwar_token_offers` DISABLE KEYS */;
+INSERT INTO `snowwar_token_offers` VALUES
+(1,'GET_SNOWWAR_TOKENS',10,0,0,10,1,1),
+(2,'GET_SNOWWAR_TOKENS2',80,0,0,100,1,2),
+(3,'GET_SNOWWAR_TOKENS3',200,0,0,300,1,3);
+/*!40000 ALTER TABLE `snowwar_token_offers` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --

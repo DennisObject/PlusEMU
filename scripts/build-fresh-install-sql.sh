@@ -18,7 +18,7 @@ moderation_preset_action_categories moderation_preset_action_messages moderation
 moderation_topic_actions navigator_categories quests reward_tracks reward_track_prizes
 reward_track_tasks reward_track_task_levels roles role_limits role_permissions
 room_chat_styles room_models server_landing server_locale server_rewards server_settings
-talents talents_sub_levels wordfilter"
+snowwar_token_offers talents talents_sub_levels wordfilter"
 
 dump() {
     # The first line of a MariaDB 11 dump enables sandbox mode, which older
