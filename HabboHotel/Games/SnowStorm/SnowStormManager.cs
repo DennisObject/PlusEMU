@@ -166,6 +166,10 @@ public sealed class SnowStormManager(
                 Run(() => command(now));
             }
 
+            if (_games.Count == 0 && _lobbies.Count == 0) {
+                return;
+            }
+
             var config = SnowStormSettings.Read(settings);
 
             foreach (var game in _games.ToList()) {
