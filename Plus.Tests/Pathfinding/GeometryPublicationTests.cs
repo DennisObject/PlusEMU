@@ -119,6 +119,53 @@ public partial class PlacedFurniRoomTests
         Assert.Same(landing, first.LastItem);
     }
 
+    // Wired-style move: the announced support leaves a tile that stays walkable, so the step lands at the floor height.
+    [Fact]
+    public void OwnerSupportMoveLandsAnotherActorsPendingStepAtTheNewHeight()
+    {
+        var landing = ExecutorFloor(10, 1, 1);
+        var moved = ExecutorFloor(11, 3, 2, height: .5);
+        var waiting = GeometryWaitingOn(landing, () => Assert.True(_room.GetRoomItemHandler().SetFloorItem(moved, 3, 3, 0)));
+        Assert.Contains("/mv 3,2,0.5/", ExecutorUpdate(waiting).Status);
+        ExecutorTick();
+        Assert.Equal((3, 2, 0d), (waiting.X, waiting.Y, waiting.Z));
+        Assert.Equal(SurfaceKind.Floor, waiting.Movement.CurrentRef!.Value.Kind);
+    }
+
+    // A tile that became unwalkable between announce and commit still releases the batch.
+    [Fact]
+    public void OwnerBlockerOnAPendingTargetReleasesTheBatch()
+    {
+        var landing = ExecutorFloor(10, 1, 1);
+        var waiting = GeometryWaitingOn(landing, () => Add(12, 3, 2, height: 1, stackable: false));
+        ExecutorTick();
+        Assert.Equal((2, 2), (waiting.X, waiting.Y));
+        Assert.Equal(0, waiting.Movement.PendingCount);
+        Assert.Equal(TargetOccupancy.None, GeometryClaimsAt(3, 2));
+    }
+
+    // A bot at (2, 2) has announced (3, 2); the first actor's next landing on `landing` runs `change` and publishes it,
+    // as a wired pass does between room ticks.
+    private RoomUser GeometryWaitingOn(Item landing, Action change)
+    {
+        var first = ExecutorActor(0, 1);
+        var waiting = ExecutorAdditionalBot(2, 2, 2);
+        ExecutorTick();
+        ExecutorObserveLanding((_, item) =>
+        {
+            if (item == landing) {
+                change();
+                _room.GetGameMap().Navigation!.ApplyDirty();
+            }
+        });
+        first.MoveTo(1, 1);
+        waiting.MoveTo(3, 2);
+        ExecutorTick();
+        Assert.Equal(1, waiting.Movement.PendingCount);
+
+        return waiting;
+    }
+
     private void GeometryMoveBlockerThroughActor(RoomUser actor)
     {
         var blocker = Add(11, 0, 2, z: 1, height: 1, stackable: false);
