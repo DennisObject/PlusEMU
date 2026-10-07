@@ -12,7 +12,8 @@ public sealed record InventoryItemSnapshot(uint Id, string Type, int SpriteId, F
         var definition = item.Definition;
 
         var category = RecyclerBox.IsDefinition(definition)
-            ? FurniCategory.EcotronBox : definition.Category;
+            ? FurniCategory.EcotronBox
+            : Plus.HabboHotel.Rooms.Music.RoomMusicDefinition.IsDisc(definition) ? FurniCategory.TraxSong : definition.Category;
 
         return new(item.Id, definition.Type.ToCharCode(), definition.SpriteId, category,
             FurnitureDataSnapshot.Capture(item.ExtraData), item.UniqueNumber, item.UniqueSeries,

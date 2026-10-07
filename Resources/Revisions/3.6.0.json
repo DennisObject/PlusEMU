@@ -375,7 +375,14 @@
     "HousekeepingAssignRoleEvent": 0,
     "HousekeepingRevokeRoleEvent": 0,
     "HousekeepingSetUserOverrideEvent": 0,
-    "HousekeepingRemoveUserOverrideEvent": 0
+    "HousekeepingRemoveUserOverrideEvent": 0,
+    "AddJukeboxDiskEvent": 753,
+    "RemoveJukeboxDiskEvent": 3050,
+    "GetJukeboxPlaylistEvent": 1435,
+    "GetSoundMachinePlaylistEvent": 3498,
+    "GetUserSongDisksEvent": 2304,
+    "GetNowPlayingEvent": 1325,
+    "GetOfficialSongIdEvent": 3189
   },
   "OutgoingHeaders": {
     "CraftableProductsComposer": 1000,
@@ -709,6 +716,12 @@
     "HousekeepingRolesComposer": 0,
     "HousekeepingRoleMembersComposer": 0,
     "HousekeepingUserOverridesComposer": 0,
-    "HousekeepingRolesAuditComposer": 0
+    "HousekeepingRolesAuditComposer": 0,
+    "JukeboxPlaylistComposer": 34,
+    "JukeboxPlaylistFullComposer": 105,
+    "NowPlayingComposer": 469,
+    "OfficialSongIdComposer": 1381,
+    "SoundMachinePlaylistComposer": 1748,
+    "SongDisksInventoryComposer": 2602
   }
 }

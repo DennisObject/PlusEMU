@@ -41,8 +41,12 @@ public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMar
 
             var itemType = item.Definition.Type == ItemType.Wall ? "2" : "1";
             var listedAt = time.GetUtcNow();
-            store.ListFurni(new MarketplaceListing(itemId, item.Definition.Id, habbo.Id, sellingPrice, (int)totalPrice, item.Definition.PublicName,
-                item.Definition.SpriteId, itemType, listedAt, item.ExtraData.Serialize(), item.UniqueNumber, item.UniqueSeries));
+
+            if (!store.ListFurni(new MarketplaceListing(itemId, item.Definition.Id, habbo.Id, sellingPrice, (int)totalPrice, item.Definition.PublicName,
+                item.Definition.SpriteId, itemType, listedAt, item.ExtraData.Serialize(), item.UniqueNumber, item.UniqueSeries))) {
+                return false;
+            }
+
             habbo.Inventory.Furniture.RemoveItem(itemId);
 
             return true;
