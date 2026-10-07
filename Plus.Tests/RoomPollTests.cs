@@ -70,8 +70,10 @@ public partial class PlacedFurniRoomTests
         Assert.DoesNotContain(ServerPacketHeader.PollContentsComposer, _client.Sent);
     }
 
-    [Fact]
-    public async Task PollAnswerHandlerDecodesEveryDistinctStringAndBoundsTheCount()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(10)]
+    public async Task PollAnswerHandlerDecodesEveryDistinctStringAndBoundsTheCount(int pollId)
     {
         string[]? actual = null;
         var calls = 0;
@@ -79,19 +81,19 @@ public partial class PlacedFurniRoomTests
         {
             Assert.Equal(nameof(IRoomPollService.Answer), method);
             Assert.Same(_client, args[0]);
-            Assert.Equal(10, args[1]);
+            Assert.Equal(pollId, args[1]);
             Assert.Equal(2, args[2]);
             actual = (string[])args[3]!;
             calls++;
             return null;
         });
         var handler = new PollAnswerEvent(polls, Proxy<IRoomWordQuizService>((method, _) => throw new InvalidOperationException(method)));
-        var packet = HabbiconTestSupport.Incoming(10, 2, 2, "10", "20");
+        var packet = HabbiconTestSupport.Incoming(pollId, 2, 2, "10", "20");
         await handler.Parse(_client, packet);
         Assert.Equal(new[] { "10", "20" }, actual);
         Assert.False(packet.HasDataRemaining());
-        await handler.Parse(_client, HabbiconTestSupport.Incoming(10, 2, 65));
-        await handler.Parse(_client, HabbiconTestSupport.Incoming(10, 2, -1));
+        await handler.Parse(_client, HabbiconTestSupport.Incoming(pollId, 2, 65));
+        await handler.Parse(_client, HabbiconTestSupport.Incoming(pollId, 2, -1));
         Assert.Equal(1, calls);
     }
 }

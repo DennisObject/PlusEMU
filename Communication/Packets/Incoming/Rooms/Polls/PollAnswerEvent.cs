@@ -19,7 +19,7 @@ internal sealed class PollAnswerEvent(IRoomPollService polls, IRoomWordQuizServi
             answers[i] = packet.ReadString();
         }
 
-        if (pollId == 0) {
+        if (pollId == 0 && questionId < 0) {
             quizzes.Answer(session, pollId, questionId, answers);
         }
         else {
