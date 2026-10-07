@@ -1,6 +1,7 @@
 using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Recycler;
 
 namespace Plus.HabboHotel.Users.Inventory.Furniture;
 
@@ -31,7 +32,7 @@ public sealed class FurnitureInventoryLoader(IDatabase database, IItemDataManage
                 Id = row.Id,
                 OwnerId = (uint)userId,
                 Definition = definition,
-                ExtraData = FurniExtraData.Load(definition, row.ExtraData, keepLegacy: false),
+                ExtraData = FurniExtraData.Load(definition, row.ExtraData, keepLegacy: RecyclerBox.IsDefinition(definition)),
                 UniqueNumber = row.LimitedNumber,
                 UniqueSeries = row.LimitedStack
             });

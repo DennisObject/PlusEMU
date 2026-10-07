@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Recycler;
 
 namespace Plus.HabboHotel.Users.Inventory.Furniture;
 
@@ -10,7 +11,10 @@ public sealed record InventoryItemSnapshot(uint Id, string Type, int SpriteId, F
     {
         var definition = item.Definition;
 
-        return new(item.Id, definition.Type.ToCharCode(), definition.SpriteId, definition.Category,
+        var category = RecyclerBox.IsDefinition(definition)
+            ? FurniCategory.EcotronBox : definition.Category;
+
+        return new(item.Id, definition.Type.ToCharCode(), definition.SpriteId, category,
             FurnitureDataSnapshot.Capture(item.ExtraData), item.UniqueNumber, item.UniqueSeries,
             definition.AllowEcotronRecycle, definition.AllowTrade, item.ShouldStackInInventory(),
             item.UniqueNumber == 0 && definition.AllowInventoryStack, definition.AllowMarketplaceSell, item.IsWallItem);

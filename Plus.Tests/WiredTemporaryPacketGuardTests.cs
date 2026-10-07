@@ -90,6 +90,8 @@ public class WiredTemporaryPacketGuardTests
                 ? new FurnitureUseService(new FurnitureUseStore(database), null!)
                 : parameter.ParameterType == typeof(IGiftOpeningService)
                     ? new GiftOpeningService(new GiftStore(database), null!, null!, Microsoft.Extensions.Logging.Abstractions.NullLogger<GiftOpeningService>.Instance)
+                : parameter.ParameterType == typeof(Plus.HabboHotel.Recycler.IRecyclerService)
+                    ? new Plus.HabboHotel.Recycler.RecyclerService(new Plus.HabboHotel.Recycler.RecyclerStore(database), null!, TimeProvider.System, null!, TestLogging.For<Plus.HabboHotel.Recycler.RecyclerService>())
                 : parameter.ParameterType == typeof(IRoomItemMetadataService)
                     ? new RoomItemMetadataService(new RoomItemMetadataStore(database), null!)
                 : parameter.ParameterType == typeof(IMoodlightService)
@@ -121,7 +123,7 @@ public class WiredTemporaryPacketGuardTests
         Assert.Equal(10, client.GetHabbo().Credits);
         Assert.False(room.MoodlightData.Enabled);
         Assert.Equal(0, room.TonerData.Enabled);
-        // No inventory or database dependency was supplied: reaching either would fail this test.
+        // No inventory is supplied and database access throws: neither may be reached for a temporary item.
     }
 
     [Fact]

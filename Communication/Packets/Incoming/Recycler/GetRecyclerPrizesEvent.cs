@@ -1,13 +1,13 @@
-using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Recycler;
 
 namespace Plus.Communication.Packets.Incoming.Recycler;
 
-public class GetRecyclerPrizesEvent : IPacketEvent
+internal sealed class GetRecyclerPrizesEvent(IRecyclerService recycler) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        session.Send(new RecyclerPrizesComposer());
+        recycler.GetPrizes(session);
 
         return Task.CompletedTask;
     }
