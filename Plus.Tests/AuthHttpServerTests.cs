@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Plus.Communication.Http;
+using Plus.HabboHotel.Badges.Rarity;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Registration;
@@ -22,6 +23,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private readonly FakeBans _bans = new();
     private readonly FakeRememberTokens _remember = new();
     private SessionIssuer? _sessions;
+    private BadgeLeaderboardSnapshot _badges = BadgeLeaderboardSnapshot.Empty;
     private IPasswordHasher _innerHasher = Hasher;
     private CountingHasher _hasher
     {
@@ -54,7 +56,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var hasher = new BoundedPasswordHasher(_innerHasher, options);
         var login = new LoginService(_accounts, hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
         var registration = new RegistrationService(_accounts, hasher, sessions, new FakeWordFilter(), options);
-        _server = new AuthHttpServer(options, login, registration, sessions);
+        _server = new AuthHttpServer(options, login, registration, sessions, new FixedBadgeRarity(_badges), _tokens);
         await _server.Start();
         _http.Dispose();
         _http = new HttpClient { BaseAddress = new Uri(_server.Urls.Single()) };
@@ -554,5 +556,61 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
 
         Assert.Equal(expectedAddress, Assert.Single(_accounts.Created).Address);
         Assert.Equal(expectedAddress, _accounts.LastAddress[_accounts.Rows.Single(r => r.Username == "ViaProxy").Id]);
+    }
+
+    [Fact]
+    public async Task BadgeLeaderboardScalesTiersToThePopulationAndAddsTheViewersOwnRank()
+    {
+        // At 1,000 active players rare reaches 150 owners and legendary 5, where fixed bands stopped at 50 and 8.
+        var ownership = Enumerable.Range(1, 150).Select(id => new BadgeOwnership(id, "RARE"))
+            .Concat(Enumerable.Range(201, 5).Select(id => new BadgeOwnership(id, "LEGEND")))
+            .Append(new BadgeOwnership(7, "SOLO"));
+        _badges = BadgeLeaderboardSnapshot.Build(ownership, [new(7, 30)], BadgeRarityScale.For(1000, null));
+        await Start(c => c.Enabled = false);
+        var token = (await _tokens.Issue(7)).Value;
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/badges/leaderboard");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        var response = await _http.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var body = await Json(response);
+        Assert.Equal(7, body.GetProperty("viewerUserId").GetInt32());
+        Assert.Equal(1000, body.GetProperty("population").GetInt32());
+        Assert.Equal(150, body.GetProperty("thresholds").GetProperty("rare").GetInt32());
+        Assert.Equal(5, body.GetProperty("thresholds").GetProperty("legendary").GetInt32());
+        var stats = body.GetProperty("badgeStats").EnumerateArray().ToDictionary(stat => stat.GetProperty("badgeCode").GetString()!,
+            stat => (stat.GetProperty("ownerCount").GetInt32(), stat.GetProperty("rarity").GetString()));
+        Assert.Equal((150, "rare"), stats["RARE"]);
+        Assert.Equal((5, "legendary"), stats["LEGEND"]);
+        Assert.Equal((1, "unique"), stats["SOLO"]);
+        var boards = body.GetProperty("leaderboards");
+        Assert.Equal(["rare", "epic", "mythical", "legendary", "unique"], boards.GetProperty("rarity").EnumerateObject().Select(board => board.Name));
+        var unique = boards.GetProperty("rarity").GetProperty("unique").GetProperty("viewerEntry");
+        Assert.Equal(1, unique.GetProperty("rank").GetInt32());
+        Assert.Equal("Viewer7", unique.GetProperty("username").GetString());
+        Assert.Equal(BadgeLeaderboardSnapshot.EntryLimit, boards.GetProperty("totalBadges").GetProperty("totalPlayers").GetInt32());
+        Assert.Equal(30, boards.GetProperty("achievementLevel").GetProperty("viewerEntry").GetProperty("score").GetInt32());
+    }
+
+    [Fact]
+    public async Task BadgeLeaderboardWithoutATokenHasNoViewer()
+    {
+        _badges = BadgeLeaderboardSnapshot.Build([new(7, "SOLO")], [], BadgeRarityScale.Empty);
+        await Start();
+
+        var body = await Json(await _http.GetAsync("/api/badges/leaderboard"));
+
+        Assert.Equal(0, body.GetProperty("viewerUserId").GetInt32());
+        Assert.False(body.GetProperty("leaderboards").GetProperty("totalBadges").TryGetProperty("viewerEntry", out _));
+    }
+
+    private sealed class FixedBadgeRarity(BadgeLeaderboardSnapshot snapshot) : IBadgeRarityManager
+    {
+        public BadgeLeaderboardSnapshot Snapshot => snapshot;
+
+        public Task Refresh() => Task.CompletedTask;
+
+        public Task<LeaderboardProfile?> GetProfile(int userId) => Task.FromResult<LeaderboardProfile?>(new("Viewer" + userId, "hd-180-1"));
     }
 }

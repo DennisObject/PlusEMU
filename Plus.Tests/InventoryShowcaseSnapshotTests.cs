@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Incoming.Inventory.Bots;
 using Plus.Communication.Packets.Incoming.Inventory.Pets;
 using Plus.Communication.Packets.Outgoing.Inventory.Badges;
 using Plus.Communication.Packets.Outgoing.Inventory.Bots;
+using Plus.HabboHotel.Badges.Rarity;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Users.Badges;
 using Plus.HabboHotel.Users.Inventory;
@@ -39,10 +40,11 @@ public sealed class InventoryShowcaseSnapshotTests
     {
         var badge = new Badge("second", 2);
         var source = new List<Badge> { badge, new("unworn", 0), new("first", 1) };
-        var composer = new BadgesComposer(BadgeInventorySnapshot.Capture(source));
+        var rarity = new BadgeRarityTable(BadgeRarityScale.Empty, new Dictionary<string, int> { ["second"] = 1, ["first"] = 60 });
+        var composer = new BadgesComposer(BadgeInventorySnapshot.Capture(source, rarity));
         var before = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(before);
-        Assert.Equal(new object[] { 3, 1, "second", 1, "unworn", 1, "first", 2, 1, "first", 2, "second" }, before.Writes);
+        Assert.Equal(new object[] { 3, 1, "second", 1, 6, 1, "unworn", 1, 6, 1, "first", 60, 0, 2, 1, "first", 2, "second" }, before.Writes);
         badge.Code = "changed";
         badge.Slot = 0;
         source.Clear();

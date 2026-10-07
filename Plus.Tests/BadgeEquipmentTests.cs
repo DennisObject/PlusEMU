@@ -9,6 +9,7 @@ using Plus.Communication.Packets.Incoming.Users;
 using Plus.Communication.Packets.Outgoing.Users;
 using Plus.Database;
 using Plus.HabboHotel.Badges;
+using Plus.HabboHotel.Badges.Rarity;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Users;
@@ -36,10 +37,11 @@ public sealed class BadgeEquipmentTests
     {
         var badge = new Badge("second", 2);
         var source = new List<Badge> { badge, new("first", 1) };
-        var composer = new HabboUserBadgesComposer(42, BadgeInventorySnapshot.Capture(source).Equipped);
+        var rarity = new BadgeRarityTable(BadgeRarityScale.Empty, new Dictionary<string, int> { ["first"] = 8, ["second"] = 20 });
+        var composer = new HabboUserBadgesComposer(42, BadgeInventorySnapshot.Capture(source, rarity).Equipped);
         var before = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(before);
-        Assert.Equal(new object[] { 42, 2, 1, "first", 2, "second" }, before.Writes);
+        Assert.Equal(new object[] { 42, 2, 1, "first", 8, 4, 2, "second", 20, 3 }, before.Writes);
         badge.Code = "changed";
         badge.Slot = 0;
         source.Clear();

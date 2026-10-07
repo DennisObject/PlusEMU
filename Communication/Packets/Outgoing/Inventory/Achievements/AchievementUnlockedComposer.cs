@@ -24,6 +24,8 @@ public class AchievementUnlockedComposer : IServerPacket
         packet.WriteString(_snapshot.PreviousBadge);
         packet.WriteString(_snapshot.Category);
         packet.WriteBoolean(true);
+        packet.WriteInteger(_snapshot.Rarity.OwnerCount); // WIN63 class_3440 ownerCount
+        packet.WriteInteger((int)_snapshot.Rarity.Tier); // WIN63 class_3440 badgeRarityId
 
     }
 }

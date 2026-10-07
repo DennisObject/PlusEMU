@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NLog.Extensions.Logging;
+using Plus.HabboHotel.Badges.Rarity;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Registration;
 
@@ -25,7 +26,8 @@ public interface IAuthHttpServer
 }
 
 /// <summary>
-/// Kestrel host for the hotel's login API (/api/auth/*, /api/health, /api/maintenance).
+/// Kestrel host for the hotel's login API (/api/auth/*, /api/health, /api/maintenance) and
+/// the badge leaderboard (/api/badges/leaderboard).
 /// TLS is terminated by the reverse proxy in front of it.
 /// </summary>
 public class AuthHttpServer : IAuthHttpServer
@@ -34,12 +36,15 @@ public class AuthHttpServer : IAuthHttpServer
 
     private readonly AuthApiConfiguration _configuration;
     private readonly AuthEndpoints _endpoints;
+    private readonly BadgeLeaderboardEndpoints _badgeLeaderboard;
     private WebApplication? _app;
 
-    public AuthHttpServer(IOptions<AuthApiConfiguration> options, ILoginService login, IRegistrationService registration, ISessionIssuer sessions)
+    public AuthHttpServer(IOptions<AuthApiConfiguration> options, ILoginService login, IRegistrationService registration, ISessionIssuer sessions,
+        IBadgeRarityManager badgeRarity, IAccessTokenStore accessTokens)
     {
         _configuration = options.Value;
         _endpoints = new(login, registration, sessions, _configuration.Enabled);
+        _badgeLeaderboard = new(badgeRarity, accessTokens);
     }
 
     public IReadOnlyCollection<string> Urls => _app?.Urls.ToList() ?? [];
@@ -72,6 +77,7 @@ public class AuthHttpServer : IAuthHttpServer
         app.Use(RefuseWhenHashingIsSaturated);
         app.UseRateLimiter();
         _endpoints.Map(app);
+        _badgeLeaderboard.Map(app);
 
         await app.StartAsync();
         _app = app;
