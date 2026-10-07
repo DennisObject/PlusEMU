@@ -76,6 +76,10 @@
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 			<TargetPath>revisions\%(Filename)%(Extension)</TargetPath>
 		</ContentWithTargetPath>
+		<ContentWithTargetPath Include="Resources\SnowStorm\**">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<TargetPath>snowstorm\%(Filename)%(Extension)</TargetPath>
+		</ContentWithTargetPath>
 	</ItemGroup>
 
 	<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition=" '$(OS)' == 'Windows_NT' ">
