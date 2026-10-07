@@ -1025,6 +1025,20 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public void BoxSavedMidFlashFlashesAgainOnItsNextEvent()
+    {
+        var (room, _, _) = World();
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+        var box = MakeItem(100, "wf_act_move_to_dir");
+        box.LegacyDataString = "1";
+
+        wired.OnEvent(box);
+
+        Assert.True(box.UpdateNeeded);
+        Assert.Equal(2, box.UpdateCounter);
+    }
+
+    [Fact]
     public void FurniToFurniAndManualPlacementStillStackOntoStackableFurniture()
     {
         var (room, map, items) = World(new RecordingPlacementStore());
