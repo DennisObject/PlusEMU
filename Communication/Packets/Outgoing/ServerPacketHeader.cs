@@ -3,6 +3,9 @@ namespace Plus.Communication.Packets.Outgoing;
 public static class ServerPacketHeader
 {
     // Handshake
+    public const uint SimplePollStartComposer = 2665;
+    public const uint SimplePollAnswerComposer = 2589;
+    public const uint SimplePollAnswersComposer = 1066;
     public const uint InitDiffieHandshakeComposer = 3531; //675
     public const uint SecretKeyComposer = 696; //3179
     public const uint AuthenticationOkComposer = 1079; //1442
@@ -198,7 +201,6 @@ public static class ServerPacketHeader
     // Sound
     public const uint SoundSettingsComposer = 1949; //2921
 
-    public const uint QuestionParserComposer = 1163; //1719
     public const uint AvatarAspectUpdateComposer = 884;
     public const uint HelperToolComposer = 3610; //224
     public const uint RoomErrorNotifComposer = 2355; //444

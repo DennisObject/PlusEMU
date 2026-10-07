@@ -1,6 +1,9 @@
 {
   "Name": "PRODUCTION-201701242205-837386173",
   "IncomingHeaders": {
+    "PollStartEvent": 109,
+    "PollRejectEvent": 1773,
+    "PollAnswerEvent": 3505,
     "InitDiffieHandshakeEvent": 3392,
     "CompleteDiffieHandshakeEvent": 3622,
     "UniqueIdEvent": 3521,
@@ -338,6 +341,9 @@
     "PurchaseSnowWarGameTokensOfferEvent": 391
   },
   "OutgoingHeaders": {
+    "SimplePollStartComposer": 2665,
+    "SimplePollAnswerComposer": 2589,
+    "SimplePollAnswersComposer": 1066,
     "InitDiffieHandshakeComposer": 3531,
     "SecretKeyComposer": 696,
     "AuthenticationOkComposer": 1079,
@@ -488,7 +494,6 @@
     "ThreadUpdatedComposer": 951,
     "ThreadReplyComposer": 1003,
     "SoundSettingsComposer": 1949,
-    "QuestionParserComposer": 1163,
     "AvatarAspectUpdateComposer": 884,
     "HelperToolComposer": 3610,
     "RoomErrorNotifComposer": 2355,
@@ -613,8 +618,8 @@
     "MarketplaceCancelOfferResultComposer": 0,
     "NavigatorSettingsComposer": 2477,
     "MessengerInitComposer": 1329,
-    "PollContentsComposer": 3826,
-    "PollOfferComposer": 1074,
+    "PollContentsComposer": 2997,
+    "PollOfferComposer": 3785,
     "RoomUseHabbiconComposer": 9410,
     "UserHabbiconsComposer": 9465,
     "UserHabbiconStatusChangedComposer": 9466,

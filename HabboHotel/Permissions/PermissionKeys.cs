@@ -27,6 +27,7 @@ public static class PermissionKeys
     public const string CommandBubble = "command.bubble";
     public const string CommandCarry = "command.carry";
     public const string CommandConvertcredits = "command.convertcredits";
+    public const string CommandWordquiz = "command.wordquiz";
     public const string CommandCoords = "command.coords";
     public const string CommandDance = "command.dance";
     public const string CommandDc = "command.dc";

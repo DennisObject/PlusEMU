@@ -28,6 +28,11 @@ public static class ClientPacketHeader
     public const uint PurchaseFromCatalogEvent = 3492; //2830
     public const uint PurchaseFromCatalogAsGiftEvent = 1555; //21
 
+    // Polls
+    public const uint PollStartEvent = 109;
+    public const uint PollRejectEvent = 1773;
+    public const uint PollAnswerEvent = 3505;
+
     // Navigator
 
     // Messenger

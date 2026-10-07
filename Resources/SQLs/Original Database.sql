@@ -25709,6 +25709,40 @@ JOIN crafting_seed_ingredients ingredient ON BINARY ingredient.code=BINARY seed.
 JOIN furniture item ON BINARY item.item_name=BINARY ingredient.item_name AND item.sprite_id=ingredient.sprite_id;
 COMMIT;
 DROP TEMPORARY TABLE crafting_seed_new,crafting_seed_ingredients,crafting_seed_recipes;
+-- 46_RoomPolls
+CREATE TABLE IF NOT EXISTS room_polls (
+    id INT NOT NULL PRIMARY KEY,
+    room_id INT UNSIGNED NOT NULL UNIQUE,
+    enabled BOOL NOT NULL DEFAULT TRUE,
+    type VARCHAR(32) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    summary TEXT NOT NULL,
+    end_message TEXT NOT NULL,
+    nps BOOL NOT NULL DEFAULT FALSE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS room_poll_questions (
+    id INT NOT NULL PRIMARY KEY,
+    poll_id INT NOT NULL,
+    parent_id INT NOT NULL DEFAULT 0,
+    sort_order INT NOT NULL,
+    type INT NOT NULL,
+    text TEXT NOT NULL,
+    category INT NOT NULL DEFAULT 0,
+    answer_type INT NOT NULL DEFAULT 0,
+    choices LONGTEXT NOT NULL,
+    KEY poll_questions (poll_id, sort_order)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS room_poll_responses (
+    poll_id INT NOT NULL,
+    user_id INT NOT NULL,
+    answers LONGTEXT NOT NULL,
+    completed_at DATETIME(6) NULL,
+    PRIMARY KEY (poll_id, user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 -- 47_TalentTrackRewards
 SET @talent_track_type_ddl = IF(
   EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS
@@ -25727,6 +25761,12 @@ CREATE TABLE IF NOT EXISTS user_talent_rewards (
   PRIMARY KEY (user_id, type, level)
 ) ENGINE=InnoDB;
 
+-- 50_RoomWordQuizCommand
+INSERT IGNORE INTO acl_permissions (`key`, category, description, is_orphan)
+VALUES ('command.wordquiz', 'command', 'Start a timed yes/no question in an owned room.', FALSE);
+
+INSERT IGNORE INTO role_permissions (role_id, permission_key)
+SELECT id, 'command.wordquiz' FROM roles WHERE slug = 'default';
 -- 51_Recycler
 -- Recycler stays closed until an operator supplies a complete prize distribution and enables it.
 CREATE TABLE IF NOT EXISTS recycler_settings (

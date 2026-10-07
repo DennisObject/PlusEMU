@@ -3,6 +3,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Rooms.Polls;
 
 namespace Plus.HabboHotel.Rooms;
 
@@ -11,7 +12,7 @@ public interface IRoomEntryService
     void Enter(GameClient session);
 }
 
-public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock) : IRoomEntryService
+public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock, IRoomPollService polls, IRoomWordQuizService quizzes) : IRoomEntryService
 {
     public void Enter(GameClient session)
     {
@@ -50,6 +51,9 @@ public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock) :
         if (habbo.FloodUntil is { } floodUntil && now < floodUntil) {
             session.Send(new FloodControlComposer(RemainingFloodSeconds(now, floodUntil)));
         }
+
+        polls.Offer(session);
+        quizzes.Show(session);
     }
 
     internal static int RemainingFloodSeconds(DateTimeOffset now, DateTimeOffset floodUntil) =>
