@@ -1,14 +1,15 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups.Forums;
 
-namespace Plus.Communication.Packets.Incoming.Groups.Forums;
-
-internal sealed class GetForumStatsEvent(IGroupForumService service) : IPacketEvent
+namespace Plus.Communication.Packets.Incoming.Groups.Forums
 {
-    public Task Parse(GameClient session, IIncomingPacket packet)
+    internal sealed class GetForumStatsEvent(IGroupForumService service) : IPacketEvent
     {
-        service.ShowForum(session, packet.ReadInt());
+        public Task Parse(GameClient session, IIncomingPacket packet)
+        {
+            service.ShowForum(session, packet.ReadInt());
 
-        return Task.CompletedTask;
+            return Task.CompletedTask;
+        }
     }
 }

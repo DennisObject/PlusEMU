@@ -1,14 +1,15 @@
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Groups.Forums;
 
-namespace Plus.Communication.Packets.Outgoing.Groups.Forums;
-
-public sealed class ForumsUnreadCountComposer(int count) : IServerPacket
+namespace Plus.Communication.Packets.Outgoing.Groups.Forums
 {
-    public uint MessageId => ServerPacketHeader.ForumsUnreadCountComposer;
-
-    public void Compose(IOutgoingPacket packet)
+    public sealed class ForumsUnreadCountComposer(int count) : IServerPacket
     {
-        packet.WriteInteger(count);
+        public uint MessageId => ServerPacketHeader.ForumsUnreadCountComposer;
+
+        public void Compose(IOutgoingPacket packet)
+        {
+            packet.WriteInteger(count);
+        }
     }
 }
