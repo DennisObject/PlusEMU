@@ -253,6 +253,49 @@ public class SnowStormLifecycleTests
         Assert.Equal(("M", 2), (joined.ReadString(), joined.ReadInt()));
     }
 
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("1", true)]
+    [InlineData("0", false)]
+    public void RayGunBurstsWhenAPlayerStopsOnItsUseTileUnlessDisabled(string? setting, bool fires)
+    {
+        (string, string)[] extra = setting == null ? [] : [("gamecenter.snowwar.raygun.enabled", setting)];
+        var manager = Manager(_store, _clock, null, [("gamecenter.snowwar.arenas", "8"), ("gamecenter.snowwar.game.length.seconds", "30"), .. extra]);
+        manager.QuickJoin(_ann.Client);
+        manager.QuickJoin(_bo.Client);
+        manager.Tick();
+        _clock.Advance(TimeSpan.FromSeconds(15));
+        manager.Tick();
+        manager.LoadStageReady(_ann.Client);
+        manager.LoadStageReady(_bo.Client);
+        manager.Tick();
+        var humans = Humans(Last(_ann, ServerPacketHeader.Game2StageStartingComposer));
+        _clock.Advance(TimeSpan.FromSeconds(5));
+        manager.Tick();
+
+        // Arctic Island's gun "28 12 4" (fuse object 97) faces south; Ann's north team zone walks straight onto (28, 11).
+        manager.SetMoveTarget(_ann.Client, 28 * 3200, 11 * 3200, 0, 0);
+
+        for (var turn = 0; turn < 60; turn++) {
+            _clock.Advance(SnowStormGame.TurnDuration);
+            manager.Tick();
+        }
+
+        var bursts = _bo.Sent.Where(packet => packet.Header == ServerPacketHeader.Game2GameStatusComposer)
+            .SelectMany(packet => Status(packet.Payload).Subturns.SelectMany(events => events)).Where(item => item.Type == 100).ToList();
+
+        if (!fires) {
+            Assert.Empty(bursts);
+
+            return;
+        }
+
+        var burst = Assert.Single(bursts);
+        Assert.Equal(humans[1], burst.Fields[0]);
+        Assert.Equal(97, burst.Fields[1]);
+        Assert.True(burst.Fields[2] > humans.Values.Max());
+    }
+
     private Dictionary<int, int> StartRunningGame()
     {
         _manager.QuickJoin(_ann.Client);
@@ -360,7 +403,7 @@ public class SnowStormLifecycleTests
 
             for (var index = 0; index < eventCount; index++) {
                 var type = packet.ReadInt();
-                var size = type switch { 1 => 1, 2 => 3, 3 => 3, 4 => 4, 7 => 1, 8 => 5, 11 => 1, 12 => 2, _ => throw new InvalidDataException($"event {type}") };
+                var size = type switch { 1 => 1, 2 => 3, 3 => 3, 4 => 4, 7 => 1, 8 => 5, 11 => 1, 12 => 2, 100 => 3, _ => throw new InvalidDataException($"event {type}") };
                 events.Add((type, Enumerable.Range(0, size).Select(_ => packet.ReadInt()).ToArray()));
             }
 

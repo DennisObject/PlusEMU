@@ -104,6 +104,10 @@ public class SnowStormStoreDatabaseTests
                 connection.Execute(update);
                 connection.Execute(update);
                 Assert.Equal("1", connection.ExecuteScalar<string>("SELECT `value` FROM server_settings WHERE `key` = 'gamecenter.snowwar.enabled'"));
+                var rayGuns = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/58_SnowStormRayGuns.sql"));
+                connection.Execute(rayGuns);
+                connection.Execute(rayGuns);
+                Assert.Equal("1", connection.ExecuteScalar<string>("SELECT `value` FROM server_settings WHERE `key` = 'gamecenter.snowwar.raygun.enabled'"));
             }
 
             body(options.ConnectionString);

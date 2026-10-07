@@ -26398,3 +26398,7 @@ INSERT IGNORE INTO server_settings (`key`, `value`, `description`) VALUES
     ('gamecenter.snowwar.fightnight.bg', '/c_images/snowstorm_client/official/snst_bg_3_noscale.png', 'Fight Night backdrop image URL; empty for none. Plus lowercases setting values.'),
     ('gamecenter.games.free.daily', '10', 'Free SnowStorm games per user per UTC day; -1 for unlimited.'),
     ('gamecenter.game.leave.block.seconds', '180', 'Seconds a player who leaves a running SnowStorm game cannot join another.');
+
+-- SnowStorm ray guns (Plus extra from Polaris, not in the official client).
+INSERT IGNORE INTO server_settings (`key`, `value`, `description`) VALUES
+    ('gamecenter.snowwar.raygun.enabled', '1', 'SnowStorm ray guns on (1) or off (0); a Plus extra, not in the official client.');

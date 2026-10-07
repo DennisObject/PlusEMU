@@ -272,6 +272,11 @@ internal sealed class SnowStormGame
 
         _inputs.Clear();
         _rules.ScheduleRefillsAndPickups();
+
+        if (_config.RayGunsEnabled) {
+            _rules.ScheduleRayGunBursts();
+        }
+
         var status = Status(result.Turn, result.Checksum);
 
         if (_fullStatusRequests.Count == 0) {

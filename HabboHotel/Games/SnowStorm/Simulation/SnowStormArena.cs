@@ -32,6 +32,7 @@ public sealed class SnowStormArena
         NumberOfTeams = numberOfTeams;
         _teamScores = new int[numberOfTeams];
         _tiles = new SnowStormTile?[level.Height, level.Width];
+        RayGuns = level.FuseObjects.Select(SnowStormRayGun.From).OfType<SnowStormRayGun>().ToList();
         LinkTiles(level);
 
         foreach (var fuseObject in level.FuseObjects) {
@@ -65,6 +66,9 @@ public sealed class SnowStormArena
     public IEnumerable<SnowStormMachine> Machines => _objects.OfType<SnowStormMachine>();
 
     public IEnumerable<SnowStormPile> Piles => _objects.OfType<SnowStormPile>();
+
+    /// <summary>The level's ray guns (Plus extra), in fuse order.</summary>
+    public IReadOnlyList<SnowStormRayGun> RayGuns { get; }
 
     private int Subturn { get; set; }
 
@@ -120,6 +124,15 @@ public sealed class SnowStormArena
 
     /// <summary>Reserves an unused object id, e.g. for the snowball of a CreateSnowball event.</summary>
     public int AllocateObjectId() => _nextObjectId++;
+
+    /// <summary>Reserves <paramref name="count"/> consecutive object ids and returns the first.</summary>
+    public int AllocateObjectIds(int count)
+    {
+        int first = _nextObjectId;
+        _nextObjectId += count;
+
+        return first;
+    }
 
     public SnowStormGameObject? GetObject(int id) => _objectsById.GetValueOrDefault(id);
 
@@ -336,14 +349,17 @@ public sealed class SnowStormArena
             case SnowStormStartMakingSnowball e when GetObject(e.HumanId) is SnowStormHuman human:
                 return human.StartMakingSnowball;
             case SnowStormCreateSnowball e when GetObject(e.HumanId) is SnowStormHuman human:
+                return () => AddSnowball(e.SnowballId, human, e.TargetX, e.TargetY, e.Trajectory);
+            case SnowStormRayGunBurst e when GetObject(e.HumanId) is SnowStormHuman human
+                && RayGuns.FirstOrDefault(gun => gun.FuseObjectId == e.RayGunFuseObjectId) is { } gun:
                 return () =>
                 {
-                    var snowball = new SnowStormSnowball(e.SnowballId);
+                    human.FireRayGun(gun.Direction);
+                    var targets = gun.BurstTargets();
 
-                    if (_objectsById.TryAdd(snowball.Id, snowball)) {
-                        _objects.Add(snowball);
-                        snowball.Initialize(human.X, human.Y, SnowStormSnowball.InitialHeight, e.Trajectory, e.TargetX, e.TargetY, human);
-                        _nextObjectId = Math.Max(_nextObjectId, snowball.Id + 1);
+                    for (var index = 0; index < targets.Count; index++) {
+                        AddSnowball(e.FirstSnowballId + index, human, SnowStormMath.TileToWorld(targets[index].X),
+                            SnowStormMath.TileToWorld(targets[index].Y), SnowStormSnowball.TrajectoryDefaultThrow);
                     }
                 };
             case SnowStormMachineCreatesSnowball e when GetObject(e.MachineId) is SnowStormMachine machine:
@@ -365,6 +381,18 @@ public sealed class SnowStormArena
                 };
             default:
                 return null;
+        }
+    }
+
+    // AIR CreateSnowballEvent: the ball starts at the thrower's current location; a duplicate id is ignored.
+    private void AddSnowball(int id, SnowStormHuman thrower, int targetX, int targetY, int trajectory)
+    {
+        var snowball = new SnowStormSnowball(id);
+
+        if (_objectsById.TryAdd(snowball.Id, snowball)) {
+            _objects.Add(snowball);
+            snowball.Initialize(thrower.X, thrower.Y, SnowStormSnowball.InitialHeight, trajectory, targetX, targetY, thrower);
+            _nextObjectId = Math.Max(_nextObjectId, snowball.Id + 1);
         }
     }
 

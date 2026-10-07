@@ -17,6 +17,7 @@ public sealed record SnowStormSettings(
     int RematchSeconds,
     int FreeGamesPerDay,
     int LeaveBlockSeconds,
+    bool RayGunsEnabled,
     IReadOnlyList<int> Arenas,
     IReadOnlyDictionary<int, string> Backgrounds)
 {
@@ -33,7 +34,7 @@ public sealed record SnowStormSettings(
         (11, "gamecenter.snowwar.fightnight.bg", "/c_images/snowstorm_client/official/snst_bg_3_noscale.png")
     ];
 
-    public static SnowStormSettings Default { get; } = new(true, 2, MaxLobbyPlayers, 1, 15, 180, 5, 30, 10, 180, DefaultArenas,
+    public static SnowStormSettings Default { get; } = new(true, 2, MaxLobbyPlayers, 1, 15, 180, 5, 30, 10, 180, true, DefaultArenas,
         BackgroundKeys.ToDictionary(background => background.FieldType, background => background.Url));
 
     public static SnowStormSettings Read(ISettingsManager settings)
@@ -57,6 +58,8 @@ public sealed record SnowStormSettings(
             // Negative means unlimited free games, which AIR shows as -1.
             Get("gamecenter.games.free.daily", Default.FreeGamesPerDay, -1, 1000),
             Get("gamecenter.game.leave.block.seconds", Default.LeaveBlockSeconds, 0, 86400),
+            // Plus extra: Polaris ray guns stay on unless explicitly 0.
+            settings.GetOptionalValue("gamecenter.snowwar.raygun.enabled")?.Trim() != "0",
             arenas.Length > 0 ? arenas : DefaultArenas,
             BackgroundKeys.ToDictionary(background => background.FieldType, background => settings.GetOptionalValue(background.Key)?.Trim() ?? background.Url));
     }
