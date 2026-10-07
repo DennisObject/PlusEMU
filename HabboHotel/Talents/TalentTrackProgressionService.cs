@@ -35,8 +35,8 @@ public sealed class TalentTrackProgressionService(ITalentTrackManager talents, I
                     }
                     // Unresolved configuration must neither grant an invented gift nor consume the claim.
                     var definitions = level.Gifts.Select(items.GetItemByName).ToArray();
-                    if (definitions.Any(definition => definition == null)) {
-                        logger.LogWarning("Unresolved furniture reward in talent track {Type} level {Level}", track.Key, level.Level);
+                    if (definitions.Any(definition => definition == null || definition.ProductType is not ("s" or "i"))) {
+                        logger.LogWarning("Unresolved or unsupported furniture reward in talent track {Type} level {Level}", track.Key, level.Level);
                         break;
                     }
                     var awarded = rewards.Claim(habbo.Id, track.Key, level.Level, definitions.Select(definition => definition!).ToArray());

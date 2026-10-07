@@ -80,6 +80,20 @@ public sealed class TalentTrackProgressionTests
         Assert.Empty(habbo.Inventory.Furniture.AllItems);
     }
 
+    [Theory]
+    [InlineData("b")]
+    [InlineData("p")]
+    public void NonFurnitureProductsCannotConsumeARewardClaim(string productType)
+    {
+        var habbo = User();
+        habbo.Achievements.TryAdd("ACH_A", new("ACH_A", 1, 0));
+        var gift = new ItemDefinition { Id = 50, ItemName = "gift", ProductType = productType };
+        var service = Service(CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((_, _) =>
+            throw new InvalidOperationException("No store access expected")), gift);
+        service.Progress(habbo, TalentTrackPresentationTests.Achievements());
+        Assert.Empty(habbo.Inventory.Furniture.AllItems);
+    }
+
     [Fact]
     public void ClosedWalletRejectsRewardsBeforeReadingDefinitionsOrCallingPersistence()
     {
