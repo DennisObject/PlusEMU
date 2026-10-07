@@ -13,6 +13,11 @@ public sealed record SnowStormArenaDefinition(
     SnowStormLevelData Level,
     IReadOnlyDictionary<int, IReadOnlyList<(int X, int Y)>> Spawns);
 
+/// <summary>
+/// The level one game is played on and the furni MapStuffData (by fuse id) of its decoration, e.g. the official backdrop.
+/// </summary>
+public sealed record SnowStormArenaLevel(SnowStormLevelData Level, ImmutableDictionary<int, ImmutableArray<KeyValuePair<string, string>>> MapStuff);
+
 public interface ISnowStormArenas
 {
     IReadOnlyList<SnowStormArenaDefinition> All { get; }
@@ -44,6 +49,14 @@ public sealed class SnowStormArenas : ISnowStormArenas
         ["xm09_man_c"] = (1, 1, 800)
     };
 
+    // Polaris addOfficialBackground: an ads_background at (0, y) facing 45°, lifted by offsetZ.
+    private static readonly IReadOnlyDictionary<int, (int Y, int OffsetZ)> Backgrounds = new Dictionary<int, (int, int)>
+    {
+        [8] = (19, 10000),
+        [9] = (22, 9920),
+        [11] = (22, 9950)
+    };
+
     private readonly Lazy<IReadOnlyList<SnowStormArenaDefinition>> _arenas;
 
     public SnowStormArenas(ILogger<SnowStormArenas> logger) : this(Path.Join(AppContext.BaseDirectory, "snowstorm"), logger) { }
@@ -58,6 +71,29 @@ public sealed class SnowStormArenas : ISnowStormArenas
         arena = All.FirstOrDefault(candidate => candidate.FieldType == fieldType);
 
         return arena != null;
+    }
+
+    /// <summary>
+    /// The arena's level plus its official backdrop when a URL is set. The backdrop can be stood on and has no height,
+    /// so like any fuse object it only registers on its tile and never changes walkability or snowball collisions.
+    /// </summary>
+    public static SnowStormArenaLevel ForGame(SnowStormArenaDefinition arena, string? backgroundUrl)
+    {
+        var level = arena.Level;
+
+        if (string.IsNullOrWhiteSpace(backgroundUrl) || !Backgrounds.TryGetValue(arena.FieldType, out var background)) {
+            return new(level, ImmutableDictionary<int, ImmutableArray<KeyValuePair<string, string>>>.Empty);
+        }
+
+        var id = level.FuseObjects.Count + 1;
+        var backdrop = new SnowStormFuseObject("ads_background", id, 0, background.Y, 1, 1, 0, 1, 0, true, "0");
+        ImmutableArray<KeyValuePair<string, string>> stuff =
+        [
+            new("state", "0"), new("imageUrl", backgroundUrl), new("offsetX", "0"), new("offsetY", "0"),
+            new("offsetZ", background.OffsetZ.ToString(System.Globalization.CultureInfo.InvariantCulture))
+        ];
+
+        return new(level with { FuseObjects = [.. level.FuseObjects, backdrop] }, ImmutableDictionary<int, ImmutableArray<KeyValuePair<string, string>>>.Empty.Add(id, stuff));
     }
 
     internal static SnowStormArenaDefinition Parse(string json)

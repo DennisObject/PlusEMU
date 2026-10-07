@@ -40,6 +40,7 @@ internal sealed class SnowStormGame
     private readonly ISnowStormStore _store;
     private readonly ILogger _logger;
     private readonly SnowStormArena _arena;
+    private readonly SnowStormArenaLevel _level;
     private readonly SnowStormServerRules _rules;
     private readonly Dictionary<int, int> _humanIds = [];
     private readonly HashSet<int> _ready = [];
@@ -62,7 +63,8 @@ internal sealed class SnowStormGame
         _store = store;
         _logger = logger;
         _totalTurns = (int)(TimeSpan.FromSeconds(config.GameLengthSeconds) / TurnDuration);
-        _arena = SnowStormArena.Create(lobby.Arena.Level, SnowStormSettings.TeamCount);
+        _level = SnowStormArenas.ForGame(lobby.Arena, config.Backgrounds.GetValueOrDefault(lobby.Arena.FieldType));
+        _arena = SnowStormArena.Create(_level.Level, SnowStormSettings.TeamCount);
         _rules = new SnowStormServerRules(_arena);
         var spawns = _rules.ChooseSpawns(Participants.Select(player => player.TeamId).ToList(), lobby.Arena.Spawns, random);
 
@@ -96,7 +98,7 @@ internal sealed class SnowStormGame
     {
         var players = Participants.Select(player => player.ArenaPlayer()).ToImmutableArray();
         Broadcast(new Game2GameStartedComposer(Lobby));
-        Broadcast(new Game2EnterArenaComposer(SnowStormDirectory.GameTypeId, Arena.FieldType, SnowStormSettings.TeamCount, players, _arena.Level));
+        Broadcast(new Game2EnterArenaComposer(SnowStormDirectory.GameTypeId, Arena.FieldType, SnowStormSettings.TeamCount, players, _level));
 
         foreach (var player in players) {
             Broadcast(new Game2ArenaEnteredComposer(player));

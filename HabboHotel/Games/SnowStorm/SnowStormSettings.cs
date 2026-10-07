@@ -17,14 +17,24 @@ public sealed record SnowStormSettings(
     int RematchSeconds,
     int FreeGamesPerDay,
     int LeaveBlockSeconds,
-    IReadOnlyList<int> Arenas)
+    IReadOnlyList<int> Arenas,
+    IReadOnlyDictionary<int, string> Backgrounds)
 {
     // AIR lobbies show two teams of four.
     public const int TeamCount = 2;
     public const int MaxLobbyPlayers = 8;
     public static readonly IReadOnlyList<int> DefaultArenas = [8, 9, 11];
 
-    public static SnowStormSettings Default { get; } = new(true, 2, MaxLobbyPlayers, 1, 15, 180, 5, 30, 10, 180, DefaultArenas);
+    // Official backdrop image per arena field type (Polaris key names); an empty value shows none.
+    private static readonly (int FieldType, string Key, string Url)[] BackgroundKeys =
+    [
+        (8, "gamecenter.snowwar.artic.bg", "/c_images/snowstorm_client/official/snst_bg_1_a_big.png"),
+        (9, "gamecenter.snowwar.dragoncave.bg", "/c_images/snowstorm_client/official/snst_bg_2_big.png"),
+        (11, "gamecenter.snowwar.fightnight.bg", "/c_images/snowstorm_client/official/snst_bg_3_noscale.png")
+    ];
+
+    public static SnowStormSettings Default { get; } = new(true, 2, MaxLobbyPlayers, 1, 15, 180, 5, 30, 10, 180, DefaultArenas,
+        BackgroundKeys.ToDictionary(background => background.FieldType, background => background.Url));
 
     public static SnowStormSettings Read(ISettingsManager settings)
     {
@@ -47,6 +57,7 @@ public sealed record SnowStormSettings(
             // Negative means unlimited free games, which AIR shows as -1.
             Get("gamecenter.games.free.daily", Default.FreeGamesPerDay, -1, 1000),
             Get("gamecenter.game.leave.block.seconds", Default.LeaveBlockSeconds, 0, 86400),
-            arenas.Length > 0 ? arenas : DefaultArenas);
+            arenas.Length > 0 ? arenas : DefaultArenas,
+            BackgroundKeys.ToDictionary(background => background.FieldType, background => settings.GetOptionalValue(background.Key)?.Trim() ?? background.Url));
     }
 }

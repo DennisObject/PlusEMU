@@ -50,5 +50,8 @@ INSERT IGNORE INTO server_settings (`key`, `value`, `description`) VALUES
     ('gamecenter.snowwar.preparing.seconds', '5', 'Seconds between StageStarting and StageRunning (the AIR countdown shows 5..1).'),
     ('gamecenter.snowwar.restart.seconds', '30', 'Seconds the SnowStorm results and rematch window stays open.'),
     ('gamecenter.snowwar.arenas', '8,9,11', 'SnowStorm arena field types played in rotation (8 Arctic Island, 9 Dragon Top, 11 Fight Night).'),
+    ('gamecenter.snowwar.artic.bg', '/c_images/snowstorm_client/official/snst_bg_1_a_big.png', 'Arctic Island backdrop image URL; empty for none. Plus lowercases setting values.'),
+    ('gamecenter.snowwar.dragoncave.bg', '/c_images/snowstorm_client/official/snst_bg_2_big.png', 'Dragon Top backdrop image URL; empty for none. Plus lowercases setting values.'),
+    ('gamecenter.snowwar.fightnight.bg', '/c_images/snowstorm_client/official/snst_bg_3_noscale.png', 'Fight Night backdrop image URL; empty for none. Plus lowercases setting values.'),
     ('gamecenter.games.free.daily', '10', 'Free SnowStorm games per user per UTC day; -1 for unlimited.'),
     ('gamecenter.game.leave.block.seconds', '180', 'Seconds a player who leaves a running SnowStorm game cannot join another.');

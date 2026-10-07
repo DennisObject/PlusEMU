@@ -52,9 +52,8 @@ internal static class SnowStormArenaWire
 }
 
 /// <summary>AIR EnterArena: the players (Game2PlayerData) and the GameLevelData with its FuseObjectData list.</summary>
-public sealed class Game2EnterArenaComposer(int gameType, int fieldType, int numberOfTeams, ImmutableArray<SnowStormArenaPlayer> players, SnowStormLevelData level) : IServerPacket
+public sealed class Game2EnterArenaComposer(int gameType, int fieldType, int numberOfTeams, ImmutableArray<SnowStormArenaPlayer> players, SnowStormArenaLevel arena) : IServerPacket
 {
-    // Level data is immutable (records over an immutable list), so it can be shared across games.
     public uint MessageId => ServerPacketHeader.Game2EnterArenaComposer;
 
     public void Compose(IOutgoingPacket packet)
@@ -68,6 +67,7 @@ public sealed class Game2EnterArenaComposer(int gameType, int fieldType, int num
             SnowStormArenaWire.WritePlayer(packet, player);
         }
 
+        var level = arena.Level;
         packet.WriteInteger(level.Width);
         packet.WriteInteger(level.Height);
         packet.WriteString(level.HeightMap);
@@ -84,9 +84,21 @@ public sealed class Game2EnterArenaComposer(int gameType, int fieldType, int num
             packet.WriteInteger(item.Direction);
             packet.WriteInteger(item.Altitude);
             packet.WriteBoolean(item.CanStandOn);
-            // Legacy string stuff data (type 0) carrying the furni state.
-            packet.WriteInteger(0);
-            packet.WriteString(item.Stuff);
+
+            // Full StuffData: map (type 1) for decoration such as the backdrop, else legacy (type 0) with the state.
+            if (arena.MapStuff.TryGetValue(item.Id, out var stuff)) {
+                packet.WriteInteger(1);
+                packet.WriteInteger(stuff.Length);
+
+                foreach (var (key, value) in stuff) {
+                    packet.WriteString(key);
+                    packet.WriteString(value);
+                }
+            }
+            else {
+                packet.WriteInteger(0);
+                packet.WriteString(item.Stuff);
+            }
         }
     }
 }

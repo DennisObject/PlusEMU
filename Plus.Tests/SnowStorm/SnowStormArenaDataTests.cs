@@ -43,6 +43,38 @@ public class SnowStormArenaDataTests
     }
 
     [Fact]
+    public void OfficialBackdropsAreDecorationThatLeavesTheSimulationUnchanged()
+    {
+        var arenas = SnowStormTestSupport.Arenas();
+
+        foreach (var (fieldType, y, offsetZ) in new[] { (8, 19, "10000"), (9, 22, "9920"), (11, 22, "9950") }) {
+            Assert.True(arenas.TryGet(fieldType, out var arena));
+            var url = SnowStormSettings.Default.Backgrounds[fieldType];
+            var game = SnowStormArenas.ForGame(arena, url);
+            var backdrop = game.Level.FuseObjects[^1];
+            Assert.Equal(new SnowStormFuseObject("ads_background", arena.Level.FuseObjects.Count + 1, 0, y, 1, 1, 0, 1, 0, true, "0"), backdrop);
+            Assert.Equal(url, game.MapStuff[backdrop.Id].Single(pair => pair.Key == "imageUrl").Value);
+            Assert.Equal(offsetZ, game.MapStuff[backdrop.Id].Single(pair => pair.Key == "offsetZ").Value);
+
+            var with = SnowStormArena.Create(game.Level, 2);
+            var without = SnowStormArena.Create(arena.Level, 2);
+            Assert.Equal(without.CalculateChecksum(0), with.CalculateChecksum(0));
+
+            for (var tileY = 0; tileY < arena.Level.Height; tileY++) {
+                for (var tileX = 0; tileX < arena.Level.Width; tileX++) {
+                    Assert.Equal(without.IsWalkable(tileX, tileY), with.IsWalkable(tileX, tileY));
+                }
+            }
+
+            Assert.Same(arena.Level, SnowStormArenas.ForGame(arena, "").Level);
+        }
+
+        var settings = SnowStormSettings.Read(new SnowStormTestSupport.Settings(("gamecenter.snowwar.artic.bg", ""), ("gamecenter.snowwar.dragoncave.bg", " https://cdn/bg.png ")));
+        Assert.Equal(("", "https://cdn/bg.png", "/c_images/snowstorm_client/official/snst_bg_3_noscale.png"),
+            (settings.Backgrounds[8], settings.Backgrounds[9], settings.Backgrounds[11]));
+    }
+
+    [Fact]
     public void InvalidArenaFilesAreRejected()
     {
         Assert.Throws<InvalidDataException>(() => SnowStormArenas.Parse("""{ "fieldType": 1, "heightmap": ["00", "0"], "items": [] }"""));
