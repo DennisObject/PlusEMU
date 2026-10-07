@@ -105,7 +105,7 @@ public class AchievementManager : IAchievementManager, IStartable
             BroadcastAchievement(habbo, MessengerEventTypes.AchievementUnlocked, group + targetLevel);
 
             lock (habbo.WalletSync) {
-                if (habbo.WalletClosed) {
+                if (habbo.AccessClosed) {
                     return false;
                 }
 
