@@ -5,42 +5,20 @@ namespace Plus.HabboHotel.Catalog.Utilities;
 
 public static class ItemUtility
 {
-    public static bool CanGiftItem(CatalogItem item)
+    // Only one piece of furniture, without badges, can be wrapped as a gift.
+    public static bool CanGiftItem(CatalogOffer offer)
     {
-        if (item.HabbiconId > 0) {
+        if (offer.Products is not [{ Type: CatalogProductType.Furni, Definition: { } definition } product]) {
             return false;
         }
 
-        if (!item.Definition.AllowGift || item.IsLimited || item.Amount > 1 || item.Definition.InteractionType == InteractionType.Exchange ||
-            item.Definition.InteractionType == InteractionType.Badge || item.Definition.Type != ItemType.Floor && item.Definition.Type != ItemType.Wall || item.CostDiamonds > 0 ||
-            item.Definition.InteractionType == InteractionType.Teleport || item.Definition.InteractionType == InteractionType.Deal) {
-            return false;
-        }
-
-        if (item.Definition.IsRare) {
-            return false;
-        }
-
-        if (item.Definition.InteractionType == InteractionType.Pet) {
-            return false;
-        }
-
-        return true;
+        return definition.AllowGift && !offer.IsLimited && product.Amount <= 1 && offer.CostDiamonds == 0 && !definition.IsRare &&
+            definition.InteractionType is not (InteractionType.Exchange or InteractionType.Badge or InteractionType.Teleport or InteractionType.Deal or InteractionType.Pet);
     }
 
-    public static bool CanSelectAmount(CatalogItem item)
-    {
-        if (item.HabbiconId > 0) {
-            return false;
-        }
-
-        if (item.IsLimited || item.Amount > 1 || item.Definition.InteractionType == InteractionType.Exchange || !item.HaveOffer || item.Definition.InteractionType == InteractionType.Badge ||
-            item.Definition.InteractionType == InteractionType.Deal) {
-            return false;
-        }
-
-        return true;
-    }
+    public static bool CanSelectAmount(CatalogOffer offer) =>
+        offer is { BulkPurchase: true, IsLimited: false, IsBundle: false } && offer.Product is { Type: CatalogProductType.Furni, Amount: <= 1 } product &&
+        product.Definition!.InteractionType is not (InteractionType.Exchange or InteractionType.Badge or InteractionType.Deal);
 
     public static uint GetSaddleId(int saddle)
     {

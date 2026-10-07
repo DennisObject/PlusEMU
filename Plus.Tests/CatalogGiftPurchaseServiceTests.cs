@@ -130,15 +130,12 @@ public sealed class CatalogGiftPurchaseServiceTests
             Type = ItemType.Floor,
             InteractionType = InteractionType.Gift
         };
-        var offer = new CatalogItem
+        var offer = new CatalogOffer
         {
             Id = 2,
-            OfferId = 2,
-            Definition = content,
-            Amount = 1,
             CostCredits = 10,
-            HaveOffer = true,
-            CatalogName = "chair"
+            LocalizationKey = "chair",
+            Products = [new CatalogProduct { Type = CatalogProductType.Furni, Definition = content }]
         };
         var page = new CatalogPage { Id = 1, Enabled = true, Layout = "default_3x3" };
         page.Offers.Add(2, offer);

@@ -29,15 +29,16 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
     internal static bool EligibleCatalogPurchase(string name) => !name.StartsWith("CF_", StringComparison.OrdinalIgnoreCase) && !name.StartsWith("CFC_", StringComparison.OrdinalIgnoreCase);
     private double Percentage => int.TryParse(settings.GetOptionalValue("club.payday.percentage"), out var percent) ? Math.Clamp(percent, 0, 100) / 100.0 : 0.1;
 
+    // A gift is one plain piece of furniture, given for free.
     private IReadOnlyList<ClubGift> GiftOffers(Habbo habbo)
     {
         using var connection = database.Connection();
-        var requirements = connection.Query<(int Id, int Days)>("SELECT catalog_item_id, days_required FROM club_gift_offers WHERE enabled = 1 AND days_required >= 0").ToDictionary(row => row.Id, row => row.Days);
+        var requirements = connection.Query<(int Id, int Days)>("SELECT offer_id, days_required FROM club_gift_offers WHERE enabled = 1 AND days_required >= 0").ToDictionary(row => row.Id, row => row.Days);
 
-        return catalog.Pages.Where(page => page.CanOpen(habbo)).SelectMany(page => page.Offers.Values)
-            .Where(item => requirements.ContainsKey(item.Id) && item.CanPurchase(habbo) && item.Amount is > 0 and <= 100 && !item.IsLimited &&
-                item.HabbiconId == 0 && item.Definition.ProductType is "s" or "i" && item.Definition.InteractionType == InteractionType.None && string.IsNullOrEmpty(item.Badge))
-            .Select(item => new ClubGift(item, requirements[item.Id])).ToArray();
+        return catalog.Pages.Where(page => page.CanOpen(habbo)).SelectMany(page => page.Offers.Values).DistinctBy(offer => offer.Id)
+            .Where(offer => requirements.ContainsKey(offer.Id) && offer.Enabled && offer.CanPurchase(habbo) && !offer.IsLimited &&
+                offer.Products is [{ Type: CatalogProductType.Furni, Amount: > 0 and <= 100, Definition.InteractionType: InteractionType.None }])
+            .Select(offer => new ClubGift(offer, requirements[offer.Id])).ToArray();
     }
 
     public ClubGiftInfo Gifts(Habbo habbo)
@@ -62,7 +63,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
             return null;
         }
 
-        var gift = GiftOffers(habbo).FirstOrDefault(gift => gift.Item.CatalogName == productCode);
+        var gift = GiftOffers(habbo).FirstOrDefault(gift => gift.Offer.LocalizationKey == productCode);
 
         if (gift == null) {
             return null;
@@ -83,19 +84,21 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
         }
 
         // Recheck enabled state under the transaction as well as the catalog snapshot.
-        var required = connection.ExecuteScalar<int?>("SELECT days_required FROM club_gift_offers WHERE catalog_item_id = @id AND enabled = 1 FOR UPDATE", new { id = gift.Item.Id }, transaction);
+        var required = connection.ExecuteScalar<int?>("SELECT days_required FROM club_gift_offers WHERE offer_id = @id AND enabled = 1 FOR UPDATE", new { id = gift.Offer.Id }, transaction);
 
         if (required == null || required < 0 || membership.Elapsed(now) / ClubMembership.Day < required) {
             return null;
         }
 
-        connection.Execute("INSERT INTO club_gift_claims (user_id, gift_number, catalog_item_id, claimed_at) VALUES (@id, @number, @item, @now)",
-            new { id = habbo.Id, number = membership.GiftsClaimed + 1, item = gift.Item.Id, now = now.UtcDateTime }, transaction);
+        connection.Execute("INSERT INTO club_gift_claims (user_id, gift_number, offer_id, claimed_at) VALUES (@id, @number, @offer, @now)",
+            new { id = habbo.Id, number = membership.GiftsClaimed + 1, offer = gift.Offer.Id, now = now.UtcDateTime }, transaction);
 
-        for (var i = 0; i < gift.Item.Amount; i++) {
+        var definition = gift.Offer.Definition!;
+
+        for (var i = 0; i < gift.Offer.Amount; i++) {
             var id = connection.ExecuteScalar<uint>("INSERT INTO items (user_id, base_item, extra_data) VALUES (@user, @item, ''); SELECT LAST_INSERT_ID()",
-                new { user = habbo.Id, item = gift.Item.Definition.Id }, transaction);
-            received.Add(new InventoryItem { Id = id, OwnerId = (uint)habbo.Id, Definition = gift.Item.Definition });
+                new { user = habbo.Id, item = definition.Id }, transaction);
+            received.Add(new InventoryItem { Id = id, OwnerId = (uint)habbo.Id, Definition = definition });
         }
 
         connection.Execute("UPDATE user_club_memberships SET gifts_claimed = gifts_claimed + 1 WHERE user_id = @id", new { id = habbo.Id }, transaction);

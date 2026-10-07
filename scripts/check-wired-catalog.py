@@ -49,7 +49,7 @@ def main():
         source.close()
     module.guard()
     schema = subprocess.check_output(['docker', 'exec', module.CONTAINER, 'sh', '-c',
-        'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb-dump -uroot --no-data --skip-comments plus furniture catalog_pages catalog_items'], text=True)
+        'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb-dump -uroot --no-data --skip-comments plus ' + ' '.join(module.TABLES)], text=True)
     # Only start when the exact test name is unclaimed. Never remove somebody else's container.
     if subprocess.run(['docker', 'container', 'inspect', TEST_CONTAINER], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
         raise ValueError('Disposable test container already exists; refusing to replace it.')
@@ -69,7 +69,7 @@ def main():
         else:
             raise ValueError('Disposable MariaDB did not become ready.')
         # Dump contains schema only. Seed rows contain furniture/catalogue data, no identities/items.
-        seed = schema + '\n' + '\n'.join(module.insert(table, row) for table, rows in snapshot.items() for row in rows)
+        seed = 'SET FOREIGN_KEY_CHECKS=0;\n' + schema + '\n' + '\n'.join(module.insert(table, row) for table, rows in snapshot.items() for row in rows) + '\nSET FOREIGN_KEY_CHECKS=1;'
         subprocess.run(['docker', 'exec', '-i', TEST_CONTAINER, 'mariadb', '-uroot', '-pcatalog-test-only', 'plus'],
                        input=seed, text=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
         db = CopiedDatabase()
@@ -83,8 +83,8 @@ def main():
         rerun = module.plan(manifest, ledger, after)
         assert not rerun['definitions'] and not rerun['offers'] and not rerun['new_page'], 'Import is not idempotent.'
         for table, rows in before.items():
-            actual = {r['id']: r for r in after[table]}
-            assert all(actual[r['id']] == r for r in rows), 'Existing row changed: ' + table
+            actual = {module.key(table, r): r for r in after[table]}
+            assert all(actual[module.key(table, r)] == r for r in rows), 'Existing row changed: ' + table
         assert all(r['wired_id'] == 0 for r in after['furniture'] if r['id'] not in {x['id'] for x in before['furniture']}), 'New definition claimed a legacy ID.'
         db.query('ROLLBACK;')
         assert module.read_snapshot(db) == before, 'Rollback changed existing tables.'
@@ -116,18 +116,20 @@ def main():
             row = next(r for r in conflict['furniture'] if r['item_name'] == name)
             conflict['furniture'].append(dict(row, id=2000000000))
             fail_plan(manifest, ledger, conflict, 'Ambiguous existing')
-        owned_page = next((p for p in committed['catalog_pages'] if p['page_link'] == module.PAGE_LINK), None)
+        owned_page = next((p for p in committed['catalog_pages'] if p['link'] == module.PAGE_LINK), None)
         if owned_page:
             assert owned_page['caption'] == 'Recently Added', 'New page has the wrong user caption.'
-            assert owned_page['page_strings_1'] == 'catalog_wired_header1|', 'New page does not reference the genuine wired header asset.'
-            published = {r['catalog_name']: r for r in committed['catalog_items'] if r['page_id'] == owned_page['id']}
-            assert all(e['name'] in published for e in result['definitions']), 'New definition is absent from Recently Added.'
-            assert all(published[e['name']]['offer_id'] == e['offer_id'] for e in manifest['entries']
-                       if e['name'] in published), 'Catalogue does not expose the reviewed purchase offer IDs.'
-            official = next((row for row in published.values() if row['offer_id'] > 0), None)
+            assert module.page_strings(committed, 'catalog_page_images', 'image', owned_page) == module.PAGE_IMAGES, \
+                'New page does not reference the genuine wired header asset.'
+            placed = {r['offer_id'] for r in committed['catalog_page_offers'] if r['page_id'] == owned_page['id']}
+            published = {o['localization_key']: o for o in committed['catalog_offers'] if o['id'] in placed}
+            assert all(e['name'] in published or e['offer_id'] in placed for e in result['definitions']), 'New definition is absent from Recently Added.'
+            assert all(published[e['name']]['id'] == e['offer_id'] for e in manifest['entries']
+                       if e['name'] in published and e['offer_id'] > 0), 'Catalogue does not expose the reviewed purchase offer IDs.'
+            official = next((offer for offer in published.values() if offer['id'] < module.CUSTOM_OFFER_ID_BASE), None)
             if official:
                 conflict = json.loads(json.dumps(committed))
-                conflict['catalog_items'].append(dict(official, id=2000000000, item_id='2000000000'))
+                next(p for p in conflict['catalog_offer_products'] if p['offer_id'] == official['id'])['furniture_id'] = 2000000000
                 fail_plan(manifest, ledger, conflict, 'Official offer ID belongs to another product')
             for entry in result['definitions']:
                 row = next(r for r in committed['furniture'] if r['item_name'] == entry['name'])
@@ -143,7 +145,7 @@ def main():
         db.query('START TRANSACTION;')
         missing = [e for e in manifest['entries'] if e['asset_status'] == 'verified'][:2]
         exhausted = {'new_page': False, 'page_id': owned_page['id'] if owned_page else 0, 'definitions': missing,
-                     'offers': [{'name': e['name'], 'definition_id': None, 'offer_id': e['offer_id']} for e in missing]}
+                     'offers': [{'name': e['name'], 'definition_id': None, 'offer_id': e['offer_id'], 'exists': False} for e in missing]}
         try:
             db.query(module.statements(exhausted))
         except ValueError:

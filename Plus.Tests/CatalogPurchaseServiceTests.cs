@@ -143,13 +143,13 @@ public sealed class CatalogPurchaseServiceTests
     }
 
     [Fact]
-    public async Task BotAmountPreservesDiscountedChargeButCreatesExactlyOne()
+    public async Task BotAmountIsIgnoredSoOneBotCostsOneBot()
     {
         var context = Context(bot: true);
 
         await context.Service.Purchase(context.Client, new(1, 2, "ignored", 7));
 
-        Assert.Equal(40, context.Habbo.Credits);
+        Assert.Equal(90, context.Habbo.Credits);
         Assert.Equal(1, context.BotStore.Creates);
         Assert.Single(context.Habbo.Inventory.Bots.Bots);
     }
@@ -225,15 +225,14 @@ public sealed class CatalogPurchaseServiceTests
             Type = ItemType.Floor,
             InteractionType = InteractionType.None
         };
-        var offer = new CatalogItem
+        var offer = new CatalogOffer
         {
             Id = 2,
-            OfferId = 2,
-            Definition = definition,
-            Amount = 1,
             CostCredits = 10,
-            HaveOffer = true,
-            CatalogName = "chair"
+            LocalizationKey = "chair",
+            Products = [bot
+                ? new CatalogProduct { Type = CatalogProductType.Bot, BotPresetId = (int)definition.Id }
+                : new CatalogProduct { Type = CatalogProductType.Furni, Definition = definition }]
         };
         var page = new CatalogPage { Id = 1, Enabled = true, Layout = club ? "club_buy" : "default_3x3" };
         page.Offers.Add(2, offer);

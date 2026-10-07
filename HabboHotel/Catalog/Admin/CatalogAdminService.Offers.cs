@@ -8,8 +8,8 @@ public sealed partial class CatalogAdminService
     private const int MaxReorderCount = 500;
     private const int MaxBoundOffers = 256;
 
-    // The editor names offers by the id the catalog page sent (an official offer id is unique per page, not per
-    // catalog). Loading or creating an offer binds that id to its row for this login session; saves only use bindings.
+    // An offer can be on several pages, and the editor edits it as placed on one of them. Loading or creating an
+    // offer binds its id to that page for this login session; saves only use bindings.
     private readonly ConditionalWeakTable<Habbo, Dictionary<int, int>> _offerBindings = new();
 
     public CatalogAdminOffer LoadOffer(Habbo actor, int offerId)
@@ -17,10 +17,10 @@ public sealed partial class CatalogAdminService
         RequireEditor(actor);
         using var connection = _database.Connection();
         var store = new CatalogAdminStore(connection);
-        var rowId = ResolveListedOffer(store, actor, offerId, useBinding: true);
-        var row = store.Offer(rowId) ?? throw NotFound("Offer");
+        var pageId = ResolveListedOffer(store, actor, offerId, useBinding: true);
+        var row = store.Offer(offerId, pageId) ?? throw NotFound("Offer");
         var offer = CatalogAdminMapping.ToOffer(row, offerId, CatalogType(RequirePage(store, row.PageId, actor)));
-        Bind(actor, offerId, row.Id);
+        Bind(actor, offerId, row.PageId);
 
         return offer;
     }
@@ -29,16 +29,21 @@ public sealed partial class CatalogAdminService
         Mutate(actor, envelope, "createOffer", OfferEntity, 0, store =>
         {
             Reject(CatalogAdminValidation.Offer(offer, null, actor.Access, store.Page, store.FurnitureExists));
+
+            if (offer.OfferIdClient > 0 && store.OfferExists(offer.OfferIdClient)) {
+                throw OfferIdTaken(offer.OfferIdClient);
+            }
+
             var row = CatalogAdminMapping.Apply(offer, null);
+            row.Id = Math.Max(offer.OfferIdClient, 0);
 
             if (offer.OrderNumber < 0) {
                 row.OrderNum = store.NextOfferOrder(row.PageId);
             }
 
-            row.Id = store.InsertOffer(row);
-            var offerId = PageOfferId(store, row);
-            Bind(actor, offerId, row.Id);
-            var created = CatalogAdminMapping.ToOffer(row, offerId, CatalogType(store.Page(row.PageId)!));
+            store.InsertOffer(row);
+            Bind(actor, row.Id, row.PageId);
+            var created = CatalogAdminMapping.ToOffer(row, row.Id, CatalogType(store.Page(row.PageId)!));
 
             return new(new(OfferEntity, created.CatalogType, row.Id, "CREATE", null, created), created, "Offer created");
         });
@@ -46,24 +51,23 @@ public sealed partial class CatalogAdminService
     public CatalogAdminOutcome SaveOffer(Habbo actor, CatalogAdminEnvelope envelope, CatalogAdminOffer offer) =>
         Mutate(actor, envelope, "saveOffer", OfferEntity, offer.OfferId, store =>
         {
-            var existing = store.Offer(BoundOffer(actor, offer.OfferId) ?? throw Unbound()) ?? throw NotFound("Offer");
+            var existing = store.Offer(offer.OfferId, BoundOffer(actor, offer.OfferId) ?? throw Unbound()) ?? throw NotFound("Offer");
             Reject(CatalogAdminValidation.Offer(offer, existing, actor.Access, store.Page, store.FurnitureExists));
-            var row = CatalogAdminMapping.Apply(offer, existing);
-            store.UpdateOffer(row);
+            var row = Save(store, actor, offer, existing);
             var type = CatalogType(store.Page(row.PageId)!);
-            var saved = CatalogAdminMapping.ToOffer(row, offer.OfferId, type);
+            var saved = CatalogAdminMapping.ToOffer(row, row.Id, type);
 
-            return new(new(OfferEntity, type, row.Id, "UPDATE", CatalogAdminMapping.ToOffer(existing, offer.OfferId, type), saved), saved, "Offer saved");
+            return new(new(OfferEntity, type, row.Id, "UPDATE", CatalogAdminMapping.ToOffer(existing, existing.Id, type), saved), saved, "Offer saved");
         });
 
     public CatalogAdminOutcome DeleteOffer(Habbo actor, CatalogAdminEnvelope envelope, int offerId) =>
         Mutate(actor, envelope, "deleteOffer", OfferEntity, offerId, store =>
         {
-            var existing = store.Offer(ResolveListedOffer(store, actor, offerId, useBinding: true)) ?? throw NotFound("Offer");
+            var existing = store.Offer(offerId, ResolveListedOffer(store, actor, offerId, useBinding: true)) ?? throw NotFound("Offer");
             var type = CatalogType(RequirePage(store, existing.PageId, actor));
-            store.DeleteOffer(existing.Id);
+            store.DeleteOffer(offerId, existing.PageId);
 
-            return new(new(OfferEntity, type, existing.Id, "DELETE", CatalogAdminMapping.ToOffer(existing, offerId, type), null), null, "Offer deleted");
+            return new(new(OfferEntity, type, offerId, "DELETE", CatalogAdminMapping.ToOffer(existing, offerId, type), null), null, "Offer deleted");
         });
 
     public CatalogAdminOutcome MoveOffer(Habbo actor, CatalogAdminEnvelope envelope, int offerId, int orderNumber) =>
@@ -73,13 +77,13 @@ public sealed partial class CatalogAdminService
                 throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, "Order cannot be negative.");
             }
 
-            var existing = store.Offer(ResolveListedOffer(store, actor, offerId, useBinding: true)) ?? throw NotFound("Offer");
+            var existing = store.Offer(offerId, ResolveListedOffer(store, actor, offerId, useBinding: true)) ?? throw NotFound("Offer");
             var type = CatalogType(RequirePage(store, existing.PageId, actor));
-            store.SetOfferOrder(existing.Id, orderNumber);
+            store.SetOfferOrder(offerId, existing.PageId, orderNumber);
             var moved = existing.Copy();
             moved.OrderNum = orderNumber;
 
-            return new(new(OfferEntity, type, existing.Id, "MOVE", CatalogAdminMapping.ToOffer(existing, offerId, type),
+            return new(new(OfferEntity, type, offerId, "MOVE", CatalogAdminMapping.ToOffer(existing, offerId, type),
                 CatalogAdminMapping.ToOffer(moved, offerId, type)), null, "Offer moved");
         });
 
@@ -91,7 +95,7 @@ public sealed partial class CatalogAdminService
             }
 
             var rows = orders.Select(order => (order.OfferId, order.OrderNumber,
-                Row: store.Offer(ResolveListedOffer(store, actor, order.OfferId, useBinding: false)) ?? throw NotFound("Offer"))).ToList();
+                Row: store.Offer(order.OfferId, ResolveListedOffer(store, actor, order.OfferId, useBinding: false)) ?? throw NotFound("Offer"))).ToList();
             int pageId = rows[0].Row.PageId;
 
             if (rows.Any(entry => entry.Row.PageId != pageId)) {
@@ -101,7 +105,7 @@ public sealed partial class CatalogAdminService
             var page = RequirePage(store, pageId, actor);
 
             foreach (var entry in rows.Where(entry => entry.Row.OrderNum != entry.OrderNumber)) {
-                store.SetOfferOrder(entry.Row.Id, entry.OrderNumber);
+                store.SetOfferOrder(entry.OfferId, pageId, entry.OrderNumber);
             }
 
             var before = rows.Select(entry => new { id = entry.OfferId, orderNumber = entry.Row.OrderNum });
@@ -110,33 +114,53 @@ public sealed partial class CatalogAdminService
             return new(new(PageEntity, CatalogType(page), pageId, "REORDER", before, after), null, "Offers reordered");
         });
 
-    // Offers picked from the page list: the page being viewed decides first, then this session's binding, then an id
-    // that only one page sells. Anything still ambiguous is refused rather than guessed.
-    private int ResolveListedOffer(CatalogAdminStore store, Habbo actor, int offerId, bool useBinding)
+    // Writes an edited offer. Setting an official id renumbers the offer; clearing it gives the offer an id of this hotel's own.
+    private CatalogOfferRow Save(CatalogAdminStore store, Habbo actor, CatalogAdminOffer offer, CatalogOfferRow existing)
     {
-        var matches = _catalogManager.Pages.Where(page => page.Offers.ContainsKey(offerId))
-            .Select(page => (PageId: page.Id, RowId: page.Offers[offerId].Id)).ToList();
+        var row = CatalogAdminMapping.Apply(offer, existing);
+        row.Id = offer.OfferIdClient > 0 ? offer.OfferIdClient : existing.OfficialOfferId > 0 ? store.NextCustomOfferId() : existing.Id;
 
-        if (_viewedPages.TryGetValue(actor.Id, out var viewed) && matches.Where(match => match.PageId == viewed).ToList() is [var onViewedPage]) {
-            return onViewedPage.RowId;
+        if (row.Id != existing.Id && store.OfferExists(row.Id)) {
+            throw OfferIdTaken(row.Id);
         }
 
-        if (useBinding && BoundOffer(actor, offerId) is { } bound) {
+        if (row.PageId != existing.PageId && store.OfferPages(existing.Id).Contains(row.PageId)) {
+            throw new CatalogAdminRejected(CatalogAdminCodes.ValidationFailed, "This offer is already on that page.",
+                new Dictionary<string, string> { ["pageId"] = "This offer is already on that page." });
+        }
+
+        store.UpdateOffer(row, existing.Id, existing.PageId);
+        Bind(actor, row.Id, row.PageId);
+
+        return row;
+    }
+
+    // The page an offer picked from the page list is on: the page being viewed decides first, then this session's
+    // binding, then the only page showing it. Anything still ambiguous is refused rather than guessed.
+    private int ResolveListedOffer(CatalogAdminStore store, Habbo actor, int offerId, bool useBinding)
+    {
+        var pages = store.OfferPages(offerId);
+
+        if (_viewedPages.TryGetValue(actor.Id, out var viewed) && pages.Contains(viewed)) {
+            return viewed;
+        }
+
+        if (useBinding && BoundOffer(actor, offerId) is { } bound && pages.Contains(bound)) {
             return bound;
         }
 
-        if (matches is [var only]) {
-            return only.RowId;
+        if (pages is [var only]) {
+            return only;
         }
 
-        if (matches.Count > 1) {
+        if (pages.Count > 1) {
             throw new CatalogAdminRejected(CatalogAdminCodes.Conflict, $"Offer #{offerId} is on several pages; open its page and try again.");
         }
 
         throw NotFound("Offer");
     }
 
-    private void Bind(Habbo actor, int offerId, int rowId)
+    private void Bind(Habbo actor, int offerId, int pageId)
     {
         var bindings = _offerBindings.GetOrCreateValue(actor);
 
@@ -145,7 +169,7 @@ public sealed partial class CatalogAdminService
                 bindings.Remove(bindings.Keys.First());
             }
 
-            bindings[offerId] = rowId;
+            bindings[offerId] = pageId;
         }
     }
 
@@ -156,24 +180,16 @@ public sealed partial class CatalogAdminService
         }
 
         lock (bindings) {
-            return bindings.TryGetValue(offerId, out var rowId) ? rowId : null;
+            return bindings.TryGetValue(offerId, out var pageId) ? pageId : null;
         }
     }
 
     private static CatalogAdminRejected Unbound() =>
-        new(CatalogAdminCodes.Conflict, "Reopen this offer before saving; the server cannot tell which offer this form belongs to.");
+        new(CatalogAdminCodes.Conflict, "Reopen this offer before saving; the server cannot tell which page this form belongs to.");
 
-    // The id the catalog page will show for this row after the reload, by CatalogOfferIndex's rules.
-    private static int PageOfferId(CatalogAdminStore store, CatalogOfferRow row)
-    {
-        var onPage = store.OfferIdsOnPage(row.PageId);
-
-        if (row.OfferId > 0 && onPage.First(offer => offer.OfferId == row.OfferId).Id == row.Id) {
-            return row.OfferId;
-        }
-
-        return onPage.Any(offer => offer.OfferId == row.Id) ? CatalogOfferIndex.ClashingRowIdBase + row.Id : row.Id;
-    }
+    private static CatalogAdminRejected OfferIdTaken(int offerId) =>
+        new(CatalogAdminCodes.ValidationFailed, $"Offer #{offerId} already exists.",
+            new Dictionary<string, string> { ["offerIdGroup"] = $"Offer #{offerId} already exists." });
 
     private static string CatalogType(CatalogPageRow page) => CatalogAdminTypes.Normal;
 }

@@ -68,7 +68,10 @@ public sealed class CatalogPromotionUtcTests
         await InSchema(async (connection, database) =>
         {
             CreateCatalogTables(connection);
-            connection.Execute(Read("Resources/SQLs/Updates/17_OfficialCatalogStructure.sql"));
+            // Update 17's promotion statements; its other statements target the catalog tables migration 52 replaced.
+            var structure = Read("Resources/SQLs/Updates/17_OfficialCatalogStructure.sql");
+            connection.Execute(Regex.Match(structure, @"ALTER TABLE catalog_promotions\s.*?;", RegexOptions.Singleline).Value +
+                Regex.Match(structure, @"UPDATE catalog_promotions SET position = id WHERE position = 0;").Value);
             connection.Execute("""
                 ALTER TABLE catalog_promotions MODIFY expires_at DECIMAL(20,6) NULL;
                 INSERT INTO catalog_promotions (id, position, expires_at) VALUES
@@ -118,24 +121,32 @@ public sealed class CatalogPromotionUtcTests
     private static void CreateCatalogTables(MySqlConnection connection)
     {
         var pristine = Read("Resources/SQLs/Original Database.sql");
+        var normalized = Read("Database/Migrations/52_NormalizeCatalog.sql");
+        // The offer tables' foreign keys name tables this schema leaves out.
+        connection.Execute("SET FOREIGN_KEY_CHECKS = 0");
 
-        foreach (var table in new[] { "catalog_items", "catalog_deals", "catalog_pages", "catalog_bot_presets", "catalog_promotions" }) {
+        foreach (var table in new[] { "catalog_bot_presets", "catalog_promotions" }) {
             var statement = Regex.Match(pristine, $@"CREATE TABLE `{table}` \(.*?;", RegexOptions.Singleline);
             Assert.True(statement.Success);
             connection.Execute(statement.Value);
         }
 
+        foreach (var table in new[] { "catalog_page_images", "catalog_page_texts", "catalog_offers", "catalog_offer_products", "catalog_offer_limited", "catalog_page_offers" }) {
+            var statement = Regex.Match(normalized, $@"CREATE TABLE `{table}` \(.*?;", RegexOptions.Singleline);
+            Assert.True(statement.Success);
+            connection.Execute(statement.Value);
+        }
+
+        // These are the unchanged prerequisites of CatalogManager.Start; no catalog offers are needed.
         connection.Execute("""
-            ALTER TABLE catalog_pages ADD COLUMN required_club_level INT NOT NULL DEFAULT 0;
-            ALTER TABLE catalog_items ADD COLUMN habbicon_id INT NOT NULL DEFAULT 0;
+            CREATE TABLE catalog_pages (
+                id INT PRIMARY KEY, parent_id INT NULL, caption VARCHAR(128) NOT NULL, link VARCHAR(128) NULL, icon INT NOT NULL DEFAULT 0,
+                visible TINYINT(1) NOT NULL DEFAULT 1, enabled TINYINT(1) NOT NULL DEFAULT 1, required_permission VARCHAR(191) NULL,
+                required_club_level INT NOT NULL DEFAULT 0, position INT NOT NULL DEFAULT 0, layout VARCHAR(64) NOT NULL DEFAULT 'default_3x3');
             CREATE TABLE catalog_club_offers (
                 id INT PRIMARY KEY, name VARCHAR(64), days INT, credits INT, points INT, points_type INT,
                 giftable BOOL, enabled BOOL);
             """);
-        // These are the unchanged prerequisites of CatalogManager.Start; no catalog items are needed.
-        var itemColumns = Regex.Match(Read("Resources/SQLs/Updates/17_OfficialCatalogStructure.sql"),
-            @"ALTER TABLE catalog_items\s.*?;", RegexOptions.Singleline);
-        connection.Execute(itemColumns.Value);
     }
 
     private static void AssertMetadata(MySqlConnection connection)

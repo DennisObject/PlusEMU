@@ -4,37 +4,27 @@ namespace Plus.HabboHotel.Catalog;
 
 // Immutable, already-resolved catalog data. Packet composers only write these values.
 public sealed record CatalogOfferSnapshot(
-    int WireOfferId,
+    int OfferId,
     string LocalizationId,
     int CostCredits,
     int Price,
     int PriceType,
     bool CanGift,
-    CatalogOfferProducts Products,
+    ImmutableArray<CatalogProductSnapshot> Products,
     int ClubLevel,
     bool CanSelectAmount,
     string PreviewImage,
     bool OfferEnabled);
 
-public abstract record CatalogOfferProducts;
-
-public sealed record HabbiconProducts(int HabbiconId) : CatalogOfferProducts;
-
-public sealed record DealProducts(ImmutableArray<DealProduct> Items) : CatalogOfferProducts;
-
-public sealed record DealProduct(string ProductType, string ItemName, int SpriteId, int Amount);
-
-public sealed record ItemProducts(
-    string Badge,
+// A badge only carries its code, in ExtraParam.
+public sealed record CatalogProductSnapshot(
     string ProductType,
-    string ItemName,
-    int SpriteId,
-    bool HasExtra,
-    string? Extra,
+    int ClassId,
+    string ExtraParam,
     int Amount,
     bool IsLimited,
     uint LimitedStack,
-    uint LimitedRemaining) : CatalogOfferProducts;
+    uint LimitedRemaining);
 
 public sealed record CatalogPageSnapshot(
     int Id,
@@ -70,4 +60,4 @@ public sealed record CatalogIndexNode(
 
 public sealed record ClubGiftsSnapshot(int DaysUntilNextGift, int Available, ImmutableArray<CatalogOfferSnapshot> Offers, ImmutableArray<ClubGiftEntry> Gifts);
 
-public sealed record ClubGiftEntry(int WireOfferId, int DaysRequired, bool Unlocked);
+public sealed record ClubGiftEntry(int OfferId, int DaysRequired, bool Unlocked);

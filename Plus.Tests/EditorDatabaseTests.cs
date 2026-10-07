@@ -33,7 +33,6 @@ public sealed class EditorDatabaseTests : IDisposable
 {
     private const string Tag = "e3test";
     private readonly HabbiconDatabaseTests.TestDatabase _database;
-    private readonly List<CatalogPage> _cache = new();
     private readonly EditorPermissionTests.Recorder _refresher = (EditorPermissionTests.Recorder)(object)DispatchProxy.Create<ICatalogCacheRefresher, EditorPermissionTests.Recorder>();
     private readonly string _directory = Directory.CreateTempSubdirectory("editor-db-tests-").FullName;
     private readonly CatalogAdminService _catalog = null!;
@@ -53,9 +52,9 @@ public sealed class EditorDatabaseTests : IDisposable
         }
 
         Cleanup();
-        var catalogManager = DispatchProxy.Create<ICatalogManager, CatalogProxy>();
-        ((CatalogProxy)(object)catalogManager).Pages = _cache;
-        _catalog = new CatalogAdminService(_database, catalogManager, (ICatalogCacheRefresher)(object)_refresher, NullLogger<CatalogAdminService>.Instance);
+        // Pages may only require permissions the hotel knows; the test actors' extra permission is registered for them.
+        Execute($"INSERT IGNORE INTO acl_permissions (`key`, category) VALUES ('{EditorTestSupport.RestrictedPagePermission}', 'catalog')");
+        _catalog = new CatalogAdminService(_database, (ICatalogCacheRefresher)(object)_refresher, NullLogger<CatalogAdminService>.Instance);
     }
 
     public void Dispose()
@@ -101,7 +100,11 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.Contains("\"actorName\":\"editor\"", answer.ReadString());
         using var connection = _database.Connection();
         Assert.Equal(($"{Tag} page", "head", "text"), connection.QuerySingle<(string, string, string)>(
-            "SELECT caption, page_strings_1, page_strings_2 FROM catalog_pages WHERE id = @pageId", new { pageId }));
+            """
+            SELECT p.caption, i.image, t.text FROM catalog_pages p
+            JOIN catalog_page_images i ON i.page_id = p.id AND i.slot = 0 JOIN catalog_page_texts t ON t.page_id = p.id AND t.slot = 0
+            WHERE p.id = @pageId
+            """, new { pageId }));
         var audit = connection.QuerySingle<(int, string, string, string?, string)>(
             "SELECT user_id, action, operation, before_json, after_json FROM catalog_admin_log WHERE id = @id", new { id = revision + 1 });
         Assert.Equal((staff.Id, "createPage", "CREATE", (string?)null), (audit.Item1, audit.Item2, audit.Item3, audit.Item4));
@@ -185,11 +188,11 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.True(saved.Success, saved.Message);
         var offerUndo = _catalog.Undo(staff, Envelope(Revision()), saved.Revision);
         Assert.True(offerUndo.Success, offerUndo.Message);
-        Assert.Equal(3, Scalar<int>("SELECT cost_credits FROM catalog_items WHERE id = @id", offerId));
+        Assert.Equal(3, Scalar<int>("SELECT cost_credits FROM catalog_offers WHERE id = @id", offerId));
     }
 
     [EditorDatabaseFact]
-    public void OffersResolvePageOfferIdsAndReorderOnePage()
+    public void OfferIdsAreUniqueAndAnOfferOnSeveralPagesIsEditedAsPlaced()
     {
         var staff = EditorTestSupport.Staff();
         var furni = InsertFurniture($"{Tag}_offer_chair", 990001);
@@ -200,12 +203,16 @@ public sealed class EditorDatabaseTests : IDisposable
         var created = _catalog.CreateOffer(staff, Envelope(Revision()), offer);
         Assert.True(created.Success, created.Message);
         var createdOffer = Assert.IsType<CatalogAdminOffer>(created.Entity);
-        Assert.Equal((created.EntityId, 2, 5), (createdOffer.OfferId, createdOffer.CostPoints, createdOffer.PointsType));
-        Assert.True(_catalog.CreateOffer(staff, Envelope(Revision()), offer with { PageId = second.PageId }).Success);
-        Assert.True(_catalog.CreateOffer(staff, Envelope(Revision()), offer with { OfferIdClient = -1, CatalogName = $"{Tag} plain" }).Success);
-        Reload();
+        Assert.Equal((900001, 900001, 2, 5), (created.EntityId, createdOffer.OfferId, createdOffer.CostPoints, createdOffer.PointsType));
+        var taken = _catalog.CreateOffer(staff, Envelope(Revision()), offer with { PageId = second.PageId });
+        Assert.Equal("Offer #900001 already exists.", taken.FieldErrors["offerIdGroup"]);
+        var plain = _catalog.CreateOffer(staff, Envelope(Revision()), offer with { OfferIdClient = -1, CatalogName = $"{Tag} plain" });
+        Assert.True(plain.Success, plain.Message);
+        Assert.True(plain.EntityId >= CatalogOfferIndex.CustomOfferIdBase);
+        Assert.Equal(-1, Assert.IsType<CatalogAdminOffer>(plain.Entity).OfferIdClient);
+        Execute($"INSERT INTO catalog_page_offers (page_id, offer_id, position) VALUES ({second.PageId}, 900001, 0)");
 
-        // Both pages sell official offer 900001: a session that neither looks at a page nor loaded it cannot name one.
+        // Offer 900001 is on both pages: a session that neither looks at a page nor loaded it cannot name one.
         Assert.Equal(CatalogAdminCodes.Conflict, _catalog.DeleteOffer(EditorTestSupport.Staff(), Envelope(Revision()), 900001).Code);
         _catalog.RecordViewedPage(staff, second.PageId);
         var details = _catalog.LoadOffer(staff, 900001);
@@ -214,19 +221,24 @@ public sealed class EditorDatabaseTests : IDisposable
         var saved = _catalog.SaveOffer(staff, Envelope(Revision()), details with { CostCredits = 9, CatalogName = $"{Tag} saved" });
         Assert.True(saved.Success, saved.Message);
         Assert.Equal(900001, saved.EntityId);
-
-        using (var connection = _database.Connection()) {
-            var names = connection.Query<(int, string, int)>("SELECT page_id, catalog_name, cost_credits FROM catalog_items WHERE offer_id = 900001 ORDER BY page_id").ToList();
-            Assert.Equal([(first.PageId, $"{Tag} offer", 3), (second.PageId, $"{Tag} saved", 9)], names);
-        }
+        // One offer: both pages now show the saved name and price.
+        Assert.Equal(($"{Tag} saved", 9), Scalar<(string, int)>("SELECT localization_key, cost_credits FROM catalog_offers WHERE id = @id", 900001));
+        Assert.Equal([first.PageId, second.PageId], Query<int>("SELECT page_id FROM catalog_page_offers WHERE offer_id = 900001 ORDER BY page_id"));
 
         _catalog.RecordViewedPage(staff, first.PageId);
-        var plainId = _cache.Single(page => page.Id == first.PageId).Offers.Values.Single(item => item.OfferId <= 0).WireOfferId;
+        var plainId = plain.EntityId;
         var reordered = _catalog.ReorderOffers(staff, Envelope(Revision()), [(plainId, 0), (900001, 1)]);
         Assert.True(reordered.Success, reordered.Message);
+        Assert.Equal([plainId, 900001], Query<int>($"SELECT offer_id FROM catalog_page_offers WHERE page_id = {first.PageId} ORDER BY position"));
         Assert.False(_catalog.ReorderOffers(staff, Envelope(Revision()), [(plainId, 0), (plainId, 1)]).Success);
-        Assert.True(_catalog.DeleteOffer(staff, Envelope(Revision()), plainId).Success);
         Assert.Equal("[{\"id\":" + plainId + ",\"orderNumber\":0},{\"id\":900001,\"orderNumber\":1}]", Scalar<string>("SELECT after_json FROM catalog_admin_log WHERE id = @id", reordered.Revision));
+
+        // Deleting takes an offer off the page being viewed; an offer left on no page is gone.
+        Assert.True(_catalog.DeleteOffer(staff, Envelope(Revision()), plainId).Success);
+        Assert.Equal(0, Scalar<int>("SELECT COUNT(*) FROM catalog_offers WHERE id = @id", plainId));
+        Assert.True(_catalog.DeleteOffer(staff, Envelope(Revision()), 900001).Success);
+        Assert.Equal([second.PageId], Query<int>("SELECT page_id FROM catalog_page_offers WHERE offer_id = 900001"));
+        Assert.Equal(1, Scalar<int>("SELECT COUNT(*) FROM catalog_offer_products WHERE offer_id = @id", 900001));
     }
 
     [EditorDatabaseFact]
@@ -263,9 +275,12 @@ public sealed class EditorDatabaseTests : IDisposable
 
         Assert.Equal("Cannot delete: still used by 1 placed or owned items", furni.Delete(staff, placed).Message);
         var gifted = InsertFurniture($"{Tag}_gifted", 990005);
-        Execute($"INSERT INTO user_presents (item_id, base_id, extra_data) VALUES (0, {gifted}, ''); INSERT INTO catalog_deals (items, name, room_id) VALUES ('1*2;{gifted}*3', 'e3test deal', 0)");
-        var refused = furni.Delete(staff, gifted).Message;
-        Assert.StartsWith("Cannot delete: still used by 1 unopened gifts, catalog deals #", refused);
+        Execute($"""
+            INSERT INTO user_presents (item_id, base_id, extra_data) VALUES (0, {gifted}, '');
+            INSERT INTO catalog_offers (id, localization_key) VALUES (1999999901, 'e3test bundle');
+            INSERT INTO catalog_offer_products (offer_id, position, product_type, furniture_id, amount) VALUES (1999999901, 0, 'furni', {chair}, 2), (1999999901, 1, 'furni', {gifted}, 3);
+            """);
+        Assert.Equal("Cannot delete: still used by 1 catalog offers, 1 unopened gifts", furni.Delete(staff, gifted).Message);
         var unused = InsertFurniture($"{Tag}_unused", 990004);
         Assert.True(furni.Delete(staff, unused).Success);
 
@@ -303,7 +318,7 @@ public sealed class EditorDatabaseTests : IDisposable
 
         var refused = _catalog.MovePage(staff, Envelope(Revision()), ordinary.PageId, parent.PageId, 0);
         Assert.Equal((false, CatalogAdminCodes.Forbidden), (refused.Success, refused.Code));
-        Assert.Equal(0, Scalar<int>("SELECT order_num FROM catalog_pages WHERE id = @id", hidden.PageId));
+        Assert.Equal(0, Scalar<int>("SELECT position FROM catalog_pages WHERE id = @id", hidden.PageId));
         var underHidden = _catalog.CreatePage(staff, Envelope(Revision()), ordinary with { PageId = 0, ParentId = hidden.PageId, CaptionSave = $"{Tag}_under" });
         Assert.Equal("You cannot use a page requiring a permission you do not have as parent.", underHidden.FieldErrors["parentId"]);
 
@@ -312,16 +327,16 @@ public sealed class EditorDatabaseTests : IDisposable
         var c = CreatePage(owner, "move_c", parent.PageId, order: 4);
         var moved = _catalog.MovePage(owner, Envelope(Revision()), c.PageId, parent.PageId, 0);
         Assert.True(moved.Success, moved.Message);
-        Assert.Equal(1, Scalar<int>("SELECT order_num FROM catalog_pages WHERE id = @id", hidden.PageId));
+        Assert.Equal(1, Scalar<int>("SELECT position FROM catalog_pages WHERE id = @id", hidden.PageId));
         Assert.Equal(CatalogAdminCodes.Forbidden, _catalog.Undo(staff, Envelope(Revision()), moved.Revision).Code);
 
         var undone = _catalog.Undo(owner, Envelope(Revision()), moved.Revision);
         Assert.True(undone.Success, undone.Message);
         Assert.Equal([(hidden.PageId, 0), (a.PageId, 2), (b.PageId, 3), (c.PageId, 4)], Query<(int, int)>(
-            $"SELECT id, order_num FROM catalog_pages WHERE parent_id = {parent.PageId} ORDER BY order_num, id"));
+            $"SELECT id, position FROM catalog_pages WHERE parent_id = {parent.PageId} ORDER BY position, id"));
 
         var again = _catalog.MovePage(owner, Envelope(Revision()), c.PageId, parent.PageId, 0);
-        Execute($"UPDATE catalog_pages SET order_num = 9 WHERE id = {hidden.PageId}");
+        Execute($"UPDATE catalog_pages SET position = 9 WHERE id = {hidden.PageId}");
         Assert.Equal(CatalogAdminCodes.Conflict, _catalog.Undo(owner, Envelope(Revision()), again.Revision).Code);
     }
 
@@ -339,12 +354,12 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.True(first.Success, first.Message);
         var away = _catalog.MovePage(owner, Envelope(Revision()), a.PageId, q.PageId, 1);
         Assert.True(away.Success, away.Message);
-        Assert.Equal((q.PageId, 1), Scalar<(int, int)>("SELECT parent_id, order_num FROM catalog_pages WHERE id = @id", a.PageId));
+        Assert.Equal((q.PageId, 1), Scalar<(int, int)>("SELECT parent_id, position FROM catalog_pages WHERE id = @id", a.PageId));
 
         var undo = _catalog.Undo(owner, Envelope(Revision()), first.Revision);
 
         Assert.Equal((false, CatalogAdminCodes.Conflict, "This entity changed again later; undo the newer change first."), (undo.Success, undo.Code, undo.Message));
-        Assert.Equal((q.PageId, 1), Scalar<(int, int)>("SELECT parent_id, order_num FROM catalog_pages WHERE id = @id", a.PageId));
+        Assert.Equal((q.PageId, 1), Scalar<(int, int)>("SELECT parent_id, position FROM catalog_pages WHERE id = @id", a.PageId));
     }
 
     [EditorDatabaseFact]
@@ -368,33 +383,38 @@ public sealed class EditorDatabaseTests : IDisposable
     }
 
     [EditorDatabaseFact]
-    public void OfferSavesGoToTheRowTheEditorLoadedAndCreatesAckThePageOfferId()
+    public void OfferSavesGoToThePlacementTheEditorLoadedAndCanRenumberTheOffer()
     {
         var owner = EditorTestSupport.Staff();
         var furni = InsertFurniture($"{Tag}_bound", 990012);
         var pageA = CreatePage(owner, "bound_a", -1);
         var pageB = CreatePage(owner, "bound_b", -1);
-        var createdA = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageA.PageId, 900091));
-        Assert.Equal(900091, createdA.EntityId);
-        var createdB = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageB.PageId, 900091));
-        Assert.True(createdB.Success, createdB.Message);
-        var plain = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageA.PageId, -1));
-        var second = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageA.PageId, 900091));
-        Assert.NotEqual(900091, second.EntityId);
-        Assert.NotEqual(900091, plain.EntityId);
-        Reload();
-        Assert.Equal(second.EntityId, _cache.Single(page => page.Id == pageA.PageId).Offers.Values.Single(item => item.Id == RowOf(second)).WireOfferId);
+        var created = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, pageA.PageId, 900091));
+        Assert.Equal(900091, created.EntityId);
+        Execute($"INSERT INTO catalog_page_offers (page_id, offer_id, position) VALUES ({pageB.PageId}, 900091, 0)");
 
         _catalog.RecordViewedPage(owner, pageA.PageId);
         var form = _catalog.LoadOffer(owner, 900091);
         _catalog.RecordViewedPage(owner, pageB.PageId);
-        var saved = _catalog.SaveOffer(owner, Envelope(Revision()), form with { CostCredits = 77 });
+        var moved = _catalog.SaveOffer(owner, Envelope(Revision()), form with { PageId = pageB.PageId });
+        Assert.Equal("This offer is already on that page.", moved.FieldErrors["pageId"]);
+        var saved = _catalog.SaveOffer(owner, Envelope(Revision()), form with { CostCredits = 77, OrderNumber = 4 });
         Assert.True(saved.Success, saved.Message);
-        Assert.Equal((77, 3), (Scalar<int>("SELECT cost_credits FROM catalog_items WHERE id = @id", RowOf(createdA)),
-            Scalar<int>("SELECT cost_credits FROM catalog_items WHERE id = @id", RowOf(createdB))));
+        Assert.Equal(77, Scalar<int>("SELECT cost_credits FROM catalog_offers WHERE id = @id", 900091));
+        Assert.Equal([(pageA.PageId, 4), (pageB.PageId, 0)], Query<(int, int)>("SELECT page_id, position FROM catalog_page_offers WHERE offer_id = 900091 ORDER BY page_id"));
 
         var otherSession = EditorTestSupport.Staff();
         Assert.Equal(CatalogAdminCodes.Conflict, _catalog.SaveOffer(otherSession, Envelope(Revision()), form with { CostCredits = 1 }).Code);
+
+        // A new official id renumbers the offer everywhere it is placed.
+        var renumbered = _catalog.SaveOffer(owner, Envelope(Revision()), form with { CostCredits = 77, OfferIdClient = 900092 });
+        Assert.True(renumbered.Success, renumbered.Message);
+        Assert.Equal(900092, renumbered.EntityId);
+        Assert.Equal((0, 2, 1), (Scalar<int>("SELECT COUNT(*) FROM catalog_offers WHERE id = @id", 900091),
+            Scalar<int>("SELECT COUNT(*) FROM catalog_page_offers WHERE offer_id = @id", 900092), Scalar<int>("SELECT COUNT(*) FROM catalog_offer_products WHERE offer_id = @id", 900092)));
+        var custom = _catalog.SaveOffer(owner, Envelope(Revision()), Assert.IsType<CatalogAdminOffer>(renumbered.Entity) with { OfferIdClient = -1 });
+        Assert.True(custom.Success, custom.Message);
+        Assert.True(custom.EntityId >= CatalogOfferIndex.CustomOfferIdBase);
     }
 
     [EditorDatabaseFact]
@@ -436,7 +456,7 @@ public sealed class EditorDatabaseTests : IDisposable
         var owner = EditorTestSupport.Staff();
         int before = Revision();
         _catalog.BetweenSessionReads = () => Execute("""
-            INSERT INTO catalog_pages (parent_id, caption, page_link, order_num, page_strings_1, page_strings_2) VALUES (-1, 'e3test snapshot', 'e3test_snapshot', 0, '', '');
+            INSERT INTO catalog_pages (parent_id, caption, link, position) VALUES (NULL, 'e3test snapshot', 'e3test_snapshot', 0);
             INSERT INTO catalog_admin_log (user_id, username, action, entity_type, catalog_type, entity_id, operation) VALUES (1, 'other', 'createPage', 'PAGE', 'NORMAL', 0, 'CREATE');
             """);
 
@@ -451,25 +471,23 @@ public sealed class EditorDatabaseTests : IDisposable
     [EditorDatabaseFact]
     public void ConcurrentLimitedPurchasesGetDistinctSerialsUpToTheStack()
     {
-        var page = CreatePage(EditorTestSupport.Staff(), "limited", -1);
-        int rowId = Scalar<int>($"INSERT INTO catalog_items (page_id, item_id, catalog_name, limited_stack, limited_sells) VALUES ({page.PageId}, '1', 'e3test ltd', 5, 0); SELECT CAST(LAST_INSERT_ID() AS SIGNED)", 0);
+        const int offerId = 1999999902;
+        Execute($"INSERT INTO catalog_offers (id, localization_key) VALUES ({offerId}, 'e3test ltd'); INSERT INTO catalog_offer_limited (offer_id, stack) VALUES ({offerId}, 5)");
         var serials = new System.Collections.Concurrent.ConcurrentBag<int?>();
 
         Parallel.For(0, 20, new ParallelOptions { MaxDegreeOfParallelism = 20 }, _ =>
         {
             using var connection = _database.Connection();
-            serials.Add(CatalogLimitedStock.Reserve(connection, rowId));
+            serials.Add(CatalogLimitedStock.Reserve(connection, offerId));
         });
 
         Assert.Equal([1, 2, 3, 4, 5], serials.Where(serial => serial != null).Select(serial => serial!.Value).Order());
         Assert.Equal(15, serials.Count(serial => serial == null));
-        Assert.Equal(5, Scalar<int>("SELECT limited_sells FROM catalog_items WHERE id = @id", rowId));
+        Assert.Equal(5, Scalar<int>("SELECT sold FROM catalog_offer_limited WHERE offer_id = @id", offerId));
     }
 
     private static CatalogAdminOffer Offer(uint furni, int pageId, int offerId) =>
         new("NORMAL", 0, furni.ToString(), pageId, $"{Tag} offer", 3, 0, 0, 1, 0, -1, offerId, 0, "", true, false);
-
-    private int RowOf(CatalogAdminOutcome created) => Scalar<int>("SELECT entity_id FROM catalog_admin_log WHERE id = @id", created.Revision);
 
     private FurniEditorService Furni(string furnidataPath)
     {
@@ -490,22 +508,6 @@ public sealed class EditorDatabaseTests : IDisposable
         return Assert.IsType<CatalogAdminPage>(outcome.Entity);
     }
 
-    // What the catalog reload would do: load the tagged pages and their offers and give offers their page ids.
-    private void Reload()
-    {
-        using var connection = _database.Connection();
-        var pages = connection.Query<CatalogPage>("SELECT id AS Id, parent_id AS ParentId, enabled = 1 AS Enabled, visible = 1 AS Visible, required_permission AS RequiredPermission FROM catalog_pages WHERE page_link LIKE 'e3test%' ORDER BY id").ToList();
-
-        foreach (var page in pages) {
-            page.Items = connection.Query<CatalogItem>("SELECT id AS Id, offer_id AS OfferId, page_id AS PageId FROM catalog_items WHERE page_id = @Id ORDER BY order_num, id", page)
-                .ToDictionary(item => item.Id);
-        }
-
-        new CatalogOfferIndex().Build(pages);
-        _cache.Clear();
-        _cache.AddRange(pages);
-    }
-
     private static CatalogAdminEnvelope Envelope(int revision) => new("NORMAL", CatalogAdminEnvelope.LiveVersionId, revision, "", "test", "op");
 
     private int Revision() => Scalar<int>("SELECT CAST(COALESCE(MAX(id), 0) AS SIGNED) FROM catalog_admin_log", 0);
@@ -516,9 +518,10 @@ public sealed class EditorDatabaseTests : IDisposable
     private void Cleanup() => Execute("""
         DELETE FROM items WHERE base_item IN (SELECT id FROM furniture WHERE item_name LIKE 'e3test%');
         DELETE FROM user_presents WHERE base_id IN (SELECT id FROM furniture WHERE item_name LIKE 'e3test%');
-        DELETE FROM catalog_deals WHERE name LIKE 'e3test%';
-        DELETE FROM catalog_items WHERE catalog_name LIKE 'e3test%';
-        DELETE FROM catalog_pages WHERE page_link LIKE 'e3test%';
+        DELETE FROM catalog_offers WHERE localization_key LIKE 'e3test%';
+        UPDATE catalog_pages SET parent_id = NULL WHERE link LIKE 'e3test%';
+        DELETE FROM catalog_pages WHERE link LIKE 'e3test%';
+        DELETE FROM acl_permissions WHERE `key` = 'catalog.pages.owner';
         DELETE FROM furniture WHERE item_name LIKE 'e3test%';
         DELETE FROM furni_editor_log WHERE classname LIKE 'e3test%';
         """);

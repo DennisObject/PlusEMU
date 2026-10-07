@@ -293,14 +293,14 @@ public class HabbiconDatabaseTests
     {
         _service.Change(UserId, HabbiconAction.Buy, 61);
         _service.Change(UserId, HabbiconAction.Favorite, 61);
-        Execute("UPDATE habbicons SET cost_credits = 19 WHERE id = 62; UPDATE habbicon_collections SET cost_credits = 93 WHERE id = 6; UPDATE catalog_items SET cost_credits = 27 WHERE habbicon_id = 62");
-        int offers = Scalar("SELECT COUNT(*) FROM catalog_items WHERE habbicon_id > 0");
+        Execute("UPDATE habbicons SET cost_credits = 19 WHERE id = 62; UPDATE habbicon_collections SET cost_credits = 93 WHERE id = 6; UPDATE catalog_offers o JOIN catalog_offer_products p ON p.offer_id = o.id SET o.cost_credits = 27 WHERE p.habbicon_id = 62");
+        int offers = Scalar("SELECT COUNT(*) FROM catalog_offer_products WHERE habbicon_id IS NOT NULL");
         Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/14_Habbicons.sql")));
         Assert.Equal(19, _service.Load(UserId).RequireItem(62).Credits);
         Assert.Equal(93, _service.Load(UserId).Collections.Single(set => set.Id == 6).Credits);
         Assert.Equal(HabbiconState.Favorite, _service.Load(UserId).RequireItem(61).State);
-        Assert.Equal(27, Scalar("SELECT cost_credits FROM catalog_items WHERE habbicon_id = 62 LIMIT 1"));
-        Assert.Equal(offers, Scalar("SELECT COUNT(*) FROM catalog_items WHERE habbicon_id > 0"));
+        Assert.Equal(27, Scalar("SELECT o.cost_credits FROM catalog_offers o JOIN catalog_offer_products p ON p.offer_id = o.id WHERE p.habbicon_id = 62 LIMIT 1"));
+        Assert.Equal(offers, Scalar("SELECT COUNT(*) FROM catalog_offer_products WHERE habbicon_id IS NOT NULL"));
     }
 
     [HabbiconDatabaseFact]

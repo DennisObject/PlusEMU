@@ -235,17 +235,14 @@ public class HabbiconPacketTests
     [InlineData(false)]
     public void HabiconOfferHasOneProductWithoutFurnitureDefinitionOrGiftAndBulkOptions(bool haveOffer)
     {
-        var item = new CatalogItem
+        var item = new CatalogOffer
         {
-            Id = 10,
-            OfferId = 12,
-            CatalogName = "toast_toast",
-            HabbiconId = 61,
+            Id = 12,
+            LocalizationKey = "toast_toast",
             CostCredits = 5,
-            Amount = 1,
-            HaveOffer = haveOffer,
-            Badge = "ignored",
-            Definition = null!
+            BulkPurchase = false,
+            Enabled = haveOffer,
+            Products = [new CatalogProduct { Type = CatalogProductType.Habbicon, HabbiconId = 61 }]
         };
         var packet = new RecordingPacket();
         new CatalogOfferComposer(CatalogSnapshotTestSupport.Snapshots().CaptureOffer(item)).Compose(packet);

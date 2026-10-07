@@ -80,24 +80,23 @@ public sealed partial class CatalogAdminService
         return new(new(PageEntity, page.CatalogType, existing.Id, "MOVE", after, before with { Page = page }), page, "Move undone");
     }
 
-    private static CatalogAdminMutation UndoOffer(CatalogAdminStore store, Habbo actor, CatalogAdminUndoRow entry)
+    private CatalogAdminMutation UndoOffer(CatalogAdminStore store, Habbo actor, CatalogAdminUndoRow entry)
     {
-        var existing = store.Offer(entry.EntityId) ?? throw NotFound("Offer");
-        var type = CatalogType(RequirePage(store, existing.PageId, actor));
         var after = Snapshot<CatalogAdminOffer>(entry.AfterJson!);
+        var existing = store.Offer(entry.EntityId, after.PageId) ?? throw NotFound("Offer");
+        var type = CatalogType(RequirePage(store, existing.PageId, actor));
 
-        if (CatalogAdminMapping.ToOffer(existing, after.OfferId, type) with { LimitedSells = 0 } != after) {
+        if (CatalogAdminMapping.ToOffer(existing, existing.Id, type) with { LimitedSells = 0 } != after) {
             throw ChangedSince();
         }
 
         var before = Snapshot<CatalogAdminOffer>(entry.BeforeJson!);
         Reject(CatalogAdminValidation.Offer(before, existing, actor.Access, store.Page, store.FurnitureExists));
-        var row = CatalogAdminMapping.Apply(before, existing);
-        store.UpdateOffer(row);
+        var row = Save(store, actor, before, existing);
         type = CatalogType(store.Page(row.PageId)!);
-        var restored = CatalogAdminMapping.ToOffer(row, before.OfferId, type);
+        var restored = CatalogAdminMapping.ToOffer(row, row.Id, type);
 
-        return new(new(OfferEntity, type, row.Id, entry.Operation, CatalogAdminMapping.ToOffer(existing, before.OfferId, type), restored), restored, "Change undone");
+        return new(new(OfferEntity, type, row.Id, entry.Operation, CatalogAdminMapping.ToOffer(existing, existing.Id, type), restored), restored, "Change undone");
     }
 
     private static CatalogAdminRejected ChangedSince() =>

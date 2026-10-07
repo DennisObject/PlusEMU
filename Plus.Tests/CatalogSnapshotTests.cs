@@ -13,31 +13,33 @@ namespace Plus.Tests;
 
 public class CatalogSnapshotTests
 {
-    // SHA-256 of the pre-migration catalog payloads for every case in GoldenPayloads.
-    private const string BaselineSha256 = "40e4801d2c8e602ed6588d0b34c65a56eb3d6fdfd08be067795067a70543bb68";
+    // SHA-256 of the catalog payloads for every case in GoldenPayloads.
+    private const string BaselineSha256 = "7d54ba455f501b89758e2c169463c9338b7b3570cfdc7b7d23b137f3cd9c8c16";
 
     [Fact]
     public void ComposedCatalogPayloadsMatchPreMigrationBaseline()
     {
         var lines = GoldenPayloads();
 
-        Assert.Equal(17, lines.Count);
+        Assert.Equal(16, lines.Count);
         Assert.Equal(BaselineSha256, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(string.Concat(lines.Select(line => line + "\n"))))));
     }
 
     [Fact]
     public void RecomposedOfferIgnoresItemMutationAfterCapture()
     {
-        var item = new CatalogItem { Id = 30, OfferId = 30, CatalogName = "badge_x", Badge = "ADM", CostCredits = 1, Amount = 1, HaveOffer = true, Definition = Def(InteractionType.Badge, "b", name: "ADM") };
-        var snapshot = Snapshots().CaptureOffer(item);
+        var definition = Def(InteractionType.None, "s", name: "chair");
+        var offer = Offer(30, "chair_x", Badge("ADM"), Furni(definition));
+        offer.CostCredits = 1;
+        var snapshot = Snapshots().CaptureOffer(offer);
         var before = Writes(new CatalogOfferComposer(snapshot));
 
-        item.Badge = "CHANGED";
-        item.CostCredits = 99;
-        item.Definition.ItemName = "OTHER";
+        offer.Products = [Badge("CHANGED"), Furni(definition)];
+        offer.CostCredits = 99;
+        definition.ItemName = "OTHER";
 
         Assert.Equal(before, Writes(new CatalogOfferComposer(snapshot)));
-        Assert.NotEqual(before, Writes(new CatalogOfferComposer(Snapshots().CaptureOffer(item))));
+        Assert.NotEqual(before, Writes(new CatalogOfferComposer(Snapshots().CaptureOffer(offer))));
     }
 
     [Fact]
@@ -60,26 +62,39 @@ public class CatalogSnapshotTests
     [Fact]
     public void UnknownBotFallsBackToTheDefaultFigure()
     {
-        var item = new CatalogItem { Id = 41, OfferId = 41, CatalogName = "bot_y", ItemId = 556, CostPixels = 9, Amount = 1, Definition = Def(InteractionType.Bot, "s", sprite: 3) };
+        var offer = Offer(41, "bot_y", new CatalogProduct { Type = CatalogProductType.Bot, BotPresetId = 556 });
+        offer.CostPixels = 9;
 
-        var writes = Writes(new CatalogOfferComposer(Snapshots().CaptureOffer(item)));
+        var writes = Writes(new CatalogOfferComposer(Snapshots().CaptureOffer(offer)));
 
         Assert.Contains("hd-180-7.ea-1406-62.ch-210-1321.hr-831-49.ca-1813-62.sh-295-1321.lg-285-92", writes);
+    }
+
+    [Fact]
+    public void LimitedOffersReportTheirRemainingStock()
+    {
+        var offer = Offer(60, "ltd_x", Furni(Def(InteractionType.None, "i", sprite: 8)));
+        offer.LimitedStack = 10;
+        offer.LimitedSells = 3;
+
+        var product = Assert.Single(Snapshots().CaptureOffer(offer).Products);
+
+        Assert.True(product.IsLimited);
+        Assert.Equal(10u, product.LimitedStack);
+        Assert.Equal(7u, product.LimitedRemaining);
     }
 
     [Fact]
     public void CapturedPageDoesNotFollowLaterSourceMutation()
     {
         var page = Page(5, "default_3x3");
-        page.PageStringsList1 = ["a"];
-        page.Items[30] = new CatalogItem { Id = 30, OfferId = 30, CatalogName = "badge_x", Badge = "ADM", CostCredits = 1, Amount = 1, HaveOffer = true, Definition = Def(InteractionType.Badge, "b", name: "ADM") };
-        new CatalogOfferIndex().Build([page]);
+        page.Images = ["a"];
+        page.Offers[30] = Offer(30, "badge_x", Badge("ADM"));
         var snapshot = Snapshots().CapturePage(page, -1);
         var before = Writes(new CatalogPageComposer(snapshot));
 
-        page.PageStringsList1.Add("z");
+        page.Images.Add("z");
         page.Offers.Clear();
-        page.Items.Clear();
 
         Assert.Equal(before, Writes(new CatalogPageComposer(snapshot)));
         Assert.Single(snapshot.Strings1);
@@ -87,21 +102,21 @@ public class CatalogSnapshotTests
     }
 
     [Fact]
-    public void CapturedDealAndClubGiftsDoNotFollowLaterSourceMutation()
+    public void CapturedBundleAndClubGiftsDoNotFollowLaterSourceMutation()
     {
-        var deal = new CatalogDeal { Id = 77, ItemDataList = [new CatalogItem { Definition = Def(InteractionType.Badge, "b", name: "ADM") }] };
-        var catalog = Proxy<ICatalogManager>((method, args) => method == "TryGetDeal" ? Out(args, 1, deal) : throw new InvalidOperationException(method));
-        var dealItem = new CatalogItem { Id = 20, OfferId = 20, CatalogName = "deal_a", CostCredits = 1, Definition = Def(InteractionType.Deal, "s", behaviour: 77) };
-        var offer = Snapshots(catalog).CaptureOffer(dealItem);
-        var dealBefore = Writes(new CatalogOfferComposer(offer));
+        var bundle = Offer(20, "deal_a", Furni(Def(InteractionType.None, "s", sprite: 4)), Furni(Def(InteractionType.None, "i", sprite: 5), amount: 2));
+        var offer = Snapshots().CaptureOffer(bundle);
+        var bundleBefore = Writes(new CatalogOfferComposer(offer));
 
-        deal.ItemDataList.Add(new CatalogItem { Definition = Def(InteractionType.None, "i") });
+        bundle.Products = [.. bundle.Products, Furni(Def(InteractionType.None, "i"))];
 
-        Assert.Equal(dealBefore, Writes(new CatalogOfferComposer(offer)));
-        Assert.Single(((DealProducts)offer.Products).Items);
+        Assert.Equal(bundleBefore, Writes(new CatalogOfferComposer(offer)));
+        Assert.Equal(2, offer.Products.Length);
+        Assert.False(offer.CanGift);
+        Assert.False(offer.CanSelectAmount);
 
-        var gift = new CatalogItem { Id = 70, CatalogName = "club_a", Amount = 1, PreviewImage = "p.png", Definition = Def(InteractionType.None, "i", sprite: 11, gift: true, type: ItemType.Floor) };
-        gift.WireOfferId = 700;
+        var gift = Offer(700, "club_a", Furni(Def(InteractionType.None, "i", sprite: 11, gift: true, type: ItemType.Floor)));
+        gift.PreviewImage = "p.png";
         var gifts = new List<ClubGift> { new(gift, 1) };
         var club = Snapshots().CaptureClubGifts(new ClubGiftInfo(3, 1, 5, gifts));
         var clubBefore = Writes(new ClubGiftsComposer(club));
@@ -118,48 +133,105 @@ public class CatalogSnapshotTests
         var lines = new List<string>();
         void Add(string name, IServerPacket composer) => lines.Add(name + ": " + Writes(composer));
 
-        var hab = new CatalogItem { Id = 10, OfferId = 12, CatalogName = "toast_toast", HabbiconId = 61, CostCredits = 5, Amount = 1, HaveOffer = true, Definition = null! };
+        var hab = Offer(12, "toast_toast", new CatalogProduct { Type = CatalogProductType.Habbicon, HabbiconId = 61 });
+        hab.CostCredits = 5;
         Add("habbicon", new CatalogOfferComposer(snapshots.CaptureOffer(hab)));
-        Add("habbicon-nooffer", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 11, OfferId = 13, CatalogName = "t2", HabbiconId = 62, CostCredits = 5, Amount = 1, HaveOffer = false, Definition = null! })));
-        Add("deal", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 20, OfferId = 20, CatalogName = "deal_a", CostDiamonds = 3, Definition = Def(InteractionType.Deal, "s", behaviour: 77) })));
-        Add("deal-missing", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 21, OfferId = 21, CatalogName = "deal_b", CostCredits = 2, Definition = Def(InteractionType.Roomdeal, "s", behaviour: 78) })));
-        Add("badge", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 30, OfferId = 30, CatalogName = "badge_x", Badge = "ADM", CostCredits = 1, CostPixels = 2, Amount = 1, HaveOffer = true, Definition = Def(InteractionType.Badge, "b", name: "ADM") })));
-        Add("bot", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 40, OfferId = 40, CatalogName = "bot_x", ItemId = 555, CostPixels = 9, Amount = 1, Definition = Def(InteractionType.Bot, "s", sprite: 3) })));
-        Add("bot-unknown", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 41, OfferId = 41, CatalogName = "bot_y", ItemId = 556, CostPixels = 9, Amount = 1, Definition = Def(InteractionType.Bot, "s", sprite: 3) })));
-        Add("wallpaper", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 50, OfferId = 50, CatalogName = "wallpaper_x_abc_def", CostCredits = 4, Amount = 1, HaveOffer = true, Definition = Def(InteractionType.Wallpaper, "i", sprite: 7) })));
-        Add("ltd", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 60, OfferId = 60, CatalogName = "ltd_x", CostCredits = 4, Amount = 1, IsLimited = true, LimitedEditionStack = 10, LimitedEditionSells = 3, ExtraData = "ex", HaveOffer = true, Definition = Def(InteractionType.None, "i", sprite: 8) })));
-        Add("plain-extra-null", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 61, OfferId = 61, CatalogName = "plain", CostCredits = 4, Amount = 2, ExtraData = null!, HaveOffer = true, Definition = Def(InteractionType.None, "i", sprite: 8, gift: true, type: ItemType.Floor) })));
-        Add("plain-gift", new CatalogOfferComposer(snapshots.CaptureOffer(new CatalogItem { Id = 62, OfferId = 62, CatalogName = "gift", CostPixels = 4, Amount = 1, ExtraData = "data", ClubLevel = 2, PreviewImage = "catalogue/x.png", HaveOffer = true, Definition = Def(InteractionType.None, "i", sprite: 9, gift: true, type: ItemType.Floor) })));
+        var disabled = Offer(13, "t2", new CatalogProduct { Type = CatalogProductType.Habbicon, HabbiconId = 62 });
+        disabled.CostCredits = 5;
+        disabled.Enabled = false;
+        Add("habbicon-nooffer", new CatalogOfferComposer(snapshots.CaptureOffer(disabled)));
+        var deal = Offer(20, "deal_a", Badge("ADM"), Furni(Def(InteractionType.None, "i", sprite: 5), amount: 2));
+        deal.CostDiamonds = 3;
+        Add("deal", new CatalogOfferComposer(snapshots.CaptureOffer(deal)));
+        var badge = BadgeOffer();
+        badge.CostPixels = 2;
+        Add("badge", new CatalogOfferComposer(snapshots.CaptureOffer(badge)));
+        Add("bot", new CatalogOfferComposer(snapshots.CaptureOffer(BotOffer(40, "bot_x", 555))));
+        Add("bot-unknown", new CatalogOfferComposer(snapshots.CaptureOffer(BotOffer(41, "bot_y", 556))));
+        Add("wallpaper", new CatalogOfferComposer(snapshots.CaptureOffer(WallpaperOffer())));
+        Add("ltd", new CatalogOfferComposer(snapshots.CaptureOffer(LimitedOffer())));
+        var plain = Offer(61, "plain", Furni(Def(InteractionType.None, "i", sprite: 8, gift: true, type: ItemType.Floor), amount: 2));
+        plain.CostCredits = 4;
+        Add("plain-extra-empty", new CatalogOfferComposer(snapshots.CaptureOffer(plain)));
+        var gift = Offer(62, "gift", Furni(Def(InteractionType.None, "i", sprite: 9, gift: true, type: ItemType.Floor), extra: "data"));
+        gift.CostPixels = 4;
+        gift.ClubLevel = 2;
+        gift.PreviewImage = "catalogue/x.png";
+        Add("plain-gift", new CatalogOfferComposer(snapshots.CaptureOffer(gift)));
 
         var page = Page(5, "default_3x3");
-        page.PageStringsList1 = ["a", "b"];
-        page.PageStringsList2 = ["c"];
-        page.Items[10] = hab;
-        page.Items[30] = new CatalogItem { Id = 30, OfferId = 30, CatalogName = "badge_x", Badge = "ADM", CostCredits = 1, Amount = 1, HaveOffer = true, Definition = Def(InteractionType.Badge, "b", name: "ADM") };
-        page.Items[50] = new CatalogItem { Id = 50, OfferId = 50, CatalogName = "wallpaper_x_abc_def", CostCredits = 4, Amount = 1, HaveOffer = true, Definition = Def(InteractionType.Wallpaper, "i", sprite: 7) };
-        page.Items[60] = new CatalogItem { Id = 60, OfferId = 60, CatalogName = "ltd_x", CostCredits = 4, Amount = 1, IsLimited = true, LimitedEditionStack = 10, LimitedEditionSells = 3, ExtraData = "ex", HaveOffer = true, Definition = Def(InteractionType.None, "i", sprite: 8) };
-        page.Items[40] = new CatalogItem { Id = 40, OfferId = 40, CatalogName = "bot_x", ItemId = 555, CostPixels = 9, Amount = 1, Definition = Def(InteractionType.Bot, "s", sprite: 3) };
-        new CatalogOfferIndex().Build([page]);
+        page.Images = ["a", "b"];
+        page.Texts = ["c"];
+
+        foreach (var offer in new[] { hab, BadgeOffer(), WallpaperOffer(), LimitedOffer(), BotOffer(40, "bot_x", 555) }) {
+            page.Offers[offer.Id] = offer;
+        }
+
         Add("page", new CatalogPageComposer(snapshots.CapturePage(page, 30)));
         Add("page-preselect-none", new CatalogPageComposer(snapshots.CapturePage(page, -1)));
         var front = Page(6, "frontpage");
-        front.Items[10] = hab;
-        new CatalogOfferIndex().Build([front]);
+        front.Offers[hab.Id] = hab;
         Add("page-frontpage", new CatalogPageComposer(snapshots.CapturePage(front, -1)));
 
         var client = HabbiconTestSupport.Client(EditorTestSupport.Player()).Client;
         var pages = new List<CatalogPage> { Tree(1, -1), Tree(2, 1, offerIds: 7), Tree(3, 2), Tree(4, 3, enabled: false) };
         Add("index", new CatalogIndexComposer(snapshots.CaptureIndex(client.GetHabbo(), pages)));
 
-        var gift1 = new CatalogItem { Id = 70, OfferId = 0, CatalogName = "club_a", Amount = 1, ClubLevel = 2, PreviewImage = "p.png", CostCredits = 99, IsLimited = true, Definition = Def(InteractionType.None, "i", sprite: 11, gift: true, type: ItemType.Floor) };
-        gift1.WireOfferId = 700;
-        var gift2 = new CatalogItem { Id = 71, OfferId = 0, CatalogName = "club_b", Amount = 1, ClubLevel = 1, PreviewImage = "q.png", Definition = Def(InteractionType.Badge, "b", name: "CLUB") };
-        gift2.WireOfferId = 701;
+        var gift1 = Offer(700, "club_a", Furni(Def(InteractionType.None, "i", sprite: 11, gift: true, type: ItemType.Floor)));
+        gift1.ClubLevel = 2;
+        gift1.PreviewImage = "p.png";
+        gift1.CostCredits = 99;
+        gift1.LimitedStack = 5;
+        var gift2 = Offer(701, "club_b", Badge("CLUB"));
+        gift2.ClubLevel = 1;
+        gift2.PreviewImage = "q.png";
         Add("club-gifts", new ClubGiftsComposer(snapshots.CaptureClubGifts(new ClubGiftInfo(3, 2, 5, [new ClubGift(gift1, 1), new ClubGift(gift2, 9)]))));
         Add("club-gifts-none", new ClubGiftsComposer(snapshots.CaptureClubGifts(new ClubGiftInfo(3, 0, 0, [new ClubGift(gift1, 9)]))));
 
         return lines;
     }
+
+    private static CatalogOffer BadgeOffer()
+    {
+        var offer = Offer(30, "badge_x", Badge("ADM"), Badge("ADM"));
+        offer.CostCredits = 1;
+
+        return offer;
+    }
+
+    private static CatalogOffer BotOffer(int id, string name, int preset)
+    {
+        var offer = Offer(id, name, new CatalogProduct { Type = CatalogProductType.Bot, BotPresetId = preset });
+        offer.CostPixels = 9;
+
+        return offer;
+    }
+
+    private static CatalogOffer WallpaperOffer()
+    {
+        var offer = Offer(50, "wallpaper_x_abc_def", Furni(Def(InteractionType.Wallpaper, "i", sprite: 7), extra: "abc"));
+        offer.CostCredits = 4;
+
+        return offer;
+    }
+
+    private static CatalogOffer LimitedOffer()
+    {
+        var offer = Offer(60, "ltd_x", Furni(Def(InteractionType.None, "i", sprite: 8), extra: "ex"));
+        offer.CostCredits = 4;
+        offer.LimitedStack = 10;
+        offer.LimitedSells = 3;
+
+        return offer;
+    }
+
+    private static CatalogOffer Offer(int id, string localizationKey, params CatalogProduct[] products) =>
+        new() { Id = id, LocalizationKey = localizationKey, Products = products };
+
+    private static CatalogProduct Furni(ItemDefinition definition, int amount = 1, string extra = "") =>
+        new() { Type = CatalogProductType.Furni, Definition = definition, Amount = amount, ExtraParam = extra };
+
+    private static CatalogProduct Badge(string code) => new() { Type = CatalogProductType.Badge, BadgeCode = code };
 
     private static IEnumerable<CatalogPromotion> Promotions() =>
     [
@@ -172,26 +244,13 @@ public class CatalogSnapshotTests
     private static CatalogSnapshotService Snapshots(ICatalogManager? catalog = null) =>
         new(catalog ?? Catalog(), TimeProvider.System);
 
-    private static ICatalogManager Catalog(params CatalogPromotion[] promotions)
-    {
-        var deal = new CatalogDeal
+    private static ICatalogManager Catalog(params CatalogPromotion[] promotions) =>
+        Proxy<ICatalogManager>((method, args) => method switch
         {
-            Id = 77,
-            ItemDataList =
-        [
-            new CatalogItem { Definition = Def(InteractionType.Badge, "b", name: "ADM") },
-            new CatalogItem { Amount = 2, Definition = Def(InteractionType.None, "i", sprite: 5) },
-        ]
-        };
-
-        return Proxy<ICatalogManager>((method, args) => method switch
-        {
-            "TryGetDeal" => Out(args, 1, (int)args[0]! == 77 ? deal : null),
             "TryGetBot" => Out(args, 1, (uint)args[0]! == 555 ? new CatalogBot { Id = 555, Figure = "hd-1.ch-2" } : null),
             "get_Promotions" => promotions,
             _ => throw new InvalidOperationException(method),
         });
-    }
 
     private static ItemDefinition Def(InteractionType interaction, string productType, int behaviour = 0, string name = "item", int sprite = 1, bool gift = false, ItemType type = ItemType.Floor) => new()
     {
@@ -221,10 +280,8 @@ public class CatalogSnapshotTests
         var page = new CatalogPage { Id = id, ParentId = parent, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3" };
 
         foreach (var offerId in offerIds) {
-            page.Items[offerId * 10] = new CatalogItem { Id = offerId * 10, OfferId = offerId, PageId = id, Definition = Def(InteractionType.None, "i") };
+            page.Offers[offerId] = Offer(offerId, "offer" + offerId, Furni(Def(InteractionType.None, "i")));
         }
-
-        new CatalogOfferIndex().Build([page]);
 
         return page;
     }

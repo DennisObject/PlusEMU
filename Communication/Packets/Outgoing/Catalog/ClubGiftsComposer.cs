@@ -19,7 +19,7 @@ public class ClubGiftsComposer(ClubGiftsSnapshot gifts) : IServerPacket
         packet.WriteInteger(gifts.Gifts.Length);
 
         foreach (var gift in gifts.Gifts) {
-            packet.WriteInteger(gift.WireOfferId);
+            packet.WriteInteger(gift.OfferId);
             packet.WriteBoolean(false); // one HC membership
             packet.WriteInteger(gift.DaysRequired);
             packet.WriteBoolean(gift.Unlocked);

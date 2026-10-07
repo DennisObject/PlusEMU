@@ -104,7 +104,7 @@ public sealed class CatalogBrowsingSnapshotTests
             Enabled = true,
             Visible = false,
             Layout = "frontpage",
-            Offers = { [44] = new CatalogItem { Id = 1, OfferId = 44, PageId = 7 } }
+            Offers = { [44] = new CatalogOffer { Id = 44 } }
         };
         var found = true;
         var pages = new List<CatalogPage> { page };
@@ -181,12 +181,10 @@ public sealed class CatalogBrowsingSnapshotTests
     [Fact]
     public void OfferBrowsingCapturesOnlyAnOfferAllowedByTheCanonicalCatalog()
     {
-        var item = new CatalogItem
+        var item = new CatalogOffer
         {
-            Id = 1,
-            OfferId = 44,
-            Amount = 1,
-            Definition = new ItemDefinition { ItemName = "chair", SpriteId = 3, Type = ItemType.Floor }
+            Id = 44,
+            Products = [new CatalogProduct { Type = CatalogProductType.Furni, Definition = new ItemDefinition { ItemName = "chair", SpriteId = 3, Type = ItemType.Floor } }]
         };
         var found = true;
         var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
@@ -278,11 +276,11 @@ public sealed class CatalogBrowsingSnapshotTests
         public List<int> PageOffers { get; } = [];
         public int IndexCaptures { get; private set; }
         public int OfferCaptures { get; private set; }
-        public CatalogOfferSnapshot CaptureOffer(CatalogItem item)
+        public CatalogOfferSnapshot CaptureOffer(CatalogOffer offer)
         {
             OfferCaptures++;
 
-            return inner.CaptureOffer(item);
+            return inner.CaptureOffer(offer);
         }
         public CatalogPageSnapshot CapturePage(CatalogPage page, int preselectOfferId)
         {
