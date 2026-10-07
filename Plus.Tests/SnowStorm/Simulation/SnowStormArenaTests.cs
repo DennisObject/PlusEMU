@@ -76,21 +76,21 @@ public class SnowStormArenaTests
 
         Assert.Equal(50, arena.Level.Width);
         Assert.Null(arena.GetTile(0, 0));
-        Assert.Equal(4600, arena.GetTile(2, 20)!.Height);
+        Assert.Equal(2880, arena.GetTile(2, 20)!.Height);
         Assert.False(arena.IsWalkable(2, 20));
-        Assert.Equal(2300, arena.GetTile(41, 37)!.Height);
+        Assert.Equal(1440, arena.GetTile(41, 37)!.Height);
         Assert.Equal(0, arena.GetTile(19, 41)!.Height);
         Assert.False(arena.IsWalkable(19, 41));
         Assert.False(arena.IsWalkable(17, 14));
         Assert.False(arena.IsWalkable(18, 14));
         Assert.True(arena.IsWalkable(17, 15));
-        Assert.Equal(2400, arena.GetTile(26, 24)!.Height);
+        Assert.Equal(1600, arena.GetTile(26, 24)!.Height);
         Assert.True(arena.IsWalkable(26, 25));
 
         var machine = Assert.Single(arena.Machines);
         Assert.Equal((26, 24, 0, 5), (machine.TileX, machine.TileY, machine.SnowballCount, machine.MaxSnowballs));
         Assert.Equal(18, arena.Objects.OfType<SnowStormTree>().Count());
-        Assert.All(arena.Objects.OfType<SnowStormTree>(), tree => Assert.Equal((2300, 3, 0), (tree.Height, tree.MaxHits, tree.Hits)));
+        Assert.All(arena.Objects.OfType<SnowStormTree>(), tree => Assert.Equal((3200, 3, 0), (tree.Height, tree.MaxHits, tree.Hits)));
     }
 
     [Fact]

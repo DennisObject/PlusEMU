@@ -4,8 +4,9 @@ namespace Plus.Tests.SnowStorm.Simulation;
 
 // Official Arctic Island (arena 8) copied from Polaris origin/dev
 // V20260729230000__snowwar_official_arctic_island.sql, mapped to FuseObjectData the way the SnowStorm server does:
-// ids 1..n in file order, ads_background and spawn lines dropped, snowball_machine -> s_snowball_machine (1x1, height 2400),
-// snst_fence/ads_igorraygun 1x2, height = Polaris collision height, altitude from z=, everything canStandOn = false.
+// ids 1..n in file order, ads_background and spawn lines dropped, snowball_machine -> s_snowball_machine,
+// snst_fence/ads_igorraygun 1x2, height = furni z * 1600 (SnowStormArenas furni table), altitude from z=,
+// everything canStandOn = false.
 internal static class ArcticIslandFixture
 {
     public const string HeightMapRows = """
@@ -171,6 +172,15 @@ internal static class ArcticIslandFixture
 
     public static readonly (int X, int Y)[] SouthSpawns = [(30, 43), (33, 42), (38, 41), (26, 42), (33, 46)];
 
+    private static readonly Dictionary<string, int> Heights = new()
+    {
+        ["snst_block1"] = 1440,
+        ["snst_tree1"] = 3200,
+        ["snst_fence"] = 960,
+        ["ads_igorraygun"] = 1600,
+        ["s_snowball_machine"] = 1600
+    };
+
     public static SnowStormLevelData Level()
     {
         string[] rows = HeightMapRows.Split('\n');
@@ -181,14 +191,14 @@ internal static class ArcticIslandFixture
             int id = fuseObjects.Count + 1;
 
             if (tokens[0] == "snowball_machine") {
-                fuseObjects.Add(new SnowStormFuseObject("s_snowball_machine", id, int.Parse(tokens[1]), int.Parse(tokens[2]), 1, 1, 2400, 0, 0, false, "0"));
+                fuseObjects.Add(new SnowStormFuseObject("s_snowball_machine", id, int.Parse(tokens[1]), int.Parse(tokens[2]), 1, 1, Heights["s_snowball_machine"], 0, 0, false, "0"));
                 continue;
             }
 
             bool twoTiles = tokens[0] is "snst_fence" or "ads_igorraygun";
             int altitude = tokens.Length > 7 && tokens[7].StartsWith("z=") ? int.Parse(tokens[7][2..]) : 0;
             fuseObjects.Add(new SnowStormFuseObject(tokens[0], id, int.Parse(tokens[1]), int.Parse(tokens[2]), 1, twoTiles ? 2 : 1,
-                int.Parse(tokens[5]), int.Parse(tokens[3]), altitude, false, tokens[6]));
+                Heights[tokens[0]], int.Parse(tokens[3]), altitude, false, tokens[6]));
         }
 
         return new SnowStormLevelData(rows[0].Length, rows.Length, string.Join('\r', rows), fuseObjects);
