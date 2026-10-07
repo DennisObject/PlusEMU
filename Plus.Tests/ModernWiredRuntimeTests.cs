@@ -913,21 +913,142 @@ public class ModernWiredRuntimeTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public void LineWithoutPhysicsStacksOntoItsWaitingFrontAtAWall(bool frontFirst)
+    [InlineData("wf_act_move_to_dir", true)]
+    [InlineData("wf_act_move_to_dir", false)]
+    [InlineData("wf_act_move_rotate", true)]
+    [InlineData("wf_act_move_rotate", false)]
+    public void LineWithoutPhysicsWaitsIntactAtAWallAndKeepsItsSpacingInFreeSpace(string name, bool frontFirst)
     {
         var (room, line) = TileLine(0, -1, 1, frontFirst);
-        var action = LineBox(room, "wf_act_move_to_dir", 6, line);
+        var action = LineBox(room, name, 6, line);
 
-        Assert.True(Pulse(room, action, line, blockedBySelf: false));
-        Assert.Equal(new[] { 0, 0, 1, 2, 3, 4, 5 }, line.Select(item => item.GetX));
-
-        for (var pulse = 0; pulse < 5; pulse++) {
-            Pulse(room, action, line, blockedBySelf: false);
+        for (var pulse = 0; pulse < 3; pulse++) {
+            Assert.False(Pulse(room, action, line, blockedBySelf: false));
         }
 
-        Assert.All(line, item => Assert.Equal(new Point(0, 1), item.Coordinate));
+        Assert.Equal(new[] { 0, 1, 2, 3, 4, 5, 6 }, line.Select(item => item.GetX));
+
+        var (open, free) = TileLine(6, 1, 1, frontFirst);
+        var east = LineBox(open, name, 2, free);
+
+        Assert.True(Pulse(open, east, free, blockedBySelf: false));
+        Assert.Equal(new[] { 7, 6, 5, 4, 3, 2, 1 }, free.Select(item => item.GetX));
+    }
+
+    [Theory]
+    [InlineData(InteractionType.None, true, false, false)]
+    [InlineData(InteractionType.None, true, true, true)]
+    [InlineData(InteractionType.None, false, false, false)]
+    [InlineData(InteractionType.None, false, true, true)]
+    [InlineData(InteractionType.Stacktool, true, false, false)]
+    [InlineData(InteractionType.Stacktool, true, true, true)]
+    public void StepIsBlockedByAnyFurnitureUnlessPhysicsMovesThroughIt(InteractionType type, bool stackable, bool through, bool moves)
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var mover = MakeItem(1, "test");
+        mover.SetState(0, 1, 0, Gamemap.GetAffectedTiles(1, 1, 0, 1, 0));
+        items[1] = mover;
+        map.AddToMap(mover);
+        var obstacle = MakeItem(2, "obstacle");
+        obstacle.Definition.InteractionType = type;
+        obstacle.Definition.Stackable = stackable;
+        obstacle.Definition.Height = 0.5;
+        obstacle.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
+        items[2] = obstacle;
+        map.AddToMap(obstacle);
+        var action = ActionBox(room, "wf_act_move_rotate");
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [2, 0, 100, 0], SelectedItems = [1] }, out var config, out var error), error);
+        action.ApplyConfiguration(config);
+        var context = Context(room, new(WiredEventKind.Use), [mover, obstacle], []);
+        context.Policy.Addons.DisableAnimation = true;
+        var throughFurni = through ? new HashSet<uint> { 2 } : new HashSet<uint>();
+
+        if (through) {
+            context.Policy.Addons.Physics = new(false, throughFurni, new HashSet<int>(), new HashSet<uint>());
+        }
+
+        Assert.Equal(moves, action.Execute(context));
+        Assert.Equal(moves ? new Point(1, 1) : new Point(0, 1), mover.Coordinate);
+        Assert.Equal(moves ? type == InteractionType.Stacktool ? 0 : 0.5 : 0, mover.GetZ);
+        Assert.Equal(Plus.HabboHotel.Items.Wired.Modern.Addons.WiredMovementPolicy.IsBlocked(context.Policy.Addons.Physics, [2], [], true, false),
+            new WiredCollisionPolicy(throughFurni, new HashSet<int>(), new HashSet<uint>(), Step: true).BlocksFurni(obstacle));
+    }
+
+    [Fact]
+    public void ValidMovesCheckUsesTheStepRuleSoAStackableNeighbourBlocksUnlessMovedThrough()
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var mover = MakeItem(1, "test");
+        mover.SetState(0, 1, 0, Gamemap.GetAffectedTiles(1, 1, 0, 1, 0));
+        items[1] = mover;
+        map.AddToMap(mover);
+        var tile = MakeItem(2, "color_tile");
+        tile.Definition.Stackable = true;
+        tile.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
+        items[2] = tile;
+        map.AddToMap(tile);
+        var through = new Plus.HabboHotel.Items.Wired.Modern.Addons.WiredPhysicsPolicy(false, new HashSet<uint> { 2 }, new HashSet<int>(), new HashSet<uint>());
+
+        Assert.False(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: WiredRoomMovement.Collision(null, step: true)));
+        Assert.True(WiredRoomOperations.CanMoveItem(room, mover, 1, 1, 0, collision: WiredRoomMovement.Collision(through, step: true)));
+    }
+
+    [Theory]
+    [InlineData("wf_act_rel_mov", new[] { 1, 1, 1, 0, 100 }, false)]
+    [InlineData("wf_act_move_furni_as_group", new[] { 2, 100 }, false)]
+    [InlineData("wf_act_move_rotate", new[] { -1, 2, 100, 0 }, true)]
+    public void StepActionsStopAtStackableFurnitureButRotatingInPlaceIsNoStep(string name, int[] ints, bool changes)
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var below = MakeItem(2, "color_tile");
+        below.Definition.Stackable = true;
+        below.SetState(0, 1, 0, Gamemap.GetAffectedTiles(1, 1, 0, 1, 0));
+        items[2] = below;
+        map.AddToMap(below);
+        var ahead = MakeItem(3, "color_tile");
+        ahead.Definition.Stackable = true;
+        ahead.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
+        items[3] = ahead;
+        map.AddToMap(ahead);
+        var mover = MakeItem(1, "test");
+        mover.SetState(0, 1, 0, Gamemap.GetAffectedTiles(1, 1, 0, 1, 0));
+        items[1] = mover;
+        map.AddToMap(mover);
+        var action = ActionBox(room, name);
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [.. ints], SelectedItems = [1] }, out var config, out var error), error);
+        action.ApplyConfiguration(config);
+        var context = Context(room, new(WiredEventKind.Use), [mover, below, ahead], []);
+        context.Policy.Addons.DisableAnimation = true;
+
+        Assert.Equal(changes, action.Execute(context));
+        Assert.Equal((0, 1, changes ? 2 : 0), (mover.GetX, mover.GetY, mover.Rotation));
+    }
+
+    [Fact]
+    public void FurniToFurniAndManualPlacementStillStackOntoStackableFurniture()
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var mover = MakeItem(1, "test");
+        mover.SetState(0, 0, 0, Gamemap.GetAffectedTiles(1, 1, 0, 0, 0));
+        items[1] = mover;
+        map.AddToMap(mover);
+        var target = MakeItem(2, "color_tile");
+        target.Definition.Stackable = true;
+        target.Definition.Height = 0.5;
+        target.SetState(2, 2, 0, Gamemap.GetAffectedTiles(1, 1, 2, 2, 0));
+        items[2] = target;
+        map.AddToMap(target);
+        var action = ActionBox(room, "wf_act_furni_to_furni");
+        Assert.True(action.TryValidateConfiguration(new() { IntParams = [100, 100], Text = "2", SelectedItems = [1] }, out var config, out var error), error);
+        action.ApplyConfiguration(config);
+
+        Assert.True(action.Execute(Context(room, new(WiredEventKind.Use), [mover, target], [])));
+        Assert.Equal((2, 2, 0.5), (mover.GetX, mover.GetY, mover.GetZ));
+
+        Assert.True(map.ResolvePlacement(2, 2, mover.Id).CanStack);
+        Assert.True(room.GetRoomItemHandler().SetFloorItem(null!, mover, 0, 0, 0, false, false, false));
+        Assert.True(room.GetRoomItemHandler().SetFloorItem(null!, mover, 2, 2, 0, false, false, false));
+        Assert.Equal((2, 2, 0.5), (mover.GetX, mover.GetY, mover.GetZ));
     }
 
     // Seven stackable color tiles on y = 1 with line[0] leading along dx; the ids decide whether the front or the back runs first.
