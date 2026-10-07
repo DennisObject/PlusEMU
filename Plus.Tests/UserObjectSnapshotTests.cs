@@ -55,8 +55,12 @@ public sealed class UserObjectSnapshotTests
     [InlineData("0", true, false)]
     public void PerksAllowTheToolbarCameraOnlyWhenTheUserMayUseIt(string cameraEnabled, bool canUseCamera, bool expected)
     {
-        var user = new Habbo { Id = 7, HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0),
-            Access = EditorTestSupport.Access(canUseCamera ? [PermissionKeys.CameraUse] : []) };
+        var user = new Habbo
+        {
+            Id = 7,
+            HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0),
+            Access = EditorTestSupport.Access(canUseCamera ? [PermissionKeys.CameraUse] : [])
+        };
         var (session, sent) = HabbiconTestSupport.Client(user);
         var service = new UserProfileService(null!, null!, null!, null!, null!, TimeProvider.System, null!, null!, null!, new CameraSettings(cameraEnabled));
 
@@ -64,7 +68,7 @@ public sealed class UserObjectSnapshotTests
 
         // The CAMERA perk is written as its name, an empty requirement and the allowed flag.
         var perks = sent.Single(packet => packet.Header == ServerPacketHeader.UserPerksComposer).Payload;
-        byte[] camera = [0, 6, .."CAMERA"u8, 0, 0];
+        byte[] camera = [0, 6, .. "CAMERA"u8, 0, 0];
         var index = perks.AsSpan().IndexOf(camera);
         Assert.True(index >= 0);
         Assert.Equal(expected, perks[index + camera.Length] == 1);
