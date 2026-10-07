@@ -346,8 +346,15 @@ public class RoomItemHandling
     {
         var item = GetItem(id);
 
-        if (item == null || item.IsTemporary) {
-            return;
+        if (item != null) {
+            RemoveFurniture(session, item);
+        }
+    }
+
+    public bool RemoveFurniture(GameClient session, Item item)
+    {
+        if (item.IsTemporary || !ReferenceEquals(GetItem(item.Id), item)) {
+            return false;
         }
 
         // Before anything else changes: if the saved wired settings cannot be dropped, the box stays placed.
@@ -366,21 +373,30 @@ public class RoomItemHandling
             item.UpdateNeeded = false;
         }
 
-        RemoveRoomItem(item);
+        return RemoveRoomItem(item);
     }
 
-    private void RemoveRoomItem(Item item)
+    private bool RemoveRoomItem(Item item)
     {
         var inputs = _room.GetGameMap().Navigation?.Inputs;
 
         if (inputs != null && item.IsFloorItem) {
             lock (item.NavSync) {
                 if (!_floorItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) {
-                    return;
+                    return false;
                 }
 
                 inputs.Remove(item);
             }
+        }
+
+        if (item.IsWallItem) {
+            if (!_wallItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) {
+                return false;
+            }
+        }
+        else if (inputs == null && !_floorItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) {
+            return false;
         }
 
         if (item.IsFloorItem) {
@@ -391,15 +407,8 @@ public class RoomItemHandling
         }
 
         //TODO: Recode this specific part
-        if (item.IsWallItem) {
-            _wallItems.TryRemove(item.Id, out item);
-        }
-        else {
+        if (item.IsFloorItem) {
             _room.GetWired()?.DetachRoomItem(item);
-
-            if (inputs == null) {
-                _floorItems.TryRemove(item.Id, out item);
-            }
 
             //mFloorItems.OnCycle();
             _room.GetGameMap().RemoveFromMap(item);
@@ -410,6 +419,8 @@ public class RoomItemHandling
         _room.GetGameMap().FlushPlacementUpdates();
         _room.GetRoomUserManager().UpdateUserStatusses();
         item.Detach(_room);
+
+        return true;
     }
 
     private List<IServerPacket> CycleRollers()
@@ -1009,13 +1020,8 @@ public class RoomItemHandling
             return;
         }
 
-        if (_movedItems.ContainsKey(item.Id)) {
-            _movedItems.TryRemove(item.Id, out item);
-        }
-
-        if (_rollers.ContainsKey(item.Id)) {
-            _rollers.TryRemove(item.Id, out item);
-        }
+        _movedItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item));
+        _rollers.TryRemove(new KeyValuePair<uint, Item>(item.Id, item));
     }
 
     public void OnCycle()

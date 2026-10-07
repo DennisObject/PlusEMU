@@ -369,8 +369,8 @@ public static class ClientPacketHeader
 
 
     //recycler
-    //public const uint GetRecyclerStatusEvent =;
-    //public const uint RecyclerRecycleEvent =;
+    public const uint GetRecyclerStatusEvent = 850;
+    public const uint RecyclerRecycleEvent = 2026;
 
 
     //FriendList

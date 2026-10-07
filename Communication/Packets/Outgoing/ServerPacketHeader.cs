@@ -247,6 +247,8 @@ public static class ServerPacketHeader
     public const uint GetYouTubePlaylistComposer = 1354; //763
     public const uint RespectNotificationComposer = 1818; //474
     public const uint RecyclerPrizesComposer = 1604; //2457
+    public const uint RecyclerStatusComposer = 639;
+    public const uint RecyclerFinishedComposer = 1126;
     public const uint GetRoomBannedUsersComposer = 1810; //3580
     public const uint RoomRatingComposer = 2454; //3464
     public const uint PlayableGamesComposer = 3076; //549
