@@ -79,6 +79,20 @@ public sealed class CatalogGiftPurchaseServiceTests
     }
 
     [Fact]
+    public async Task FurnitureOfferWithAnAttachedBadgeCannotLoseTheBadgeThroughGifting()
+    {
+        var context = CreateContext(attachedBadge: "ACH_Bonus");
+        await context.Service.Purchase(context.SenderClient, Request());
+        Assert.Equal(0, context.Rewards.Charges);
+        Assert.Equal(0, context.Store.Creates);
+        Assert.Equal(0, context.Clients.Lookups);
+        Assert.Equal(100, context.Sender.Credits);
+        Assert.Empty(context.Recipient.Inventory.Furniture.AllItems);
+        Assert.Empty(context.SenderPackets);
+        Assert.Empty(context.RecipientPackets);
+    }
+
+    [Fact]
     public async Task OrdinaryGiftPersistsBeforePublishingRecipientInventory()
     {
         var context = CreateContext();
@@ -111,7 +125,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         new(1, 2, "", recipient, "hello", 3, 4, 5, true);
 
     private static Context CreateContext(bool enabled = true, bool missingRecipient = false,
-        bool recipientIsSender = false, bool recipientAllowsGifts = true, bool storeFails = false)
+        bool recipientIsSender = false, bool recipientAllowsGifts = true, bool storeFails = false, string attachedBadge = "")
     {
         var content = new ItemDefinition
         {
@@ -135,7 +149,9 @@ public sealed class CatalogGiftPurchaseServiceTests
             Id = 2,
             CostCredits = 10,
             LocalizationKey = "chair",
-            Products = [new CatalogProduct { Type = CatalogProductType.Furni, Definition = content }]
+            Products = string.IsNullOrEmpty(attachedBadge)
+                ? [new CatalogProduct { Type = CatalogProductType.Furni, Definition = content }]
+                : [new CatalogProduct { Type = CatalogProductType.Badge, BadgeCode = attachedBadge }, new CatalogProduct { Type = CatalogProductType.Furni, Definition = content }]
         };
         var page = new CatalogPage { Id = 1, Enabled = true, Layout = "default_3x3" };
         page.Offers.Add(2, offer);
