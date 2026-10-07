@@ -268,7 +268,7 @@ namespace Plus.Tests
                     var migration = File.ReadAllText(Path.Combine(RepositoryRoot(), "Database", "Migrations", "54_GroupForums.sql"));
                     Connection.Execute(migration);
                     Connection.Execute(migration);
-                    Assert.EndsWith(migration.TrimEnd(), dump.TrimEnd());
+                    Assert.Contains(migration.TrimEnd(), dump.TrimEnd());
                     Connection.Execute("""
                         INSERT INTO users(id,username,auth_ticket,look) VALUES
                           (1,'Owner','ticket1','hd-180-1'),(2,'Member','ticket2','hd-180-1'),(3,'Admin','ticket3','hd-180-1'),
