@@ -1051,6 +1051,171 @@ public class ModernWiredRuntimeTests
         Assert.Equal((2, 2, 0.5), (mover.GetX, mover.GetY, mover.GetZ));
     }
 
+    [Theory]
+    [InlineData("wf_act_rel_mov", true)]
+    [InlineData("wf_act_rel_mov", false)]
+    [InlineData("wf_act_move_rotate", true)]
+    [InlineData("wf_act_move_rotate", false)]
+    [InlineData("wf_act_move_furni_as_group", true)]
+    [InlineData("wf_act_move_furni_as_group", false)]
+    [InlineData("wf_act_move_to_dir", true)]
+    [InlineData("wf_act_move_to_dir", false)]
+    public void SelectedStackStepsAsOneUnitKeepingItsHeights(string name, bool tileFirst)
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var stack = TileWithChair(map, items, 0, tileFirst);
+        var action = StackBox(room, name, 2, stack);
+
+        Assert.True(StackPulse(room, action, stack));
+
+        Assert.Equal((1, 1, 0.0), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
+        Assert.Equal((1, 1, 0.5), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
+    }
+
+    [Theory]
+    [InlineData("wf_act_rel_mov", true)]
+    [InlineData("wf_act_rel_mov", false)]
+    [InlineData("wf_act_move_rotate", true)]
+    [InlineData("wf_act_move_rotate", false)]
+    [InlineData("wf_act_move_to_dir", true)]
+    [InlineData("wf_act_move_to_dir", false)]
+    public void SelectedStackBlockedByAStackableTileAheadStaysWhole(string name, bool tileFirst)
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var stack = TileWithChair(map, items, 0, tileFirst);
+        var ahead = StackItem(map, items, 9, "color_tile", 1, 0, 0.5, true);
+        var action = StackBox(room, name, 2, stack);
+
+        Assert.False(StackPulse(room, action, stack, ahead));
+
+        Assert.Equal((0, 1, 0.0), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
+        Assert.Equal((0, 1, 0.5), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
+    }
+
+    [Theory]
+    [InlineData("wf_act_move_to_dir", true)]
+    [InlineData("wf_act_move_to_dir", false)]
+    [InlineData("wf_act_move_rotate", true)]
+    [InlineData("wf_act_move_rotate", false)]
+    [InlineData("wf_act_rel_mov", true)]
+    [InlineData("wf_act_rel_mov", false)]
+    public void LineOfStacksWaitsIntactAtAWallAndKeepsItsSpacingInFreeSpace(string name, bool frontFirst)
+    {
+        var (room, line) = StackLine(0, -1, frontFirst);
+        var action = StackBox(room, name, 6, line);
+
+        for (var pulse = 0; pulse < 3; pulse++) {
+            Assert.False(StackPulse(room, action, line));
+        }
+
+        AssertStackLine(line, [0, 1, 2, 3]);
+
+        var (open, free) = StackLine(6, 1, frontFirst);
+        var east = StackBox(open, name, 2, free);
+
+        for (var pulse = 1; pulse <= 2; pulse++) {
+            Assert.True(StackPulse(open, east, free));
+            AssertStackLine(free, [6 + pulse, 5 + pulse, 4 + pulse, 3 + pulse]);
+        }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void StackTurnsBackAsOneUnitAndKeepsMovingTogether(bool tileFirst)
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var stack = TileWithChair(map, items, 1, tileFirst);
+        var action = StackBox(room, "wf_act_move_to_dir", 2, stack, turn: 5);
+
+        // East to the wall, back west, then on west across the room.
+        foreach (var x in new[] { 2, 1, 0 }) {
+            Assert.True(StackPulse(room, action, stack));
+            Assert.Equal((x, 1, 0.0), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
+            Assert.Equal((x, 1, 0.5), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
+        }
+    }
+
+    [Theory]
+    [InlineData("wf_act_rel_mov", true)]
+    [InlineData("wf_act_rel_mov", false)]
+    [InlineData("wf_act_move_rotate", true)]
+    [InlineData("wf_act_move_rotate", false)]
+    public void StackMovesOntoFurnitureItMovesThroughKeepingItsOffsets(string name, bool tileFirst)
+    {
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var stack = TileWithChair(map, items, 0, tileFirst);
+        var obstacle = StackItem(map, items, 9, "color_tile", 1, 0, 0.5, true);
+        var action = StackBox(room, name, 2, stack);
+        var physics = new Plus.HabboHotel.Items.Wired.Modern.Addons.WiredPhysicsPolicy(false, new HashSet<uint> { obstacle.Id },
+            new HashSet<int>(), new HashSet<uint>());
+
+        Assert.True(StackPulse(room, action, stack, obstacle, physics));
+
+        Assert.Equal((1, 1, 0.5), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
+        Assert.Equal((1, 1, 1.0), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
+        Assert.Equal((1, 1, 0.0), (obstacle.GetX, obstacle.GetY, obstacle.GetZ));
+    }
+
+    // A stackable color tile with a chair on it at (x, 1), as [tile, chair]; the ids decide which one runs first.
+    private static Item[] TileWithChair(Gamemap map, ConcurrentDictionary<uint, Item> items, int x, bool tileFirst, uint firstId = 1) =>
+    [
+        StackItem(map, items, tileFirst ? firstId : firstId + 1, "color_tile", x, 0, 0.5, true),
+        StackItem(map, items, tileFirst ? firstId + 1 : firstId, "chair", x, 0.5, 1, false)
+    ];
+
+    private static Item StackItem(Gamemap map, ConcurrentDictionary<uint, Item> items, uint id, string name, int x, double z, double height, bool stackable)
+    {
+        var item = MakeItem(id, name);
+        item.Definition.Stackable = stackable;
+        item.Definition.Height = height;
+        item.SetState(x, 1, z, Gamemap.GetAffectedTiles(1, 1, x, 1, 0));
+        items[id] = item;
+        map.AddToMap(item);
+
+        return item;
+    }
+
+    // Four tile-and-chair stacks on y = 1 with the first leading along dx; the ids decide whether the front or the back runs first.
+    private static (Room Room, Item[] Line) StackLine(int frontX, int dx, bool frontFirst)
+    {
+        var (room, map, items) = World(heightmap: string.Join('\r', Enumerable.Repeat(new string('0', 16), 3)));
+
+        return (room, Enumerable.Range(0, 4).SelectMany(i => TileWithChair(map, items, frontX - dx * i, i % 2 == 0,
+            (uint)(frontFirst ? 1 + 2 * i : 7 - 2 * i))).ToArray());
+    }
+
+    private static void AssertStackLine(Item[] line, int[] xs)
+    {
+        Assert.Equal(xs.SelectMany(x => new[] { x, x }), line.Select(item => item.GetX));
+        Assert.Equal(xs.SelectMany(_ => new[] { 0.0, 0.5 }), line.Select(item => item.GetZ));
+    }
+
+    private static WiredModernAction StackBox(Room room, string name, int direction, Item[] movers, int turn = 0)
+    {
+        var action = ActionBox(room, name);
+        int[] ints = name switch
+        {
+            "wf_act_rel_mov" => [direction == 2 ? 1 : 0, 1, 1, 0, 100],
+            "wf_act_move_furni_as_group" => [direction, 100],
+            "wf_act_move_to_dir" => [direction, turn, 100, 0],
+            _ => [direction, 0, 100, 0]
+        };
+        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket(ints, movers.Select(item => item.Id).ToArray(), 0), TestWiredConfigurationStore.Instance, out var error), error);
+
+        return action;
+    }
+
+    private static bool StackPulse(Room room, WiredModernAction action, Item[] movers, Item? other = null,
+        Plus.HabboHotel.Items.Wired.Modern.Addons.WiredPhysicsPolicy? physics = null)
+    {
+        var context = Context(room, new(WiredEventKind.Use), movers.Append(other).OfType<Item>().OrderBy(item => item.Id).ToArray(), []);
+        context.Policy.Addons.DisableAnimation = true;
+        context.Policy.Addons.Physics = physics;
+
+        return action.Execute(context);
+    }
+
     // Seven stackable color tiles on y = 1 with line[0] leading along dx; the ids decide whether the front or the back runs first.
     private static (Room Room, Item[] Line) TileLine(int frontX, int dx, int spacing, bool frontFirst)
     {
