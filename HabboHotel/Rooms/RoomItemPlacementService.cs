@@ -8,6 +8,7 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Quests;
+using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms;
 
@@ -50,6 +51,27 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
             return;
         }
 
+        if (!inventoryItem.TryReserve()) {
+            return;
+        }
+
+        try {
+            var habbo = session.GetHabbo();
+
+            if (habbo.WalletClosed || !ReferenceEquals(habbo.Inventory.Furniture.GetItem(itemId), inventoryItem)) {
+                return;
+            }
+
+            PlaceReserved(room, session, data, inventoryItem);
+        }
+        finally {
+            inventoryItem.ReleaseReservation();
+        }
+    }
+
+    private void PlaceReserved(Room room, GameClient session, string[] data, InventoryItem inventoryItem)
+    {
+        var itemId = inventoryItem.Id;
         var item = inventoryItem.ToRoomObject(session.GetHabbo());
 
         if (item.Definition.InteractionType == InteractionType.Exchange && room.OwnerId != session.GetHabbo().Id && !session.GetHabbo().Access.Can(PermissionKeys.RoomItemPlaceExchangeAnywhere)) {
@@ -211,7 +233,15 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
             return;
         }
 
+        if (!item.TryReserve()) {
+            return;
+        }
+
         try {
+            if (habbo.WalletClosed || !ReferenceEquals(habbo.Inventory.Furniture.GetItem(itemId), item)) {
+                return;
+            }
+
             var position = room.GetRoomItemHandler().WallPositionCheck($":{location.Split(':')[1]}");
             var placed = item.ToRoomObject(habbo);
             placed.WallCoordinates = position;
@@ -223,6 +253,9 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
         }
         catch (Exception exception) {
             logger.LogError(exception, "Unable to place sticky {ItemId} for {UserId} in {RoomId}", itemId, habbo.Id, room.Id);
+        }
+        finally {
+            item.ReleaseReservation();
         }
     }
 
