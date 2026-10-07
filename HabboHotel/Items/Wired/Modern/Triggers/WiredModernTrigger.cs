@@ -22,7 +22,14 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
     public bool HidesChat(WiredRuntimeContext context) => Descriptor.CanonicalName == "wf_trg_says_something"
         && WiredTriggerPredicates.HidesChat(context.ConfigurationOf(this));
 
-    public override bool Execute(WiredRuntimeContext context)
+    public override bool Execute(WiredRuntimeContext context) => Matches(context, afterSelectors: false);
+
+    public bool CanTrigger(WiredRuntimeContext context) =>
+        TryValidateConfiguration(context.ConfigurationOf(this), out var config, out _)
+        && (!config.FurniSources.Values.Contains(WiredSources.Selector) && !config.UserSources.Values.Contains(WiredSources.Selector)
+            || Matches(context, afterSelectors: true));
+
+    private bool Matches(WiredRuntimeContext context, bool afterSelectors)
     {
         if (!Events.Contains(context.Event.Kind)) {
             return false;
@@ -36,13 +43,16 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
 
         var evt = context.Event;
         var name = Descriptor.CanonicalName;
+        // The selector pool is empty until the stack's selectors run, so those checks wait for CanTrigger.
+        var deferItems = !afterSelectors && config.FurniSources.GetValueOrDefault("items") == WiredSources.Selector;
+        var deferBots = !afterSelectors && config.UserSources.GetValueOrDefault("bots") == WiredSources.Selector;
         Item[] Items() => Furni(context, config, "items");
         bool ItemMatches(bool state = false) => evt.EventItem is { } item
-            && WiredTriggerPredicates.MatchesItem(config, item, Items(), state);
+            && (deferItems || WiredTriggerPredicates.MatchesItem(config, item, Items(), state));
         bool BotMatches() => evt.Actor?.IsBot == true && !evt.Actor.IsPet
-            && (config.UserSources["bots"] == 0
+            && (deferBots || (config.UserSources["bots"] == 0
                 ? context.Targets.AllUsers().Any(user => ReferenceEquals(user, evt.Actor))
-                : Users(context, config, "bots", config.Text).Contains(evt.Actor));
+                : Users(context, config, "bots", config.Text).Contains(evt.Actor)));
 
         return name switch
         {
@@ -50,14 +60,15 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
             "wf_trg_says_something" => evt.Actor != null && WiredTriggerPredicates.MatchesChat(config, evt.Message, evt.Actor.HabboId == context.Room.OwnerId),
             "wf_trg_walks_on_furni" or "wf_trg_walks_off_furni" or "wf_trg_click_furni" => evt.Actor != null && ItemMatches(),
             "wf_trg_stuff_state" or "wf_trg_state_changed" => ItemMatches(true),
-            "wf_trg_click_tile" => evt.Actor != null && Items().Any(item => WiredRoomOperations.Footprint(item, item.GetX, item.GetY, item.Rotation).Contains(new(evt.X, evt.Y))),
+            "wf_trg_click_tile" => evt.Actor != null && (deferItems
+                || Items().Any(item => WiredRoomOperations.Footprint(item, item.GetX, item.GetY, item.Rotation).Contains(new(evt.X, evt.Y)))),
             "wf_trg_click_user" => evt.Actor != null && evt.TargetUser != null,
             "wf_trg_bot_reached_avtr" => evt.TargetUser != null && BotMatches(),
             "wf_trg_bot_reached_stf" => BotMatches() && (config.SelectedItems.IsEmpty && config.FurniSources["items"] == 100 || ItemMatches()),
             "wf_trg_clock_counter" => ItemMatches() && WiredTriggerPredicates.MatchesCounter(config, evt.PreviousValue, evt.Value),
             "wf_trg_score_achieved" => WiredTriggerPredicates.MatchesScore(config, evt.Team, (int)evt.PreviousValue, (int)evt.Value),
             "wf_trg_user_performs_action" => evt.Actor != null && WiredTriggerPredicates.MatchesAction(config, evt.Action, evt.Code),
-            "wf_trg_recv_signal" => context.Signal != null && (Items().Any(item => item.Id == (uint)evt.Code)
+            "wf_trg_recv_signal" => context.Signal != null && (deferItems || Items().Any(item => item.Id == (uint)evt.Code)
                 || Items().Length == 0 && Param(config, 0) > 0 && Param(config, 0) == evt.Code),
             "wf_trg_game_starts" or "wf_trg_game_ends" => true,
             "wf_trg_collision" => evt.Actor != null && evt.EventItem != null,
