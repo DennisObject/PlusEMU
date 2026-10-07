@@ -27,6 +27,7 @@ import
     RoomGeometry,
     RoomInstance,
     RoomObjectCategory,
+    RoomObjectDimmerStateUpdateEvent,
     RoomObjectUserType,
     RoomObjectVariable,
     RoomPlaneParser,
@@ -746,9 +747,19 @@ async function renderRoom(job: CameraJob): Promise<string>
 
         if(/download|could not load|missing library/i.test(message)) failed.push(message);
     };
+    // The client applies a moodlight to the room from its UI (useFurnitureDimmerWidget), and
+    // RoomEngine.init, which routes furniture events, is never run here. Apply the dimmer
+    // logic's own state event directly for objects in the room being rendered.
+    const onDimmerState = (event: RoomObjectDimmerStateUpdateEvent) =>
+    {
+        if(!event?.object || (engine.getRoomObjectWall(roomId, event.object.id) !== event.object)) return;
+
+        engine.updateObjectRoomColor(roomId, event.color, event.brightness, event.effectId === 2);
+    };
     let opened = false;
 
     GetEventDispatcher().addEventListener<RoomContentLoadedEvent>(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
+    GetEventDispatcher().addEventListener<RoomObjectDimmerStateUpdateEvent>(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
     window.addEventListener('unhandledrejection', onRejection);
 
     try
@@ -779,6 +790,7 @@ async function renderRoom(job: CameraJob): Promise<string>
     finally
     {
         GetEventDispatcher().removeEventListener(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
+        GetEventDispatcher().removeEventListener(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
         window.removeEventListener('unhandledrejection', onRejection);
 
         if(opened) engine.destroyRoom(roomId);
