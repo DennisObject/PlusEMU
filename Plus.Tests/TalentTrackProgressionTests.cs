@@ -20,17 +20,21 @@ public sealed class TalentTrackProgressionTests
         habbo.Client = client;
         var calls = 0;
         var gift = new ItemDefinition { Id = 50, ItemName = "gift", Type = ItemType.Floor };
-        var store = CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((method, args) => {
+        var store = CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((method, args) =>
+        {
             Assert.Equal("Claim", method);
             Assert.Equal((7, "citizenship", 0), ((int)args[0]!, (string)args[1]!, (int)args[2]!));
             Assert.Same(gift, Assert.Single((IReadOnlyCollection<ItemDefinition>)args[3]!));
             calls++;
+
             return new[] { new InventoryItem { Id = 77, OwnerId = 7, Definition = gift } };
         });
         var service = Service(store, gift);
         var capture = client.SendCallback;
-        client.SendCallback = args => {
+        client.SendCallback = args =>
+        {
             Assert.True(habbo.Inventory.Furniture.HasItem(77));
+
             return capture!(args);
         };
         service.Progress(habbo, TalentTrackPresentationTests.Achievements());
@@ -40,8 +44,10 @@ public sealed class TalentTrackProgressionTests
         Assert.Equal(new[] { ServerPacketHeader.FurniListNotificationComposer, ServerPacketHeader.FurniListUpdateComposer, ServerPacketHeader.TalentLevelUpComposer }, packets.Select(packet => packet.Header));
         packets.Clear();
         // A fresh service must honor existing durable claims without notifying again.
-        var returning = Service(CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((method, _) => {
+        var returning = Service(CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((method, _) =>
+        {
             Assert.Equal("Claim", method);
+
             return null;
         }), gift);
         returning.Progress(habbo, TalentTrackPresentationTests.Achievements());
@@ -57,7 +63,8 @@ public sealed class TalentTrackProgressionTests
         habbo.Client = client;
         var calls = 0;
         var gift = new ItemDefinition { Id = 50, ItemName = "gift", Type = ItemType.Floor };
-        var service = Service(CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((method, _) => {
+        var service = Service(CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((method, _) =>
+        {
             Assert.Equal("Claim", method);
             calls++;
             throw new InvalidOperationException("write failed");

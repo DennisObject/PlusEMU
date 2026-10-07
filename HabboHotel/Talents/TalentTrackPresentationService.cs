@@ -16,8 +16,10 @@ public sealed class TalentTrackPresentationService(ITalentTrackManager talents, 
         if (type is not ("citizenship" or "helper")) {
             return;
         }
+
         var habbo = session.GetHabbo();
         progression.Progress(habbo, achievements.Achievements);
+
         lock (habbo.WalletSync) {
             if (!habbo.WalletClosed) {
                 session.Send(new TalentTrackComposer(type, TalentTrackSnapshot.Capture(talents.GetLevels().Where(level => level.Type == type), habbo, achievements.Achievements)));

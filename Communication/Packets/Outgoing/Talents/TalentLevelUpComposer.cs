@@ -11,10 +11,13 @@ public sealed class TalentLevelUpComposer(string type, TalentTrackLevelSnapshot 
         packet.WriteString(type);
         packet.WriteInteger(level.Level);
         packet.WriteInteger(level.Actions.Length);
+
         foreach (var action in level.Actions) {
             packet.WriteString(action);
         }
+
         packet.WriteInteger(level.Gifts.Length);
+
         foreach (var gift in level.Gifts) {
             packet.WriteString(gift);
             packet.WriteInteger(0); // Product VIP days, not a furniture sprite ID.

@@ -29,21 +29,28 @@ public sealed class TalentTrackDatabaseTests
     [TalentTrackDatabaseFact]
     public async Task NativeDefinitionsKeepCategoriesSeparateAndRewardsAreAtomicAndIdempotent()
     {
-        var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("TALENT_TRACK_DATABASE")!) {
-            Pooling = false, AllowZeroDateTime = true, ConvertZeroDateTime = true, AllowUserVariables = true
+        var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("TALENT_TRACK_DATABASE")!)
+        {
+            Pooling = false,
+            AllowZeroDateTime = true,
+            ConvertZeroDateTime = true,
+            AllowUserVariables = true
         };
         using var connection = new MySqlConnection(options.ConnectionString);
         connection.Open();
         var schema = "task_talents_" + Guid.NewGuid().ToString("N");
         connection.Execute($"CREATE DATABASE `{schema}`");
+
         try {
             connection.Execute($"USE `{schema}`");
             var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
+
             foreach (var table in new[] { "users", "items", "talents", "talents_sub_levels", "user_achievements" }) {
                 var ddl = Regex.Match(pristine, $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value;
                 Assert.NotEmpty(ddl);
                 connection.Execute(ddl);
             }
+
             connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/47_TalentTrackRewards.sql")));
             connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/47_TalentTrackRewards.sql")));
             connection.Execute("INSERT INTO users(id,username,auth_ticket) VALUES(7,'talent','ticket'); " +
@@ -73,7 +80,8 @@ public sealed class TalentTrackDatabaseTests
             Assert.Equal(2, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM items"));
             // Drive the actual achievement-to-talent boundary with an independently eligible owner.
             connection.Execute("INSERT INTO users(id,username,auth_ticket) VALUES(8,'achiever','ticket2')");
-            var habbo = new Habbo {
+            var habbo = new Habbo
+            {
                 Id = 8,
                 HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
                 Inventory = new InventoryComponent { Furniture = new([], []) }
@@ -97,6 +105,8 @@ public sealed class TalentTrackDatabaseTests
             Assert.Single(packets, packet => packet.Header == ServerPacketHeader.TalentLevelUpComposer);
 
         }
-        finally { connection.Execute($"DROP DATABASE `{schema}`"); }
+        finally {
+            connection.Execute($"DROP DATABASE `{schema}`");
+        }
     }
 }

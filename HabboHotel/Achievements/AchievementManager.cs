@@ -121,6 +121,7 @@ public class AchievementManager : IAchievementManager, IStartable
             }
 
             _talents.Progress(habbo, Achievements);
+
             return true;
         }
 
@@ -135,6 +136,7 @@ public class AchievementManager : IAchievementManager, IStartable
         session.Send(new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(data, targetLevel, level, totalLevels, habbo.GetAchievementData(group))));
 
         _talents.Progress(habbo, Achievements);
+
         return false;
     }
 

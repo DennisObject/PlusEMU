@@ -104,9 +104,11 @@ public class TalentTrackPresentationTests
     {
         var (client, sent) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
         var progressed = 0;
-        var progression = CatalogSnapshotTestSupport.Proxy<ITalentTrackProgressionService>((method, _) => {
+        var progression = CatalogSnapshotTestSupport.Proxy<ITalentTrackProgressionService>((method, _) =>
+        {
             Assert.Equal("Progress", method);
             progressed++;
+
             return null;
         });
         var manager = CatalogSnapshotTestSupport.Proxy<IAchievementManager>((method, _) => method == "get_Achievements" ? Achievements() : throw new InvalidOperationException(method));
@@ -135,6 +137,7 @@ public class TalentTrackPresentationTests
         var achievement = new Achievement { Id = 42, GroupName = "ACH_A" };
         achievement.AddLevel(new(1, 0, 0, 5));
         achievement.AddLevel(new(2, 0, 0, 10));
+
         return new() { ["ACH_A"] = achievement };
     }
 
@@ -152,7 +155,9 @@ public class TalentTrackPresentationTests
 
     internal sealed class FixedTalents(List<TalentTrackLevel> levels) : ITalentTrackManager
     {
-        public void Init() { }
+        public void Init()
+        {
+        }
         public ICollection<TalentTrackLevel> GetLevels() => levels;
     }
 }
