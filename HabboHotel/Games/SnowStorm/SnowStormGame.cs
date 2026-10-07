@@ -196,7 +196,8 @@ internal sealed class SnowStormGame
         _fullStatusRequests.Remove(player.UserId);
 
         if (_humanIds.Remove(player.UserId, out var humanId) && Phase != SnowStormGamePhase.Ended) {
-            _arena.Schedule(Math.Max(_arena.Turn, 1), 0, new SnowStormHumanLeftGame(humanId));
+            // GameStatus(Turn - 1) already carried the events of Turn, so the first open slot is the turn after it.
+            _arena.Schedule(_turnsRun > 0 ? _arena.Turn + 1 : 1, 0, new SnowStormHumanLeftGame(humanId));
             Broadcast(new Game2PlayerExitedGameArenaComposer(player.UserId, humanId));
         }
 
