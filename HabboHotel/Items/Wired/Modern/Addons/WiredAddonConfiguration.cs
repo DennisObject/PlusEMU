@@ -51,7 +51,7 @@ public static class WiredAddonConfiguration
                 break;
             case "wf_xtra_or_eval": {
                     var mode = P(0) is >= 0 and <= 6 ? P(0) : 0;
-                    fields = [mode, Source(1), Range(2, mode == 4 ? 1 : 0, 100, 1)];
+                    fields = [mode, Source(1), Range(2, 0, 1000, 1)];
                     break;
                 }
             case "wf_xtra_text_output_furni_name":

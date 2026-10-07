@@ -73,7 +73,9 @@ public sealed class WiredAddonModule
                     P(2) == 1 ? Users(P(6)) : [], P(3) == 1 ? Furni(P(5)) : []);
                 break;
             case "wf_xtra_or_eval":
-                policy.Conditions = new((WiredConditionEvaluation)P(0), P(1), P(2), Furni(P(1)));
+                // Condition scope is not a furniture target, so furniture limits must not subset it.
+                policy.Conditions = new((WiredConditionEvaluation)P(0), P(1), P(2),
+                    WiredSelectorSources.Furni(P(1), c, input.Selection, input.World).ToHashSet());
                 break;
             case "wf_xtra_exec_in_order":
                 policy.ExecuteInOrder = true;

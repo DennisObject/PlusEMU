@@ -275,6 +275,37 @@ public class WiredRuntimeEngineTests
         Assert.Equal(1, action.Calls);
     }
 
+    [Theory]
+    [InlineData(new uint[0])]
+    [InlineData(new uint[] { 999 })]
+    public void ConditionPolicyWithoutPickedConditionsAppliesToAllConditions(uint[] picked)
+    {
+        var f = new Fixture();
+        f.Trigger();
+        var good = f.Add(new Box(WiredBoxCategory.Condition) { Body = _ => true });
+        var bad = f.Add(new Box(WiredBoxCategory.Condition) { Body = _ => false });
+        var mode = WiredConditionEvaluation.Any;
+        f.Add(new Addon
+        {
+            ApplyBody = ctx =>
+        {
+            ctx.Policy.Addons.Conditions = new(mode, WiredSources.Selected, 0, picked.ToHashSet());
+
+            return true;
+        }
+        });
+        var action = f.Action();
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter)));
+        good.Body = _ => false;
+        Assert.False(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter)));
+        mode = WiredConditionEvaluation.SomeButNotAll;
+        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter)));
+        bad.Body = _ => true;
+        good.Body = _ => true;
+        Assert.False(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter)));
+        Assert.Equal(2, action.Calls);
+    }
+
     [Fact]
     public void RecursiveCallsAreBoundedByActualEngineDepth()
     {

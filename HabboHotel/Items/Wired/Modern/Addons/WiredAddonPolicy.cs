@@ -82,13 +82,13 @@ public static class WiredConditionPolicyEvaluator
             return true;
         }
 
-        count = Math.Clamp(count, mode == WiredConditionEvaluation.LessThan ? 1 : 0, 100);
+        count = Math.Clamp(count, 0, 1000);
 
         return mode switch
         {
             WiredConditionEvaluation.All => matched >= total,
             WiredConditionEvaluation.Any => matched > 0,
-            WiredConditionEvaluation.SomeButNotAll => matched > 0 && matched < total,
+            WiredConditionEvaluation.SomeButNotAll => matched < total,
             WiredConditionEvaluation.None => matched == 0,
             WiredConditionEvaluation.LessThan => matched < count,
             WiredConditionEvaluation.Exactly => matched == count,
