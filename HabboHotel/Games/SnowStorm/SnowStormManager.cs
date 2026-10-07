@@ -214,7 +214,10 @@ public sealed class SnowStormManager(
             }
 
             // "Play again" from the results screen joins a fresh lobby.
-            current.Remove(current.Participants.First(member => member.UserId == player.UserId), 0, false, now);
+            if (current.Participants.FirstOrDefault(member => member.UserId == player.UserId) is { } previous) {
+                current.Remove(previous, 0, false, now);
+            }
+
             _gameOf.Remove(player.UserId);
         }
 
