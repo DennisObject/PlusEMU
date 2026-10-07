@@ -21,9 +21,7 @@ public sealed class RoomWordQuizComponent(TimeProvider clock) : IRoomComponent, 
     private bool _disposed;
 
     public void Initiate(Room room) => _room = room;
-    public void Initiated()
-    {
-    }
+    public void Initiated() { }
 
     public bool Start(GameClient session, int questionId, string question, int seconds)
     {

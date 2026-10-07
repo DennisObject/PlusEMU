@@ -231,9 +231,7 @@ namespace Plus.Tests
                 [101] = new() { Id = 101, Type = ItemType.Floor, InteractionType = InteractionType.Jukebox, ItemName = "jukebox*1" }
             };
             public Dictionary<int, uint> Gifts { get; } = [];
-            public void Init()
-            {
-            }
+            public void Init() { }
             public ItemDefinition? GetItemByName(string name) => Items.Values.FirstOrDefault(item => item.ItemName == name);
         }
         private sealed class TestDatabase(string connectionString) : IDatabase

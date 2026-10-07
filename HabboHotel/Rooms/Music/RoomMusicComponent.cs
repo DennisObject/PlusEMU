@@ -33,9 +33,7 @@ namespace Plus.HabboHotel.Rooms.Music
             _room = room;
             room.SetMusic(this);
         }
-        public void Initiated()
-        {
-        }
+        public void Initiated() { }
 
         internal bool TryBeginPlacement()
         {

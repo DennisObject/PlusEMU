@@ -33,9 +33,7 @@ namespace Plus.Communication.Packets.Outgoing.Sound
     public sealed class JukeboxPlaylistFullComposer : IServerPacket
     {
         public uint MessageId => ServerPacketHeader.JukeboxPlaylistFullComposer;
-        public void Compose(IOutgoingPacket packet)
-        {
-        }
+        public void Compose(IOutgoingPacket packet) { }
     }
     public sealed class SongDisksInventoryComposer(ImmutableArray<MusicTrack> snapshot) : IServerPacket
     {
