@@ -25,10 +25,11 @@ public class AccessTokenStore : IAccessTokenStore
     public Task<IssuedToken> Issue(int userId, string? sessionId = null, CredentialScope? scope = null) =>
         IssueAt(userId, sessionId, CredentialInstant.Capture(_time), scope);
 
-    public async Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null)
+    public async Task<IssuedToken> IssueAt(int userId, string? sessionId, CredentialInstant instant, CredentialScope? scope = null, DateTimeOffset? notAfter = null)
     {
         var now = instant.UtcNow;
-        var token = new IssuedToken(SecureToken.Generate(), now.Add(_lifetime));
+        var expiresAt = now.Add(_lifetime);
+        var token = new IssuedToken(SecureToken.Generate(), notAfter < expiresAt ? notAfter.Value : expiresAt);
         using var owned = scope == null ? _database.Connection() : null;
         var connection = scope?.Connection ?? owned!;
         await connection.ExecuteAsync(
@@ -62,6 +63,27 @@ public class AccessTokenStore : IAccessTokenStore
         using var connection = _database.Connection();
         await connection.ExecuteAsync("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `token_hash` = @hash AND `revoked_at` IS NULL",
             new { hash = SecureToken.Hash(token), now = _time.GetUtcNow().UtcDateTime });
+    }
+
+    public async Task<DateTimeOffset?> SpendAt(string token, CredentialInstant instant, CredentialScope scope)
+    {
+        if (string.IsNullOrEmpty(token)) {
+            return null;
+        }
+
+        var hash = SecureToken.Hash(token);
+        var now = instant.UtcNow.UtcDateTime;
+        var expiresAt = await scope.Connection.ExecuteScalarAsync<DateTime?>(
+            "SELECT `expires_at` FROM `user_access_tokens` WHERE `token_hash` = @hash AND `revoked_at` IS NULL AND `expires_at` > @now FOR UPDATE",
+            new { hash, now }, scope.Transaction);
+
+        if (expiresAt == null) {
+            return null;
+        }
+
+        await scope.Connection.ExecuteAsync("UPDATE `user_access_tokens` SET `revoked_at` = @now WHERE `token_hash` = @hash", new { hash, now }, scope.Transaction);
+
+        return new DateTimeOffset(DateTime.SpecifyKind(expiresAt.Value, DateTimeKind.Utc));
     }
 
     public async Task RevokeAll(int userId, CredentialScope? scope = null)

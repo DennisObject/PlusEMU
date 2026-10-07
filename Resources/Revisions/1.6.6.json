@@ -404,6 +404,7 @@
     "KickbackInfoComposer": 3277,
     "UserRightsComposer": 411,
     "GenericErrorComposer": 1600,
+    "DisconnectReasonComposer": 4000,
     "SetUniqueIdComposer": 1488,
     "AvailabilityStatusComposer": 2033,
     "WardrobeComposer": 3315,

@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Subscriptions;
+using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing.Handshake;
 using Plus.Communication.Packets.Outgoing.Inventory.Achievements;
 using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
@@ -118,6 +119,16 @@ public sealed class SsoLoginService : ISsoLoginService
 
             await _rewardManager.CheckRewards(session);
             _rewardTracks.SendTracks(session);
+        }
+        else {
+            // An unanswered login leaves the client waiting forever, and a bare close makes it reconnect
+            // with the same spent ticket; the reason tells it to stop.
+            if (error != AuthenticationError.SessionClosed) {
+                session.Send(new GenericErrorComposer(GenericError.AuthenticationFailed));
+                session.Send(new DisconnectReasonComposer(DisconnectReason.InvalidLoginTicket));
+            }
+
+            session.Disconnect();
         }
     }
 }
