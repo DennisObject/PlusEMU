@@ -13,7 +13,7 @@ public class WeeklyLeaderboardComposerTests
         new WeeklyLeaderboardRow(2, 30, "Bo", "look2", "m"));
 
     [Fact]
-    public void Game2LeaderboardWritesTheExactRowsAndRanks()
+    public void Game3LeaderboardWritesTheExactRowsAndRanks()
     {
         Assert.Equal(new object[]
         {
@@ -22,22 +22,21 @@ public class WeeklyLeaderboardComposerTests
             1, 50, 1, "Ann", "look1", "f",
             2, 30, 2, "Bo", "look2", "m",
             0, 3,
-        }, Write(new Game2WeeklyLeaderboardComposer(3, Rows)));
+        }, Write(new Game3WeeklyLeaderboardComposer(3, Rows)));
     }
 
     [Fact]
-    public void Game3LeaderboardWritesTheSameLayoutWithItsOwnMessage()
+    public void Game3LeaderboardUsesItsOwnMessage()
     {
         var composer = new Game3WeeklyLeaderboardComposer(3, Rows);
 
         Assert.Equal(Plus.Communication.Packets.Outgoing.ServerPacketHeader.Game3WeeklyLeaderboardComposer, composer.MessageId);
-        Assert.Equal(Write(new Game2WeeklyLeaderboardComposer(3, Rows)), Write(composer));
     }
 
     [Fact]
     public void EmptyLeaderboardWritesZeroRowsAndTheGameId()
     {
-        Assert.Equal(new object[] { 2014, 41, 0, 1, 1581, 0, 0, 9 }, Write(new Game2WeeklyLeaderboardComposer(9, ImmutableArray<WeeklyLeaderboardRow>.Empty)));
+        Assert.Equal(new object[] { 2014, 41, 0, 1, 1581, 0, 0, 9 }, Write(new Game3WeeklyLeaderboardComposer(9, ImmutableArray<WeeklyLeaderboardRow>.Empty)));
     }
 
     [Fact]
@@ -51,14 +50,14 @@ public class WeeklyLeaderboardComposerTests
         habbo.FastfoodScore = 999;
 
         Assert.Equal(new WeeklyLeaderboardRow(4, 12, "Cy", "look4", "m"), row);
-        Assert.Equal(new object[] { 2014, 41, 0, 1, 1581, 1, 4, 12, 1, "Cy", "look4", "m", 0, 5 }, Write(new Game2WeeklyLeaderboardComposer(5, ImmutableArray.Create(row))));
+        Assert.Equal(new object[] { 2014, 41, 0, 1, 1581, 1, 4, 12, 1, "Cy", "look4", "m", 0, 5 }, Write(new Game3WeeklyLeaderboardComposer(5, ImmutableArray.Create(row))));
     }
 
     [Fact]
     public void RecompositionIsStableAfterSourceListChanges()
     {
         var source = new List<WeeklyLeaderboardRow> { new(1, 50, "Ann", "look1", "f") };
-        var composer = new Game2WeeklyLeaderboardComposer(3, source.ToImmutableArray());
+        var composer = new Game3WeeklyLeaderboardComposer(3, source.ToImmutableArray());
         var first = Write(composer);
 
         source.Clear();

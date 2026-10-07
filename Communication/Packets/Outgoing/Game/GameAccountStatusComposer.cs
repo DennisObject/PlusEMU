@@ -2,21 +2,15 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Game;
 
-// TODO @80O: Implement
-public class GameAccountStatusComposer : IServerPacket
+/// <summary>AIR Game2AccountGameStatus: free games left (-1 = unlimited) and games played in total.</summary>
+public class GameAccountStatusComposer(int gameId, int freeGamesLeft = -1, int gamesPlayed = 0) : IServerPacket
 {
-    private readonly int _gameId;
     public uint MessageId => ServerPacketHeader.GameAccountStatusComposer;
-
-    public GameAccountStatusComposer(int gameId)
-    {
-        _gameId = gameId;
-    }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(_gameId);
-        packet.WriteInteger(-1); // Games Left
-        packet.WriteInteger(0); //Was 16?
+        packet.WriteInteger(gameId);
+        packet.WriteInteger(freeGamesLeft);
+        packet.WriteInteger(gamesPlayed);
     }
 }

@@ -1,26 +1,10 @@
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Games;
+using Plus.HabboHotel.Games.SnowStorm;
 
 namespace Plus.Communication.Packets.Incoming.Game.Score;
 
-internal class Game2GetWeeklyLeaderboardEvent : IPacketEvent
+/// <summary>gameTypeId, weekOffset, startRank (-1 = around me), direction, viewSize, windowSize.</summary>
+internal sealed class Game2GetWeeklyLeaderboardEvent(ISnowStormDirectory directory) : IPacketEvent
 {
-    private readonly IGameDataManager _gameDataManager;
-
-    public Game2GetWeeklyLeaderboardEvent(IGameDataManager gameDataManager)
-    {
-        _gameDataManager = gameDataManager;
-    }
-
-
-    public Task Parse(GameClient session, IIncomingPacket packet)
-    {
-        var gameId = packet.ReadInt();
-
-        if (_gameDataManager.TryGetGame(gameId, out var gameData)) {
-            //Code
-        }
-
-        return Task.CompletedTask;
-    }
+    public Task Parse(GameClient session, IIncomingPacket packet) => SnowStormLeaderboardReader.Weekly(directory, session, packet, SnowStormLeaderboardKind.Weekly);
 }

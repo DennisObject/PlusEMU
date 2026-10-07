@@ -1,6 +1,7 @@
 using Plus.Communication.Packets.Outgoing.Game;
 using Plus.Communication.Packets.Outgoing.Inventory.Achievements;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Games.SnowStorm;
 
 namespace Plus.HabboHotel.Achievements;
 
@@ -21,7 +22,11 @@ public sealed class AchievementShowcaseService(IAchievementManager achievements,
 
     public void ShowGameAchievements(GameClient session, int gameId)
     {
-        session.Send(new GameAccountStatusComposer(gameId));
+        // SnowStorm (game 0) sends its real games left through Game2GetAccountGameStatus; a placeholder here would override it.
+        if (gameId != SnowStormDirectory.GameTypeId) {
+            session.Send(new GameAccountStatusComposer(gameId));
+        }
+
         session.Send(new PlayableGamesComposer(gameId));
         session.Send(new GameAchievementListComposer(gameId, snapshots.Capture(session.GetHabbo(), achievements.GetGameAchievements(gameId))));
     }

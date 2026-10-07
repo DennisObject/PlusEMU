@@ -1,12 +1,13 @@
-using System.Collections.Immutable;
+using Plus.Communication.Packets.Outgoing.Game.SnowStorm;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Games;
+using Plus.HabboHotel.Games.SnowStorm;
 
 namespace Plus.Communication.Packets.Outgoing.Game;
 
-public class Game2WeeklyLeaderboardComposer(int gameId, ImmutableArray<WeeklyLeaderboardRow> rows) : IServerPacket
+/// <summary>AIR Game2WeeklyLeaderboard: week header, then the entries.</summary>
+public class Game2WeeklyLeaderboardComposer(SnowStormLeaderboardPage page) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.Game2WeeklyLeaderboardComposer;
 
-    public void Compose(IOutgoingPacket packet) => WeeklyLeaderboardWire.Write(packet, gameId, rows);
+    public void Compose(IOutgoingPacket packet) => SnowStormLeaderboardWire.WriteWeekly(packet, page);
 }
