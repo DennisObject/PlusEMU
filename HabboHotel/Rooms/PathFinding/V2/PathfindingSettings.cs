@@ -38,7 +38,8 @@ public sealed record PathfindingSettings
 
     public static PathfindingSettings Load(ISettingsManager manager)
     {
-        string? Read(string key) => manager.GetOptionalValue("pathfinding." + key);
+        // Keywords such as "V2" or "None" are case-insensitive; SettingsManager keeps values verbatim.
+        string? Read(string key) => manager.GetOptionalValue("pathfinding." + key)?.ToLowerInvariant();
         double? Number(string key) => double.TryParse(Read(key), NumberStyles.Float, CultureInfo.InvariantCulture, out var n)
             && double.IsFinite(n) && n >= 0 ? n : null;
         int Integer(string key, int fallback) => int.TryParse(Read(key), out var n) && n >= 0 ? n : fallback;
