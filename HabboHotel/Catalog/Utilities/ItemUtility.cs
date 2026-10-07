@@ -7,7 +7,7 @@ public static class ItemUtility
 {
     public static bool CanGiftItem(CatalogItem item)
     {
-        if (item.HabbiconId > 0) {
+        if (item.HabbiconId > 0 || !string.IsNullOrEmpty(item.Badge)) {
             return false;
         }
 
