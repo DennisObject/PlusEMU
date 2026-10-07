@@ -85,7 +85,7 @@ public partial class PlacedFurniRoomTests
             calls++;
             return null;
         });
-        var handler = new PollAnswerEvent(polls);
+        var handler = new PollAnswerEvent(polls, Proxy<IRoomWordQuizService>((method, _) => throw new InvalidOperationException(method)));
         var packet = HabbiconTestSupport.Incoming(10, 2, 2, "10", "20");
         await handler.Parse(_client, packet);
         Assert.Equal(new[] { "10", "20" }, actual);

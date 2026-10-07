@@ -8,4 +8,5 @@ public interface IRoomComponent
     int Order => 0;
     void Initiate(Room room);
     void Initiated();
+    void Cycle() { }
 }

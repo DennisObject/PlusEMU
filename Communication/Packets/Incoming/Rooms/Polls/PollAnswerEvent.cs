@@ -3,7 +3,7 @@ using Plus.HabboHotel.Rooms.Polls;
 
 namespace Plus.Communication.Packets.Incoming.Rooms.Polls;
 
-internal sealed class PollAnswerEvent(IRoomPollService polls) : IPacketEvent
+internal sealed class PollAnswerEvent(IRoomPollService polls, IRoomWordQuizService quizzes) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
@@ -19,7 +19,12 @@ internal sealed class PollAnswerEvent(IRoomPollService polls) : IPacketEvent
             answers[i] = packet.ReadString();
         }
 
-        polls.Answer(session, pollId, questionId, answers);
+        if (pollId == 0) {
+            quizzes.Answer(session, pollId, questionId, answers);
+        }
+        else {
+            polls.Answer(session, pollId, questionId, answers);
+        }
         return Task.CompletedTask;
     }
 }

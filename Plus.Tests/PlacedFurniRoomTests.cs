@@ -62,6 +62,7 @@ public partial class PlacedFurniRoomTests : IDisposable
         _room.OwnerName = "owner";
         _room.Type = "private";
         Set("_interactionClock", _interactionClock);
+        Set("_components", Array.Empty<IRoomComponent>());
         Set("_achievements", TestRoomAchievements.Unused);
         Set("_rooms", TestRoomOwners.Unused);
         Set("_gamemap", new Gamemap(_room, new RoomModel("test", 0, 0, 0, 0, "0000\r0000\r0000\r0000", 0, 0, false),

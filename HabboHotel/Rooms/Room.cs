@@ -449,6 +449,8 @@ public class Room
                 return;
             }
 
+            CycleComponents();
+
             try {
                 GetGameMap().Navigation?.ApplyDirty();
                 GetRoomItemHandler().OnCycle();
@@ -508,6 +510,7 @@ public class Room
                 return;
             }
 
+            RunRoomPhase(CycleComponents);
             RunRoomPhase(CycleFurniture);
             RunRoomPhase(CycleActors);
             RunRoomPhase(() => GetRoomUserManager().SerializeStatusUpdates());
@@ -517,6 +520,13 @@ public class Room
         catch (Exception error) {
             ExceptionLogger.LogException(error);
             OnRoomCrash(error);
+        }
+    }
+
+    private void CycleComponents()
+    {
+        foreach (var component in _components) {
+            component.Cycle();
         }
     }
 

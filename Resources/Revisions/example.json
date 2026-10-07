@@ -321,6 +321,9 @@
     "GetClubOffersEvent": 362
   },
   "OutgoingHeaders": {
+    "SimplePollStartComposer": 2665,
+    "SimplePollAnswerComposer": 2589,
+    "SimplePollAnswersComposer": 1066,
     "InitDiffieHandshakeComposer": 3531,
     "SecretKeyComposer": 696,
     "AuthenticationOkComposer": 1079,
@@ -471,7 +474,6 @@
     "ThreadUpdatedComposer": 951,
     "ThreadReplyComposer": 1003,
     "SoundSettingsComposer": 1949,
-    "QuestionParserComposer": 1163,
     "AvatarAspectUpdateComposer": 884,
     "HelperToolComposer": 3610,
     "RoomErrorNotifComposer": 2355,

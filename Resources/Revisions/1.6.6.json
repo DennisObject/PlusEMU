@@ -377,6 +377,9 @@
     "HousekeepingRemoveUserOverrideEvent": 0
   },
   "OutgoingHeaders": {
+    "SimplePollStartComposer": 2665,
+    "SimplePollAnswerComposer": 2589,
+    "SimplePollAnswersComposer": 1066,
     "AllowedChatStylesComposer": 9340,
     "CreatableRoomModelsComposer": 9341,
     "InitDiffieHandshakeComposer": 1347,
@@ -532,7 +535,6 @@
     "ThreadUpdatedComposer": 2528,
     "ThreadReplyComposer": 2049,
     "SoundSettingsComposer": 513,
-    "QuestionParserComposer": 2665,
     "AvatarAspectUpdateComposer": 884,
     "HelperToolComposer": 1548,
     "RoomErrorNotifComposer": 2913,

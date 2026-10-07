@@ -12,7 +12,7 @@ public interface IRoomEntryService
     void Enter(GameClient session);
 }
 
-public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock, IRoomPollService polls) : IRoomEntryService
+public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock, IRoomPollService polls, IRoomWordQuizService quizzes) : IRoomEntryService
 {
     public void Enter(GameClient session)
     {
@@ -53,6 +53,7 @@ public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock, I
         }
 
         polls.Offer(session);
+        quizzes.Show(session);
     }
 
     internal static int RemainingFloodSeconds(DateTimeOffset now, DateTimeOffset floodUntil) =>

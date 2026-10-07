@@ -63,7 +63,7 @@ public partial class PlacedFurniRoomTests
             Assert.Contains(ServerPacketHeader.RoomEventComposer, _client.Sent);
             return null;
         });
-        new RoomEntryService(quests, clock, polls).Enter(_client);
+        new RoomEntryService(quests, clock, polls, EntryWordQuiz).Enter(_client);
 
         Assert.NotNull(_room.GetRoomUserManager().GetRoomUserByHabbo(7));
         Assert.Equal(1, reminders);
@@ -98,7 +98,7 @@ public partial class PlacedFurniRoomTests
         user.UserId = 7;
         user.InternalRoomId = user.VirtualId;
         var clock = new EntryClock();
-        var service = new RoomEntryService(null!, clock, null!);
+        var service = new RoomEntryService(null!, clock, null!, EntryWordQuiz);
         service.Enter(_client);
         Assert.Null(_client.GetHabbo().CurrentRoom);
         Assert.DoesNotContain(user, _room.GetRoomUserManager().GetRoomUsers());
@@ -110,6 +110,9 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(_client.Sent);
         Assert.Equal(0, clock.Reads);
     }
+
+    private static IRoomWordQuizService EntryWordQuiz => Proxy<IRoomWordQuizService>((method, _) =>
+        method == "Show" ? null : throw new InvalidOperationException(method));
 
     private sealed class RecordingRoomEntry : IRoomEntryService
     {
