@@ -128,6 +128,14 @@ public partial class PlacedFurniRoomTests
     {
         var (service, store, _, box) = RecyclerFixture(v2, wallReward);
         _room.Type = roomType;
+
+        if (roomType == "public") {
+            Assert.False(_room.CheckRights(_client, false, true));
+            _client.GetHabbo().Access = Plus.HabboHotel.Permissions.UserAccess.Create([],
+                [new(Plus.HabboHotel.Permissions.PermissionKeys.RoomOwnerAny, false)]);
+        }
+
+        Assert.True(_room.CheckRights(_client, false, true));
         store.BeforeOpen = () =>
         {
             Assert.Same(box, _room.GetRoomItemHandler().GetItem(box.Id));
