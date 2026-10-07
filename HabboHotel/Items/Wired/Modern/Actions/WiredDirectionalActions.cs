@@ -40,6 +40,16 @@ public sealed class WiredDirectionalActions
         return moved;
     }
     public int Heading(Item item, int initial) => _headings.GetValueOrDefault(item, initial);
+    public void Follow(Item leader, IEnumerable<Item> members)
+    {
+        if (!_headings.TryGetValue(leader, out var heading)) {
+            return;
+        }
+
+        foreach (var member in members) {
+            _headings[member] = heading;
+        }
+    }
     public void Retain(IEnumerable<Item> attached)
     {
         var live = attached.ToHashSet();

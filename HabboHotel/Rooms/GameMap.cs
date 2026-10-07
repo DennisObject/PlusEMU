@@ -45,7 +45,7 @@ public class Gamemap
     internal PlacementTile ResolvePlacement(int x, int y, uint? excluding = null,
         Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? collision = null)
     {
-        var items = GetCoordinatedItems(new(x, y)).Where(item => item.Id != excluding).ToArray();
+        var items = GetCoordinatedItems(new(x, y)).Where(item => item.Id != excluding && collision?.MovesWith(item) != true).ToArray();
         var helpers = items.Where(item => MagicTileHeight.IsMagicTile(item.Definition.InteractionType)).ToArray();
 
         if (helpers.Length > 0) {

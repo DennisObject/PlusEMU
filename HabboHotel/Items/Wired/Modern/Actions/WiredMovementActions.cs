@@ -40,6 +40,8 @@ public sealed class WiredMovementActions
         var p = configuration.IntParams;
         int Param(int index, int fallback = 0) => index < p.Length ? p[index] : fallback;
         var affected = false;
+        together ??= (items, step) => items.Aggregate(false,
+            (any, item) => step(item, (x, y, rotation) => move(item, x, y, rotation, null)) | any);
 
         switch (name.ToLowerInvariant()) {
             case "wf_act_rel_mov":
@@ -50,9 +52,7 @@ public sealed class WiredMovementActions
                     return false;
                 }
 
-                foreach (var item in movers) {
-                    affected |= move(item, item.GetX + dx, item.GetY + dy, item.Rotation, null);
-                }
+                affected = together(movers, (item, step) => step(item.GetX + dx, item.GetY + dy, item.Rotation));
 
                 break;
             case "wf_act_set_altitude":
@@ -67,8 +67,6 @@ public sealed class WiredMovementActions
 
                 break;
             case "wf_act_move_rotate":
-                together ??= (items, step) => items.Aggregate(false,
-                    (any, item) => step(item, (x, y, rotation) => move(item, x, y, rotation, null)) | any);
                 affected = together(movers, (item, step) =>
                 {
                     var direction = MovementDirection(Param(0));
@@ -90,9 +88,8 @@ public sealed class WiredMovementActions
                 var groupOffset = WiredRoomOperations.Offset(Param(0));
 
                 // Octane/Polaris direction editor: leading edge first, blocked members skipped.
-                foreach (var item in movers.OrderByDescending(item => item.GetX * groupOffset.X + item.GetY * groupOffset.Y)) {
-                    affected |= move(item, item.GetX + groupOffset.X, item.GetY + groupOffset.Y, item.Rotation, null);
-                }
+                affected = together(movers.OrderByDescending(item => item.GetX * groupOffset.X + item.GetY * groupOffset.Y).ToArray(),
+                    (item, step) => step(item.GetX + groupOffset.X, item.GetY + groupOffset.Y, item.Rotation));
 
                 break;
             case "wf_act_furni_to_furni":
@@ -105,9 +102,17 @@ public sealed class WiredMovementActions
                 var spacing = name.Equals("wf_act_move_furni_to", StringComparison.OrdinalIgnoreCase)
                     ? WiredRoomOperations.Offset(Param(0)) : Point.Empty;
 
+                var targetX = target.GetX + spacing.X * Param(1, 1);
+                var targetY = target.GetY + spacing.Y * Param(1, 1);
+
+                if (Steps.Contains(name)) {
+                    affected = together(movers, (item, step) => step(targetX, targetY, item.Rotation));
+
+                    break;
+                }
+
                 foreach (var item in movers) {
-                    affected |= move(item, target.GetX + spacing.X * Param(1, 1),
-                        target.GetY + spacing.Y * Param(1, 1), item.Rotation, null);
+                    affected |= move(item, targetX, targetY, item.Rotation, null);
                 }
 
                 break;
