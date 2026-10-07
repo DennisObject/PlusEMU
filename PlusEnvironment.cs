@@ -100,7 +100,7 @@ public class PlusEnvironment : IPlusEnvironment
         Console.WriteLine($"                                {PrettyVersion} <Build {PrettyBuild}>");
         Console.WriteLine("                                http://PlusIndustry.com");
         Console.WriteLine("");
-        Console.Title = "Loading Plus Emulator";
+        ConsoleWindow.SetTitle("Loading Plus Emulator");
         _defaultEncoding = Encoding.Default;
         Console.WriteLine("");
         Console.WriteLine("");
@@ -109,7 +109,7 @@ public class PlusEnvironment : IPlusEnvironment
         try {
             if (!_database.IsConnected()) {
                 Logger.LogError("Failed to Connect to the specified MySQL server.");
-                Console.ReadKey(true);
+                ConsoleWindow.WaitForKey();
 
                 return false;
             }
@@ -145,21 +145,21 @@ public class PlusEnvironment : IPlusEnvironment
         {
             Logger.LogError("Please check your configuration file - some values appear to be missing.");
             Logger.LogError("Press any key to shut down ...");
-            Console.ReadKey(true);
+            ConsoleWindow.WaitForKey();
 
             return false;
         }
         catch (InvalidOperationException e) {
             Logger.LogError(e, "Failed to initialize PlusEmulator");
             Logger.LogError("Press any key to shut down ...");
-            Console.ReadKey(true);
+            ConsoleWindow.WaitForKey();
 
             return false;
         }
         catch (Exception e) {
             Logger.LogError(e, "Fatal error during startup");
             Logger.LogError("Press a key to exit");
-            Console.ReadKey();
+            ConsoleWindow.WaitForKey();
 
             return false;
         }
@@ -261,9 +261,9 @@ public class PlusEnvironment : IPlusEnvironment
 
     public static void PerformShutDown()
     {
-        Console.Clear();
+        ConsoleWindow.Clear();
         Logger.LogInformation("Server shutting down...");
-        Console.Title = "PLUS EMULATOR: SHUTTING DOWN!";
+        ConsoleWindow.SetTitle("PLUS EMULATOR: SHUTTING DOWN!");
         // No new logins while the hotel goes down.
         _authHttpServer.Stop().Wait(TimeSpan.FromSeconds(5));
         Game.ClientManager.SendPacket(new BroadcastMessageAlertComposer(LanguageManager.TryGetValue("server.shutdown.message")));
