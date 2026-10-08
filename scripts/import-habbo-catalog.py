@@ -1041,13 +1041,14 @@ def plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets=
         return furniture['owner_of'].get((kind, classname), by_name.get((kind, classname)))
 
     catalog_plan = plan_catalog(catalog, source, resolve, snapshot, allow_missing_pages)
-    # An offer that already sells a Plus duplicate of the same furni (another row the client shows as the same sprite) keeps it.
-    final = {row['id']: (row['type'], furniture['updates'].get(row['id'], {}).get('sprite_id', row['sprite_id'])) for row in snapshot['furniture']}
-    sold = {(row['offer_id'], row['position']): row['furniture_id'] for row in snapshot['catalog_offer_products'] if row['furniture_id']}
+    # An offer that already sells a Plus duplicate of the same furni (another row with its classname) keeps it; furnidata
+    # names offers by classname, so a row of another name would lose the offer id.
+    final = {row['id']: (row['type'], furniture['updates'].get(row['id'], {}).get('item_name', row['item_name'])) for row in snapshot['furniture']}
+    current_products = {(row['offer_id'], row['position']): row['furniture_id'] for row in snapshot['catalog_offer_products'] if row['furniture_id']}
     for key, product in catalog_plan['tables']['catalog_offer_products'].items():
-        current, wanted = sold.get(key), product['furniture_id']
-        shown = (wanted[1], habbo[wanted[1:]]['id']) if isinstance(wanted, tuple) else final.get(wanted)
-        if current is not None and current != wanted and final.get(current) == shown:
+        current, wanted = current_products.get(key), product['furniture_id']
+        name = wanted[1:] if isinstance(wanted, tuple) else final.get(wanted)
+        if current is not None and current != wanted and final.get(current) == name:
             product['furniture_id'] = current
     with_products = {key[0] for key in catalog_plan['tables']['catalog_offer_products']}
     empty = [key[0] for key in catalog_plan['tables']['catalog_offers'] if key[0] not in with_products]
