@@ -66,6 +66,17 @@ test('local catalogues refresh after replacement and invalid data does not becom
     await assert.rejects(source(), /Invalid camera furniture catalogue/);
 });
 
+test('a camera data fetch stops when its caller leaves', async t => {
+    const server = http.createServer(() => {}).listen(0, '127.0.0.1');
+    t.after(() => server.close());
+    await once(server, 'listening');
+    const caller = new AbortController();
+    const fetching = fetchCameraData(`http://127.0.0.1:${server.address().port}/asset`, {}, caller.signal);
+    setTimeout(() => caller.abort(new Error('page closed')), 20);
+    await assert.rejects(fetching, /page closed/);
+    server.closeAllConnections();
+});
+
 test('camera data fetches refuse redirects to another source', async t => {
     const server = http.createServer((request, response) => response.writeHead(302, { Location: 'https://untrusted.invalid/' }).end()).listen(0, '127.0.0.1');
     t.after(() => server.close());

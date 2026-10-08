@@ -25,7 +25,7 @@ test('evicts the least recently used assets beyond the byte budget and never kee
     await cache('b:40');
     await cache('a:40');
     await cache('c:40');
-    assert.deepEqual(cache.size(), { entries: 2, bytes: 80 });
+    assert.deepEqual(cache.size(), { entries: 2, bytes: 80, downloads: 0, queued: 0, pending: 0 });
     await cache('a:40');
     await cache('b:40');
     await cache('d:101');
@@ -61,9 +61,9 @@ test('limits concurrent downloads and hands each finished slot to the next one',
         return { body: Buffer.from(key), freshMs: 1000 };
     };
     const cache = createAssetCache({ load, maxBytes: 100, maxDownloads: 2 });
-    await Promise.all(['a', 'b', 'c', 'd', 'e'].map(cache));
+    await Promise.all(['a', 'b', 'c', 'd', 'e'].map(key => cache(key)));
     assert.equal(peak, 2);
-    assert.deepEqual(cache.size(), { entries: 5, bytes: 5 });
+    assert.deepEqual(cache.size(), { entries: 5, bytes: 5, downloads: 0, queued: 0, pending: 0 });
 });
 
 test('a clear drops kept assets and a download that started before it is not kept', async () => {
@@ -84,6 +84,82 @@ test('a clear drops kept assets and a download that started before it is not kep
     assert.equal(current.toString(), 'a2');
     assert.equal(await cache('a'), current);
     assert.deepEqual(calls, ['a', 'a']);
+});
+
+// Downloads that finish only when the test says so, and stop when their signal aborts.
+const controlled = () => {
+    const started = [];
+    const stopped = [];
+    const load = (key, signal) => new Promise((resolve, reject) => {
+        started.push(key);
+        signal.addEventListener('abort', () => { stopped.push(key); reject(signal.reason); }, { once: true });
+        started[key] = () => resolve({ body: Buffer.from(key), freshMs: 1000 });
+    });
+    return { started, stopped, load };
+};
+const settle = () => new Promise(resolve => setImmediate(resolve));
+
+test('abandoned queued downloads leave the queue so a later request gets the slot', async () => {
+    const { started, stopped, load } = controlled();
+    const cache = createAssetCache({ load, maxBytes: 100, maxDownloads: 2 });
+    const page = new AbortController();
+    const closed = ['a', 'b', 'c', 'd', 'e'].map(key => cache(key, page.signal));
+    closed.forEach(request => request.catch(() => {}));
+    await settle();
+    assert.deepEqual(cache.size().queued, 3);
+    page.abort(new Error('page closed'));
+    for (const request of closed) await assert.rejects(request, /page closed/);
+    await settle();
+    // Both running downloads stopped; nothing queued is left to start.
+    assert.deepEqual([...started], ['a', 'b']);
+    assert.deepEqual(stopped, ['a', 'b']);
+    const photo = cache('f');
+    await settle();
+    assert.deepEqual([...started], ['a', 'b', 'f']);
+    started.f();
+    assert.equal((await photo).toString(), 'f');
+    assert.deepEqual(cache.size(), { entries: 1, bytes: 1, downloads: 0, queued: 0, pending: 0 });
+});
+
+test('a shared download keeps running for the callers that remain', async () => {
+    const { started, stopped, load } = controlled();
+    const cache = createAssetCache({ load, maxBytes: 100, maxDownloads: 2 });
+    const closing = new AbortController();
+    const abandoned = cache('a', closing.signal);
+    const kept = cache('a');
+    await settle();
+    closing.abort(new Error('page closed'));
+    await assert.rejects(abandoned, /page closed/);
+    assert.deepEqual(stopped, []);
+    started.a();
+    assert.equal((await kept).toString(), 'a');
+    assert.equal(await cache('a'), await kept);
+    assert.deepEqual([...started], ['a']);
+});
+
+test('a download stopped by its last caller is not reused by the next one', async () => {
+    const { started, load } = controlled();
+    const cache = createAssetCache({ load, maxBytes: 100, maxDownloads: 2 });
+    const closing = new AbortController();
+    const abandoned = cache('a', closing.signal);
+    await settle();
+    closing.abort(new Error('page closed'));
+    await assert.rejects(abandoned, /page closed/);
+    const next = cache('a');
+    await settle();
+    started.a();
+    assert.equal((await next).toString(), 'a');
+    assert.deepEqual([...started], ['a', 'a']);
+    assert.deepEqual(cache.size(), { entries: 1, bytes: 1, downloads: 0, queued: 0, pending: 0 });
+});
+
+test('an already aborted caller starts nothing', async () => {
+    const { started, load } = controlled();
+    const cache = createAssetCache({ load, maxBytes: 100, maxDownloads: 1 });
+    await assert.rejects(cache('a', AbortSignal.abort(new Error('gone'))), /gone/);
+    await settle();
+    assert.deepEqual(cache.size(), { entries: 0, bytes: 0, downloads: 0, queued: 0, pending: 0 });
+    assert.deepEqual([...started], []);
 });
 
 test('freshness is max-age less age and nothing for uncacheable responses', () => {

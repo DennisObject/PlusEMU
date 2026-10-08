@@ -22,8 +22,8 @@ const assetOrigin = process.env.CAMERA_ASSET_ORIGIN ? new URL(process.env.CAMERA
 if (assetOrigin && (assetOrigin.protocol !== 'https:' || assetOrigin.username || assetOrigin.password || assetOrigin.pathname !== '/' || assetOrigin.search || assetOrigin.hash)) throw new Error('CAMERA_ASSET_ORIGIN must be an HTTPS origin');
 const furnitureData = createFurnitureDataSource({ url: process.env.CAMERA_FURNIDATA_URL, filename: resolve(assets, 'furniture/json/FurnitureData.json') });
 const originAsset = createAssetCache({
-    load: async path => {
-        const response = await fetchCameraData(new URL(path, assetOrigin));
+    load: async (path, signal) => {
+        const response = await fetchCameraData(new URL(path, assetOrigin), {}, signal);
         return { body: response.body, freshMs: freshness(response.headers) };
     },
     maxBytes: 256 * 1024 * 1024,
@@ -146,8 +146,8 @@ async function createPage(abort, furniture) {
         throw error;
     }
 }
-// A page that last prepared or photographed the room already holds its libraries. A preparing page is never lent:
-// its failures would belong to the photo. Waits for a preparation or a booting page happen outside the gate.
+// A free page that last prepared or photographed the room already holds its libraries. A preparing page is never
+// lent: its failures would belong to the photo. Waits for a preparation or a booting page happen outside the gate.
 async function borrowPage(abort, roomId) {
     borrowing++;
     try {
@@ -166,10 +166,12 @@ async function borrowIdlePage(abort, roomId) {
             const current = pool.filter(entry => !entry.busy && entry.furnitureVersion === furniture.version);
             const preparing = current.filter(entry => entry.preparing);
             const idle = current.filter(entry => !entry.preparing);
+            // The page that last prepared or photographed this room, else the one used least recently.
+            const slot = idle.filter(entry => entry.roomId === roomId).sort((a, b) => b.usedAt - a.usedAt)[0] ?? idle.sort((a, b) => a.usedAt - b.usedAt)[0];
+            if (slot) { slot.busy = true; slot.roomId = roomId; slot.usedAt = performance.now(); slot.failures.length = 0; return { slot }; }
+            // A preparation may still be loading furniture since removed, so it is waited for only without a free page.
             const same = preparing.find(entry => entry.roomId === roomId);
             if (same) return { wait: same.preparing };
-            const slot = idle.find(entry => entry.roomId === roomId) ?? idle[0];
-            if (slot) { slot.busy = true; slot.roomId = roomId; slot.usedAt = performance.now(); slot.failures.length = 0; return { slot }; }
             if (preparing.length) return { wait: Promise.race(preparing.map(entry => entry.preparing)) };
             if (warming) return { wait: warming };
             if (pool.length >= POOL_SIZE) throw new Error('Camera page pool is exhausted');
@@ -226,10 +228,11 @@ async function prepare(scene) {
             if (photoWaiting()) return null;
             const furniture = await currentCatalogue();
             const idle = pool.filter(entry => !entry.busy && !entry.preparing && entry.furnitureVersion === furniture.version);
-            // Otherwise take the page photographed least recently, leaving the other warm for its room.
-            const slot = idle.find(entry => entry.roomId === scene.roomId) ?? idle.sort((a, b) => a.usedAt - b.usedAt)[0];
+            // Otherwise take the page used least recently, leaving the other warm for its room.
+            const slot = idle.filter(entry => entry.roomId === scene.roomId).sort((a, b) => b.usedAt - a.usedAt)[0] ?? idle.sort((a, b) => a.usedAt - b.usedAt)[0];
             if (!slot) return null;
             slot.roomId = scene.roomId;
+            slot.usedAt = performance.now();
             slot.failures.length = 0;
             const loading = slot.page.evaluate(async body => {
                 if (typeof window.cameraPrepare !== 'function') throw new Error('Camera preparation is unavailable');
@@ -330,6 +333,9 @@ const server = http.createServer(async (request, response) => {
     response.setHeader('X-Content-Type-Options','nosniff');
     response.setHeader('Cache-Control','no-store');
     if (!authorized(request.headers.authorization,secret)) {response.writeHead(401).end(); return;}
+    // A closed page drops its requests; their downloads then stop unless another request still needs them.
+    const lifetime = new AbortController();
+    response.once('close', () => { if (!response.writableFinished) lifetime.abort(new Error('Camera asset request closed')); });
     try {
         const url = new URL(request.url,origin);
         if (url.pathname === '/effects' && request.method === 'GET') {response.setHeader('Content-Type','application/json'); response.end(JSON.stringify(catalogue)); return;}
@@ -353,17 +359,18 @@ const server = http.createServer(async (request, response) => {
         else if (path.startsWith('/gamedata/')) {
             const relative=gamedata[path.slice(10)];if(!relative) throw new Error('Unknown gamedata');
             if (path.endsWith('/FurnitureData.json')) data=(await currentCatalogue()).body;
-            else data=assetOrigin ? await originAsset(path) : await safeFile(assets,relative);
+            else data=assetOrigin ? await originAsset(path, lifetime.signal) : await safeFile(assets,relative);
         } else if (path.startsWith('/c_images/Habbo-Stories/')) data=await safeFile(images, cameraEffectAsset(path, catalogue));
         else if (mediaPath.test(path)) data=await safeFile(media,path.slice(8));
         else {
             const relative = nitroAssetRelative(path);
             if (!relative) throw new Error('Unknown trusted asset');
-            data=assetOrigin ? await originAsset(path) : await safeFile(assets, relative);
+            data=assetOrigin ? await originAsset(path, lifetime.signal) : await safeFile(assets, relative);
         }
         response.setHeader('Content-Type',mime[extname(path)] ?? 'application/octet-stream'); response.end(data);
     } catch (error) {
-        console.error(`Camera request failed: ${error.message}`);
+        // Nobody waits for the answer to a closed request.
+        if (!lifetime.signal.aborted) console.error(`Camera request failed: ${error.message}`);
         if (!response.headersSent) response.writeHead(422);
         response.end();
     }

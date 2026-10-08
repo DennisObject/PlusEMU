@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 // Only operator-configured sources are fetched; scene data never supplies a URL.
-export async function fetchCameraData(url, headers = {}) {
-    const response = await fetch(url, { headers, redirect: 'error', signal: AbortSignal.timeout(10000) });
+export async function fetchCameraData(url, headers = {}, signal) {
+    const timeout = AbortSignal.timeout(10000);
+    const response = await fetch(url, { headers, redirect: 'error', signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
     if (response.status === 304) return { status: 304 };
     if (!response.ok) throw new Error(`Camera data source returned ${response.status}: ${url}`);
     const chunks = [];
