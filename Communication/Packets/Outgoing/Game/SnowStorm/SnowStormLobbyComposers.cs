@@ -1,4 +1,3 @@
-using System.Collections.Immutable;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Games.SnowStorm;
 
@@ -142,23 +141,5 @@ public sealed class Game2GameDirectoryStatusComposer(int status, int blockSecond
         packet.WriteInteger(blockSeconds);
         packet.WriteInteger(gamesPlayed);
         packet.WriteInteger(freeGamesLeft);
-    }
-}
-
-/// <summary>Arena voting (Plus extra): votes per offered arena and the arena currently leading (0 while tied).</summary>
-public sealed class SnowStormArenaVotesComposer(ImmutableArray<(int FieldType, int Votes)> arenas, int leadingFieldType) : IServerPacket
-{
-    public uint MessageId => ServerPacketHeader.SnowStormArenaVotesComposer;
-
-    public void Compose(IOutgoingPacket packet)
-    {
-        packet.WriteInteger(arenas.Length);
-
-        foreach (var (fieldType, votes) in arenas) {
-            packet.WriteInteger(fieldType);
-            packet.WriteInteger(votes);
-        }
-
-        packet.WriteInteger(leadingFieldType);
     }
 }

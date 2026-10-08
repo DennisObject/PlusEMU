@@ -409,7 +409,6 @@ public static class ClientPacketHeader
     public const uint Game2GetAccountGameStatusEvent = 11;
     public const uint Game2QuickJoinEvent = 6012;
     public const uint Game2LeaveLobbyEvent = 6013;
-    public const uint Game2VoteArenaEvent = 6015;
     public const uint Game2LoadStageReadyEvent = 6000;
     public const uint Game2ExitGameEvent = 6016;
     public const uint Game2GameChatEvent = 6009;

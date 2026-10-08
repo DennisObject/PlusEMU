@@ -29,7 +29,6 @@ public class SnowStormPacketTests
         ["Game2GetAccountGameStatusEvent"] = 11,
         ["Game2QuickJoinEvent"] = 6012,
         ["Game2LeaveLobbyEvent"] = 6013,
-        ["Game2VoteArenaEvent"] = 6015,
         ["Game2LoadStageReadyEvent"] = 6000,
         ["Game2ExitGameEvent"] = 6016,
         ["Game2GameChatEvent"] = 6009,
@@ -87,8 +86,7 @@ public class SnowStormPacketTests
         ["Game2WeeklyFriendsLeaderboardComposer"] = 2270,
         ["Game2TotalGroupLeaderboardComposer"] = 1769,
         ["Game2WeeklyGroupLeaderboardComposer"] = 2956,
-        ["SnowWarGameTokensComposer"] = 3419,
-        ["SnowStormArenaVotesComposer"] = 5030
+        ["SnowWarGameTokensComposer"] = 3419
     };
 
     [Fact]
@@ -134,7 +132,6 @@ public class SnowStormPacketTests
         Assert.Equal(lobbyWire, Write(new Game2GameStartedComposer(lobby)));
         Assert.Equal(new object[] { 4, "Ann", "hd-1", "F", 2, 3, 120, 80, true }, Write(new Game2UserJoinedGameComposer(player, true)));
         Assert.Equal(new object[] { 0 }, Write(new Game2StopCounterComposer()));
-        Assert.Equal(new object[] { 3, 8, 2, 9, 0, 11, 1, 8 }, Write(new SnowStormArenaVotesComposer([(8, 2), (9, 0), (11, 1)], 8)));
         Assert.Empty(Write(new Game2GameCancelledComposer()));
         Assert.Equal(new object[] { 0, 180, 4, -1 }, Write(new Game2GameDirectoryStatusComposer(0, 180, 4, -1)));
         Assert.Equal(new object[] { 0, 9, 12 }, Write(new GameAccountStatusComposer(0, 9, 12)));
@@ -203,7 +200,6 @@ public class SnowStormPacketTests
         [
             (new Game2QuickJoinEvent(manager), [], "join"),
             (new Game2LeaveLobbyEvent(manager), [], "leave"),
-            (new Game2VoteArenaEvent(manager), [11], "vote 11"),
             (new Game2LoadStageReadyEvent(manager), [100], "ready"),
             (new Game2ExitGameEvent(manager), [true], "exit"),
             (new Game2PlayAgainEvent(manager), [], "again"),
@@ -309,7 +305,6 @@ public class SnowStormPacketTests
         public void ExitGame(GameClient session) => Calls.Add("exit");
         public void PlayAgain(GameClient session) => Calls.Add("again");
         public void Chat(GameClient session, string message) => Calls.Add("chat " + message);
-        public void VoteArena(GameClient session, int fieldType) => Calls.Add($"vote {fieldType}");
         public void SetMoveTarget(GameClient session, int x, int y, int turn, int subturn) => Calls.Add($"move {x} {y} {turn} {subturn}");
         public void ThrowAtPosition(GameClient session, int x, int y, int trajectory, int turn, int subturn) => Calls.Add($"throw {x} {y} {trajectory} {turn} {subturn}");
         public void ThrowAtHuman(GameClient session, int targetHumanId, int trajectory, int turn, int subturn) => Calls.Add($"hit {targetHumanId} {trajectory} {turn} {subturn}");

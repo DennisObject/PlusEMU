@@ -410,8 +410,7 @@
     "GetOfficialSongIdEvent": 3189,
     "GetForumThreadEvent": 3900,
     "UpdateForumReadMarkersEvent": 1855,
-    "GetForumsUnreadCountEvent": 2908,
-    "Game2VoteArenaEvent": 6015
+    "GetForumsUnreadCountEvent": 2908
   },
   "OutgoingHeaders": {
     "SimplePollStartComposer": 2665,
@@ -793,7 +792,6 @@
     "OfficialSongIdComposer": 1381,
     "SoundMachinePlaylistComposer": 1748,
     "SongDisksInventoryComposer": 2602,
-    "ForumsUnreadCountComposer": 2379,
-    "SnowStormArenaVotesComposer": 5030
+    "ForumsUnreadCountComposer": 2379
   }
 }
