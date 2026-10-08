@@ -638,12 +638,13 @@ BUILDERS_CLUB_OFFER_OFFSET = 1500000000
 BUILDERS_CLUB_ONLY = re.compile(r'(builders_club|loyalty_bc)', re.IGNORECASE)
 
 
-def merge_builders_club(catalog):
+def merge_builders_club(catalog, line_of=lambda kind, class_id: None):
     """One tree from habbo.com's NORMAL and BUILDERS_CLUB catalogues; PlusEMU has no Builders Club, so all of it sells
     normally. A BC page is the NORMAL page with the same link, or the same caption under the same parent path; matched
     pages get the BC offers for furni they do not list yet. A furni NORMAL sells anywhere keeps its NORMAL offer; a
-    BC-only furni keeps its BC offer, whose price habbo.com sends as its catalogue price. Builders Club's own pages and
-    subscription offers are left out."""
+    BC-only furni keeps its BC offer, whose price habbo.com sends as its catalogue price, except a price of 10,000 or more,
+    which marks furni not for sale outside Builders Club: those take their furni line's price. Builders Club's own pages
+    and subscription offers are left out. line_of(kind, class id) names a furni's furnidata furniline."""
     bc = catalog.get('buildersClub')
     report = {'captured': bc is not None}
     if bc is None:
@@ -657,6 +658,22 @@ def merge_builders_club(catalog):
             normal_offer.setdefault(furni(offer), offer)
     offer_ids = {offer['offerId'] for page in pages.values() for offer in page['offers']}
     by_link, by_path, path_of = {}, {}, {}
+    line_prices = {'normal': {}, 'bc': {}}
+    for source, all_pages in (('normal', pages.values()), ('bc', bc_pages.values())):
+        for page in all_pages:
+            for offer in page['offers']:
+                if len(offer['products']) == 1 and not builders_club_sentinel(offer):
+                    line = line_of(offer['products'][0]['productType'], offer['products'][0]['furniClassId'])
+                    line_prices[source].setdefault(line, Counter())[offer_price(offer)] += 1
+
+    def line_price(offer):
+        """The furni line's usual NORMAL price, else its usual Builders Club price, else 3 credits."""
+        line = line_of(offer['products'][0]['productType'], offer['products'][0]['furniClassId']) if offer['products'] else None
+        for source in ('normal', 'bc'):
+            prices = line_prices[source].get(line) if line else None
+            if prices:
+                return min(prices.items(), key=lambda item: (-item[1], item[0]))[0]
+        return (3, 0, 0)
 
     def remember(node, path):
         if node['pageName']:
@@ -688,6 +705,10 @@ def merge_builders_club(catalog):
                 counts['normal_offers_added'] += 1
             else:
                 moved = offer['offerId'] in offer_ids
+                if builders_club_sentinel(offer):
+                    credits, points, points_type = line_price(offer)
+                    offer = dict(offer, priceInCredits=credits, priceInActivityPoints=points, activityPointType=points_type)
+                    counts['bc_sentinel_prices_replaced'] += 1
                 page['offers'].append(dict(offer, offerId=offer['offerId'] + BUILDERS_CLUB_OFFER_OFFSET) if moved else offer)
                 counts['bc_offers_added'] += 1
                 counts['bc_offer_ids_moved'] += moved
@@ -740,6 +761,14 @@ def merge_builders_club(catalog):
     merged = dict(catalog, index=root, pages={str(page_id): page for page_id, page in pages.items()})
     merged.pop('buildersClub')
     return merged, report
+
+
+def builders_club_sentinel(offer):
+    return offer['priceInCredits'] >= 10000 or offer['priceInActivityPoints'] >= 10000
+
+
+def offer_price(offer):
+    return (offer['priceInCredits'], max(offer['priceInActivityPoints'], 0), offer['activityPointType'] if offer['priceInActivityPoints'] > 0 else 0)
 
 
 def iter_nodes(node):
@@ -992,7 +1021,8 @@ def insert(table, row):
 
 def plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets=None, allow_missing_pages=False):
     """Everything apply would write, and the report."""
-    catalog, builders_club = merge_builders_club(catalog)
+    lines = {(kind, entry['id']): entry.get('furniline') for kind, entry in furnidata_entries(source_furnidata)}
+    catalog, builders_club = merge_builders_club(catalog, lambda kind, class_id: lines.get((kind, class_id)))
     habbo = {(kind, entry['classname']): entry for kind, entry in furnidata_entries(habbo_furnidata)}
     source = {(kind, entry['id']): entry['classname'] for kind, entry in furnidata_entries(source_furnidata)}
     needed = {(kind, source[(kind, class_id)]) for kind, class_id in capture_classnames(catalog) if (kind, class_id) in source}

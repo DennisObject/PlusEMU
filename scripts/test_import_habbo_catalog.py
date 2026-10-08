@@ -415,3 +415,16 @@ def test_a_furni_normal_sells_elsewhere_keeps_its_normal_offer():
 def test_without_a_builders_club_capture_nothing_changes():
     catalog = {'index': node(-1, 'root', [node(1, 'a')]), 'pages': {'1': page(1, [])}}
     assert m.merge_builders_club(catalog) == (catalog, {'captured': False})
+
+
+def test_builders_club_sentinel_prices_take_the_furni_line_price():
+    case = builders_club_case()
+    case['pages']['1']['offers'].append(offer(110, 20, priceInCredits=6))          # NORMAL sells line 'hygge' at 6
+    case['buildersClub']['pages']['7'] = page(7, [offer(400, 21, priceInCredits=1, priceInActivityPoints=10000, activityPointType=105),
+                                                   offer(401, 30, priceInCredits=10000, priceInActivityPoints=1, activityPointType=4),
+                                                   offer(402, 31, priceInCredits=1), offer(403, 40, priceInCredits=10000)])
+    lines = {20: 'hygge', 21: 'hygge', 30: 'blocks', 31: 'blocks'}
+    merged, report = m.merge_builders_club(case, lambda kind, class_id: lines.get(class_id))
+    prices = {o['offerId']: (o['priceInCredits'], o['priceInActivityPoints'], o['activityPointType']) for o in merged['pages']['7']['offers']}
+    assert prices == {400: (6, 0, 0), 401: (1, 0, 0), 402: (1, 0, 0), 403: (3, 0, 0)}
+    assert report['bc_sentinel_prices_replaced'] == 3
