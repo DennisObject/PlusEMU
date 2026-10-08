@@ -62,13 +62,12 @@ internal sealed class CameraRendererClient : IDisposable
         return uri;
     }
 
-    // Loads the room's libraries into the renderer ahead of a photo. It takes no render capacity: the renderer
+    // Builds the room in the camera's view ahead of a photo. It takes no render capacity: the renderer
     // prepares on an idle page only and answers 409 when it has none.
-    public async Task Prepare(JsonElement scene, CameraViewport? viewport, CancellationToken token)
+    public async Task Prepare(JsonElement scene, CameraViewport viewport, CancellationToken token)
     {
         var uri = new Uri(Endpoint(), "/prepare");
-        // With the camera's viewport the renderer builds the room as it will be photographed, not only its libraries.
-        byte[] body = viewport == null ? JsonSerializer.SerializeToUtf8Bytes(new { scene }, Json) : JsonSerializer.SerializeToUtf8Bytes(new { scene, viewport }, Json);
+        byte[] body = JsonSerializer.SerializeToUtf8Bytes(new { scene, viewport }, Json);
 
         if (body.Length > 1024 * 1024) {
             return;

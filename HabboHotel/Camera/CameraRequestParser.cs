@@ -107,10 +107,9 @@ internal static class CameraRequestParser
         return ParseJson(payload.Json, channel, catalogue, photoLevel);
     }
 
-    private static CameraParseResult ParseJson(string json, CameraChannel channel, IReadOnlyDictionary<string, int> catalogue, int photoLevel)
+    // One JSON value and nothing after it, or null.
+    private static JsonNode? ReadRoot(string json)
     {
-        JsonNode root;
-
         try {
             var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json), new JsonReaderOptions
             {
@@ -119,18 +118,21 @@ internal static class CameraRequestParser
             });
 
             if (!reader.Read()) {
-                return Malformed(CameraRejectReason.Schema);
+                return null;
             }
 
-            root = ReadNode(ref reader);
+            var root = ReadNode(ref reader);
 
-            if (reader.Read()) {
-                return Malformed(CameraRejectReason.Schema);
-            }
+            return reader.Read() ? null : root;
         }
         catch (JsonException) {
-            return Malformed(CameraRejectReason.Schema);
+            return null;
         }
+    }
+
+    private static CameraParseResult ParseJson(string json, CameraChannel channel, IReadOnlyDictionary<string, int> catalogue, int photoLevel)
+    {
+        var root = ReadRoot(json);
 
         if (root is not JsonObject body) {
             return Malformed(CameraRejectReason.Schema);
@@ -213,34 +215,8 @@ internal static class CameraRequestParser
     // photo viewport by the same rules as a capture.
     public static CameraViewport? ParseViewport(string? json)
     {
-        if (json == null || Encoding.UTF8.GetByteCount(json) > MaxJsonBytes) {
-            return null;
-        }
-
-        JsonNode root;
-
-        try {
-            var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json), new JsonReaderOptions
-            {
-                CommentHandling = JsonCommentHandling.Disallow,
-                MaxDepth = 8
-            });
-
-            if (!reader.Read()) {
-                return null;
-            }
-
-            root = ReadNode(ref reader);
-
-            if (reader.Read()) {
-                return null;
-            }
-        }
-        catch (JsonException) {
-            return null;
-        }
-
-        if (root is not JsonObject viewport || Hazard(root) != null || HasDuplicate(root)) {
+        if (json == null || Encoding.UTF8.GetByteCount(json) > MaxJsonBytes || ReadRoot(json) is not JsonObject viewport ||
+            Hazard(viewport) != null || HasDuplicate(viewport)) {
             return null;
         }
 

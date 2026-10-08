@@ -111,24 +111,22 @@ public sealed class CameraService : ICameraService, IDisposable
                 return new(false, "unavailable");
             }
     }
-    // Opening the camera prepares the room in the renderer while the shot is framed: its libraries, and the room itself
-    // in the camera's view when the camera sends one. It reserves no quota
-    // and makes no draft; the shutter still photographs the room as it is then. One preparation runs at a time, each
-    // session prepares a room at most once per interval, and the packet handler never waits for it.
+    // An opening camera sends its viewport, and the renderer builds the room in that view while the shot is framed. It
+    // reserves no quota and makes no draft; the shutter still photographs the room as it is then. A request without a
+    // valid viewport prepares nothing. One preparation runs at a time, each session prepares a room in a view at most
+    // once per interval, and the packet handler never waits for it.
     public void Prepare(GameClient session, string? viewport = null)
     {
+        var view = CameraRequestParser.ParseViewport(viewport);
         var room = session.GetHabbo()?.CurrentRoom;
 
-        if (room == null || !Allowed(session, room, false) || Interlocked.Exchange(ref _preparing, 1) == 1) {
+        if (view == null || room == null || !Allowed(session, room, false) || Interlocked.Exchange(ref _preparing, 1) == 1) {
             return;
         }
 
         var started = false;
 
         try {
-            // An invalid viewport still prepares the room's libraries.
-            var view = CameraRequestParser.ParseViewport(viewport);
-
             if (!TryBeginPreparation(session, room.RoomId, view, out var token)) {
                 return;
             }
@@ -166,7 +164,7 @@ public sealed class CameraService : ICameraService, IDisposable
     // it again, and no more often than every few seconds. The crop position only moves the frame within the view, so
     // it is not part of the geometry. Leaving a room ends the camera context; the camera opened in the next room starts
     // a new one, as a capture does.
-    internal bool TryBeginPreparation(GameClient session, uint roomId, CameraViewport? viewport, out CancellationToken token)
+    internal bool TryBeginPreparation(GameClient session, uint roomId, CameraViewport viewport, out CancellationToken token)
     {
         var state = Session(session);
 
@@ -176,11 +174,11 @@ public sealed class CameraService : ICameraService, IDisposable
             }
 
             var now = _time.GetUtcNow();
-            var geometry = viewport is null ? null : viewport with { X = 0, Y = 0 };
+            var geometry = viewport with { X = 0, Y = 0 };
             token = state.Cancellation.Token;
 
             if (state.PreparedRoomId == roomId && now - state.PreparedAt < PreparationInterval &&
-                (geometry == null || geometry == state.PreparedGeometry || now - state.PreparedAt < GeometryInterval)) {
+                (geometry == state.PreparedGeometry || now - state.PreparedAt < GeometryInterval)) {
                 return false;
             }
 
