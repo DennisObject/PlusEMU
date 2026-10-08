@@ -216,6 +216,36 @@ public sealed class MoodlightServiceTests
         Assert.Equal(Payload(new MoodlightConfigComposer(MoodlightConfigSnapshot.Capture(room.MoodlightData))), config.Payload);
     }
 
+    [Fact]
+    public void RoomLoadRestoresWallMoodlightStateFromTheSidecar()
+    {
+        var (room, _, _, _) = Context();
+        room.MoodlightData = null;
+        typeof(Room).GetField("_interactionClock", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, TimeProvider.System);
+        var store = new RecordingStore
+        {
+            Loaded = new(7, true, 2, "#000000,1,0", "#0053F7,200,1", "#82F349,3,0")
+        };
+        var handling = new RoomItemHandling(room, TestRoomItemStore.Instance, store, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
+        // A reboot reloads items.extra_data, which toggles never write, so it still says the light is off.
+        var item = new Item
+        {
+            Id = 4_000_000_001,
+            RoomId = room.Id,
+            UserId = 1,
+            WallCoordinates = ":w=0,2 l=11,53 l",
+            Definition = new() { Type = ItemType.Wall, InteractionType = InteractionType.Moodlight },
+            ExtraData = new LegacyDataFormat { Data = "1,2,2,#0053F7,200" }
+        };
+
+        handling.LoadFurniture([item]);
+
+        Assert.Equal(item.Id, store.LoadedItem);
+        Assert.Equal("2,2,2,#0053F7,200", item.LegacyDataString);
+        Assert.True(room.MoodlightData!.Enabled);
+        Assert.Equal(item.Id, room.MoodlightData.ItemId);
+    }
+
     private static (Room Room, FlashGameClient Client, Item Item, List<(uint Header, byte[] Payload)> Sent) Context()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
