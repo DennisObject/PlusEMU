@@ -146,6 +146,9 @@ async function createPage(abort, furniture) {
         throw error;
     }
 }
+function selectIdlePage(idle, roomId) {
+    return idle.filter(entry => entry.roomId === roomId).sort((a, b) => b.usedAt - a.usedAt)[0] ?? idle.sort((a, b) => a.usedAt - b.usedAt)[0];
+}
 // A free page that last prepared or photographed the room already holds its libraries. A preparing page is never
 // lent: its failures would belong to the photo. Waits for a preparation or a booting page happen outside the gate.
 async function borrowPage(abort, roomId) {
@@ -167,7 +170,7 @@ async function borrowIdlePage(abort, roomId) {
             const preparing = current.filter(entry => entry.preparing);
             const idle = current.filter(entry => !entry.preparing);
             // The page that last prepared or photographed this room, else the one used least recently.
-            const slot = idle.filter(entry => entry.roomId === roomId).sort((a, b) => b.usedAt - a.usedAt)[0] ?? idle.sort((a, b) => a.usedAt - b.usedAt)[0];
+            const slot = selectIdlePage(idle, roomId);
             if (slot) { slot.busy = true; slot.roomId = roomId; slot.usedAt = performance.now(); slot.failures.length = 0; return { slot }; }
             // A preparation may still be loading furniture since removed, so it is waited for only without a free page.
             const same = preparing.find(entry => entry.roomId === roomId);
@@ -229,7 +232,7 @@ async function prepare(scene) {
             const furniture = await currentCatalogue();
             const idle = pool.filter(entry => !entry.busy && !entry.preparing && entry.furnitureVersion === furniture.version);
             // Otherwise take the page used least recently, leaving the other warm for its room.
-            const slot = idle.filter(entry => entry.roomId === scene.roomId).sort((a, b) => b.usedAt - a.usedAt)[0] ?? idle.sort((a, b) => a.usedAt - b.usedAt)[0];
+            const slot = selectIdlePage(idle, scene.roomId);
             if (!slot) return null;
             slot.roomId = scene.roomId;
             slot.usedAt = performance.now();
