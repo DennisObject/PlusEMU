@@ -763,6 +763,108 @@ def merge_builders_club(catalog, line_of=lambda kind, class_id: None):
     return merged, report
 
 
+# The Staff tab: every furni no public page sells, for staff only (the permission today's live Staff tab uses).
+STAFF_PERMISSION = 'catalog.pages.administrator'
+STAFF_PAGE_ID_BASE = 1700000000
+# Offer ids: floor 1.8e9 + sprite id, wall 1.85e9 + sprite id; Plus-only rows (ids up to 1e9+, too wide for INT
+# offsets) 1.9e9 + their rank by furniture id.
+STAFF_FLOOR_OFFER_BASE, STAFF_WALL_OFFER_BASE, STAFF_CUSTOM_OFFER_BASE = 1800000000, 1850000000, 1900000000
+STAFF_FOLDER_SIZE, STAFF_SMALL_LINE = 400, 25
+STAFF_HEADER, STAFF_TEASER = 'catalog_MOD_Catalog_header', 'catalog_MOD_teaser'
+# habbo.com's own captions ("By type") where it has them, readable ones otherwise.
+STAFF_CATEGORIES = {
+    'bed': ('Bed', 114, 'catalog_beds_header_dyn'), 'chair': ('Chair', 111, 'catalog_chairs_header_dyn'),
+    'vending_machine': ('Dispenser', 217, 'catalog_vending_header_dyn'), 'divider': ('Divider', 113, 'catalog_dividers_header_dyn'),
+    'floor': ('Floor', 41, 'catalog_floors_header_dyn'), 'lighting': ('Lighting', 115, 'catalog_lighting_header_dyn'),
+    'table': ('Table', 112, 'catalog_tables_header_dyn'), 'teleport': ('Teleports', 1, 'catalog_teleports_header_dyn'),
+    'wall_decoration': ('Wall decoration', 1, 'catalog_walls_header_dyn'), 'other': ('Other', 1, 'catalog_decorative_header_dyn'),
+    'credit': ('Credit furni', 1, None), 'fortuna': ('Fortune & dice', 1, None), 'sound_fx': ('Sound FX', 1, None),
+    'wired_add_on': ('Wired add-ons', 1, None), 'wired_condition': ('Wired conditions', 1, None),
+    'wired_effect': ('Wired effects', 1, None), 'wired_trigger': ('Wired triggers', 1, None), 'gate': ('Gates', 1, None),
+    'trophy': ('Trophies', 1, None), 'rug': ('Rugs', 1, None), 'present': ('Presents', 1, None), 'shelf': ('Shelves', 1, None),
+    'roller': ('Rollers', 1, None), 'window': ('Windows', 1, None), 'tent': ('Tents', 1, None), 'dimmer': ('Dimmers', 1, None),
+}
+
+
+def staff_offer_id(kind, sprite_id):
+    if not 0 < sprite_id < 50000000:
+        raise ValueError(f'Staff offer id: sprite id {sprite_id} out of range')
+    return (STAFF_FLOOR_OFFER_BASE if kind == 's' else STAFF_WALL_OFFER_BASE) + sprite_id
+
+
+def staff_tree(unsold, custom, position, link_taken):
+    """Pages, offers, products and placements of the Staff tab. unsold: Habbo furnidata entries (with 'kind' and
+    'target' = furniture id or placeholder) no public page sells; custom: Plus rows with no Habbo entry ({id, type,
+    item_name, sprite_id}). A category over STAFF_FOLDER_SIZE furni becomes a folder of furniline pages; lines under
+    STAFF_SMALL_LINE furni share alphabetical pages. Items sort by furniline, then name."""
+    tables = {table: {} for table in CATALOG_TABLES}
+    report = []
+    next_id = [STAFF_PAGE_ID_BASE]
+
+    def page(parent, caption, icon, header, items, path, link=None):
+        page_id = next_id[0]
+        next_id[0] += 1
+        siblings = sum(1 for row in tables['catalog_pages'].values() if row['parent_id'] == parent)
+        tables['catalog_pages'][(page_id,)] = dict(
+            id=page_id, parent_id=parent, link=link, caption=caption[:128], layout='default_3x3', required_permission=STAFF_PERMISSION,
+            visible=1, enabled=1, icon=icon, required_club_level=0, position=position if parent is None else siblings)
+        for slot, image in enumerate((header or STAFF_HEADER, STAFF_TEASER if parent is None else '', '')):
+            tables['catalog_page_images'][(page_id, slot)] = dict(page_id=page_id, slot=slot, image=image)
+        text = 'Staff only: every furni the public catalogue does not sell.' if parent is None else f'{len(items)} furni'
+        for slot, value in enumerate((text, '')):
+            tables['catalog_page_texts'][(page_id, slot)] = dict(page_id=page_id, slot=slot, text=value)
+        for index, item in enumerate(items):
+            offer_id = item['offer_id']
+            tables['catalog_offers'][(offer_id,)] = dict(id=offer_id, localization_key=item['classname'][:100], cost_credits=0, cost_points=0,
+                                                       points_type=0, club_level=0, bulk_purchase=1, enabled=1, preview_image='')
+            tables['catalog_offer_products'][(offer_id, 0)] = dict(offer_id=offer_id, position=0, product_type='furni', furniture_id=item['target'],
+                                                                   effect_id=None, badge_code=None, bot_preset_id=None, pet_type=None,
+                                                                   habbicon_id=None, amount=1, extra_param='')
+            tables['catalog_page_offers'][(page_id, offer_id)] = dict(page_id=page_id, offer_id=offer_id, position=index)
+        report.append({'path': ' > '.join(path), 'id': page_id, 'furni': len(items)})
+        return page_id
+
+    order = lambda item: ((item['line'] or '').lower(), (item['name'] or '').lower(), item['classname'])
+    items = [dict(kind=e['kind'], classname=e['classname'], name=e.get('name'), line=e.get('furniline') or '',
+                  category=e.get('category') or 'other', target=e['target'], offer_id=staff_offer_id(e['kind'], e['id']))
+             for e in unsold]
+    root = page(None, 'Staff', 1, None, [], ['Staff'], link=None if link_taken('staff') else 'staff')
+    by_category = {}
+    for item in items:
+        by_category.setdefault(item['category'], []).append(item)
+    caption_of = lambda category: STAFF_CATEGORIES.get(category, (category.replace('_', ' ').capitalize(), 1, None))
+    for category in sorted(by_category, key=lambda c: caption_of(c)[0].lower()):
+        caption, icon, header = caption_of(category)
+        members = sorted(by_category[category], key=order)
+        if len(members) <= STAFF_FOLDER_SIZE:
+            page(root, caption, icon, header, members, ['Staff', caption])
+            continue
+        folder = page(root, caption, icon, header, [], ['Staff', caption])
+        lines = {}
+        for item in members:
+            lines.setdefault(item['line'], []).append(item)
+        small = []
+        for line in sorted(lines, key=str.lower):
+            if len(lines[line]) >= STAFF_SMALL_LINE and line:
+                page(folder, line.replace('_', ' ').capitalize(), icon, header, lines[line], ['Staff', caption, line])
+            else:
+                small.append(line)
+        bucket = []
+        for line in small + [None]:
+            if bucket and (line is None or sum(len(lines[l]) for l in bucket) + len(lines[line]) > STAFF_FOLDER_SIZE):
+                first, last = (bucket[0][:1] or '#').upper(), (bucket[-1][:1] or '#').upper()
+                label = f'Other lines {first}' if first == last else f'Other lines {first}–{last}'
+                page(folder, label, icon, header, sorted((i for l in bucket for i in lines[l]), key=order), ['Staff', caption, label])
+                bucket = []
+            if line is not None:
+                bucket.append(line)
+    if custom:
+        plus = [dict(kind=row['type'], classname=row['item_name'], name=row['item_name'], line='', category='custom', target=row['id'],
+                     offer_id=STAFF_CUSTOM_OFFER_BASE + rank) for rank, row in enumerate(sorted(custom, key=lambda r: r['id']), 1)]
+        page(root, 'Plus custom', 1, None, sorted(plus, key=order), ['Staff', 'Plus custom'])
+    return tables, report
+
+
 def builders_club_sentinel(offer):
     return offer['priceInCredits'] >= 10000 or offer['priceInActivityPoints'] >= 10000
 
@@ -1050,6 +1152,26 @@ def plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets=
         name = wanted[1:] if isinstance(wanted, tuple) else final.get(wanted)
         if current is not None and current != wanted and final.get(current) == name:
             product['furniture_id'] = current
+    # Staff tab: what no public page sells.
+    public = catalog_plan['tables']
+    names = {row['id']: (row['type'], furniture['updates'].get(row['id'], {}).get('item_name', row['item_name'])) for row in snapshot['furniture']}
+    sold = {(target[1], target[2]) if isinstance(target, tuple) else names.get(target)
+            for target in (row['furniture_id'] for row in public['catalog_offer_products'].values() if row['product_type'] == 'furni')}
+    unsold = [dict(entry, kind=kind, target=resolve(kind, classname)) for (kind, classname), entry in sorted(habbo.items())
+              if (kind, classname) not in sold]
+    classnames = {classname for _, classname in habbo}
+    custom = [dict(row, item_name=names[row['id']][1]) for row in sorted(snapshot['furniture'], key=lambda r: r['id'])
+              if row['type'] in ('s', 'i') and names[row['id']][1] not in classnames]
+    links = {link_key(row['link']) for row in public['catalog_pages'].values() if row['link']}
+    staff, staff_report = staff_tree(unsold, custom, sum(1 for row in public['catalog_pages'].values() if row['parent_id'] is None),
+                                     lambda link: link_key(link) in links)
+    for table, rows in staff.items():
+        clash = set(rows) & set(public[table])
+        if clash:
+            raise ValueError(f'Staff tab collides with the public catalogue in {table}: {sorted(clash)[:5]}')
+        public[table].update(rows)
+    catalog_plan['report']['staff'] = {'pages': staff_report, 'unsold_habbo_furni': len(unsold), 'plus_custom': len(custom),
+                                       'large_pages': [page for page in staff_report if page['furni'] > STAFF_FOLDER_SIZE]}
     with_products = {key[0] for key in catalog_plan['tables']['catalog_offer_products']}
     empty = [key[0] for key in catalog_plan['tables']['catalog_offers'] if key[0] not in with_products]
     if empty:

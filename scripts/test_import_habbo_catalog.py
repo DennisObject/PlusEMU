@@ -428,3 +428,32 @@ def test_builders_club_sentinel_prices_take_the_furni_line_price():
     prices = {o['offerId']: (o['priceInCredits'], o['priceInActivityPoints'], o['activityPointType']) for o in merged['pages']['7']['offers']}
     assert prices == {400: (6, 0, 0), 401: (1, 0, 0), 402: (1, 0, 0), 403: (3, 0, 0)}
     assert report['bc_sentinel_prices_replaced'] == 3
+
+
+# ---- Staff tab ---------------------------------------------------------------
+
+def test_staff_tree_pages_by_category_with_big_categories_split_by_line(monkeypatch):
+    monkeypatch.setattr(m, 'STAFF_FOLDER_SIZE', 6)
+    monkeypatch.setattr(m, 'STAFF_SMALL_LINE', 3)
+    unsold = [dict(entry(f'chair{n}', id=10 + n, category='chair', furniline='plasto'), kind='s', target=100 + n) for n in range(2)]
+    unsold += [dict(entry(f'big{n}', id=20 + n, category='other', furniline='rare'), kind='s', target=200 + n) for n in range(4)]
+    unsold += [dict(entry(f'small{n}', id=30 + n, category='other', furniline=line), kind='i', target=300 + n)
+               for n, line in enumerate(['alpha', 'beta', 'gamma', 'zulu'])]
+    custom = [{'id': 5, 'type': 's', 'item_name': 'a0 pet5', 'sprite_id': 9}, {'id': 1000000226, 'type': 'i', 'item_name': 'camera', 'sprite_id': 8}]
+    tables, report = m.staff_tree(unsold, custom, 7, lambda link: False)
+    pages = {row['id']: row for row in tables['catalog_pages'].values()}
+    assert [p['path'] for p in report] == ['Staff', 'Staff > Chair', 'Staff > Other', 'Staff > Other > rare', 'Staff > Other > Other lines A–Z',
+                                           'Staff > Plus custom']
+    assert all(p['required_permission'] == m.STAFF_PERMISSION for p in pages.values())
+    root = pages[m.STAFF_PAGE_ID_BASE]
+    assert (root['parent_id'], root['link'], root['position']) == (None, 'staff', 7)
+    assert [o['id'] for o in tables['catalog_offers'].values()][:2] == [m.STAFF_FLOOR_OFFER_BASE + 10, m.STAFF_FLOOR_OFFER_BASE + 11]
+    assert (m.STAFF_WALL_OFFER_BASE + 30,) in tables['catalog_offers']
+    assert {(m.STAFF_CUSTOM_OFFER_BASE + 1,), (m.STAFF_CUSTOM_OFFER_BASE + 2,)} <= set(tables['catalog_offers'])
+    assert all((o['cost_credits'], o['cost_points'], o['club_level']) == (0, 0, 0) for o in tables['catalog_offers'].values())
+    assert tables['catalog_offer_products'][(m.STAFF_CUSTOM_OFFER_BASE + 1, 0)]['furniture_id'] == 5
+
+
+def test_staff_link_is_left_out_when_the_public_tree_uses_it():
+    tables, _ = m.staff_tree([], [], 0, lambda link: link == 'staff')
+    assert tables['catalog_pages'][(m.STAFF_PAGE_ID_BASE,)]['link'] is None
