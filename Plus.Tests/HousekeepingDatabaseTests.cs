@@ -382,7 +382,8 @@ public class HousekeepingDatabaseTests : IDisposable
         var tickets = new SsoTicketStore(_database, TimeProvider.System, Options.Create(new AuthApiConfiguration()));
         _ticket = tickets.Issue(Target).GetAwaiter().GetResult().Value;
 
-        return new Authenticator(Array.Empty<IAuthenticationTask>(), _clients, factory, new AfterConsume(tickets, afterConsume), gate);
+        return new Authenticator(Array.Empty<IAuthenticationTask>(), _clients, factory, new AfterConsume(tickets, afterConsume), gate,
+            new UserPersistenceService(_database, TimeProvider.System, _clients));
     }
 
     /// <summary>The real ticket store, with a hook that runs once a ticket has been used up.</summary>

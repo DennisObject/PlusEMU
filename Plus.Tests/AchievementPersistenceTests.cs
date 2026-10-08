@@ -239,7 +239,7 @@ public sealed class AchievementPersistenceTests
                     Access = UserAccess.Empty,
                     SessionStartedAt = DateTimeOffset.UtcNow,
                     HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
-                    Persistence = new UserPersistenceService(Database, TimeProvider.System)
+                    Persistence = new UserPersistenceService(Database, TimeProvider.System, TestGameClientManager.Empty)
                 };
                 (Client, Sent) = HabbiconTestSupport.Client(Habbo);
                 Habbo.Client = Client;

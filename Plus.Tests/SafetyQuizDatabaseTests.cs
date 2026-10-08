@@ -223,7 +223,7 @@ namespace Plus.Tests
                     Username = "quiz",
                     Access = UserAccess.Empty,
                     SessionStartedAt = DateTimeOffset.UtcNow,
-                    Persistence = new UserPersistenceService(Database, TimeProvider.System),
+                    Persistence = new UserPersistenceService(Database, TimeProvider.System, TestGameClientManager.Empty),
                     Duckets = Connection.ExecuteScalar<int>("SELECT COALESCE(SUM(amount),0) FROM user_currencies WHERE user_id=7 AND type=0"),
                     HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
                     Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []), Badges = new BadgesInventoryComponent([]) }
