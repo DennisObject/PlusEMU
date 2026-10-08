@@ -37,7 +37,6 @@ import
     RoomObjectVariable,
     RoomPlaneParser,
     RoomVariableEnum,
-    TextureUtils,
     Vector3d,
     loadGamedata
 } from '@octane/renderer';
@@ -1019,22 +1018,17 @@ async function renderRoom(job: CameraJob): Promise<string>
     }
 }
 
-// Draws a prepared room once without reading it back, so its textures are on the GPU and the
-// cull has read their alpha before the shutter. It runs no engine update, so nothing moves.
-function warmRoom(roomId: number, viewport: CameraViewport): void
+// Takes one plain photo of a prepared room and discards it, so the shutter's photo finds the
+// textures on the GPU, the cull's alpha read and the image encoders started. It runs no engine
+// update, so nothing moves.
+async function warmRoom(roomId: number, viewport: CameraViewport): Promise<void>
 {
-    const engine = GetRoomEngine();
-    const canvas = engine.getRoomInstanceRenderingCanvas(roomId, CANVAS_ID);
+    const canvas = GetRoomEngine().getRoomInstanceRenderingCanvas(roomId, CANVAS_ID);
     const restore = cullOpaqueSprites(canvas.display, viewport);
 
     try
     {
-        const texture = engine.createTextureFromRoom(roomId, CANVAS_ID, new OctaneRectangle(viewport.x, viewport.y, viewport.cropWidth, viewport.cropHeight));
-
-        // Reading one pixel waits until the draw has really run, not just been queued.
-        if(texture) TextureUtils.getPixels({ target: texture, frame: new OctaneRectangle(0, 0, 1, 1) });
-
-        texture?.destroy(true);
+        await encodeCrop(roomId, viewport, [], false, 0);
     }
     finally
     {
@@ -1055,7 +1049,7 @@ async function openPreparedRoom(scene: CameraScene, viewport: CameraViewport): P
 
         if(watch.failed.length) fail(`Missing library ${ watch.failed[0] }`);
 
-        warmRoom(requested.scene.roomId, requested.viewport);
+        await warmRoom(requested.scene.roomId, requested.viewport);
         keepRoom(requested.scene.roomId, PREPARED_ROOM_TTL_MS);
         preparedRoom = opened;
 
