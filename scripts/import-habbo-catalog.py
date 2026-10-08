@@ -1,0 +1,1159 @@
+#!/usr/bin/env python3
+"""Replace the catalogue with a habbo.com capture and make furniture follow Habbo's furnidata.
+
+  plan    reads the database, prints counts and writes the JSON report; nothing is written.
+  apply   writes the planned differences in one transaction, then re-plans inside it and commits only when
+          nothing is left to do, so a second apply is a no-op.
+  fetch-habs    downloads official .hab bundles (logicType, states) for the interaction evidence.
+  fetch-assets  downloads the .hab bundles and icons a plan report lists as missing into a staging folder.
+
+Inputs: the parsed capture (habbo-catalog/capture/parse.py), Habbo's furnidata.json (and optionally
+productdata.json and external_flash_texts.txt), a folder of official .hab files, Arcturus' catalog.sql for
+interaction votes, and `rclone lsf` listings of the R2 furniture bundles and icons.
+"""
+import argparse
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
+import gzip
+import json
+from pathlib import Path
+import re
+import struct
+import subprocess
+import sys
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+import zlib
+
+ROOT = Path(__file__).resolve().parents[1]
+WIRED_REGISTRY = ROOT / 'HabboHotel/Items/Wired/Configuration/WiredBoxRegistry.cs'
+INTERACTION_TYPES = ROOT / 'HabboHotel/Items/InteractionTypes.cs'
+HOF_FURNI = 'https://images.habbo.com/dcr/hof_furni'
+# Index folders (pageId -1 on habbo.com) are stored as disabled pages, which the emulator sends as -1 headings.
+FOLDER_PAGE_ID_BASE = 2000000000
+LOCK_NAME = 'plus_habbo_catalog_import'
+
+
+# ---- HAB bundles ----------------------------------------------------------
+
+def read_hab(data):
+    """{file name: bytes} of an official .hab bundle (LE 'HAB\\0', version 1, flags 1, zlib JSON index)."""
+    if len(data) < 20 or data[:4] != b'HAB\0':
+        raise ValueError('not a HAB bundle')
+    version, flags, index_stored, index_length, payload_length = struct.unpack_from('<HHIII', data, 4)
+    if (version, flags) != (1, 1) or 20 + index_stored + payload_length != len(data):
+        raise ValueError('unsupported or truncated HAB bundle')
+    index = json.loads(zlib.decompress(data[20:20 + index_stored]))
+    payload = data[20 + index_stored:]
+    files = {}
+    for entry in index['entries']:
+        content = payload[entry['offset']:entry['offset'] + entry['storedLength']]
+        files[entry['name']] = zlib.decompress(content) if entry['compression'] == 'deflate' else content
+    return files
+
+
+def hab_logic(data):
+    """What a bundle says about behaviour: logicType, visualizationType, model height and state count."""
+    document = next(json.loads(content) for name, content in read_hab(data).items() if name.endswith('.json'))
+    states = set()
+    for visualization in document.get('visualizations') or []:
+        # Animation ids below 1000 are states; higher ids are transitions between them.
+        states.update(int(key) for key in (visualization.get('animations') or {}) if str(key).isdigit() and int(key) < 1000)
+    dimensions = ((document.get('logic') or {}).get('model') or {}).get('dimensions') or {}
+    return {'logicType': document.get('logicType'), 'visualizationType': document.get('visualizationType'),
+            'height': dimensions.get('z'), 'states': len(states)}
+
+
+def library(classname):
+    return classname.split('*', 1)[0]
+
+
+def icon_name(classname):
+    name, _, colour = classname.partition('*')
+    return f'{name}_{colour}_icon.png' if colour else f'{name}_icon.png'
+
+
+def download(url, target):
+    try:
+        with urlopen(Request(url, headers={'User-Agent': 'Mozilla/5.0', 'Accept': '*/*'}), timeout=45) as response:
+            data = response.read()
+    except HTTPError as error:
+        return f'HTTP {error.code}'
+    except OSError as error:
+        return str(error)
+    temporary = target.with_suffix(target.suffix + '.part')
+    temporary.write_bytes(data)
+    temporary.replace(target)
+    return None
+
+
+def fetch_all(jobs, workers):
+    """jobs: [(url, target)]; existing targets are skipped. Returns [{url, error}] for failures."""
+    pending = [(url, target) for url, target in jobs if not target.exists()]
+    failures = []
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for (url, _), error in zip(pending, pool.map(lambda job: download(*job), pending)):
+            if error:
+                failures.append({'url': url, 'error': error})
+    return {'requested': len(jobs), 'downloaded': len(pending) - len(failures), 'failures': failures}
+
+
+def furnidata_entries(furnidata):
+    """Habbo's entries as (kind, entry): s = roomitemtypes, i = wallitemtypes."""
+    for kind, section in (('s', 'roomitemtypes'), ('i', 'wallitemtypes')):
+        for entry in (furnidata.get(section) or {}).get('furnitype') or []:
+            yield kind, entry
+
+
+def fetch_habs(furnidata, cache, workers):
+    cache.mkdir(parents=True, exist_ok=True)
+    revisions = {}
+    for _, entry in furnidata_entries(furnidata):
+        name = library(entry['classname'])
+        revisions[name] = max(revisions.get(name, 0), int(entry.get('revision') or 0))
+    return fetch_all([(f'{HOF_FURNI}/{revision}/{name}.hab', cache / f'{name}.hab') for name, revision in sorted(revisions.items())], workers)
+
+
+def fetch_assets(report, out, workers):
+    """Downloads what the plan reported missing from R2 into out/, laid out as on R2."""
+    jobs = []
+    for asset in report['assets']['missing']:
+        base = f"{HOF_FURNI}/{asset['revision']}/"
+        if asset['hab']:
+            jobs.append((base + asset['library'] + '.hab', out / 'assets/furniture' / (asset['library'] + '.hab')))
+        if asset['icon']:
+            jobs.append((base + asset['icon'], out / 'c_images/hof_furni/icons' / asset['icon']))
+    for _, target in jobs:
+        target.parent.mkdir(parents=True, exist_ok=True)
+    return fetch_all(sorted(set(jobs)), workers)
+
+
+# ---- other inputs ---------------------------------------------------------
+
+def load_json(path):
+    opener = gzip.open if str(path).endswith('.gz') else open
+    with opener(path, 'rt', encoding='utf-8') as f:
+        return json.load(f)
+
+
+def wired_box_names(path=WIRED_REGISTRY):
+    return set(re.findall(r'new\("([a-z0-9_]+)", WiredBoxCategory\.', path.read_text()))
+
+
+def interaction_names(path=INTERACTION_TYPES):
+    """Every interaction_type string the emulator parses."""
+    return set(re.findall(r'case "([a-z0-9_]+)":', path.read_text()))
+
+
+ARCTURUS_ROW = re.compile(r"^INSERT INTO `items_base` VALUES \((.*)\);\s*$")
+SQL_VALUE = re.compile(r"'((?:[^'\\]|\\.)*)'|(NULL)|(-?[0-9]+(?:\.[0-9]+)?)")
+
+
+def arcturus_votes(path):
+    """{(kind, item_name): vote} from Arcturus' items_base rows; the first row of a name wins."""
+    votes = {}
+    with open(path, encoding='latin-1') as f:
+        for line in f:
+            match = ARCTURUS_ROW.match(line)
+            if not match:
+                continue
+            values = [None if m[2] else (re.sub(r'\\(.)', r'\1', m[1]) if m[3] is None else m[3]) for m in SQL_VALUE.finditer(match[1])]
+            if len(values) < 21:
+                continue
+            kind, name = str(values[4]).strip().lower(), values[2]
+            votes.setdefault((kind, name), {
+                'interaction': str(values[17] or '').strip().lower(), 'modes': int(float(values[18] or 0)),
+                'vending_ids': str(values[19] or '0').strip(), 'multiheight': str(values[20] or '').strip()})
+    return votes
+
+
+def listing(path):
+    """Names in an `rclone lsf` listing."""
+    return {line.strip() for line in Path(path).read_text().splitlines() if line.strip()} if path else None
+
+
+# ---- interaction evidence -------------------------------------------------
+
+COLOURS = {'r': 'red', 'b': 'blue', 'g': 'green', 'y': 'yellow'}
+# Furnidata specialtype of floor items -> PlusEMU interaction (the AIR client's special furni types).
+SPECIAL_TYPES = {8: 'musicdisc', 9: 'gift', 11: 'trophy', 12: 'exchange', 13: 'horse_body_dye', 14: 'horse_hairstyle',
+                 15: 'horse_hair_dye', 23: 'purchasable_clothing'}
+WALL_SPECIALS = {'wallpaper': 'wallpaper', 'floor': 'floor', 'landscape': 'landscape'}
+# .hab logicType -> interaction. A dict picks by 'category:', 'visualization:' or classname; None is the fallback.
+LOGIC_INTERACTIONS = {
+    'furniture_trophy': 'trophy', 'furniture_credit': 'exchange', 'furniture_present': 'gift',
+    'furniture_crackable': 'crackable_egg', 'furniture_purchasable_clothing': 'purchasable_clothing',
+    'furniture_one_way_door': 'onewaygate', 'furniture_habbowheel': 'habbowheel', 'furniture_jukebox': 'jukebox',
+    'furniture_sound_machine': 'jukebox', 'furniture_song_disk': 'musicdisc', 'furniture_roomdimmer': 'dimmer',
+    'furniture_stickie': 'postit', 'furniture_badge_display': 'badge_display', 'furniture_mannequin': 'mannequin',
+    'furniture_background_color': 'roombg', 'furniture_bg': 'background', 'furniture_bb': 'background',
+    'furniture_lovelock': 'lovelock', 'furniture_hween_lovelock': 'lovelock', 'furniture_group_forum_terminal': 'guild_forum',
+    'furniture_random_teleport': 'hopper', 'furniture_youtube': 'television',
+    'furniture_pushable': {'bb_puck': 'banzaipuck', None: 'ball'},
+    'furniture_dice': {'bottle': 'bottle', 'visualization:furniture_bottle': 'bottle', None: 'dice'},
+    'furniture_guild_customized': {'category:gate': 'gld_gate', None: 'gld_item'},
+    'furniture_change_state_when_step_on': {'category:tent': 'tent'},
+}
+# Furnidata category -> interaction, only for multistate bundles or when no bundle is known.
+CATEGORY_INTERACTIONS = {'teleport': 'teleport', 'gate': 'gate', 'roller': 'roller', 'vending_machine': 'vendingmachine',
+                         'present': 'gift', 'credit': 'exchange', 'trophy': 'trophy', 'dimmer': 'dimmer'}
+# Game pieces and tools whose interaction is named by the piece (as PlusEMU's own rows name them).
+CLASSNAME_RULES = [
+    (r'fball_goal_([rbgy])', lambda m: COLOURS[m[1]] + '_goal'),
+    (r'fball_score_([rbgy])', lambda m: COLOURS[m[1]] + '_score'),
+    (r'bb_gate_([rbgy])', lambda m: f'bb_{COLOURS[m[1]]}_gate'),
+    (r'bb_score_([rbgy])', lambda m: f'bb_{COLOURS[m[1]]}_score'),
+    (r'es_gate_([rbgy])', lambda m: f'freeze{COLOURS[m[1]]}gate'),
+    (r'es_score_([rbgy])', lambda m: f'freeze{COLOURS[m[1]]}counter'),
+    (r'bb_patch1', 'bb_patch'), (r'bb_counter', 'banzaicounter'), (r'bb_rnd_tele', 'bb_teleport'), (r'bb_puck', 'banzaipuck'),
+    (r'bb_pyramid', 'bb_pyramid'), (r'es_counter', 'freezetimer'), (r'es_exit', 'freezeexit'), (r'es_tile', 'freezetile'),
+    (r'es_box', 'freezetileblock'), (r'es_tagging', 'icetag_pole'), (r'es_skating_ice', 'iceskates'), (r'fball_gate', 'fbgate'),
+    (r'fball_counter', 'counter'), (r'hockey_score', 'scoreboard'), (r'tile_stackmagic[0-9x]*', 'stacktool'),
+    (r'tile_walkmagic[0-9x]*', 'tile_walkmagic'), (r'wf_floor_switch[12]', lambda m: m[0]),
+    (r'wf_(?:game_)?upcounter[12]', lambda m: m[0]), (r'bottle', 'bottle'), (r'val_randomizer', 'loveshuffler'),
+    (r'gld_gate', 'gld_gate'),
+]
+CLASSNAME_RULES = [(re.compile(pattern), result) for pattern, result in CLASSNAME_RULES]
+# Arcturus interaction -> PlusEMU interaction, and the logic types that must agree before a vote counts.
+ARCTURUS_INTERACTIONS = {
+    'gate': 'gate', 'vendingmachine': 'vendingmachine', 'vendingmachine_no_sides': 'vendingmachine', 'vending': 'vendingmachine',
+    'teleport': 'teleport', 'bed': 'bed', 'dice': 'dice', 'trophy': 'trophy', 'roller': 'roller', 'tent': 'tent',
+    'badge_display': 'badge_display', 'love_lock': 'lovelock', 'gift': 'gift', 'onewaygate': 'onewaygate', 'postit': 'postit',
+    'dimmer': 'dimmer', 'jukebox': 'jukebox', 'mannequin': 'mannequin', 'background_toner': 'roombg', 'colorwheel': 'habbowheel',
+    'stack_helper': 'stacktool', 'tile_walk_magic': 'tile_walkmagic', 'pressureplate': 'pressure_pad', 'crackable': 'crackable_egg',
+    'hopper': 'hopper', 'guild_furni': 'gld_item', 'guild_gate': 'gld_gate', 'football': 'ball', 'clothing': 'purchasable_clothing',
+    'musicdisc': 'musicdisc', 'spinning_bottle': 'bottle',
+}
+VOTE_LOGIC = {
+    'gate': {'furniture_multistate'}, 'vendingmachine': {'furniture_multistate', 'furniture_basic'},
+    'teleport': {'furniture_multistate'}, 'bed': {'furniture_basic', 'furniture_multistate'}, 'dice': {'furniture_dice'},
+    'trophy': {'furniture_trophy'}, 'roller': {'furniture_multistate', 'furniture_basic'},
+    'tent': {'furniture_change_state_when_step_on'}, 'badge_display': {'furniture_badge_display'},
+    'lovelock': {'furniture_lovelock', 'furniture_hween_lovelock'}, 'gift': {'furniture_present'},
+    'onewaygate': {'furniture_one_way_door'}, 'postit': {'furniture_stickie'}, 'dimmer': {'furniture_roomdimmer'},
+    'jukebox': {'furniture_jukebox', 'furniture_sound_machine'}, 'mannequin': {'furniture_mannequin'},
+    'roombg': {'furniture_background_color'}, 'habbowheel': {'furniture_habbowheel'},
+    'stacktool': {'furniture_custom_stack_height'}, 'tile_walkmagic': {'furniture_custom_stack_height'},
+    'pressure_pad': {'furniture_multistate', 'furniture_change_state_when_step_on'}, 'crackable_egg': {'furniture_crackable'},
+    'hopper': {'furniture_random_teleport'}, 'gld_item': {'furniture_guild_customized'}, 'gld_gate': {'furniture_guild_customized'},
+    'ball': {'furniture_pushable'}, 'purchasable_clothing': {'furniture_purchasable_clothing'},
+    'musicdisc': {'furniture_song_disk'}, 'bottle': {'furniture_dice'},
+}
+# Logic types of furni that only look and stack; anything else left 'default' is reported.
+DECORATIVE_LOGIC = {None, 'furniture_basic', 'furniture_multistate', 'furniture_multiheight', 'furniture_window'}
+DECORATIVE_CATEGORIES = {None, '', 'other', 'chair', 'table', 'lighting', 'divider', 'rug', 'shelf', 'floor', 'food',
+                         'wall_decoration', 'window', 'extras', 'bed'}
+
+
+def derivable_interactions():
+    """Every fixed interaction name the rules can produce (wired boxes and colour templates aside)."""
+    names = {*SPECIAL_TYPES.values(), *WALL_SPECIALS.values(), *CATEGORY_INTERACTIONS.values(), *ARCTURUS_INTERACTIONS.values(),
+             'postit', 'horse_saddle_1', 'horse_saddle_2', 'gld_gate', 'gld_item', 'bed'}
+    for choice in LOGIC_INTERACTIONS.values():
+        names |= set(choice.values()) if isinstance(choice, dict) else {choice}
+    names |= {result for _, result in CLASSNAME_RULES if isinstance(result, str)}
+    names |= {f'{c}_goal' for c in COLOURS.values()} | {f'{c}_score' for c in COLOURS.values()} | {f'bb_{c}_gate' for c in COLOURS.values()} \
+        | {f'bb_{c}_score' for c in COLOURS.values()} | {f'freeze{c}gate' for c in COLOURS.values()} | {f'freeze{c}counter' for c in COLOURS.values()}
+    return names
+
+
+def pick(choice, kind, entry, hab):
+    if not isinstance(choice, dict):
+        return choice
+    for key, value in choice.items():
+        if key is None:
+            continue
+        if key.startswith('category:') and entry.get('category') == key[9:]:
+            return value
+        if key.startswith('visualization:') and (hab or {}).get('visualizationType') == key[14:]:
+            return value
+        if not key.startswith(('category:', 'visualization:')) and re.fullmatch(key, entry['classname']):
+            return value
+    return choice.get(None)
+
+
+def derive_interaction(kind, entry, hab, vote, wired):
+    """(interaction, rule) on decisive evidence, in the contract's order; (None, None) when nothing decides."""
+    classname, category, special = entry['classname'], entry.get('category'), entry.get('specialtype') or 1
+    logic = (hab or {}).get('logicType')
+    if kind == 'i':
+        if classname in WALL_SPECIALS:
+            return WALL_SPECIALS[classname], 'furnidata:classname'
+        if special == 5:
+            return 'postit', 'furnidata:specialtype=5'
+    else:
+        if special in SPECIAL_TYPES:
+            return SPECIAL_TYPES[special], f'furnidata:specialtype={special}'
+        if special == 16 and classname[-1:] in '12':
+            return 'horse_saddle_' + classname[-1], 'furnidata:specialtype=16'
+        if special == 17:
+            if logic == 'furniture_group_forum_terminal':
+                return 'guild_forum', 'furnidata:specialtype=17,hab:logicType'
+            return ('gld_gate' if category == 'gate' or classname == 'gld_gate' else 'gld_item'), 'furnidata:specialtype=17'
+        if entry.get('canlayon'):
+            return 'bed', 'furnidata:canlayon'
+    if logic in LOGIC_INTERACTIONS:
+        interaction = pick(LOGIC_INTERACTIONS[logic], kind, entry, hab)
+        if interaction:
+            return interaction, f'hab:logicType={logic}'
+    if category in CATEGORY_INTERACTIONS and (logic in (None, 'furniture_multistate')
+                                              or (category == 'roller' and (hab or {}).get('visualizationType') == 'furniture_queue_tile')):
+        interaction = CATEGORY_INTERACTIONS[category]
+        # A vending machine hands out items no Habbo file names; without them it is not configured.
+        if interaction != 'vendingmachine' or vending_ids(vote):
+            return interaction, f'category={category}'
+    if classname in wired:
+        return classname, 'classname:wired'
+    for pattern, result in CLASSNAME_RULES:
+        match = pattern.fullmatch(classname)
+        if match:
+            return (result(match) if callable(result) else result), 'classname'
+    voted = ARCTURUS_INTERACTIONS.get((vote or {}).get('interaction', ''))
+    if voted and logic in VOTE_LOGIC.get(voted, ()) and (voted != 'vendingmachine' or vending_ids(vote)):
+        return voted, f'vote:arcturus={vote["interaction"]}'
+    return None, None
+
+
+def vending_ids(vote):
+    ids = (vote or {}).get('vending_ids', '0').replace(';', ',')
+    return ids if re.fullmatch(r'[0-9]+(,[0-9]+)*', ids) and ids != '0' else None
+
+
+def hint(kind, entry, hab, vote):
+    """Why a row left 'default' may need an interaction, or None for plain decorative furni."""
+    logic = (hab or {}).get('logicType')
+    reasons = []
+    if logic not in DECORATIVE_LOGIC:
+        reasons.append(f'logicType={logic}')
+    if entry.get('category') not in DECORATIVE_CATEGORIES:
+        reasons.append(f'category={entry.get("category")}')
+    if (entry.get('specialtype') or 1) != 1:
+        reasons.append(f'specialtype={entry.get("specialtype")}')
+    voted = (vote or {}).get('interaction', 'default')
+    if voted not in ('default', 'switch', 'multiheight', ''):
+        reasons.append(f'arcturus={voted}')
+    return ', '.join(reasons) or None
+
+
+def behaviour_columns(kind, entry, hab, vote, interaction, stacking=False):
+    """PlusEMU behaviour columns Habbo's files decide for a row in derivation scope. canputstuffon only becomes can_stack
+    with stacking: Habbo forbids stacking on far more furni than retro hotels do."""
+    columns = {}
+    if kind == 's':
+        columns.update(width=entry.get('xdim') or 1, length=entry.get('ydim') or 1, can_sit=int(bool(entry.get('cansiton'))),
+                       is_walkable=int(bool(entry.get('canstandon'))))
+        if entry.get('height') is not None:
+            columns['stack_height'] = float(entry['height'])
+        if stacking and entry.get('canputstuffon') is not None:
+            columns['can_stack'] = int(bool(entry['canputstuffon']))
+    if hab:
+        columns['interaction_modes_count'] = max(hab['states'], 1)
+        heights = (vote or {}).get('multiheight', '')
+        if hab['logicType'] == 'furniture_multiheight' and heights and len(heights.split(';')) == hab['states']:
+            columns['height_adjustable'] = heights.replace(';', ',')
+    elif (vote or {}).get('modes', 0) > 0:
+        columns['interaction_modes_count'] = vote['modes']
+    if interaction == 'vendingmachine':
+        columns['vending_ids'] = vending_ids(vote)
+    return columns
+
+
+# ---- furniture ------------------------------------------------------------
+
+FURNIDATA_COLUMNS = {
+    # column: (furnidata key, default, maximum length)
+    'revision': ('revision', 0, None), 'category': ('category', None, 64), 'default_dir': ('defaultdir', 0, None),
+    'xdim': ('xdim', 1, None), 'ydim': ('ydim', 1, None), 'name': ('name', None, 255), 'description': ('description', None, 1024),
+    'ad_url': ('adurl', None, 512), 'excluded_dynamic': ('excludeddynamic', False, None), 'custom_params': ('customparams', None, 1024),
+    'special_type': ('specialtype', 1, None), 'can_stand_on': ('canstandon', False, None), 'can_sit_on': ('cansiton', False, None),
+    'can_lay_on': ('canlayon', False, None), 'can_put_stuff_on': ('canputstuffon', None, None), 'height': ('height', None, None),
+    'furni_line': ('furniline', None, 64), 'environment': ('environment', None, 64), 'rare': ('rare', False, None),
+    'tradeable': ('tradeable', None, None), 'recyclable': ('recyclable', None, None),
+}
+BEHAVIOUR_COLUMNS = ['item_name', 'public_name', 'type', 'width', 'length', 'stack_height', 'can_stack', 'can_sit', 'is_walkable',
+                     'sprite_id', 'allow_recycle', 'allow_trade', 'allow_marketplace_sell', 'allow_gift', 'allow_inventory_stack',
+                     'interaction_type', 'interaction_modes_count', 'vending_ids', 'height_adjustable', 'is_rare', 'clothing_id',
+                     'has_furnidata']
+FURNITURE_COLUMNS = ['id'] + BEHAVIOUR_COLUMNS + ['part_colors'] + list(FURNIDATA_COLUMNS)
+DEFAULT_INTERACTIONS = ('default', '')
+
+
+def furnidata_columns(entry):
+    """The furniture columns of a furnidata entry, as migration 60 stores them."""
+    columns = {}
+    for column, (key, default, length) in FURNIDATA_COLUMNS.items():
+        value = entry.get(key)
+        value = default if value is None else value
+        if isinstance(value, bool):
+            value = int(value)
+        if length and isinstance(value, str):
+            value = value[:length]
+        columns[column] = value
+    colours = (entry.get('partcolors') or {}).get('color') if 'partcolors' in entry else None
+    columns['part_colors'] = ','.join(colours or []) if 'partcolors' in entry else None
+    return columns
+
+
+def clothing_parts(entry):
+    """The figure set ids a clothing furni unlocks ('3593, 3594,' -> '3593,3594'), or None."""
+    parts = [part.strip() for part in (entry.get('customparams') or '').split(',') if part.strip()]
+    return ','.join(parts) if parts and all(part.isdigit() for part in parts) else None
+
+
+def latin1(text, length):
+    return ''.join(c if ord(c) < 256 else '?' for c in (text or ''))[:length]
+
+
+class Evidence:
+    def __init__(self, habs=None, votes=None, wired=None, stacking=False):
+        self.habs, self.votes, self.wired, self.stacking = habs or {}, votes or {}, wired or set(), stacking
+
+    def hab(self, classname):
+        return self.habs.get(library(classname))
+
+    def vote(self, kind, classname):
+        return self.votes.get((kind, classname))
+
+
+def plan_furniture(furniture, habbo, needed, evidence, clothing):
+    """Desired furniture rows. furniture: current rows; habbo: {(kind, classname): entry}; needed: (kind, classname)s
+    the catalogue sells; clothing: {clothing_name: (id, parts)}. Returns updates, inserts and the report."""
+    rows = {row['id']: row for row in furniture}
+    report = {'renamed': [], 'kind_conflicts': [], 'sprite_moves': [], 'sprite_collisions': [], 'derived': [],
+              'left_default_with_hint': [], 'behaviour_updated': 0, 'furnidata_updated': 0, 'created': [],
+              'agreement': {'agree': 0, 'differ': [], 'undecided': 0}}
+    by_ci = {(kind, classname.lower()): classname for kind, classname in habbo}
+    desired = {}  # id -> {column: value}
+    entry_of = {}  # id -> (kind, classname) of the Habbo entry the row is or shares
+    owner_of = {}  # (kind, classname) -> id
+    owners = {(row['type'], row['item_name']): row['id'] for row in furniture if row['has_furnidata']}
+
+    def want(row_id, **columns):
+        desired.setdefault(row_id, {}).update(columns)
+
+    for (kind, name), row_id in sorted(owners.items(), key=lambda item: item[1]):
+        classname = name if (kind, name) in habbo else by_ci.get((kind, name.lower()))
+        if classname is None:
+            other = 'i' if kind == 's' else 's'
+            if (other, name.lower()) in by_ci:
+                report['kind_conflicts'].append({'id': row_id, 'classname': name, 'type': kind, 'habbo_type': other})
+            continue
+        if classname != name:
+            report['renamed'].append({'id': row_id, 'from': name, 'to': classname, 'reason': 'case'})
+        owner_of[(kind, classname)] = row_id
+        entry_of[row_id] = (kind, classname)
+        want(row_id, item_name=classname, has_furnidata=1)
+
+    # Rows whose name only differs by surrounding whitespace or line breaks take the entry when no row owns it.
+    junk = {}
+    for row in sorted(furniture, key=lambda r: r['id']):
+        clean = row['item_name'].strip()
+        if not row['has_furnidata'] and clean != row['item_name'] and (row['type'], clean) in habbo and (row['type'], clean) not in owner_of:
+            junk.setdefault((row['type'], clean), []).append(row['id'])
+    for key, ids in junk.items():
+        owner_of[key] = ids[0]
+        for position, row_id in enumerate(ids):
+            report['renamed'].append({'id': row_id, 'from': rows[row_id]['item_name'], 'to': key[1], 'reason': 'whitespace'})
+            entry_of[row_id] = key
+            want(row_id, item_name=key[1], has_furnidata=int(position == 0))
+
+    # Rows sharing an owner's classname use its entry and its sprite.
+    sharing = {}
+    for row in furniture:
+        owner = owners.get((row['type'], row['item_name']))
+        if not row['has_furnidata'] and row['id'] not in entry_of and owner is not None:
+            sharing[row['id']] = owner
+            if owner in entry_of:
+                entry_of[row['id']] = entry_of[owner]
+                want(row['id'], item_name=entry_of[owner][1])
+
+    created = []
+    for kind, classname in sorted(needed):
+        if (kind, classname) in habbo and (kind, classname) not in owner_of:
+            created.append((kind, classname))
+            owner_of[(kind, classname)] = ('new', kind, classname)
+
+    # Sprite ids: Habbo's for every entry; rows of other furni that hold one of them move above every id in use.
+    sprite = {row['id']: row['sprite_id'] for row in furniture}
+    taken = {}
+    for (kind, classname), owner in owner_of.items():
+        taken[(kind, habbo[(kind, classname)]['id'])] = classname
+    ceiling = {kind: max([entry['id'] for (k, _), entry in habbo.items() if k == kind]
+                         + [row['sprite_id'] for row in furniture if row['type'] == kind] + [0]) for kind in ('s', 'i')}
+    for row in sorted(furniture, key=lambda r: r['id']):
+        if row['has_furnidata'] and row['id'] not in entry_of and (row['type'], row['sprite_id']) in taken:
+            ceiling[row['type']] += 1
+            sprite[row['id']] = ceiling[row['type']]
+            report['sprite_collisions'].append({'id': row['id'], 'classname': row['item_name'], 'type': row['type'], 'from': row['sprite_id'],
+                                                'to': sprite[row['id']], 'habbo_classname': taken[(row['type'], row['sprite_id'])]})
+    for row_id, (kind, classname) in entry_of.items():
+        sprite[row_id] = habbo[(kind, classname)]['id']
+    for row_id, owner in sharing.items():
+        if owner not in entry_of:
+            sprite[row_id] = sprite[owner]
+    for row in furniture:
+        if sprite[row['id']] != row['sprite_id']:
+            want(row['id'], sprite_id=sprite[row['id']])
+            report['sprite_moves'].append({'id': row['id'], 'classname': row['item_name'], 'type': row['type'], 'from': row['sprite_id'],
+                                           'to': sprite[row['id']]})
+    for row in furniture:
+        if row['id'] not in entry_of and row['id'] not in sharing and not row['has_furnidata'] and (row['type'], row['sprite_id']) in taken \
+                and taken[(row['type'], row['sprite_id'])] != row['item_name']:
+            report['sprite_collisions'].append({'id': row['id'], 'classname': row['item_name'], 'type': row['type'], 'from': row['sprite_id'],
+                                                'to': row['sprite_id'], 'habbo_classname': taken[(row['type'], row['sprite_id'])],
+                                                'note': 'row without a furnidata entry; its sprite id names this Habbo entry'})
+
+    def interaction_for(row_id, kind, entry, current):
+        hab = evidence.hab(entry['classname'])
+        vote = evidence.vote(kind, entry['classname'])
+        interaction, rule = derive_interaction(kind, entry, hab, vote, evidence.wired)
+        columns = behaviour_columns(kind, entry, hab, vote, interaction, evidence.stacking)
+        if interaction == 'purchasable_clothing':
+            # catalog_clothing holds 55-character names and 85 characters of parts.
+            if not clothing_parts(entry) or len(clothing_parts(entry)) > 85 or len(entry['classname']) > 55:
+                interaction, rule = None, None
+            else:
+                known = clothing.get(entry['classname'])
+                columns['clothing_id'] = known[0] if known else ('clothing', entry['classname'])
+        if interaction:
+            columns['interaction_type'] = interaction
+            report['derived'].append({'id': row_id, 'classname': entry['classname'], 'type': kind, 'interaction': interaction, 'rule': rule})
+        else:
+            reason = hint(kind, entry, hab, vote)
+            if reason:
+                report['left_default_with_hint'].append({'id': row_id, 'classname': entry['classname'], 'type': kind, 'hint': reason})
+        return {column: value for column, value in columns.items() if current is None or not same(current.get(column), value)}
+
+    for row_id, (kind, classname) in sorted(entry_of.items()):
+        entry, row = habbo[(kind, classname)], rows[row_id]
+        if row['has_furnidata'] or desired.get(row_id, {}).get('has_furnidata'):
+            want(row_id, **furnidata_columns(entry))
+        if row['interaction_type'] in DEFAULT_INTERACTIONS:
+            want(row_id, **interaction_for(row_id, kind, entry, row))
+        else:
+            derived, _ = derive_interaction(kind, entry, evidence.hab(classname), evidence.vote(kind, classname), evidence.wired)
+            agreement = report['agreement']
+            if derived is None:
+                agreement['undecided'] += 1
+            elif derived == row['interaction_type'].lower() or (derived in evidence.wired and row['interaction_type'].lower().startswith('wired')):
+                # A generic wired_* row and its box name load the same box.
+                agreement['agree'] += 1
+            else:
+                agreement['differ'].append({'id': row_id, 'classname': classname, 'current': row['interaction_type'], 'derived': derived})
+
+    inserts = []
+    for kind, classname in created:
+        entry = habbo[(kind, classname)]
+        row = {column: None for column in FURNITURE_COLUMNS if column != 'id'}
+        row.update(item_name=classname, public_name=latin1(entry.get('name') or classname, 56), type=kind, width=1, length=1,
+                   stack_height=0.0, can_stack=1, can_sit=0, is_walkable=0, sprite_id=entry['id'],
+                   allow_recycle=int(entry.get('recyclable') is not False), allow_trade=int(entry.get('tradeable') is not False),
+                   allow_marketplace_sell=int(entry.get('tradeable') is not False), allow_gift=1, allow_inventory_stack=1,
+                   interaction_type='default', interaction_modes_count=1, vending_ids='0', height_adjustable='0',
+                   is_rare=int(bool(entry.get('rare'))), clothing_id=0, has_furnidata=1)
+        row.update(furnidata_columns(entry))
+        row.update(interaction_for(('new', kind, classname), kind, entry, None))
+        inserts.append(row)
+        report['created'].append({'classname': classname, 'type': kind, 'sprite_id': entry['id'], 'interaction': row['interaction_type']})
+
+    updates = {}
+    for row_id, columns in desired.items():
+        changed = {column: value for column, value in columns.items() if not same(rows[row_id].get(column), value)}
+        if changed:
+            report['furnidata_updated'] += bool(set(changed) & (set(FURNIDATA_COLUMNS) | {'part_colors'}))
+            report['behaviour_updated'] += bool(set(changed) & set(BEHAVIOUR_COLUMNS))
+            # A row whose sprite or classname changes leaves the unique furnidata keys while the ids move; this restores it.
+            if {'sprite_id', 'item_name'} & set(changed):
+                changed['has_furnidata'] = columns.get('has_furnidata', rows[row_id]['has_furnidata'])
+            updates[row_id] = changed
+    return {'updates': updates, 'inserts': inserts, 'owner_of': owner_of, 'report': report}
+
+
+def same(current, value):
+    if isinstance(value, tuple) or isinstance(current, tuple):
+        return False
+    if current is None or value is None:
+        return current is None and value is None
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and isinstance(current, (int, float, str)):
+        try:
+            return abs(float(current) - float(value)) < 1e-9
+        except ValueError:
+            return False
+    return current == value
+
+
+# ---- catalogue ------------------------------------------------------------
+
+CATALOG_TABLES = {
+    'catalog_pages': (('id',), ['id', 'parent_id', 'link', 'caption', 'layout', 'required_permission', 'visible', 'enabled', 'icon',
+                                'required_club_level', 'position']),
+    'catalog_page_images': (('page_id', 'slot'), ['page_id', 'slot', 'image']),
+    'catalog_page_texts': (('page_id', 'slot'), ['page_id', 'slot', 'text']),
+    'catalog_offers': (('id',), ['id', 'localization_key', 'cost_credits', 'cost_points', 'points_type', 'club_level', 'bulk_purchase',
+                                 'enabled', 'preview_image']),
+    'catalog_offer_products': (('offer_id', 'position'), ['offer_id', 'position', 'product_type', 'furniture_id', 'effect_id', 'badge_code',
+                                                          'bot_preset_id', 'pet_type', 'habbicon_id', 'amount', 'extra_param']),
+    'catalog_page_offers': (('page_id', 'offer_id'), ['page_id', 'offer_id', 'position']),
+    'catalog_offer_limited': (('offer_id',), ['offer_id', 'stack', 'sold']),
+}
+PROMOTION_COLUMNS = ['title', 'image', 'unknown', 'page_link', 'parent_id', 'position', 'item_type', 'offer_id', 'product_code', 'expires_at']
+PRODUCT_TARGETS = ['furniture_id', 'effect_id', 'badge_code', 'bot_preset_id', 'pet_type', 'habbicon_id']
+
+
+def capture_classnames(catalog):
+    """(kind, furniClassId) of every furni product in the capture."""
+    for page in catalog['pages'].values():
+        for offer in page['offers']:
+            for product in offer['products']:
+                if product['productType'] in ('s', 'i'):
+                    yield product['productType'], product['furniClassId']
+
+
+def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=False):
+    """Desired catalogue rows from the parsed capture. source_names: {(kind, class id): classname} of the captured hotel;
+    resolve(kind, classname) -> furniture id, a ('new', kind, classname) placeholder or None."""
+    pages_in = {int(page_id): page for page_id, page in catalog['pages'].items()}
+    desired = {table: {} for table in CATALOG_TABLES}
+    report = {'missing_pages': [], 'duplicate_pages': [], 'folders': [], 'duplicate_links': [], 'dropped_offers': [],
+              'conflicting_offers': [], 'kept_offers': [], 'ignored': {'rent': 0, 'silver_priced': 0, 'not_giftable': 0}}
+    bots = {row['figure']: row['id'] for row in sorted(snapshot['catalog_bot_presets'], key=lambda r: r['id'], reverse=True)}
+    habbicons = {row['id'] for row in snapshot['habbicons']}
+    limited_now = {row['offer_id']: row for row in snapshot['catalog_offer_limited']}
+    badges = set()
+    links = set()
+    synthetic = [FOLDER_PAGE_ID_BASE]
+    seen = set()
+
+    def put(table, row):
+        key = tuple(row[column] for column in CATALOG_TABLES[table][0])
+        desired[table][key] = row
+
+    def offer_rows(offer):
+        if offer['rent']:
+            report['ignored']['rent'] += 1
+            return None, 'rent offer'
+        if offer['priceInSilver']:
+            report['ignored']['silver_priced'] += 1
+        if not offer['giftable']:
+            report['ignored']['not_giftable'] += 1
+        if offer['offerId'] <= 0 or not 0 <= offer['clubLevel'] <= 2 or min(offer['priceInCredits'], offer['priceInActivityPoints'],
+                                                                              offer['activityPointType']) < 0:
+            return None, 'offer id, club level or price out of range'
+        if len(offer['localizationId']) > 100 or len(offer['previewImage']) > 255:
+            return None, 'localization or preview image too long'
+        products, ltd = [], None
+        for position, product in enumerate(offer['products']):
+            kind, class_id, amount = product['productType'], product['furniClassId'], product['productCount']
+            row = dict(offer_id=offer['offerId'], position=position, product_type=None, amount=max(amount, 1),
+                       extra_param=product['extraParam'], **{target: None for target in PRODUCT_TARGETS})
+            if kind in ('s', 'i'):
+                classname = source_names.get((kind, class_id))
+                furniture_id = resolve(kind, classname) if classname else None
+                if furniture_id is None:
+                    return None, f'furni {kind}:{class_id} {classname or "(not in furnidata)"} has no definition'
+                row.update(product_type='furni', furniture_id=furniture_id)
+            elif kind == 'e':
+                row.update(product_type='effect', effect_id=class_id, extra_param='')
+            elif kind == 'b':
+                if not product['extraParam'] or len(product['extraParam']) > 35:
+                    return None, 'badge code missing or too long'
+                row.update(product_type='badge', badge_code=product['extraParam'], amount=1, extra_param='')
+                badges.add(product['extraParam'])
+            elif kind == 'p':
+                row.update(product_type='pet', pet_type=class_id, extra_param='')
+            elif kind == 'r':
+                if product['extraParam'] not in bots:
+                    return None, 'bot figure matches no catalog_bot_presets row'
+                row.update(product_type='bot', bot_preset_id=bots[product['extraParam']], extra_param='')
+            elif kind == 'habbicon':
+                if class_id not in habbicons:
+                    return None, f'habbicon {class_id} does not exist'
+                row.update(product_type='habbicon', habbicon_id=class_id, amount=1, extra_param='')
+            else:
+                return None, f'product type {kind!r} is not supported'
+            if not 1 <= row['amount'] <= 1000 or len(row['extra_param']) > 1024:
+                return None, 'product amount or extra parameter out of range'
+            products.append(row)
+            if product['uniqueLimitedItem'] and ltd is None:
+                stack = product['uniqueLimitedItemSeriesSize']
+                if stack <= 0:
+                    return None, 'limited edition without a series size'
+                # This hotel sells its own series: sales already made here are kept, habbo.com's are not copied.
+                ltd = dict(offer_id=offer['offerId'], stack=stack, sold=min(limited_now.get(offer['offerId'], {}).get('sold', 0), stack))
+        if not products:
+            return None, 'no products'
+        return (dict(id=offer['offerId'], localization_key=offer['localizationId'], cost_credits=offer['priceInCredits'],
+                     cost_points=offer['priceInActivityPoints'], points_type=offer['activityPointType'], club_level=offer['clubLevel'],
+                     bulk_purchase=int(offer['bundlePurchaseAllowed']), enabled=1, preview_image=offer['previewImage']), products, ltd), None
+
+    def visit(node, parent_id, position, depth):
+        page_id = node['pageId']
+        content = pages_in.get(page_id) if page_id > 0 else None
+        if page_id > 0 and page_id not in seen:
+            seen.add(page_id)
+            row_id = page_id
+        else:
+            synthetic[0] += 1
+            row_id = synthetic[0]
+            (report['duplicate_pages'] if page_id > 0 else report['folders']).append({'pageId': page_id, 'id': row_id, 'name': node['pageName']})
+        if page_id > 0 and content is None:
+            report['missing_pages'].append({'pageId': page_id, 'name': node['pageName']})
+        link = (node['pageName'] or '').strip()[:128] or None
+        if link and link.lower() in links:
+            report['duplicate_links'].append({'id': row_id, 'link': link})
+            link = None
+        if link:
+            links.add(link.lower())
+        put('catalog_pages', dict(id=row_id, parent_id=parent_id, link=link, caption=node['localization'][:128],
+                                  layout=(content or {}).get('layoutCode') or 'default_3x3', required_permission=None,
+                                  visible=int(node['visible']), enabled=int(content is not None), icon=node['icon'], required_club_level=0,
+                                  position=position))
+        if content:
+            for slot, image in enumerate(content['images']):
+                put('catalog_page_images', dict(page_id=row_id, slot=slot, image=image[:255]))
+            for slot, text in enumerate(content['texts']):
+                put('catalog_page_texts', dict(page_id=row_id, slot=slot, text=text))
+            for offer_position, offer in enumerate(content['offers']):
+                built, reason = offer_rows(offer)
+                if built is None:
+                    report['dropped_offers'].append({'offerId': offer['offerId'], 'pageId': page_id, 'name': offer['localizationId'], 'reason': reason})
+                    continue
+                offer_row, products, ltd = built
+                if (offer_row['id'],) in desired['catalog_offers']:
+                    if desired['catalog_offers'][(offer_row['id'],)] != offer_row:
+                        report['conflicting_offers'].append({'offerId': offer_row['id'], 'pageId': page_id})
+                else:
+                    put('catalog_offers', offer_row)
+                    for product in products:
+                        put('catalog_offer_products', product)
+                    if ltd:
+                        put('catalog_offer_limited', ltd)
+                if (row_id, offer_row['id']) not in desired['catalog_page_offers']:
+                    put('catalog_page_offers', dict(page_id=row_id, offer_id=offer_row['id'], position=offer_position))
+        if depth < 64:
+            for child_position, child in enumerate(node['children']):
+                visit(child, row_id, child_position, depth + 1)
+
+    for position, node in enumerate(catalog['index']['children']):
+        visit(node, None, position, 1)
+    if report['missing_pages'] and not allow_missing_pages:
+        raise ValueError(f"{len(report['missing_pages'])} index pages were not captured; re-capture or pass --allow-missing-pages.")
+
+    # Club gifts name offers; one the capture does not sell stays, so the gift keeps its offer.
+    kept = {row['offer_id'] for row in snapshot['club_gift_offers']} - {key[0] for key in desired['catalog_offers']}
+    for table in ('catalog_offers', 'catalog_offer_products', 'catalog_offer_limited'):
+        id_column = 'id' if table == 'catalog_offers' else 'offer_id'
+        for row in snapshot[table]:
+            if row[id_column] in kept:
+                put(table, {column: row[column] for column in CATALOG_TABLES[table][1]})
+    gifts = {row['offer_id'] for row in snapshot['club_gift_offers']}
+    report['kept_offers'] = sorted(offer_id for offer_id in gifts if not any(key[1] == offer_id for key in desired['catalog_page_offers']))
+
+    promotions = []
+    for node_page in sorted(desired['catalog_pages'].values(), key=lambda row: row['id']):
+        items = (pages_in.get(node_page['id']) or {}).get('frontPageItems') or []
+        if items:
+            promotions = [promotion_row(item, catalog.get('source', {}).get('capturedAt')) for item in items]
+            break
+    return {'tables': desired, 'badges': badges, 'promotions': promotions, 'report': report}
+
+
+def promotion_row(item, captured_at):
+    expires = None
+    if item.get('secondsToExpiration', 0) > 0 and captured_at:
+        moment = datetime.fromisoformat(captured_at.replace('Z', '+00:00')).replace(tzinfo=None)
+        expires = (moment + timedelta(seconds=item['secondsToExpiration'])).strftime('%Y-%m-%d %H:%M:%S.%f')
+    return dict(title=latin1(item['itemName'], 128), image=latin1(item['itemPromoImage'], 255), unknown=0,
+                page_link=latin1(item.get('cataloguePageLocation') or '', 128), parent_id=-1, position=item['position'],
+                item_type=item['type'], offer_id=item['productOfferId'] if item.get('productOfferId') is not None else -1,
+                product_code=latin1(item.get('productCode') or '', 128), expires_at=expires)
+
+
+# ---- differences and SQL --------------------------------------------------
+
+def diff_table(table, current_rows, desired_rows):
+    keys, columns = CATALOG_TABLES[table]
+    current = {tuple(row[column] for column in keys): row for row in current_rows}
+    inserts = [row for key, row in desired_rows.items() if key not in current]
+    updates = []
+    for key, row in desired_rows.items():
+        if key in current:
+            changed = {column: row[column] for column in columns if column not in keys and not same(current[key][column], row[column])}
+            if changed:
+                updates.append((key, changed))
+    deletes = [key for key in current if key not in desired_rows]
+    return {'insert': inserts, 'update': updates, 'delete': deletes}
+
+
+def literal(value):
+    if value is None:
+        return 'NULL'
+    if isinstance(value, tuple):
+        if value[0] == 'new':
+            return (f"(SELECT `id` FROM `furniture` WHERE `type` = {literal(value[1])} AND `furnidata_classname` = "
+                    f"{literal(value[2])} AND `item_name` = BINARY {literal(value[2])})")
+        return f"(SELECT MIN(`id`) FROM `catalog_clothing` WHERE `clothing_name` = {literal(value[1])})"
+    if isinstance(value, str):
+        return 'CONVERT(0x' + value.encode().hex() + ' USING utf8mb4)' if value else "''"
+    if isinstance(value, bool):
+        return str(int(value))
+    return repr(value) if isinstance(value, float) else str(value)
+
+
+def where(keys, key):
+    return ' AND '.join(f'`{column}` = {literal(value)}' for column, value in zip(keys, key))
+
+
+def assignments(changes):
+    return ', '.join(f'`{column}` = {literal(value)}' for column, value in changes.items())
+
+
+def insert(table, row):
+    return f'INSERT INTO `{table}` (' + ', '.join(f'`{column}`' for column in row) + ') VALUES (' + ', '.join(literal(v) for v in row.values()) + ');'
+
+
+def plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets=None, allow_missing_pages=False):
+    """Everything apply would write, and the report."""
+    habbo = {(kind, entry['classname']): entry for kind, entry in furnidata_entries(habbo_furnidata)}
+    source = {(kind, entry['id']): entry['classname'] for kind, entry in furnidata_entries(source_furnidata)}
+    needed = {(kind, source[(kind, class_id)]) for kind, class_id in capture_classnames(catalog) if (kind, class_id) in source}
+    clothing = {}
+    for row in sorted(snapshot['catalog_clothing'], key=lambda r: r['id'], reverse=True):
+        clothing[row['clothing_name']] = (row['id'], row['clothing_parts'])
+    furniture = plan_furniture(snapshot['furniture'], habbo, needed, evidence, clothing)
+    by_name = {}
+    for row in sorted(snapshot['furniture'], key=lambda r: (not r['has_furnidata'], r['id'])):
+        by_name.setdefault((row['type'], row['item_name']), row['id'])
+
+    def resolve(kind, classname):
+        return furniture['owner_of'].get((kind, classname), by_name.get((kind, classname)))
+
+    catalog_plan = plan_catalog(catalog, source, resolve, snapshot, allow_missing_pages)
+    # An offer that already sells a Plus duplicate of the same furni (another row the client shows as the same sprite) keeps it.
+    final = {row['id']: (row['type'], furniture['updates'].get(row['id'], {}).get('sprite_id', row['sprite_id'])) for row in snapshot['furniture']}
+    sold = {(row['offer_id'], row['position']): row['furniture_id'] for row in snapshot['catalog_offer_products'] if row['furniture_id']}
+    for key, product in catalog_plan['tables']['catalog_offer_products'].items():
+        current, wanted = sold.get(key), product['furniture_id']
+        shown = (wanted[1], habbo[wanted[1:]]['id']) if isinstance(wanted, tuple) else final.get(wanted)
+        if current is not None and current != wanted and final.get(current) == shown:
+            product['furniture_id'] = current
+    sold = {key[0] for key in catalog_plan['tables']['catalog_offer_products']}
+    empty = [key[0] for key in catalog_plan['tables']['catalog_offers'] if key[0] not in sold]
+    if empty:
+        raise ValueError(f'Offers without products would be written: {empty[:10]}')
+    tables = {table: diff_table(table, snapshot[table], catalog_plan['tables'][table]) for table in CATALOG_TABLES}
+    current_promotions = sorted((tuple(str(row[c]) if c == 'expires_at' and row[c] is not None else row[c] for c in PROMOTION_COLUMNS)
+                                 for row in snapshot['catalog_promotions']), key=repr)
+    wanted_promotions = sorted((tuple(row[c] for c in PROMOTION_COLUMNS) for row in catalog_plan['promotions']), key=repr)
+    promotions = catalog_plan['promotions'] if catalog_plan['promotions'] and current_promotions != wanted_promotions else None
+    known_badges = {row['code'].lower() for row in snapshot['badge_definitions']}
+    badges = sorted(code for code in catalog_plan['badges'] if code.lower() not in known_badges)
+    clothing_rows = []
+    for row in list(furniture['updates'].values()) + furniture['inserts']:
+        if isinstance(row.get('clothing_id'), tuple):
+            name = row['clothing_id'][1]
+            parts = clothing_parts(habbo[('s', name)])
+            if name not in {r['clothing_name'] for r in clothing_rows}:
+                clothing_rows.append({'clothing_name': name, 'clothing_parts': parts})
+    result = {'furniture': furniture, 'catalog': catalog_plan, 'tables': tables, 'promotions': promotions, 'badges': badges,
+              'clothing': clothing_rows}
+    result['report'] = build_report(result, snapshot, catalog, habbo, assets)
+    return result
+
+
+def changes(result):
+    """Number of writes a plan needs; 0 means apply has nothing to do."""
+    return (len(result['furniture']['updates']) + len(result['furniture']['inserts']) + len(result['badges']) + len(result['clothing'])
+            + (len(result['promotions']) + 1 if result['promotions'] else 0)
+            + sum(len(diff['insert']) + len(diff['update']) + len(diff['delete']) for diff in result['tables'].values()))
+
+
+def statements(result):
+    sql = []
+    furniture = result['furniture']
+    for row in result['clothing']:
+        sql.append(insert('catalog_clothing', row))
+    # Owners whose sprite or classname changes leave the unique furnidata keys first, so ids can move in any order.
+    updates = furniture['updates']
+    freed = sorted(row_id for row_id, columns in updates.items() if 'has_furnidata' in columns)
+    for chunk in range(0, len(freed), 500):
+        sql.append('UPDATE `furniture` SET `has_furnidata` = FALSE WHERE `id` IN (' + ','.join(map(str, freed[chunk:chunk + 500])) + ');')
+    for row_id, columns in sorted(updates.items()):
+        sql.append(f'UPDATE `furniture` SET {assignments(columns)} WHERE `id` = {row_id};')
+    for row in furniture['inserts']:
+        sql.append(insert('furniture', {column: value for column, value in row.items() if value is not None or column in FURNIDATA_COLUMNS}))
+    for code in result['badges']:
+        sql.append(insert('badge_definitions', {'code': code}))
+
+    tables = result['tables']
+    for table in ('catalog_page_offers', 'catalog_offer_limited', 'catalog_offer_products', 'catalog_page_images', 'catalog_page_texts'):
+        keys = CATALOG_TABLES[table][0]
+        sql += [f'DELETE FROM `{table}` WHERE {where(keys, key)};' for key in tables[table]['delete']]
+    sql += [f'DELETE FROM `catalog_offers` WHERE `id` = {key[0]};' for key in tables['catalog_offers']['delete']]
+    pages = tables['catalog_pages']
+    sql += [insert('catalog_pages', dict(row, parent_id=None, link=None)) for row in pages['insert']]
+    # Links are unique: pages that change or lose theirs release them before any page takes one.
+    relinked = [key for key, columns in pages['update'] if 'link' in columns] + pages['delete']
+    sql += [f'UPDATE `catalog_pages` SET `link` = NULL WHERE `id` = {key[0]};' for key in relinked]
+    sql += [f"UPDATE `catalog_pages` SET {assignments(columns)} WHERE `id` = {key[0]};" for key, columns in pages['update']]
+    sql += [f"UPDATE `catalog_pages` SET `parent_id` = {literal(row['parent_id'])}, `link` = {literal(row['link'])} WHERE `id` = {row['id']};"
+            for row in pages['insert'] if row['parent_id'] is not None or row['link'] is not None]
+    sql += [f'UPDATE `catalog_pages` SET `parent_id` = NULL WHERE `id` = {key[0]};' for key in pages['delete']]
+    sql += [f'DELETE FROM `catalog_pages` WHERE `id` = {key[0]};' for key in pages['delete']]
+    for table in ('catalog_offers', 'catalog_offer_products', 'catalog_offer_limited', 'catalog_page_offers', 'catalog_page_images',
+                  'catalog_page_texts'):
+        keys = CATALOG_TABLES[table][0]
+        sql += [insert(table, row) for row in tables[table]['insert']]
+        sql += [f'UPDATE `{table}` SET {assignments(columns)} WHERE {where(keys, key)};' for key, columns in tables[table]['update']]
+    if result['promotions']:
+        sql.append('DELETE FROM `catalog_promotions`;')
+        sql += [insert('catalog_promotions', row) for row in result['promotions']]
+    # Open marketplace listings name the sprite they show.
+    if any('sprite_id' in columns for columns in updates.values()):
+        sql.append('UPDATE `catalog_marketplace_offers` AS `offer` INNER JOIN `furniture` ON `furniture`.`id` = `offer`.`furni_id` '
+                   'SET `offer`.`sprite_id` = `furniture`.`sprite_id` WHERE `offer`.`sprite_id` <> `furniture`.`sprite_id`;')
+    return sql
+
+
+# ---- report ---------------------------------------------------------------
+
+def build_report(result, snapshot, catalog, habbo, assets):
+    tables = result['tables']
+    furniture = result['furniture']['report']
+    desired = result['catalog']['tables']
+    offers = desired['catalog_offers'].values()
+    summary = {table: {action: len(diff[action]) for action in ('insert', 'update', 'delete')} for table, diff in tables.items()}
+    currencies = Counter(offer['points_type'] for offer in offers if offer['cost_points'] > 0)
+    removed_offers = {key[0] for key in tables['catalog_offers']['delete']}
+    removed_pages = {key[0] for key in tables['catalog_pages']['delete']}
+    admin = Counter('offer' if row['entity_type'] == 'OFFER' and row['entity_id'] in removed_offers else
+                    'page' if row['entity_type'] == 'PAGE' and row['entity_id'] in removed_pages else 'kept'
+                    for row in snapshot['catalog_admin_log'])
+    offer_ids = {key[0] for key in desired['catalog_offers']}
+    links = {row['link'].lower() for row in desired['catalog_pages'].values() if row['link']}
+    promotions = result['catalog']['promotions'] or snapshot['catalog_promotions']
+    dangling = [row for row in promotions if (row['page_link'] and row['page_link'].lower() not in links)
+                or (row['offer_id'] not in (-1, 0) and row['offer_id'] not in offer_ids)]
+    report = {
+        'source': catalog.get('source'),
+        'counts': {
+            'pages': summary['catalog_pages'], 'page_images': summary['catalog_page_images'], 'page_texts': summary['catalog_page_texts'],
+            'offers': summary['catalog_offers'], 'products': summary['catalog_offer_products'], 'page_offers': summary['catalog_page_offers'],
+            'limited': summary['catalog_offer_limited'], 'promotions_replaced': len(result['promotions'] or []),
+            'badges_defined': len(result['badges']), 'clothing_added': len(result['clothing']),
+            'furniture_created': len(furniture['created']), 'furniture_updated': len(result['furniture']['updates']),
+            'sprite_moves': len(furniture['sprite_moves']), 'sprite_collisions': len(furniture['sprite_collisions']),
+            'renamed': len(furniture['renamed']), 'interactions_derived': len(furniture['derived']),
+            'left_default_with_hint': len(furniture['left_default_with_hint']), 'writes': changes(result)},
+        'catalog': result['catalog']['report'],
+        'currencies': {str(points_type): count for points_type, count in sorted(currencies.items())},
+        'references': {
+            'club_gift_offers': {'rows': len(snapshot['club_gift_offers']), 'offers_kept_off_pages': result['catalog']['report']['kept_offers']},
+            'club_gift_claims': {'rows': len(snapshot['club_gift_claims']), 'note': 'history; offer ids are kept as they were'},
+            'catalog_admin_log': {'rows': len(snapshot['catalog_admin_log']), 'naming_removed_offers': admin['offer'],
+                                  'naming_removed_pages': admin['page'], 'note': 'history; one IMPORT row is added per apply'},
+            'catalog_promotions': {'replaced': bool(result['promotions']), 'dangling': dangling},
+            'catalog_marketplace_offers': 'sprite_id follows furniture.sprite_id of furni_id',
+            'items.base_item': 'furniture ids never change'},
+        'furniture': furniture,
+        'interactions': dict(Counter(row['interaction'] for row in furniture['derived']).most_common()),
+        'interaction_rules': dict(Counter(row['rule'].split('=')[0] for row in furniture['derived']).most_common()),
+        'hardcoded_sprites': hardcoded_sprites(result, snapshot),
+    }
+    report['assets'] = missing_assets(result, snapshot, habbo, assets)
+    return report
+
+
+# Sprite ids the emulator names in code: the recycler box and the ten gift wrappings it offers.
+HARDCODED_SPRITES = {('s', 3095): r'ecotron_box', **{('s', 3372 + n): r'present_wrap\*[0-9]+' for n in range(10)}}
+
+
+def hardcoded_sprites(result, snapshot):
+    final = {}
+    for row in snapshot['furniture']:
+        update = result['furniture']['updates'].get(row['id'], {})
+        if update.get('has_furnidata', row['has_furnidata']):
+            final[(row['type'], update.get('sprite_id', row['sprite_id']))] = update.get('item_name', row['item_name'])
+    for row in result['furniture']['inserts']:
+        final[(row['type'], row['sprite_id'])] = row['item_name']
+    return [{'type': kind, 'sprite_id': sprite, 'expected': name, 'actual': final.get((kind, sprite))}
+            for (kind, sprite), name in HARDCODED_SPRITES.items() if not re.fullmatch(name, final.get((kind, sprite)) or '')]
+
+
+def missing_assets(result, snapshot, habbo, assets):
+    """Classnames the new catalogue sells (and every Habbo-owned row) whose .hab or icon is not on R2."""
+    if not assets:
+        return {'checked': False, 'missing': []}
+    habs, icons = assets
+    updates = result['furniture']['updates']
+    names = {(row['type'], updates.get(row['id'], {}).get('item_name', row['item_name'])) for row in snapshot['furniture']
+             if updates.get(row['id'], {}).get('has_furnidata', row['has_furnidata'])}
+    names |= {(row['type'], row['item_name']) for row in result['furniture']['inserts']}
+    missing = []
+    for kind, classname in sorted(names):
+        entry = habbo.get((kind, classname))
+        if entry is None:
+            continue
+        hab = library(classname) + '.hab' not in habs
+        icon = icon_name(classname) not in icons
+        if hab or icon:
+            missing.append({'classname': classname, 'type': kind, 'library': library(classname), 'revision': entry.get('revision') or 0,
+                            'hab': hab, 'icon': icon_name(classname) if icon else None})
+    return {'checked': True, 'missing': missing, 'missing_hab': sum(m['hab'] for m in missing), 'missing_icon': sum(bool(m['icon']) for m in missing)}
+
+
+# ---- database -------------------------------------------------------------
+
+class Database:
+    """One mariadb session in the database container; rows come back as JSON lines."""
+
+    def __init__(self, container, database=None):
+        name = f"'{database}'" if database else '"$MARIADB_DATABASE"'
+        self.process = subprocess.Popen(
+            ['docker', 'exec', '-i', container, 'sh', '-c',
+             f'MYSQL_PWD="$MARIADB_ROOT_PASSWORD" exec mariadb -uroot --batch --raw --skip-column-names --unbuffered {name}'],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+
+    def query(self, sql):
+        self.process.stdin.write(sql + "\nSELECT '{\"end\":true}';\n")
+        self.process.stdin.flush()
+        rows = []
+        while True:
+            line = self.process.stdout.readline()
+            if not line:
+                raise ValueError('Database command failed; the transaction is rolled back on disconnect: ' + self.process.stderr.read()[-2000:])
+            row = json.loads(line)
+            if row == {'end': True}:
+                return rows
+            rows.append(row)
+
+    def close(self):
+        self.process.stdin.close()
+        self.process.wait(timeout=60)
+        self.process.stdout.close()
+        self.process.stderr.close()
+
+
+SNAPSHOT = {
+    'furniture': FURNITURE_COLUMNS,
+    **{table: columns for table, (_, columns) in CATALOG_TABLES.items()},
+    'catalog_promotions': ['id'] + PROMOTION_COLUMNS,
+    'club_gift_offers': ['offer_id'], 'club_gift_claims': ['offer_id'], 'catalog_admin_log': ['entity_type', 'entity_id'],
+    'catalog_clothing': ['id', 'clothing_name', 'clothing_parts'], 'catalog_bot_presets': ['id', 'figure'], 'habbicons': ['id'],
+    'badge_definitions': ['code'],
+}
+LOCKED = {'furniture', 'catalog_promotions', 'catalog_clothing', 'badge_definitions', 'club_gift_offers', *CATALOG_TABLES}
+
+
+def read_snapshot(db, lock=False):
+    snapshot = {}
+    for table, columns in SNAPSHOT.items():
+        pairs = ','.join(f"'{column}',`{column}`" for column in columns)
+        suffix = ' FOR UPDATE' if lock and table in LOCKED else ''
+        snapshot[table] = db.query(f'SELECT JSON_OBJECT({pairs}) FROM `{table}`{suffix};')
+    for row in snapshot['furniture']:
+        row['type'] = row['type'].lower()
+    return snapshot
+
+
+# ---- command line ---------------------------------------------------------
+
+def load_evidence(args):
+    habs = {}
+    if args.hab_cache:
+        for path in sorted(Path(args.hab_cache).glob('*.hab')):
+            try:
+                habs[path.stem] = hab_logic(path.read_bytes())
+            except (ValueError, KeyError, zlib.error, json.JSONDecodeError, StopIteration):
+                continue
+    return Evidence(habs, arcturus_votes(args.arcturus) if args.arcturus else {}, wired_box_names(), args.habbo_stacking)
+
+
+def summary_line(report):
+    counts = report['counts']
+    return json.dumps({key: counts[key] for key in ('pages', 'offers', 'products', 'page_offers', 'furniture_created', 'furniture_updated',
+                                                     'sprite_moves', 'sprite_collisions', 'interactions_derived', 'left_default_with_hint',
+                                                     'writes')} | {'currencies': report['currencies'],
+                                                                    'missing_assets': len(report['assets']['missing'])})
+
+
+def run(args):
+    if args.command == 'fetch-habs':
+        print(json.dumps(fetch_habs(load_json(args.furnidata), Path(args.cache), args.workers)))
+        return
+    if args.command == 'fetch-assets':
+        print(json.dumps(fetch_assets(load_json(args.report), Path(args.out), args.workers)))
+        return
+    catalog = load_json(args.catalog)
+    habbo_furnidata = load_json(args.furnidata)
+    source_furnidata = load_json(args.source_furnidata) if args.source_furnidata else habbo_furnidata
+    evidence = load_evidence(args)
+    assets = (listing(args.r2_furniture), listing(args.r2_icons)) if args.r2_furniture and args.r2_icons else None
+    unknown = derivable_interactions() - interaction_names()
+    if unknown:
+        raise ValueError('Interaction names the emulator does not parse: ' + ', '.join(sorted(unknown)))
+    db = Database(args.container, args.database)
+    try:
+        if args.command == 'apply':
+            if db.query(f"SELECT JSON_OBJECT('acquired', GET_LOCK('{LOCK_NAME}', 10));") != [{'acquired': 1}]:
+                raise ValueError('Import lock unavailable.')
+            db.query('SET SESSION innodb_lock_wait_timeout = 30; START TRANSACTION;')
+        else:
+            db.query('START TRANSACTION READ ONLY;')
+        snapshot = read_snapshot(db, args.command == 'apply')
+        result = plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets, args.allow_missing_pages)
+        if args.report:
+            Path(args.report).write_text(json.dumps(result['report'], indent=1, ensure_ascii=False) + '\n')
+        if args.command == 'apply' and changes(result):
+            sql = statements(result)
+            counts = result['report']['counts']
+            sql.append("INSERT INTO `catalog_admin_log` (`user_id`, `username`, `action`, `entity_type`, `catalog_type`, `entity_id`, "
+                       "`operation`, `summary`) VALUES (0, 'habbo-import', 'habbo_catalog_import', 'PAGE', 'NORMAL', 0, 'IMPORT', "
+                       + literal(f"habbo.com catalogue import: {counts['writes']} changes")[:255] + ');')
+            for chunk in range(0, len(sql), 2000):
+                db.query('\n'.join(sql[chunk:chunk + 2000]))
+            after = plan(read_snapshot(db, True), catalog, habbo_furnidata, source_furnidata, evidence, None, args.allow_missing_pages)
+            if changes(after):
+                raise ValueError(f'Post-import check found {changes(after)} differences left; rolled back.')
+            db.query('COMMIT;')
+        else:
+            db.query('ROLLBACK;')
+        print(json.dumps({'mode': args.command, 'applied': args.command == 'apply' and changes(result) > 0}) + '\n' + summary_line(result['report']))
+    finally:
+        db.close()
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    commands = parser.add_subparsers(dest='command', required=True)
+    for name in ('plan', 'apply'):
+        command = commands.add_parser(name)
+        command.add_argument('--catalog', required=True, help='catalog.json from capture/parse.py')
+        command.add_argument('--furnidata', required=True, help="Habbo's furnidata.json")
+        command.add_argument('--source-furnidata', help="furnidata of the captured hotel when it is not habbo.com (its class ids)")
+        command.add_argument('--hab-cache', help='folder of official .hab bundles (fetch-habs)')
+        command.add_argument('--arcturus', help="Arcturus catalog.sql for interaction votes")
+        command.add_argument('--r2-furniture', help='rclone lsf of plusemu-assets/assets/furniture/')
+        command.add_argument('--r2-icons', help='rclone lsf of plusemu-assets/c_images/hof_furni/icons/')
+        command.add_argument('--container', required=True, help='MariaDB container (credentials stay in the container)')
+        command.add_argument('--database', help='database name; default $MARIADB_DATABASE in the container')
+        command.add_argument('--report', help='write the JSON report here')
+        command.add_argument('--allow-missing-pages', action='store_true', help='keep index pages the capture lacks as headings')
+        command.add_argument('--habbo-stacking', action='store_true', help="set can_stack from Habbo's canputstuffon on derived rows")
+    command = commands.add_parser('fetch-habs')
+    command.add_argument('--furnidata', required=True)
+    command.add_argument('--cache', required=True)
+    command.add_argument('--workers', type=int, default=8)
+    command = commands.add_parser('fetch-assets')
+    command.add_argument('--report', required=True, help='plan report listing missing assets')
+    command.add_argument('--out', required=True, help='staging folder (assets/furniture, c_images/hof_furni/icons)')
+    command.add_argument('--workers', type=int, default=8)
+    run(parser.parse_args(argv))
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (ValueError, KeyError, OSError, subprocess.SubprocessError) as error:
+        sys.exit(str(error))
