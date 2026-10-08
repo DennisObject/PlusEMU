@@ -140,8 +140,13 @@ def load_json(path):
         return json.load(f)
 
 
+WIRED_GENERIC = {'Trigger': 'wired_trigger', 'Action': 'wired_effect', 'Condition': 'wired_condition', 'Selector': 'wired_selector',
+                 'Addon': 'wired_addon', 'Variable': 'wired_variable'}
+
+
 def wired_box_names(path=WIRED_REGISTRY):
-    return set(re.findall(r'new\("([a-z0-9_]+)", WiredBoxCategory\.', path.read_text()))
+    """{box name: its generic wired_* interaction} from PlusEMU's WiredBoxRegistry."""
+    return {name: WIRED_GENERIC[category] for name, category in re.findall(r'new\("([a-z0-9_]+)", WiredBoxCategory\.(\w+)', path.read_text())}
 
 
 def interaction_names(path=INTERACTION_TYPES):
@@ -149,25 +154,86 @@ def interaction_names(path=INTERACTION_TYPES):
     return set(re.findall(r'case "([a-z0-9_]+)":', path.read_text()))
 
 
-ARCTURUS_ROW = re.compile(r"^INSERT INTO `items_base` VALUES \((.*)\);\s*$")
-SQL_VALUE = re.compile(r"'((?:[^'\\]|\\.)*)'|(NULL)|(-?[0-9]+(?:\.[0-9]+)?)")
+# Column order of items_base rows written without a column list (Arcturus dumps).
+ARCTURUS_COLUMNS = ['id', 'sprite_id', 'item_name', 'public_name', 'type', 'width', 'length', 'stack_height', 'allow_stack', 'allow_sit',
+                    'allow_lay', 'allow_walk', 'allow_gift', 'allow_trade', 'allow_recycle', 'allow_marketplace_sell',
+                    'allow_inventory_stack', 'interaction_type', 'interaction_modes_count', 'vending_ids', 'multiheight']
 
 
-def arcturus_votes(path):
-    """{(kind, item_name): vote} from Arcturus' items_base rows; the first row of a name wins."""
+def sql_tuples(text):
+    """The value tuples of an INSERT's VALUES list, quoted strings unescaped, NULL as None."""
+    rows, row, i, n = [], None, 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '(' and row is None:
+            row = []
+        elif c == ')' and row is not None:
+            rows.append(row)
+            row = None
+        elif row is not None and c == "'":
+            j, out = i + 1, []
+            while text[j] != "'" or text[j + 1:j + 2] == "'":
+                if text[j] == '\\':
+                    out.append(text[j + 1]); j += 2; continue
+                if text[j] == "'":
+                    out.append("'"); j += 2; continue
+                out.append(text[j]); j += 1
+            row.append(''.join(out))
+            i = j
+        elif row is not None and c not in ', \t\r\n':
+            j = i
+            while text[j] not in ',)':
+                j += 1
+            token = text[i:j].strip()
+            row.append(None if token.upper() == 'NULL' else token)
+            i = j - 1
+        i += 1
+    return rows
+
+
+def statement_end(text, i):
+    """Index of the ';' ending the SQL statement that continues at i (quotes and backslash escapes respected)."""
+    quoted = False
+    while True:
+        c = text[i]
+        if quoted:
+            if c == '\\':
+                i += 1
+            elif c == "'":
+                if text[i + 1:i + 2] == "'":
+                    i += 1
+                else:
+                    quoted = False
+        elif c == "'":
+            quoted = True
+        elif c == ';':
+            return i
+        i += 1
+
+
+def items_base_rows(path):
+    """Rows of every `INSERT INTO items_base` in a dump (one or many tuples per statement, with or without columns)."""
+    text = Path(path).read_text(encoding='latin-1')
+    for match in re.finditer(r"INSERT INTO `items_base`\s*(?:\(([^)]*)\)\s*)?VALUES\s*", text):
+        columns = [c.strip(' `') for c in match[1].split(',')] if match[1] else ARCTURUS_COLUMNS
+        end = statement_end(text, match.end())
+        for values in sql_tuples(text[match.end():end]):
+            yield dict(zip(columns, values))
+
+
+def reference_votes(path):
+    """{(kind, item_name): vote} from a dump's items_base; the first row of a name wins."""
     votes = {}
-    with open(path, encoding='latin-1') as f:
-        for line in f:
-            match = ARCTURUS_ROW.match(line)
-            if not match:
-                continue
-            values = [None if m[2] else (re.sub(r'\\(.)', r'\1', m[1]) if m[3] is None else m[3]) for m in SQL_VALUE.finditer(match[1])]
-            if len(values) < 21:
-                continue
-            kind, name = str(values[4]).strip().lower(), values[2]
-            votes.setdefault((kind, name), {
-                'interaction': str(values[17] or '').strip().lower(), 'modes': int(float(values[18] or 0)),
-                'vending_ids': str(values[19] or '0').strip(), 'multiheight': str(values[20] or '').strip()})
+    for row in items_base_rows(path):
+        kind, name = str(row.get('type') or '').strip().lower(), row.get('item_name')
+        if kind in ('s', 'i') and name:
+            try:
+                modes = int(float(row.get('interaction_modes_count') or 0))
+            except ValueError:
+                modes = 0
+            votes.setdefault((kind, name), {'interaction': str(row.get('interaction_type') or '').strip().lower(), 'modes': modes,
+                                            'vending_ids': str(row.get('vending_ids') or '0').strip(),
+                                            'multiheight': str(row.get('multiheight') or '').strip()})
     return votes
 
 
@@ -218,16 +284,69 @@ CLASSNAME_RULES = [
     (r'gld_gate', 'gld_gate'),
 ]
 CLASSNAME_RULES = [(re.compile(pattern), result) for pattern, result in CLASSNAME_RULES]
-# Arcturus interaction -> PlusEMU interaction, and the logic types that must agree before a vote counts.
-ARCTURUS_INTERACTIONS = {
-    'gate': 'gate', 'vendingmachine': 'vendingmachine', 'vendingmachine_no_sides': 'vendingmachine', 'vending': 'vendingmachine',
-    'teleport': 'teleport', 'bed': 'bed', 'dice': 'dice', 'trophy': 'trophy', 'roller': 'roller', 'tent': 'tent',
-    'badge_display': 'badge_display', 'love_lock': 'lovelock', 'gift': 'gift', 'onewaygate': 'onewaygate', 'postit': 'postit',
-    'dimmer': 'dimmer', 'jukebox': 'jukebox', 'mannequin': 'mannequin', 'background_toner': 'roombg', 'colorwheel': 'habbowheel',
-    'stack_helper': 'stacktool', 'tile_walk_magic': 'tile_walkmagic', 'pressureplate': 'pressure_pad', 'crackable': 'crackable_egg',
-    'hopper': 'hopper', 'guild_furni': 'gld_item', 'guild_gate': 'gld_gate', 'football': 'ball', 'clothing': 'purchasable_clothing',
-    'musicdisc': 'musicdisc', 'spinning_bottle': 'bottle',
+# The logic types that must agree before a single reference counts.
+# Reference interaction names (Arcturus MS 3.5.5, the BoBBa Arcturus dump, Polaris) -> PlusEMU names. A name PlusEMU
+# parses itself maps to itself; 'default' means no behaviour; anything else is unmapped and the reference abstains.
+REFERENCE_INTERACTIONS = {
+    '': 'default', 'normal': 'default', 'switch': 'default', 'multiheight': 'default',
+    'clothing': 'purchasable_clothing', 'crackable': 'crackable_egg', 'crackables': 'crackable_egg',
+    'pressureplate': 'pressure_pad', 'pressureplate_group': 'pressure_pad', 'floor_switch': 'wf_floor_switch1',
+    'love_lock': 'lovelock', 'guild_furni': 'gld_item', 'guild_gate': 'gld_gate', 'club_gate': 'vip_gate',
+    'vendingmachine_no_sides': 'vendingmachine', 'vending': 'vendingmachine', 'puzzle_box': 'puzzlebox', 'football': 'ball',
+    'trax_machine': 'jukebox', 'stack_helper': 'stacktool', 'tile_walk_magic': 'tile_walkmagic', 'pyramid': 'bb_pyramid',
+    'external_image': 'camera_picture', 'tile_fxprovider_nfs': 'fx_provider', 'colorwheel': 'habbowheel', 'spinning_bottle': 'bottle',
+    'rollerskate_field': 'rollerskate', 'background_toner': 'roombg', 'ads_bg': 'background', 'youtube': 'television', 'yt_tv': 'television',
+    'breeding_nest': 'pet_breeding_box', 'club_hopper': 'hopper', 'costume_hoppper': 'hopper', 'vote_counter': 'scoreboard',
+    'football_gate': 'fbgate', 'battlebanzai_puck': 'banzaipuck', 'battlebanzai_random_teleport': 'bb_teleport',
+    'battlebanzai_tile': 'bb_patch', 'freeze_tile': 'freezetile', 'freeze_block': 'freezetileblock', 'freeze_exit': 'freezeexit',
+    **{f'football_counter_{c}': f'{c}_score' for c in COLOURS.values()}, **{f'football_goal_{c}': f'{c}_goal' for c in COLOURS.values()},
+    **{f'battlebanzai_counter_{c}': f'bb_{c}_score' for c in COLOURS.values()}, **{f'battlebanzai_gate_{c}': f'bb_{c}_gate' for c in COLOURS.values()},
+    **{f'freeze_counter_{c}': f'freeze{c}counter' for c in COLOURS.values()}, **{f'freeze_gate_{c}': f'freeze{c}gate' for c in COLOURS.values()},
 }
+REFERENCE_PET = re.compile(r'pet[0-9]+')
+
+
+def translate_reference(name, valid):
+    """The PlusEMU interaction a reference name means, 'default', or None when PlusEMU has no equivalent."""
+    name = (name or '').strip().lower()
+    if name in REFERENCE_INTERACTIONS:
+        return REFERENCE_INTERACTIONS[name]
+    if REFERENCE_PET.fullmatch(name):
+        return 'pet'
+    return name if name in valid else None
+
+
+def reference_consensus(kind, classname, hab, evidence):
+    """What the references decide for a furni: an interaction when two or more agree, or one agrees with the .hab
+    logic, and none names another; modes when the references that know it agree."""
+    votes = [(source, vote, translate_reference(vote['interaction'], evidence.valid))
+             for source, refs in sorted(evidence.refs.items()) for vote in [refs.get((kind, classname))] if vote]
+    named = [(source, vote, name) for source, vote, name in votes if name not in (None, 'default')]
+    result = {'interaction': None, 'rule': None, 'conflict': None, 'modes': None, 'modes_conflict': None, 'vending_ids': None,
+              'multiheight': '', 'unmapped': [(source, vote['interaction']) for source, vote, name in votes if name is None]}
+    names = {name for _, _, name in named}
+    logic = (hab or {}).get('logicType')
+    if len(names) > 1:
+        result['conflict'] = sorted(f'{source}={vote["interaction"]}' for source, vote, _ in named)
+    elif names:
+        name = names.pop()
+        if len(named) >= 2 or logic in VOTE_LOGIC.get(name, ()):
+            result['interaction'] = name
+            result['rule'] = 'references:' + ('+'.join(source for source, _, _ in named) + ('' if len(named) >= 2 else '+hab'))
+    for _, vote, _ in named or votes:
+        result['vending_ids'] = result['vending_ids'] or vending_ids(vote)
+        result['multiheight'] = result['multiheight'] or vote.get('multiheight', '')
+    modes = Counter(vote['modes'] for _, vote, _ in votes if vote.get('modes', 0) > 0)
+    if len(modes) == 1:
+        result['modes'] = next(iter(modes))
+    elif modes:
+        result['modes_conflict'] = dict(modes)
+        top = modes.most_common(2)
+        if top[0][1] >= 2 and top[0][1] > top[1][1]:
+            result['modes'] = top[0][0]
+    return result
+
+
 VOTE_LOGIC = {
     'gate': {'furniture_multistate'}, 'vendingmachine': {'furniture_multistate', 'furniture_basic'},
     'teleport': {'furniture_multistate'}, 'bed': {'furniture_basic', 'furniture_multistate'}, 'dice': {'furniture_dice'},
@@ -243,6 +362,8 @@ VOTE_LOGIC = {
     'ball': {'furniture_pushable'}, 'purchasable_clothing': {'furniture_purchasable_clothing'},
     'musicdisc': {'furniture_song_disk'}, 'bottle': {'furniture_dice'},
 }
+# interaction_modes_count of these is not a state count (a crackable's is the hits it takes).
+MODES_MEAN_OTHER = {'crackable_egg'}
 # Logic types of furni that only look and stack; anything else left 'default' is reported.
 DECORATIVE_LOGIC = {None, 'furniture_basic', 'furniture_multistate', 'furniture_multiheight', 'furniture_window'}
 DECORATIVE_CATEGORIES = {None, '', 'other', 'chair', 'table', 'lighting', 'divider', 'rug', 'shelf', 'floor', 'food',
@@ -251,7 +372,7 @@ DECORATIVE_CATEGORIES = {None, '', 'other', 'chair', 'table', 'lighting', 'divid
 
 def derivable_interactions():
     """Every fixed interaction name the rules can produce (wired boxes and colour templates aside)."""
-    names = {*SPECIAL_TYPES.values(), *WALL_SPECIALS.values(), *CATEGORY_INTERACTIONS.values(), *ARCTURUS_INTERACTIONS.values(),
+    names = {*SPECIAL_TYPES.values(), *WALL_SPECIALS.values(), *CATEGORY_INTERACTIONS.values(), *REFERENCE_INTERACTIONS.values(),
              'postit', 'horse_saddle_1', 'horse_saddle_2', 'gld_gate', 'gld_item', 'bed'}
     for choice in LOGIC_INTERACTIONS.values():
         names |= set(choice.values()) if isinstance(choice, dict) else {choice}
@@ -312,9 +433,6 @@ def derive_interaction(kind, entry, hab, vote, wired):
         match = pattern.fullmatch(classname)
         if match:
             return (result(match) if callable(result) else result), 'classname'
-    voted = ARCTURUS_INTERACTIONS.get((vote or {}).get('interaction', ''))
-    if voted and logic in VOTE_LOGIC.get(voted, ()) and (voted != 'vendingmachine' or vending_ids(vote)):
-        return voted, f'vote:arcturus={vote["interaction"]}'
     return None, None
 
 
@@ -350,20 +468,15 @@ def physical_columns(kind, entry, hab):
             columns['stack_height'] = float(entry['height'])
         if entry.get('canputstuffon') is not None:
             columns['can_stack'] = int(bool(entry['canputstuffon']))
-    if hab:
-        columns['interaction_modes_count'] = max(hab['states'], 1)
     return columns
 
 
 def behaviour_columns(kind, entry, hab, vote, interaction):
     """Columns for a row in derivation scope: the physical ones plus what its interaction needs."""
-    columns = physical_columns(kind, entry, hab)
-    if hab:
-        heights = (vote or {}).get('multiheight', '')
-        if hab['logicType'] == 'furniture_multiheight' and heights and len(heights.split(';')) == hab['states']:
-            columns['height_adjustable'] = heights.replace(';', ',')
-    elif (vote or {}).get('modes', 0) > 0:
-        columns['interaction_modes_count'] = vote['modes']
+    columns = physical_columns(kind, entry, hab) if entry else {}
+    heights = (vote or {}).get('multiheight', '')
+    if hab and hab['logicType'] == 'furniture_multiheight' and heights and len(heights.split(';')) == hab['states']:
+        columns['height_adjustable'] = heights.replace(';', ',')
     if interaction == 'vendingmachine':
         columns['vending_ids'] = vending_ids(vote)
     return columns
@@ -421,14 +534,15 @@ def latin1(text, length):
 
 
 class Evidence:
-    def __init__(self, habs=None, votes=None, wired=None):
-        self.habs, self.votes, self.wired = habs or {}, votes or {}, wired or set()
+    """.hab logic by library, reference votes by source, the wired box registry ({name: generic wired_* type})."""
+
+    def __init__(self, habs=None, refs=None, wired=None):
+        self.habs, self.refs = habs or {}, refs or {}
+        self.wired = wired if isinstance(wired, dict) else {name: None for name in wired or ()}
+        self.valid = interaction_names() | set(self.wired)
 
     def hab(self, classname):
         return self.habs.get(library(classname))
-
-    def vote(self, kind, classname):
-        return self.votes.get((kind, classname))
 
 
 def plan_furniture(furniture, habbo, needed, evidence, clothing):
@@ -437,7 +551,9 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
     rows = {row['id']: row for row in furniture}
     report = {'renamed': [], 'kind_conflicts': [], 'sprite_moves': [], 'sprite_collisions': [], 'derived': [],
               'left_default_with_hint': [], 'behaviour_updated': 0, 'furnidata_updated': 0, 'created': [],
-              'stacking_turned_off': 0, 'agreement': {'agree': 0, 'differ': [], 'undecided': 0}}
+              'stacking_turned_off': 0, 'agreement': {'agree': 0, 'differ': [], 'undecided': 0}, 'carry_conflicts': [],
+              'reference_conflicts': [], 'unmapped_reference_names': {}, 'wired_overrides': [],
+              'modes': {'hab': 0, 'references': 0, 'kept': {}, 'unknown': 0, 'hab_vs_references': [], 'reference_conflicts': 0}}
     by_ci = {(kind, classname.lower()): classname for kind, classname in habbo}
     desired = {}  # id -> {column: value}
     entry_of = {}  # id -> (kind, classname) of the Habbo entry the row is or shares
@@ -529,45 +645,111 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
                                                 'to': row['sprite_id'], 'habbo_classname': taken[(row['type'], row['sprite_id'])],
                                                 'note': 'row without a furnidata entry; its sprite id names this Habbo entry'})
 
-    def interaction_for(row_id, kind, entry, current):
-        hab = evidence.hab(entry['classname'])
-        vote = evidence.vote(kind, entry['classname'])
-        interaction, rule = derive_interaction(kind, entry, hab, vote, evidence.wired)
-        columns = behaviour_columns(kind, entry, hab, vote, interaction)
-        if interaction == 'purchasable_clothing':
+    # 1. Interactions Plus itself configured, by classname, carry over to its renamed or duplicate rows.
+    configured = {}
+    for row in furniture:
+        if row['interaction_type'].lower() not in DEFAULT_INTERACTIONS and row['interaction_type'].lower() in evidence.valid:
+            configured.setdefault(row['item_name'].strip().lower(), {})[row['interaction_type'].lower()] = row
+    carry = {}
+    for name, options in configured.items():
+        if len(options) == 1:
+            carry[name] = next(iter(options.values()))
+        else:
+            report['carry_conflicts'].append({'classname': name, 'interactions': sorted(options)})
+
+    def decide(row_id, kind, classname, entry, current, physical):
+        """Columns for one row: its interaction by precedence (Plus' own, wired, Habbo, references) and its modes."""
+        hab = evidence.hab(classname) if entry else None
+        refs = reference_consensus(kind, classname, hab, evidence)
+        if refs['conflict']:
+            report['reference_conflicts'].append({'id': row_id, 'classname': classname, 'votes': refs['conflict']})
+        for source, name in refs['unmapped']:
+            report['unmapped_reference_names'][name] = report['unmapped_reference_names'].get(name, 0) + 1
+        vote = {'interaction': '', 'modes': refs['modes'] or 0, 'vending_ids': refs['vending_ids'] or '0', 'multiheight': refs['multiheight']}
+        existing = (current or {}).get('interaction_type', 'default')
+        default = existing.lower() in DEFAULT_INTERACTIONS
+        interaction, rule, extra = None, None, {}
+        if not default:
+            box = evidence.wired.get(classname, False)
+            if box is not False and existing.lower() not in (classname, box):
+                interaction, rule = classname, 'wired:override'
+                report['wired_overrides'].append({'id': row_id, 'classname': classname, 'from': existing, 'to': classname})
+        else:
+            source = carry.get(classname.strip().lower())
+            if source is not None:
+                interaction, rule = source['interaction_type'].lower(), 'plus:original'
+                extra = {column: source[column] for column in ('vending_ids', 'height_adjustable', 'clothing_id', 'effect_id')
+                         if source.get(column) not in (None, '0', '', 0)}
+            elif classname in evidence.wired:
+                interaction, rule = classname, 'wired:registry'
+            elif entry is not None:
+                interaction, rule = derive_interaction(kind, entry, hab, vote, evidence.wired)
+                rule = rule and 'habbo:' + rule
+            if interaction is None and refs['interaction'] and (refs['interaction'] != 'vendingmachine' or refs['vending_ids']):
+                interaction, rule = refs['interaction'], refs['rule']
+        columns = {}
+        if entry is not None and default:
+            columns.update(behaviour_columns(kind, entry, hab, vote, interaction))
+        elif entry is not None and physical:
+            columns.update(physical_columns(kind, entry, hab))
+        if interaction == 'purchasable_clothing' and rule != 'plus:original':
+            parts = clothing_parts(entry or {})
             # catalog_clothing holds 55-character names and 85 characters of parts.
-            if not clothing_parts(entry) or len(clothing_parts(entry)) > 85 or len(entry['classname']) > 55:
+            if not parts or len(parts) > 85 or len(classname) > 55:
                 interaction, rule = None, None
             else:
-                known = clothing.get(entry['classname'])
-                columns['clothing_id'] = known[0] if known else ('clothing', entry['classname'])
+                known = clothing.get(classname)
+                columns['clothing_id'] = known[0] if known else ('clothing', classname)
+        if interaction == 'vendingmachine' and rule == 'plus:original':
+            columns.pop('vending_ids', None)
+        columns.update(extra)
         if interaction:
+            if interaction not in evidence.valid:
+                raise ValueError(f'Interaction {interaction!r} for {classname} is not one PlusEMU parses')
             columns['interaction_type'] = interaction
-            report['derived'].append({'id': row_id, 'classname': entry['classname'], 'type': kind, 'interaction': interaction, 'rule': rule})
-        else:
+            report['derived'].append({'id': row_id, 'classname': classname, 'type': kind, 'interaction': interaction, 'rule': rule})
+        elif default and entry is not None:
             reason = hint(kind, entry, hab, vote)
             if reason:
-                report['left_default_with_hint'].append({'id': row_id, 'classname': entry['classname'], 'type': kind, 'hint': reason})
+                report['left_default_with_hint'].append({'id': row_id, 'classname': classname, 'type': kind, 'hint': reason})
+        # 5. Modes: the .hab state count, else the references; wired boxes and crackables count something else.
+        final = (interaction or existing).lower()
+        if final in evidence.wired or final.startswith('wired') or final in MODES_MEAN_OTHER:
+            report['modes']['kept'][final if final in MODES_MEAN_OTHER else 'wired'] = report['modes']['kept'].get(
+                final if final in MODES_MEAN_OTHER else 'wired', 0) + 1
+        elif hab:
+            columns['interaction_modes_count'] = max(hab['states'], 1)
+            report['modes']['hab'] += 1
+            if refs['modes'] and refs['modes'] != columns['interaction_modes_count']:
+                report['modes']['hab_vs_references'].append({'classname': classname, 'hab': columns['interaction_modes_count'], 'references': refs['modes']})
+        elif refs['modes']:
+            columns['interaction_modes_count'] = refs['modes']
+            report['modes']['references'] += 1
+        else:
+            report['modes']['unknown'] += 1
+        if refs['modes_conflict']:
+            report['modes']['reference_conflicts'] += 1
         return {column: value for column, value in columns.items() if current is None or not same(current.get(column), value)}
 
     for row_id, (kind, classname) in sorted(entry_of.items()):
         entry, row = habbo[(kind, classname)], rows[row_id]
-        if row['has_furnidata'] or desired.get(row_id, {}).get('has_furnidata'):
+        owner = bool(row['has_furnidata'] or desired.get(row_id, {}).get('has_furnidata'))
+        if owner:
             want(row_id, **furnidata_columns(entry))
-        if row['interaction_type'] in DEFAULT_INTERACTIONS:
-            want(row_id, **interaction_for(row_id, kind, entry, row))
-        else:
-            if row['has_furnidata'] or desired.get(row_id, {}).get('has_furnidata'):
-                want(row_id, **physical_columns(kind, entry, evidence.hab(classname)))
-            derived, _ = derive_interaction(kind, entry, evidence.hab(classname), evidence.vote(kind, classname), evidence.wired)
+        if row['interaction_type'].lower() not in DEFAULT_INTERACTIONS:
+            derived, _ = derive_interaction(kind, entry, evidence.hab(classname), None, evidence.wired)
             agreement = report['agreement']
             if derived is None:
                 agreement['undecided'] += 1
-            elif derived == row['interaction_type'].lower() or (derived in evidence.wired and row['interaction_type'].lower().startswith('wired')):
-                # A generic wired_* row and its box name load the same box.
+            elif derived == row['interaction_type'].lower() or evidence.wired.get(derived) == row['interaction_type'].lower():
                 agreement['agree'] += 1
             else:
                 agreement['differ'].append({'id': row_id, 'classname': classname, 'current': row['interaction_type'], 'derived': derived})
+        want(row_id, **decide(row_id, kind, classname, entry, row, owner))
+    # Plus rows with no Habbo entry: their own configuration, the wired registry and the references.
+    for row in sorted(furniture, key=lambda r: r['id']):
+        if row['type'] in ('s', 'i') and row['id'] not in entry_of:
+            want(row['id'], **decide(row['id'], row['type'], row['item_name'], None, row, False))
 
     inserts = []
     for kind, classname in created:
@@ -580,7 +762,7 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
                    interaction_type='default', interaction_modes_count=1, vending_ids='0', height_adjustable='0',
                    is_rare=int(bool(entry.get('rare'))), clothing_id=0, has_furnidata=1)
         row.update(furnidata_columns(entry))
-        row.update(interaction_for(('new', kind, classname), kind, entry, None))
+        row.update(decide(('new', kind, classname), kind, classname, entry, None, True))
         inserts.append(row)
         report['created'].append({'classname': classname, 'type': kind, 'sprite_id': entry['id'], 'interaction': row['interaction_type']})
 
@@ -1405,7 +1587,11 @@ def load_evidence(args):
                 habs[path.stem] = hab_logic(path.read_bytes())
             except (ValueError, KeyError, zlib.error, json.JSONDecodeError, StopIteration):
                 continue
-    return Evidence(habs, arcturus_votes(args.arcturus) if args.arcturus else {}, wired_box_names())
+    refs = {}
+    for spec in args.reference or []:
+        name, _, path = spec.partition('=')
+        refs[name] = reference_votes(path)
+    return Evidence(habs, refs, wired_box_names())
 
 
 def summary_line(report):
@@ -1471,7 +1657,8 @@ def main(argv=None):
         command.add_argument('--furnidata', required=True, help="Habbo's furnidata.json")
         command.add_argument('--source-furnidata', help="furnidata of the captured hotel when it is not habbo.com (its class ids)")
         command.add_argument('--hab-cache', help='folder of official .hab bundles (fetch-habs)')
-        command.add_argument('--arcturus', help="Arcturus catalog.sql for interaction votes")
+        command.add_argument('--reference', action='append', metavar='NAME=PATH',
+                             help='an emulator dump with items_base (Arcturus MS 3.5.5, catalog.sql, Polaris) for interaction references')
         command.add_argument('--r2-furniture', help='rclone lsf of plusemu-assets/assets/furniture/')
         command.add_argument('--r2-icons', help='rclone lsf of plusemu-assets/c_images/hof_furni/icons/')
         command.add_argument('--container', required=True, help='MariaDB container (credentials stay in the container)')

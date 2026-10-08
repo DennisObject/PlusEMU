@@ -124,19 +124,12 @@ def test_a_vending_machine_needs_hand_items_from_a_vote():
     assert derive('bar_polyfon', logic='furniture_multistate', category='vending_machine', vote=vote) == ('vendingmachine', 'category=vending_machine')
 
 
-def test_votes_count_only_when_the_bundle_logic_agrees():
-    gate = {'interaction': 'gate', 'modes': 2, 'vending_ids': '0', 'multiheight': ''}
-    assert derive('xmas_gate', logic='furniture_multistate', vote=gate) == ('gate', 'vote:arcturus=gate')
-    assert derive('xmas_gate', logic='furniture_basic', vote=gate) == (None, None)
-    assert derive('xmas_gate', logic=None, vote=gate) == (None, None)
-
-
 def test_behaviour_columns_follow_furnidata_and_the_bundle():
     vote = {'interaction': 'multiheight', 'modes': 3, 'vending_ids': '0', 'multiheight': '0.5;1;1.5'}
     info = {'logicType': 'furniture_multiheight', 'visualizationType': 'furniture_animated', 'height': 0.5, 'states': 3}
     columns = m.behaviour_columns('s', entry('school_platform', xdim=2, height=0.5, cansiton=True), info, vote, None)
     assert columns == {'width': 2, 'length': 1, 'can_sit': 1, 'is_walkable': 0, 'stack_height': 0.5, 'can_stack': 1,
-                       'interaction_modes_count': 3, 'height_adjustable': '0.5,1,1.5'}
+                       'height_adjustable': '0.5,1,1.5'}
     assert m.physical_columns('s', entry('table', canputstuffon=False), None)['can_stack'] == 0
     mismatch = dict(info, states=2)
     assert 'height_adjustable' not in m.behaviour_columns('s', entry('x'), mismatch, vote, None)
@@ -147,19 +140,6 @@ def test_hint_names_what_is_not_decorative():
     assert m.hint('s', entry('snowball', category='games', specialtype=18), {'logicType': 'furniture_snowball'}, None) == \
         'logicType=furniture_snowball, category=games, specialtype=18'
 
-
-def test_arcturus_votes_parse_items_base_rows(tmp_path):
-    sql = tmp_path / 'catalog.sql'
-    sql.write_text("INSERT INTO `items_base` VALUES (127, 127, 'bar_polyfon', 'Mini-bar', 's', 1, 1, 1.00, 1, 0, 0, 0, 1, 1, 0, 0, 1, "
-                   "'vendingmachine', 0, '6,5,2,1', '', '', 0, 0, '', '17', '0');\n"
-                   "INSERT INTO `items_base` VALUES (3263, 3263, 'ktchn_plates', 'Dinner \\'Plates\\'', 's', 1, 1, 0.20, 1, 0, 0, 0, 1, 1, 0, 0, 1, "
-                   "'multiheight', 3, '0', '0.2;0.5;0.9', '', 0, 0, '', '59', '0');\n", encoding='latin-1')
-    votes = m.arcturus_votes(sql)
-    assert votes[('s', 'bar_polyfon')] == {'interaction': 'vendingmachine', 'modes': 0, 'vending_ids': '6,5,2,1', 'multiheight': ''}
-    assert votes[('s', 'ktchn_plates')]['multiheight'] == '0.2;0.5;0.9'
-
-
-# ---- furniture plan --------------------------------------------------------
 
 def row(id, name, sprite, kind='s', owner=1, interaction='default', **columns):
     base = {column: None for column in m.FURNITURE_COLUMNS}
@@ -457,3 +437,78 @@ def test_staff_tree_pages_by_category_with_big_categories_split_by_line(monkeypa
 def test_staff_link_is_left_out_when_the_public_tree_uses_it():
     tables, _ = m.staff_tree([], [], 0, lambda link: link == 'staff')
     assert tables['catalog_pages'][(m.STAFF_PAGE_ID_BASE,)]['link'] is None
+
+
+# ---- references and precedence -------------------------------------------------
+
+def refs_evidence(habs=None, **sources):
+    return m.Evidence(habs or {}, {name: votes for name, votes in sources.items()}, {'wf_trg_says_something': 'wired_trigger'})
+
+
+def vote(interaction, modes=1, vending='0'):
+    return {'interaction': interaction, 'modes': modes, 'vending_ids': vending, 'multiheight': ''}
+
+
+def test_reference_names_translate_to_names_plusemu_parses():
+    valid = m.interaction_names() | m.wired_box_names().keys()
+    for name, plus in m.REFERENCE_INTERACTIONS.items():
+        assert plus in valid, (name, plus)
+    assert m.translate_reference('vendingmachine_no_sides', valid) == 'vendingmachine'
+    assert m.translate_reference('pet12', valid) == 'pet'
+    assert m.translate_reference('gate', valid) == 'gate'
+    assert m.translate_reference('wf_blob', valid) is None
+
+
+def test_two_references_agreeing_decide_and_a_lone_one_needs_the_bundle():
+    gate = {('s', 'xmas_gate'): vote('gate', 2)}
+    two = refs_evidence(a=gate, b=gate)
+    assert m.reference_consensus('s', 'xmas_gate', None, two)['rule'] == 'references:a+b'
+    lone = refs_evidence(a=gate)
+    assert m.reference_consensus('s', 'xmas_gate', None, lone)['interaction'] is None
+    multistate = {'logicType': 'furniture_multistate', 'visualizationType': 'furniture_animated', 'height': 1, 'states': 2}
+    assert m.reference_consensus('s', 'xmas_gate', multistate, lone)['rule'] == 'references:a+hab'
+    clash = refs_evidence(a=gate, b={('s', 'xmas_gate'): vote('teleport')})
+    result = m.reference_consensus('s', 'xmas_gate', multistate, clash)
+    assert result['interaction'] is None and result['conflict'] == ['a=gate', 'b=teleport']
+    unmapped = refs_evidence(a={('s', 'blob'): vote('wf_blob', 3)})
+    assert m.reference_consensus('s', 'blob', None, unmapped)['unmapped'] == [('a', 'wf_blob')]
+
+
+def test_reference_modes_need_agreement():
+    assert m.reference_consensus('s', 'x', None, refs_evidence(a={('s', 'x'): vote('default', 4)}))['modes'] == 4
+    split = refs_evidence(a={('s', 'x'): vote('default', 4)}, b={('s', 'x'): vote('default', 2)})
+    assert m.reference_consensus('s', 'x', None, split)['modes'] is None
+
+
+def test_items_base_rows_read_column_lists_and_multi_row_inserts(tmp_path):
+    sql = tmp_path / 'base.sql'
+    sql.write_text("INSERT INTO `items_base` (`id`, `sprite_id`, `public_name`, `item_name`, `type`, `interaction_type`, `interaction_modes_count`) VALUES\n"
+                   "(1, 10, 'It''s a gate', 'xmas_gate', 's', 'gate', 2),\n(2, 11, 'Semi; colon', 'lamp', 's', 'default', 3);\n"
+                   "INSERT INTO `items_base` VALUES (127, 127, 'bar_polyfon', 'Mini-bar', 's', 1, 1, 1.00, 1, 0, 0, 0, 1, 1, 0, 0, 1, "
+                   "'vendingmachine', 0, '6,5,2,1', '', '', 0, 0, '', '17', '0');\n", encoding='latin-1')
+    votes = m.reference_votes(sql)
+    assert votes[('s', 'xmas_gate')]['interaction'] == 'gate' and votes[('s', 'xmas_gate')]['modes'] == 2
+    assert votes[('s', 'lamp')]['modes'] == 3
+    assert votes[('s', 'bar_polyfon')] == {'interaction': 'vendingmachine', 'modes': 0, 'vending_ids': '6,5,2,1', 'multiheight': ''}
+
+
+def test_precedence_plus_configuration_then_wired_then_habbo_then_references():
+    habbo = {('s', 'gate_x'): entry('gate_x', id=20), ('s', 'wf_trg_says_something'): entry('wf_trg_says_something', id=30, category='wired'),
+             ('s', 'lamp'): entry('lamp', id=40, category='lighting')}
+    furniture = [row(1, 'gate_x', 20), row(2, 'gate_x ', 21, owner=0, interaction='gate', vending_ids='0'),   # Plus configured a renamed copy
+                 row(3, 'wf_trg_says_something', 30, interaction='default'), row(4, 'wf_trg_says_something', 30, owner=0, interaction='wf_trg_attime'),
+                 row(5, 'lamp', 40), row(6, 'a0 custom', 99, owner=0)]
+    habs = {'lamp': {'logicType': 'furniture_multistate', 'visualizationType': 'furniture_animated', 'height': 1, 'states': 3}}
+    lamp_votes = {('s', 'lamp'): vote('dimmer', 2)}
+    evidence = refs_evidence(habs, a=lamp_votes, b=lamp_votes, c={('s', 'a0 custom'): vote('default', 5)})
+    result = m.plan_furniture(furniture, habbo, set(), evidence, {})
+    updates, report = result['updates'], result['report']
+    rules = {d['id']: (d['interaction'], d['rule']) for d in report['derived']}
+    assert rules[1] == ('gate', 'plus:original')
+    assert rules[3] == ('wf_trg_says_something', 'wired:registry')
+    assert rules[4] == ('wf_trg_says_something', 'wired:override') and report['wired_overrides'][0]['from'] == 'wf_trg_attime'
+    assert rules[5] == ('dimmer', 'references:a+b')
+    assert updates[5]['interaction_modes_count'] == 3                          # the .hab wins over the references' 2
+    assert report['modes']['hab_vs_references'] == [{'classname': 'lamp', 'hab': 3, 'references': 2}]
+    assert updates[6]['interaction_modes_count'] == 5                          # no .hab: the references
+    assert 'interaction_modes_count' not in updates.get(3, {})                 # wired boxes keep theirs
