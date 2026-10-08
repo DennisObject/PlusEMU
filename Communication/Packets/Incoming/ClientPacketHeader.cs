@@ -27,6 +27,7 @@ public static class ClientPacketHeader
     public const uint GetClubGiftInfoEvent = 3127; //3302
     public const uint PurchaseFromCatalogEvent = 3492; //2830
     public const uint PurchaseFromCatalogAsGiftEvent = 1555; //21
+    public const uint GetBundleDiscountRulesetEvent = 9910;
 
     // Polls
     public const uint PollStartEvent = 109;
@@ -357,7 +358,6 @@ public static class ClientPacketHeader
 
     //catalog
     //public const uint GetBonusRareInfoEvent =;
-    //public const uint GetBundleDiscountRulesetEvent =;
     //public const uint GetCatalogPageExpirationEvent =;
     //public const uint GetCatalogPageWithEarliestExpiryEvent =;
     //public const uint GetDirectClubBuyAvailableEvent =;

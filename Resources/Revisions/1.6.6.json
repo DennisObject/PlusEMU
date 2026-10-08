@@ -14,7 +14,7 @@
     "GetWardrobeEvent": 2742,
     "SaveWardrobeOutfitEvent": 800,
     "SetChatStylePreferenceEvent": 1030,
-    "GetCatalogIndexEvent": 223,
+    "GetBundleDiscountRulesetEvent": 223,
     "GetCatalogPageEvent": 412,
     "PurchaseFromCatalogEvent": 3492,
     "PurchaseFromCatalogAsGiftEvent": 1411,
