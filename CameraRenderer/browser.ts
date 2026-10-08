@@ -37,6 +37,7 @@ import
     RoomObjectVariable,
     RoomPlaneParser,
     RoomVariableEnum,
+    TextureUtils,
     Vector3d,
     loadGamedata
 } from '@octane/renderer';
@@ -996,6 +997,9 @@ function warmRoom(roomId: number, viewport: CameraViewport): void
     try
     {
         const texture = engine.createTextureFromRoom(roomId, CANVAS_ID, new OctaneRectangle(viewport.x, viewport.y, viewport.cropWidth, viewport.cropHeight));
+
+        // Reading one pixel waits until the draw has really run, not just been queued.
+        if(texture) TextureUtils.getPixels({ target: texture, frame: new OctaneRectangle(0, 0, 1, 1) });
 
         texture?.destroy(true);
     }
