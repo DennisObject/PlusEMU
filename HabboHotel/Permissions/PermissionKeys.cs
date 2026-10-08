@@ -24,6 +24,7 @@ public static class PermissionKeys
     public const string CommandAllaroundme = "command.allaroundme";
     public const string CommandAlleyesonme = "command.alleyesonme";
     public const string CommandBan = "command.ban";
+    public const string CommandBh = "command.bh";
     public const string CommandBubble = "command.bubble";
     public const string CommandCarry = "command.carry";
     public const string CommandConvertcredits = "command.convertcredits";
