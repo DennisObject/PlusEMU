@@ -388,11 +388,12 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                 "INSERT INTO users_reward_track_prizes (user_id, track_id, prize_id, claimed_at) VALUES (@userId, @trackId, @prizeId, @claimedAt)",
                 new { userId, trackId, prizeId, claimedAt = claimedAt.UtcDateTime }, transaction);
 
-            if (credits != 0 || duckets != 0 || diamonds != 0) {
-                connection.Execute(
-                    "UPDATE users SET credits = credits + @credits, activity_points = activity_points + @duckets, vip_points = vip_points + @diamonds WHERE id = @userId",
-                    new { userId, credits, duckets, diamonds }, transaction);
+            if (credits != 0) {
+                connection.Execute("UPDATE users SET credits = credits + @credits WHERE id = @userId", new { userId, credits }, transaction);
             }
+
+            UserCurrencyStore.Add(connection, userId, ActivityPointType.Duckets, duckets, transaction);
+            UserCurrencyStore.Add(connection, userId, ActivityPointType.Diamonds, diamonds, transaction);
 
             if (badge != null) {
                 // Same transaction as the claim row; an owned badge keeps its slot.
@@ -420,19 +421,17 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
             using var connection = _database.Connection();
             connection.Open();
             using var transaction = connection.BeginTransaction();
-            var row = connection.QuerySingleOrDefault<WalletRow>(
-                "SELECT credits AS Credits, vip_points AS Diamonds FROM users WHERE id = @userId FOR UPDATE",
-                new { userId }, transaction);
+            var balance = connection.QuerySingleOrDefault<int?>("SELECT credits FROM users WHERE id = @userId FOR UPDATE", new { userId }, transaction);
 
-            if (row == null || row.Credits < credits || row.Diamonds < diamonds) {
+            if (balance == null || balance < credits ||
+                UserCurrencyStore.Get(connection, userId, ActivityPointType.Diamonds, transaction, forUpdate: true) < diamonds) {
                 denied = true;
 
                 return false;
             }
 
-            connection.Execute(
-                "UPDATE users SET credits = credits - @credits, vip_points = vip_points - @diamonds WHERE id = @userId",
-                new { userId, credits, diamonds }, transaction);
+            connection.Execute("UPDATE users SET credits = credits - @credits WHERE id = @userId", new { userId, credits }, transaction);
+            UserCurrencyStore.Add(connection, userId, ActivityPointType.Diamonds, -diamonds, transaction);
             connection.Execute(
                 """
                 INSERT INTO users_reward_tracks (user_id, track_id, points, premium)
@@ -726,11 +725,5 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
     {
         public string TrackId { get; set; } = "";
         public string PrizeId { get; set; } = "";
-    }
-
-    private sealed class WalletRow
-    {
-        public int Credits { get; set; }
-        public int Diamonds { get; set; }
     }
 }

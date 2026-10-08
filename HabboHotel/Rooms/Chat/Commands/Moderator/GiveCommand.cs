@@ -23,7 +23,7 @@ internal class GiveCommand : ITargetChatCommand
         }
 
         if (!parameters.Any()) {
-            session.SendWhisper("Please enter a currency type! (coins, duckets, diamonds, gotw)");
+            session.SendWhisper("Please enter a currency type! (coins, duckets, diamonds, gotw or an activity point type number)");
 
             return Task.CompletedTask;
         }
@@ -130,6 +130,41 @@ internal class GiveCommand : ITargetChatCommand
                         }
 
                         session.SendWhisper($"Successfully given {amount} GOTW point(s) to {target.Username}!");
+                        break;
+                    }
+
+                    session.SendWhisper("Oops, that appears to be an invalid amount!");
+                    break;
+                }
+            case var points when int.TryParse(points, out var pointsType) && ActivityPointType.IsValid(pointsType): {
+                    // Any activity point type by its number, e.g. a seasonal currency; types other than duckets and GOTW use the diamonds right.
+                    var right = pointsType switch
+                    {
+                        ActivityPointType.Duckets => PermissionKeys.CommandGivePixels,
+                        ActivityPointType.Gotw => PermissionKeys.CommandGiveGotw,
+                        _ => PermissionKeys.CommandGiveDiamonds
+                    };
+
+                    if (!session.GetHabbo().Access.Can(right)) {
+                        session.SendWhisper("Oops, it appears that you do not have the permissions to use this command!");
+                        break;
+                    }
+
+                    if (int.TryParse(parameters[2], out var amount)) {
+                        lock (target.WalletSync) {
+                            if (target.WalletClosed) {
+                                break;
+                            }
+
+                            target.Currencies[pointsType] += amount;
+                            target.Client.Send(new HabboActivityPointNotificationComposer(target.Currencies[pointsType], amount, pointsType));
+                        }
+
+                        if (target.Id != session.GetHabbo().Id) {
+                            target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} activity point(s) of type {pointsType}!");
+                        }
+
+                        session.SendWhisper($"Successfully given {amount} activity point(s) of type {pointsType} to {target.Username}!");
                         break;
                     }
 

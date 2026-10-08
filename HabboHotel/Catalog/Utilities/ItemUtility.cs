@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Catalog.Utilities;
@@ -12,7 +13,7 @@ public static class ItemUtility
             return false;
         }
 
-        return definition.AllowGift && !offer.IsLimited && product.Amount <= 1 && offer.CostDiamonds == 0 && !definition.IsRare &&
+        return definition.AllowGift && !offer.IsLimited && product.Amount <= 1 && (offer.CostPoints == 0 || offer.PointsType == ActivityPointType.Duckets) && !definition.IsRare &&
             definition.InteractionType is not (InteractionType.Exchange or InteractionType.Badge or InteractionType.Teleport or InteractionType.Deal or InteractionType.Pet);
     }
 

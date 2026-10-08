@@ -5,9 +5,6 @@ namespace Plus.HabboHotel.Catalog.Admin;
 // slots the editor does not know are kept as they are.
 public static class CatalogAdminMapping
 {
-    public const int DiamondsPointsType = 5;
-    public const int DucketsPointsType = 0;
-
     public static CatalogAdminPage ToPage(CatalogPageRow row)
     {
         var images = row.Images;
@@ -51,10 +48,7 @@ public static class CatalogAdminMapping
 
     public static CatalogAdminOffer ToOffer(CatalogOfferRow row, int offerId, string catalogType)
     {
-        bool diamonds = row.CostDiamonds > 0;
-
-        return new(catalogType, offerId, row.ItemId, row.PageId, row.CatalogName, row.CostCredits,
-            diamonds ? row.CostDiamonds : row.CostPixels, diamonds ? DiamondsPointsType : DucketsPointsType, row.Amount,
+        return new(catalogType, offerId, row.ItemId, row.PageId, row.CatalogName, row.CostCredits, row.CostPoints, row.PointsType, row.Amount,
             row.LimitedStack, row.OrderNum, row.OfficialOfferId, 0, row.Extradata, row.HabbiconId > 0 ? row.Enabled : row.BulkPurchase, row.ClubLevel > 0)
         {
             LimitedSells = row.LimitedSells
@@ -74,8 +68,8 @@ public static class CatalogAdminMapping
 
         row.CatalogName = offer.CatalogName;
         row.CostCredits = offer.CostCredits;
-        row.CostPixels = offer.PointsType == DucketsPointsType ? offer.CostPoints : 0;
-        row.CostDiamonds = offer.PointsType == DiamondsPointsType ? offer.CostPoints : 0;
+        row.CostPoints = offer.CostPoints;
+        row.PointsType = offer.PointsType;
         row.LimitedStack = offer.LimitedStack;
 
         // Habbicon offers used this flag for whether the offer is on sale; other offers for buying several at once.

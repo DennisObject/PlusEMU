@@ -36,8 +36,8 @@ public sealed class FurniEditorCatalogRef
     public int Id { get; set; }
     public string CatalogName { get; set; } = string.Empty;
     public int CostCredits { get; set; }
-    public int CostPixels { get; set; }
-    public int CostDiamonds { get; set; }
+    public int CostPoints { get; set; }
+    public int PointsType { get; set; }
     public int PageId { get; set; }
     public string PageName { get; set; } = string.Empty;
 }
@@ -53,3 +53,14 @@ public sealed record FurniEditorResult(bool Success, string Message, uint ItemId
 
 // One validated furniture column change.
 public sealed record FurniEditorColumnChange(string Field, string Column, object Value, object Before);
+
+// The furnidata entry the editor shows for a furniture row, and how it was found.
+public sealed record FurnidataLookup(string EntryJson, string DiagnosticJson);
+
+// The entry before and after an edit (compact JSON) and what clients need to patch their copy.
+public sealed record FurnidataEdit(string Before, string After, bool IsWallItem, int Id, string Classname, string Name, string Description)
+{
+    public bool Changed => Before != After;
+}
+
+public sealed class FurnidataException(string message) : Exception(message);

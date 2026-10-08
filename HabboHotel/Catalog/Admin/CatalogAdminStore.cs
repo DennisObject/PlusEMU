@@ -48,7 +48,7 @@ internal sealed class CatalogAdminStore
     {
         var row = _connection.QuerySingleOrDefault<CatalogOfferRow>("""
             SELECT o.id AS Id, po.page_id AS PageId, po.position AS OrderNum, o.localization_key AS CatalogName, o.cost_credits AS CostCredits,
-            IF(o.points_type = 0, o.cost_points, 0) AS CostPixels, IF(o.points_type = 5, o.cost_points, 0) AS CostDiamonds, o.bulk_purchase AS BulkPurchase,
+            o.cost_points AS CostPoints, o.points_type AS PointsType, o.bulk_purchase AS BulkPurchase,
             o.enabled AS Enabled, o.club_level AS ClubLevel, COALESCE(l.stack, 0) AS LimitedStack, COALESCE(l.sold, 0) AS LimitedSells
             FROM catalog_offers o INNER JOIN catalog_page_offers po ON po.offer_id = o.id AND po.page_id = @pageId
             LEFT JOIN catalog_offer_limited l ON l.offer_id = o.id WHERE o.id = @offerId
@@ -139,7 +139,7 @@ internal sealed class CatalogAdminStore
         row.Id = row.Id > 0 ? row.Id : NextCustomOfferId();
         _connection.Execute("""
             INSERT INTO catalog_offers (id, localization_key, cost_credits, cost_points, points_type, club_level, bulk_purchase, enabled)
-            VALUES (@Id, @CatalogName, @CostCredits, GREATEST(@CostPixels, @CostDiamonds), IF(@CostDiamonds > 0, 5, 0), @ClubLevel, @BulkPurchase, @Enabled);
+            VALUES (@Id, @CatalogName, @CostCredits, @CostPoints, @PointsType, @ClubLevel, @BulkPurchase, @Enabled);
             INSERT INTO catalog_offer_products (offer_id, position, product_type, furniture_id, amount, extra_param)
             VALUES (@Id, 0, 'furni', @ItemId, @Amount, @Extradata);
             INSERT INTO catalog_page_offers (page_id, offer_id, position) VALUES (@PageId, @Id, @OrderNum);
@@ -154,9 +154,9 @@ internal sealed class CatalogAdminStore
     public void UpdateOffer(CatalogOfferRow row, int fromId, int fromPageId)
     {
         _connection.Execute("""
-            UPDATE catalog_offers SET id = @Id, localization_key = @CatalogName, cost_credits = @CostCredits, cost_points = GREATEST(@CostPixels, @CostDiamonds),
-            points_type = IF(@CostDiamonds > 0, 5, 0), club_level = @ClubLevel, bulk_purchase = @BulkPurchase, enabled = @Enabled WHERE id = @fromId
-            """, new { row.Id, row.CatalogName, row.CostCredits, row.CostPixels, row.CostDiamonds, row.ClubLevel, row.BulkPurchase, row.Enabled, fromId }, _transaction);
+            UPDATE catalog_offers SET id = @Id, localization_key = @CatalogName, cost_credits = @CostCredits, cost_points = @CostPoints,
+            points_type = @PointsType, club_level = @ClubLevel, bulk_purchase = @BulkPurchase, enabled = @Enabled WHERE id = @fromId
+            """, new { row.Id, row.CatalogName, row.CostCredits, row.CostPoints, row.PointsType, row.ClubLevel, row.BulkPurchase, row.Enabled, fromId }, _transaction);
         _connection.Execute("UPDATE catalog_page_offers SET page_id = @PageId, position = @OrderNum WHERE offer_id = @Id AND page_id = @fromPageId",
             new { row.PageId, row.OrderNum, row.Id, fromPageId }, _transaction);
 

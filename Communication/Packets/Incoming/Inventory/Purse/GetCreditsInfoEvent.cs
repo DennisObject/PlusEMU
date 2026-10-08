@@ -9,7 +9,7 @@ internal class GetCreditsInfoEvent : IPacketEvent
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
-        session.Send(new ActivityPointsComposer(session.GetHabbo().Duckets, session.GetHabbo().Diamonds, session.GetHabbo().GotwPoints));
+        session.Send(new ActivityPointsComposer(session.GetHabbo().Currencies));
 
         return Task.CompletedTask;
     }

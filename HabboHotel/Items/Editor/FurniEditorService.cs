@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.FurniEditor;
 using Plus.Database;
+using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Configuration;
@@ -37,9 +39,10 @@ public sealed class FurniEditorService : IFurniEditorService
 {
     private static readonly TimeSpan FurnidataCooldown = TimeSpan.FromSeconds(1);
     private static readonly string[] TextFields = ["name", "description"];
+    private static readonly JsonSerializerOptions Compact = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     private readonly IDatabase _database;
-    private readonly IFurnidataStore _furnidata;
+    private readonly ICatalogFurnidata _furnidata;
     private readonly IFurniEditorTextImporter _importer;
     private readonly ICatalogCacheRefresher _refresher;
     private readonly IGameClientManager _gameClientManager;
@@ -48,7 +51,7 @@ public sealed class FurniEditorService : IFurniEditorService
     private readonly object _sync = new();
     private readonly TimeProvider _clock;
 
-    public FurniEditorService(IDatabase database, IFurnidataStore furnidata, IFurniEditorTextImporter importer, ICatalogCacheRefresher refresher,
+    public FurniEditorService(IDatabase database, ICatalogFurnidata furnidata, IFurniEditorTextImporter importer, ICatalogCacheRefresher refresher,
         IGameClientManager gameClientManager, ILogger<FurniEditorService> logger, TimeProvider clock)
     {
         _database = database;
@@ -76,7 +79,8 @@ public sealed class FurniEditorService : IFurniEditorService
         var item = repository.Item(id) ?? throw new FurniEditorRejected($"Item not found: {id}", id);
 
         // Only offers on pages the actor may open are shown; delete still checks every reference.
-        return new(item, repository.UsageCount(id), repository.CatalogRefs(id, actor.Access), _furnidata.Lookup(item.ItemName, item.SpriteId));
+        return new(item, repository.UsageCount(id), repository.CatalogRefs(id, actor.Access),
+            Lookup(new FurnidataRepository(connection), item.ItemName, item.SpriteId));
     }
 
     public FurniEditorDetail DetailBySprite(Habbo actor, int spriteId)
@@ -184,8 +188,12 @@ public sealed class FurniEditorService : IFurniEditorService
             return new(false, error!, id);
         }
 
-        return WriteFurnidata(actor, id, "furnidata_update", (repository, item) =>
-            (_furnidata.Edit(new FurnidataTarget(item.ItemName, item.SpriteId, item.Type != "s"), entry => Apply(entry, payload)), null));
+        return WriteFurnidata(actor, id, "furnidata_update", (_, furnidata, item) => (Write(furnidata, item.ItemName, item.Type != "s", entry =>
+        {
+            Apply(entry, payload);
+
+            return entry;
+        }), null));
     }
 
     public FurniEditorResult RevertFurnidata(Habbo actor, uint id)
@@ -200,12 +208,18 @@ public sealed class FurniEditorService : IFurniEditorService
 
         // Only while the entry still holds exactly what that edit wrote: anything later (another furniture sharing
         // the entry, a manual edit) would otherwise be erased.
-        return WriteFurnidata(actor, id, "furnidata_revert", (repository, _) =>
+        return WriteFurnidata(actor, id, "furnidata_revert", (repository, furnidata, _) =>
         {
             var last = repository.LastFurnidataEdit(id) ?? throw new FurnidataException("Nothing to revert");
-            var target = new FurnidataTarget(last.Classname, last.EntryId, last.EntrySection == FurniEditorRepository.WallSection);
 
-            return (_furnidata.Restore(target, last.AfterJson, last.BeforeJson), last.Id);
+            return (Write(furnidata, last.Classname, last.EntrySection == FurniEditorRepository.WallSection, current =>
+            {
+                if (JsonNode.Parse(last.AfterJson) is not JsonObject expected || !FurnidataEntry.SameDefinition(current, expected)) {
+                    throw new FurnidataException("The furnidata entry changed since that edit; revert refused");
+                }
+
+                return JsonNode.Parse(last.BeforeJson) as JsonObject ?? throw new FurnidataException("The logged entry is not a JSON object");
+            }), last.Id);
         });
     }
 
@@ -226,9 +240,9 @@ public sealed class FurniEditorService : IFurniEditorService
         return await _importer.Find(classname) ?? throw new FurniEditorRejected("Import from Habbo is unavailable right now", id);
     }
 
-    // The audit row is written in the same transaction as the public name mirror; if that fails after the file
-    // was written, the entry is put back so the file never holds an unaudited change.
-    private FurniEditorResult WriteFurnidata(Habbo actor, uint id, string action, Func<FurniEditorRepository, FurniEditorItem, (FurnidataEdit Edit, int? RevertedLogId)> write)
+    // The entry, its audit row and the public name mirror change in one transaction.
+    private FurniEditorResult WriteFurnidata(Habbo actor, uint id, string action,
+        Func<FurniEditorRepository, FurnidataRepository, FurniEditorItem, (FurnidataEdit Edit, int? RevertedLogId)> write)
     {
         FurnidataEdit edit;
 
@@ -245,45 +259,33 @@ public sealed class FurniEditorService : IFurniEditorService
             int? revertedLogId;
 
             try {
-                (edit, revertedLogId) = write(repository, item);
+                (edit, revertedLogId) = write(repository, new FurnidataRepository(connection, transaction), item);
             }
             catch (FurnidataException e) {
                 return new(false, e.Message, id);
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) {
-                // IO messages carry server paths; the log keeps them, the editor gets a plain sentence.
-                _logger.LogError(e, "Furni editor: furnidata write for furniture #{Id} failed", id);
-
-                return new(false, "The furnidata file could not be written", id);
+            catch (JsonException) {
+                return new(false, "The logged entry is not valid JSON", id);
             }
 
             if (!edit.Changed && revertedLogId == null) {
                 return new(true, "No changes", id);
             }
 
-            try {
-                if (revertedLogId is { } logId) {
-                    repository.MarkReverted(logId);
-                }
-
-                repository.Log(actor.Id, actor.Username, action, id, edit.Classname, edit.Before, edit.After,
-                    edit.Id, edit.IsWallItem ? FurniEditorRepository.WallSection : FurniEditorRepository.FloorSection);
-                var name = edit.Name.Length > 56 ? edit.Name[..56] : edit.Name;
-
-                if (name != item.PublicName && TextChanged(edit)) {
-                    repository.SetPublicName(id, name);
-                }
-
-                transaction.Commit();
-            }
-            catch {
-                if (edit.Changed) {
-                    _furnidata.Restore(new FurnidataTarget(edit.Classname, edit.Id, edit.IsWallItem), edit.After, edit.Before);
-                }
-
-                throw;
+            if (revertedLogId is { } logId) {
+                repository.MarkReverted(logId);
             }
 
+            repository.Log(actor.Id, actor.Username, action, id, edit.Classname, edit.Before, edit.After,
+                edit.Id, edit.IsWallItem ? FurniEditorRepository.WallSection : FurniEditorRepository.FloorSection);
+            var name = edit.Name.Length > 56 ? edit.Name[..56] : edit.Name;
+
+            if (name != item.PublicName && TextChanged(edit)) {
+                repository.SetPublicName(id, name);
+            }
+
+            transaction.Commit();
+            _furnidata.Invalidate();
             _logger.LogInformation("Furni editor: {User} {Action} for {Classname} (furniture #{Id})", actor.Username, action, edit.Classname, id);
             // Sent before the lock is released, so clients get furnidata changes in the order they were written.
             Broadcast(edit);
@@ -293,6 +295,57 @@ public sealed class FurniEditorService : IFurniEditorService
 
         return new(true, action == "furnidata_revert" ? "Furnidata reverted" : "Furnidata updated", id);
     }
+
+    // Changes the entry of a kind with this classname; the classname and id cannot change.
+    private static FurnidataEdit Write(FurnidataRepository furnidata, string classname, bool isWall, Func<JsonObject, JsonObject> change)
+    {
+        if (string.IsNullOrWhiteSpace(classname)) {
+            throw new FurnidataException("The furniture has no classname");
+        }
+
+        var current = furnidata.Entry(classname, isWall, forUpdate: true) ?? throw new FurnidataException("No furnidata entry for this classname");
+        var updated = current.WithJson(change(current.ToJson(catalog: false)));
+
+        if (!string.Equals(updated.Classname, current.Classname, StringComparison.OrdinalIgnoreCase) || updated.Id != current.Id) {
+            throw new FurnidataException("An edit cannot change the classname or id");
+        }
+
+        updated.Classname = current.Classname;
+        var edit = new FurnidataEdit(EntryJson(current), EntryJson(updated), isWall, current.Id, current.Classname, updated.Name ?? string.Empty,
+            updated.Description ?? string.Empty);
+
+        if (edit.Changed) {
+            furnidata.Save(updated);
+        }
+
+        return edit;
+    }
+
+    // The entry the editor shows for a furniture row: by classname, then by the classname before its colour suffix
+    // (*n), then by sprite id.
+    private static FurnidataLookup Lookup(FurnidataRepository furnidata, string classname, int spriteId)
+    {
+        var key = classname.Trim();
+        int star = key.IndexOf('*');
+        var (entry, reason) = furnidata.Entry(key) is { } exact ? (exact, "matched_classname")
+            : star > 0 && furnidata.Entry(key[..star]) is { } stripped ? (stripped, "matched_classname_stripped")
+            : furnidata.EntryById(spriteId) is { } byId ? (byId, "matched_id")
+            : ((FurnidataEntry?)null, furnidata.Any() ? "not_found" : "manifest_empty");
+        var diagnostic = JsonSerializer.Serialize(new
+        {
+            reason,
+            itemId = spriteId,
+            classname,
+            sourcePath = "furniture",
+            sourceDirectory = false,
+            sourceStatus = "OK",
+            message = ""
+        }, Compact);
+
+        return new(entry == null ? "{}" : EntryJson(entry), diagnostic);
+    }
+
+    private static string EntryJson(FurnidataEntry entry) => entry.ToJson(catalog: false).ToJsonString(Compact);
 
     private static void Apply(JsonObject entry, FurnidataEditPayload payload)
     {

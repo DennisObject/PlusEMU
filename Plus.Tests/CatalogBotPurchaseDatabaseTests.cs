@@ -34,12 +34,12 @@ public sealed class CatalogBotPurchaseDatabaseTests
             using var connection = new MySqlConnection(options.ConnectionString);
             connection.Open();
             connection.Execute("""
-                CREATE TABLE users (id INT PRIMARY KEY,credits INT NOT NULL,activity_points INT NOT NULL,vip_points INT NOT NULL);
+                CREATE TABLE users (id INT PRIMARY KEY,credits INT NOT NULL);
                 CREATE TABLE bots (id INT UNSIGNED NOT NULL AUTO_INCREMENT,room_id INT UNSIGNED NOT NULL DEFAULT 0,user_id INT UNSIGNED NOT NULL DEFAULT 0,ai_type ENUM('generic','bartender','pet') NOT NULL DEFAULT 'generic',name VARCHAR(100) NOT NULL,motto VARCHAR(120) NOT NULL,look TEXT NOT NULL,x INT NOT NULL DEFAULT 0,y INT NOT NULL DEFAULT 0,z INT NOT NULL DEFAULT 0,rotation INT NOT NULL DEFAULT 0,walk_mode ENUM('stand','freeroam','specified_range') NOT NULL DEFAULT 'freeroam',min_x INT NOT NULL DEFAULT 0,min_y INT NOT NULL DEFAULT 0,max_x INT NOT NULL DEFAULT 0,max_y INT NOT NULL DEFAULT 0,effect INT NOT NULL DEFAULT 0,gender VARCHAR(5) NOT NULL DEFAULT 'M',dance INT NOT NULL DEFAULT 0,automatic_chat ENUM('false','true') NOT NULL DEFAULT 'false',speaking_interval INT NOT NULL DEFAULT 30,mix_sentences BOOL NOT NULL DEFAULT FALSE,chat_bubble INT NOT NULL DEFAULT 2,PRIMARY KEY(id),KEY user_id(user_id),KEY room_id(room_id),KEY ai_type(ai_type));
                 CREATE TABLE club_credit_spending (id INT AUTO_INCREMENT PRIMARY KEY,user_id INT NOT NULL,credits INT NOT NULL,spent_at DATETIME(6) NOT NULL);
                 CREATE TABLE catalog_offer_limited (offer_id INT PRIMARY KEY,stack INT UNSIGNED NOT NULL,sold INT UNSIGNED NOT NULL DEFAULT 0);
                 INSERT INTO catalog_offer_limited VALUES (50,2,0);
-                INSERT INTO users VALUES (42,100,50,25);
+                INSERT INTO users VALUES (42,100);
                 """);
             var database = new ProbeDatabase(options.ConnectionString);
             var now = new DateTimeOffset(2040, 2, 3, 4, 5, 6, TimeSpan.Zero);

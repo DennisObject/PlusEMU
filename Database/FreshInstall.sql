@@ -2583,6 +2583,23 @@ CREATE TABLE `user_crafting_recipes` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `user_currencies`
+--
+
+DROP TABLE IF EXISTS `user_currencies`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `user_currencies` (
+  `user_id` int(11) NOT NULL,
+  `type` int(11) NOT NULL,
+  `amount` int(11) NOT NULL DEFAULT 0,
+  PRIMARY KEY (`user_id`,`type`),
+  CONSTRAINT `fk_user_currencies_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `chk_user_currencies_type` CHECK (`type` >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `user_effects`
 --
 
@@ -2943,8 +2960,6 @@ CREATE TABLE `users` (
   `auth_ticket_exchanged` tinyint(1) NOT NULL DEFAULT 0,
   `rank` int(1) unsigned DEFAULT 1,
   `credits` int(11) DEFAULT 50000,
-  `vip_points` int(11) DEFAULT 0,
-  `activity_points` int(11) DEFAULT 5000,
   `look` char(255) DEFAULT NULL,
   `gender` enum('M','F') DEFAULT 'M',
   `motto` char(50) DEFAULT NULL,
@@ -2953,7 +2968,6 @@ CREATE TABLE `users` (
   `ip_reg` varchar(45) DEFAULT NULL,
   `vip` tinyint(1) DEFAULT 1,
   `machine_id` varchar(125) DEFAULT '',
-  `gotw_points` int(11) DEFAULT 0,
   `time_muted` double DEFAULT 0,
   `trading_locked` double DEFAULT 0,
   `bubble_id` tinyint(4) NOT NULL DEFAULT 0,
@@ -2969,7 +2983,6 @@ CREATE TABLE `users` (
   KEY `ip_last` (`ip_last`),
   KEY `ip_reg` (`ip_reg`),
   KEY `credits` (`credits`),
-  KEY `activity_points` (`activity_points`),
   KEY `online` (`online`),
   KEY `mail` (`mail`),
   KEY `machine_id` (`machine_id`),

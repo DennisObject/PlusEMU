@@ -287,7 +287,7 @@ public sealed class CatalogGiftPurchaseServiceTests
     private sealed class Rewards : IClubRewards
     {
         public int Charges { get; private set; }
-        public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0,
+        public bool Charge(Habbo habbo, int credits, int points = 0, int pointsType = 0,
             Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true)
         {
             Charges++;
@@ -299,8 +299,7 @@ public sealed class CatalogGiftPurchaseServiceTests
                 }
 
                 habbo.Credits -= credits;
-                habbo.Duckets -= duckets;
-                habbo.Diamonds -= diamonds;
+                habbo.Currencies[pointsType] -= points;
 
                 return true;
             }

@@ -1,47 +1,29 @@
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users;
 
 namespace Plus.Communication.Packets.Outgoing.Notifications;
 
 public class ActivityPointsComposer : IServerPacket
 {
-    private readonly int _pixelsBalance;
-    private readonly int _seasionalCurrency;
-    private readonly int _gotwPoints;
+    private readonly IReadOnlyList<KeyValuePair<int, int>> _balances;
     public uint MessageId => ServerPacketHeader.ActivityPointsComposer;
 
-    public ActivityPointsComposer(int pixelsBalance, int seasionalCurrency, int gotwPoints)
+    // Every activity point type the user has, by type; duckets, diamonds and GOTW points are always listed.
+    public ActivityPointsComposer(IReadOnlyList<KeyValuePair<int, int>> balances)
     {
-        _pixelsBalance = pixelsBalance;
-        _seasionalCurrency = seasionalCurrency;
-        _gotwPoints = gotwPoints;
+        _balances = balances;
     }
+
+    public ActivityPointsComposer(UserCurrencies currencies)
+        : this(currencies.Snapshot(ActivityPointType.Duckets, ActivityPointType.Diamonds, ActivityPointType.Gotw)) { }
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(11); //Count
-        {
-            packet.WriteInteger(0); //Pixels
-            packet.WriteInteger(_pixelsBalance);
-            packet.WriteInteger(1); //Snowflakes
-            packet.WriteInteger(16);
-            packet.WriteInteger(2); //Hearts
-            packet.WriteInteger(15);
-            packet.WriteInteger(3); //Gift points
-            packet.WriteInteger(14);
-            packet.WriteInteger(4); //Shells
-            packet.WriteInteger(13);
-            packet.WriteInteger(5); //Diamonds
-            packet.WriteInteger(_seasionalCurrency);
-            packet.WriteInteger(101); //Snowflakes
-            packet.WriteInteger(10);
-            packet.WriteInteger(102);
-            packet.WriteInteger(0);
-            packet.WriteInteger(103); //Stars
-            packet.WriteInteger(_gotwPoints);
-            packet.WriteInteger(104); //Clouds
-            packet.WriteInteger(0);
-            packet.WriteInteger(105); //Diamonds
-            packet.WriteInteger(0);
+        packet.WriteInteger(_balances.Count);
+
+        foreach (var (type, amount) in _balances) {
+            packet.WriteInteger(type);
+            packet.WriteInteger(amount);
         }
     }
 }

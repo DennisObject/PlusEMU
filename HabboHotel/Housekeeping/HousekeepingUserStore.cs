@@ -33,10 +33,12 @@ public sealed class HousekeepingUserStore : IHousekeepingUserStore
 {
     private const string Select =
         "SELECT u.`id`, u.`username`, COALESCE(u.`motto`, '') AS Motto, COALESCE(u.`look`, '') AS Look, " +
-        "u.`last_online` AS LastOnlineAt, COALESCE(u.`credits`, 0) AS Credits, COALESCE(u.`activity_points`, 0) AS Duckets, " +
-        "COALESCE(u.`vip_points`, 0) AS Diamonds, COALESCE(u.`mail`, '') AS Mail, COALESCE(u.`ip_last`, '') AS IpLast, " +
+        "u.`last_online` AS LastOnlineAt, COALESCE(u.`credits`, 0) AS Credits, COALESCE(d.`amount`, 0) AS Duckets, " +
+        "COALESCE(v.`amount`, 0) AS Diamonds, COALESCE(u.`mail`, '') AS Mail, COALESCE(u.`ip_last`, '') AS IpLast, " +
         "COALESCE(u.`time_muted`, 0) AS TimeMuted, i.`trading_locked` AS TradingLockExpiresAt " +
-        "FROM `users` u LEFT JOIN `user_info` i ON i.`user_id` = u.`id` ";
+        "FROM `users` u LEFT JOIN `user_info` i ON i.`user_id` = u.`id` " +
+        "LEFT JOIN `user_currencies` d ON d.`user_id` = u.`id` AND d.`type` = 0 " +
+        "LEFT JOIN `user_currencies` v ON v.`user_id` = u.`id` AND v.`type` = 5 ";
 
     private readonly IDatabase _database;
 

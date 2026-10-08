@@ -100,35 +100,37 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
                 throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
             }
 
-            var change = work(new(habbo.Credits, habbo.Duckets, habbo.Diamonds));
+            var change = work(new(habbo.Credits, habbo.Currencies.Snapshot().ToDictionary()));
 
             if (change.Balances is { } balances) {
                 habbo.Credits = balances.Credits;
-                habbo.Duckets = balances.Duckets;
-                habbo.Diamonds = balances.Diamonds;
+
+                if (balances.ChargedType is { } type) {
+                    habbo.Currencies[type] = balances[type];
+                }
             }
 
             return change;
         }
     }
 
-    public HabbiconChange BuyCatalog(Habbo habbo, int id, int credits, int duckets, int diamonds)
+    public HabbiconChange BuyCatalog(Habbo habbo, int id, int credits, int points, int pointsType)
     {
         var now = clock.GetUtcNow().ToUniversalTime();
 
         return WithWallet(habbo, balances =>
-            BuyCatalog(habbo.Id, id, credits, duckets, diamonds, balances, habbo.Access.Membership, now));
+            BuyCatalog(habbo.Id, id, credits, points, pointsType, balances, habbo.Access.Membership, now));
     }
 
-    internal HabbiconChange BuyCatalog(int userId, int id, int credits, int duckets, int diamonds,
+    internal HabbiconChange BuyCatalog(int userId, int id, int credits, int points, int pointsType,
         HabbiconBalances? balances = null, ClubMembership? membership = null)
     {
         var now = clock.GetUtcNow().ToUniversalTime();
 
-        return BuyCatalog(userId, id, credits, duckets, diamonds, balances, membership, now);
+        return BuyCatalog(userId, id, credits, points, pointsType, balances, membership, now);
     }
 
-    private HabbiconChange BuyCatalog(int userId, int id, int credits, int duckets, int diamonds,
+    private HabbiconChange BuyCatalog(int userId, int id, int credits, int points, int pointsType,
         HabbiconBalances? balances, ClubMembership? membership, DateTimeOffset now) =>
         Transact(userId, (connection, transaction, stored) =>
         {
@@ -143,8 +145,8 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
                 throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
             }
 
-            var afterBalances = Charge(connection, transaction, userId, balances ?? stored, credits, duckets,
-                diamonds, membership, now);
+            var afterBalances = Charge(connection, transaction, userId, balances ?? stored, credits, points,
+                pointsType, membership, now);
             Save(connection, transaction, userId, id, HabbiconState.Owned, true);
 
             return Changed(connection, transaction, userId, before, afterBalances);
@@ -168,7 +170,7 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
                 throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
             }
 
-            afterBalances = ChargePoints(connection, transaction, userId, balances, collection.Credits,
+            afterBalances = Charge(connection, transaction, userId, balances, collection.Credits,
                 collection.Points, collection.PointsType, membership, now);
 
             foreach (var item in missing) {
@@ -189,7 +191,7 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
                         throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
                     }
 
-                    afterBalances = ChargePoints(connection, transaction, userId, balances, item.Credits,
+                    afterBalances = Charge(connection, transaction, userId, balances, item.Credits,
                         item.Points, item.PointsType, membership, now);
                     state = HabbiconState.Owned;
                     break;
@@ -270,23 +272,11 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
             : "UPDATE users_habbicons SET unseen = FALSE WHERE user_id = @userId AND habbicon_id IN @ids", new { userId, ids });
     }
 
-    private static HabbiconBalances ChargePoints(IDbConnection connection, IDbTransaction transaction, int userId,
+    private static HabbiconBalances Charge(IDbConnection connection, IDbTransaction transaction, int userId,
         HabbiconBalances balances, int credits, int points, int pointsType, ClubMembership? membership,
         DateTimeOffset now)
     {
-        if (pointsType is not (0 or 5)) {
-            throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
-        }
-
-        return Charge(connection, transaction, userId, balances, credits, pointsType == 0 ? points : 0,
-            pointsType == 5 ? points : 0, membership, now);
-    }
-
-    private static HabbiconBalances Charge(IDbConnection connection, IDbTransaction transaction, int userId,
-        HabbiconBalances balances, int credits, int duckets, int diamonds, ClubMembership? membership,
-        DateTimeOffset now)
-    {
-        if (credits < 0 || duckets < 0 || diamonds < 0) {
+        if (credits < 0 || points < 0 || !ActivityPointType.IsValid(pointsType)) {
             throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
         }
 
@@ -294,13 +284,18 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
             throw new HabbiconRejected(HabbiconActionError.InsufficientCredits);
         }
 
-        if (balances.Duckets < duckets || balances.Diamonds < diamonds) {
+        if (balances[pointsType] < points) {
             throw new HabbiconRejected(HabbiconActionError.InsufficientActivityPoints);
         }
 
-        var after = new HabbiconBalances(balances.Credits - credits, balances.Duckets - duckets, balances.Diamonds - diamonds);
-        connection.Execute("UPDATE users SET credits = @Credits, activity_points = @Duckets, vip_points = @Diamonds WHERE id = @userId",
-            new { after.Credits, after.Duckets, after.Diamonds, userId }, transaction);
+        var remaining = new Dictionary<int, int>(balances.Points) { [pointsType] = balances[pointsType] - points };
+        var after = new HabbiconBalances(balances.Credits - credits, remaining, points > 0 ? pointsType : null);
+        connection.Execute("UPDATE users SET credits = @Credits WHERE id = @userId", new { after.Credits, userId }, transaction);
+
+        if (points > 0) {
+            UserCurrencyStore.Set(connection, userId, pointsType, after[pointsType], transaction);
+        }
+
         ClubRewards.RecordSpending(connection, transaction, userId, credits, now,
             membership?.Active(now) == true);
 
@@ -335,9 +330,9 @@ public sealed class HabbiconService(IDatabase database, TimeProvider clock) : IH
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        var balances = connection.QuerySingleOrDefault<HabbiconBalances>("""
-            SELECT credits AS Credits, activity_points AS Duckets, vip_points AS Diamonds FROM users WHERE id = @userId FOR UPDATE
-            """, new { userId }, transaction) ?? throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+        var credits = connection.QuerySingleOrDefault<int?>("SELECT credits FROM users WHERE id = @userId FOR UPDATE", new { userId }, transaction) ??
+            throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
+        var balances = new HabbiconBalances(credits, UserCurrencyStore.Load(connection, userId, transaction).ToDictionary());
         var result = work(connection, transaction, balances);
         transaction.Commit();
 

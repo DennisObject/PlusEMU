@@ -61,8 +61,9 @@ public class HabbiconDatabaseTests
         using (var connection = _database.Connection()) {
             bool hasTicket = connection.QuerySingle<int>("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'auth_ticket'") > 0;
             Execute(hasTicket
-                ? "INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (910001, 'habicon_tests', '', 100, 20, 20)"
-                : "INSERT INTO users (id, username, credits, activity_points, vip_points) VALUES (910001, 'habicon_tests', 100, 20, 20)");
+                ? "INSERT INTO users (id, username, auth_ticket, credits) VALUES (910001, 'habicon_tests', '', 100)"
+                : "INSERT INTO users (id, username, credits) VALUES (910001, 'habicon_tests', 100)");
+            Execute("INSERT INTO user_currencies (user_id, type, amount) VALUES (910001, 0, 20), (910001, 5, 20)");
         }
 
         Execute("UPDATE habbicons SET available = TRUE, default_owned = (id = 28), cost_credits = IF(id IN (28,38,49,60,71), 0, 5), cost_points = 0, points_type = 0");
@@ -90,15 +91,16 @@ public class HabbiconDatabaseTests
     }
 
     [HabbiconDatabaseFact]
-    public void LiveWalletIsAuthoritativeAndBothCurrenciesPersistOnlyAfterCommit()
+    public void LiveWalletIsAuthoritativeAndTheChargedCurrencyPersistsOnlyAfterCommit()
     {
         var habbo = new Habbo { Id = UserId, Credits = 50, Duckets = 7, Diamonds = 9 };
         Execute("UPDATE habbicons SET cost_points = 2, points_type = 5 WHERE id = 61");
         _service.Change(habbo, HabbiconAction.Buy, 61);
         Assert.Equal((45, 7, 7), (habbo.Credits, habbo.Duckets, habbo.Diamonds));
         using var connection = _database.Connection();
-        var stored = connection.QuerySingle<HabbiconBalances>("SELECT credits AS Credits, activity_points AS Duckets, vip_points AS Diamonds FROM users WHERE id = 910001");
-        Assert.Equal(new HabbiconBalances(45, 7, 7), stored);
+        // Only the charged balance is written; duckets keep their stored value.
+        Assert.Equal(45, Scalar("SELECT credits FROM users WHERE id = 910001"));
+        Assert.Equal([(0, 20), (5, 7)], connection.Query<(int, int)>("SELECT type, amount FROM user_currencies WHERE user_id = 910001 ORDER BY type"));
         Execute("UPDATE habbicons SET cost_points = 99, points_type = 0 WHERE id = 62");
         Assert.Equal(3, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
         Assert.Equal(45, habbo.Credits);
@@ -106,8 +108,13 @@ public class HabbiconDatabaseTests
         Assert.False(_service.Load(UserId).RequireItem(62).Owned);
         Execute("UPDATE habbicons SET cost_credits = 99 WHERE id = 62");
         Assert.Equal(2, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
+        // Any activity point type can price a habbicon; type 9 is charged from its own balance.
         Execute("UPDATE habbicons SET cost_credits = 1, points_type = 9 WHERE id = 62");
-        Assert.Equal(1, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
+        Assert.Equal(3, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
+        habbo.Currencies[9] = 100;
+        _service.Change(habbo, HabbiconAction.Buy, 62);
+        Assert.Equal((44, 1, 7), (habbo.Credits, habbo.Currencies[9], habbo.Diamonds));
+        Assert.Equal(1, Scalar("SELECT amount FROM user_currencies WHERE user_id = 910001 AND type = 9"));
     }
 
     [HabbiconDatabaseFact]

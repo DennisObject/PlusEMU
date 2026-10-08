@@ -54,8 +54,9 @@ public sealed class CatalogOffer
     public int Id { get; set; }
     public string LocalizationKey { get; set; } = string.Empty;
     public int CostCredits { get; set; }
-    public int CostPixels { get; set; }
-    public int CostDiamonds { get; set; }
+    // Activity points the offer costs, of PointsType (0 duckets, 5 diamonds, any other Habbo points type).
+    public int CostPoints { get; set; }
+    public int PointsType { get; set; }
     public int ClubLevel { get; set; }
     public bool BulkPurchase { get; set; } = true;
     public bool Enabled { get; set; } = true;

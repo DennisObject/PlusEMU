@@ -29,8 +29,10 @@ public static class HabbiconMessages
 
             lock (habbo.WalletSync) {
                 session.Send(new CreditBalanceComposer(habbo.Credits));
-                session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, 0));
-                session.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, 0, 5));
+
+                if (change.Balances.ChargedType is { } type) {
+                    session.Send(new HabboActivityPointNotificationComposer(habbo.Currencies[type], 0, type));
+                }
             }
         }
     }

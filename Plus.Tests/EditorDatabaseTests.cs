@@ -1,7 +1,7 @@
 using System.Reflection;
+using System.Text.Json.Nodes;
 using Dapper;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using MySqlConnector;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Catalog.Admin;
@@ -34,7 +34,6 @@ public sealed class EditorDatabaseTests : IDisposable
     private const string Tag = "e3test";
     private readonly HabbiconDatabaseTests.TestDatabase _database;
     private readonly EditorPermissionTests.Recorder _refresher = (EditorPermissionTests.Recorder)(object)DispatchProxy.Create<ICatalogCacheRefresher, EditorPermissionTests.Recorder>();
-    private readonly string _directory = Directory.CreateTempSubdirectory("editor-db-tests-").FullName;
     private readonly CatalogAdminService _catalog = null!;
 
     public EditorDatabaseTests()
@@ -62,8 +61,6 @@ public sealed class EditorDatabaseTests : IDisposable
         if (Environment.GetEnvironmentVariable(EditorDatabaseFactAttribute.Variable) != null) {
             Cleanup();
         }
-
-        Directory.Delete(_directory, recursive: true);
     }
 
     [EditorDatabaseFact]
@@ -248,18 +245,8 @@ public sealed class EditorDatabaseTests : IDisposable
         var chair = InsertFurniture($"{Tag}_chair", 990002);
         var placed = InsertFurniture($"{Tag}_placed", 990003);
         Execute($"INSERT INTO items (user_id, room_id, base_item, extra_data, x, y, z, rot, wall_pos) VALUES (0, 0, {placed}, '', 0, 0, 0, 0, '')");
-        var path = Path.Combine(_directory, "FurnitureData.json");
-        File.WriteAllText(path, $$"""
-            {
-              "roomitemtypes": {
-                "furnitype": [
-                  { "id": 990002, "classname": "{{Tag}}_chair", "name": "Old chair", "description": "Old", "xdim": 1, "ydim": 1, "canstandon": false }
-                ]
-              },
-              "wallitemtypes": { "furnitype": [] }
-            }
-            """);
-        var furni = Furni(path);
+        GiveFurnidata(chair, "Old chair", "Old");
+        var furni = Furni();
 
         var detail = furni.Detail(staff, chair);
         Assert.Contains("matched_classname", detail.Furnidata.DiagnosticJson);
@@ -286,15 +273,17 @@ public sealed class EditorDatabaseTests : IDisposable
 
         var edited = furni.UpdateFurnidata(staff, chair, "{\"name\":\"New chair\",\"description\":\"New\"}");
         Assert.True(edited.Success, edited.Message);
-        Assert.Contains("\"name\": \"New chair\"", File.ReadAllText(path));
+        Assert.Equal(("New chair", "New"), Scalar<(string, string)>("SELECT name, description FROM furniture WHERE id = @id", (int)chair));
         Assert.Equal("New chair", Scalar<string>("SELECT public_name FROM furniture WHERE id = @id", (int)chair));
         Thread.Sleep(1100);
         var reverted = furni.RevertFurnidata(staff, chair);
         Assert.True(reverted.Success, reverted.Message);
-        Assert.Contains("\"name\": \"Old chair\"", File.ReadAllText(path));
+        Assert.Equal(("Old chair", "Old"), Scalar<(string, string)>("SELECT name, description FROM furniture WHERE id = @id", (int)chair));
         Assert.Equal("Old chair", Scalar<string>("SELECT public_name FROM furniture WHERE id = @id", (int)chair));
         Thread.Sleep(1100);
         Assert.False(furni.RevertFurnidata(staff, chair).Success);
+        Thread.Sleep(1100);
+        Assert.Equal("The furnidata entry has no height", furni.UpdateFurnidata(staff, chair, "{\"structure\":{\"height\":1}}").Message);
         var actions = Query<(string, int)>("SELECT action, reverted FROM furni_editor_log WHERE classname LIKE 'e3test%' ORDER BY id");
         Assert.Equal([("update", 0), ("delete", 0), ("furnidata_update", 1), ("furnidata_revert", 0)], actions);
     }
@@ -375,7 +364,7 @@ public sealed class EditorDatabaseTests : IDisposable
             Assert.True(_catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, page.PageId, -1)).Success);
         }
 
-        var editor = Furni(Path.Combine(_directory, "none.json"));
+        var editor = Furni();
 
         Assert.Equal([visiblePage.PageId], editor.Detail(staff, furni).CatalogRefs.Select(reference => reference.PageId));
         Assert.Equal(2, editor.Detail(owner, furni).CatalogRefs.Count);
@@ -423,7 +412,7 @@ public sealed class EditorDatabaseTests : IDisposable
         var owner = EditorTestSupport.Staff();
         var page = CreatePage(owner, "deleted_furni", -1);
         var furni = InsertFurniture($"{Tag}_deleted", 990013);
-        Assert.True(Furni(Path.Combine(_directory, "none.json")).Delete(owner, furni).Success);
+        Assert.True(Furni().Delete(owner, furni).Success);
 
         var created = _catalog.CreateOffer(owner, Envelope(Revision()), Offer(furni, page.PageId, -1));
         Assert.Equal($"Furniture #{furni} does not exist.", created.FieldErrors["itemIds"]);
@@ -435,9 +424,8 @@ public sealed class EditorDatabaseTests : IDisposable
         var owner = EditorTestSupport.Staff();
         var first = InsertFurniture($"{Tag}_duplicate", 990020);
         var second = InsertFurniture($"{Tag}_duplicate", 990020);
-        var path = Path.Combine(_directory, "FurnitureData.json");
-        File.WriteAllText(path, """{"roomitemtypes":{"furnitype":[{"id":990020,"classname":"e3test_duplicate","name":"old name","description":"old description"}]},"wallitemtypes":{"furnitype":[]}}""");
-        var editor = Furni(path);
+        GiveFurnidata(first, "old name", "old description");
+        var editor = Furni();
 
         Assert.True(editor.UpdateFurnidata(owner, first, "{\"name\":\"new name\"}").Success);
         Thread.Sleep(1100);
@@ -446,8 +434,50 @@ public sealed class EditorDatabaseTests : IDisposable
 
         var revert = editor.RevertFurnidata(owner, first);
         Assert.Equal((false, "The furnidata entry changed since that edit; revert refused", first), (revert.Success, revert.Message, revert.ItemId));
-        Assert.Contains("new description", File.ReadAllText(path));
+        Assert.Equal(("new name", "new description"), Scalar<(string, string)>("SELECT name, description FROM furniture WHERE id = @id", (int)first));
         Assert.Equal((990020, "roomitemtypes"), Scalar<(int, string)>("SELECT entry_id, entry_section FROM furni_editor_log WHERE item_id = @id ORDER BY id DESC LIMIT 1", (int)first));
+        // The row holding the shared entry stays while another row uses it.
+        Assert.Equal("Cannot delete: still used by 1 other furniture using its furnidata entry", editor.Delete(owner, first).Message);
+        Assert.True(editor.Delete(owner, second).Success);
+    }
+
+    [EditorDatabaseFact]
+    public void FurnidataSpriteIdsAreUniquePerKindAndClassnamesUnique()
+    {
+        var chair = InsertFurniture($"{Tag}_unique", 990030);
+        var copy = InsertFurniture($"{Tag}_UNIQUE", 990031);
+        var sameSprite = InsertFurniture($"{Tag}_other", 990030);
+        var wall = InsertFurniture($"{Tag}_wall", 990030);
+        Execute($"UPDATE furniture SET type = 'i' WHERE id = {wall}");
+        GiveFurnidata(chair, "Chair", "");
+
+        Assert.Throws<MySqlException>(() => GiveFurnidata(copy, "Copy", ""));
+        Assert.Throws<MySqlException>(() => GiveFurnidata(sameSprite, "Other", ""));
+        GiveFurnidata(wall, "Wall", "");
+        var effect = InsertFurniture($"{Tag}_effect", 990032);
+        Execute($"UPDATE furniture SET type = 'e' WHERE id = {effect}");
+        Assert.Throws<MySqlException>(() => GiveFurnidata(effect, "Effect", ""));
+    }
+
+    [EditorDatabaseFact]
+    public void FurnidataIsGeneratedFromTheDatabaseAndRebuiltAfterEdits()
+    {
+        var staff = EditorTestSupport.Staff();
+        var lamp = InsertFurniture($"{Tag}_lamp", 990040);
+        var furnidata = Furnidata();
+        Assert.Null(furnidata.Current());
+
+        GiveFurnidata(lamp, "Lamp", "Bright");
+        furnidata.Invalidate();
+        var first = furnidata.Current()!;
+        Assert.Same(first, furnidata.Current());
+        var entry = Assert.Single(JsonNode.Parse(first.Content)!["roomitemtypes"]!["furnitype"]!.AsArray())!;
+        Assert.Equal((990040, $"{Tag}_lamp", "Lamp", -1), ((int)entry["id"]!, (string)entry["classname"]!, (string)entry["name"]!, (int)entry["offerid"]!));
+
+        Assert.True(Furni(furnidata).UpdateFurnidata(staff, lamp, "{\"name\":\"Lava lamp\"}").Success);
+        var second = furnidata.Current()!;
+        Assert.Equal("Lava lamp", (string)JsonNode.Parse(second.Content)!["roomitemtypes"]!["furnitype"]![0]!["name"]!);
+        Assert.NotEqual(first.ETag, second.ETag);
     }
 
     [EditorDatabaseFact]
@@ -489,14 +519,24 @@ public sealed class EditorDatabaseTests : IDisposable
     private static CatalogAdminOffer Offer(uint furni, int pageId, int offerId) =>
         new("NORMAL", 0, furni.ToString(), pageId, $"{Tag} offer", 3, 0, 0, 1, 0, -1, offerId, 0, "", true, false);
 
-    private FurniEditorService Furni(string furnidataPath)
+    private FurniEditorService Furni(ICatalogFurnidata? furnidata = null)
     {
         var clients = DispatchProxy.Create<IGameClientManager, CatalogProxy>();
 
-        return new FurniEditorService(_database, new FurnidataStore(Options.Create(new FurniEditorConfiguration { FurnidataPath = furnidataPath })),
+        return new FurniEditorService(_database, furnidata ?? Furnidata(),
             DispatchProxy.Create<IFurniEditorTextImporter, EditorPermissionTests.Recorder>(), (ICatalogCacheRefresher)(object)_refresher, clients,
             NullLogger<FurniEditorService>.Instance, TimeProvider.System);
     }
+
+    private CatalogFurnidata Furnidata() => new(_database, CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) => method switch
+    {
+        "get_Revision" => 1,
+        "get_Pages" => new List<CatalogPage>(),
+        _ => throw new NotSupportedException(method)
+    }));
+
+    private void GiveFurnidata(uint id, string name, string description) => Execute(
+        $"UPDATE furniture SET has_furnidata = TRUE, name = '{name}', description = '{description}', part_colors = '' WHERE id = {id}");
 
     private CatalogAdminPage CreatePage(Habbo staff, string name, int parentId, string requiredPermission = "", int order = -1)
     {

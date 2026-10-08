@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.Options;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.Items.Editor;
 using Xunit;
@@ -57,7 +58,7 @@ public sealed class FurniEditorClockTests
 
     private static FurniEditorService Service(TimeProvider clock) => new(
         EditorTestSupport.UntouchableDatabase(),
-        CatalogSnapshotTestSupport.Proxy<IFurnidataStore>((method, _) => throw new NotSupportedException(method)),
+        CatalogSnapshotTestSupport.Proxy<ICatalogFurnidata>((method, _) => throw new NotSupportedException(method)),
         CatalogSnapshotTestSupport.Proxy<IFurniEditorTextImporter>((method, _) => throw new NotSupportedException(method)),
         CatalogSnapshotTestSupport.Proxy<ICatalogCacheRefresher>((method, _) => throw new NotSupportedException(method)),
         CatalogSnapshotTestSupport.Proxy<IGameClientManager>((method, _) => throw new NotSupportedException(method)),

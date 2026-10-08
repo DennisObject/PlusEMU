@@ -100,16 +100,32 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
             return HousekeepingOutcome.Success(Label(user), detail);
         }
 
-        // Offline wallets live in the users row. The session gate keeps logins from loading it mid-grant, and
-        // logout saves the live wallet before the session is unregistered.
-        int updated;
+        // Offline wallets live in the users row and user_currencies. The session gate keeps logins from loading them
+        // mid-grant, and logout saves the live wallet before the session is unregistered.
+        return GiveOffline(userId, currency, amount) ? HousekeepingOutcome.Success(Label(user), detail) : HousekeepingOutcome.Fail(EconomyFailed, Label(user), detail);
+    }
 
-        using (var connection = _database.Connection()) {
-            updated = connection.Execute($"UPDATE `users` SET `{Column(currency)}` = `{Column(currency)}` + @amount " +
-                                         $"WHERE `id` = @userId AND `{Column(currency)}` <= @limit", new { amount, userId, limit = int.MaxValue - amount });
+    private bool GiveOffline(int userId, HousekeepingCurrency currency, int amount)
+    {
+        using var connection = _database.Connection();
+
+        if (currency == HousekeepingCurrency.Credits) {
+            return connection.Execute("UPDATE `users` SET `credits` = `credits` + @amount WHERE `id` = @userId AND `credits` <= @limit",
+                new { amount, userId, limit = int.MaxValue - amount }) == 1;
         }
 
-        return updated == 1 ? HousekeepingOutcome.Success(Label(user), detail) : HousekeepingOutcome.Fail(EconomyFailed, Label(user), detail);
+        connection.Open();
+        using var transaction = connection.BeginTransaction();
+
+        if (connection.ExecuteScalar<int?>("SELECT `id` FROM `users` WHERE `id` = @userId FOR UPDATE", new { userId }, transaction) == null ||
+            UserCurrencyStore.Get(connection, userId, (int)currency, transaction, forUpdate: true) is var balance && balance > int.MaxValue - amount) {
+            return false;
+        }
+
+        UserCurrencyStore.Set(connection, userId, (int)currency, balance + amount, transaction);
+        transaction.Commit();
+
+        return true;
     }
 
     public HousekeepingOutcome GrantItem(Habbo actor, int userId, int itemId, int quantity)
@@ -189,11 +205,4 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
                 break;
         }
     }
-
-    private static string Column(HousekeepingCurrency currency) => currency switch
-    {
-        HousekeepingCurrency.Credits => "credits",
-        HousekeepingCurrency.Duckets => "activity_points",
-        _ => "vip_points"
-    };
 }

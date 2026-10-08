@@ -83,11 +83,14 @@ public class Habbo
 
     public int Credits { get; set; }
 
-    public int Duckets { get; set; }
+    // Activity point balances by type, from user_currencies.
+    public UserCurrencies Currencies { get; } = new();
 
-    public int Diamonds { get; set; }
+    public int Duckets { get => Currencies[ActivityPointType.Duckets]; set => Currencies[ActivityPointType.Duckets] = value; }
 
-    public int GotwPoints { get; set; }
+    public int Diamonds { get => Currencies[ActivityPointType.Diamonds]; set => Currencies[ActivityPointType.Diamonds] = value; }
+
+    public int GotwPoints { get => Currencies[ActivityPointType.Gotw]; set => Currencies[ActivityPointType.Gotw] = value; }
 
     public uint HomeRoom { get; set; }
 

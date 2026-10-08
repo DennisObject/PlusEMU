@@ -135,8 +135,7 @@ public sealed class SnowStormDirectory(
         session.Send(new CreditBalanceComposer(habbo.Credits));
 
         if (offer.PricePoints > 0) {
-            var balance = offer.PointsType == 5 ? habbo.Diamonds : habbo.Duckets;
-            session.Send(new HabboActivityPointNotificationComposer(balance, -offer.PricePoints, offer.PointsType));
+            session.Send(new HabboActivityPointNotificationComposer(habbo.Currencies[offer.PointsType], -offer.PricePoints, offer.PointsType));
         }
 
         session.Send(new PurchaseOKComposer());

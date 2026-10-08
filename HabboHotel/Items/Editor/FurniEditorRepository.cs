@@ -91,15 +91,16 @@ internal sealed class FurniEditorRepository
 
     // Filter by the same resolved permissions as the catalog before limiting the results.
     public List<FurniEditorCatalogRef> CatalogRefs(uint id, UserAccess access) => _connection.Query<FurniEditorCatalogRef>("""
-        SELECT o.id AS Id, o.localization_key AS CatalogName, o.cost_credits AS CostCredits, IF(o.points_type = 0, o.cost_points, 0) AS CostPixels,
-        IF(o.points_type = 5, o.cost_points, 0) AS CostDiamonds, cp.id AS PageId, cp.caption AS PageName
+        SELECT o.id AS Id, o.localization_key AS CatalogName, o.cost_credits AS CostCredits, o.cost_points AS CostPoints,
+        o.points_type AS PointsType, cp.id AS PageId, cp.caption AS PageName
         FROM catalog_offer_products p INNER JOIN catalog_offers o ON o.id = p.offer_id
         INNER JOIN catalog_page_offers po ON po.offer_id = o.id INNER JOIN catalog_pages cp ON cp.id = po.page_id
         WHERE p.furniture_id = @id AND (cp.required_permission IS NULL OR cp.required_permission IN @keys) ORDER BY o.id, cp.id LIMIT @limit
         """, new { id, keys = access.Keys.ToArray(), limit = MaxCatalogRefs }, _transaction).ToList();
 
     // Everything that still needs this definition: placed or owned furni, catalog offers (bundles included),
-    // unopened gifts and open marketplace listings (a listed item only exists as its definition id).
+    // unopened gifts, open marketplace listings (a listed item only exists as its definition id) and furniture that
+    // shares the furnidata entry this row holds.
     public List<string> References(uint id)
     {
         var references = new List<string>();
@@ -115,6 +116,10 @@ internal sealed class FurniEditorRepository
         Count("SELECT COUNT(DISTINCT offer_id) FROM catalog_offer_products WHERE furniture_id = @id", "catalog offers");
         Count("SELECT COUNT(*) FROM user_presents WHERE base_id = @id", "unopened gifts");
         Count("SELECT COUNT(*) FROM catalog_marketplace_offers WHERE item_id = @id AND state = '1'", "open marketplace offers");
+        Count("""
+            SELECT COUNT(*) FROM furniture AS other INNER JOIN furniture AS owner ON owner.id = @id AND owner.has_furnidata
+            WHERE other.id <> owner.id AND other.type = owner.type AND other.item_name = owner.item_name
+            """, "other furniture using its furnidata entry");
 
         return references;
     }

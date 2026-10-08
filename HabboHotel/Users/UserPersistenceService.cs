@@ -18,8 +18,8 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
         connection.Open();
         using var transaction = connection.BeginTransaction();
         connection.Execute(
-            "UPDATE `users` SET `online` = false, `last_online` = @now, `activity_points` = @Duckets, `credits` = @Credits, " +
-            "`vip_points` = @Diamonds, `gotw_points` = @GotwPoints, `time_muted` = @TimeMuted, `bubble_id` = @CustomBubbleId WHERE `id` = @Id; " +
+            "UPDATE `users` SET `online` = false, `last_online` = @now, `credits` = @Credits, " +
+            "`time_muted` = @TimeMuted, `bubble_id` = @CustomBubbleId WHERE `id` = @Id; " +
             "UPDATE `users_settings` SET `home_room` = @HomeRoom, `friend_bar_state` = @FriendbarState WHERE `user_id` = @Id; " +
             "UPDATE `user_statistics` SET `roomvisits` = @RoomVisits, `onlineTime` = `onlineTime` + @SessionSeconds, " +
             "`respect` = @Respect, `respectGiven` = @RespectGiven, `giftsGiven` = @GiftsGiven, `giftsReceived` = @GiftsReceived, " +
@@ -29,10 +29,7 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
             new
             {
                 habbo.Id,
-                habbo.Duckets,
                 habbo.Credits,
-                habbo.Diamonds,
-                habbo.GotwPoints,
                 habbo.TimeMuted,
                 habbo.CustomBubbleId,
                 habbo.HomeRoom,
@@ -52,6 +49,8 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
                 habbo.HabboStats.ForumPosts,
                 now = now.UtcDateTime
             }, transaction);
+
+        UserCurrencyStore.SetMany(connection, habbo.Id, habbo.Currencies.Snapshot(), transaction);
 
         if (reopenModerationTickets) {
             connection.Execute("UPDATE `moderation_tickets` SET `status` = 'open', `moderator_id` = 0 WHERE `status` = 'picked' AND `moderator_id` = @id",

@@ -1,4 +1,3 @@
-using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Editor;
 
@@ -33,12 +32,11 @@ public sealed class FurniEditorDetailResultComposer : IServerPacket
         packet.WriteInteger(_detail.CatalogRefs.Count);
 
         foreach (var reference in _detail.CatalogRefs) {
-            bool diamonds = reference.CostDiamonds > 0;
             packet.WriteInteger(reference.Id);
             packet.WriteString(reference.CatalogName);
             packet.WriteInteger(reference.CostCredits);
-            packet.WriteInteger(diamonds ? reference.CostDiamonds : reference.CostPixels);
-            packet.WriteInteger(diamonds ? CatalogAdminMapping.DiamondsPointsType : CatalogAdminMapping.DucketsPointsType);
+            packet.WriteInteger(reference.CostPoints);
+            packet.WriteInteger(reference.PointsType);
             packet.WriteInteger(reference.PageId);
             packet.WriteString(reference.PageName);
         }

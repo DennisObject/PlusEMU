@@ -73,9 +73,9 @@ public class AccountStore : IAccountStore
 
         try {
             var userId = await connection.ExecuteScalarAsync<int>(
-                "INSERT INTO `users` (`username`, `password`, `mail`, `auth_ticket`, `rank`, `look`, `gender`, `motto`, `credits`, `activity_points`, `vip`, " +
+                "INSERT INTO `users` (`username`, `password`, `mail`, `auth_ticket`, `rank`, `look`, `gender`, `motto`, `credits`, `vip`, " +
                 "`account_created`, `last_online`, `ip_reg`, `ip_last`, `bubble_id`, `credential_generation`) " +
-                "VALUES (@Username, @PasswordHash, @Email, '', @Rank, @Look, @Gender, @Motto, @Credits, @ActivityPoints, @Vip, " +
+                "VALUES (@Username, @PasswordHash, @Email, '', @Rank, @Look, @Gender, @Motto, @Credits, @Vip, " +
                 "@Now, @Now, @Address, @Address, 0, @Generation); SELECT LAST_INSERT_ID();",
                 new
                 {
@@ -88,7 +88,6 @@ public class AccountStore : IAccountStore
                     Rank = 1,
                     _defaults.Motto,
                     _defaults.Credits,
-                    _defaults.ActivityPoints,
                     _defaults.HomeRoom,
                     Vip = _defaults.Vip ? "1" : "0",
                     Now = _time.GetUtcNow().UtcDateTime,
@@ -97,6 +96,7 @@ public class AccountStore : IAccountStore
             await connection.ExecuteAsync("INSERT INTO `users_settings` (`user_id`, `home_room`) VALUES (@userId, @homeRoom)",
                 new { userId, homeRoom = _defaults.HomeRoom }, transaction);
             await connection.ExecuteAsync("INSERT INTO `user_statistics` (`id`) VALUES (@userId)", new { userId }, transaction);
+            UserCurrencyStore.Set(connection, userId, ActivityPointType.Duckets, _defaults.ActivityPoints, transaction);
 
             foreach (var slug in _defaults.Roles.Distinct(StringComparer.Ordinal)) {
                 var roleId = await connection.ExecuteScalarAsync<int?>("SELECT id FROM roles WHERE slug = @slug", new { slug }, transaction)

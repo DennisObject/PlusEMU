@@ -56,7 +56,8 @@ public class ClubMembershipDatabaseTests : IDisposable
 
         _database = new(connection);
         Clean();
-        Sql("INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (957001, 'club_test_member', '', 1000, 10, 10); " +
+        Sql("INSERT INTO users (id, username, auth_ticket, credits) VALUES (957001, 'club_test_member', '', 1000); " +
+            "INSERT INTO user_currencies (user_id, type, amount) VALUES (957001, 0, 10), (957001, 5, 10); " +
             "INSERT INTO catalog_club_offers (id, enabled, name, days, credits) VALUES (957101, 1, 'TEST_HC_MONTH', 31, 100)");
         _habbo = new Habbo
         {
@@ -156,6 +157,39 @@ public class ClubMembershipDatabaseTests : IDisposable
         Assert.Equal(now.AddDays(31).UtcDateTime, ScalarTime("SELECT expires_at FROM user_club_memberships WHERE user_id = 957001"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM acl_audit_log WHERE action = 'club.purchase' AND target_id = 957001"));
     }
+    [ClubDatabaseFact]
+    public void PointsPricedMembershipChargesItsActivityPointType()
+    {
+        // A seasonal currency (type 101) prices the offer; duckets and diamonds are left alone.
+        Sql("UPDATE catalog_club_offers SET credits = 0, points = 30, points_type = 101 WHERE id = 957101");
+        var offer = new ClubOffer { Id = Offer, Days = 31, Points = 30, PointsType = 101 };
+        Assert.Null(_memberships.Purchase(_habbo, offer));
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM user_club_memberships WHERE user_id = 957001"));
+        _habbo.Currencies[101] = 45;
+        Assert.NotNull(_memberships.Purchase(_habbo, offer));
+        Assert.Equal((1000, 10, 10, 15), (_habbo.Credits, _habbo.Duckets, _habbo.Diamonds, _habbo.Currencies[101]));
+        Assert.Equal(15, Scalar("SELECT amount FROM user_currencies WHERE user_id = 957001 AND type = 101"));
+        Assert.Equal(10, Scalar("SELECT amount FROM user_currencies WHERE user_id = 957001 AND type = 5"));
+        Assert.Equal(1000, Scalar("SELECT credits FROM users WHERE id = 957001"));
+    }
+
+    [ClubDatabaseFact]
+    public void ChargeTakesAnyActivityPointTypeAndRollsBackWithTheDelivery()
+    {
+        Assert.False(_rewards.Charge(_habbo, 0, 11, ActivityPointType.Diamonds));
+        Assert.True(_rewards.Charge(_habbo, 5, 4, ActivityPointType.Diamonds));
+        Assert.Equal((995, 10, 6), (_habbo.Credits, _habbo.Duckets, _habbo.Diamonds));
+        Assert.Equal(6, Scalar("SELECT amount FROM user_currencies WHERE user_id = 957001 AND type = 5"));
+        _habbo.Currencies[104] = 3;
+        Assert.False(_rewards.Charge(_habbo, 0, 3, 104, (_, _) => false));
+        Assert.Equal(3, _habbo.Currencies[104]);
+        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM user_currencies WHERE user_id = 957001 AND type = 104"));
+        Assert.True(_rewards.Charge(_habbo, 0, 3, 104));
+        Assert.Equal(0, _habbo.Currencies[104]);
+        Assert.Equal(0, Scalar("SELECT amount FROM user_currencies WHERE user_id = 957001 AND type = 104"));
+        Assert.False(_rewards.Charge(_habbo, 0, 1, -1));
+    }
+
     [ClubDatabaseFact]
     public async Task PurchasingAndExpiringMembershipResendBothLists()
     {

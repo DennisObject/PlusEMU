@@ -214,10 +214,10 @@ public sealed class UserMaintenanceService(IUserMaintenanceStore store, IAccount
                 client.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, pixelAmount));
                 break;
             case UserCurrency.Diamonds:
-                client.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, 0, 5));
+                client.Send(new HabboActivityPointNotificationComposer(habbo.Diamonds, 0, ActivityPointType.Diamonds));
                 break;
             default:
-                client.Send(new HabboActivityPointNotificationComposer(habbo.GotwPoints, 0, 103));
+                client.Send(new HabboActivityPointNotificationComposer(habbo.GotwPoints, 0, ActivityPointType.Gotw));
                 break;
         }
     }

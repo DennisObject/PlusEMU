@@ -32,10 +32,12 @@ public interface IModerationUserStore
 
 public sealed class ModerationUserStore(IDatabase database) : IModerationUserStore
 {
-    private const string Select = "SELECT u.id,u.username,u.look,u.mail,u.`rank`,u.credits,u.activity_points AS Duckets,u.vip_points AS Diamonds,u.gotw_points AS GotwPoints," +
+    private const string Select = "SELECT u.id,u.username,u.look,u.mail,u.`rank`,u.credits,COALESCE(d.amount,0) AS Duckets,COALESCE(v.amount,0) AS Diamonds,COALESCE(g.amount,0) AS GotwPoints," +
         "u.account_created AS AccountCreatedAt,u.last_online AS LastOnlineAt,i.trading_locked AS TradingLockExpiresAt," +
         "COALESCE(i.cfhs,0) AS HelpRequests,COALESCE(i.cfhs_abusive,0) AS AbusiveHelpRequests,COALESCE(i.cautions,0) AS Cautions," +
-        "COALESCE(i.bans,0) AS Bans,COALESCE(i.trading_locks_count,0) AS TradingLockCount FROM users u LEFT JOIN user_info i ON i.user_id=u.id ";
+        "COALESCE(i.bans,0) AS Bans,COALESCE(i.trading_locks_count,0) AS TradingLockCount FROM users u LEFT JOIN user_info i ON i.user_id=u.id " +
+        "LEFT JOIN user_currencies d ON d.user_id=u.id AND d.type=0 LEFT JOIN user_currencies v ON v.user_id=u.id AND v.type=5 " +
+        "LEFT JOIN user_currencies g ON g.user_id=u.id AND g.type=103 ";
 
     public ModerationUserData? Find(int userId)
     {

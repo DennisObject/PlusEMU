@@ -127,7 +127,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                     throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
                 }
 
-                var change = _habbicons.BuyCatalog(session.GetHabbo(), product.HabbiconId, offer.CostCredits, offer.CostPixels, offer.CostDiamonds);
+                var change = _habbicons.BuyCatalog(session.GetHabbo(), product.HabbiconId, offer.CostCredits, offer.CostPoints, offer.PointsType);
                 HabbiconMessages.Publish(session, change);
                 session.Send(new PurchaseOKComposer());
             }
@@ -148,10 +148,9 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
 
         var amountPurchase = product.Amount > 1 ? product.Amount : amount;
         var totalCreditsCost = amount > 1 ? offer.CostCredits * amount - (int)Math.Floor((double)amount / 6) * offer.CostCredits : offer.CostCredits;
-        var totalPixelCost = amount > 1 ? offer.CostPixels * amount - (int)Math.Floor((double)amount / 6) * offer.CostPixels : offer.CostPixels;
-        var totalDiamondCost = amount > 1 ? offer.CostDiamonds * amount - (int)Math.Floor((double)amount / 6) * offer.CostDiamonds : offer.CostDiamonds;
+        var totalPointsCost = amount > 1 ? offer.CostPoints * amount - (int)Math.Floor((double)amount / 6) * offer.CostPoints : offer.CostPoints;
 
-        if (session.GetHabbo().Credits < totalCreditsCost || session.GetHabbo().Duckets < totalPixelCost || session.GetHabbo().Diamonds < totalDiamondCost) {
+        if (session.GetHabbo().Credits < totalCreditsCost || session.GetHabbo().Currencies[offer.PointsType] < totalPointsCost) {
             return;
         }
 
@@ -190,7 +189,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         {
             var soldOut = false;
 
-            if (!offer.CanPurchase(session.GetHabbo()) || !_clubRewards.Charge(session.GetHabbo(), totalCreditsCost, totalPixelCost, totalDiamondCost, (connection, transaction) =>
+            if (!offer.CanPurchase(session.GetHabbo()) || !_clubRewards.Charge(session.GetHabbo(), totalCreditsCost, totalPointsCost, offer.PointsType, (connection, transaction) =>
             {
                 if (!offer.CanPurchase(session.GetHabbo())) {
                     return false;
@@ -227,12 +226,8 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                 session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
             }
 
-            if (totalPixelCost > 0) {
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -totalPixelCost));
-            }
-
-            if (totalDiamondCost > 0) {
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -totalDiamondCost, 5));
+            if (totalPointsCost > 0) {
+                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Currencies[offer.PointsType], -totalPointsCost, offer.PointsType));
             }
 
             return true;
@@ -466,9 +461,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
         }
 
         if (offer.Points > 0) {
-            session.Send(offer.PointsType == 5
-                ? new HabboActivityPointNotificationComposer(habbo.Diamonds, -offer.Points, 5)
-                : new HabboActivityPointNotificationComposer(habbo.Duckets, -offer.Points));
+            session.Send(new HabboActivityPointNotificationComposer(habbo.Currencies[offer.PointsType], -offer.Points, offer.PointsType));
         }
 
         session.Send(new PurchaseOKComposer());

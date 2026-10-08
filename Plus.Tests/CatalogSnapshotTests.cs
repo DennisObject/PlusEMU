@@ -73,7 +73,7 @@ public class CatalogSnapshotTests
     public void UnknownBotFallsBackToTheDefaultFigure()
     {
         var offer = Offer(41, "bot_y", new CatalogProduct { Type = CatalogProductType.Bot, BotPresetId = 556 });
-        offer.CostPixels = 9;
+        offer.CostPoints = 9;
 
         var writes = Writes(new CatalogOfferComposer(Snapshots().CaptureOffer(offer)));
 
@@ -151,10 +151,11 @@ public class CatalogSnapshotTests
         disabled.Enabled = false;
         Add("habbicon-nooffer", new CatalogOfferComposer(snapshots.CaptureOffer(disabled)));
         var deal = Offer(20, "deal_a", Badge("ADM"), Furni(Def(InteractionType.None, "i", sprite: 5), amount: 2));
-        deal.CostDiamonds = 3;
+        deal.CostPoints = 3;
+        deal.PointsType = 5;
         Add("deal", new CatalogOfferComposer(snapshots.CaptureOffer(deal)));
         var badge = BadgeOffer();
-        badge.CostPixels = 2;
+        badge.CostPoints = 2;
         Add("badge", new CatalogOfferComposer(snapshots.CaptureOffer(badge)));
         Add("bot", new CatalogOfferComposer(snapshots.CaptureOffer(BotOffer(40, "bot_x", 555))));
         Add("bot-unknown", new CatalogOfferComposer(snapshots.CaptureOffer(BotOffer(41, "bot_y", 556))));
@@ -164,7 +165,7 @@ public class CatalogSnapshotTests
         plain.CostCredits = 4;
         Add("plain-extra-empty", new CatalogOfferComposer(snapshots.CaptureOffer(plain)));
         var gift = Offer(62, "gift", Furni(Def(InteractionType.None, "i", sprite: 9, gift: true, type: ItemType.Floor), extra: "data"));
-        gift.CostPixels = 4;
+        gift.CostPoints = 4;
         gift.ClubLevel = 2;
         gift.PreviewImage = "catalogue/x.png";
         Add("plain-gift", new CatalogOfferComposer(snapshots.CaptureOffer(gift)));
@@ -212,7 +213,7 @@ public class CatalogSnapshotTests
     private static CatalogOffer BotOffer(int id, string name, int preset)
     {
         var offer = Offer(id, name, new CatalogProduct { Type = CatalogProductType.Bot, BotPresetId = preset });
-        offer.CostPixels = 9;
+        offer.CostPoints = 9;
 
         return offer;
     }
