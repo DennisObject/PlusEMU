@@ -14,6 +14,15 @@ const configured = [
 
 const catalogue = buildEffectCatalogue(configured);
 
+test('trusted bundle routes support HAB and Nitro without allowing arbitrary paths', () => {
+    for (const extension of ['hab', 'nitro']) {
+        const path = `/assets/furniture/hc26_3.${extension}`;
+        assert.equal(nitroAssetRelative(path), `furniture/nitro/hc26_3.${extension}`);
+        assert.equal(allowedBrowserRequest('GET', `http://camera.local${path}`, 'http://camera.local', catalogue), true);
+    }
+    for (const path of ['/assets/furniture/../secret.hab', '/assets/furniture/a.js', '/assets/furniture/a.hab/extra']) assert.equal(nitroAssetRelative(path), null);
+});
+
 const viewport = (cropWidth, cropHeight) => ({
     width: 1280, height: 900, offsetX: 0, offsetY: 0, x: 10, y: 20,
     cropWidth, cropHeight, scale: 1, locationX: 1, locationY: 2, locationZ: 0

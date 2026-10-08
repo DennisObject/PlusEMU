@@ -15,7 +15,7 @@ export const GAMEDATA_FILES = Object.freeze(['FurnitureData.json', 'ProductData.
 const NITRO_FOLDERS = { furniture: 'furniture/nitro', figure: 'clothes/nitro', effect: 'effects/nitro', pet: 'pets' };
 
 export function nitroAssetRelative(pathname) {
-    const match = /^\/assets\/(furniture|figure|effect|pet)\/([A-Za-z0-9_.-]+\.nitro)$/.exec(pathname);
+    const match = /^\/assets\/(furniture|figure|effect|pet)\/([A-Za-z0-9_.-]+\.(?:nitro|hab))$/.exec(pathname);
     if (!match || match[2].includes('..')) return null;
     return `${NITRO_FOLDERS[match[1]]}/${match[2]}`;
 }

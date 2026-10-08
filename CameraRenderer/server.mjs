@@ -4,6 +4,7 @@ import { resolve, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import stripJsonComments from 'strip-json-comments';
+import { createFurnitureDataSource, fetchCameraData } from './furniture-data.mjs';
 import { allowedBrowserRequest, authorized, buildEffectCatalogue, cameraEffectAsset, containedPath, JOB_DEADLINE_MS, MAX_ACTIVE, MAX_BODY, MAX_QUEUE, mediaPath, nitroAssetRelative, pageConfiguration, QUEUE_WAIT_MS, SMALL_PNG_SIZE, validPng, validateJob } from './security.mjs';
 
 const directory = fileURLToPath(new URL('.', import.meta.url));
@@ -16,6 +17,9 @@ const rooted = (env, fallback) => env ? resolve(env) : resolve(directory, fallba
 const assets = rooted(process.env.CAMERA_ASSET_ROOT, '../../nitro-assets');
 const images = rooted(process.env.CAMERA_IMAGES_ROOT, '../../../retro-hotel-files/flash/c_images');
 const media = rooted(process.env.CAMERA_MEDIA_ROOT, '../camera');
+const assetOrigin = process.env.CAMERA_ASSET_ORIGIN ? new URL(process.env.CAMERA_ASSET_ORIGIN) : null;
+if (assetOrigin && (assetOrigin.protocol !== 'https:' || assetOrigin.username || assetOrigin.password || assetOrigin.pathname !== '/' || assetOrigin.search || assetOrigin.hash)) throw new Error('CAMERA_ASSET_ORIGIN must be an HTTPS origin');
+const furnitureData = createFurnitureDataSource({ url: process.env.CAMERA_FURNIDATA_URL, filename: resolve(assets, 'furniture/json/FurnitureData.json') });
 const configuration = {};
 for (const filename of [process.env.CAMERA_RENDERER_CONFIG, process.env.CAMERA_UI_CONFIG].filter(Boolean)) Object.assign(configuration, JSON.parse(stripJsonComments(await readFile(filename, 'utf8'))));
 Object.assign(configuration, {
@@ -77,7 +81,8 @@ async function safeFile(root, name) {
     if (!containedPath(base, target)) throw new Error('Invalid asset path');
     return readFile(target);
 }
-async function createPage(abort) {
+async function createPage(abort, furniture) {
+    furniture ??= await furnitureData();
     if (!browser) {
         browser = await chromium.launch({executablePath:process.env.CAMERA_CHROMIUM_PATH || undefined, headless:true, chromiumSandbox:true, args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
         browser.once('disconnected', () => {
@@ -90,12 +95,14 @@ async function createPage(abort) {
     const context = await browser.newContext({viewport:{width:2048,height:2048},deviceScaleFactor:1,extraHTTPHeaders:{Authorization:`Bearer ${secret}`}});
     if (abort) abort.context = context;
     if (abort?.done) throw new Error('Camera render timed out');
-    const slot = { context, page: null, busy: true, failures: [] };
+    const slot = { context, page: null, busy: true, failures: [], furnitureVersion: furniture.version };
     try {
         await context.route('**/*', async route => {
             const request = route.request();
             const href = request.url();
             if (!allowedBrowserRequest(request.method(), href, origin, catalogue)) { slot.failures.push('Blocked asset request: '+href); console.error('Blocked camera asset: '+href); await route.abort(); return; }
+            // Pin one catalogue to the page for its entire lifetime, including concurrent jobs.
+            if (new URL(href).pathname === '/gamedata/FurnitureData.json') { await route.fulfill({ contentType: 'application/json', body: furniture.body }); return; }
             await route.continue();
         });
         await context.addInitScript(config => { window.cameraConfiguration = config; window.WebSocket = class {constructor(){throw new Error('Game sockets are disabled in trusted rendering');}}; }, pageConfig);
@@ -118,10 +125,13 @@ async function createPage(abort) {
 function borrowPage(abort) {
     return withGate(async () => {
         if (abort?.done) throw new Error('Camera render timed out');
+        const furniture = await furnitureData();
+        if (abort?.done) throw new Error('Camera render timed out');
+        for (const entry of [...pool]) if (!entry.busy && entry.furnitureVersion !== furniture.version) await discardPage(entry);
         const idle = pool.find(entry => !entry.busy);
         if (idle) { idle.busy = true; idle.failures.length = 0; return idle; }
         if (pool.length >= 2) throw new Error('Camera page pool is exhausted');
-        const slot = await createPage(abort);
+        const slot = await createPage(abort, furniture);
         if (abort?.done) throw new Error('Camera render timed out');
         pool.push(slot);
         if (abort?.done) { pool.splice(pool.indexOf(slot), 1); throw new Error('Camera render timed out'); }
@@ -206,18 +216,14 @@ const server = http.createServer(async (request, response) => {
         if (path.startsWith('/page/')) data=await safeFile(resolve(directory,'dist'),path.slice(6));
         else if (path.startsWith('/gamedata/')) {
             const relative=gamedata[path.slice(10)];if(!relative) throw new Error('Unknown gamedata');
-            data=await safeFile(assets,relative);
-            if (path.endsWith('/FurnitureData.json')) {
-                const json=JSON.parse(data);
-                for(const collection of [json.roomitemtypes?.furnitype,json.wallitemtypes?.furnitype]) for(const item of collection ?? []) {delete item.adurl; delete item.adUrl;}
-                data=Buffer.from(JSON.stringify(json));
-            }
+            if (path.endsWith('/FurnitureData.json')) data=(await furnitureData()).body;
+            else data=assetOrigin ? (await fetchCameraData(new URL(path, assetOrigin))).body : await safeFile(assets,relative);
         } else if (path.startsWith('/c_images/Habbo-Stories/')) data=await safeFile(images, cameraEffectAsset(path, catalogue));
         else if (mediaPath.test(path)) data=await safeFile(media,path.slice(8));
         else {
             const relative = nitroAssetRelative(path);
             if (!relative) throw new Error('Unknown trusted asset');
-            data=await safeFile(assets, relative);
+            data=assetOrigin ? (await fetchCameraData(new URL(path, assetOrigin))).body : await safeFile(assets, relative);
         }
         response.setHeader('Content-Type',mime[extname(path)] ?? 'application/octet-stream'); response.end(data);
     } catch (error) {
