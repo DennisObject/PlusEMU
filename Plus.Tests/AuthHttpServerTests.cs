@@ -26,7 +26,6 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private SessionIssuer? _sessions;
     private BadgeLeaderboardSnapshot _badges = BadgeLeaderboardSnapshot.Empty;
     private CatalogFurnidataFile? _furnidata;
-    private Dictionary<string, string> _gamedataVersions = new();
     private IPasswordHasher _innerHasher = Hasher;
     private CountingHasher _hasher
     {
@@ -59,7 +58,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var hasher = new BoundedPasswordHasher(_innerHasher, options);
         var login = new LoginService(_accounts, hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
         var registration = new RegistrationService(_accounts, hasher, sessions, new FakeWordFilter(), options);
-        _server = new AuthHttpServer(options, login, registration, sessions, new FixedBadgeRarity(_badges), _tokens, new FixedFurnidata(_furnidata), new FixedGamedataVersions(_gamedataVersions));
+        _server = new AuthHttpServer(options, login, registration, sessions, new FixedBadgeRarity(_badges), _tokens, new FixedFurnidata(_furnidata));
         await _server.Start();
         _http.Dispose();
         _http = new HttpClient { BaseAddress = new Uri(_server.Urls.Single()) };
@@ -741,24 +740,6 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal("{\"roomitemtypes\":{}}", await old.Content.ReadAsStringAsync());
         Assert.True(old.Headers.CacheControl!.NoCache);
         Assert.Null(old.Headers.CacheControl.MaxAge);
-    }
-
-    [Fact]
-    public async Task GamedataVersionsListTheKnownFiles()
-    {
-        _gamedataVersions = new() { ["ExternalTexts.json"] = "abc123" };
-        await Start();
-
-        var response = await _http.GetAsync("/api/gamedata/versions");
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.True(response.Headers.CacheControl!.NoStore);
-        Assert.Equal("abc123", (await Json(response)).GetProperty("files").GetProperty("ExternalTexts.json").GetString());
-    }
-
-    private sealed class FixedGamedataVersions(IReadOnlyDictionary<string, string> versions) : IGamedataVersions
-    {
-        public Task<IReadOnlyDictionary<string, string>> Current() => Task.FromResult(versions);
     }
 
     private sealed class FixedFurnidata(CatalogFurnidataFile? file) : ICatalogFurnidata

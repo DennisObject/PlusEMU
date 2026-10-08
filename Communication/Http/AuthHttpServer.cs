@@ -28,7 +28,7 @@ public interface IAuthHttpServer
 
 /// <summary>
 /// Kestrel host for the hotel's login API (/api/auth/*, /api/health, /api/maintenance), the badge
-/// leaderboard (/api/badges/leaderboard), furnidata (/api/gamedata/furnidata) and gamedata versions (/api/gamedata/versions).
+/// leaderboard (/api/badges/leaderboard) and furnidata (/api/gamedata/furnidata).
 /// TLS is terminated by the reverse proxy in front of it.
 /// </summary>
 public class AuthHttpServer : IAuthHttpServer
@@ -39,17 +39,15 @@ public class AuthHttpServer : IAuthHttpServer
     private readonly AuthEndpoints _endpoints;
     private readonly BadgeLeaderboardEndpoints _badgeLeaderboard;
     private readonly FurnidataEndpoints _furnidata;
-    private readonly GamedataVersionsEndpoints _gamedataVersions;
     private WebApplication? _app;
 
     public AuthHttpServer(IOptions<AuthApiConfiguration> options, ILoginService login, IRegistrationService registration, ISessionIssuer sessions,
-        IBadgeRarityManager badgeRarity, IAccessTokenStore accessTokens, ICatalogFurnidata furnidata, IGamedataVersions gamedataVersions)
+        IBadgeRarityManager badgeRarity, IAccessTokenStore accessTokens, ICatalogFurnidata furnidata)
     {
         _configuration = options.Value;
         _endpoints = new(login, registration, sessions, _configuration.Enabled);
         _badgeLeaderboard = new(badgeRarity, accessTokens);
         _furnidata = new(furnidata);
-        _gamedataVersions = new(gamedataVersions);
     }
 
     public IReadOnlyCollection<string> Urls => _app?.Urls.ToList() ?? [];
@@ -84,7 +82,6 @@ public class AuthHttpServer : IAuthHttpServer
         _endpoints.Map(app);
         _badgeLeaderboard.Map(app);
         _furnidata.Map(app);
-        _gamedataVersions.Map(app);
 
         await app.StartAsync();
         _app = app;
