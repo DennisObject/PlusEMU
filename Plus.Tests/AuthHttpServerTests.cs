@@ -6,6 +6,7 @@ using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
 using Plus.Communication.Http;
 using Plus.HabboHotel.Badges.Rarity;
+using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Registration;
@@ -24,6 +25,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private readonly FakeRememberTokens _remember = new();
     private SessionIssuer? _sessions;
     private BadgeLeaderboardSnapshot _badges = BadgeLeaderboardSnapshot.Empty;
+    private CatalogFurnidataFile? _furnidata;
     private IPasswordHasher _innerHasher = Hasher;
     private CountingHasher _hasher
     {
@@ -56,7 +58,7 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         var hasher = new BoundedPasswordHasher(_innerHasher, options);
         var login = new LoginService(_accounts, hasher, new LoginThrottle(TimeProvider.System, options), sessions, _bans);
         var registration = new RegistrationService(_accounts, hasher, sessions, new FakeWordFilter(), options);
-        _server = new AuthHttpServer(options, login, registration, sessions, new FixedBadgeRarity(_badges), _tokens);
+        _server = new AuthHttpServer(options, login, registration, sessions, new FixedBadgeRarity(_badges), _tokens, new FixedFurnidata(_furnidata));
         await _server.Start();
         _http.Dispose();
         _http = new HttpClient { BaseAddress = new Uri(_server.Urls.Single()) };
@@ -679,6 +681,42 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
 
         Assert.Equal(0, body.GetProperty("viewerUserId").GetInt32());
         Assert.False(body.GetProperty("leaderboards").GetProperty("totalBadges").TryGetProperty("viewerEntry", out _));
+    }
+
+    [Fact]
+    public async Task FurnidataRevalidatesWithItsEntityTag()
+    {
+        await Start();
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync("/api/gamedata/furnidata")).StatusCode);
+        await _server!.Stop();
+
+        _furnidata = new("{\"roomitemtypes\":{}}"u8.ToArray(), "\"abc\"");
+        await Start();
+
+        var response = await _http.GetAsync("/api/gamedata/furnidata?t=1");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("{\"roomitemtypes\":{}}", await response.Content.ReadAsStringAsync());
+        Assert.Equal("application/json", response.Content.Headers.ContentType!.MediaType);
+        Assert.Equal("\"abc\"", response.Headers.ETag!.Tag);
+        Assert.True(response.Headers.CacheControl!.NoCache);
+        Assert.False(response.Headers.CacheControl.NoStore);
+
+        foreach (var tag in new[] { "\"abc\"", "W/\"abc\"", "\"old\", \"abc\"" }) {
+            var revalidate = new HttpRequestMessage(HttpMethod.Get, "/api/gamedata/furnidata");
+            revalidate.Headers.TryAddWithoutValidation("If-None-Match", tag);
+            var notModified = await _http.SendAsync(revalidate);
+            Assert.Equal(HttpStatusCode.NotModified, notModified.StatusCode);
+            Assert.Empty(await notModified.Content.ReadAsByteArrayAsync());
+        }
+
+        var stale = new HttpRequestMessage(HttpMethod.Get, "/api/gamedata/furnidata");
+        stale.Headers.TryAddWithoutValidation("If-None-Match", "\"old\"");
+        Assert.Equal(HttpStatusCode.OK, (await _http.SendAsync(stale)).StatusCode);
+    }
+
+    private sealed class FixedFurnidata(CatalogFurnidataFile? file) : ICatalogFurnidata
+    {
+        public CatalogFurnidataFile? Current() => file;
     }
 
     private sealed class FixedBadgeRarity(BadgeLeaderboardSnapshot snapshot) : IBadgeRarityManager

@@ -20,6 +20,9 @@ public sealed class FurnidataException(string message) : Exception(message);
 // several entries share the classname.
 public sealed record FurnidataTarget(string Classname, int Id, bool IsWallItem);
 
+// The furnidata file and its write time and size, which change whenever the file does.
+public sealed record FurnidataSource(string Path, DateTime Modified, long Length);
+
 public interface IFurnidataStore
 {
     FurnidataLookup Lookup(string classname, int spriteId);
@@ -29,6 +32,9 @@ public interface IFurnidataStore
 
     // Puts entryJson back, but only while the entry is still exactly expectedCurrent.
     FurnidataEdit Restore(FurnidataTarget target, string expectedCurrent, string entryJson);
+
+    // The configured file, or null when none is configured or it does not exist.
+    FurnidataSource? Source();
 }
 
 // FurnitureData.json at the configured path (FurniEditor:FurnidataPath). The path never comes from a client and
@@ -97,6 +103,8 @@ public sealed class FurnidataStore : IFurnidataStore
 
         return JsonNode.Parse(entryJson) as JsonObject ?? throw new FurnidataException("The logged entry is not a JSON object");
     });
+
+    public FurnidataSource? Source() => Resolve() is { } file ? new(file.FullName, file.LastWriteTimeUtc, file.Length) : null;
 
     private FurnidataEdit Write(FurnidataTarget target, Func<JsonObject, JsonObject> change)
     {

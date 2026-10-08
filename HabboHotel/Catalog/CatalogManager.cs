@@ -118,6 +118,7 @@ public class CatalogManager : ICatalogManager, IStartable
         _promotions = promotionsById;
         _offers = offerIndex;
         _clubOffers = clubOffersById;
+        Revision++;
         _logger.LogInformation("Catalog Manager -> LOADED");
     }
 
@@ -239,6 +240,8 @@ public class CatalogManager : ICatalogManager, IStartable
     public bool TryGetOffer(int offerId, Habbo habbo, [NotNullWhen(true)] out CatalogPage? page, [NotNullWhen(true)] out CatalogOffer? offer) => _offers.TryGet(offerId, habbo, out page, out offer);
 
     public ICollection<CatalogPage> Pages => _pages.Values;
+
+    public int Revision { get; private set; }
 
     public ICollection<CatalogPromotion> Promotions => _promotions.Values;
 
