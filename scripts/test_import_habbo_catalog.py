@@ -135,9 +135,9 @@ def test_behaviour_columns_follow_furnidata_and_the_bundle():
     vote = {'interaction': 'multiheight', 'modes': 3, 'vending_ids': '0', 'multiheight': '0.5;1;1.5'}
     info = {'logicType': 'furniture_multiheight', 'visualizationType': 'furniture_animated', 'height': 0.5, 'states': 3}
     columns = m.behaviour_columns('s', entry('school_platform', xdim=2, height=0.5, cansiton=True), info, vote, None)
-    assert columns == {'width': 2, 'length': 1, 'can_sit': 1, 'is_walkable': 0, 'stack_height': 0.5,
+    assert columns == {'width': 2, 'length': 1, 'can_sit': 1, 'is_walkable': 0, 'stack_height': 0.5, 'can_stack': 1,
                        'interaction_modes_count': 3, 'height_adjustable': '0.5,1,1.5'}
-    assert m.behaviour_columns('s', entry('table', canputstuffon=False), None, None, None, stacking=True)['can_stack'] == 0
+    assert m.physical_columns('s', entry('table', canputstuffon=False), None)['can_stack'] == 0
     mismatch = dict(info, states=2)
     assert 'height_adjustable' not in m.behaviour_columns('s', entry('x'), mismatch, vote, None)
 
@@ -273,7 +273,7 @@ def test_plan_catalog_builds_pages_offers_and_reports_what_it_cannot_keep():
                          '3': page(3, [offer(10, 10, priceInActivityPoints=5, activityPointType=103)])},
                'source': {'capturedAt': '2026-10-08T00:00:00Z'}}
     current = snapshot(catalog_offer_limited=[{'offer_id': 30, 'stack': 100, 'sold': 7}],
-                       club_gift_offers=[{'offer_id': 77}], catalog_offers=[dict(id=77, localization_key='gift', cost_credits=0, cost_points=0,
+                       club_gift_offers=[{'offer_id': 77, 'days_required': 0, 'enabled': 1}], catalog_offers=[dict(id=77, localization_key='gift', cost_credits=0, cost_points=0,
                                                                                  points_type=0, club_level=0, bulk_purchase=1, enabled=1, preview_image='')],
                        catalog_offer_products=[dict(offer_id=77, position=0, product_type='furni', furniture_id=5, effect_id=None, badge_code=None,
                                                     bot_preset_id=None, pet_type=None, habbicon_id=None, amount=1, extra_param='')])
@@ -290,6 +290,7 @@ def test_plan_catalog_builds_pages_offers_and_reports_what_it_cannot_keep():
     assert {d['offerId']: d['reason'] for d in report['dropped_offers']} == {31: 'rent offer', 32: 'furni s:999 (not in furnidata) has no definition'}
     # The club gift's offer stays with its product, off every page.
     assert (77,) in tables['catalog_offers'] and (77, 0) in tables['catalog_offer_products'] and report['kept_offers'] == [77]
+    assert (77,) in tables['club_gift_offers'] and report['club_gifts'] == {'captured': False}
     assert result['promotions'][0]['page_link'] == 'chairs' and result['promotions'][0]['expires_at'] == '2026-10-08 00:01:00.000000'
 
 
@@ -329,3 +330,28 @@ def test_a_classname_the_other_kind_owns_is_not_created():
     habbo = {('s', 'shared'): entry('shared', id=5)}
     result = m.plan_furniture([row(1, 'Shared', 7, kind='i')], habbo, {('s', 'shared')}, m.Evidence(), {})
     assert result['inserts'] == [] and 'shared' in {c['classname'] for c in result['report']['kind_conflicts']}
+
+
+def test_physical_columns_apply_to_owners_whatever_their_interaction():
+    habbo = {('s', 'gate_x'): entry('gate_x', id=20, xdim=2, height=0.4, canputstuffon=False)}
+    hab_info = {'gate_x': {'logicType': 'furniture_multistate', 'visualizationType': 'furniture_animated', 'height': 0.4, 'states': 3}}
+    result = m.plan_furniture([row(1, 'gate_x', 20, interaction='gate')], habbo, set(), m.Evidence(hab_info), {})
+    assert {k: result['updates'][1][k] for k in ('width', 'stack_height', 'can_stack', 'interaction_modes_count')} == \
+        {'width': 2, 'stack_height': 0.4, 'can_stack': 0, 'interaction_modes_count': 3}
+    assert 'interaction_type' not in result['updates'][1] and result['report']['stacking_turned_off'] == 1
+
+
+def test_captured_club_gifts_replace_the_configured_ones_on_a_hidden_page():
+    catalog = {'index': node(-1, 'root', [node(1, 'front')]), 'pages': {'1': page(1, [])},
+               'clubGifts': {'daysUntilNextGift': 3, 'giftsAvailable': 1, 'offers': [offer(500, 10, priceInCredits=0), offer(501, 999)],
+                             'giftData': [{'offerId': 500, 'isVip': True, 'daysRequired': 31, 'isSelectable': True},
+                                          {'offerId': 501, 'isVip': False, 'daysRequired': 0, 'isSelectable': True}]}}
+    current = snapshot(club_gift_offers=[{'offer_id': 77, 'days_required': 0, 'enabled': 1}])
+    result = m.plan_catalog(catalog, {('s', 10): 'chair'}, lambda kind, name: 5 if name == 'chair' else None, current)
+    tables, report = result['tables'], result['report']
+    hidden = tables['catalog_pages'][(m.CLUB_GIFT_PAGE_ID,)]
+    assert (hidden['visible'], hidden['enabled'], hidden['link']) == (0, 1, None)
+    assert (m.CLUB_GIFT_PAGE_ID, 500) in tables['catalog_page_offers']
+    assert tables['club_gift_offers'] == {(500,): {'offer_id': 500, 'days_required': 31, 'enabled': 1}}
+    assert report['club_gifts'] == {'captured': True, 'offers': 1, 'gifts': 1, 'vip': 1, 'without_offer': [501]}
+    assert m.diff_table('club_gift_offers', current['club_gift_offers'], tables['club_gift_offers'])['delete'] == [(77,)]

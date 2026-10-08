@@ -33,6 +33,8 @@ INTERACTION_TYPES = ROOT / 'HabboHotel/Items/InteractionTypes.cs'
 HOF_FURNI = 'https://images.habbo.com/dcr/hof_furni'
 # Index folders (pageId -1 on habbo.com) are stored as disabled pages, which the emulator sends as -1 headings.
 FOLDER_PAGE_ID_BASE = 2000000000
+# The hidden page holding habbo.com's HC gift offers.
+CLUB_GIFT_PAGE_ID = FOLDER_PAGE_ID_BASE
 LOCK_NAME = 'plus_habbo_catalog_import'
 
 
@@ -337,19 +339,26 @@ def hint(kind, entry, hab, vote):
     return ', '.join(reasons) or None
 
 
-def behaviour_columns(kind, entry, hab, vote, interaction, stacking=False):
-    """PlusEMU behaviour columns Habbo's files decide for a row in derivation scope. canputstuffon only becomes can_stack
-    with stacking: Habbo forbids stacking on far more furni than retro hotels do."""
+def physical_columns(kind, entry, hab):
+    """Habbo's physical facts for a row that owns or shares a Habbo entry: size, sit, walk, stacking, stack height and
+    the .hab state count. Lying follows from the furnidata column can_lay_on and the bed interaction."""
     columns = {}
     if kind == 's':
         columns.update(width=entry.get('xdim') or 1, length=entry.get('ydim') or 1, can_sit=int(bool(entry.get('cansiton'))),
                        is_walkable=int(bool(entry.get('canstandon'))))
         if entry.get('height') is not None:
             columns['stack_height'] = float(entry['height'])
-        if stacking and entry.get('canputstuffon') is not None:
+        if entry.get('canputstuffon') is not None:
             columns['can_stack'] = int(bool(entry['canputstuffon']))
     if hab:
         columns['interaction_modes_count'] = max(hab['states'], 1)
+    return columns
+
+
+def behaviour_columns(kind, entry, hab, vote, interaction):
+    """Columns for a row in derivation scope: the physical ones plus what its interaction needs."""
+    columns = physical_columns(kind, entry, hab)
+    if hab:
         heights = (vote or {}).get('multiheight', '')
         if hab['logicType'] == 'furniture_multiheight' and heights and len(heights.split(';')) == hab['states']:
             columns['height_adjustable'] = heights.replace(';', ',')
@@ -412,8 +421,8 @@ def latin1(text, length):
 
 
 class Evidence:
-    def __init__(self, habs=None, votes=None, wired=None, stacking=False):
-        self.habs, self.votes, self.wired, self.stacking = habs or {}, votes or {}, wired or set(), stacking
+    def __init__(self, habs=None, votes=None, wired=None):
+        self.habs, self.votes, self.wired = habs or {}, votes or {}, wired or set()
 
     def hab(self, classname):
         return self.habs.get(library(classname))
@@ -428,7 +437,7 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
     rows = {row['id']: row for row in furniture}
     report = {'renamed': [], 'kind_conflicts': [], 'sprite_moves': [], 'sprite_collisions': [], 'derived': [],
               'left_default_with_hint': [], 'behaviour_updated': 0, 'furnidata_updated': 0, 'created': [],
-              'agreement': {'agree': 0, 'differ': [], 'undecided': 0}}
+              'stacking_turned_off': 0, 'agreement': {'agree': 0, 'differ': [], 'undecided': 0}}
     by_ci = {(kind, classname.lower()): classname for kind, classname in habbo}
     desired = {}  # id -> {column: value}
     entry_of = {}  # id -> (kind, classname) of the Habbo entry the row is or shares
@@ -524,7 +533,7 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
         hab = evidence.hab(entry['classname'])
         vote = evidence.vote(kind, entry['classname'])
         interaction, rule = derive_interaction(kind, entry, hab, vote, evidence.wired)
-        columns = behaviour_columns(kind, entry, hab, vote, interaction, evidence.stacking)
+        columns = behaviour_columns(kind, entry, hab, vote, interaction)
         if interaction == 'purchasable_clothing':
             # catalog_clothing holds 55-character names and 85 characters of parts.
             if not clothing_parts(entry) or len(clothing_parts(entry)) > 85 or len(entry['classname']) > 55:
@@ -548,6 +557,8 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
         if row['interaction_type'] in DEFAULT_INTERACTIONS:
             want(row_id, **interaction_for(row_id, kind, entry, row))
         else:
+            if row['has_furnidata'] or desired.get(row_id, {}).get('has_furnidata'):
+                want(row_id, **physical_columns(kind, entry, evidence.hab(classname)))
             derived, _ = derive_interaction(kind, entry, evidence.hab(classname), evidence.vote(kind, classname), evidence.wired)
             agreement = report['agreement']
             if derived is None:
@@ -576,6 +587,8 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
     updates = {}
     for row_id, columns in desired.items():
         changed = {column: value for column, value in columns.items() if not same(rows[row_id].get(column), value)}
+        if changed.get('can_stack') == 0:
+            report['stacking_turned_off'] += 1
         if changed:
             report['furnidata_updated'] += bool(set(changed) & (set(FURNIDATA_COLUMNS) | {'part_colors'}))
             report['behaviour_updated'] += bool(set(changed) & set(BEHAVIOUR_COLUMNS))
@@ -612,6 +625,7 @@ CATALOG_TABLES = {
                                                           'bot_preset_id', 'pet_type', 'habbicon_id', 'amount', 'extra_param']),
     'catalog_page_offers': (('page_id', 'offer_id'), ['page_id', 'offer_id', 'position']),
     'catalog_offer_limited': (('offer_id',), ['offer_id', 'stack', 'sold']),
+    'club_gift_offers': (('offer_id',), ['offer_id', 'days_required', 'enabled']),
 }
 PROMOTION_COLUMNS = ['title', 'image', 'unknown', 'page_link', 'parent_id', 'position', 'item_type', 'offer_id', 'product_code', 'expires_at']
 PRODUCT_TARGETS = ['furniture_id', 'effect_id', 'badge_code', 'bot_preset_id', 'pet_type', 'habbicon_id']
@@ -703,6 +717,26 @@ def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=F
                      cost_points=offer['priceInActivityPoints'], points_type=offer['activityPointType'], club_level=offer['clubLevel'],
                      bulk_purchase=int(offer['bundlePurchaseAllowed']), enabled=1, preview_image=offer['previewImage']), products, ltd), None
 
+    def place(row_id, page_id, offer, position):
+        """Puts an offer on a page; False when it cannot be sold here."""
+        built, reason = offer_rows(offer)
+        if built is None:
+            report['dropped_offers'].append({'offerId': offer['offerId'], 'pageId': page_id, 'name': offer['localizationId'], 'reason': reason})
+            return False
+        offer_row, products, ltd = built
+        if (offer_row['id'],) in desired['catalog_offers']:
+            if desired['catalog_offers'][(offer_row['id'],)] != offer_row:
+                report['conflicting_offers'].append({'offerId': offer_row['id'], 'pageId': page_id})
+        else:
+            put('catalog_offers', offer_row)
+            for product in products:
+                put('catalog_offer_products', product)
+            if ltd:
+                put('catalog_offer_limited', ltd)
+        if (row_id, offer_row['id']) not in desired['catalog_page_offers']:
+            put('catalog_page_offers', dict(page_id=row_id, offer_id=offer_row['id'], position=position))
+        return True
+
     def visit(node, parent_id, position, depth):
         page_id = node['pageId']
         content = pages_in.get(page_id) if page_id > 0 else None
@@ -731,22 +765,7 @@ def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=F
             for slot, text in enumerate(content['texts']):
                 put('catalog_page_texts', dict(page_id=row_id, slot=slot, text=text))
             for offer_position, offer in enumerate(content['offers']):
-                built, reason = offer_rows(offer)
-                if built is None:
-                    report['dropped_offers'].append({'offerId': offer['offerId'], 'pageId': page_id, 'name': offer['localizationId'], 'reason': reason})
-                    continue
-                offer_row, products, ltd = built
-                if (offer_row['id'],) in desired['catalog_offers']:
-                    if desired['catalog_offers'][(offer_row['id'],)] != offer_row:
-                        report['conflicting_offers'].append({'offerId': offer_row['id'], 'pageId': page_id})
-                else:
-                    put('catalog_offers', offer_row)
-                    for product in products:
-                        put('catalog_offer_products', product)
-                    if ltd:
-                        put('catalog_offer_limited', ltd)
-                if (row_id, offer_row['id']) not in desired['catalog_page_offers']:
-                    put('catalog_page_offers', dict(page_id=row_id, offer_id=offer_row['id'], position=offer_position))
+                place(row_id, page_id, offer, offer_position)
         if depth < 64:
             for child_position, child in enumerate(node['children']):
                 visit(child, row_id, child_position, depth + 1)
@@ -756,14 +775,30 @@ def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=F
     if report['missing_pages'] and not allow_missing_pages:
         raise ValueError(f"{len(report['missing_pages'])} index pages were not captured; re-capture or pass --allow-missing-pages.")
 
-    # Club gifts name offers; one the capture does not sell stays, so the gift keeps its offer.
-    kept = {row['offer_id'] for row in snapshot['club_gift_offers']} - {key[0] for key in desired['catalog_offers']}
-    for table in ('catalog_offers', 'catalog_offer_products', 'catalog_offer_limited'):
-        id_column = 'id' if table == 'catalog_offers' else 'offer_id'
-        for row in snapshot[table]:
-            if row[id_column] in kept:
-                put(table, {column: row[column] for column in CATALOG_TABLES[table][1]})
-    gifts = {row['offer_id'] for row in snapshot['club_gift_offers']}
+    club_gifts = catalog.get('clubGifts')
+    report['club_gifts'] = {'captured': club_gifts is not None}
+    if club_gifts is not None:
+        # Habbo's HC gifts: their offers sit on one hidden page, as PlusEMU offers gifts only from pages a member can open.
+        put('catalog_pages', dict(id=CLUB_GIFT_PAGE_ID, parent_id=None, link=None, caption='Club gifts', layout='default_3x3',
+                                  required_permission=None, visible=0, enabled=1, icon=0, required_club_level=0,
+                                  position=len(catalog['index']['children'])))
+        placed = {offer['offerId'] for position, offer in enumerate(club_gifts['offers']) if place(CLUB_GIFT_PAGE_ID, None, offer, position)}
+        gift_data = [gift for gift in club_gifts['giftData'] if gift['offerId'] in placed]
+        for gift in gift_data:
+            put('club_gift_offers', dict(offer_id=gift['offerId'], days_required=max(gift['daysRequired'], 0), enabled=1))
+        report['club_gifts'].update(offers=len(placed), gifts=len(gift_data), vip=sum(gift['isVip'] for gift in gift_data),
+                                    without_offer=[gift['offerId'] for gift in club_gifts['giftData'] if gift['offerId'] not in placed])
+    else:
+        # Without gift data the configured gifts stay, and so do their offers.
+        for row in snapshot['club_gift_offers']:
+            put('club_gift_offers', {column: row[column] for column in CATALOG_TABLES['club_gift_offers'][1]})
+        kept = {row['offer_id'] for row in snapshot['club_gift_offers']} - {key[0] for key in desired['catalog_offers']}
+        for table in ('catalog_offers', 'catalog_offer_products', 'catalog_offer_limited'):
+            id_column = 'id' if table == 'catalog_offers' else 'offer_id'
+            for row in snapshot[table]:
+                if row[id_column] in kept:
+                    put(table, {column: row[column] for column in CATALOG_TABLES[table][1]})
+    gifts = {key[0] for key in desired['club_gift_offers']}
     report['kept_offers'] = sorted(offer_id for offer_id in gifts if not any(key[1] == offer_id for key in desired['catalog_page_offers']))
 
     promotions = []
@@ -903,7 +938,8 @@ def statements(result):
         sql.append(insert('badge_definitions', {'code': code}))
 
     tables = result['tables']
-    for table in ('catalog_page_offers', 'catalog_offer_limited', 'catalog_offer_products', 'catalog_page_images', 'catalog_page_texts'):
+    for table in ('club_gift_offers', 'catalog_page_offers', 'catalog_offer_limited', 'catalog_offer_products', 'catalog_page_images',
+                  'catalog_page_texts'):
         keys = CATALOG_TABLES[table][0]
         sql += [f'DELETE FROM `{table}` WHERE {where(keys, key)};' for key in tables[table]['delete']]
     sql += [f'DELETE FROM `catalog_offers` WHERE `id` = {key[0]};' for key in tables['catalog_offers']['delete']]
@@ -918,7 +954,7 @@ def statements(result):
     sql += [f'UPDATE `catalog_pages` SET `parent_id` = NULL WHERE `id` = {key[0]};' for key in pages['delete']]
     sql += [f'DELETE FROM `catalog_pages` WHERE `id` = {key[0]};' for key in pages['delete']]
     for table in ('catalog_offers', 'catalog_offer_products', 'catalog_offer_limited', 'catalog_page_offers', 'catalog_page_images',
-                  'catalog_page_texts'):
+                  'catalog_page_texts', 'club_gift_offers'):
         keys = CATALOG_TABLES[table][0]
         sql += [insert(table, row) for row in tables[table]['insert']]
         sql += [f'UPDATE `{table}` SET {assignments(columns)} WHERE {where(keys, key)};' for key, columns in tables[table]['update']]
@@ -960,12 +996,13 @@ def build_report(result, snapshot, catalog, habbo, assets):
             'badges_defined': len(result['badges']), 'clothing_added': len(result['clothing']),
             'furniture_created': len(furniture['created']), 'furniture_updated': len(result['furniture']['updates']),
             'sprite_moves': len(furniture['sprite_moves']), 'sprite_collisions': len(furniture['sprite_collisions']),
-            'renamed': len(furniture['renamed']), 'interactions_derived': len(furniture['derived']),
+            'renamed': len(furniture['renamed']), 'stacking_turned_off': furniture['stacking_turned_off'], 'interactions_derived': len(furniture['derived']),
             'left_default_with_hint': len(furniture['left_default_with_hint']), 'writes': changes(result)},
         'catalog': result['catalog']['report'],
         'currencies': {str(points_type): count for points_type, count in sorted(currencies.items())},
         'references': {
-            'club_gift_offers': {'rows': len(snapshot['club_gift_offers']), 'offers_kept_off_pages': result['catalog']['report']['kept_offers']},
+            'club_gift_offers': {'rows': len(snapshot['club_gift_offers']), **result['catalog']['report']['club_gifts'],
+                                 'offers_kept_off_pages': result['catalog']['report']['kept_offers']},
             'club_gift_claims': {'rows': len(snapshot['club_gift_claims']), 'note': 'history; offer ids are kept as they were'},
             'catalog_admin_log': {'rows': len(snapshot['catalog_admin_log']), 'naming_removed_offers': admin['offer'],
                                   'naming_removed_pages': admin['page'], 'note': 'history; one IMPORT row is added per apply'},
@@ -1056,11 +1093,11 @@ SNAPSHOT = {
     'furniture': FURNITURE_COLUMNS,
     **{table: columns for table, (_, columns) in CATALOG_TABLES.items()},
     'catalog_promotions': ['id'] + PROMOTION_COLUMNS,
-    'club_gift_offers': ['offer_id'], 'club_gift_claims': ['offer_id'], 'catalog_admin_log': ['entity_type', 'entity_id'],
+    'club_gift_claims': ['offer_id'], 'catalog_admin_log': ['entity_type', 'entity_id'],
     'catalog_clothing': ['id', 'clothing_name', 'clothing_parts'], 'catalog_bot_presets': ['id', 'figure'], 'habbicons': ['id'],
     'badge_definitions': ['code'],
 }
-LOCKED = {'furniture', 'catalog_promotions', 'catalog_clothing', 'badge_definitions', 'club_gift_offers', *CATALOG_TABLES}
+LOCKED = {'furniture', 'catalog_promotions', 'catalog_clothing', 'badge_definitions', *CATALOG_TABLES}
 
 
 def read_snapshot(db, lock=False):
@@ -1084,7 +1121,7 @@ def load_evidence(args):
                 habs[path.stem] = hab_logic(path.read_bytes())
             except (ValueError, KeyError, zlib.error, json.JSONDecodeError, StopIteration):
                 continue
-    return Evidence(habs, arcturus_votes(args.arcturus) if args.arcturus else {}, wired_box_names(), args.habbo_stacking)
+    return Evidence(habs, arcturus_votes(args.arcturus) if args.arcturus else {}, wired_box_names())
 
 
 def summary_line(report):
@@ -1157,7 +1194,6 @@ def main(argv=None):
         command.add_argument('--database', help='database name; default $MARIADB_DATABASE in the container')
         command.add_argument('--report', help='write the JSON report here')
         command.add_argument('--allow-missing-pages', action='store_true', help='keep index pages the capture lacks as headings')
-        command.add_argument('--habbo-stacking', action='store_true', help="set can_stack from Habbo's canputstuffon on derived rows")
     command = commands.add_parser('fetch-habs')
     command.add_argument('--furnidata', required=True)
     command.add_argument('--cache', required=True)
