@@ -4,19 +4,23 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.RCON.Commands;
+using Plus.HabboHotel.Users.Grants;
 
 namespace Plus.Communication.RCON;
 
 public sealed class RconConnection : IDisposable
 {
-    internal const int MaxRequestBytes = 4096;
+    // Fits a grant bundle at its decoded cap (8192 bytes, Base64 10924 characters) with room for the envelope.
+    internal const int MaxRequestBytes = 16384;
+    private const int MaxLegacyParameterLength = 1024;
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(2);
     private static readonly UTF8Encoding StrictUtf8 = new(false, true);
     private static readonly JsonSerializerOptions JsonOptions = new() { UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
+    private static readonly JsonSerializerOptions ReplyOptions = new() { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
     private static readonly HashSet<string> AcknowledgedCommands = new(StringComparer.Ordinal)
     {
-        "alert_user", "disconnect_user", "give_user_badge", "give_user_currency",
-        "reload_catalog", "reload_filter", "reload_user_motto", "reload_user_rank", "take_user_currency",
+        "alert_user", "disconnect_user", "give_user_badge", "give_user_currency", "grant_user_bundle",
+        "reload_catalog", "reload_filter", "reload_user_motto", "reload_user_rank", "take_user_badge", "take_user_currency", "update_user_settings",
     };
 
     private readonly ILogger<RconConnection> _logger;
@@ -107,7 +111,7 @@ public sealed class RconConnection : IDisposable
 
                 if (_request.Length + bytes > MaxRequestBytes) {
                     _state = RequestState.Processing;
-                    Reject("RCON request exceeds the maximum size.");
+                    Reject(GrantOutcome.TooLarge);
 
                     return;
                 }
@@ -159,8 +163,17 @@ public sealed class RconConnection : IDisposable
 
             var request = JsonSerializer.Deserialize<AcknowledgedRequest>(StrictUtf8.GetString(bytes), JsonOptions);
 
-            if (!Valid(request)) {
+            var acknowledged = request?.Command == null ? null : Commands.Acknowledged(request.Command);
+
+            if (!Valid(request, acknowledged != null ? MaxRequestBytes : MaxLegacyParameterLength)) {
                 Reject("Invalid RCON request.");
+
+                return;
+            }
+
+            if (acknowledged != null) {
+                var outcome = Execute(acknowledged, request!.Parameters!);
+                Respond(outcome.Succeeded ? 0 : 1, outcome.Code, outcome.Result, outcome.Detail);
 
                 return;
             }
@@ -187,7 +200,22 @@ public sealed class RconConnection : IDisposable
         }
     }
 
-    private static bool Valid(AcknowledgedRequest? request)
+    private GrantOutcome Execute(IAcknowledgedRconCommand command, string[] parameters)
+    {
+        try {
+            return command.Execute(parameters).GetAwaiter().GetResult();
+        }
+        catch (TimeoutException) {
+            return GrantOutcome.Fail(GrantOutcome.Busy);
+        }
+        catch (Exception exception) {
+            _logger.LogError(exception, "Acknowledged RCON command {Command} failed.", command.Key);
+
+            return GrantOutcome.Fail(GrantOutcome.InternalError);
+        }
+    }
+
+    private static bool Valid(AcknowledgedRequest? request, int maxParameterLength)
     {
         if (request?.Command == null || request.Parameters == null || !AcknowledgedCommands.Contains(request.Command)) {
             return false;
@@ -197,7 +225,7 @@ public sealed class RconConnection : IDisposable
             return false;
         }
 
-        return request.Parameters.All(parameter => parameter is { Length: <= 1024 }
+        return request.Parameters.All(parameter => parameter != null && parameter.Length <= maxParameterLength
             && parameter.IndexOfAny([':', Convert.ToChar(1), '\r', '\n', '\0']) < 0);
     }
 
@@ -237,7 +265,7 @@ public sealed class RconConnection : IDisposable
         }
     }
 
-    private void Respond(int status, string message)
+    private void Respond(int status, string message, object? result = null, string? detail = null)
     {
         try {
             var socket = _socket;
@@ -246,7 +274,7 @@ public sealed class RconConnection : IDisposable
                 return;
             }
 
-            var response = JsonSerializer.SerializeToUtf8Bytes(new { status, message });
+            var response = JsonSerializer.SerializeToUtf8Bytes(new { status, message, result, detail }, ReplyOptions);
             var framed = new byte[response.Length + 1];
             response.CopyTo(framed, 0);
             framed[^1] = (byte)'\n';

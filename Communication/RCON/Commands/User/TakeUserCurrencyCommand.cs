@@ -1,8 +1,9 @@
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Grants;
 
 namespace Plus.Communication.RCON.Commands.User;
 
-internal class TakeUserCurrencyCommand : IRconCommand
+internal class TakeUserCurrencyCommand : IAcknowledgedRconCommand
 {
     private readonly IUserMaintenanceService _maintenance;
     public string Description => "This command is used to take a specified amount of a specified currency from a user.";
@@ -15,10 +16,10 @@ internal class TakeUserCurrencyCommand : IRconCommand
         _maintenance = maintenance;
     }
 
-    public Task<bool> TryExecute(string[] parameters)
+    public Task<GrantOutcome> Execute(string[] parameters)
     {
-        if (parameters.Length < 3 || !int.TryParse(parameters[0], out var userId) || !int.TryParse(parameters[2], out var amount)) {
-            return Task.FromResult(false);
+        if (parameters is not { Length: >= 3 } || !int.TryParse(parameters[0], out var userId) || !int.TryParse(parameters[2], out var amount)) {
+            return Task.FromResult(GrantOutcome.Fail(GrantOutcome.InvalidPayload));
         }
 
         return _maintenance.TakeCurrency(userId, parameters[1], amount);

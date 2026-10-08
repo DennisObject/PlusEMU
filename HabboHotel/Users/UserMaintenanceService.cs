@@ -4,6 +4,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users.Authentication;
+using Plus.HabboHotel.Users.Grants;
 
 namespace Plus.HabboHotel.Users;
 
@@ -12,11 +13,14 @@ public enum UserCurrency
     Credits, Duckets, Diamonds, Gotw
 }
 
-/// <summary>Staff currency and motto maintenance: every balance change is persisted before memory or the client sees it.</summary>
+/// <summary>
+/// Staff currency and motto maintenance: every balance change is persisted before memory or the client sees it. Currency
+/// changes to offline accounts are a locked read-modify-write under the session gate, so a concurrent login loads the result.
+/// </summary>
 public interface IUserMaintenanceService
 {
-    Task<bool> GiveCurrency(int userId, string currency, int amount);
-    Task<bool> TakeCurrency(int userId, string currency, int amount);
+    Task<GrantOutcome> GiveCurrency(int userId, string currency, int amount);
+    Task<GrantOutcome> TakeCurrency(int userId, string currency, int amount);
     Task<bool> SyncCurrency(int userId, string currency);
     Task<bool> ReloadCurrency(int userId, string currency);
     Task<bool> ReloadMotto(int userId);
@@ -24,9 +28,9 @@ public interface IUserMaintenanceService
 
 public sealed class UserMaintenanceService(IUserMaintenanceStore store, IAccountSessionGate sessionGate, IGameClientManager clients) : IUserMaintenanceService
 {
-    public Task<bool> GiveCurrency(int userId, string currency, int amount) => ChangeCurrency(userId, currency, amount, 1);
+    public Task<GrantOutcome> GiveCurrency(int userId, string currency, int amount) => ChangeCurrency(userId, currency, amount, 1);
 
-    public Task<bool> TakeCurrency(int userId, string currency, int amount) => ChangeCurrency(userId, currency, amount, -1);
+    public Task<GrantOutcome> TakeCurrency(int userId, string currency, int amount) => ChangeCurrency(userId, currency, amount, -1);
 
     public async Task<bool> SyncCurrency(int userId, string currency)
     {
@@ -114,40 +118,42 @@ public sealed class UserMaintenanceService(IUserMaintenanceStore store, IAccount
         return true;
     }
 
-    private async Task<bool> ChangeCurrency(int userId, string currency, int amount, int sign)
+    private async Task<GrantOutcome> ChangeCurrency(int userId, string currency, int amount, int sign)
     {
         if (!TryCurrency(currency, out var type)) {
-            return false;
+            return GrantOutcome.Fail(GrantOutcome.InvalidPayload, "Unknown currency.");
         }
 
+        var delta = (long)sign * amount;
         using var held = await sessionGate.EnterAsync(userId);
         var client = clients.GetClientByUserId(userId);
         var habbo = client?.GetHabbo();
 
-        if (client == null || habbo == null) {
-            return false;
+        if (client != null && habbo != null) {
+            lock (habbo.WalletSync) {
+                // A closed wallet has been saved for the last time; the account is written offline below.
+                if (!habbo.WalletClosed) {
+                    var next = Balance(habbo, type) + delta;
+
+                    if (GrantOutcome.CheckBalance(next) is { } error) {
+                        return GrantOutcome.Fail(error);
+                    }
+
+                    if (!store.TryWriteCurrency(userId, type, (int)next)) {
+                        return GrantOutcome.Fail(GrantOutcome.UserNotFound);
+                    }
+
+                    SetBalance(habbo, type, (int)next);
+                    Publish(client, habbo, type, amount);
+
+                    return GrantOutcome.Success(new { userId, currency, balance = (int)next, online = true });
+                }
+            }
         }
 
-        lock (habbo.WalletSync) {
-            if (habbo.WalletClosed) {
-                return false;
-            }
+        var (failure, balance) = store.ChangeCurrency(userId, type, delta);
 
-            var next = (long)Balance(habbo, type) + (long)sign * amount;
-
-            if (next is < int.MinValue or > int.MaxValue) {
-                return false;
-            }
-
-            if (!store.TryWriteCurrency(userId, type, (int)next)) {
-                return false;
-            }
-
-            SetBalance(habbo, type, (int)next);
-            Publish(client, habbo, type, amount);
-
-            return true;
-        }
+        return failure != null ? GrantOutcome.Fail(failure) : GrantOutcome.Success(new { userId, currency, balance, online = false });
     }
 
     // Aliases are the RCON contract: coins and credits are one balance, pixels and duckets are one balance.

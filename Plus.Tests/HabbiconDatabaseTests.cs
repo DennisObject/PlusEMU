@@ -324,7 +324,7 @@ public class HabbiconDatabaseTests
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         var clients = new Plus.HabboHotel.GameClients.GameClientManager(null!, null!);
         clients.RegisterClient(client, habbo.Id, "habicon_tests");
-        var give = new Plus.Communication.RCON.Commands.User.GiveUserCurrencyCommand(new Plus.HabboHotel.Users.UserMaintenanceService(new Plus.HabboHotel.Users.UserMaintenanceStore(_database), new Plus.HabboHotel.Users.Authentication.AccountSessionGate(), clients));
+        Plus.Communication.RCON.Commands.IRconCommand give = new Plus.Communication.RCON.Commands.User.GiveUserCurrencyCommand(new Plus.HabboHotel.Users.UserMaintenanceService(new Plus.HabboHotel.Users.UserMaintenanceStore(_database), new Plus.HabboHotel.Users.Authentication.AccountSessionGate(), clients));
         using var enteredPurchase = new ManualResetEventSlim();
         using var releasePurchase = new ManualResetEventSlim();
         using var startedAward = new ManualResetEventSlim();
@@ -353,8 +353,10 @@ public class HabbiconDatabaseTests
         SaveWallet(habbo);
         Assert.Equal(105, Scalar("SELECT credits FROM users WHERE id = 910001"));
         Assert.Equal(1, Assert.Throws<HabbiconRejected>(() => _service.Change(habbo, HabbiconAction.Buy, 62)).Code);
-        Assert.False(await give.TryExecute(new[] { UserId.ToString(), "credits", "10" }));
+        // A saved wallet is never written from memory again; the award goes to the account row instead.
+        Assert.True(await give.TryExecute(new[] { UserId.ToString(), "credits", "10" }));
         Assert.Equal(105, habbo.Credits);
+        Assert.Equal(115, Scalar("SELECT credits FROM users WHERE id = 910001"));
     }
 
     private static void HabbiconMessagesForTest(Plus.HabboHotel.GameClients.GameClient client, HabbiconChange change) =>

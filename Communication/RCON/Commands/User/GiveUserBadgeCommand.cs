@@ -1,48 +1,26 @@
-using Plus.Communication.Packets.Outgoing.Moderation;
-using Plus.HabboHotel.Badges;
-using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Grants;
 
 namespace Plus.Communication.RCON.Commands.User;
 
-internal class GiveUserBadgeCommand : IRconCommand
+internal class GiveUserBadgeCommand : IAcknowledgedRconCommand
 {
-    private readonly IBadgeManager _badgeManager;
-    private readonly IGameClientManager _gameClientManager;
+    private readonly IUserGrantService _grants;
     public string Description => "This command is used to give a user a badge.";
 
     public string Key => "give_user_badge";
     public string Parameters => "%userId% %badgeId%";
 
-    public GiveUserBadgeCommand(IBadgeManager badgeManager, IGameClientManager gameClientManager)
+    public GiveUserBadgeCommand(IUserGrantService grants)
     {
-        _badgeManager = badgeManager;
-        _gameClientManager = gameClientManager;
+        _grants = grants;
     }
 
-    public async Task<bool> TryExecute(string[] parameters)
+    public Task<GrantOutcome> Execute(string[] parameters)
     {
-        if (!int.TryParse(parameters[0], out var userId)) {
-            return false;
+        if (parameters is not { Length: >= 2 } || !int.TryParse(parameters[0], out var userId)) {
+            return Task.FromResult(GrantOutcome.Fail(GrantOutcome.InvalidPayload));
         }
 
-        var client = _gameClientManager.GetClientByUserId(userId);
-
-        if (client == null || client.GetHabbo() == null) {
-            return false;
-        }
-
-        // Validate the badge
-        if (string.IsNullOrEmpty(Convert.ToString(parameters[1]))) {
-            return false;
-        }
-
-        var badge = Convert.ToString(parameters[1]);
-
-        if (!client.GetHabbo().Inventory.Badges.HasBadge(badge)) {
-            await _badgeManager.GiveBadge(client.GetHabbo(), badge);
-            client.Send(new BroadcastMessageAlertComposer("You have been given a new badge!"));
-        }
-
-        return true;
+        return _grants.GiveBadge(userId, parameters[1]);
     }
 }

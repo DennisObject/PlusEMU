@@ -9,6 +9,7 @@ using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Authentication;
+using Plus.HabboHotel.Users.Grants;
 using Xunit;
 
 namespace Plus.Tests;
@@ -28,7 +29,7 @@ public sealed class UserMaintenanceServiceTests
         var (habbo, client, sent, clients) = Setup();
         var store = new RecordingStore();
 
-        Assert.True(await Service(store, clients).GiveCurrency(7, alias, 5));
+        Assert.True((await Service(store, clients).GiveCurrency(7, alias, 5)).Succeeded);
 
         var (currency, value) = Assert.Single(store.Written);
         Assert.Equal(kind, (int)currency + 1);
@@ -46,7 +47,7 @@ public sealed class UserMaintenanceServiceTests
         var (_, _, sent, clients) = Setup();
         var store = new RecordingStore();
 
-        Assert.False(await Service(store, clients).GiveCurrency(7, alias!, 5));
+        Assert.False((await Service(store, clients).GiveCurrency(7, alias!, 5)).Succeeded);
 
         Assert.Empty(store.Written);
         Assert.Empty(sent);
@@ -59,9 +60,9 @@ public sealed class UserMaintenanceServiceTests
         var store = new RecordingStore();
         var service = Service(store, clients);
 
-        Assert.True(await service.TakeCurrency(7, "pixels", 5));
+        Assert.True((await service.TakeCurrency(7, "pixels", 5)).Succeeded);
         Assert.Equal(15, habbo.Duckets);
-        Assert.True(await service.TakeCurrency(7, "pixels", -5));
+        Assert.True((await service.TakeCurrency(7, "pixels", -5)).Succeeded);
         Assert.Equal(20, habbo.Duckets);
 
         Assert.Equal(new uint[] { ServerPacketHeader.HabboActivityPointNotificationComposer, ServerPacketHeader.HabboActivityPointNotificationComposer },
@@ -76,7 +77,7 @@ public sealed class UserMaintenanceServiceTests
         var seen = new List<(int Credits, int Packets)>();
         var store = new RecordingStore(() => seen.Add((habbo.Credits, sent.Count)));
 
-        Assert.True(await Service(store, clients).GiveCurrency(7, "credits", 5));
+        Assert.True((await Service(store, clients).GiveCurrency(7, "credits", 5)).Succeeded);
 
         Assert.Equal(new[] { (100, 0) }, seen);
         Assert.Equal(105, habbo.Credits);
@@ -101,26 +102,54 @@ public sealed class UserMaintenanceServiceTests
         var (habbo, _, sent, clients) = Setup();
         var store = new RecordingStore { Missing = true };
 
-        Assert.False(await Service(store, clients).TakeCurrency(7, "diamonds", 5));
+        Assert.False((await Service(store, clients).TakeCurrency(7, "diamonds", 5)).Succeeded);
 
         Assert.Equal(20, habbo.Diamonds);
         Assert.Empty(sent);
     }
 
     [Fact]
-    public async Task ClosedWalletDeniesEveryChangeBeforeTheStore()
+    public async Task AClosedWalletIsWrittenOfflineAndNeverFromMemory()
     {
         var (habbo, _, sent, clients) = Setup();
         typeof(Habbo).GetField("_disconnected", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(habbo, true);
         var store = new RecordingStore();
         var service = Service(store, clients);
 
-        Assert.False(await service.GiveCurrency(7, "credits", 5));
+        Assert.True((await service.GiveCurrency(7, "credits", 5)).Succeeded);
         Assert.False(await service.SyncCurrency(7, "credits"));
         Assert.False(await service.ReloadCurrency(7, "credits"));
 
+        Assert.Equal(new[] { (UserCurrency.Credits, 5L) }, store.Changed);
         Assert.Empty(store.Written);
         Assert.Equal(0, store.Reads);
+        Assert.Equal(100, habbo.Credits);
+        Assert.Empty(sent);
+    }
+
+    [Fact]
+    public async Task WithoutASessionTheChangeIsAnOfflineDelta()
+    {
+        var store = new RecordingStore();
+        var service = Service(store, new GameClientManager(null!, null!));
+
+        var outcome = await service.TakeCurrency(7, "pixels", 5);
+
+        Assert.True(outcome.Succeeded);
+        Assert.Equal(new[] { (UserCurrency.Duckets, -5L) }, store.Changed);
+        Assert.Empty(store.Written);
+    }
+
+    [Fact]
+    public async Task ATakeBelowZeroIsRefusedWithoutAnyEffect()
+    {
+        var (habbo, _, sent, clients) = Setup();
+        var store = new RecordingStore();
+
+        Assert.Equal(GrantOutcome.InsufficientBalance, (await Service(store, clients).TakeCurrency(7, "credits", 101)).Code);
+
+        Assert.Equal(100, habbo.Credits);
+        Assert.Empty(store.Written);
         Assert.Empty(sent);
     }
 
@@ -133,7 +162,7 @@ public sealed class UserMaintenanceServiceTests
         habbo.Credits = start;
         var store = new RecordingStore();
 
-        Assert.False(await Service(store, clients).GiveCurrency(7, "credits", amount));
+        Assert.False((await Service(store, clients).GiveCurrency(7, "credits", amount)).Succeeded);
 
         Assert.Equal(start, habbo.Credits);
         Assert.Empty(store.Written);
@@ -231,7 +260,7 @@ public sealed class UserMaintenanceServiceTests
         var store = new RecordingStore();
         var service = new UserMaintenanceService(store, gate, clients);
         var held = await gate.EnterAsync(7);
-        Task<bool>? change = null;
+        Task<GrantOutcome>? change = null;
 
         try {
             change = service.GiveCurrency(7, "credits", 5);
@@ -250,7 +279,7 @@ public sealed class UserMaintenanceServiceTests
             }
         }
 
-        Assert.True(await change!);
+        Assert.True((await change!).Succeeded);
         Assert.Equal(105, habbo.Credits);
         Assert.Equal(1, sent.Count);
     }
@@ -260,7 +289,7 @@ public sealed class UserMaintenanceServiceTests
     {
         var (habbo, _, sent, clients) = Setup();
 
-        Assert.True(await Service(new RecordingStore(), clients).TakeCurrency(7, "pixels", 5));
+        Assert.True((await Service(new RecordingStore(), clients).TakeCurrency(7, "pixels", 5)).Succeeded);
 
         Assert.Equal(15, habbo.Duckets);
         Assert.Equal(Int32s(15, 5, 0), Assert.Single(sent).Payload);
@@ -271,7 +300,7 @@ public sealed class UserMaintenanceServiceTests
     {
         var (habbo, _, sent, clients) = Setup();
 
-        Assert.True(await Service(new RecordingStore(), clients).TakeCurrency(7, "pixels", -5));
+        Assert.True((await Service(new RecordingStore(), clients).TakeCurrency(7, "pixels", -5)).Succeeded);
 
         Assert.Equal(25, habbo.Duckets);
         Assert.Equal(Int32s(25, -5, 0), Assert.Single(sent).Payload);
@@ -292,7 +321,7 @@ public sealed class UserMaintenanceServiceTests
     {
         var (_, _, sent, clients) = Setup();
 
-        Assert.True(await Service(new RecordingStore(), clients).GiveCurrency(7, "coins", 5));
+        Assert.True((await Service(new RecordingStore(), clients).GiveCurrency(7, "coins", 5)).Succeeded);
 
         Assert.Equal(Encode("105.0"), Assert.Single(sent).Payload);
     }
@@ -303,8 +332,8 @@ public sealed class UserMaintenanceServiceTests
         var (_, _, sent, clients) = Setup();
         var service = Service(new RecordingStore(), clients);
 
-        Assert.True(await service.GiveCurrency(7, "diamonds", 5));
-        Assert.True(await service.GiveCurrency(7, "gotw", 5));
+        Assert.True((await service.GiveCurrency(7, "diamonds", 5)).Succeeded);
+        Assert.True((await service.GiveCurrency(7, "gotw", 5)).Succeeded);
 
         Assert.Equal(new[] { Int32s(25, 0, 5), Int32s(25, 0, 103) }, sent.Select(packet => packet.Payload).ToArray());
     }
@@ -399,6 +428,13 @@ public sealed class UserMaintenanceServiceTests
         public string? Motto { get; set; }
         public int Reads { get; private set; }
         public List<(UserCurrency Currency, int Value)> Written { get; } = [];
+        public List<(UserCurrency Currency, long Delta)> Changed { get; } = [];
+        public (string? Error, int Balance) ChangeCurrency(int userId, UserCurrency currency, long delta)
+        {
+            Changed.Add((currency, delta));
+
+            return (null, 0);
+        }
         public int? ReadCurrency(int userId, UserCurrency currency)
         {
             Reads++;

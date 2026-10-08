@@ -41,4 +41,7 @@ public class CommandManager : ICommandManager
 
         return false;
     }
+
+    public IAcknowledgedRconCommand? Acknowledged(string command) =>
+        _commands.TryGetValue(command, out var registered) ? registered as IAcknowledgedRconCommand : null;
 }

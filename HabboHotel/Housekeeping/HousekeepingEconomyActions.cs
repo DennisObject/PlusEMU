@@ -31,14 +31,6 @@ public interface IHousekeepingEconomyActions
 
 public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
 {
-    // These need linked rows or data a bare inventory item cannot carry.
-    private static readonly HashSet<InteractionType> UngrantableItems = new()
-    {
-        InteractionType.Teleport, InteractionType.Moodlight, InteractionType.Toner, InteractionType.Gift, InteractionType.Trophy,
-        InteractionType.GuildItem, InteractionType.GuildGate, InteractionType.GuildForum, InteractionType.BadgeDisplay,
-        InteractionType.Badge, InteractionType.Pet, InteractionType.Bot, InteractionType.PurchasableClothing
-    };
-
     private readonly IHousekeepingUserStore _users;
     private readonly IAccessControl _permissions;
     private readonly IGameClientManager _clients;
@@ -140,7 +132,7 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
             return denied;
         }
 
-        if (!_itemData.Items.TryGetValue((uint)itemId, out var definition) || UngrantableItems.Contains(definition.InteractionType)) {
+        if (!_itemData.Items.TryGetValue((uint)itemId, out var definition) || ItemGrants.NeedsLinkedData(definition)) {
             return HousekeepingOutcome.Fail(ItemNotFound, Label(user), $"itemId={itemId}");
         }
 
