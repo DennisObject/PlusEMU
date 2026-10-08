@@ -290,6 +290,10 @@ public class RoomItemHandling
                     item.Attach(_room, _interactors, _travelStore, _rewards);
                     _wallItems.TryAdd(item.Id, item);
                 }
+
+                if (item.Definition.InteractionType == InteractionType.Moodlight) {
+                    LoadMoodlightState(item);
+                }
             }
         }
 
@@ -304,11 +308,6 @@ public class RoomItemHandling
 
             if (item.IsRoller) {
                 GotRollers = true;
-            }
-            else if (item.Definition.InteractionType == InteractionType.Moodlight) {
-                if (_room.MoodlightData == null) {
-                    _room.MoodlightData = LoadMoodlight(item.Id);
-                }
             }
             else if (item.Definition.InteractionType == InteractionType.Toner) {
                 if (_room.TonerData == null) {
@@ -334,6 +333,19 @@ public class RoomItemHandling
 
     private Plus.HabboHotel.Items.Data.Moodlight.MoodlightData? LoadMoodlight(uint itemId) =>
         _metadata.LoadMoodlight(itemId) is { } record ? new Plus.HabboHotel.Items.Data.Moodlight.MoodlightData(itemId, record) : null;
+
+    // The sidecar row is the moodlight's state; items.extra_data is not written on toggle, so it is rebuilt here.
+    private void LoadMoodlightState(Item item)
+    {
+        var moodlight = LoadMoodlight(item.Id);
+
+        if (moodlight == null) {
+            return;
+        }
+
+        item.LegacyDataString = moodlight.GenerateExtraData();
+        _room.MoodlightData ??= moodlight;
+    }
 
     private Plus.HabboHotel.Items.Data.Toner.TonerData? LoadToner(uint itemId) =>
         _metadata.LoadToner(itemId) is { } record ? new Plus.HabboHotel.Items.Data.Toner.TonerData(itemId, record) : null;
@@ -1006,13 +1018,7 @@ public class RoomItemHandling
         }
 
         if (item.Definition.InteractionType == InteractionType.Moodlight) {
-            if (_room.MoodlightData == null) {
-                _room.MoodlightData = LoadMoodlight(item.Id);
-
-                if (_room.MoodlightData != null) {
-                    item.LegacyDataString = _room.MoodlightData.GenerateExtraData();
-                }
-            }
+            LoadMoodlightState(item);
         }
 
         _store.PlaceWall(item.Id, _room.RoomId, item.GetX, item.GetY, item.GetZ, item.Rotation, item.WallCoordinates);
