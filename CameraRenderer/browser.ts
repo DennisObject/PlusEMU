@@ -2,6 +2,7 @@ import { buildAvatarEffectLibraries, avatarEffectsReady } from './effect-librari
 import
 {
     AvatarAction,
+    AvatarScaleType,
     ColorConverter,
     FloorHeightMapMessageParser,
     FurnitureStackingHeightMap,
@@ -120,6 +121,13 @@ interface CameraJob
     level: number;
 }
 
+interface CameraPreparation
+{
+    libraries: number;
+    figures: number;
+    effects: number;
+}
+
 interface CameraCatalogueEntry
 {
     name: string;
@@ -129,6 +137,8 @@ interface CameraCatalogueEntry
 
 const CANVAS_ID = 1;
 const READY_BUDGET_MS = 14000;
+const TEARDOWN_DELAY_MS = 1000;
+const PREPARE_BUDGET_MS = 10000;
 
 // Clients receive the room's thickness setting and use 2^clamp(value, -2, 1) (RoomVisualizationSettingsParser).
 const planeThickness = (value: number): number => Math.pow(2, Math.min(Math.max(value, -2), 1));
@@ -172,6 +182,8 @@ const REQUIRED_CONFIGURATION = [
 let startupError: Error = null;
 let effectLibraries: Map<string, string[]> = new Map();
 let renderQueue: Promise<void> = Promise.resolve();
+let renderedRoomId = 0;
+let teardownTimer: ReturnType<typeof setTimeout> = null;
 
 declare global
 {
@@ -181,12 +193,17 @@ declare global
         cameraReady: boolean;
         cameraEffects: readonly CameraCatalogueEntry[];
         cameraRender: (job: CameraJob) => Promise<string>;
+        cameraPrepare: (request: { scene: CameraScene }) => Promise<CameraPreparation>;
     }
 }
 
 window.cameraReady = false;
 window.cameraEffects = Object.freeze([]);
 window.cameraRender = async () =>
+{
+    throw startupError ?? new Error('Camera renderer is not ready');
+};
+window.cameraPrepare = async () =>
 {
     throw startupError ?? new Error('Camera renderer is not ready');
 };
@@ -249,6 +266,41 @@ function extraText(value: unknown): string
     return value;
 }
 
+function readScene(scene: CameraScene): CameraScene
+{
+    if(!scene || !Number.isInteger(scene.roomId) || (scene.roomId <= 0) || (typeof scene.heightmap !== 'string') || (scene.heightmap.length > 65536) || !Array.isArray(scene.items) || (scene.items.length > 5000) || !Array.isArray(scene.users) || (scene.users.length > 1000)) fail('Invalid server scene');
+
+    assertNoUrls(scene);
+
+    return scene;
+}
+
+// Every item must have furniture data and a library, whether it is placed or prepared.
+function readItem(item: CameraSceneItem): { item: CameraSceneItem, wall: boolean, library: string }
+{
+    const id = integer(item?.id, 'item id');
+    const spriteId = integer(item?.spriteId, 'sprite id');
+
+    if(id < 1) fail('Invalid item id');
+
+    const wall = item.type === 'i';
+
+    if(!wall && (item.type !== 's')) fail('Invalid item type');
+
+    const session = GetSessionDataManager();
+    const furniture = wall ? session.getWallItemData(spriteId) : session.getFloorItemData(spriteId);
+
+    if(!furniture) fail(`Missing furniture data ${ spriteId }`);
+
+    const content = GetRoomContentLoader();
+    const extra = extraText(item.extraData);
+    const library = wall ? content.getFurnitureWallNameForTypeId(spriteId, extra) : content.getFurnitureFloorNameForTypeId(spriteId);
+
+    if(!library) fail(`Missing furniture library ${ spriteId }`);
+
+    return { item: { ...item, id, spriteId, extraData: extra, wallPosition: item.wallPosition }, wall, library };
+}
+
 function readJob(job: CameraJob): CameraJob
 {
     if(!job || typeof job !== 'object') fail('Invalid render job');
@@ -280,12 +332,7 @@ function readJob(job: CameraJob): CameraJob
 
     if((level < 0) || (level > 1000) || !Array.isArray(job.effects) || (job.effects.length > 8)) fail('Invalid effects');
 
-    const scene = job.scene;
-
-    if(!scene || !Number.isInteger(scene.roomId) || (scene.roomId <= 0) || (typeof scene.heightmap !== 'string') || (scene.heightmap.length > 65536) || !Array.isArray(scene.items) || (scene.items.length > 5000) || !Array.isArray(scene.users) || (scene.users.length > 1000)) fail('Invalid server scene');
-
-    assertNoUrls(scene);
-
+    const scene = readScene(job.scene);
     const names = new Set<string>();
 
     const effects = job.effects.map(selection =>
@@ -411,31 +458,13 @@ function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallIte
 
     const floorItems: CameraSceneItem[] = [];
     const wallItems: CameraSceneItem[] = [];
-    const session = GetSessionDataManager();
-    const content = GetRoomContentLoader();
 
-    for(const item of scene.items)
+    for(const sceneItem of scene.items)
     {
-        const id = integer(item?.id, 'item id');
-        const spriteId = integer(item?.spriteId, 'sprite id');
+        const { item, wall } = readItem(sceneItem);
 
-        if(id < 1) fail('Invalid item id');
-
-        const wall = item.type === 'i';
-
-        if(!wall && (item.type !== 's')) fail('Invalid item type');
-
-        const furniture = wall ? session.getWallItemData(spriteId) : session.getFloorItemData(spriteId);
-
-        if(!furniture) fail(`Missing furniture data ${ spriteId }`);
-
-        const extra = extraText(item.extraData);
-        const typeName = wall ? content.getFurnitureWallNameForTypeId(spriteId, extra) : content.getFurnitureFloorNameForTypeId(spriteId);
-
-        if(!typeName) fail(`Missing furniture library ${ spriteId }`);
-
-        if(wall) wallItems.push({ ...item, id, spriteId, extraData: extra, wallPosition: item.wallPosition });
-        else floorItems.push({ ...item, id, spriteId, extraData: extra, wallPosition: item.wallPosition });
+        if(wall) wallItems.push(item);
+        else floorItems.push(item);
     }
 
     engine.createRoomInstance(scene.roomId, roomMap);
@@ -779,6 +808,18 @@ function applyMoodlight(roomId: number, dimmer: RoomObjectDimmerStateUpdateEvent
     master.filters = [filter];
 }
 
+// Destroying a crowded room takes hundreds of milliseconds, so the photo is returned first.
+// The next job, or an idle timer, destroys it before anything else uses the page.
+function tearDownRenderedRoom(): void
+{
+    clearTimeout(teardownTimer);
+    teardownTimer = null;
+
+    if(renderedRoomId) GetRoomEngine().destroyRoom(renderedRoomId);
+
+    renderedRoomId = 0;
+}
+
 async function renderRoom(job: CameraJob): Promise<string>
 {
     const requested = readJob(job);
@@ -813,6 +854,7 @@ async function renderRoom(job: CameraJob): Promise<string>
 
     try
     {
+        tearDownRenderedRoom();
         engine.destroyRoom(roomId);
         engine.getLegacyWallGeometry(roomId);
         opened = true;
@@ -845,7 +887,82 @@ async function renderRoom(job: CameraJob): Promise<string>
         GetEventDispatcher().removeEventListener(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
         window.removeEventListener('unhandledrejection', onRejection);
 
-        if(opened) engine.destroyRoom(roomId);
+        if(opened)
+        {
+            renderedRoomId = roomId;
+            teardownTimer = setTimeout(tearDownRenderedRoom, TEARDOWN_DELAY_MS);
+        }
+    }
+}
+
+// Downloads what a capture of this scene will need through the engine's own loaders, which a
+// capture shares. It never queues, never touches a room and proves nothing: the capture still
+// validates and waits for the scene it is given.
+async function prepareScene(request: { scene: CameraScene }): Promise<CameraPreparation>
+{
+    const scene = readScene(request?.scene);
+    const content = GetRoomContentLoader();
+    const avatars = GetAvatarRenderManager();
+    const libraries = new Set(scene.items.map(item => readItem(item).library));
+    const pet = RoomObjectUserType.getTypeNumber(RoomObjectUserType.PET);
+    const users = scene.users
+        .filter(user => user && (typeof user.figure === 'string') && user.figure && (userType(user.type) !== pet))
+        .map(user => ({ ...user, effect: Number.isFinite(user.effect) ? user.effect : 0 }));
+    const failed: string[] = [];
+    const onFailure = (event: RoomContentLoadedEvent) =>
+    {
+        if(libraries.has(event?.contentType)) failed.push(event.contentType);
+    };
+
+    GetEventDispatcher().addEventListener<RoomContentLoadedEvent>(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
+
+    try
+    {
+        for(const library of libraries)
+        {
+            if(content.getCollection(library)) continue;
+
+            if(!content.getAssetUrls(library)?.[0]) fail(`Missing furniture library ${ library }`);
+
+            content.downloadAsset(library).catch(() => failed.push(library));
+        }
+
+        // An avatar image downloads its figure, and its effect once the action is appended.
+        for(const user of users)
+        {
+            const image = avatars.createAvatarImage(user.figure, AvatarScaleType.LARGE, (typeof user.gender === 'string') ? user.gender : null);
+
+            if(!image) fail('Avatar figure library was not ready');
+
+            if(user.effect)
+            {
+                image.initActionAppends();
+                image.appendAction(AvatarAction.EFFECT, user.effect);
+                image.endActionAppends();
+            }
+
+            image.dispose();
+        }
+
+        const figures = users.map(user => avatars.createFigureContainer(user.figure));
+        const deadline = performance.now() + PREPARE_BUDGET_MS;
+
+        while(!([...libraries].every(library => content.getCollection(library)) && figures.every(figure => avatars.isFigureContainerReady(figure)) && effectsReady(users)))
+        {
+            if(failed.length) fail(`Missing library ${ failed[0] }`);
+
+            if(performance.now() >= deadline) fail('Preparation timed out');
+
+            await new Promise(resolve => setTimeout(resolve, 20));
+        }
+
+        if(failed.length) fail(`Missing library ${ failed[0] }`);
+
+        return { libraries: libraries.size, figures: figures.length, effects: users.filter(user => user.effect).length };
+    }
+    finally
+    {
+        GetEventDispatcher().removeEventListener(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
     }
 }
 
@@ -918,6 +1035,10 @@ async function start(): Promise<void>
         autoDensity: false
     });
 
+    // Single-texture batches avoid the large sampler-selection shader. In SwiftShader that
+    // draws crowded rooms several times faster with identical pixels.
+    GetRenderer().limits.maxBatchableTextures = 1;
+
     const ticker = GetTicker();
 
     // RoomSpriteCanvas paints from Ticker.deltaTime and draws nothing while the shared ticker is stalled at 0.
@@ -958,6 +1079,7 @@ async function start(): Promise<void>
 
     window.cameraEffects = Object.freeze(catalogue);
     window.cameraRender = enqueue;
+    window.cameraPrepare = prepareScene;
     window.cameraReady = true;
 }
 
@@ -966,6 +1088,10 @@ void start().catch(error =>
     startupError = (error instanceof Error) ? error : new Error(String(error));
     window.cameraReady = false;
     window.cameraRender = async () =>
+    {
+        throw startupError;
+    };
+    window.cameraPrepare = async () =>
     {
         throw startupError;
     };
