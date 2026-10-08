@@ -9,6 +9,7 @@ using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.Authentication.Tasks;
 using Plus.HabboHotel.Users.Grants;
+using Plus.HabboHotel.Users.UserData;
 using Xunit;
 
 namespace Plus.Tests;
@@ -403,6 +404,32 @@ public sealed class UserGrantDatabaseTests : IDisposable
         Assert.Equal(0, Scalar("SELECT home_room FROM users_settings WHERE user_id = 962001"));
     }
 
+    [RconGrantDatabaseFact]
+    public async Task TheFriendBarStateSurvivesEveryLoginAndLogoutRoundTrip()
+    {
+        foreach (var state in new[] { 0, 1 }) {
+            Sql($"UPDATE users_settings SET friend_bar_state = {state} WHERE user_id = 962001");
+
+            (await LoadFromDatabase()).Save();
+
+            Assert.Equal(state, Scalar("SELECT friend_bar_state FROM users_settings WHERE user_id = 962001"));
+        }
+
+        // A settings write, then logout, login and logout keep it, whether it was written offline or into the live session.
+        Assert.Equal(GrantOutcome.Ok, (await Service().UpdateSettings(User, Payload(new { friendBarState = 1 }))).Code);
+        (await LoadFromDatabase()).Save();
+        Assert.Equal(1, Scalar("SELECT friend_bar_state FROM users_settings WHERE user_id = 962001"));
+
+        var live = await LoadFromDatabase();
+        var (client, _) = HabbiconTestSupport.Client(live);
+        _clients.RegisterClient(client, User, "rcon_grant_user");
+        Assert.Equal(GrantOutcome.Ok, (await Service().UpdateSettings(User, Payload(new { friendBarState = 0 }))).Code);
+        live.Save();
+        _clients.UnregisterClient(client, User, "rcon_grant_user");
+        (await LoadFromDatabase()).Save();
+        Assert.Equal(0, Scalar("SELECT friend_bar_state FROM users_settings WHERE user_id = 962001"));
+    }
+
     public void Dispose() => Clean();
 
     private UserGrantService Service(IUserGrantStore? store = null) => new(store ?? _store, _gate, _clients, _items, _access);
@@ -425,6 +452,19 @@ public sealed class UserGrantDatabaseTests : IDisposable
         _clients.RegisterClient(client, userId, habbo.Username);
 
         return (habbo, client);
+    }
+
+    // Loads the account the way a login does and gives it what a session's logout save needs.
+    private async Task<Habbo> LoadFromDatabase()
+    {
+        var factory = new UserDataFactory(null!, _database, [], null!, null!, null!, new Plus.HabboHotel.Rooms.RoomVisitRecorder(_database, TimeProvider.System),
+            TimeProvider.System, TestRoomAchievements.Unused);
+        var habbo = (await factory.GetUserDataByIdAsync(User))!;
+        habbo.HabboStats ??= new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
+        habbo.Persistence = new UserPersistenceService(_database, TimeProvider.System, _clients);
+        habbo.SessionStartedAt = DateTimeOffset.UtcNow;
+
+        return habbo;
     }
 
     // The login path inside the gate: the authentication tasks run, then the account is loaded from the database and registered.
