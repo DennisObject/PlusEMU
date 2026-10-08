@@ -87,6 +87,8 @@ public class RoomUser
     public int SetX; //byte
     public int SetY; //byte
     public double SetZ;
+    // Absolute Z set by :bh; furniture this user places or moves lands at it, ignoring the stack below.
+    public double? BuildHeight;
     public bool ShieldActive;
     public int ShieldCounter;
     public DateTimeOffset? SignExpiresAt;

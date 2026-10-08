@@ -157,7 +157,7 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
                 return;
             }
 
-            if (room.GetRoomItemHandler().SetFloorItem(session, item, x, y, rotation, true, false, true)) {
+            if (room.GetRoomItemHandler().SetFloorItem(session, item, x, y, rotation, true, false, true, height: BuildHeight(room, session, item, x, y, rotation))) {
                 session.GetHabbo().Inventory.Furniture.RemoveItem(itemId);
                 session.Send(new FurniListRemoveComposer(itemId));
 
@@ -323,7 +323,7 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
             quests.ProgressUserQuest(session, QuestType.FurniRotate);
         }
 
-        if (!room.GetRoomItemHandler().SetFloorItem(session, item, x, y, rotation, false, false, true)) {
+        if (!room.GetRoomItemHandler().SetFloorItem(session, item, x, y, rotation, false, false, true, height: BuildHeight(room, session, item, x, y, rotation))) {
             room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
 
             return;
@@ -340,6 +340,25 @@ public sealed class RoomItemPlacementService(ISettingsManager settings, IAchieve
         if (item.GetZ >= 0.1) {
             quests.ProgressUserQuest(session, QuestType.FurniStack);
         }
+    }
+
+    // The :bh height, never below the floor under the item's footprint; -1 keeps normal stacking.
+    private static double BuildHeight(Room room, GameClient session, Item item, int x, int y, int rotation)
+    {
+        if (room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id)?.BuildHeight is not { } height) {
+            return -1;
+        }
+
+        var map = room.GetGameMap();
+        var footprint = Gamemap.GetAffectedTiles(item.Definition.Length, item.Definition.Width, x, y, rotation).Values
+            .Select(tile => (X: tile.X, Y: tile.Y)).Append((X: x, Y: y)).ToArray();
+
+        // An off-map tile is refused by the placement itself.
+        if (footprint.Any(tile => !map.ValidTile(tile.X, tile.Y))) {
+            return -1;
+        }
+
+        return MagicTileHeight.Clamp(height, footprint.Max(tile => (double)map.Model.SqFloorHeight[tile.X, tile.Y]));
     }
 
 }

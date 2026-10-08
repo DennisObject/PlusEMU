@@ -3785,6 +3785,7 @@ INSERT INTO `acl_permissions` VALUES
 ('command.allaroundme','command','Migrated chat command.',1),
 ('command.alleyesonme','command','Migrated chat command.',1),
 ('command.ban','command','Migrated chat command.',1),
+('command.bh','command','Place and move furniture at a fixed height.',0),
 ('command.bubble','command','Migrated chat command.',1),
 ('command.carry','command','Migrated chat command.',1),
 ('command.clubnx','command','Migrated chat command.',1),
@@ -93519,6 +93520,7 @@ LOCK TABLES `role_permissions` WRITE;
 INSERT INTO `role_permissions` VALUES
 (1,'camera.use'),
 (1,'command.about'),
+(1,'command.bh'),
 (1,'command.convertcredits'),
 (1,'command.dance'),
 (1,'command.disablediagonal'),
