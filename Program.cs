@@ -50,6 +50,7 @@ public static class Program
         services.AddConfiguration<CameraConfiguration>(configuration.GetSection("Camera"));
         services.AddConfiguration<FurniEditorConfiguration>(configuration.GetSection("FurniEditor"));
         services.AddConfiguration<AuthApiConfiguration>(configuration.GetSection("AuthApi"));
+        services.AddConfiguration<GamedataVersionsConfiguration>(configuration.GetSection("GamedataVersions"));
 
         // Dependency Injection
         services.AddDefaultRules(typeof(Program).Assembly);
