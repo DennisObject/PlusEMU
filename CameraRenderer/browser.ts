@@ -15,6 +15,7 @@ import
     GetRoomContentLoader,
     GetRoomEngine,
     GetRoomManager,
+    GetRoomObjectVisualizationFactory,
     GetSessionDataManager,
     GetTicker,
     GetEventDispatcher,
@@ -302,6 +303,15 @@ function readItem(item: CameraSceneItem): { item: CameraSceneItem, wall: boolean
     return { item: { ...item, id, spriteId, extraData: extra, wallPosition: item.wallPosition }, wall, library };
 }
 
+// RoomManager drops an object whose library names a visualization it cannot create, so the
+// object would never appear. Report that as soon as the library has loaded.
+function assertSupportedLibrary(library: string): void
+{
+    const data = GetRoomContentLoader().getCollection(library)?.data;
+
+    if(data && !GetRoomObjectVisualizationFactory().getVisualizationType(data.visualizationType)) fail(`Unsupported furniture ${ library } (${ data.visualizationType })`);
+}
+
 function readJob(job: CameraJob): CameraJob
 {
     if(!job || typeof job !== 'object') fail('Invalid render job');
@@ -368,7 +378,7 @@ function userType(value: unknown): number
     fail('Invalid user type');
 }
 
-function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallItems: CameraSceneItem[] }
+function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallItems: CameraSceneItem[], libraries: Set<string> }
 {
     const engine = GetRoomEngine();
     const model = scene.heightmap.replace(/\r\n/g, '\r').replace(/\n/g, '\r');
@@ -459,13 +469,16 @@ function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallIte
 
     const floorItems: CameraSceneItem[] = [];
     const wallItems: CameraSceneItem[] = [];
+    const libraries = new Set<string>();
 
     for(const sceneItem of scene.items)
     {
-        const { item, wall } = readItem(sceneItem);
+        const { item, wall, library } = readItem(sceneItem);
 
         if(wall) wallItems.push(item);
         else floorItems.push(item);
+
+        libraries.add(library);
     }
 
     engine.createRoomInstance(scene.roomId, roomMap);
@@ -476,7 +489,7 @@ function buildRoom(scene: CameraScene): { floorItems: CameraSceneItem[], wallIte
     engine.updateRoomInstancePlaneVisibility(scene.roomId, !scene.hideWalls, true);
     engine.updateObjectRoomColor(scene.roomId, finite(scene.backgroundColor, 'background'), 255, false);
 
-    return { floorItems, wallItems };
+    return { floorItems, wallItems, libraries };
 }
 
 function mountDisplay(scene: CameraScene, viewport: CameraViewport): void
@@ -687,7 +700,7 @@ async function pump(engineTime: { value: number }): Promise<void>
     await new Promise(resolve => setTimeout(resolve, 0));
 }
 
-async function waitUntilReady(roomId: number, users: CameraSceneUser[], floorCount: number, wallCount: number, failed: string[]): Promise<void>
+async function waitUntilReady(roomId: number, users: CameraSceneUser[], libraries: Set<string>, floorCount: number, wallCount: number, failed: string[]): Promise<void>
 {
     const engine = GetRoomEngine();
     const avatars = GetAvatarRenderManager();
@@ -699,6 +712,8 @@ async function waitUntilReady(roomId: number, users: CameraSceneUser[], floorCou
     while(performance.now() < deadline)
     {
         if(failed.length) fail(`Missing library ${ failed[0] }`);
+
+        libraries.forEach(assertSupportedLibrary);
 
         // A loaded photo is applied by the next update and drawn by the one after it.
         settledPumps = cameraImagesSettled() ? (settledPumps + 1) : 0;
@@ -867,7 +882,7 @@ async function renderRoom(job: CameraJob): Promise<string>
 
         const users = placeUsers(requested.scene);
 
-        await waitUntilReady(roomId, users, placed.floorItems.length, placed.wallItems.length, failed);
+        await waitUntilReady(roomId, users, placed.libraries, placed.floorItems.length, placed.wallItems.length, failed);
 
         if(dimmerState?.state) applyMoodlight(roomId, dimmerState);
 
@@ -916,8 +931,18 @@ async function prepareScene(request: { scene: CameraScene }): Promise<CameraPrep
     const avatars = GetAvatarRenderManager();
     const libraries = new Set(scene.items.map(item => readItem(item).library));
     const pet = RoomObjectUserType.getTypeNumber(RoomObjectUserType.PET);
-    const users = scene.users
-        .filter(user => user && (typeof user.figure === 'string') && user.figure && (userType(user.type) !== pet))
+    const figured = scene.users.filter(user => user && (typeof user.figure === 'string') && user.figure);
+
+    // A pet is a room object of its pet type (RoomEngine.addRoomObjectUser), loaded like furniture.
+    for(const user of figured.filter(user => userType(user.type) === pet))
+    {
+        const library = content.getPetNameForType(GetRoomEngine().getPetTypeId(user.figure));
+
+        if(library) libraries.add(library);
+    }
+
+    const users = figured
+        .filter(user => userType(user.type) !== pet)
         .map(user => ({ ...user, effect: Number.isFinite(user.effect) ? user.effect : 0 }));
     const failed: string[] = [];
     const onFailure = (event: RoomContentLoadedEvent) =>
@@ -933,7 +958,7 @@ async function prepareScene(request: { scene: CameraScene }): Promise<CameraPrep
         {
             if(content.getCollection(library)) continue;
 
-            if(!content.getAssetUrls(library)?.[0]) fail(`Missing furniture library ${ library }`);
+            if(!content.getAssetUrls(library)?.[0]) fail(`Missing library ${ library }`);
 
             content.downloadAsset(library).catch(() => failed.push(library));
         }
@@ -968,6 +993,8 @@ async function prepareScene(request: { scene: CameraScene }): Promise<CameraPrep
         }
 
         if(failed.length) fail(`Missing library ${ failed[0] }`);
+
+        libraries.forEach(assertSupportedLibrary);
 
         return { libraries: libraries.size, figures: figures.length, effects: users.filter(user => user.effect).length };
     }
