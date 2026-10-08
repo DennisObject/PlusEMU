@@ -133,8 +133,18 @@ public sealed class PristineStagedLoaderDatabaseTests
 
                 return args[1] != null;
             });
+            var roomData = PristineStagedDatabase.Proxy<IRoomDataLoader>((method, args) =>
+            {
+                if (method != "TryGetData") {
+                    throw new InvalidOperationException(method);
+                }
+
+                args[1] = null;
+
+                return false;
+            });
             var chatlogs = new Chatlogs();
-            var history = new ModeratorHistoryService(database, rooms, new Users(), chatlogs, TimeProvider.System);
+            var history = new ModeratorHistoryService(database, rooms, roomData, new Users(), chatlogs, TimeProvider.System);
             Assert.Empty(Assert.IsType<ModeratorRoomChatlog>(history.GetRoomChatlog(42)).Entries);
             Assert.Null(history.GetRoomChatlog(99));
             connection.Execute("ALTER TABLE chatlogs MODIFY `timestamp` DOUBLE NOT NULL");
