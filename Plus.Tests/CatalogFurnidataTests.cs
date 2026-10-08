@@ -1,18 +1,12 @@
 using System.Text.Json.Nodes;
-using Microsoft.Extensions.Options;
 using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.Items;
-using Plus.HabboHotel.Items.Editor;
 using Xunit;
 
 namespace Plus.Tests;
 
-public sealed class CatalogFurnidataTests : IDisposable
+public sealed class CatalogFurnidataTests
 {
-    private readonly string _directory = Directory.CreateTempSubdirectory("plus-catalog-furnidata-").FullName;
-
-    public void Dispose() => Directory.Delete(_directory, recursive: true);
-
     private static ItemDefinition Floor(string name) => new() { Id = (uint)name.GetHashCode() & 0xffff, ItemName = name, ProductType = "s" };
 
     private static CatalogOffer Offer(int id, params (ItemDefinition Definition, int Amount)[] products) => new()
@@ -110,44 +104,96 @@ public sealed class CatalogFurnidataTests : IDisposable
     }
 
     [Fact]
-    public void RebuildsWhenTheFileOrCatalogChanges()
+    public void GeneratesEveryEntryInHabbosFieldOrderWithTheCatalogsOffers()
     {
-        var path = Path.Combine(_directory, "FurnitureData.json");
-        File.WriteAllText(path, Furnidata("chair").ToJsonString());
-        var store = new FurnidataStore(Options.Create(new FurniEditorConfiguration { FurnidataPath = path }));
-        var pages = new List<CatalogPage> { Page(1, -1, Offer(5, (Floor("chair"), 1))) };
-        var revision = 1;
-        var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) => method switch
+        var chair = new FurnidataEntry
         {
-            "get_Revision" => revision,
-            "get_Pages" => pages,
-            _ => throw new NotSupportedException(method)
-        });
-        var furnidata = new CatalogFurnidata(store, catalog);
+            Id = 13,
+            Classname = "chair",
+            Revision = 61856,
+            Category = "chair",
+            DefaultDir = 2,
+            XDim = 1,
+            YDim = 2,
+            PartColors = "#ffffff,#0",
+            Name = "Chair",
+            Description = "Sit",
+            AdUrl = null,
+            CustomParams = "",
+            SpecialType = 1,
+            CanSitOn = true,
+            FurniLine = "iced",
+            Environment = null,
+            Rare = true,
+            Height = 0.9,
+            Tradeable = false
+        };
+        var poster = new FurnidataEntry { Id = 4001, Classname = "poster", IsWall = true, Name = "Poster", Category = "unknown", PartColors = "", CanPutStuffOn = true };
 
-        var first = furnidata.Current()!;
-        Assert.Same(first, furnidata.Current());
-        Assert.Equal(5, (int)Entry(JsonNode.Parse(first.Content)!.AsObject(), "chair")["offerid"]!);
-        Assert.Matches("^\"[0-9a-f]{40}\"$", first.ETag);
+        var file = CatalogFurnidata.Generate([chair, poster], [Page(1, -1, Offer(7, (Floor("chair"), 1)))]);
+        var root = JsonNode.Parse(file.Content)!.AsObject();
 
-        pages = [Page(1, -1, Offer(8, (Floor("chair"), 1)))];
-        revision++;
-        var second = furnidata.Current()!;
-        Assert.Equal(8, (int)Entry(JsonNode.Parse(second.Content)!.AsObject(), "chair")["offerid"]!);
-        Assert.NotEqual(first.ETag, second.ETag);
-
-        store.Edit(new FurnidataTarget("chair", 1, false), entry => entry["name"] = "Renamed");
-        var third = furnidata.Current()!;
-        Assert.Equal("Renamed", (string)Entry(JsonNode.Parse(third.Content)!.AsObject(), "chair")["name"]!);
-        Assert.Equal(8, (int)Entry(JsonNode.Parse(third.Content)!.AsObject(), "chair")["offerid"]!);
+        Assert.Equal("""
+            {"id":13,"classname":"chair","revision":61856,"category":"chair","defaultdir":2,"xdim":1,"ydim":2,"partcolors":{"color":["#ffffff","#0"]},"name":"Chair","description":"Sit","adurl":null,"offerid":7,"buyout":true,"rentofferid":-1,"rentbuyout":false,"bc":false,"excludeddynamic":false,"customparams":"","specialtype":1,"canstandon":false,"cansiton":true,"canlayon":false,"height":0.9,"furniline":"iced","environment":null,"rare":true,"tradeable":false}
+            """, Entry(root, "chair").ToJsonString());
+        // Wall entries have no floor fields.
+        Assert.Equal("""
+            {"id":4001,"classname":"poster","revision":0,"category":"unknown","name":"Poster","description":null,"adurl":null,"offerid":-1,"buyout":false,"rentofferid":-1,"rentbuyout":false,"bc":false,"excludeddynamic":false,"customparams":null,"specialtype":1,"furniline":null,"environment":null,"rare":false}
+            """, root["wallitemtypes"]!["furnitype"]![0]!.ToJsonString());
+        Assert.Matches("^\"[0-9a-f]{40}\"$", file.ETag);
     }
 
     [Fact]
-    public void ServesNothingWithoutAFurnidataFile()
+    public void AnEntryReadsBackFromItsJson()
     {
-        var store = new FurnidataStore(Options.Create(new FurniEditorConfiguration()));
-        var catalog = CatalogSnapshotTestSupport.Proxy<ICatalogManager>((method, _) => throw new NotSupportedException(method));
+        var entry = new FurnidataEntry
+        {
+            FurnitureId = 5,
+            Id = 13,
+            Classname = "chair",
+            Revision = 3,
+            Category = null,
+            DefaultDir = 4,
+            XDim = 2,
+            YDim = 3,
+            PartColors = "",
+            Name = "Chair",
+            Description = null,
+            AdUrl = "",
+            ExcludedDynamic = true,
+            CustomParams = "1,2",
+            SpecialType = 7,
+            CanStandOn = true,
+            CanLayOn = true,
+            CanPutStuffOn = false,
+            Height = 1e-06,
+            FurniLine = "",
+            Environment = "",
+            Rare = true,
+            Recyclable = true
+        };
+        var json = entry.ToJson(catalog: false);
 
-        Assert.Null(new CatalogFurnidata(store, catalog).Current());
+        var copy = new FurnidataEntry { FurnitureId = 5 }.WithJson(json);
+
+        Assert.Equal(json.ToJsonString(), copy.ToJson(catalog: false).ToJsonString());
+        Assert.Equal(5u, copy.FurnitureId);
+        Assert.Equal("", copy.PartColors);
+        Assert.Null(new FurnidataEntry().WithJson(new JsonObject { ["partcolors"] = null }).PartColors);
+    }
+
+    [Fact]
+    public void DefinitionsCompareWithoutCatalogFieldsOrFieldOrder()
+    {
+        var entry = new FurnidataEntry { Id = 1, Classname = "chair", Name = "Chair" };
+        var stored = JsonNode.Parse("""{"name":"Chair","offerid":5,"buyout":true}""")!.AsObject();
+
+        foreach (var (key, value) in entry.ToJson(catalog: false).Where(field => field.Key != "name")) {
+            stored[key] = value?.DeepClone();
+        }
+
+        Assert.True(FurnidataEntry.SameDefinition(entry.ToJson(catalog: true), stored));
+        stored["name"] = "Other";
+        Assert.False(FurnidataEntry.SameDefinition(entry.ToJson(catalog: true), stored));
     }
 }

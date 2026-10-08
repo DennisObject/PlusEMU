@@ -99,7 +99,8 @@ internal sealed class FurniEditorRepository
         """, new { id, keys = access.Keys.ToArray(), limit = MaxCatalogRefs }, _transaction).ToList();
 
     // Everything that still needs this definition: placed or owned furni, catalog offers (bundles included),
-    // unopened gifts and open marketplace listings (a listed item only exists as its definition id).
+    // unopened gifts, open marketplace listings (a listed item only exists as its definition id) and furniture that
+    // shares the furnidata entry this row holds.
     public List<string> References(uint id)
     {
         var references = new List<string>();
@@ -115,6 +116,10 @@ internal sealed class FurniEditorRepository
         Count("SELECT COUNT(DISTINCT offer_id) FROM catalog_offer_products WHERE furniture_id = @id", "catalog offers");
         Count("SELECT COUNT(*) FROM user_presents WHERE base_id = @id", "unopened gifts");
         Count("SELECT COUNT(*) FROM catalog_marketplace_offers WHERE item_id = @id AND state = '1'", "open marketplace offers");
+        Count("""
+            SELECT COUNT(*) FROM furniture AS other INNER JOIN furniture AS owner ON owner.id = @id AND owner.has_furnidata
+            WHERE other.id <> owner.id AND other.type = owner.type AND other.item_name = owner.item_name
+            """, "other furniture using its furnidata entry");
 
         return references;
     }

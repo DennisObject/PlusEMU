@@ -2,7 +2,8 @@ using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Plus.HabboHotel.Items.Editor;
+using Plus.Database;
+using Plus.HabboHotel.Items;
 
 namespace Plus.HabboHotel.Catalog;
 
@@ -11,42 +12,75 @@ public sealed record CatalogFurnidataFile(byte[] Content, string ETag);
 
 public interface ICatalogFurnidata
 {
-    // Null when no furnidata file is configured.
+    // Null while no furniture has furnidata.
     CatalogFurnidataFile? Current();
+
+    // Rebuilds on the next request; called after furnidata changes in the database.
+    void Invalidate();
 }
 
-// FurnitureData.json as clients load it: the furni editor's file with each entry's purchase fields taken from the
+// FurnitureData.json as clients load it: every furniture definition's entry with its purchase fields taken from the
 // loaded catalog, the way Habbo generates furnidata from its catalog. The infostand buy button and catalog search
-// open the entry's offerid, so it always names an offer the catalog sells. Rebuilt when the file or catalog changes.
-public sealed class CatalogFurnidata(IFurnidataStore store, ICatalogManager catalog) : ICatalogFurnidata
+// open the entry's offerid, so it always names an offer the catalog sells. Rebuilt when the catalog reloads or
+// furnidata is invalidated.
+public sealed class CatalogFurnidata(IDatabase database, ICatalogManager catalog) : ICatalogFurnidata
 {
     private static readonly JsonSerializerOptions Compact = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     private const int MaximumPageDepth = 20;
 
     private readonly object _sync = new();
-    private (FurnidataSource Source, int Revision, CatalogFurnidataFile File)? _cached;
+    private int _version;
+    private (int Revision, int Version, CatalogFurnidataFile? File)? _cached;
 
     public CatalogFurnidataFile? Current()
     {
-        if (store.Source() is not { } source) {
-            return null;
-        }
-
         int revision = catalog.Revision;
 
         lock (_sync) {
-            if (_cached is { } cached && cached.Source == source && cached.Revision == revision) {
+            int version = _version;
+
+            if (_cached is { } cached && cached.Revision == revision && cached.Version == version) {
                 return cached.File;
             }
 
-            var root = JsonNode.Parse(File.ReadAllBytes(source.Path)) as JsonObject ?? throw new FurnidataException("Furnidata is not a JSON object");
-            Overlay(root, catalog.Pages);
-            var content = JsonSerializer.SerializeToUtf8Bytes(root, Compact);
-            var file = new CatalogFurnidataFile(content, $"\"{Convert.ToHexStringLower(SHA1.HashData(content))}\"");
-            _cached = (source, revision, file);
+            List<FurnidataEntry> entries;
+
+            using (var connection = database.Connection()) {
+                entries = new FurnidataRepository(connection).All();
+            }
+
+            var file = entries.Count == 0 ? null : Generate(entries, catalog.Pages);
+            _cached = (revision, version, file);
 
             return file;
         }
+    }
+
+    public void Invalidate()
+    {
+        lock (_sync) {
+            _version++;
+        }
+    }
+
+    public static CatalogFurnidataFile Generate(IEnumerable<FurnidataEntry> entries, IEnumerable<CatalogPage> pages)
+    {
+        var floor = new JsonArray();
+        var wall = new JsonArray();
+
+        foreach (var entry in entries) {
+            (entry.IsWall ? wall : floor).Add(entry.ToJson(catalog: true));
+        }
+
+        var root = new JsonObject
+        {
+            [FurnidataEntry.FloorSection] = new JsonObject { ["furnitype"] = floor },
+            [FurnidataEntry.WallSection] = new JsonObject { ["furnitype"] = wall }
+        };
+        Overlay(root, pages);
+        var content = JsonSerializer.SerializeToUtf8Bytes(root, Compact);
+
+        return new(content, $"\"{Convert.ToHexStringLower(SHA1.HashData(content))}\"");
     }
 
     // Sets offerid to the offer that sells the entry's furni (-1 when none does) and buyout to whether that offer
