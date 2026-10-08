@@ -22,6 +22,7 @@ import re
 import struct
 import subprocess
 import sys
+import unicodedata
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 import zlib
@@ -401,6 +402,11 @@ def clothing_parts(entry):
     return ','.join(parts) if parts and all(part.isdigit() for part in parts) else None
 
 
+def link_key(link):
+    """How catalog_pages.link (utf8mb4_uca1400_ai_ci) compares: without case or accents."""
+    return ''.join(c for c in unicodedata.normalize('NFKD', link) if not unicodedata.combining(c)).casefold()
+
+
 def latin1(text, length):
     return ''.join(c if ord(c) < 256 else '?' for c in (text or ''))[:length]
 
@@ -428,6 +434,11 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
     entry_of = {}  # id -> (kind, classname) of the Habbo entry the row is or shares
     owner_of = {}  # (kind, classname) -> id
     owners = {(row['type'], row['item_name']): row['id'] for row in furniture if row['has_furnidata']}
+    # furnidata_classname is unique across both kinds and compares without case.
+    owned_names = {(row['item_name'].lower(), row['type']) for row in furniture if row['has_furnidata']}
+
+    def other_kind_owns(kind, classname):
+        return (classname.lower(), 'i' if kind == 's' else 's') in owned_names
 
     def want(row_id, **columns):
         desired.setdefault(row_id, {}).update(columns)
@@ -449,7 +460,8 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
     junk = {}
     for row in sorted(furniture, key=lambda r: r['id']):
         clean = row['item_name'].strip()
-        if not row['has_furnidata'] and clean != row['item_name'] and (row['type'], clean) in habbo and (row['type'], clean) not in owner_of:
+        if not row['has_furnidata'] and clean != row['item_name'] and (row['type'], clean) in habbo and (row['type'], clean) not in owner_of \
+                and not other_kind_owns(row['type'], clean):
             junk.setdefault((row['type'], clean), []).append(row['id'])
     for key, ids in junk.items():
         owner_of[key] = ids[0]
@@ -471,6 +483,10 @@ def plan_furniture(furniture, habbo, needed, evidence, clothing):
     created = []
     for kind, classname in sorted(needed):
         if (kind, classname) in habbo and (kind, classname) not in owner_of:
+            if other_kind_owns(kind, classname):
+                report['kind_conflicts'].append({'id': None, 'classname': classname, 'type': kind, 'habbo_type': kind,
+                                                 'note': 'the other kind owns this classname; not created'})
+                continue
             created.append((kind, classname))
             owner_of[(kind, classname)] = ('new', kind, classname)
 
@@ -700,11 +716,11 @@ def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=F
         if page_id > 0 and content is None:
             report['missing_pages'].append({'pageId': page_id, 'name': node['pageName']})
         link = (node['pageName'] or '').strip()[:128] or None
-        if link and link.lower() in links:
+        if link and link_key(link) in links:
             report['duplicate_links'].append({'id': row_id, 'link': link})
             link = None
         if link:
-            links.add(link.lower())
+            links.add(link_key(link))
         put('catalog_pages', dict(id=row_id, parent_id=parent_id, link=link, caption=node['localization'][:128],
                                   layout=(content or {}).get('layoutCode') or 'default_3x3', required_permission=None,
                                   visible=int(node['visible']), enabled=int(content is not None), icon=node['icon'], required_club_level=0,
@@ -838,8 +854,8 @@ def plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets=
         shown = (wanted[1], habbo[wanted[1:]]['id']) if isinstance(wanted, tuple) else final.get(wanted)
         if current is not None and current != wanted and final.get(current) == shown:
             product['furniture_id'] = current
-    sold = {key[0] for key in catalog_plan['tables']['catalog_offer_products']}
-    empty = [key[0] for key in catalog_plan['tables']['catalog_offers'] if key[0] not in sold]
+    with_products = {key[0] for key in catalog_plan['tables']['catalog_offer_products']}
+    empty = [key[0] for key in catalog_plan['tables']['catalog_offers'] if key[0] not in with_products]
     if empty:
         raise ValueError(f'Offers without products would be written: {empty[:10]}')
     tables = {table: diff_table(table, snapshot[table], catalog_plan['tables'][table]) for table in CATALOG_TABLES}
@@ -931,9 +947,9 @@ def build_report(result, snapshot, catalog, habbo, assets):
                     'page' if row['entity_type'] == 'PAGE' and row['entity_id'] in removed_pages else 'kept'
                     for row in snapshot['catalog_admin_log'])
     offer_ids = {key[0] for key in desired['catalog_offers']}
-    links = {row['link'].lower() for row in desired['catalog_pages'].values() if row['link']}
+    links = {link_key(row['link']) for row in desired['catalog_pages'].values() if row['link']}
     promotions = result['catalog']['promotions'] or snapshot['catalog_promotions']
-    dangling = [row for row in promotions if (row['page_link'] and row['page_link'].lower() not in links)
+    dangling = [row for row in promotions if (row['page_link'] and link_key(row['page_link']) not in links)
                 or (row['offer_id'] not in (-1, 0) and row['offer_id'] not in offer_ids)]
     report = {
         'source': catalog.get('source'),
@@ -957,6 +973,7 @@ def build_report(result, snapshot, catalog, habbo, assets):
             'catalog_marketplace_offers': 'sprite_id follows furniture.sprite_id of furni_id',
             'items.base_item': 'furniture ids never change'},
         'furniture': furniture,
+        'votes': {'arcturus': 'catalog.sql items_base', 'habbobba': 'not available locally; not used'},
         'interactions': dict(Counter(row['interaction'] for row in furniture['derived']).most_common()),
         'interaction_rules': dict(Counter(row['rule'].split('=')[0] for row in furniture['derived']).most_common()),
         'hardcoded_sprites': hardcoded_sprites(result, snapshot),
@@ -1110,7 +1127,7 @@ def run(args):
             counts = result['report']['counts']
             sql.append("INSERT INTO `catalog_admin_log` (`user_id`, `username`, `action`, `entity_type`, `catalog_type`, `entity_id`, "
                        "`operation`, `summary`) VALUES (0, 'habbo-import', 'habbo_catalog_import', 'PAGE', 'NORMAL', 0, 'IMPORT', "
-                       + literal(f"habbo.com catalogue import: {counts['writes']} changes")[:255] + ');')
+                       + literal(f"habbo.com catalogue import: {counts['writes']} changes"[:255]) + ');')
             for chunk in range(0, len(sql), 2000):
                 db.query('\n'.join(sql[chunk:chunk + 2000]))
             after = plan(read_snapshot(db, True), catalog, habbo_furnidata, source_furnidata, evidence, None, args.allow_missing_pages)

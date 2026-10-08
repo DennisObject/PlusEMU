@@ -319,3 +319,13 @@ def test_literals_never_inline_text():
     assert m.literal("x'; DROP TABLE furniture; --").startswith('CONVERT(0x')
     assert m.literal(('new', 's', 'chair')).startswith('(SELECT `id` FROM `furniture`')
     assert m.literal(None) == 'NULL' and m.literal(True) == '1' and m.literal(0.5) == '0.5'
+
+
+def test_links_compare_without_case_or_accents():
+    assert m.link_key('Café_Set') == m.link_key('cafe_set')
+
+
+def test_a_classname_the_other_kind_owns_is_not_created():
+    habbo = {('s', 'shared'): entry('shared', id=5)}
+    result = m.plan_furniture([row(1, 'Shared', 7, kind='i')], habbo, {('s', 'shared')}, m.Evidence(), {})
+    assert result['inserts'] == [] and 'shared' in {c['classname'] for c in result['report']['kind_conflicts']}
