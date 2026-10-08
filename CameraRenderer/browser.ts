@@ -33,6 +33,7 @@ import
     RoomObjectUserType,
     RoomObjectVariable,
     RoomPlaneParser,
+    RoomVariableEnum,
     Vector3d,
     loadGamedata
 } from '@octane/renderer';
@@ -533,11 +534,31 @@ function placeUsers(scene: CameraScene): CameraSceneUser[]
             dance: Number.isFinite(user.dance) ? user.dance : 0
         };
 
-        if(!engine.addRoomObjectUser(scene.roomId, roomIndex, new Vector3d(finite(user.x, 'user'), finite(user.y, 'user'), finite(user.z, 'user')), new Vector3d(facing(user.direction)), facing(user.headDirection), type, figure)) fail(`Could not place user ${ roomIndex }`);
+        const location = new Vector3d(finite(user.x, 'user'), finite(user.y, 'user'), finite(user.z, 'user'));
+        const direction = new Vector3d(facing(user.direction));
+        const headDirection = facing(user.headDirection);
+        const postureParts = placed.postureParameter.split(' ');
+        let height = 0;
+
+        // Match RoomUnitStatusParser and RoomMessageHandler: sit/lay heights are
+        // relative to the snapshot's base Z, which already includes rider elevation.
+        if(placed.posture === 'sit' || placed.posture === 'lay')
+        {
+            const zScale = engine.getRoomInstance(scene.roomId).model.getValue<number>(RoomVariableEnum.ROOM_Z_SCALE) || 1;
+
+            height = finite(parseFloat((postureParts[0] || '0').replace(',', '.')), 'posture height') / zScale;
+            location.z += height;
+        }
+
+        const canStandUp = placed.posture === 'sit' && postureParts[1] === '1';
+
+        if(!engine.addRoomObjectUser(scene.roomId, roomIndex, location, direction, headDirection, type, figure)) fail(`Could not place user ${ roomIndex }`);
+
+        engine.updateRoomObjectUserLocation(scene.roomId, roomIndex, location, null, canStandUp, height, direction, headDirection);
 
         if(figure) engine.updateRoomObjectUserFigure(scene.roomId, roomIndex, figure, placed.gender || null);
 
-        if(placed.posture) engine.updateRoomObjectUserPosture(scene.roomId, roomIndex, placed.posture, placed.postureParameter);
+        if(placed.posture) engine.updateRoomObjectUserPosture(scene.roomId, roomIndex, placed.posture, postureParts[0]);
 
         if(placed.effect) engine.updateRoomObjectUserEffect(scene.roomId, roomIndex, placed.effect, 0);
 
