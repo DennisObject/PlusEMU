@@ -1,43 +1,26 @@
-using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Users.Grants;
 
 namespace Plus.Communication.RCON.Commands.User;
 
-internal class TakeUserBadgeCommand : IRconCommand
+internal class TakeUserBadgeCommand : IAcknowledgedRconCommand
 {
-    private readonly IGameClientManager _gameClientManager;
-    public string Description => "This command is used to take a badge from a user.";
+    private readonly IUserGrantService _grants;
+    public string Description => "This command is used to take a badge from an offline user.";
 
     public string Key => "take_user_badge";
     public string Parameters => "%userId% %badgeId%";
 
-    public TakeUserBadgeCommand(IGameClientManager gameClientManager)
+    public TakeUserBadgeCommand(IUserGrantService grants)
     {
-        _gameClientManager = gameClientManager;
+        _grants = grants;
     }
 
-    public Task<bool> TryExecute(string[] parameters)
+    public Task<GrantOutcome> Execute(string[] parameters)
     {
-        if (!int.TryParse(parameters[0], out var userId)) {
-            return Task.FromResult(false);
+        if (parameters is not { Length: >= 2 } || !int.TryParse(parameters[0], out var userId)) {
+            return Task.FromResult(GrantOutcome.Fail(GrantOutcome.InvalidPayload));
         }
 
-        var client = _gameClientManager.GetClientByUserId(userId);
-
-        if (client?.GetHabbo() == null) {
-            return Task.FromResult(false);
-        }
-
-        // Validate the badge
-        if (string.IsNullOrEmpty(Convert.ToString(parameters[1]))) {
-            return Task.FromResult(false);
-        }
-
-        var badge = Convert.ToString(parameters[1]);
-
-        if (client.GetHabbo().Inventory.Badges.HasBadge(badge)) {
-            client.GetHabbo().Inventory.Badges.RemoveBadge(badge);
-        }
-
-        return Task.FromResult(true);
+        return _grants.TakeBadge(userId, parameters[1]);
     }
 }

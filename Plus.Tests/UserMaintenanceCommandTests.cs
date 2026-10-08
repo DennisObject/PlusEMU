@@ -1,5 +1,7 @@
+using Plus.Communication.RCON.Commands;
 using Plus.Communication.RCON.Commands.User;
 using Plus.HabboHotel.Users;
+using Plus.HabboHotel.Users.Grants;
 using Xunit;
 
 namespace Plus.Tests;
@@ -13,7 +15,7 @@ public sealed class UserMaintenanceCommandTests
     {
         var service = new RecordingService { Result = result };
 
-        Assert.Equal(result, await new GiveUserCurrencyCommand(service).TryExecute(parameters));
+        Assert.Equal(result, await ((IRconCommand)new GiveUserCurrencyCommand(service)).TryExecute(parameters));
         Assert.Equal(new[] { call }, service.Calls);
     }
 
@@ -30,7 +32,7 @@ public sealed class UserMaintenanceCommandTests
     {
         var service = new RecordingService { Result = true };
 
-        Assert.False(await new GiveUserCurrencyCommand(service).TryExecute(parameters));
+        Assert.False(await ((IRconCommand)new GiveUserCurrencyCommand(service)).TryExecute(parameters));
         Assert.Empty(service.Calls);
     }
 
@@ -48,7 +50,7 @@ public sealed class UserMaintenanceCommandTests
     {
         var service = new RecordingService { Result = true };
 
-        Assert.True(await new TakeUserCurrencyCommand(service).TryExecute(parameters));
+        Assert.True(await ((IRconCommand)new TakeUserCurrencyCommand(service)).TryExecute(parameters));
         Assert.Equal(new[] { call }, service.Calls);
     }
 
@@ -64,7 +66,7 @@ public sealed class UserMaintenanceCommandTests
     {
         var service = new RecordingService { Result = true };
 
-        Assert.False(await new TakeUserCurrencyCommand(service).TryExecute(parameters));
+        Assert.False(await ((IRconCommand)new TakeUserCurrencyCommand(service)).TryExecute(parameters));
         Assert.Empty(service.Calls);
     }
 
@@ -154,17 +156,17 @@ public sealed class UserMaintenanceCommandTests
     {
         public bool Result { get; init; }
         public List<string> Calls { get; } = [];
-        public Task<bool> GiveCurrency(int userId, string currency, int amount)
+        public Task<GrantOutcome> GiveCurrency(int userId, string currency, int amount)
         {
             Calls.Add($"give {userId} {currency} {amount}");
 
-            return Task.FromResult(Result);
+            return Task.FromResult(Result ? GrantOutcome.Success(new { }) : GrantOutcome.Fail(GrantOutcome.InvalidPayload));
         }
-        public Task<bool> TakeCurrency(int userId, string currency, int amount)
+        public Task<GrantOutcome> TakeCurrency(int userId, string currency, int amount)
         {
             Calls.Add($"take {userId} {currency} {amount}");
 
-            return Task.FromResult(Result);
+            return Task.FromResult(Result ? GrantOutcome.Success(new { }) : GrantOutcome.Fail(GrantOutcome.InvalidPayload));
         }
         public Task<bool> SyncCurrency(int userId, string currency)
         {

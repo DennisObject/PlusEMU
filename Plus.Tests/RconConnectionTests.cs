@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.RCON;
 using Plus.Communication.RCON.Commands;
+using Plus.HabboHotel.Users.Grants;
 using Xunit;
 
 namespace Plus.Tests;
@@ -123,6 +124,79 @@ public sealed class RconConnectionTests
         var line = await reader.ReadLineAsync().WaitAsync(timeout ?? TimeSpan.FromSeconds(2));
 
         return JsonDocument.Parse(line!).RootElement.Clone();
+    }
+
+    [Fact]
+    public async Task AnAcknowledgedCommandGetsItsLargeParameterAndRepliesWithItsOutcomeAndResult()
+    {
+        using var sockets = await ConnectedSockets.Create();
+        var payload = new string('A', 10_924);
+        var commands = new AcknowledgedCommands(_ => Task.FromResult(GrantOutcome.Success(new { balance = 7 })));
+        using var connection = new RconConnection(sockets.Server, NullLogger<RconConnection>.Instance, commands);
+
+        await sockets.Client.SendAsync(Encoding.UTF8.GetBytes("{\"command\":\"grant_user_bundle\",\"parameters\":[\"42\",\"order-1\",\"" + payload + "\"]}\n"));
+
+        var response = await ReadResponse(sockets.Client);
+        Assert.Equal(0, response.GetProperty("status").GetInt32());
+        Assert.Equal("ok", response.GetProperty("message").GetString());
+        Assert.Equal(7, response.GetProperty("result").GetProperty("balance").GetInt32());
+        Assert.False(response.TryGetProperty("detail", out _));
+        Assert.Equal(["42", "order-1", payload], commands.Received!);
+    }
+
+    [Theory]
+    [InlineData(0, "user_online")]
+    [InlineData(1, "busy")]
+    [InlineData(2, "internal_error")]
+    public async Task AnAcknowledgedRefusalOrFailureCarriesItsStableIdAndNoResult(int failure, string expected)
+    {
+        using var sockets = await ConnectedSockets.Create();
+        var commands = new AcknowledgedCommands(_ => failure switch
+        {
+            0 => Task.FromResult(GrantOutcome.Fail(GrantOutcome.UserOnline)),
+            1 => throw new TimeoutException(),
+            _ => throw new InvalidOperationException(),
+        });
+        using var connection = new RconConnection(sockets.Server, NullLogger<RconConnection>.Instance, commands);
+
+        await sockets.Client.SendAsync(Encoding.UTF8.GetBytes("{\"command\":\"take_user_badge\",\"parameters\":[\"42\",\"ACH\"]}\n"));
+
+        var response = await ReadResponse(sockets.Client);
+        Assert.Equal(1, response.GetProperty("status").GetInt32());
+        Assert.Equal(expected, response.GetProperty("message").GetString());
+        Assert.False(response.TryGetProperty("result", out _));
+    }
+
+    [Fact]
+    public async Task ARequestBeyondTheCapIsRejectedAsTooLarge()
+    {
+        using var sockets = await ConnectedSockets.Create();
+        var commands = new AcknowledgedCommands(_ => throw new InvalidOperationException("dispatched"));
+        using var connection = new RconConnection(sockets.Server, NullLogger<RconConnection>.Instance, commands);
+        var oversized = "{\"command\":\"grant_user_bundle\",\"parameters\":[\"42\",\"k\",\"" + new string('A', RconConnection.MaxRequestBytes) + "\"]}\n";
+
+        await sockets.Client.SendAsync(Encoding.UTF8.GetBytes(oversized));
+
+        Assert.Equal("too_large", (await ReadResponse(sockets.Client)).GetProperty("message").GetString());
+        Assert.Null(commands.Received);
+    }
+
+    private sealed class AcknowledgedCommands(Func<string[], Task<GrantOutcome>> execute) : ICommandManager, IAcknowledgedRconCommand
+    {
+        public string[]? Received { get; private set; }
+        public string Key => "acknowledged";
+        string IRconCommand.Parameters => string.Empty;
+        public string Description => string.Empty;
+
+        public bool Parse(string data) => throw new InvalidOperationException("Acknowledged commands are not parsed.");
+        public IAcknowledgedRconCommand Acknowledged(string command) => this;
+
+        public Task<GrantOutcome> Execute(string[] parameters)
+        {
+            Received = parameters;
+
+            return execute(parameters);
+        }
     }
 
     private sealed class RecordingCommands(bool result) : ICommandManager

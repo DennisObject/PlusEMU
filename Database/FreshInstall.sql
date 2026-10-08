@@ -1708,6 +1708,25 @@ CREATE TABLE `quests` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `rcon_grants`
+--
+
+DROP TABLE IF EXISTS `rcon_grants`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8mb4 */;
+CREATE TABLE `rcon_grants` (
+  `idempotency_key` varchar(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `payload_sha256` char(64) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL,
+  `status` varchar(16) CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL DEFAULT 'applied',
+  `result_json` mediumtext NOT NULL,
+  `created_at` datetime(6) NOT NULL DEFAULT current_timestamp(6),
+  PRIMARY KEY (`idempotency_key`),
+  KEY `idx_rcon_grants_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `recycler_levels`
 --
 
