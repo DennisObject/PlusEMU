@@ -714,6 +714,34 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await _http.SendAsync(stale)).StatusCode);
     }
 
+    [Fact]
+    public async Task FurnidataAtItsVersionIsImmutable()
+    {
+        await Start();
+        Assert.Equal(HttpStatusCode.NotFound, (await _http.GetAsync("/api/gamedata/furnidata/version")).StatusCode);
+        await _server!.Stop();
+
+        _furnidata = new("{\"roomitemtypes\":{}}"u8.ToArray(), "\"abc\"");
+        await Start();
+
+        var version = await _http.GetAsync("/api/gamedata/furnidata/version");
+        Assert.Equal(HttpStatusCode.OK, version.StatusCode);
+        Assert.True(version.Headers.CacheControl!.NoStore);
+        Assert.Equal("abc", (await Json(version)).GetProperty("version").GetString());
+
+        var current = await _http.GetAsync("/api/gamedata/furnidata?v=abc");
+        Assert.Equal("{\"roomitemtypes\":{}}", await current.Content.ReadAsStringAsync());
+        Assert.True(current.Headers.CacheControl!.Public);
+        Assert.Equal(TimeSpan.FromDays(365), current.Headers.CacheControl.MaxAge);
+        Assert.Contains("immutable", current.Headers.CacheControl.Extensions.Select(extension => extension.Name));
+
+        // An old version still gets the current content, which must not be cached for good.
+        var old = await _http.GetAsync("/api/gamedata/furnidata?v=old");
+        Assert.Equal("{\"roomitemtypes\":{}}", await old.Content.ReadAsStringAsync());
+        Assert.True(old.Headers.CacheControl!.NoCache);
+        Assert.Null(old.Headers.CacheControl.MaxAge);
+    }
+
     private sealed class FixedFurnidata(CatalogFurnidataFile? file) : ICatalogFurnidata
     {
         public CatalogFurnidataFile? Current() => file;
