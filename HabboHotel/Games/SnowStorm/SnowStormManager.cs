@@ -35,7 +35,6 @@ public sealed class SnowStormManager(
     private readonly ConcurrentQueue<Action<DateTimeOffset>> _commands = new();
     private readonly ConcurrentDictionary<int, DateTimeOffset> _blocks = new();
     private readonly ConcurrentDictionary<int, DateTimeOffset> _lastChat = new();
-    private readonly ConcurrentDictionary<int, DateTimeOffset> _lastVote = new();
     private readonly ConcurrentDictionary<int, int> _pendingInputs = new();
     private readonly List<SnowStormLobby> _lobbies = [];
     private readonly List<SnowStormGame> _games = [];
@@ -46,14 +45,13 @@ public sealed class SnowStormManager(
     private ITimer? _timer;
     private int _ticking;
     private int _nextId;
-    private int _nextArena;
 
     public int StartOrder => 80;
 
     /// <summary>Runs database work (paying for games, refunds, scores) off the ticker; tests run it inline.</summary>
     internal Action<Action> Background { get; set; } = work => Task.Run(work);
 
-    /// <summary>Spawns and arena tie-breaks; seeded in tests.</summary>
+    /// <summary>Arena picks and spawns; seeded in tests.</summary>
     internal Random Random { get; set; } = new();
 
     public Task Start()
@@ -123,19 +121,6 @@ public sealed class SnowStormManager(
     public void LoadStageReady(GameClient session) => Enqueue(session, (userId, now) => GameOf(userId)?.LoadStageReady(userId, now));
 
     public void PlayAgain(GameClient session) => Enqueue(session, (userId, _) => GameOf(userId)?.PlayAgain(userId));
-
-    public void VoteArena(GameClient session, int fieldType)
-    {
-        var userId = session.GetHabbo().Id;
-        var now = clock.GetUtcNow();
-
-        if (_lastVote.TryGetValue(userId, out var last) && now - last < ChatInterval) {
-            return;
-        }
-
-        _lastVote[userId] = now;
-        _commands.Enqueue(_ => Vote(userId, fieldType));
-    }
 
     public void Chat(GameClient session, string message)
     {
@@ -272,7 +257,6 @@ public sealed class SnowStormManager(
 
         if (_lobbyOf.TryGetValue(player.UserId, out var joined)) {
             player.Session.Send(new Game2GameLongDataComposer(joined.Snapshot()));
-            player.Session.Send(Votes(joined, config));
             SendCountdown(joined, player, now);
 
             return;
@@ -282,7 +266,7 @@ public sealed class SnowStormManager(
         var created = lobby == null;
 
         if (lobby == null) {
-            if (!arenas.TryGet(NextArena(config), out var arena)) {
+            if (!arenas.TryGet(RandomArena(config), out var arena)) {
                 player.Session.Send(new Game2JoiningGameFailedComposer(JoinFailedGeneric));
 
                 return;
@@ -293,11 +277,11 @@ public sealed class SnowStormManager(
         }
 
         player.TeamId = lobby.NextTeam();
-        AddToLobby(lobby, player, created, config);
+        AddToLobby(lobby, player, created);
         SendCountdown(lobby, player, now);
     }
 
-    private void AddToLobby(SnowStormLobby lobby, SnowStormParticipant player, bool created, SnowStormSettings config)
+    private void AddToLobby(SnowStormLobby lobby, SnowStormParticipant player, bool created)
     {
         foreach (var member in lobby.Players) {
             member.Session.Send(new Game2UserJoinedGameComposer(player.LobbyPlayer(), false));
@@ -306,35 +290,6 @@ public sealed class SnowStormManager(
         lobby.Players.Add(player);
         _lobbyOf[player.UserId] = lobby;
         player.Session.Send(created ? new Game2GameCreatedComposer(lobby.Snapshot()) : new Game2GameLongDataComposer(lobby.Snapshot()));
-        Broadcast(lobby, Votes(lobby, config));
-    }
-
-    // Arena voting (Plus extra): one vote per player while the lobby has not started; a re-vote moves the vote.
-    private void Vote(int userId, int fieldType)
-    {
-        var config = SnowStormSettings.Read(settings);
-
-        if (!_lobbyOf.TryGetValue(userId, out var lobby) || lobby.Starting || !Offered(config).Contains(fieldType) ||
-            lobby.Votes.TryGetValue(userId, out var current) && current == fieldType) {
-            return;
-        }
-
-        lobby.Votes[userId] = fieldType;
-        Broadcast(lobby, Votes(lobby, config));
-    }
-
-    private List<int> Offered(SnowStormSettings config)
-    {
-        var offered = config.Arenas.Where(fieldType => arenas.TryGet(fieldType, out _)).ToList();
-
-        return offered.Count > 0 ? offered : arenas.All.Select(arena => arena.FieldType).Take(1).ToList();
-    }
-
-    private SnowStormArenaVotesComposer Votes(SnowStormLobby lobby, SnowStormSettings config)
-    {
-        var offered = Offered(config);
-
-        return new SnowStormArenaVotesComposer(lobby.Tally(offered), lobby.Leading(offered));
     }
 
     private static void SendCountdown(SnowStormLobby lobby, SnowStormParticipant player, DateTimeOffset now)
@@ -347,7 +302,9 @@ public sealed class SnowStormManager(
         }
     }
 
-    private int NextArena(SnowStormSettings config)
+    // Every lobby, rematches included, plays an arena picked uniformly at random when it opens, so the arena it shows
+    // in GameCreated/GameLongData is the one GameStarted and EnterArena carry.
+    private int RandomArena(SnowStormSettings config)
     {
         var available = config.Arenas.Where(fieldType => arenas.TryGet(fieldType, out _)).ToList();
 
@@ -355,7 +312,7 @@ public sealed class SnowStormManager(
             return arenas.All.Count > 0 ? arenas.All[0].FieldType : -1;
         }
 
-        return available[_nextArena++ % available.Count];
+        return available[Random.Next(available.Count)];
     }
 
     private void Leave(int userId, bool notify, DateTimeOffset now)
@@ -411,12 +368,12 @@ public sealed class SnowStormManager(
             return;
         }
 
-        // Rematch: the same players (and teams) in a new lobby on the same arena.
-        var lobby = new SnowStormLobby(++_nextId, game.Arena, config.MaxPlayers) { KeepArena = true };
+        // Rematch: the same players (and teams) in a new lobby on a newly picked arena.
+        var lobby = new SnowStormLobby(++_nextId, arenas.TryGet(RandomArena(config), out var arena) ? arena : game.Arena, config.MaxPlayers);
         _lobbies.Add(lobby);
 
         foreach (var player in rematchers) {
-            AddToLobby(lobby, player, true, config);
+            AddToLobby(lobby, player, true);
         }
     }
 
@@ -531,10 +488,6 @@ public sealed class SnowStormManager(
             return;
         }
 
-        if (arenas.TryGet(lobby.ChooseArena(Offered(config), Random), out var voted)) {
-            lobby.Arena = voted;
-        }
-
         lobby.BalanceTeams();
         SnowStormGame game;
 
@@ -570,15 +523,12 @@ public sealed class SnowStormManager(
     private void RemoveFromLobby(SnowStormLobby lobby, SnowStormParticipant player, bool notifyOthers = true)
     {
         lobby.Players.Remove(player);
-        lobby.Votes.Remove(player.UserId);
         _lobbyOf.Remove(player.UserId);
 
-        if (notifyOthers && lobby.Players.Count > 0) {
+        if (notifyOthers) {
             foreach (var member in lobby.Players) {
                 member.Session.Send(new Game2UserLeftGameComposer(player.UserId));
             }
-
-            Broadcast(lobby, Votes(lobby, SnowStormSettings.Read(settings)));
         }
 
         if (lobby.Players.Count == 0) {
@@ -634,7 +584,6 @@ public sealed class SnowStormManager(
         }
 
         _lastChat.TryRemove(userId, out _);
-        _lastVote.TryRemove(userId, out _);
     }
 
     // Raised under the wallet lock: only queue the leave, the tick does the rest.
