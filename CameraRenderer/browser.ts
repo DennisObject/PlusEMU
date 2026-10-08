@@ -1,3 +1,4 @@
+import { cullOpaqueSprites } from './opaque-cull';
 import { buildAvatarEffectLibraries, avatarEffectsReady } from './effect-libraries.mjs';
 import
 {
@@ -879,7 +880,17 @@ async function renderRoom(job: CameraJob): Promise<string>
 
         if(failed.length) fail(`Missing library ${ failed[0] }`);
 
-        return await encodeCrop(roomId, requested.viewport, requested.effects, requested.zoom, requested.level);
+        const canvas = engine.getRoomInstanceRenderingCanvas(roomId, CANVAS_ID);
+        const restore = cullOpaqueSprites(canvas.display, requested.viewport);
+
+        try
+        {
+            return await encodeCrop(roomId, requested.viewport, requested.effects, requested.zoom, requested.level);
+        }
+        finally
+        {
+            restore();
+        }
     }
     finally
     {
