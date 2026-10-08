@@ -119,7 +119,7 @@ async function createPage(abort, furniture) {
     const context = await (await browser).newContext({viewport:{width:2048,height:2048},deviceScaleFactor:1,extraHTTPHeaders:{Authorization:`Bearer ${secret}`}});
     if (abort) abort.context = context;
     if (abort?.done) throw new Error('Camera render timed out');
-    const slot = { context, page: null, busy: true, preparing: null, roomId: 0, usedAt: 0, failures: [], furnitureVersion: furniture.version };
+    const slot = { context, page: null, busy: true, preparing: null, roomId: 0, geometry: null, usedAt: 0, failures: [], furnitureVersion: furniture.version };
     try {
         await context.route('**/*', async route => {
             const request = route.request();
@@ -146,20 +146,25 @@ async function createPage(abort, furniture) {
         throw error;
     }
 }
-function selectIdlePage(idle, roomId) {
-    return idle.filter(entry => entry.roomId === roomId).sort((a, b) => b.usedAt - a.usedAt)[0] ?? idle.sort((a, b) => a.usedAt - b.usedAt)[0];
+// A view as the room is drawn in it: size, offset and location, not where the crop sits.
+const viewGeometry = view => view ? [view.width, view.height, view.offsetX, view.offsetY, view.locationX, view.locationY, view.locationZ].join() : null;
+const leastRecentlyUsed = idle => idle.sort((a, b) => a.usedAt - b.usedAt)[0];
+// The page holding this room in this view, else the one that last had the room, else the one used least recently.
+function selectIdlePage(idle, roomId, geometry) {
+    const room = idle.filter(entry => entry.roomId === roomId).sort((a, b) => b.usedAt - a.usedAt);
+    return room.find(entry => geometry && entry.geometry === geometry) ?? room[0] ?? leastRecentlyUsed(idle);
 }
 // A free page that last prepared or photographed the room already holds its libraries. A preparing page is never
 // lent: its failures would belong to the photo. Waits for a preparation or a booting page happen outside the gate.
-async function borrowPage(abort, roomId) {
+async function borrowPage(abort, roomId, geometry) {
     borrowing++;
     try {
-        return await borrowIdlePage(abort, roomId);
+        return await borrowIdlePage(abort, roomId, geometry);
     } finally {
         borrowing--;
     }
 }
-async function borrowIdlePage(abort, roomId) {
+async function borrowIdlePage(abort, roomId, geometry) {
     for (;;) {
         const next = await withGate(async () => {
             if (abort?.done) throw new Error('Camera render timed out');
@@ -169,9 +174,8 @@ async function borrowIdlePage(abort, roomId) {
             const current = pool.filter(entry => !entry.busy && entry.furnitureVersion === furniture.version);
             const preparing = current.filter(entry => entry.preparing);
             const idle = current.filter(entry => !entry.preparing);
-            // The page that last prepared or photographed this room, else the one used least recently.
-            const slot = selectIdlePage(idle, roomId);
-            if (slot) { slot.busy = true; slot.roomId = roomId; slot.usedAt = performance.now(); slot.failures.length = 0; return { slot }; }
+            const slot = selectIdlePage(idle, roomId, geometry);
+            if (slot) { slot.busy = true; slot.roomId = roomId; slot.geometry = geometry; slot.usedAt = performance.now(); slot.failures.length = 0; return { slot }; }
             // A preparation may still be loading furniture since removed, so it is waited for only without a free page.
             const same = preparing.find(entry => entry.roomId === roomId);
             if (same) return { wait: same.preparing };
@@ -181,6 +185,7 @@ async function borrowIdlePage(abort, roomId) {
             const created = await createPage(abort, furniture);
             if (abort?.done) throw new Error('Camera render timed out');
             created.roomId = roomId;
+            created.geometry = geometry;
             created.usedAt = performance.now();
             pool.push(created);
             if (abort?.done) { pool.splice(pool.indexOf(created), 1); throw new Error('Camera render timed out'); }
@@ -224,23 +229,27 @@ async function revalidateCatalogue() {
 // photo waits, and the photo itself still renders the room as it is at the shutter.
 // A photo waiting for capacity or a page always comes first.
 const photoWaiting = () => queue.length > 0 || borrowing > 0;
-async function prepare(scene) {
+async function prepare(request) {
+    const { scene } = request;
     if (preparation || photoWaiting()) return false;
     preparation = (async () => {
         const started = await withGate(async () => {
             if (photoWaiting()) return null;
             const furniture = await currentCatalogue();
             const idle = pool.filter(entry => !entry.busy && !entry.preparing && entry.furnitureVersion === furniture.version);
-            // Otherwise take the page used least recently, leaving the other warm for its room.
-            const slot = selectIdlePage(idle, scene.roomId);
+            // A view prepares the page already holding it or the one used least recently, leaving another session's
+            // prepared view of the room in place.
+            const geometry = viewGeometry(request.viewport);
+            const slot = geometry ? (idle.find(entry => entry.roomId === scene.roomId && entry.geometry === geometry) ?? leastRecentlyUsed(idle)) : selectIdlePage(idle, scene.roomId, null);
             if (!slot) return null;
             slot.roomId = scene.roomId;
+            slot.geometry = geometry;
             slot.usedAt = performance.now();
             slot.failures.length = 0;
             const loading = slot.page.evaluate(async body => {
                 if (typeof window.cameraPrepare !== 'function') throw new Error('Camera preparation is unavailable');
                 await window.cameraPrepare(JSON.parse(body));
-            }, JSON.stringify({ scene }));
+            }, JSON.stringify(request));
             // The page stays out of reach until the load really ends, even after this request gives up on it, and its
             // failures end with it. A page whose preparation failed keeps that library pending for good, so it goes.
             // slot.preparing never rejects.
@@ -286,7 +295,7 @@ async function render(job) {
     const task = (async () => {
         try {
         await acquire(abort);
-        slot = await borrowPage(abort, job.scene.roomId);
+        slot = await borrowPage(abort, job.scene.roomId, viewGeometry(job.viewport));
         if (abort.done) throw new Error('Camera render timed out');
         // A string crosses into the page far faster than Playwright's object serialization of a large scene.
         const result = await slot.page.evaluate(async ({ body, smallSize }) => {
@@ -352,7 +361,7 @@ const server = http.createServer(async (request, response) => {
         if (url.pathname === '/prepare' && request.method === 'POST') {
             const body = await readJson(request);
             if (!body) {response.writeHead(413).end(); return;}
-            response.writeHead(await prepare(validatePreparation(body).scene) ? 204 : 409).end(); return;
+            response.writeHead(await prepare(validatePreparation(body)) ? 204 : 409).end(); return;
         }
         if (request.method !== 'GET') {response.writeHead(405).end(); return;}
         const path = decodeURIComponent(url.pathname);

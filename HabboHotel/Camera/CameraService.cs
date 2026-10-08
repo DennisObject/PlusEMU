@@ -16,7 +16,7 @@ namespace Plus.HabboHotel.Camera;
 public interface ICameraService
 {
     Task Handle(GameClient session, CameraRequestPayload payload, bool thumbnail);
-    void Prepare(GameClient session);
+    void Prepare(GameClient session, string? viewport = null);
     CameraCheckoutResult Checkout(GameClient session, Guid mediaId, Func<CameraCheckoutMedia, CameraCheckoutResult> operation);
 }
 
@@ -36,6 +36,7 @@ public sealed class CameraService : ICameraService, IDisposable
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     internal static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(30);
     internal static readonly TimeSpan PreparationInterval = TimeSpan.FromSeconds(30);
+    internal static readonly TimeSpan GeometryInterval = TimeSpan.FromSeconds(5);
 
     public CameraService(IOptions<CameraConfiguration> options, ISettingsManager settings, IDatabase database,
         ICameraEffectCatalogue catalogue, TimeProvider time, ILogger<CameraService> logger)
@@ -110,10 +111,11 @@ public sealed class CameraService : ICameraService, IDisposable
                 return new(false, "unavailable");
             }
     }
-    // Opening the camera loads the room's libraries into the renderer while the shot is framed. It reserves no quota
+    // Opening the camera prepares the room in the renderer while the shot is framed: its libraries, and the room itself
+    // in the camera's view when the camera sends one. It reserves no quota
     // and makes no draft; the shutter still photographs the room as it is then. One preparation runs at a time, each
     // session prepares a room at most once per interval, and the packet handler never waits for it.
-    public void Prepare(GameClient session)
+    public void Prepare(GameClient session, string? viewport = null)
     {
         var room = session.GetHabbo()?.CurrentRoom;
 
@@ -124,7 +126,10 @@ public sealed class CameraService : ICameraService, IDisposable
         var started = false;
 
         try {
-            if (!TryBeginPreparation(session, room.RoomId, out var token)) {
+            // An invalid viewport still prepares the room's libraries.
+            var view = CameraRequestParser.ParseViewport(viewport);
+
+            if (!TryBeginPreparation(session, room.RoomId, view, out var token)) {
                 return;
             }
 
@@ -133,7 +138,7 @@ public sealed class CameraService : ICameraService, IDisposable
             _ = Task.Run(async () =>
             {
                 try {
-                    await _renderer.Prepare(scene, token);
+                    await _renderer.Prepare(scene, view, token);
                 }
                 catch (Exception exception) {
                     // An ended camera context cancels the preparation; it no longer matters then.
@@ -157,9 +162,11 @@ public sealed class CameraService : ICameraService, IDisposable
         }
     }
 
-    // False while this session prepared the room recently. Leaving a room ends the camera context; the camera opened
-    // in the next room starts a new one, as a capture does.
-    internal bool TryBeginPreparation(GameClient session, uint roomId, out CancellationToken token)
+    // False while this session prepared the room recently: within the interval only a new viewport geometry prepares
+    // it again, and no more often than every few seconds. The crop position only moves the frame within the view, so
+    // it is not part of the geometry. Leaving a room ends the camera context; the camera opened in the next room starts
+    // a new one, as a capture does.
+    internal bool TryBeginPreparation(GameClient session, uint roomId, CameraViewport? viewport, out CancellationToken token)
     {
         var state = Session(session);
 
@@ -169,13 +176,16 @@ public sealed class CameraService : ICameraService, IDisposable
             }
 
             var now = _time.GetUtcNow();
+            var geometry = viewport is null ? null : viewport with { X = 0, Y = 0 };
             token = state.Cancellation.Token;
 
-            if (state.PreparedRoomId == roomId && now - state.PreparedAt < PreparationInterval) {
+            if (state.PreparedRoomId == roomId && now - state.PreparedAt < PreparationInterval &&
+                (geometry == null || geometry == state.PreparedGeometry || now - state.PreparedAt < GeometryInterval)) {
                 return false;
             }
 
             state.PreparedRoomId = roomId;
+            state.PreparedGeometry = geometry;
             state.PreparedAt = now;
 
             return true;
@@ -372,6 +382,7 @@ public sealed class CameraService : ICameraService, IDisposable
         public HashSet<Guid> Requests { get; } = new();
         public DateTime RequestDay { get; set; }
         public uint PreparedRoomId { get; set; }
+        public CameraViewport? PreparedGeometry { get; set; }
         public DateTimeOffset PreparedAt { get; set; }
     }
     private sealed record Draft(Guid Id, uint RoomId, DateTimeOffset CreatedAt, JsonElement Scene, CameraViewport Viewport)

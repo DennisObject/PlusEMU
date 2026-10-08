@@ -115,12 +115,7 @@ export function validPng(base64, size) {
 
 export function validateJob(job, catalogue) {
     if (!job || Object.keys(job).some(key => !['scene','viewport','effects','zoom','level'].includes(key))) throw new Error('Invalid render job');
-    const view = job.viewport;
-    const numeric = ['width','height','offsetX','offsetY','x','y','cropWidth','cropHeight','scale','locationX','locationY','locationZ'];
-    if (!view || Object.keys(view).length !== numeric.length || numeric.some(key => !Number.isFinite(view[key]))) throw new Error('Invalid viewport');
-    if (view.scale !== 1 || !Number.isInteger(view.width) || !Number.isInteger(view.height) || view.width < 320 || view.height < 320 || view.width > 2048 || view.height > 2048) throw new Error('Invalid viewport dimensions');
-    renderedPngSize(view.cropWidth, view.cropHeight);
-    if (['x','y','offsetX','offsetY'].some(key => Math.abs(view[key]) > 4096) || ['locationX','locationY','locationZ'].some(key => Math.abs(view[key]) > 256)) throw new Error('Invalid viewport position');
+    const view = validateViewport(job.viewport);
     job.zoom = cameraZoom(job.zoom, view.cropWidth);
     if (!Number.isInteger(job.level) || job.level < 0 || job.level > 1000 || !Array.isArray(job.effects) || job.effects.length > 8) throw new Error('Invalid effects');
     const names = new Set();
@@ -139,11 +134,21 @@ export function validateJob(job, catalogue) {
     return job;
 }
 
-// Preparation loads a scene's libraries ahead of its photo; it carries the scene alone.
+// Preparation readies a scene ahead of its photo. It carries the scene and, once the camera knows it, the viewport.
 export function validatePreparation(body) {
-    if (!body || Object.keys(body).some(key => key !== 'scene')) throw new Error('Invalid preparation');
+    if (!body || Object.keys(body).some(key => key !== 'scene' && key !== 'viewport')) throw new Error('Invalid preparation');
     validateScene(body.scene);
+    if (body.viewport !== undefined) validateViewport(body.viewport);
     return body;
+}
+
+function validateViewport(view) {
+    const numeric = ['width','height','offsetX','offsetY','x','y','cropWidth','cropHeight','scale','locationX','locationY','locationZ'];
+    if (!view || Object.keys(view).length !== numeric.length || numeric.some(key => !Number.isFinite(view[key]))) throw new Error('Invalid viewport');
+    if (view.scale !== 1 || !Number.isInteger(view.width) || !Number.isInteger(view.height) || view.width < 320 || view.height < 320 || view.width > 2048 || view.height > 2048) throw new Error('Invalid viewport dimensions');
+    renderedPngSize(view.cropWidth, view.cropHeight);
+    if (['x','y','offsetX','offsetY'].some(key => Math.abs(view[key]) > 4096) || ['locationX','locationY','locationZ'].some(key => Math.abs(view[key]) > 256)) throw new Error('Invalid viewport position');
+    return view;
 }
 
 function validateScene(scene) {

@@ -231,6 +231,25 @@ public class CameraRequestTests
         Assert.Equal(CameraRejectReason.None, service.Requests[0].Payload.FrameError);
     }
 
+    [Fact]
+    public void OpeningViewportFollowsThePhotoCaptureRules()
+    {
+        const string view = "{\"width\":1280,\"height\":900,\"offsetX\":-1.5,\"offsetY\":2,\"x\":320,\"y\":200,\"cropWidth\":320," +
+            "\"cropHeight\":320,\"scale\":1,\"locationX\":10.5,\"locationY\":-4,\"locationZ\":0}";
+
+        Assert.Equal(new CameraViewport(1280, 900, -1.5, 2, 320, 200, 320, 320, 1, 10.5, -4, 0), CameraRequestParser.ParseViewport(view));
+        Assert.Null(CameraRequestParser.ParseViewport(null));
+        Assert.Null(CameraRequestParser.ParseViewport(view.Replace("\"cropWidth\":320", "\"cropWidth\":110")));
+        Assert.Null(CameraRequestParser.ParseViewport(view.Replace("\"locationZ\":0", "\"locationZ\":257")));
+        Assert.Null(CameraRequestParser.ParseViewport(view.Replace("\"scale\":1", "\"scale\":2")));
+        Assert.Null(CameraRequestParser.ParseViewport(view.Replace("}", ",\"png\":\"AAAA\"}")));
+        Assert.Null(CameraRequestParser.ParseViewport(view.Replace("}", ",\"width\":1280}")));
+        Assert.Null(CameraRequestParser.ParseViewport(view.Replace("\"locationZ\":0", "\"locationZ\":1e999")));
+        Assert.Null(CameraRequestParser.ParseViewport(view + "{}"));
+        Assert.Null(CameraRequestParser.ParseViewport("{\"viewport\":" + view + "}"));
+        Assert.Null(CameraRequestParser.ParseViewport(view.Replace("}", ",\"pad\":\"" + new string('a', CameraRequestParser.MaxJsonBytes) + "\"}")));
+    }
+
     private sealed class RecordingCamera : ICameraService
     {
         public List<(CameraRequestPayload Payload, bool Thumbnail)> Requests { get; } = [];
@@ -242,7 +261,7 @@ public class CameraRequestTests
         }
         public CameraCheckoutResult Checkout(GameClient session, Guid mediaId,
             Func<CameraCheckoutMedia, CameraCheckoutResult> operation) => throw new InvalidOperationException();
-        public void Prepare(GameClient session) { }
+        public void Prepare(GameClient session, string? viewport = null) { }
     }
 
     private static string Capture(int crop, string extra = "") =>

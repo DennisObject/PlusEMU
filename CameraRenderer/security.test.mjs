@@ -200,10 +200,15 @@ test('a frame keeps its name and drops strength, and an unknown or locked effect
     assert.throws(() => validateJob(job(320, 320, [{ name: 'dark_sepia' }]), catalogue), /Invalid effect selection/);
 });
 
-test('a preparation carries a validated scene and nothing else', () => {
+test('a preparation carries a validated scene and optionally its validated viewport', () => {
     const scene = () => ({ ...job(320, 320).scene, users: [{ gesture: '0' }] });
     assert.equal(validatePreparation({ scene: scene() }).scene.users[0].gesture, '');
-    assert.throws(() => validatePreparation({ scene: scene(), viewport: viewport(320, 320) }), /Invalid preparation/);
+    assert.equal(validatePreparation({ scene: scene(), viewport: viewport(320, 320) }).viewport.cropWidth, 320);
+    assert.throws(() => validatePreparation({ scene: scene(), effects: [] }), /Invalid preparation/);
+    assert.throws(() => validatePreparation({ scene: scene(), viewport: viewport(320, 110) }), /Invalid viewport crop/);
+    assert.throws(() => validatePreparation({ scene: scene(), viewport: { ...viewport(320, 320), locationZ: 257 } }), /Invalid viewport position/);
+    assert.throws(() => validatePreparation({ scene: scene(), viewport: { ...viewport(320, 320), extra: 1 } }), /Invalid viewport/);
+    assert.throws(() => validatePreparation({ scene: scene(), viewport: null }), /Invalid viewport/);
     assert.throws(() => validatePreparation(null), /Invalid preparation/);
     assert.throws(() => validatePreparation({}), /Invalid server scene/);
     assert.throws(() => validatePreparation({ scene: { ...scene(), roomId: 0 } }), /Invalid server scene/);

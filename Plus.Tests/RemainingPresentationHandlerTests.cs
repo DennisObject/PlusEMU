@@ -41,17 +41,19 @@ public sealed class RemainingPresentationHandlerTests
         await new RefreshCampaignEvent(landing).Parse(null!, HabbiconTestSupport.Incoming());
         Assert.Equal(new[] { "id,name;" }, campaigns);
 
-        var cameraCalls = 0;
-        var photos = CatalogSnapshotTestSupport.Proxy<ICameraPhotoService>((method, _) =>
+        var viewports = new List<string?>();
+        var photos = CatalogSnapshotTestSupport.Proxy<ICameraPhotoService>((method, args) =>
         {
             Assert.Equal("Initialize", method);
-            cameraCalls++;
+            viewports.Add((string?)args[1]);
 
             return null;
         });
         await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming());
+        await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming("{\"width\":1280}"));
         await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming(1));
-        Assert.Equal(1, cameraCalls);
+        await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming("{}", 1));
+        Assert.Equal(new[] { null, "{\"width\":1280}" }, viewports);
     }
 
     [Theory]
