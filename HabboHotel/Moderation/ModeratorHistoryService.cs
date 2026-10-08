@@ -16,23 +16,38 @@ public interface IModeratorHistoryService
 public interface IModeratorUserLookup
 {
     Users.Habbo? GetById(int userId);
+
+    /// <summary>The name of a user who may not be online: history of someone who is offline is still history.</summary>
+    string? GetUsername(int userId) => GetById(userId)?.Username;
 }
 
 public sealed class ModeratorUserLookup : IModeratorUserLookup
 {
     public Users.Habbo? GetById(int userId) => PlusEnvironment.GetHabboById(userId);
+
+    public string? GetUsername(int userId) => PlusEnvironment.GetHabboById(userId)?.Username ?? PlusEnvironment.Game.CacheManager.GenerateUser(userId)?.Username;
 }
 
 public sealed class ModeratorHistoryService(
     IDatabase database,
     IRoomManager roomManager,
+    IRoomDataLoader roomData,
     IModeratorUserLookup userLookup,
     IChatlogManager chatlogManager,
     TimeProvider timeProvider) : IModeratorHistoryService
 {
     public ModeratorRoomChatlog? GetRoomChatlog(uint roomId)
     {
-        if (!roomManager.TryGetRoom(roomId, out var room)) {
+        // a room nobody is in is not loaded, but its history is still in the database
+        string? name;
+
+        if (roomManager.TryGetRoom(roomId, out var room)) {
+            name = room.Name;
+        }
+        else if (roomData.TryGetData(roomId, out var data)) {
+            name = data.Name;
+        }
+        else {
             return null;
         }
 
@@ -41,7 +56,7 @@ public sealed class ModeratorHistoryService(
         var entries = ResolveEntries(connection.Query<ChatlogRow>(
             "SELECT user_id AS UserId, `timestamp` AS Timestamp, message FROM chatlogs WHERE room_id=@roomId ORDER BY id DESC LIMIT 100", new { roomId }));
 
-        return new(new(room.Id, room.Name), entries);
+        return new(new(roomId, name), entries);
     }
 
     public ModeratorUserChatlog? GetUserChatlog(int userId)
@@ -88,7 +103,7 @@ public sealed class ModeratorHistoryService(
             rooms.Add(new(new(visit.RoomId, visit.RoomName), entries));
         }
 
-        return new(new(user.Id, user.Username), rooms.ToImmutableArray());
+        return new(user, rooms.ToImmutableArray());
     }
 
     public ModeratorUserRoomVisits? GetUserRoomVisits(int userId)
@@ -119,25 +134,31 @@ public sealed class ModeratorHistoryService(
             }
         }
 
-        return new(new(user.Id, user.Username), visits.ToImmutableArray());
+        return new(user, visits.ToImmutableArray());
     }
 
     private ImmutableArray<ModeratorChatEntry> ResolveEntries(IEnumerable<ChatlogRow> rows)
     {
         var entries = new List<ModeratorChatEntry>();
 
-        foreach (var row in rows) {
-            var user = GetUser(checked((int)row.UserId));
+        var names = new Dictionary<int, string?>();
 
-            if (user != null && row.Timestamp is { } createdAt) {
-                entries.Add(new(checked((int)row.UserId), user.Username, row.Message, createdAt));
+        foreach (var row in rows) {
+            var userId = checked((int)row.UserId);
+
+            if (!names.TryGetValue(userId, out var username)) {
+                username = names[userId] = userLookup.GetUsername(userId);
+            }
+
+            if (username != null && row.Timestamp is { } createdAt) {
+                entries.Add(new(userId, username, row.Message, createdAt));
             }
         }
 
         return entries.ToImmutableArray();
     }
 
-    private Users.Habbo? GetUser(int userId) => userLookup.GetById(userId);
+    private ModeratorUserIdentity? GetUser(int userId) => userLookup.GetUsername(userId) is { } name ? new(userId, name) : null;
     private sealed class ChatlogRow
     {
         public uint UserId { get; set; }

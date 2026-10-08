@@ -227,7 +227,7 @@ public sealed class RoomComponentDatabaseTests
             Assert.Equal(writtenAt.UtcDateTime, DateTime.SpecifyKind(
                 connection.QuerySingle<DateTime>("SELECT `timestamp` FROM chatlogs WHERE user_id = 10"), DateTimeKind.Utc));
             var history = new Plus.HabboHotel.Moderation.ModeratorHistoryService(
-                new ProbeDatabase(databaseConnection), null!, new TestModeratorUserLookup(), new TestChatlogManager(), visitClock);
+                new ProbeDatabase(databaseConnection), null!, null!, new TestModeratorUserLookup(), new TestChatlogManager(), visitClock);
             var roomVisits = Assert.IsType<Plus.HabboHotel.Moderation.ModeratorUserRoomVisits>(history.GetUserRoomVisits(7));
             var visit = Assert.Single(roomVisits.Visits);
             Assert.Equal((42u, "Probe room", DateTimeOffset.FromUnixTimeSeconds(2_200_000_000)),
