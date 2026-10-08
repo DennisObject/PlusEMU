@@ -1025,11 +1025,14 @@ def plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets=
     catalog, builders_club = merge_builders_club(catalog, lambda kind, class_id: lines.get((kind, class_id)))
     habbo = {(kind, entry['classname']): entry for kind, entry in furnidata_entries(habbo_furnidata)}
     source = {(kind, entry['id']): entry['classname'] for kind, entry in furnidata_entries(source_furnidata)}
-    needed = {(kind, source[(kind, class_id)]) for kind, class_id in capture_classnames(catalog) if (kind, class_id) in source}
+    sold = {(kind, source[(kind, class_id)]) for kind, class_id in capture_classnames(catalog) if (kind, class_id) in source}
+    # Every Habbo furnidata entry gets a definition, sold or not (rares, LTDs, retired furni).
+    needed = sold | set(habbo)
     clothing = {}
     for row in sorted(snapshot['catalog_clothing'], key=lambda r: r['id'], reverse=True):
         clothing[row['clothing_name']] = (row['id'], row['clothing_parts'])
     furniture = plan_furniture(snapshot['furniture'], habbo, needed, evidence, clothing)
+    furniture['report']['created_unsold'] = sum((row['type'], row['item_name']) not in sold for row in furniture['inserts'])
     by_name = {}
     for row in sorted(snapshot['furniture'], key=lambda r: (not r['has_furnidata'], r['id'])):
         by_name.setdefault((row['type'], row['item_name']), row['id'])
@@ -1152,7 +1155,7 @@ def build_report(result, snapshot, catalog, habbo, assets):
             'offers': summary['catalog_offers'], 'products': summary['catalog_offer_products'], 'page_offers': summary['catalog_page_offers'],
             'limited': summary['catalog_offer_limited'], 'promotions_replaced': len(result['promotions'] or []),
             'badges_defined': len(result['badges']), 'clothing_added': len(result['clothing']),
-            'furniture_created': len(furniture['created']), 'furniture_updated': len(result['furniture']['updates']),
+            'furniture_created': len(furniture['created']), 'furniture_created_unsold': furniture['created_unsold'], 'furniture_updated': len(result['furniture']['updates']),
             'sprite_moves': len(furniture['sprite_moves']), 'sprite_collisions': len(furniture['sprite_collisions']),
             'renamed': len(furniture['renamed']), 'stacking_turned_off': furniture['stacking_turned_off'], 'interactions_derived': len(furniture['derived']),
             'left_default_with_hint': len(furniture['left_default_with_hint']), 'writes': changes(result)},
