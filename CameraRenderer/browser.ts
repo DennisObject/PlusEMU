@@ -128,6 +128,21 @@ interface CameraPreparation
     libraries: number;
     figures: number;
     effects: number;
+    room: boolean;
+}
+
+interface RoomWatch
+{
+    failed: string[];
+    dimmer: RoomObjectDimmerStateUpdateEvent;
+    stop: () => void;
+}
+
+interface OpenedRoom
+{
+    key: string;
+    users: CameraSceneUser[];
+    dimmer: RoomObjectDimmerStateUpdateEvent;
 }
 
 interface CameraCatalogueEntry
@@ -140,6 +155,7 @@ interface CameraCatalogueEntry
 const CANVAS_ID = 1;
 const READY_BUDGET_MS = 14000;
 const TEARDOWN_DELAY_MS = 1000;
+const PREPARED_ROOM_TTL_MS = 30000;
 const PREPARE_BUDGET_MS = 10000;
 
 // Clients receive the room's thickness setting and use 2^clamp(value, -2, 1) (RoomVisualizationSettingsParser).
@@ -186,6 +202,7 @@ let effectLibraries: Map<string, string[]> = new Map();
 let renderQueue: Promise<void> = Promise.resolve();
 let renderedRoomId = 0;
 let teardownTimer: ReturnType<typeof setTimeout> = null;
+let preparedRoom: OpenedRoom = null;
 
 declare global
 {
@@ -195,7 +212,7 @@ declare global
         cameraReady: boolean;
         cameraEffects: readonly CameraCatalogueEntry[];
         cameraRender: (job: CameraJob) => Promise<string>;
-        cameraPrepare: (request: { scene: CameraScene }) => Promise<CameraPreparation>;
+        cameraPrepare: (request: { scene: CameraScene, viewport?: CameraViewport }) => Promise<CameraPreparation>;
     }
 }
 
@@ -830,10 +847,87 @@ function tearDownRenderedRoom(): void
 {
     clearTimeout(teardownTimer);
     teardownTimer = null;
+    preparedRoom = null;
 
     if(renderedRoomId) GetRoomEngine().destroyRoom(renderedRoomId);
 
     renderedRoomId = 0;
+}
+
+function keepRoom(roomId: number, delay: number): void
+{
+    renderedRoomId = roomId;
+    teardownTimer = setTimeout(tearDownRenderedRoom, delay);
+}
+
+// An opened room depends only on the scene and on the viewport fields mountDisplay reads.
+// Crop, zoom and effects are applied when the photo is taken.
+function roomKey(requested: CameraJob): string
+{
+    const { width, height, offsetX, offsetY, locationX, locationY, locationZ } = requested.viewport;
+
+    return JSON.stringify([ requested.scene, width, height, offsetX, offsetY, locationX, locationY, locationZ ]);
+}
+
+function watchRoom(roomId: number): RoomWatch
+{
+    const engine = GetRoomEngine();
+    const watch: RoomWatch = { failed: [], dimmer: null, stop: null };
+    const onFailure = (event: RoomContentLoadedEvent) =>
+    {
+        if(event?.contentType) watch.failed.push(event.contentType);
+    };
+    const onRejection = (event: PromiseRejectionEvent) =>
+    {
+        const message = (event.reason instanceof Error) ? event.reason.message : String(event.reason ?? '');
+
+        if(/download|could not load|missing library/i.test(message)) watch.failed.push(message);
+    };
+    // The client applies a moodlight from its UI (useFurnitureDimmerWidget, useRoom), and
+    // RoomEngine.init, which routes furniture events, is never run here. Keep the dimmer
+    // logic's own state for the room being rendered and apply it once the room is ready:
+    // a cached dimmer reports before the room logic's first update, and a color change at
+    // room time 0 is ignored.
+    const onDimmerState = (event: RoomObjectDimmerStateUpdateEvent) =>
+    {
+        if(event?.object && (engine.getRoomObjectWall(roomId, event.object.id) === event.object)) watch.dimmer = event;
+    };
+
+    GetEventDispatcher().addEventListener<RoomContentLoadedEvent>(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
+    GetEventDispatcher().addEventListener<RoomObjectDimmerStateUpdateEvent>(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
+    window.addEventListener('unhandledrejection', onRejection);
+
+    watch.stop = () =>
+    {
+        GetEventDispatcher().removeEventListener(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
+        GetEventDispatcher().removeEventListener(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
+        window.removeEventListener('unhandledrejection', onRejection);
+    };
+
+    return watch;
+}
+
+// Builds the room and waits until every object, figure, effect and wall photo is ready.
+async function openRoom(requested: CameraJob, watch: RoomWatch): Promise<OpenedRoom>
+{
+    const engine = GetRoomEngine();
+    const roomId = requested.scene.roomId;
+
+    tearDownRenderedRoom();
+    engine.destroyRoom(roomId);
+    engine.getLegacyWallGeometry(roomId);
+    renderedRoomId = roomId;
+
+    const placed = buildRoom(requested.scene);
+
+    mountDisplay(requested.scene, requested.viewport);
+    placeFurniture(requested.scene, placed.floorItems, placed.wallItems);
+
+    const users = placeUsers(requested.scene);
+
+    await waitUntilReady(roomId, users, placed.libraries, placed.floorItems.length, placed.wallItems.length, watch.failed);
+
+    return { key: roomKey(requested), users, dimmer: watch.dimmer };
 }
 
 async function renderRoom(job: CameraJob): Promise<string>
@@ -841,59 +935,29 @@ async function renderRoom(job: CameraJob): Promise<string>
     const requested = readJob(job);
     const engine = GetRoomEngine();
     const roomId = requested.scene.roomId;
-    const failed: string[] = [];
-    const onFailure = (event: RoomContentLoadedEvent) =>
-    {
-        if(event?.contentType) failed.push(event.contentType);
-    };
-    const onRejection = (event: PromiseRejectionEvent) =>
-    {
-        const message = (event.reason instanceof Error) ? event.reason.message : String(event.reason ?? '');
-
-        if(/download|could not load|missing library/i.test(message)) failed.push(message);
-    };
-    // The client applies a moodlight from its UI (useFurnitureDimmerWidget, useRoom), and
-    // RoomEngine.init, which routes furniture events, is never run here. Keep the dimmer
-    // logic's own state for the room being rendered and apply it once the room is ready:
-    // a cached dimmer reports before the room logic's first update, and a color change at
-    // room time 0 is ignored.
-    let dimmerState: RoomObjectDimmerStateUpdateEvent = null;
-    const onDimmerState = (event: RoomObjectDimmerStateUpdateEvent) =>
-    {
-        if(event?.object && (engine.getRoomObjectWall(roomId, event.object.id) === event.object)) dimmerState = event;
-    };
-    let opened = false;
-
-    GetEventDispatcher().addEventListener<RoomContentLoadedEvent>(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
-    GetEventDispatcher().addEventListener<RoomObjectDimmerStateUpdateEvent>(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
-    window.addEventListener('unhandledrejection', onRejection);
+    const watch = watchRoom(roomId);
 
     try
     {
-        tearDownRenderedRoom();
-        engine.destroyRoom(roomId);
-        engine.getLegacyWallGeometry(roomId);
-        opened = true;
+        // A room prepared from this exact scene and mount viewport is used once. Any other
+        // capture builds its own room.
+        const prepared = ((preparedRoom?.key === roomKey(requested)) && (renderedRoomId === roomId)) ? preparedRoom : null;
 
-        const placed = buildRoom(requested.scene);
+        clearTimeout(teardownTimer);
+        preparedRoom = null;
 
-        mountDisplay(requested.scene, requested.viewport);
-        placeFurniture(requested.scene, placed.floorItems, placed.wallItems);
+        const opened = prepared ?? await openRoom(requested, watch);
 
-        const users = placeUsers(requested.scene);
-
-        await waitUntilReady(roomId, users, placed.libraries, placed.floorItems.length, placed.wallItems.length, failed);
-
-        if(dimmerState?.state) applyMoodlight(roomId, dimmerState);
+        if(opened.dimmer?.state) applyMoodlight(roomId, opened.dimmer);
 
         stripAdvertisements(roomId);
-        applyGestures(roomId, users);
+        applyGestures(roomId, opened.users);
 
         const engineTime = { value: GetTicker().lastTime };
 
         for(let frame = 0; frame < 3; frame++) await pump(engineTime);
 
-        if(failed.length) fail(`Missing library ${ failed[0] }`);
+        if(watch.failed.length) fail(`Missing library ${ watch.failed[0] }`);
 
         const canvas = engine.getRoomInstanceRenderingCanvas(roomId, CANVAS_ID);
         const restore = cullOpaqueSprites(canvas.display, requested.viewport);
@@ -909,24 +973,52 @@ async function renderRoom(job: CameraJob): Promise<string>
     }
     finally
     {
-        GetEventDispatcher().removeEventListener(RoomContentLoadedEvent.RCLE_FAILURE, onFailure);
-        GetEventDispatcher().removeEventListener(RoomObjectDimmerStateUpdateEvent.DIMMER_STATE, onDimmerState);
-        window.removeEventListener('unhandledrejection', onRejection);
+        watch.stop();
 
-        if(opened)
-        {
-            renderedRoomId = roomId;
-            teardownTimer = setTimeout(tearDownRenderedRoom, TEARDOWN_DELAY_MS);
-        }
+        if(renderedRoomId) keepRoom(renderedRoomId, TEARDOWN_DELAY_MS);
+    }
+}
+
+// Opens the room a capture of this scene and viewport would build, so that capture only takes
+// its final frames. Kept until it is captured, another room is opened or the TTL ends.
+async function openPreparedRoom(scene: CameraScene, viewport: CameraViewport): Promise<boolean>
+{
+    const requested = readJob({ scene, viewport, effects: [], zoom: false, level: 0 });
+    const watch = watchRoom(requested.scene.roomId);
+
+    try
+    {
+        const opened = await openRoom(requested, watch);
+
+        if(watch.failed.length) fail(`Missing library ${ watch.failed[0] }`);
+
+        keepRoom(requested.scene.roomId, PREPARED_ROOM_TTL_MS);
+        preparedRoom = opened;
+
+        return true;
+    }
+    catch(error)
+    {
+        tearDownRenderedRoom();
+
+        throw error;
+    }
+    finally
+    {
+        watch.stop();
     }
 }
 
 // Downloads what a capture of this scene will need through the engine's own loaders, which a
-// capture shares. It never queues, never touches a room and proves nothing: the capture still
-// validates and waits for the scene it is given.
-async function prepareScene(request: { scene: CameraScene }): Promise<CameraPreparation>
+// capture shares. Given the capture's viewport it then opens that room in the render queue. A
+// capture still validates its own scene and only uses a room prepared from the identical one.
+async function prepareScene(request: { scene: CameraScene, viewport?: CameraViewport }): Promise<CameraPreparation>
 {
     const scene = readScene(request?.scene);
+
+    // A viewport that the capture could not use is refused before anything is loaded.
+    if(request.viewport != null) readJob({ scene, viewport: request.viewport, effects: [], zoom: false, level: 0 });
+
     const content = GetRoomContentLoader();
     const avatars = GetAvatarRenderManager();
     const libraries = new Set(scene.items.map(item => readItem(item).library));
@@ -996,7 +1088,9 @@ async function prepareScene(request: { scene: CameraScene }): Promise<CameraPrep
 
         libraries.forEach(assertSupportedLibrary);
 
-        return { libraries: libraries.size, figures: figures.length, effects: users.filter(user => user.effect).length };
+        const room = (request.viewport != null) && await queued(() => openPreparedRoom(scene, request.viewport));
+
+        return { libraries: libraries.size, figures: figures.length, effects: users.filter(user => user.effect).length, room };
     }
     finally
     {
@@ -1004,13 +1098,19 @@ async function prepareScene(request: { scene: CameraScene }): Promise<CameraPrep
     }
 }
 
-function enqueue(job: CameraJob): Promise<string>
+// Captures and prepared rooms share the page's one room, one at a time.
+function queued<T>(task: () => Promise<T>): Promise<T>
 {
-    const run = renderQueue.then(() => renderRoom(job));
+    const run = renderQueue.then(task);
 
     renderQueue = run.then(() => undefined, () => undefined);
 
     return run;
+}
+
+function enqueue(job: CameraJob): Promise<string>
+{
+    return queued(() => renderRoom(job));
 }
 
 async function loadEffectLibraries(): Promise<Map<string, string[]>>
