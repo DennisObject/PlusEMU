@@ -142,8 +142,12 @@ interface RoomWatch
 interface OpenedRoom
 {
     key: string;
+    shellKey: string;
     users: CameraSceneUser[];
     dimmer: RoomObjectDimmerStateUpdateEvent;
+    libraries: Set<string>;
+    floorCount: number;
+    wallCount: number;
 }
 
 interface CameraCatalogueEntry
@@ -863,11 +867,17 @@ function keepRoom(roomId: number, delay: number): void
 
 // An opened room depends only on the scene and on the viewport fields mountDisplay reads.
 // Crop, zoom and effects are applied when the photo is taken.
-function roomKey(requested: CameraJob): string
+function roomKey(requested: CameraJob, scene: CameraScene = requested.scene): string
 {
     const { width, height, offsetX, offsetY, locationX, locationY, locationZ } = requested.viewport;
 
-    return JSON.stringify([ requested.scene, width, height, offsetX, offsetY, locationX, locationY, locationZ ]);
+    return JSON.stringify([ scene, width, height, offsetX, offsetY, locationX, locationY, locationZ ]);
+}
+
+// The same room without its avatars, pets and bots: everything else in the scene must match.
+function shellKey(requested: CameraJob): string
+{
+    return roomKey(requested, { ...requested.scene, users: [] });
 }
 
 function watchRoom(roomId: number): RoomWatch
@@ -928,7 +938,25 @@ async function openRoom(requested: CameraJob, watch: RoomWatch): Promise<OpenedR
 
     await waitUntilReady(roomId, users, placed.libraries, placed.floorItems.length, placed.wallItems.length, watch.failed);
 
-    return { key: roomKey(requested), users, dimmer: watch.dimmer };
+    return { key: roomKey(requested), shellKey: shellKey(requested), users, dimmer: watch.dimmer, libraries: placed.libraries, floorCount: placed.floorItems.length, wallCount: placed.wallItems.length };
+}
+
+// Only the units differ from the kept room: every unit is removed and the scene's units are
+// placed and awaited as a new room places them. Furniture, walls and the moodlight stay.
+async function replaceUnits(requested: CameraJob, kept: OpenedRoom, watch: RoomWatch): Promise<OpenedRoom>
+{
+    const engine = GetRoomEngine();
+    const roomId = requested.scene.roomId;
+
+    for(const unit of engine.getRoomObjects(roomId, RoomObjectCategory.UNIT)) engine.removeRoomObjectUser(roomId, unit.id);
+
+    if(engine.getRoomObjects(roomId, RoomObjectCategory.UNIT).length) fail('Room units were not removed');
+
+    const users = placeUsers(requested.scene);
+
+    await waitUntilReady(roomId, users, kept.libraries, kept.floorCount, kept.wallCount, watch.failed);
+
+    return { ...kept, key: roomKey(requested), users };
 }
 
 async function renderRoom(job: CameraJob): Promise<string>
@@ -941,13 +969,18 @@ async function renderRoom(job: CameraJob): Promise<string>
     try
     {
         // A room opened for this exact scene and mount viewport, by a preparation or an earlier
-        // capture, is captured again. Any other capture builds its own room.
-        const prepared = ((preparedRoom?.key === roomKey(requested)) && (renderedRoomId === roomId)) ? preparedRoom : null;
+        // capture, is captured again; one that differs only in its units gets new units. Any
+        // other capture builds its own room.
+        const kept = (renderedRoomId === roomId) ? preparedRoom : null;
 
         clearTimeout(teardownTimer);
         preparedRoom = null;
 
-        const opened = prepared ?? await openRoom(requested, watch);
+        let opened: OpenedRoom = null;
+
+        if(kept?.key === roomKey(requested)) opened = kept;
+        else if(kept?.shellKey === shellKey(requested)) opened = await replaceUnits(requested, kept, watch);
+        else opened = await openRoom(requested, watch);
         let captured: string = null;
 
         if(opened.dimmer?.state) applyMoodlight(roomId, opened.dimmer);
