@@ -939,14 +939,15 @@ async function renderRoom(job: CameraJob): Promise<string>
 
     try
     {
-        // A room prepared from this exact scene and mount viewport is used once. Any other
-        // capture builds its own room.
+        // A room opened for this exact scene and mount viewport, by a preparation or an earlier
+        // capture, is captured again. Any other capture builds its own room.
         const prepared = ((preparedRoom?.key === roomKey(requested)) && (renderedRoomId === roomId)) ? preparedRoom : null;
 
         clearTimeout(teardownTimer);
         preparedRoom = null;
 
         const opened = prepared ?? await openRoom(requested, watch);
+        let captured: string = null;
 
         if(opened.dimmer?.state) applyMoodlight(roomId, opened.dimmer);
 
@@ -964,23 +965,48 @@ async function renderRoom(job: CameraJob): Promise<string>
 
         try
         {
-            return await encodeCrop(roomId, requested.viewport, requested.effects, requested.zoom, requested.level);
+            captured = await encodeCrop(roomId, requested.viewport, requested.effects, requested.zoom, requested.level);
         }
         finally
         {
             restore();
         }
+
+        // Kept for the next shot of the same scene; any failure tears the room down instead.
+        preparedRoom = opened;
+
+        return captured;
     }
     finally
     {
         watch.stop();
 
-        if(renderedRoomId) keepRoom(renderedRoomId, TEARDOWN_DELAY_MS);
+        if(renderedRoomId) keepRoom(renderedRoomId, preparedRoom ? PREPARED_ROOM_TTL_MS : TEARDOWN_DELAY_MS);
+    }
+}
+
+// Draws a prepared room once without reading it back, so its textures are on the GPU and the
+// cull has read their alpha before the shutter. It runs no engine update, so nothing moves.
+function warmRoom(roomId: number, viewport: CameraViewport): void
+{
+    const engine = GetRoomEngine();
+    const canvas = engine.getRoomInstanceRenderingCanvas(roomId, CANVAS_ID);
+    const restore = cullOpaqueSprites(canvas.display, viewport);
+
+    try
+    {
+        const texture = engine.createTextureFromRoom(roomId, CANVAS_ID, new OctaneRectangle(viewport.x, viewport.y, viewport.cropWidth, viewport.cropHeight));
+
+        texture?.destroy(true);
+    }
+    finally
+    {
+        restore();
     }
 }
 
 // Opens the room a capture of this scene and viewport would build, so that capture only takes
-// its final frames. Kept until it is captured, another room is opened or the TTL ends.
+// its final frames. Kept until another room is opened, a capture fails or the TTL ends.
 async function openPreparedRoom(scene: CameraScene, viewport: CameraViewport): Promise<boolean>
 {
     const requested = readJob({ scene, viewport, effects: [], zoom: false, level: 0 });
@@ -992,6 +1018,7 @@ async function openPreparedRoom(scene: CameraScene, viewport: CameraViewport): P
 
         if(watch.failed.length) fail(`Missing library ${ watch.failed[0] }`);
 
+        warmRoom(requested.scene.roomId, requested.viewport);
         keepRoom(requested.scene.roomId, PREPARED_ROOM_TTL_MS);
         preparedRoom = opened;
 
