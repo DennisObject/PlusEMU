@@ -15,6 +15,8 @@ public interface ICatalogManager
     // First page the user can open that sells this offer.
     bool TryGetOffer(int offerId, Habbo habbo, [NotNullWhen(true)] out CatalogPage? page, [NotNullWhen(true)] out CatalogOffer? offer);
     ICollection<CatalogPage> Pages { get; }
+    // Goes up by one each time the catalog is loaded.
+    int Revision { get; }
     ICollection<CatalogPromotion> Promotions { get; }
     ICollection<ClubOffer> ClubOffers { get; }
     bool TryGetClubOffer(int offerId, [NotNullWhen(true)] out ClubOffer? offer);
