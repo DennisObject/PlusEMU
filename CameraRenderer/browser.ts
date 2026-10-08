@@ -37,7 +37,6 @@ import
     RoomObjectVariable,
     RoomPlaneParser,
     RoomVariableEnum,
-    TextureUtils,
     Vector3d,
     loadGamedata
 } from '@octane/renderer';
@@ -142,8 +141,12 @@ interface RoomWatch
 interface OpenedRoom
 {
     key: string;
+    shellKey: string;
     users: CameraSceneUser[];
     dimmer: RoomObjectDimmerStateUpdateEvent;
+    libraries: Set<string>;
+    floorCount: number;
+    wallCount: number;
 }
 
 interface CameraCatalogueEntry
@@ -863,11 +866,17 @@ function keepRoom(roomId: number, delay: number): void
 
 // An opened room depends only on the scene and on the viewport fields mountDisplay reads.
 // Crop, zoom and effects are applied when the photo is taken.
-function roomKey(requested: CameraJob): string
+function roomKey(requested: CameraJob, scene: CameraScene = requested.scene): string
 {
     const { width, height, offsetX, offsetY, locationX, locationY, locationZ } = requested.viewport;
 
-    return JSON.stringify([ requested.scene, width, height, offsetX, offsetY, locationX, locationY, locationZ ]);
+    return JSON.stringify([ scene, width, height, offsetX, offsetY, locationX, locationY, locationZ ]);
+}
+
+// The same room without its avatars, pets and bots: everything else in the scene must match.
+function shellKey(requested: CameraJob): string
+{
+    return roomKey(requested, { ...requested.scene, users: [] });
 }
 
 function watchRoom(roomId: number): RoomWatch
@@ -928,7 +937,25 @@ async function openRoom(requested: CameraJob, watch: RoomWatch): Promise<OpenedR
 
     await waitUntilReady(roomId, users, placed.libraries, placed.floorItems.length, placed.wallItems.length, watch.failed);
 
-    return { key: roomKey(requested), users, dimmer: watch.dimmer };
+    return { key: roomKey(requested), shellKey: shellKey(requested), users, dimmer: watch.dimmer, libraries: placed.libraries, floorCount: placed.floorItems.length, wallCount: placed.wallItems.length };
+}
+
+// Only the units differ from the kept room: every unit is removed and the scene's units are
+// placed and awaited as a new room places them. Furniture, walls and the moodlight stay.
+async function replaceUnits(requested: CameraJob, kept: OpenedRoom, watch: RoomWatch): Promise<OpenedRoom>
+{
+    const engine = GetRoomEngine();
+    const roomId = requested.scene.roomId;
+
+    for(const unit of engine.getRoomObjects(roomId, RoomObjectCategory.UNIT)) engine.removeRoomObjectUser(roomId, unit.id);
+
+    if(engine.getRoomObjects(roomId, RoomObjectCategory.UNIT).length) fail('Room units were not removed');
+
+    const users = placeUsers(requested.scene);
+
+    await waitUntilReady(roomId, users, kept.libraries, kept.floorCount, kept.wallCount, watch.failed);
+
+    return { ...kept, key: roomKey(requested), users };
 }
 
 async function renderRoom(job: CameraJob): Promise<string>
@@ -941,13 +968,18 @@ async function renderRoom(job: CameraJob): Promise<string>
     try
     {
         // A room opened for this exact scene and mount viewport, by a preparation or an earlier
-        // capture, is captured again. Any other capture builds its own room.
-        const prepared = ((preparedRoom?.key === roomKey(requested)) && (renderedRoomId === roomId)) ? preparedRoom : null;
+        // capture, is captured again; one that differs only in its units gets new units. Any
+        // other capture builds its own room.
+        const kept = (renderedRoomId === roomId) ? preparedRoom : null;
 
         clearTimeout(teardownTimer);
         preparedRoom = null;
 
-        const opened = prepared ?? await openRoom(requested, watch);
+        let opened: OpenedRoom = null;
+
+        if(kept?.key === roomKey(requested)) opened = kept;
+        else if(kept?.shellKey === shellKey(requested)) opened = await replaceUnits(requested, kept, watch);
+        else opened = await openRoom(requested, watch);
         let captured: string = null;
 
         if(opened.dimmer?.state) applyMoodlight(roomId, opened.dimmer);
@@ -986,22 +1018,17 @@ async function renderRoom(job: CameraJob): Promise<string>
     }
 }
 
-// Draws a prepared room once without reading it back, so its textures are on the GPU and the
-// cull has read their alpha before the shutter. It runs no engine update, so nothing moves.
-function warmRoom(roomId: number, viewport: CameraViewport): void
+// Takes one plain photo of a prepared room and discards it, so the shutter's photo finds the
+// textures on the GPU, the cull's alpha read and the image encoders started. It runs no engine
+// update, so nothing moves.
+async function warmRoom(roomId: number, viewport: CameraViewport): Promise<void>
 {
-    const engine = GetRoomEngine();
-    const canvas = engine.getRoomInstanceRenderingCanvas(roomId, CANVAS_ID);
+    const canvas = GetRoomEngine().getRoomInstanceRenderingCanvas(roomId, CANVAS_ID);
     const restore = cullOpaqueSprites(canvas.display, viewport);
 
     try
     {
-        const texture = engine.createTextureFromRoom(roomId, CANVAS_ID, new OctaneRectangle(viewport.x, viewport.y, viewport.cropWidth, viewport.cropHeight));
-
-        // Reading one pixel waits until the draw has really run, not just been queued.
-        if(texture) TextureUtils.getPixels({ target: texture, frame: new OctaneRectangle(0, 0, 1, 1) });
-
-        texture?.destroy(true);
+        await encodeCrop(roomId, viewport, [], false, 0);
     }
     finally
     {
@@ -1022,7 +1049,7 @@ async function openPreparedRoom(scene: CameraScene, viewport: CameraViewport): P
 
         if(watch.failed.length) fail(`Missing library ${ watch.failed[0] }`);
 
-        warmRoom(requested.scene.roomId, requested.viewport);
+        await warmRoom(requested.scene.roomId, requested.viewport);
         keepRoom(requested.scene.roomId, PREPARED_ROOM_TTL_MS);
         preparedRoom = opened;
 
