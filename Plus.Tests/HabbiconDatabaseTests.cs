@@ -496,7 +496,7 @@ public class HabbiconDatabaseTests
     {
         Execute("INSERT IGNORE INTO users_settings (user_id) VALUES (910001); INSERT IGNORE INTO user_statistics (id) VALUES (910001)");
         habbo.SessionStartedAt = DateTimeOffset.UtcNow;
-        habbo.Persistence = new UserPersistenceService(_database, TimeProvider.System);
+        habbo.Persistence = new UserPersistenceService(_database, TimeProvider.System, TestGameClientManager.Empty);
         habbo.Save();
     }
 

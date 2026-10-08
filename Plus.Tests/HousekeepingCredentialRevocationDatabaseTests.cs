@@ -464,7 +464,8 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
         // Habbo.Init loads effects and clothing through the static database.
         StaticDatabase.SetValue(null, _database);
 
-        return new(Array.Empty<IAuthenticationTask>(), _clients, factory, tickets ?? _tickets, _gate);
+        return new(Array.Empty<IAuthenticationTask>(), _clients, factory, tickets ?? _tickets, _gate,
+            new UserPersistenceService(_database, TimeProvider.System, _clients));
     }
 
     /// <summary>Loads the target from the database, then holds the login until released.</summary>

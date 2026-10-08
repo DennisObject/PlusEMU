@@ -11,15 +11,17 @@ internal class Authenticator : IAuthenticator
     private readonly IUserDataFactory _userDataFactory;
     private readonly ISsoTicketStore _ssoTickets;
     private readonly IAccountSessionGate _sessionGate;
+    private readonly IUserPersistenceService _persistence;
 
     public Authenticator(IEnumerable<IAuthenticationTask> authenticationTasks, IGameClientManager gameClientManager, IUserDataFactory userDataFactory, ISsoTicketStore ssoTickets,
-        IAccountSessionGate sessionGate)
+        IAccountSessionGate sessionGate, IUserPersistenceService persistence)
     {
         _authenticationTasks = authenticationTasks;
         _gameClientManager = gameClientManager;
         _userDataFactory = userDataFactory;
         _ssoTickets = ssoTickets;
         _sessionGate = sessionGate;
+        _persistence = persistence;
     }
 
     public async Task<AuthenticationError?> AuthenticateUsingSSO(GameClient session, string sso)
@@ -84,6 +86,7 @@ internal class Authenticator : IAuthenticator
             }
         }
 
+        _persistence.MarkOnline(session, habbo.Id);
         await RaiseHabboLoggedIn(habbo);
 
         return null;

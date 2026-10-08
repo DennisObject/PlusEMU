@@ -159,6 +159,7 @@ public sealed class ModeratorTargetHierarchyTests
     {
         public (int, string, object?)? Update;
         public void Save(Habbo habbo, bool reopenModerationTickets = false) => throw new NotSupportedException();
+        public void MarkOnline(GameClient session, int userId) => throw new NotSupportedException();
         public void SetProfileValue(int userId, string column, object? value) => Update = (userId, column, value);
     }
 }

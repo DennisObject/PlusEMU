@@ -319,7 +319,7 @@ public class UserProcessTests
                 committed.Set();
                 Assert.True(release.Wait(TimeSpan.FromSeconds(5)));
             }));
-            using var disconnect = new DisconnectContext(habbo, process, new UserPersistenceService(database, clock));
+            using var disconnect = new DisconnectContext(habbo, process, new UserPersistenceService(database, clock, TestGameClientManager.Empty));
             var tick = Task.Run(clock.Fire);
             Task? logout = null;
             bool savedBeforeResetPublished;

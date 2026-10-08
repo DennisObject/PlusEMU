@@ -65,7 +65,7 @@ public sealed class UserCurrencyDatabaseTests
             habbo.Diamonds = 6;
             habbo.GotwPoints = 7;
             habbo.Currencies[101] = 8;
-            new UserPersistenceService(database, TimeProvider.System).Save(habbo);
+            new UserPersistenceService(database, TimeProvider.System, TestGameClientManager.Empty).Save(habbo);
 
             Assert.Equal([(0, 5), (5, 6), (101, 8), (103, 7), (104, 2)],
                 connection.Query<(int, int)>("SELECT type, amount FROM user_currencies WHERE user_id = 7 ORDER BY type"));

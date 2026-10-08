@@ -125,7 +125,7 @@ public sealed class UserPreferencePersistenceTests
                 Access = UserAccess.Empty,
                 SessionStartedAt = DateTimeOffset.UtcNow,
                 HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
-                Persistence = new UserPersistenceService(database, TimeProvider.System)
+                Persistence = new UserPersistenceService(database, TimeProvider.System, TestGameClientManager.Empty)
             };
             var (session, sent) = HabbiconTestSupport.Client(user);
             var profiles = new UserProfileService(null!, null!, null!, null!, database, TimeProvider.System,
@@ -371,7 +371,7 @@ public sealed class UserPreferencePersistenceTests
                 HabboStats = new(0, int.MaxValue, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
             };
             var clock = new SaveClock(now);
-            var persistence = new UserPersistenceService(database, clock);
+            var persistence = new UserPersistenceService(database, clock, TestGameClientManager.Empty);
 
             Assert.Throws<MySqlException>(() => persistence.Save(user));
             Assert.Equal(11, connection.ExecuteScalar<int>("SELECT credits FROM users WHERE id=7"));
