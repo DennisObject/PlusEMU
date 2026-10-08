@@ -628,16 +628,17 @@ CATALOG_TABLES = {
     'club_gift_offers': (('offer_id',), ['offer_id', 'days_required', 'enabled']),
 }
 PROMOTION_COLUMNS = ['title', 'image', 'unknown', 'page_link', 'parent_id', 'position', 'item_type', 'offer_id', 'product_code', 'expires_at']
+PET_OFFER = re.compile(r'a0 pet([0-9]+)')
 PRODUCT_TARGETS = ['furniture_id', 'effect_id', 'badge_code', 'bot_preset_id', 'pet_type', 'habbicon_id']
 
 
 def capture_classnames(catalog):
-    """(kind, furniClassId) of every furni product in the capture."""
-    for page in catalog['pages'].values():
-        for offer in page['offers']:
-            for product in offer['products']:
-                if product['productType'] in ('s', 'i'):
-                    yield product['productType'], product['furniClassId']
+    """(kind, furniClassId) of every furni product in the capture, club gifts included."""
+    offers = [offer for page in catalog['pages'].values() for offer in page['offers']] + (catalog.get('clubGifts') or {}).get('offers', [])
+    for offer in offers:
+        for product in offer['products']:
+            if product['productType'] in ('s', 'i'):
+                yield product['productType'], product['furniClassId']
 
 
 def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=False):
@@ -646,7 +647,7 @@ def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=F
     pages_in = {int(page_id): page for page_id, page in catalog['pages'].items()}
     desired = {table: {} for table in CATALOG_TABLES}
     report = {'missing_pages': [], 'duplicate_pages': [], 'folders': [], 'duplicate_links': [], 'dropped_offers': [],
-              'conflicting_offers': [], 'kept_offers': [], 'ignored': {'rent': 0, 'silver_priced': 0, 'not_giftable': 0}}
+              'conflicting_offers': [], 'kept_offers': [], 'ignored': {'rent': 0, 'silver_priced': 0, 'not_giftable': 0, 'points_minus_one': 0, 'pet_offers': 0}}
     bots = {row['figure']: row['id'] for row in sorted(snapshot['catalog_bot_presets'], key=lambda r: r['id'], reverse=True)}
     habbicons = {row['id'] for row in snapshot['habbicons']}
     limited_now = {row['offer_id']: row for row in snapshot['catalog_offer_limited']}
@@ -667,12 +668,21 @@ def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=F
             report['ignored']['silver_priced'] += 1
         if not offer['giftable']:
             report['ignored']['not_giftable'] += 1
-        if offer['offerId'] <= 0 or not 0 <= offer['clubLevel'] <= 2 or min(offer['priceInCredits'], offer['priceInActivityPoints'],
-                                                                              offer['activityPointType']) < 0:
+        points = offer['priceInActivityPoints']
+        if points == -1:
+            # habbo.com prices some credit-only offers at -1 activity points.
+            report['ignored']['points_minus_one'] += 1
+            points = 0
+        if offer['offerId'] <= 0 or not 0 <= offer['clubLevel'] <= 2 or min(offer['priceInCredits'], points, offer['activityPointType']) < 0:
             return None, 'offer id, club level or price out of range'
         if len(offer['localizationId']) > 100 or len(offer['previewImage']) > 255:
             return None, 'localization or preview image too long'
         products, ltd = [], None
+        pet = PET_OFFER.fullmatch(offer['localizationId'])
+        if pet and len(offer['products']) == 1:
+            # habbo.com sells a pet as "a0 pet<type>" with a pet food furni as its picture; PlusEMU sells the pet itself.
+            report['ignored']['pet_offers'] += 1
+            offer = dict(offer, products=[dict(offer['products'][0], productType='p', furniClassId=int(pet[1]), extraParam='', productCount=1)])
         for position, product in enumerate(offer['products']):
             kind, class_id, amount = product['productType'], product['furniClassId'], product['productCount']
             row = dict(offer_id=offer['offerId'], position=position, product_type=None, amount=max(amount, 1),
@@ -714,7 +724,7 @@ def plan_catalog(catalog, source_names, resolve, snapshot, allow_missing_pages=F
         if not products:
             return None, 'no products'
         return (dict(id=offer['offerId'], localization_key=offer['localizationId'], cost_credits=offer['priceInCredits'],
-                     cost_points=offer['priceInActivityPoints'], points_type=offer['activityPointType'], club_level=offer['clubLevel'],
+                     cost_points=points, points_type=offer['activityPointType'], club_level=offer['clubLevel'],
                      bulk_purchase=int(offer['bundlePurchaseAllowed']), enabled=1, preview_image=offer['previewImage']), products, ltd), None
 
     def place(row_id, page_id, offer, position):

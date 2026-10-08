@@ -355,3 +355,21 @@ def test_captured_club_gifts_replace_the_configured_ones_on_a_hidden_page():
     assert tables['club_gift_offers'] == {(500,): {'offer_id': 500, 'days_required': 31, 'enabled': 1}}
     assert report['club_gifts'] == {'captured': True, 'offers': 1, 'gifts': 1, 'vip': 1, 'without_offer': [501]}
     assert m.diff_table('club_gift_offers', current['club_gift_offers'], tables['club_gift_offers'])['delete'] == [(77,)]
+
+
+def test_club_gift_furni_count_as_sold():
+    catalog = {'pages': {'1': page(1, [offer(1, 10)])}, 'clubGifts': {'offers': [offer(2, 20, productType='s')], 'giftData': []}}
+    assert set(m.capture_classnames(catalog)) == {('s', 10), ('s', 20)}
+
+
+def test_minus_one_activity_points_mean_none():
+    catalog = {'index': node(-1, 'root', [node(1, 'wired')]), 'pages': {'1': page(1, [offer(9, 10, priceInActivityPoints=-1)])}}
+    result = m.plan_catalog(catalog, {('s', 10): 'chair'}, lambda kind, name: 5, snapshot())
+    assert result['tables']['catalog_offers'][(9,)]['cost_points'] == 0 and result['report']['ignored']['points_minus_one'] == 1
+
+
+def test_pet_offers_sell_the_pet_type_named_by_their_localization():
+    catalog = {'index': node(-1, 'root', [node(1, 'pets')]), 'pages': {'1': page(1, [offer(11060, 4506, localizationId='a0 pet20')], 'pets')}}
+    result = m.plan_catalog(catalog, {}, lambda kind, name: None, snapshot())
+    product = result['tables']['catalog_offer_products'][(11060, 0)]
+    assert (product['product_type'], product['pet_type'], product['furniture_id']) == ('pet', 20, None)
