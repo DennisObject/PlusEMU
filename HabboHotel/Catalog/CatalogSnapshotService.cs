@@ -69,14 +69,12 @@ public sealed class CatalogSnapshotService(ICatalogManager catalog, TimeProvider
 
     private CatalogOfferSnapshot CaptureOffer(CatalogOffer offer, string localizationId)
     {
-        var diamonds = offer.CostDiamonds > 0;
-
         return new CatalogOfferSnapshot(
             offer.Id,
             localizationId,
             offer.CostCredits,
-            diamonds ? offer.CostDiamonds : offer.CostPixels,
-            diamonds ? 5 : 0,
+            offer.CostPoints,
+            offer.PointsType,
             ItemUtility.CanGiftItem(offer),
             offer.Products.Select(product => CaptureProduct(offer, product)).ToImmutableArray(),
             offer.ClubLevel,

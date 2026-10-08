@@ -103,7 +103,7 @@ public class CatalogAdminValidationTests
         Assert.Contains("pageId", CheckOffer(Offer with { PageId = 99 }).Keys);
         Assert.Contains("pageId", CheckOffer(Offer with { PageId = 3 }).Keys);
         Assert.Contains("costCredits", CheckOffer(Offer with { CostCredits = -1 }).Keys);
-        Assert.Contains("pointsType", CheckOffer(Offer with { PointsType = 101 }).Keys);
+        Assert.Contains("pointsType", CheckOffer(Offer with { PointsType = -1 }).Keys);
         Assert.Contains("amount", CheckOffer(Offer with { Amount = 0 }).Keys);
         Assert.Contains("songId", CheckOffer(Offer with { SongId = 3 }).Keys);
         var sold = new CatalogOfferRow { Id = 5, PageId = 1, ItemId = "10", ProductPosition = 0, LimitedStack = 100, LimitedSells = 40 };
@@ -147,10 +147,10 @@ public class CatalogAdminValidationTests
     }
 
     [Fact]
-    public void OfferPointsMapToDucketsOrDiamonds()
+    public void OfferPointsKeepTheirType()
     {
         var row = CatalogAdminMapping.Apply(Offer with { CostPoints = 25, PointsType = 5, ClubOnly = true, OfferIdClient = 0 }, null);
-        Assert.Equal((0, 25, 1, -1), (row.CostPixels, row.CostDiamonds, row.ClubLevel, row.OfficialOfferId));
+        Assert.Equal((25, 5, 1, -1), (row.CostPoints, row.PointsType, row.ClubLevel, row.OfficialOfferId));
         var back = CatalogAdminMapping.ToOffer(row, 77, "NORMAL");
         Assert.Equal((25, 5, true, 77), (back.CostPoints, back.PointsType, back.ClubOnly, back.OfferId));
         var vip = new CatalogOfferRow { ClubLevel = 2 };

@@ -27,7 +27,11 @@ public sealed record HabbiconSnapshot(IReadOnlyList<HabbiconCollection> Collecti
     public HabbiconItem RequireItem(int id) => Items.TryGetValue(id, out var item) ? item : throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
 }
 
-public sealed record HabbiconBalances(int Credits, int Duckets, int Diamonds);
+// Credits and every activity point balance by type (a missing type is 0); ChargedType is the points type a charge took.
+public sealed record HabbiconBalances(int Credits, IReadOnlyDictionary<int, int> Points, int? ChargedType = null)
+{
+    public int this[int type] => Points.GetValueOrDefault(type);
+}
 public sealed record HabbiconChange(HabbiconSnapshot Snapshot, IReadOnlyList<HabbiconItem> Changed, HabbiconBalances? Balances);
 
 public sealed class HabbiconRejected(HabbiconActionError error) : InvalidOperationException($"Habbicon action rejected: {(int)error}")

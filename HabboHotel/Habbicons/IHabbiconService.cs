@@ -8,7 +8,7 @@ public interface IHabbiconService
 {
     HabbiconSnapshot Load(int userId);
     HabbiconChange Change(Habbo habbo, HabbiconAction action, int id);
-    HabbiconChange BuyCatalog(Habbo habbo, int id, int credits, int duckets, int diamonds);
+    HabbiconChange BuyCatalog(Habbo habbo, int id, int credits, int points, int pointsType);
     bool Use(int userId, int id);
     void ClearUnseen(int userId, IReadOnlyList<int> ids);
 }

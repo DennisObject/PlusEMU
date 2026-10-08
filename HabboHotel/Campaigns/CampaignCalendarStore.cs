@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using Dapper;
 using Plus.Database;
 using Plus.HabboHotel.Subscriptions;
+using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Campaigns
 {
@@ -59,8 +60,8 @@ namespace Plus.HabboHotel.Campaigns
             // Every reward and the unique claim commit together. A failed statement leaves the day available.
             connection.Execute("INSERT INTO user_calendar_claims (user_id, campaign_id, day, reward_id, claimed_at) VALUES (@userId, @campaignId, @day, @rewardId, @now)",
                 new { userId, campaignId = campaign.Id, day, rewardId = reward.Id, now = now.UtcDateTime }, transaction);
-            connection.Execute("UPDATE users SET credits = @credits, activity_points = @duckets, vip_points = @diamonds WHERE id = @userId",
-                new { userId, credits, duckets, diamonds }, transaction);
+            connection.Execute("UPDATE users SET credits = @credits WHERE id = @userId", new { userId, credits }, transaction);
+            UserCurrencyStore.SetMany(connection, userId, [new(ActivityPointType.Duckets, duckets), new(ActivityPointType.Diamonds, diamonds)], transaction);
 
             if (badge.Length > 0) {
                 connection.Execute("INSERT INTO user_badges (user_id, badge_id, badge_slot) VALUES (@userId, @badge, 0) ON DUPLICATE KEY UPDATE badge_slot = badge_slot",

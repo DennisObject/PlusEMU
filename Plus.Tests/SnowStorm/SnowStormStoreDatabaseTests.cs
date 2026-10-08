@@ -41,7 +41,8 @@ public class SnowStormStoreDatabaseTests
             Assert.Equal(["GET_SNOWWAR_TOKENS", "GET_SNOWWAR_TOKENS2", "GET_SNOWWAR_TOKENS3"], store.GetOffers().Select(offer => offer.LocalizationId));
 
             using (var connection = new MySqlConnection(connectionString)) {
-                Assert.Equal((40, 7), connection.QuerySingle<(int, int)>("SELECT credits, activity_points FROM users WHERE id = 1"));
+                Assert.Equal(40, connection.QuerySingle<int>("SELECT credits FROM users WHERE id = 1"));
+                Assert.Equal(7, connection.QuerySingle<int>("SELECT amount FROM user_currencies WHERE user_id = 1 AND type = 0"));
             }
 
             var week = SnowStormStore.WeekStart(Now);
@@ -75,6 +76,38 @@ public class SnowStormStoreDatabaseTests
         });
     }
 
+    [SnowStormDatabaseFact]
+    public void PurchasesDebitTheOfferPointsTypeFromUserCurrencies()
+    {
+        WithSchema(connectionString =>
+        {
+            var store = new SnowStormStore(new HabbiconDatabaseTests.TestDatabase(connectionString));
+            using var connection = new MySqlConnection(connectionString);
+            connection.Execute("INSERT INTO snowwar_token_offers (localization_id, price_credits, price_points, points_type, games, order_num) VALUES " +
+                "('DIAMOND_TOKENS', 0, 3, 5, 5, 4), ('SEASONAL_TOKENS', 1, 4, 101, 7, 5), ('DUCKET_TOKENS', 0, 6, 0, 2, 6)");
+            var offers = connection.Query<(string, int)>("SELECT localization_id, id FROM snowwar_token_offers").ToDictionary(row => row.Item1, row => row.Item2);
+            var habbo = new Habbo { Id = 1, Credits = 50, Duckets = 7, Diamonds = 4 };
+            habbo.Currencies[101] = 3;
+
+            // Diamonds and duckets come from their own rows; the other balances stay as they are.
+            Assert.Equal(5, store.Purchase(habbo, offers["DIAMOND_TOKENS"])!.Games);
+            Assert.Equal(2, store.Purchase(habbo, offers["DUCKET_TOKENS"])!.Games);
+            Assert.Equal((50, 1, 1, 3), (habbo.Credits, habbo.Duckets, habbo.Diamonds, habbo.Currencies[101]));
+            Assert.Equal([(0, 1), (5, 1)], connection.Query<(int, int)>("SELECT type, amount FROM user_currencies WHERE user_id = 1 ORDER BY type"));
+
+            // A seasonal currency the user cannot cover charges nothing; once covered it is debited and its row created.
+            Assert.Null(store.Purchase(habbo, offers["SEASONAL_TOKENS"]));
+            Assert.Equal((50, 3), (habbo.Credits, habbo.Currencies[101]));
+            Assert.Equal(7, store.GetAccount(1, Today).Tokens);
+            habbo.Currencies[101] = 10;
+            Assert.Equal(7, store.Purchase(habbo, offers["SEASONAL_TOKENS"])!.Games);
+            Assert.Equal((49, 6), (habbo.Credits, habbo.Currencies[101]));
+            Assert.Equal(6, connection.QuerySingle<int>("SELECT amount FROM user_currencies WHERE user_id = 1 AND type = 101"));
+            Assert.Equal(49, connection.QuerySingle<int>("SELECT credits FROM users WHERE id = 1"));
+            Assert.Equal(14, store.GetAccount(1, Today).Tokens);
+        });
+    }
+
     private static void WithSchema(Action<string> body)
     {
         var server = Environment.GetEnvironmentVariable(Variable)!;
@@ -89,16 +122,18 @@ public class SnowStormStoreDatabaseTests
         try {
             using (var connection = new MySqlConnection(options.ConnectionString)) {
                 connection.Execute("""
-                    CREATE TABLE users (id INT PRIMARY KEY, username VARCHAR(125), look CHAR(255), gender ENUM('M','F'), credits INT, activity_points INT, vip_points INT) ENGINE=InnoDB;
+                    CREATE TABLE users (id INT PRIMARY KEY, username VARCHAR(125), look CHAR(255), gender ENUM('M','F'), credits INT, activity_points INT, vip_points INT, gotw_points INT) ENGINE=InnoDB;
                     CREATE TABLE messenger_friendships (user_one_id INT UNSIGNED, user_two_id INT UNSIGNED, relationship INT NOT NULL DEFAULT 0, PRIMARY KEY (user_one_id, user_two_id));
                     CREATE TABLE `groups` (id INT UNSIGNED PRIMARY KEY, name VARCHAR(50), badge VARCHAR(50));
                     CREATE TABLE user_statistics (id INT PRIMARY KEY, groupid INT NOT NULL DEFAULT 0);
                     CREATE TABLE server_settings (`key` VARCHAR(255) PRIMARY KEY, `value` TEXT NOT NULL, description TEXT NOT NULL);
-                    INSERT INTO users VALUES (1, 'Ann', 'look1', 'F', 50, 7, 0), (2, 'Bo', 'look2', 'M', 5, 0, 0), (3, 'Cy', 'look3', 'M', 0, 0, 0), (4, 'Dee', 'look4', 'F', 0, 0, 0);
+                    INSERT INTO users VALUES (1, 'Ann', 'look1', 'F', 50, 7, 0, 0), (2, 'Bo', 'look2', 'M', 5, 0, 0, 0), (3, 'Cy', 'look3', 'M', 0, 0, 0, 0), (4, 'Dee', 'look4', 'F', 0, 0, 0, 0);
                     INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (1, 2), (2, 1);
                     INSERT INTO `groups` VALUES (7, 'Snow', 'b1');
                     INSERT INTO user_statistics VALUES (1, 7), (2, 0), (3, 7), (4, 0);
                     """);
+                // Balances move to user_currencies as on a live hotel.
+                connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/59_UserCurrencies.sql")));
                 // The update must be rerunnable.
                 var update = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/57_SnowStorm.sql"));
                 connection.Execute(update);

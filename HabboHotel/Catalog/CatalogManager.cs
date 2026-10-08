@@ -148,7 +148,7 @@ public class CatalogManager : ICatalogManager, IStartable
                 }
             }
 
-            if (offerProducts is not { Count: > 0 } || row.PointsType is not (0 or 5)) {
+            if (offerProducts is not { Count: > 0 } || row.PointsType > int.MaxValue) {
                 _logger.LogError("Skipped catalog offer #{Id}: it has no products, a product that cannot be loaded or an unknown points type", row.Id);
                 continue;
             }
@@ -158,8 +158,8 @@ public class CatalogManager : ICatalogManager, IStartable
                 Id = row.Id,
                 LocalizationKey = row.LocalizationKey,
                 CostCredits = (int)row.CostCredits,
-                CostPixels = row.PointsType == 0 ? (int)row.CostPoints : 0,
-                CostDiamonds = row.PointsType == 5 ? (int)row.CostPoints : 0,
+                CostPoints = (int)row.CostPoints,
+                PointsType = (int)row.PointsType,
                 ClubLevel = row.ClubLevel,
                 BulkPurchase = row.BulkPurchase,
                 Enabled = row.Enabled,

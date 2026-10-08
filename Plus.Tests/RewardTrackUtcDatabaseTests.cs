@@ -67,13 +67,14 @@ public class RewardTrackUtcDatabaseTests
             var habbo = new Habbo { Id = 7, Username = "claimer" };
             var (client, sent) = HabbiconTestSupport.Client(habbo);
 
-            // The users table is absent, so the duckets credit fails and the claim row must roll back with it.
+            // The currency tables are absent, so the duckets credit fails and the claim row must roll back with it.
             await manager.Claim(client, "open", "coins");
 
             using (var connection = new MySqlConnection(connectionString)) {
                 connection.Open();
                 Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM users_reward_track_prizes WHERE prize_id = 'coins'"));
-                connection.Execute("CREATE TABLE users (id INT PRIMARY KEY, credits INT NOT NULL DEFAULT 0, activity_points INT NOT NULL DEFAULT 0, vip_points INT NOT NULL DEFAULT 0)");
+                connection.Execute("CREATE TABLE users (id INT PRIMARY KEY, credits INT NOT NULL DEFAULT 0); " +
+                    "CREATE TABLE user_currencies (user_id INT NOT NULL, type INT NOT NULL, amount INT NOT NULL DEFAULT 0, PRIMARY KEY (user_id, type))");
                 connection.Execute("INSERT INTO users (id) VALUES (7)");
             }
 
@@ -83,7 +84,7 @@ public class RewardTrackUtcDatabaseTests
             using var verify = new MySqlConnection(connectionString);
             verify.Open();
             Assert.Equal("2040-01-02 03:04:05.123456", verify.ExecuteScalar<string>("SELECT CAST(claimed_at AS CHAR) FROM users_reward_track_prizes WHERE prize_id = 'coins'"));
-            Assert.Equal(3, verify.ExecuteScalar<int>("SELECT activity_points FROM users WHERE id = 7"));
+            Assert.Equal(3, verify.ExecuteScalar<int>("SELECT amount FROM user_currencies WHERE user_id = 7 AND type = 0"));
             Assert.Equal(0, verify.ExecuteScalar<int>("SELECT credits FROM users WHERE id = 7"));
         });
     }

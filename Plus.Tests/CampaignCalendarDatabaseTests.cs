@@ -34,7 +34,8 @@ namespace Plus.Tests
             var reward = Assert.Single(offer.Rewards);
             var result = service.Claim(7, offer.Campaign, reward, 6, false, now, 13, 24, 35, "TEST");
             Assert.NotNull(result);
-            Assert.Equal((13, 24, 35), connection.QuerySingle<(int, int, int)>("SELECT credits,activity_points,vip_points FROM users WHERE id=7"));
+            Assert.Equal(13, connection.QuerySingle<int>("SELECT credits FROM users WHERE id=7"));
+            Assert.Equal([(0, 24), (5, 35)], connection.Query<(int, int)>("SELECT type,amount FROM user_currencies WHERE user_id=7 ORDER BY type"));
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_badges WHERE user_id=7 AND badge_id='TEST'"));
             Assert.Equal(10u, connection.QuerySingle<uint>("SELECT base_item FROM items WHERE id=@id AND user_id=7 AND room_id=0", new { id = result.ItemId }));
             var membership = connection.QuerySingle<ClubMembershipRow>("SELECT " + ClubMembership.Columns + " FROM user_club_memberships WHERE user_id=7").ToMembership();
@@ -120,7 +121,7 @@ namespace Plus.Tests
                 try {
                     var pristine = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
 
-                    foreach (var table in new[] { "users", "furniture", "items", "user_badges", "user_club_memberships", "club_membership_intervals" }) {
+                    foreach (var table in new[] { "users", "user_currencies", "furniture", "items", "user_badges", "user_club_memberships", "club_membership_intervals" }) {
                         var start = pristine.IndexOf($"CREATE TABLE `{table}` (", StringComparison.Ordinal);
 
                         if (start < 0) {
@@ -138,7 +139,7 @@ namespace Plus.Tests
                     Connection.Execute("ALTER TABLE user_club_memberships MODIFY expires_at DATETIME(6) NULL DEFAULT NULL, ADD started_at DATETIME(6) NULL, ADD first_started_at DATETIME(6) NULL, ADD past_seconds BIGINT NOT NULL DEFAULT 0, ADD modified_at DATETIME(6) NULL, ADD gifts_claimed INT NOT NULL DEFAULT 0");
                     Connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/53_CampaignCalendar.sql")));
                     Connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/53_CampaignCalendar.sql")));
-                    Connection.Execute("INSERT INTO users(id,username,auth_ticket,credits,activity_points,vip_points) VALUES(7,'calendar','',10,20,30)");
+                    Connection.Execute("INSERT INTO users(id,username,auth_ticket,credits) VALUES(7,'calendar','',10); INSERT INTO user_currencies(user_id,type,amount) VALUES(7,0,20),(7,5,30)");
                     Connection.Execute("INSERT INTO furniture(id,item_name,public_name,type) VALUES(10,'reward_furni','Reward','s')");
                     Connection.Execute("INSERT INTO campaign_calendars(id,name,image,starts_at,days,enabled) VALUES(1,'configured','calendar.png',@start,24,TRUE)", new { start = CampaignCalendarTests.Now.AddDays(-6).UtcDateTime });
                     Connection.Execute("INSERT INTO campaign_calendar_rewards(id,campaign_id,product_name,custom_image,credits,duckets,diamonds,badge,item_id,hc_days) VALUES(2,1,'calendar_product_%credits%','reward.png',3,4,5,'TEST',10,2)");

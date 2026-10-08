@@ -91,8 +91,8 @@ internal sealed class FurniEditorRepository
 
     // Filter by the same resolved permissions as the catalog before limiting the results.
     public List<FurniEditorCatalogRef> CatalogRefs(uint id, UserAccess access) => _connection.Query<FurniEditorCatalogRef>("""
-        SELECT o.id AS Id, o.localization_key AS CatalogName, o.cost_credits AS CostCredits, IF(o.points_type = 0, o.cost_points, 0) AS CostPixels,
-        IF(o.points_type = 5, o.cost_points, 0) AS CostDiamonds, cp.id AS PageId, cp.caption AS PageName
+        SELECT o.id AS Id, o.localization_key AS CatalogName, o.cost_credits AS CostCredits, o.cost_points AS CostPoints,
+        o.points_type AS PointsType, cp.id AS PageId, cp.caption AS PageName
         FROM catalog_offer_products p INNER JOIN catalog_offers o ON o.id = p.offer_id
         INNER JOIN catalog_page_offers po ON po.offer_id = o.id INNER JOIN catalog_pages cp ON cp.id = po.page_id
         WHERE p.furniture_id = @id AND (cp.required_permission IS NULL OR cp.required_permission IN @keys) ORDER BY o.id, cp.id LIMIT @limit

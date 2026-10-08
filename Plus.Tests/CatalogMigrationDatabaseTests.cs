@@ -78,6 +78,23 @@ public sealed class CatalogMigrationDatabaseTests
         });
     }
 
+    [RoomComponentDatabaseFact]
+    public async Task OffersPricedInAnyActivityPointTypeLoad()
+    {
+        await InSchema(async (connection, database) =>
+        {
+            CreateLegacyCatalog(connection);
+            connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/52_NormalizeCatalog.sql")));
+            connection.Execute("UPDATE catalog_offers SET cost_points = 12, points_type = 101 WHERE id = 500");
+
+            var catalog = new CatalogManager(null!, null!, null!, null!, database, TestLogging.For<CatalogManager>(), Items());
+            await catalog.Start();
+
+            Assert.True(catalog.TryGetOffer(500, EditorTestSupport.Player(), out _, out var offer));
+            Assert.Equal((7, 12, 101), (offer.CostCredits, offer.CostPoints, offer.PointsType));
+        });
+    }
+
     private static void CreateLegacyCatalog(MySqlConnection connection) => connection.Execute("""
         CREATE TABLE acl_permissions (`key` VARCHAR(191) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY) ENGINE=InnoDB;
         CREATE TABLE furniture (id INT UNSIGNED NOT NULL PRIMARY KEY, item_name VARCHAR(70) NOT NULL, sprite_id INT NOT NULL DEFAULT 0,

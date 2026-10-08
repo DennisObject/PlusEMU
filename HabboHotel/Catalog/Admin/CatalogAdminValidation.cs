@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Plus.HabboHotel.Permissions;
+using Plus.HabboHotel.Users;
 
 namespace Plus.HabboHotel.Catalog.Admin;
 
@@ -115,8 +116,8 @@ public static partial class CatalogAdminValidation
             errors["costPoints"] = $"Points must be between 0 and {MaxPrice}.";
         }
 
-        if (offer.PointsType is not (CatalogAdminMapping.DucketsPointsType or CatalogAdminMapping.DiamondsPointsType)) {
-            errors["pointsType"] = "Points are duckets (0) or diamonds (5).";
+        if (!ActivityPointType.IsValid(offer.PointsType)) {
+            errors["pointsType"] = "Points type must be 0 (duckets), 5 (diamonds) or another activity point type.";
         }
 
         if (offer.Amount is < 1 or > 100) {

@@ -11,14 +11,19 @@ public interface IUserMaintenanceStore
     string? ReadMotto(int userId);
 }
 
-/// <summary>Parameterized maintenance SQL; the balance column comes from a closed enum switch, never from input.</summary>
+/// <summary>Parameterized maintenance SQL; credits live in users, activity points in user_currencies by a closed enum switch.</summary>
 public sealed class UserMaintenanceStore(IDatabase database) : IUserMaintenanceStore
 {
     public int? ReadCurrency(int userId, UserCurrency currency)
     {
         using var connection = database.Connection();
 
-        return connection.QuerySingleOrDefault<int?>($"SELECT {Column(currency)} FROM users WHERE id = @userId", new { userId });
+        if (currency == UserCurrency.Credits) {
+            return connection.QuerySingleOrDefault<int?>("SELECT credits FROM users WHERE id = @userId", new { userId });
+        }
+
+        return connection.QuerySingleOrDefault<int?>("SELECT COALESCE(c.amount, 0) FROM users u LEFT JOIN user_currencies c ON c.user_id = u.id AND c.type = @type WHERE u.id = @userId",
+            new { userId, type = PointsType(currency) });
     }
 
     // Existence is the row contract: the row is locked, must exist exactly once, and an identical value still succeeds.
@@ -32,7 +37,13 @@ public sealed class UserMaintenanceStore(IDatabase database) : IUserMaintenanceS
             return false;
         }
 
-        connection.Execute($"UPDATE users SET {Column(currency)} = @value WHERE id = @userId LIMIT 1", new { userId, value }, transaction);
+        if (currency == UserCurrency.Credits) {
+            connection.Execute("UPDATE users SET credits = @value WHERE id = @userId LIMIT 1", new { userId, value }, transaction);
+        }
+        else {
+            UserCurrencyStore.Set(connection, userId, PointsType(currency), value, transaction);
+        }
+
         transaction.Commit();
 
         return true;
@@ -45,12 +56,11 @@ public sealed class UserMaintenanceStore(IDatabase database) : IUserMaintenanceS
         return connection.QuerySingleOrDefault<string?>("SELECT motto FROM users WHERE id = @userId", new { userId });
     }
 
-    private static string Column(UserCurrency currency) => currency switch
+    private static int PointsType(UserCurrency currency) => currency switch
     {
-        UserCurrency.Credits => "credits",
-        UserCurrency.Duckets => "activity_points",
-        UserCurrency.Diamonds => "vip_points",
-        UserCurrency.Gotw => "gotw_points",
+        UserCurrency.Duckets => ActivityPointType.Duckets,
+        UserCurrency.Diamonds => ActivityPointType.Diamonds,
+        UserCurrency.Gotw => ActivityPointType.Gotw,
         _ => throw new ArgumentOutOfRangeException(nameof(currency)),
     };
 }

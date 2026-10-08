@@ -232,7 +232,7 @@ public sealed class ClubCatalogServiceTests
                 : null;
         }
 
-        public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0,
+        public bool Charge(Habbo habbo, int credits, int points = 0, int pointsType = 0,
             Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true) =>
             throw new NotSupportedException();
 

@@ -119,14 +119,14 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
             connection.Execute("INSERT INTO club_credit_spending (user_id, credits, spent_at) VALUES (@userId, @credits, @now)", new { userId, credits, now = now.UtcDateTime }, transaction);
         }
     }
-    public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0, Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true)
+    public bool Charge(Habbo habbo, int credits, int points = 0, int pointsType = ActivityPointType.Duckets, Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true)
     {
-        if (credits < 0 || duckets < 0 || diamonds < 0) {
+        if (credits < 0 || points < 0 || !ActivityPointType.IsValid(pointsType)) {
             return false;
         }
 
         lock (habbo.WalletSync) {
-            if (habbo.WalletClosed || habbo.Credits < credits || habbo.Duckets < duckets || habbo.Diamonds < diamonds) {
+            if (habbo.WalletClosed || habbo.Credits < credits || habbo.Currencies[pointsType] < points) {
                 return false;
             }
 
@@ -139,11 +139,14 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
             }
 
             var remainingCredits = habbo.Credits - credits;
-            var remainingDuckets = habbo.Duckets - duckets;
-            var remainingDiamonds = habbo.Diamonds - diamonds;
+            var remainingPoints = habbo.Currencies[pointsType] - points;
             var now = clock.GetUtcNow();
-            connection.Execute("UPDATE users SET credits = @remainingCredits, activity_points = @remainingDuckets, vip_points = @remainingDiamonds WHERE id = @id",
-                new { id = habbo.Id, remainingCredits, remainingDuckets, remainingDiamonds }, transaction);
+            connection.Execute("UPDATE users SET credits = @remainingCredits WHERE id = @id", new { id = habbo.Id, remainingCredits }, transaction);
+
+            if (points > 0) {
+                UserCurrencyStore.Set(connection, habbo.Id, pointsType, remainingPoints, transaction);
+            }
+
             RecordSpending(connection, transaction, habbo.Id, credits, now, kickbackEligible && habbo.Access.Membership.Active(now));
 
             if (deliver != null && !deliver(connection, transaction)) {
@@ -152,8 +155,10 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
 
             transaction.Commit();
             habbo.Credits = remainingCredits;
-            habbo.Duckets = remainingDuckets;
-            habbo.Diamonds = remainingDiamonds;
+
+            if (points > 0) {
+                habbo.Currencies[pointsType] = remainingPoints;
+            }
 
             return true;
         }

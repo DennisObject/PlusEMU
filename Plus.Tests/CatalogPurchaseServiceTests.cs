@@ -1,6 +1,7 @@
 using System.Data;
 using System.Reflection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Catalog;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Core.Settings;
@@ -78,6 +79,27 @@ public sealed class CatalogPurchaseServiceTests
             Assert.Single(context.Tracks.Calls));
         Assert.Contains(context.Sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
         Assert.Contains(context.Sent, packet => packet.Header == ServerPacketHeader.FurniListUpdateComposer);
+    }
+
+    [Fact]
+    public async Task SeasonalCurrencyOfferChargesItsOwnTypeAndPublishesThatBalance()
+    {
+        var context = Context(points: 4, pointsType: 104);
+        context.Habbo.Currencies[104] = 3;
+
+        await context.Service.Purchase(context.Client, new(1, 2, "ignored", 1));
+
+        Assert.Equal(0, context.Rewards.Charges);
+        Assert.Equal((100, 3), (context.Habbo.Credits, context.Habbo.Currencies[104]));
+        context.Habbo.Currencies[104] = 10;
+
+        await context.Service.Purchase(context.Client, new(1, 2, "ignored", 1));
+
+        Assert.Equal((90, 6, 0, 0), (context.Habbo.Credits, context.Habbo.Currencies[104], context.Habbo.Duckets, context.Habbo.Diamonds));
+        var notification = new FlashIncomingPacket { Buffer = context.Sent.Single(packet => packet.Header == ServerPacketHeader.HabboActivityPointNotificationComposer).Payload };
+        Assert.Equal((6, -4, 104), (notification.ReadInt(), notification.ReadInt(), notification.ReadInt()));
+        var confirmation = new FlashIncomingPacket { Buffer = context.Sent.Single(packet => packet.Header == ServerPacketHeader.PurchaseOKComposer).Payload };
+        Assert.Equal((2, "chair", false, 10, 4, 104), (confirmation.ReadInt(), confirmation.ReadString(), confirmation.ReadBool(), confirmation.ReadInt(), confirmation.ReadInt(), confirmation.ReadInt()));
     }
 
     [Fact]
@@ -215,7 +237,7 @@ public sealed class CatalogPurchaseServiceTests
 
     private static TestContext Context(bool enabled = true, bool chargeSucceeds = true,
         bool factorySucceeds = true, bool club = false, bool bot = false, bool botPreset = true,
-        bool botStoreFails = false)
+        bool botStoreFails = false, int points = 0, int pointsType = 0)
     {
         var definition = new ItemDefinition
         {
@@ -229,6 +251,8 @@ public sealed class CatalogPurchaseServiceTests
         {
             Id = 2,
             CostCredits = 10,
+            CostPoints = points,
+            PointsType = pointsType,
             LocalizationKey = "chair",
             Products = [bot
                 ? new CatalogProduct { Type = CatalogProductType.Bot, BotPresetId = (int)definition.Id }
@@ -335,7 +359,7 @@ public sealed class CatalogPurchaseServiceTests
         public int Charges { get; private set; }
         public IDbConnection Connection { get; } = Proxy<IDbConnection, EmptyProxy>();
         public IDbTransaction Transaction { get; } = Proxy<IDbTransaction, EmptyProxy>();
-        public bool Charge(Habbo habbo, int credits, int duckets = 0, int diamonds = 0,
+        public bool Charge(Habbo habbo, int credits, int points = 0, int pointsType = 0,
             Func<IDbConnection, IDbTransaction, bool>? deliver = null, bool kickbackEligible = true)
         {
             Charges++;
@@ -345,8 +369,7 @@ public sealed class CatalogPurchaseServiceTests
             }
 
             habbo.Credits -= credits;
-            habbo.Duckets -= duckets;
-            habbo.Diamonds -= diamonds;
+            habbo.Currencies[pointsType] -= points;
 
             return true;
         }

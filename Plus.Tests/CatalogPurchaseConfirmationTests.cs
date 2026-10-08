@@ -16,15 +16,16 @@ public sealed class CatalogPurchaseConfirmationTests
         var product = type == "b"
             ? new CatalogProduct { Type = CatalogProductType.Badge, BadgeCode = "product" }
             : new CatalogProduct { Type = CatalogProductType.Furni, Definition = definition };
-        var item = new CatalogOffer { Id = 7, LocalizationKey = "offer", CostCredits = 10, CostPixels = 20, Products = [product] };
+        var item = new CatalogOffer { Id = 7, LocalizationKey = "offer", CostCredits = 10, CostPoints = 20, PointsType = 5, Products = [product] };
         var composer = new PurchaseOKComposer(CatalogPurchaseConfirmation.Capture(item));
         var before = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(before);
-        var expected = new List<object> { 7, "product", false, 10, 20, 0, true, 1, type };
+        var expected = new List<object> { 7, "product", false, 10, 20, 5, true, 1, type };
         expected.AddRange(type == "b" ? new object[] { "product", 0, false } : new object[] { 99, "", 1, 0, "", 1 });
         Assert.Equal(expected, before.Writes);
         item.CostCredits = 100;
-        item.CostPixels = 100;
+        item.CostPoints = 100;
+        item.PointsType = 0;
         item.Id = 8;
         definition.Id = 71;
         definition.ItemName = "changed";

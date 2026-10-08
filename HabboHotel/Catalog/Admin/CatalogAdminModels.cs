@@ -68,8 +68,8 @@ public sealed class CatalogOfferRow
     public string ItemId { get; set; } = string.Empty;
     public string CatalogName { get; set; } = string.Empty;
     public int CostCredits { get; set; }
-    public int CostPixels { get; set; }
-    public int CostDiamonds { get; set; }
+    public int CostPoints { get; set; }
+    public int PointsType { get; set; }
     public int Amount { get; set; }
     public int LimitedSells { get; set; }
     public int LimitedStack { get; set; }

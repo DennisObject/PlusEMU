@@ -185,28 +185,33 @@ public sealed class SnowStormStore(IDatabase database) : ISnowStormStore
             using var transaction = connection.BeginTransaction();
             var offer = connection.QuerySingleOrDefault<SnowStormTokenOffer>(OfferSelect + " WHERE id = @offerId AND enabled = 1", new { offerId }, transaction);
 
-            if (offer == null || offer.Games <= 0 || offer.PriceCredits < 0 || offer.PricePoints < 0 || offer.PricePoints > 0 && offer.PointsType is not (0 or 5)) {
+            if (offer == null || offer.Games <= 0 || offer.PriceCredits < 0 || offer.PricePoints < 0 || offer.PricePoints > 0 && !ActivityPointType.IsValid(offer.PointsType)) {
                 return null;
             }
 
             var credits = (long)habbo.Credits - offer.PriceCredits;
-            var duckets = (long)habbo.Duckets - (offer.PointsType == 0 ? offer.PricePoints : 0);
-            var diamonds = (long)habbo.Diamonds - (offer.PointsType == 5 ? offer.PricePoints : 0);
+            var points = offer.PricePoints > 0 ? (long)habbo.Currencies[offer.PointsType] - offer.PricePoints : 0;
 
-            if (credits < 0 || duckets < 0 || diamonds < 0 ||
+            if (credits < 0 || points < 0 ||
                 connection.ExecuteScalar<int?>("SELECT id FROM users WHERE id = @id FOR UPDATE", new { id = habbo.Id }, transaction) == null) {
                 return null;
             }
 
             // Debit first, then credit the games, in one transaction (Polaris credited before charging).
-            connection.Execute("UPDATE users SET credits = @credits, activity_points = @duckets, vip_points = @diamonds WHERE id = @id",
-                new { id = habbo.Id, credits, duckets, diamonds }, transaction);
+            connection.Execute("UPDATE users SET credits = @credits WHERE id = @id", new { id = habbo.Id, credits }, transaction);
+
+            if (offer.PricePoints > 0) {
+                UserCurrencyStore.Set(connection, habbo.Id, offer.PointsType, (int)points, transaction);
+            }
+
             connection.Execute("INSERT INTO snowwar_game_tokens (user_id, games) VALUES (@id, @games) ON DUPLICATE KEY UPDATE games = games + VALUES(games)",
                 new { id = habbo.Id, games = offer.Games }, transaction);
             transaction.Commit();
             habbo.Credits = (int)credits;
-            habbo.Duckets = (int)duckets;
-            habbo.Diamonds = (int)diamonds;
+
+            if (offer.PricePoints > 0) {
+                habbo.Currencies[offer.PointsType] = (int)points;
+            }
 
             return offer;
         }

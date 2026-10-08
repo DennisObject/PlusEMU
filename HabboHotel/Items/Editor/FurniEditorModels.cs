@@ -36,8 +36,8 @@ public sealed class FurniEditorCatalogRef
     public int Id { get; set; }
     public string CatalogName { get; set; } = string.Empty;
     public int CostCredits { get; set; }
-    public int CostPixels { get; set; }
-    public int CostDiamonds { get; set; }
+    public int CostPoints { get; set; }
+    public int PointsType { get; set; }
     public int PageId { get; set; }
     public string PageName { get; set; } = string.Empty;
 }

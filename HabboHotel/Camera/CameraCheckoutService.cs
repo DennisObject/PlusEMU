@@ -196,7 +196,9 @@ public sealed class CameraCheckoutService(IDatabase database, ISettingsManager s
             return new(true, Changed: true);
         }
     }
-    private static void Charge(IDbConnection connection, IDbTransaction transaction, Habbo habbo, int credits, int points) =>
-        connection.Execute("UPDATE users SET credits=@credits,activity_points=@points,vip_points=@diamonds WHERE id=@userId",
-            new { credits = habbo.Credits - credits, points = habbo.Duckets - points, diamonds = habbo.Diamonds, userId = habbo.Id }, transaction);
+    private static void Charge(IDbConnection connection, IDbTransaction transaction, Habbo habbo, int credits, int points)
+    {
+        connection.Execute("UPDATE users SET credits=@credits WHERE id=@userId", new { credits = habbo.Credits - credits, userId = habbo.Id }, transaction);
+        UserCurrencyStore.Set(connection, habbo.Id, ActivityPointType.Duckets, habbo.Duckets - points, transaction);
+    }
 }

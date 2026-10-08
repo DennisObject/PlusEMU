@@ -50,7 +50,7 @@ public class CameraCheckoutTests
         _habbo = new() { Id = UserId, Username = "Camera transaction", Credits = 100, Duckets = 20, Diamonds = 3, CurrentRoom = room };
         _media = new(Guid.NewGuid(), 42, _clock.GetUtcNow());
         Execute("DROP TRIGGER IF EXISTS camera_test_failure; DELETE FROM camera_quota; DELETE FROM camera_purchases; DELETE FROM camera_publications; DELETE FROM camera_accounts; DELETE FROM camera_competition_entries; DELETE FROM camera_media; DELETE FROM items; DELETE FROM users");
-        Execute("INSERT INTO users (id,username,auth_ticket,credits,activity_points,vip_points) VALUES (910001,'camera_tests','',100,20,3)");
+        Execute("INSERT INTO users (id,username,auth_ticket,credits) VALUES (910001,'camera_tests','',100); INSERT INTO user_currencies (user_id,type,amount) VALUES (910001,0,20),(910001,5,3)");
         Mint(_media);
     }
 
@@ -179,7 +179,7 @@ public class CameraCheckoutTests
         var blocked = recreated.Publish(_habbo, next);
         Assert.False(blocked.Ok);
         Assert.Equal(180, blocked.WaitSeconds);
-        Assert.Equal(19, Scalar("SELECT activity_points FROM users"));
+        Assert.Equal(19, Scalar("SELECT amount FROM user_currencies WHERE type = 0"));
         _clock.Now = _clock.Now.AddSeconds(180);
         Assert.True(recreated.Publish(_habbo, next).Ok);
         Assert.Equal(18, _habbo.Duckets);

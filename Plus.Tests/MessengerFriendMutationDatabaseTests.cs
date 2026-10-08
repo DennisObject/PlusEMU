@@ -82,7 +82,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
     {
         using var connection = new MySqlConnection(schema.ConnectionString);
         connection.Open();
-        connection.Execute("INSERT INTO users (id, username, auth_ticket, credits, activity_points, vip_points) VALUES (@id, @name, '', 0, 0, 0)", new { id, name = "friend_" + id });
+        connection.Execute("INSERT INTO users (id, username, auth_ticket, credits) VALUES (@id, @name, '', 0)", new { id, name = "friend_" + id });
         connection.Execute("INSERT IGNORE INTO users_settings (user_id) VALUES (@id)", new { id });
     }
 

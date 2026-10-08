@@ -22,7 +22,7 @@ public class PurchaseOKComposer : IServerPacket
             packet.WriteBoolean(false);
             packet.WriteInteger(_confirmation.Credits);
             packet.WriteInteger(_confirmation.Points);
-            packet.WriteInteger(0);
+            packet.WriteInteger(_confirmation.PointsType);
             packet.WriteBoolean(true);
             packet.WriteInteger(1);
             packet.WriteString(_confirmation.ProductType);

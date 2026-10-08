@@ -107,8 +107,7 @@ public sealed class ClubCatalogService(
         session.Send(new CreditBalanceComposer(habbo.Credits));
 
         if (offer.Points > 0) {
-            var balance = offer.PointsType == 5 ? habbo.Diamonds : habbo.Duckets;
-            session.Send(new HabboActivityPointNotificationComposer(balance, -offer.Points, offer.PointsType));
+            session.Send(new HabboActivityPointNotificationComposer(habbo.Currencies[offer.PointsType], -offer.Points, offer.PointsType));
         }
 
         session.Send(new PurchaseOKComposer());

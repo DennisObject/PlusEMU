@@ -31,10 +31,9 @@ public class ClubMembershipService(IDatabase database, IAccessControl permission
             }
 
             var credits = (long)habbo.Credits - offer.Credits;
-            var duckets = (long)habbo.Duckets - (offer.PointsType == 0 ? offer.Points : 0);
-            var diamonds = (long)habbo.Diamonds - (offer.PointsType == 5 ? offer.Points : 0);
+            var points = offer.Points > 0 && ActivityPointType.IsValid(offer.PointsType) ? (long)habbo.Currencies[offer.PointsType] - offer.Points : 0;
 
-            if (offer.Points > 0 && offer.PointsType is not (0 or 5) || credits < 0 || duckets < 0 || diamonds < 0) {
+            if (offer.Points > 0 && !ActivityPointType.IsValid(offer.PointsType) || credits < 0 || points < 0) {
                 return null;
             }
 
@@ -49,10 +48,9 @@ public class ClubMembershipService(IDatabase database, IAccessControl permission
 
             offer = storedOffer;
             credits = (long)habbo.Credits - offer.Credits;
-            duckets = (long)habbo.Duckets - (offer.PointsType == 0 ? offer.Points : 0);
-            diamonds = (long)habbo.Diamonds - (offer.PointsType == 5 ? offer.Points : 0);
+            points = offer.Points > 0 && ActivityPointType.IsValid(offer.PointsType) ? (long)habbo.Currencies[offer.PointsType] - offer.Points : 0;
 
-            if (credits < 0 || duckets < 0 || diamonds < 0 || offer.Points > 0 && offer.PointsType is not (0 or 5)) {
+            if (credits < 0 || points < 0 || offer.Points > 0 && !ActivityPointType.IsValid(offer.PointsType)) {
                 return null;
             }
 
@@ -72,16 +70,22 @@ public class ClubMembershipService(IDatabase database, IAccessControl permission
                 return null;
             }
 
-            connection.Execute("UPDATE users SET credits = @credits, activity_points = @duckets, vip_points = @diamonds WHERE id = @id",
-                new { id = habbo.Id, credits, duckets, diamonds }, transaction);
+            connection.Execute("UPDATE users SET credits = @credits WHERE id = @id", new { id = habbo.Id, credits }, transaction);
+
+            if (offer.Points > 0) {
+                UserCurrencyStore.Set(connection, habbo.Id, offer.PointsType, (int)points, transaction);
+            }
+
             // HC purchase itself is spending only if the purchaser was already a member.
             ClubRewards.RecordSpending(connection, transaction, habbo.Id, offer.Credits, now, habbo.Access.Membership.Active(now));
             connection.Execute("INSERT INTO acl_audit_log (actor_id, action, target_type, target_id, payload) VALUES (@actor, 'club.purchase', 'user', @userId, @payload)",
                 new { actor = habbo.Id, userId, payload = JsonSerializer.Serialize(new { offer.Id, offer.Days, expiry = expiry.Value.ToUnixTimeSeconds(), offer.Credits, offer.Points, offer.PointsType }) }, transaction);
             transaction.Commit();
             habbo.Credits = (int)credits;
-            habbo.Duckets = (int)duckets;
-            habbo.Diamonds = (int)diamonds;
+
+            if (offer.Points > 0) {
+                habbo.Currencies[offer.PointsType] = (int)points;
+            }
         }
 
         permissions.Refresh(recipientId ?? habbo.Id);

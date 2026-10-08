@@ -109,8 +109,11 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
             }
 
             session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
-            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -offer.Points, 0));
-            session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -offer.Points, 5));
+
+            if (offer.Points > 0) {
+                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Currencies[offer.PointsType], -offer.Points, offer.PointsType));
+            }
+
             session.Send(new PurchaseOKComposer());
 
             return Task.CompletedTask;
@@ -141,7 +144,7 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
             return Task.CompletedTask;
         }
 
-        if (session.GetHabbo().Duckets < item.CostPixels) {
+        if (session.GetHabbo().Currencies[item.PointsType] < item.CostPoints) {
             session.Send(new PresentDeliverErrorComposer(false, true));
 
             return Task.CompletedTask;
@@ -243,7 +246,7 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
 
             Plus.HabboHotel.Users.Inventory.Furniture.InventoryItem? giveItem = null;
 
-            if (!_clubRewards.Charge(session.GetHabbo(), item.CostCredits, item.CostPixels, item.CostDiamonds, (connection, transaction) =>
+            if (!_clubRewards.Charge(session.GetHabbo(), item.CostCredits, item.CostPoints, item.PointsType, (connection, transaction) =>
             {
                 if (!item.CanPurchase(session.GetHabbo())) {
                     return false;
@@ -291,12 +294,8 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                 session.Send(new CreditBalanceComposer(session.GetHabbo().Credits));
             }
 
-            if (item.CostPixels > 0) {
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Duckets, -item.CostPixels));
-            }
-
-            if (item.CostDiamonds > 0) {
-                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Diamonds, -item.CostDiamonds, 5));
+            if (item.CostPoints > 0) {
+                session.Send(new HabboActivityPointNotificationComposer(session.GetHabbo().Currencies[item.PointsType], -item.CostPoints, item.PointsType));
             }
 
             sender.LastGiftPurchasedAt = utcNow;

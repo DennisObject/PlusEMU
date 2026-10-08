@@ -135,7 +135,7 @@ namespace Plus.Tests
             Assert.False(fixture.Store.Read(7, "SafetyQuiz1")!.AwardPending);
             Assert.Equal(1, replay.Habbo.GetAchievementData("ACH_SafetyQuizGraduate")!.Level);
             replay.Habbo.Save();
-            Assert.Equal((5, 5), fixture.Connection.QuerySingle<(int, int)>("SELECT u.activity_points,s.AchievementScore FROM users u JOIN user_statistics s ON s.id=u.id WHERE u.id=7"));
+            Assert.Equal((5, 5), fixture.Connection.QuerySingle<(int, int)>("SELECT COALESCE(c.amount,0),s.AchievementScore FROM users u JOIN user_statistics s ON s.id=u.id LEFT JOIN user_currencies c ON c.user_id=u.id AND c.type=0 WHERE u.id=7"));
 
             // The production login task loads the committed level, so replay cannot repeat its economic reward.
             fixture.Connection.Execute("UPDATE user_safety_quizzes SET award_pending=TRUE WHERE user_id=7");
@@ -186,7 +186,8 @@ namespace Plus.Tests
 
                     Connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; ALTER TABLE user_stats RENAME TO user_statistics");
                     Connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/47_TalentTrackRewards.sql")));
-                    Connection.Execute("INSERT INTO users(id,username,auth_ticket,activity_points) VALUES(7,'quiz','quiz-ticket',0); INSERT INTO users_settings(user_id) VALUES(7); INSERT INTO user_statistics(id) VALUES(7); INSERT INTO talents(type,level,data_actions,data_gifts) VALUES('citizenship',0,'TRADE',''),('citizenship',1,'TRADE',''); INSERT INTO talents_sub_levels(talent_type,talent_level,sub_level,badge_code,required_progress) VALUES('citizenship',0,1,'ACH_SafetyQuizGraduate1',1),('citizenship',1,1,'ACH_HabboWayGraduate1',1)");
+                    Connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/59_UserCurrencies.sql")));
+                    Connection.Execute("INSERT INTO users(id,username,auth_ticket) VALUES(7,'quiz','quiz-ticket'); INSERT INTO users_settings(user_id) VALUES(7); INSERT INTO user_statistics(id) VALUES(7); INSERT INTO talents(type,level,data_actions,data_gifts) VALUES('citizenship',0,'TRADE',''),('citizenship',1,'TRADE',''); INSERT INTO talents_sub_levels(talent_type,talent_level,sub_level,badge_code,required_progress) VALUES('citizenship',0,1,'ACH_SafetyQuizGraduate1',1),('citizenship',1,1,'ACH_HabboWayGraduate1',1)");
                     Migrate();
                     var clients = CatalogSnapshotTestSupport.Proxy<IGameClientManager>((method, _) =>
                         method == "UnregisterClient" ? null : throw new InvalidOperationException(method));
@@ -223,7 +224,7 @@ namespace Plus.Tests
                     Access = UserAccess.Empty,
                     SessionStartedAt = DateTimeOffset.UtcNow,
                     Persistence = new UserPersistenceService(Database, TimeProvider.System),
-                    Duckets = Connection.ExecuteScalar<int>("SELECT activity_points FROM users WHERE id=7"),
+                    Duckets = Connection.ExecuteScalar<int>("SELECT COALESCE(SUM(amount),0) FROM user_currencies WHERE user_id=7 AND type=0"),
                     HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "old", 0),
                     Inventory = new InventoryComponent { Furniture = new FurnitureInventoryComponent([], []), Badges = new BadgesInventoryComponent([]) }
                 };

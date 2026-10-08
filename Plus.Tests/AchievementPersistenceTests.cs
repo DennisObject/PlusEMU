@@ -227,6 +227,7 @@ public sealed class AchievementPersistenceTests
                     connection.Execute(definition);
                 }
 
+                connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/59_UserCurrencies.sql")));
                 connection.Execute("ALTER TABLE users ADD bubble_id TINYINT NOT NULL DEFAULT 0; " +
                     "ALTER TABLE user_stats RENAME TO user_statistics; " +
                     "INSERT INTO users(id,username,auth_ticket) VALUES(7,'user','ticket'); " +
@@ -277,7 +278,8 @@ public sealed class AchievementPersistenceTests
             using var connection = Database.Connection();
 
             return connection.QuerySingle<(int, int)>(
-                "SELECT u.activity_points,s.AchievementScore FROM users u JOIN user_statistics s ON s.id=u.id WHERE u.id=7");
+                "SELECT COALESCE(c.amount,0),s.AchievementScore FROM users u JOIN user_statistics s ON s.id=u.id " +
+                "LEFT JOIN user_currencies c ON c.user_id=u.id AND c.type=0 WHERE u.id=7");
         }
 
         public void Dispose()

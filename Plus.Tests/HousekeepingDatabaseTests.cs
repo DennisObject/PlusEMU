@@ -71,9 +71,10 @@ public class HousekeepingDatabaseTests : IDisposable
         Execute("DELETE FROM user_roles WHERE user_id BETWEEN 920000 AND 920099; DELETE FROM users WHERE id BETWEEN 920000 AND 920099; DELETE FROM user_info WHERE user_id BETWEEN 920000 AND 920099; " +
                 "DELETE FROM rooms WHERE id BETWEEN 920000 AND 920099; DELETE FROM bans; DELETE FROM housekeeping_log; " +
                 "DELETE FROM housekeeping_online_peaks; DELETE FROM user_club_memberships WHERE user_id BETWEEN 920000 AND 920099");
-        Execute("INSERT INTO users (id, username, auth_ticket, `rank`, credits, activity_points, vip_points, mail, ip_last, online) VALUES " +
-                $"({Owner}, 'hk_owner', '', 9, 0, 0, 0, 'owner@hotel', '10.0.0.1', 0), ({Target}, 'hk_o''brien', 'old-ticket', 1, 100, 50, 5, 'target@hotel', '10.0.0.2', 0), " +
-                $"({Peer}, 'hk_peer', '', 9, 0, 0, 0, '', '', 1)");
+        Execute("INSERT INTO users (id, username, auth_ticket, `rank`, credits, mail, ip_last, online) VALUES " +
+                $"({Owner}, 'hk_owner', '', 9, 0, 'owner@hotel', '10.0.0.1', 0), ({Target}, 'hk_o''brien', 'old-ticket', 1, 100, 'target@hotel', '10.0.0.2', 0), " +
+                $"({Peer}, 'hk_peer', '', 9, 0, '', '', 1)");
+        Execute($"INSERT INTO user_currencies (user_id, type, amount) VALUES ({Target}, 0, 50), ({Target}, 5, 5)");
         Execute($"INSERT INTO user_info (user_id, trading_locked) VALUES ({Target}, NULL)");
         Execute($"INSERT INTO user_roles (user_id, role_id) VALUES ({Owner}, 9), ({Target}, 1), ({Peer}, 9)");
         _users = new(_database);
@@ -171,10 +172,17 @@ public class HousekeepingDatabaseTests : IDisposable
     {
         var economy = new HousekeepingEconomyActions(_users, _clients, null!, null!, null!, _database, new AccountSessionGate(), _permissions);
         Assert.True(economy.Give(Staff(), Target, HousekeepingCurrency.Duckets, 25).Ok);
-        Assert.Equal(75, Scalar<int>($"SELECT activity_points FROM users WHERE id = {Target}"));
-        Execute($"UPDATE users SET vip_points = {int.MaxValue - 10} WHERE id = {Target}");
+        Assert.Equal(75, Scalar<int>($"SELECT amount FROM user_currencies WHERE user_id = {Target} AND type = 0"));
+        Execute($"UPDATE user_currencies SET amount = {int.MaxValue - 10} WHERE user_id = {Target} AND type = 5");
         Assert.Equal(HousekeepingErrors.EconomyFailed, economy.Give(Staff(), Target, HousekeepingCurrency.Diamonds, 11).Message);
-        Assert.Equal(int.MaxValue - 10, Scalar<int>($"SELECT vip_points FROM users WHERE id = {Target}"));
+        Assert.Equal(int.MaxValue - 10, Scalar<int>($"SELECT amount FROM user_currencies WHERE user_id = {Target} AND type = 5"));
+
+        // A balance without a row starts at 0; credits stay on the users row.
+        Execute($"DELETE FROM user_currencies WHERE user_id = {Target} AND type = 5");
+        Assert.True(economy.Give(Staff(), Target, HousekeepingCurrency.Diamonds, 3).Ok);
+        Assert.Equal(3, Scalar<int>($"SELECT amount FROM user_currencies WHERE user_id = {Target} AND type = 5"));
+        Assert.True(economy.Give(Staff(), Target, HousekeepingCurrency.Credits, 4).Ok);
+        Assert.Equal(104, Scalar<int>($"SELECT credits FROM users WHERE id = {Target}"));
     }
 
     [HousekeepingDatabaseFact]

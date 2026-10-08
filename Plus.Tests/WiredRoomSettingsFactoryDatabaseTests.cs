@@ -31,7 +31,7 @@ public sealed class WiredRoomSettingsFactoryDatabaseTests
         connection.Execute(File.ReadAllText(migrationPath));
         var suffix = Guid.NewGuid().ToString("N")[..12];
         var username = "wired_factory_" + suffix;
-        connection.Execute("INSERT INTO users (username, auth_ticket, `rank`, credits, activity_points, vip_points, mail, ip_last, online) VALUES (@username, '', 1, 0, 0, 0, '', '', 0)", new { username });
+        connection.Execute("INSERT INTO users (username, auth_ticket, `rank`, credits, mail, ip_last, online) VALUES (@username, '', 1, 0, '', '', 0)", new { username });
         var userId = connection.ExecuteScalar<int>("SELECT LAST_INSERT_ID()");
         var model = connection.QueryFirst<string>("SELECT id FROM room_models LIMIT 1");
         connection.Execute("INSERT INTO rooms (owner, caption, model_name) VALUES (@owner, 'Wired factory probe', @model)", new { owner = userId.ToString(), model });
