@@ -41,6 +41,8 @@ public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutSer
         }
 
         session.Send(new InitCameraComposer(prices.Credits, prices.Points, prices.PublishPoints));
+        // The client asks again whenever the camera opens, so the room is prepared while the shot is framed.
+        camera.Prepare(session);
     }
 
     public void Purchase(GameClient session, Guid? mediaId)

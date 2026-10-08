@@ -242,6 +242,7 @@ public class CameraRequestTests
         }
         public CameraCheckoutResult Checkout(GameClient session, Guid mediaId,
             Func<CameraCheckoutMedia, CameraCheckoutResult> operation) => throw new InvalidOperationException();
+        public void Prepare(GameClient session) { }
     }
 
     private static string Capture(int crop, string extra = "") =>

@@ -105,7 +105,15 @@ public sealed class RemainingPresentationHandlerTests
                 _ => throw new NotSupportedException(method)
             };
         });
-        var service = new CameraPhotoService(null!, checkout, null!, null!, NullLogger<CameraPhotoService>.Instance);
+        var prepared = 0;
+        var camera = CatalogSnapshotTestSupport.Proxy<ICameraService>((method, _) =>
+        {
+            Assert.Equal("Prepare", method);
+            prepared++;
+
+            return null;
+        });
+        var service = new CameraPhotoService(camera, checkout, null!, null!, NullLogger<CameraPhotoService>.Instance);
         var (client, sent) = HabbiconTestSupport.Client(new Habbo());
         client.IsAuthenticated = false;
         service.Initialize(client);
@@ -118,6 +126,7 @@ public sealed class RemainingPresentationHandlerTests
         Assert.Equal(new[] { credits, points, publish }, new[] { packet.ReadInt(), packet.ReadInt(), packet.ReadInt() });
         Assert.Empty(packet.Buffer.ToArray());
         Assert.Equal(enabled ? 2 : 1, reads);
+        Assert.Equal(1, prepared);
     }
 
     [Fact]

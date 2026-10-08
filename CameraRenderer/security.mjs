@@ -7,6 +7,7 @@ export const MAX_ACTIVE = 2;
 export const MAX_QUEUE = 4;
 export const QUEUE_WAIT_MS = 5000;
 export const JOB_DEADLINE_MS = 20000;
+export const PREPARE_DEADLINE_MS = 12000;
 export const CROP_MAIN = 320;
 export const CROP_THUMBNAIL = 110;
 export const SMALL_PNG_SIZE = 110;
@@ -134,7 +135,18 @@ export function validateJob(job, catalogue) {
         } else if (!Number.isFinite(selection.strength) || selection.strength < 0 || selection.strength > 1) throw new Error('Invalid effect selection');
         names.add(selection.name);
     }
-    const scene = job.scene;
+    validateScene(job.scene);
+    return job;
+}
+
+// Preparation loads a scene's libraries ahead of its photo; it carries the scene alone.
+export function validatePreparation(body) {
+    if (!body || Object.keys(body).some(key => key !== 'scene')) throw new Error('Invalid preparation');
+    validateScene(body.scene);
+    return body;
+}
+
+function validateScene(scene) {
     if (!scene || !Number.isInteger(scene.roomId) || scene.roomId <= 0 || typeof scene.heightmap !== 'string' || scene.heightmap.length > 65536 || !Array.isArray(scene.items) || scene.items.length > 5000 || !Array.isArray(scene.users) || scene.users.length > 1000) throw new Error('Invalid server scene');
     // URLs are never a scene instruction. Photographs refer only to previously minted files.
     const scan = value => {
@@ -144,5 +156,4 @@ export function validateJob(job, catalogue) {
     };
     scan(scene);
     for (const user of scene.users) if (user && typeof user === 'object' && user.gesture === '0') user.gesture = '';
-    return job;
 }

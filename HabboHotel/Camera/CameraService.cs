@@ -16,6 +16,7 @@ namespace Plus.HabboHotel.Camera;
 public interface ICameraService
 {
     Task Handle(GameClient session, CameraRequestPayload payload, bool thumbnail);
+    void Prepare(GameClient session);
     CameraCheckoutResult Checkout(GameClient session, Guid mediaId, Func<CameraCheckoutMedia, CameraCheckoutResult> operation);
 }
 
@@ -31,8 +32,10 @@ public sealed class CameraService : ICameraService, IDisposable
     private readonly CameraRendererClient _renderer;
     private readonly CameraQuota _quota;
     private readonly string _directory;
+    private int _preparing;
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     internal static readonly TimeSpan Lifetime = TimeSpan.FromMinutes(30);
+    internal static readonly TimeSpan PreparationInterval = TimeSpan.FromSeconds(30);
 
     public CameraService(IOptions<CameraConfiguration> options, ISettingsManager settings, IDatabase database,
         ICameraEffectCatalogue catalogue, TimeProvider time, ILogger<CameraService> logger)
@@ -107,6 +110,78 @@ public sealed class CameraService : ICameraService, IDisposable
                 return new(false, "unavailable");
             }
     }
+    // Opening the camera loads the room's libraries into the renderer while the shot is framed. It reserves no quota
+    // and makes no draft; the shutter still photographs the room as it is then. One preparation runs at a time, each
+    // session prepares a room at most once per interval, and the packet handler never waits for it.
+    public void Prepare(GameClient session)
+    {
+        var room = session.GetHabbo()?.CurrentRoom;
+
+        if (room == null || !Allowed(session, room, false) || Interlocked.Exchange(ref _preparing, 1) == 1) {
+            return;
+        }
+
+        var started = false;
+
+        try {
+            if (!TryBeginPreparation(session, room.RoomId, out var token)) {
+                return;
+            }
+
+            var scene = JsonSerializer.SerializeToElement(CameraSnapshotBuilder.Capture(room), Json);
+
+            _ = Task.Run(async () =>
+            {
+                try {
+                    await _renderer.Prepare(scene, token);
+                }
+                catch (Exception exception) {
+                    // An ended camera context cancels the preparation; it no longer matters then.
+                    if (!token.IsCancellationRequested) {
+                        _logger.LogWarning(exception, "Camera preparation failed for session {SessionId}: {Reason}", session.Id, exception.Message);
+                    }
+                }
+                finally {
+                    Volatile.Write(ref _preparing, 0);
+                }
+            });
+            started = true;
+        }
+        catch (Exception exception) {
+            _logger.LogWarning(exception, "Camera preparation failed for session {SessionId}: {Reason}", session.Id, exception.Message);
+        }
+        finally {
+            if (!started) {
+                Volatile.Write(ref _preparing, 0);
+            }
+        }
+    }
+
+    // False while this session prepared the room recently. Leaving a room ends the camera context; the camera opened
+    // in the next room starts a new one, as a capture does.
+    internal bool TryBeginPreparation(GameClient session, uint roomId, out CancellationToken token)
+    {
+        var state = Session(session);
+
+        lock (state.Gate) {
+            if (state.Cancellation.IsCancellationRequested) {
+                state.Cancellation = new();
+            }
+
+            var now = _time.GetUtcNow();
+            token = state.Cancellation.Token;
+
+            if (state.PreparedRoomId == roomId && now - state.PreparedAt < PreparationInterval) {
+                return false;
+            }
+
+            state.PreparedRoomId = roomId;
+            state.PreparedAt = now;
+
+            return true;
+        }
+    }
+
     public async Task Handle(GameClient session, CameraRequestPayload payload, bool thumbnail)
     {
         CameraParseResult? parsed = null;
@@ -265,7 +340,8 @@ public sealed class CameraService : ICameraService, IDisposable
                     }
 
                     draft!.Media.Add(mediaId, now);
-                    session.Send(new CameraStorageUrlComposer(CameraStorageReply.Success(parsed.RequestId, draft.Id, mediaId, parsed.Stage)));
+                    var inline = image.Png.Length <= CameraStorageReply.MaxInlinePng ? image.Png : null;
+                    session.Send(new CameraStorageUrlComposer(CameraStorageReply.Success(parsed.RequestId, draft.Id, mediaId, parsed.Stage, inline?.Length ?? 0), inline));
                 }
             }
         }
@@ -295,6 +371,8 @@ public sealed class CameraService : ICameraService, IDisposable
         public Dictionary<Guid, Draft> Drafts { get; } = new();
         public HashSet<Guid> Requests { get; } = new();
         public DateTime RequestDay { get; set; }
+        public uint PreparedRoomId { get; set; }
+        public DateTimeOffset PreparedAt { get; set; }
     }
     private sealed record Draft(Guid Id, uint RoomId, DateTimeOffset CreatedAt, JsonElement Scene, CameraViewport Viewport)
     {

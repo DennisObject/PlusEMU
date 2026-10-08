@@ -55,4 +55,40 @@ public class CameraContextTests
             }
         }
     }
+
+    [Fact]
+    public void PreparationStartsANewContextAfterLeavingARoomAndOncePerRoomPerInterval()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "camera-context-" + Guid.NewGuid());
+
+        try {
+            var clock = new Clock();
+            using var service = new CameraService(Options.Create(new CameraConfiguration { OutputDirectory = directory }),
+                null!, null!, null!, clock, NullLogger<CameraService>.Instance);
+            var (client, _) = HabbiconTestSupport.Client(new Habbo());
+
+            Assert.True(service.TryBeginPreparation(client, 42, out var first));
+            client.EndCameraContext();
+            Assert.True(first.IsCancellationRequested);
+
+            // The next room prepares under a live context, not the one its predecessor ended.
+            Assert.True(service.TryBeginPreparation(client, 43, out var next));
+            Assert.False(next.IsCancellationRequested);
+            Assert.False(service.TryBeginPreparation(client, 43, out _));
+            clock.Now += CameraService.PreparationInterval;
+            Assert.True(service.TryBeginPreparation(client, 43, out _));
+        }
+        finally {
+            if (Directory.Exists(directory)) {
+                Directory.Delete(directory, true);
+            }
+        }
+    }
+
+    private sealed class Clock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = new(2026, 10, 8, 12, 0, 0, TimeSpan.Zero);
+
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
 }
