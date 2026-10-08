@@ -373,3 +373,45 @@ def test_pet_offers_sell_the_pet_type_named_by_their_localization():
     result = m.plan_catalog(catalog, {}, lambda kind, name: None, snapshot())
     product = result['tables']['catalog_offer_products'][(11060, 0)]
     assert (product['product_type'], product['pet_type'], product['furniture_id']) == ('pet', 20, None)
+
+
+# ---- Builders Club merge ---------------------------------------------------
+
+def builders_club_case():
+    normal = {'index': node(-1, 'root', [node(1, 'set_anna', [node(2, 'anna_sub')]), node(9, 'bc_frontpage')]),
+              'pages': {'1': page(1, [offer(100, 10)]), '2': page(2, []), '9': page(9, [offer(13270, 0, products=[])], 'builders_club_frontpage')}}
+    normal['index']['children'][0]['localization'] = 'Anna'
+    bc_tree = node(-1, 'root', [node(1, 'set_anna', [node(5, 'bc_only_sub')]), node(7, 'bc_blocks'), node(8, 'bc_frontpage')])
+    bc_tree['children'][0]['children'].append(dict(node(6, ''), localization='Anna_sub'))
+    bc = {'index': bc_tree, 'pages': {
+        '1': page(1, [offer(200, 10), offer(201, 11, priceInCredits=4), offer(100, 12, priceInCredits=2)]),
+        '5': page(5, [offer(300, 13)]), '6': page(6, [offer(301, 14)]), '7': page(7, [offer(302, 15)]),
+        '8': page(8, [offer(13270, 0, products=[], localizationId='builders_club_14_days')], 'builders_club_frontpage')}}
+    return dict(normal, buildersClub=bc)
+
+
+def test_builders_club_pages_merge_by_link_or_caption_path_and_offers_by_furni():
+    merged, report = m.merge_builders_club(builders_club_case())
+    pages = merged['pages']
+    anna = [(o['offerId'], o['products'][0]['furniClassId'], o['priceInCredits']) for o in pages['1']['offers']]
+    # furni 10 stays on its NORMAL offer; 11 is BC-only at its BC price; BC offer 100 collides with a NORMAL id and moves.
+    assert anna == [(100, 10, 3), (201, 11, 4), (100 + m.BUILDERS_CLUB_OFFER_OFFSET, 12, 2)]
+    tree = {n['pageId']: n for n in m.iter_nodes(merged['index'])}
+    assert [c['pageId'] for c in tree[1]['children']] == [2, 5]          # caption twin 'Anna_sub' merged into page 2
+    assert [o['offerId'] for o in pages['2']['offers']] == [301]
+    assert 7 in tree and pages['7']['offers'][0]['offerId'] == 302       # BC-only page kept
+    assert 9 not in tree and 8 not in tree and '9' not in pages          # Builders Club's own pages left out
+    assert 'buildersClub' not in merged and report['captured'] and report['bc_offer_ids_moved'] == 1
+
+
+def test_a_furni_normal_sells_elsewhere_keeps_its_normal_offer():
+    case = builders_club_case()
+    case['buildersClub']['pages']['7'] = page(7, [offer(999, 10, priceInCredits=1)])
+    merged, report = m.merge_builders_club(case)
+    assert [(o['offerId'], o['priceInCredits']) for o in merged['pages']['7']['offers']] == [(100, 3)]
+    assert report['normal_offers_added'] == 1
+
+
+def test_without_a_builders_club_capture_nothing_changes():
+    catalog = {'index': node(-1, 'root', [node(1, 'a')]), 'pages': {'1': page(1, [])}}
+    assert m.merge_builders_club(catalog) == (catalog, {'captured': False})

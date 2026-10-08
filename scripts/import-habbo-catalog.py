@@ -632,6 +632,122 @@ PET_OFFER = re.compile(r'a0 pet([0-9]+)')
 PRODUCT_TARGETS = ['furniture_id', 'effect_id', 'badge_code', 'bot_preset_id', 'pet_type', 'habbicon_id']
 
 
+# Builders Club pages and offers that collide with NORMAL ids move up by these offsets.
+BUILDERS_CLUB_PAGE_OFFSET = 1000000000
+BUILDERS_CLUB_OFFER_OFFSET = 1500000000
+BUILDERS_CLUB_ONLY = re.compile(r'(builders_club|loyalty_bc)', re.IGNORECASE)
+
+
+def merge_builders_club(catalog):
+    """One tree from habbo.com's NORMAL and BUILDERS_CLUB catalogues; PlusEMU has no Builders Club, so all of it sells
+    normally. A BC page is the NORMAL page with the same link, or the same caption under the same parent path; matched
+    pages get the BC offers for furni they do not list yet. A furni NORMAL sells anywhere keeps its NORMAL offer; a
+    BC-only furni keeps its BC offer, whose price habbo.com sends as its catalogue price. Builders Club's own pages and
+    subscription offers are left out."""
+    bc = catalog.get('buildersClub')
+    report = {'captured': bc is not None}
+    if bc is None:
+        return catalog, report
+    pages = {int(page_id): dict(page, offers=list(page['offers'])) for page_id, page in catalog['pages'].items()}
+    bc_pages = {int(page_id): page for page_id, page in bc['pages'].items()}
+    furni = lambda offer: tuple((p['productType'], p['furniClassId'], p['extraParam'], p['productCount']) for p in offer['products'])
+    normal_offer = {}
+    for page in pages.values():
+        for offer in page['offers']:
+            normal_offer.setdefault(furni(offer), offer)
+    offer_ids = {offer['offerId'] for page in pages.values() for offer in page['offers']}
+    by_link, by_path, path_of = {}, {}, {}
+
+    def remember(node, path):
+        if node['pageName']:
+            by_link.setdefault(link_key(node['pageName']), node)
+        by_path.setdefault(path, node)
+        path_of[id(node)] = path
+
+    def index_normal(node, path):
+        for child in node['children']:
+            child_path = path + (link_key(child['localization']),)
+            remember(child, child_path)
+            index_normal(child, child_path)
+
+    root = json.loads(json.dumps(catalog['index']))
+    index_normal(root, ())
+    counts = Counter()
+
+    def merge_offers(target_id, bc_page):
+        page = pages[target_id]
+        listed = {furni(offer) for offer in page['offers']}
+        for offer in bc_page['offers']:
+            key = furni(offer)
+            if BUILDERS_CLUB_ONLY.match(offer['localizationId']) or not offer['products']:
+                counts['bc_subscription_offers'] += 1
+            elif key in listed:
+                counts['offers_already_listed'] += 1
+            elif key in normal_offer:
+                page['offers'].append(normal_offer[key])
+                counts['normal_offers_added'] += 1
+            else:
+                moved = offer['offerId'] in offer_ids
+                page['offers'].append(dict(offer, offerId=offer['offerId'] + BUILDERS_CLUB_OFFER_OFFSET) if moved else offer)
+                counts['bc_offers_added'] += 1
+                counts['bc_offer_ids_moved'] += moved
+            listed.add(key)
+
+    def visit(node, normal_parent):
+        for child in node['children']:
+            # Captions match under the NORMAL parent the BC parent became.
+            child_path = path_of.get(id(normal_parent), ()) + (link_key(child['localization']),)
+            twin = (by_link.get(link_key(child['pageName'])) if child['pageName'] else None) or by_path.get(child_path)
+            bc_page = bc_pages.get(child['pageId'])
+            if bc_page and bc_page['layoutCode'].startswith('builders_club'):
+                counts['bc_own_pages_left_out'] += 1
+                continue
+            if twin is not None and (twin['pageId'] in pages or not (bc_page and bc_page['offers'])):
+                counts['pages_merged'] += 1
+                if bc_page and twin['pageId'] in pages:
+                    merge_offers(twin['pageId'], bc_page)
+                visit(child, twin)
+                continue
+            # A BC page whose twin is a NORMAL folder becomes a page in that folder.
+            parent = normal_parent if twin is None else twin
+            counts['bc_pages_under_normal_folders'] += twin is not None
+            counts['bc_only_pages'] += 1
+            page_id = child['pageId']
+            if page_id > 0 and page_id in pages:
+                page_id += BUILDERS_CLUB_PAGE_OFFSET
+                counts['bc_page_ids_moved'] += 1
+            copy = dict(child, pageId=page_id, children=[])
+            parent['children'].append(copy)
+            remember(copy, path_of.get(id(parent), ()) + (link_key(child['localization']),))
+            if bc_page:
+                pages[page_id] = dict(bc_page, pageId=page_id, catalogType='NORMAL', offers=[])
+                merge_offers(page_id, bc_page)
+            visit(child, copy)
+
+    visit(bc['index'], root)
+    # Builders Club's own pages in the NORMAL tree (subscriptions, add-ons) sell nothing here.
+    def prune(node):
+        node['children'] = [child for child in node['children']
+                            if not (pages.get(child['pageId']) or {}).get('layoutCode', '').startswith('builders_club')]
+        for child in node['children']:
+            prune(child)
+    before = len(pages)
+    prune(root)
+    kept = {node['pageId'] for node in iter_nodes(root)}
+    pages = {page_id: page for page_id, page in pages.items() if page_id in kept}
+    counts['bc_own_pages_left_out'] += before - len(pages)
+    report.update(counts)
+    merged = dict(catalog, index=root, pages={str(page_id): page for page_id, page in pages.items()})
+    merged.pop('buildersClub')
+    return merged, report
+
+
+def iter_nodes(node):
+    yield node
+    for child in node['children']:
+        yield from iter_nodes(child)
+
+
 def capture_classnames(catalog):
     """(kind, furniClassId) of every furni product in the capture, club gifts included."""
     offers = [offer for page in catalog['pages'].values() for offer in page['offers']] + (catalog.get('clubGifts') or {}).get('offers', [])
@@ -876,6 +992,7 @@ def insert(table, row):
 
 def plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets=None, allow_missing_pages=False):
     """Everything apply would write, and the report."""
+    catalog, builders_club = merge_builders_club(catalog)
     habbo = {(kind, entry['classname']): entry for kind, entry in furnidata_entries(habbo_furnidata)}
     source = {(kind, entry['id']): entry['classname'] for kind, entry in furnidata_entries(source_furnidata)}
     needed = {(kind, source[(kind, class_id)]) for kind, class_id in capture_classnames(catalog) if (kind, class_id) in source}
@@ -920,6 +1037,7 @@ def plan(snapshot, catalog, habbo_furnidata, source_furnidata, evidence, assets=
     result = {'furniture': furniture, 'catalog': catalog_plan, 'tables': tables, 'promotions': promotions, 'badges': badges,
               'clothing': clothing_rows}
     result['report'] = build_report(result, snapshot, catalog, habbo, assets)
+    result['report']['builders_club'] = builders_club
     return result
 
 
