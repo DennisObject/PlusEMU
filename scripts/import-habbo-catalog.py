@@ -983,13 +983,17 @@ def staff_tree(unsold, custom, position, link_taken):
     report = []
     next_id = [STAFF_PAGE_ID_BASE]
 
-    def page(parent, caption, icon, header, items, path, link=None):
+    def page(parent, caption, icon, header, items, path, link=None, folder=False):
         page_id = next_id[0]
         next_id[0] += 1
         siblings = sum(1 for row in tables['catalog_pages'].values() if row['parent_id'] == parent)
         tables['catalog_pages'][(page_id,)] = dict(
             id=page_id, parent_id=parent, link=link, caption=caption[:128], layout='default_3x3', required_permission=STAFF_PERMISSION,
-            visible=1, enabled=1, icon=icon, required_club_level=0, position=position if parent is None else siblings)
+            # A folder is a disabled heading, sent as page -1 like habbo.com's folders: clicking it only expands it.
+            visible=1, enabled=int(not folder), icon=icon, required_club_level=0, position=position if parent is None else siblings)
+        if folder:
+            report.append({'path': ' > '.join(path), 'id': page_id, 'furni': 0, 'folder': True})
+            return page_id
         for slot, image in enumerate((header or STAFF_HEADER, STAFF_TEASER if parent is None else '', '')):
             tables['catalog_page_images'][(page_id, slot)] = dict(page_id=page_id, slot=slot, image=image)
         text = 'Staff only: every furni the public catalogue does not sell.' if parent is None else f'{len(items)} furni'
@@ -1021,7 +1025,7 @@ def staff_tree(unsold, custom, position, link_taken):
         if len(members) <= STAFF_FOLDER_SIZE:
             page(root, caption, icon, header, members, ['Staff', caption])
             continue
-        folder = page(root, caption, icon, header, [], ['Staff', caption])
+        folder = page(root, caption, icon, header, [], ['Staff', caption], folder=True)
         lines = {}
         for item in members:
             lines.setdefault(item['line'], []).append(item)

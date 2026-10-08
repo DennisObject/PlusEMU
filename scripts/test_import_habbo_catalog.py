@@ -425,6 +425,9 @@ def test_staff_tree_pages_by_category_with_big_categories_split_by_line(monkeypa
     assert [p['path'] for p in report] == ['Staff', 'Staff > Chair', 'Staff > Other', 'Staff > Other > rare', 'Staff > Other > Other lines A–Z',
                                            'Staff > Plus custom']
     assert all(p['required_permission'] == m.STAFF_PERMISSION for p in pages.values())
+    other = next(p for p in pages.values() if p['caption'] == 'Other')
+    assert other['enabled'] == 0 and not any(key[0] == other['id'] for key in tables['catalog_page_images'])
+    assert all(p['enabled'] == 1 for p in pages.values() if p['caption'] != 'Other')
     root = pages[m.STAFF_PAGE_ID_BASE]
     assert (root['parent_id'], root['link'], root['position']) == (None, 'staff', 7)
     assert [o['id'] for o in tables['catalog_offers'].values()][:2] == [m.STAFF_FLOOR_OFFER_BASE + 10, m.STAFF_FLOOR_OFFER_BASE + 11]
