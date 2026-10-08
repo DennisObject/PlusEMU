@@ -2,8 +2,9 @@ import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 // Only operator-configured sources are fetched; scene data never supplies a URL.
-export async function fetchCameraData(url, headers = {}) {
-    const response = await fetch(url, { headers, redirect: 'error', signal: AbortSignal.timeout(10000) });
+export async function fetchCameraData(url, headers = {}, signal) {
+    const timeout = AbortSignal.timeout(10000);
+    const response = await fetch(url, { headers, redirect: 'error', signal: signal ? AbortSignal.any([signal, timeout]) : timeout });
     if (response.status === 304) return { status: 304 };
     if (!response.ok) throw new Error(`Camera data source returned ${response.status}: ${url}`);
     const chunks = [];
@@ -13,13 +14,14 @@ export async function fetchCameraData(url, headers = {}) {
         if (length > 32 * 1024 * 1024) throw new Error('Camera data source is too large');
         chunks.push(chunk);
     }
-    return { status: response.status, etag: response.headers.get('etag'), body: Buffer.concat(chunks) };
+    return { status: response.status, etag: response.headers.get('etag'), headers: response.headers, body: Buffer.concat(chunks) };
 }
 
 export function createFurnitureDataSource({ url, filename }) {
     let cached;
     let etag;
-    return async () => {
+    let refreshing = null;
+    const refresh = async () => {
         let data;
         let nextEtag;
         if (url) {
@@ -43,4 +45,6 @@ export function createFurnitureDataSource({ url, filename }) {
         etag = nextEtag;
         return cached;
     };
+    // Concurrent callers share one refresh, so a slower older response can never replace a newer catalogue.
+    return () => refreshing ??= refresh().finally(() => { refreshing = null; });
 }

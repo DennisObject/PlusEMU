@@ -107,10 +107,9 @@ internal static class CameraRequestParser
         return ParseJson(payload.Json, channel, catalogue, photoLevel);
     }
 
-    private static CameraParseResult ParseJson(string json, CameraChannel channel, IReadOnlyDictionary<string, int> catalogue, int photoLevel)
+    // One JSON value and nothing after it, or null.
+    private static JsonNode? ReadRoot(string json)
     {
-        JsonNode root;
-
         try {
             var reader = new Utf8JsonReader(Encoding.UTF8.GetBytes(json), new JsonReaderOptions
             {
@@ -119,18 +118,21 @@ internal static class CameraRequestParser
             });
 
             if (!reader.Read()) {
-                return Malformed(CameraRejectReason.Schema);
+                return null;
             }
 
-            root = ReadNode(ref reader);
+            var root = ReadNode(ref reader);
 
-            if (reader.Read()) {
-                return Malformed(CameraRejectReason.Schema);
-            }
+            return reader.Read() ? null : root;
         }
         catch (JsonException) {
-            return Malformed(CameraRejectReason.Schema);
+            return null;
         }
+    }
+
+    private static CameraParseResult ParseJson(string json, CameraChannel channel, IReadOnlyDictionary<string, int> catalogue, int photoLevel)
+    {
+        var root = ReadRoot(json);
 
         if (root is not JsonObject body) {
             return Malformed(CameraRejectReason.Schema);
@@ -198,89 +200,138 @@ internal static class CameraRequestParser
             return Fail(CameraRejectReason.Schema, requestId, stage, true);
         }
 
-        unexpected = Unexpected(viewport, "width", "height", "offsetX", "offsetY", "x", "y", "cropWidth", "cropHeight", "scale", "locationX", "locationY", "locationZ");
+        var read = ReadViewport(viewport, channel == CameraChannel.Photo ? PhotoCrop : ThumbnailCrop, out var viewportReason);
+
+        if (read == null) {
+            return Fail(viewportReason!.Value, requestId, stage, true);
+        }
+
+        var command = new CameraCommand.Capture(requestId, read);
+
+        return new CameraParseResult(CameraParseStatus.Accepted, CameraRejectReason.None, requestId, stage, command);
+    }
+
+    // The camera's viewport as it opens, so the room can be prepared as it will be photographed. Null unless it is a
+    // photo viewport by the same rules as a capture.
+    public static CameraViewport? ParseViewport(string? json)
+    {
+        if (json == null || Encoding.UTF8.GetByteCount(json) > MaxJsonBytes || ReadRoot(json) is not JsonObject viewport ||
+            Hazard(viewport) != null || HasDuplicate(viewport)) {
+            return null;
+        }
+
+        return ReadViewport(viewport, PhotoCrop, out _);
+    }
+
+    private static CameraViewport? ReadViewport(JsonObject viewport, int crop, out CameraRejectReason? reason)
+    {
+        reason = null;
+
+        var unexpected = Unexpected(viewport, "width", "height", "offsetX", "offsetY", "x", "y", "cropWidth", "cropHeight", "scale", "locationX", "locationY", "locationZ");
 
         if (unexpected != null) {
-            return Fail(unexpected.Value, requestId, stage, true);
+            reason = unexpected;
+
+            return null;
         }
 
         var width = ReadInt(viewport, "width", 320, 2048, CameraRejectReason.Schema, out var widthReason);
 
         if (widthReason != null) {
-            return Fail(widthReason.Value, requestId, stage, true);
+            reason = widthReason;
+
+            return null;
         }
 
         var height = ReadInt(viewport, "height", 320, 2048, CameraRejectReason.Schema, out var heightReason);
 
         if (heightReason != null) {
-            return Fail(heightReason.Value, requestId, stage, true);
+            reason = heightReason;
+
+            return null;
         }
 
         var offsetX = ReadFinite(viewport, "offsetX", -4096, 4096, out var offsetXReason);
 
         if (offsetXReason != null) {
-            return Fail(offsetXReason.Value, requestId, stage, true);
+            reason = offsetXReason;
+
+            return null;
         }
 
         var offsetY = ReadFinite(viewport, "offsetY", -4096, 4096, out var offsetYReason);
 
         if (offsetYReason != null) {
-            return Fail(offsetYReason.Value, requestId, stage, true);
+            reason = offsetYReason;
+
+            return null;
         }
 
         var x = ReadFinite(viewport, "x", -4096, 4096, out var xReason);
 
         if (xReason != null) {
-            return Fail(xReason.Value, requestId, stage, true);
+            reason = xReason;
+
+            return null;
         }
 
         var y = ReadFinite(viewport, "y", -4096, 4096, out var yReason);
 
         if (yReason != null) {
-            return Fail(yReason.Value, requestId, stage, true);
+            reason = yReason;
+
+            return null;
         }
 
-        int crop = channel == CameraChannel.Photo ? PhotoCrop : ThumbnailCrop;
         var cropWidth = ReadInt(viewport, "cropWidth", crop, crop, CameraRejectReason.Crop, out var cropWidthReason);
 
         if (cropWidthReason != null) {
-            return Fail(cropWidthReason.Value, requestId, stage, true);
+            reason = cropWidthReason;
+
+            return null;
         }
 
         var cropHeight = ReadInt(viewport, "cropHeight", crop, crop, CameraRejectReason.Crop, out var cropHeightReason);
 
         if (cropHeightReason != null) {
-            return Fail(cropHeightReason.Value, requestId, stage, true);
+            reason = cropHeightReason;
+
+            return null;
         }
 
         var scale = ReadFinite(viewport, "scale", 1, 1, out var scaleReason);
 
         if (scaleReason != null) {
-            return Fail(scaleReason.Value, requestId, stage, true);
+            reason = scaleReason;
+
+            return null;
         }
 
         var locationX = ReadFinite(viewport, "locationX", -256, 256, out var locationXReason);
 
         if (locationXReason != null) {
-            return Fail(locationXReason.Value, requestId, stage, true);
+            reason = locationXReason;
+
+            return null;
         }
 
         var locationY = ReadFinite(viewport, "locationY", -256, 256, out var locationYReason);
 
         if (locationYReason != null) {
-            return Fail(locationYReason.Value, requestId, stage, true);
+            reason = locationYReason;
+
+            return null;
         }
 
         var locationZ = ReadFinite(viewport, "locationZ", -256, 256, out var locationZReason);
 
         if (locationZReason != null) {
-            return Fail(locationZReason.Value, requestId, stage, true);
+            reason = locationZReason;
+
+            return null;
         }
 
-        var command = new CameraCommand.Capture(requestId, new CameraViewport(
-            width, height, offsetX, offsetY, x, y, cropWidth, cropHeight, scale, locationX, locationY, locationZ));
-
-        return new CameraParseResult(CameraParseStatus.Accepted, CameraRejectReason.None, requestId, stage, command);
+        return new CameraViewport(width, height, offsetX, offsetY, x, y, cropWidth, cropHeight, scale, locationX, locationY, locationZ);
     }
 
     private static CameraParseResult ParseRender(JsonObject body, string requestId, string stage, IReadOnlyDictionary<string, int> catalogue, int photoLevel)

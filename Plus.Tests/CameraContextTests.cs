@@ -55,4 +55,70 @@ public class CameraContextTests
             }
         }
     }
+
+    [Fact]
+    public void PreparationStartsANewContextAfterLeavingARoomAndOncePerRoomPerInterval()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "camera-context-" + Guid.NewGuid());
+
+        try {
+            var clock = new Clock();
+            using var service = new CameraService(Options.Create(new CameraConfiguration { OutputDirectory = directory }),
+                null!, null!, null!, clock, NullLogger<CameraService>.Instance);
+            var (client, _) = HabbiconTestSupport.Client(new Habbo());
+            var view = new CameraViewport(1280, 900, 0, 0, 480, 290, 320, 320, 1, 7, 7, 0);
+
+            Assert.True(service.TryBeginPreparation(client, 42, view, out var first));
+            client.EndCameraContext();
+            Assert.True(first.IsCancellationRequested);
+
+            // The next room prepares under a live context, not the one its predecessor ended.
+            Assert.True(service.TryBeginPreparation(client, 43, view, out var next));
+            Assert.False(next.IsCancellationRequested);
+            Assert.False(service.TryBeginPreparation(client, 43, view, out _));
+            clock.Now += CameraService.PreparationInterval;
+            Assert.True(service.TryBeginPreparation(client, 43, view, out _));
+        }
+        finally {
+            if (Directory.Exists(directory)) {
+                Directory.Delete(directory, true);
+            }
+        }
+    }
+
+    [Fact]
+    public void ANewViewportGeometryPreparesTheRoomAgainAtMostEveryFewSeconds()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "camera-context-" + Guid.NewGuid());
+
+        try {
+            var clock = new Clock();
+            using var service = new CameraService(Options.Create(new CameraConfiguration { OutputDirectory = directory }),
+                null!, null!, null!, clock, NullLogger<CameraService>.Instance);
+            var (client, _) = HabbiconTestSupport.Client(new Habbo());
+            var view = new CameraViewport(1280, 900, 0, 0, 480, 290, 320, 320, 1, 7, 7, 0);
+
+            Assert.True(service.TryBeginPreparation(client, 42, view, out _));
+            // Moving the crop within the same view is the same geometry.
+            clock.Now += CameraService.GeometryInterval;
+            Assert.False(service.TryBeginPreparation(client, 42, view with { X = 10, Y = 20 }, out _));
+            Assert.True(service.TryBeginPreparation(client, 42, view with { LocationX = 8 }, out _));
+            Assert.False(service.TryBeginPreparation(client, 42, view with { Width = 1440 }, out _));
+            clock.Now += CameraService.GeometryInterval;
+            Assert.True(service.TryBeginPreparation(client, 42, view with { Width = 1440 }, out _));
+            Assert.True(service.TryBeginPreparation(client, 43, view, out _));
+        }
+        finally {
+            if (Directory.Exists(directory)) {
+                Directory.Delete(directory, true);
+            }
+        }
+    }
+
+    private sealed class Clock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = new(2026, 10, 8, 12, 0, 0, TimeSpan.Zero);
+
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
 }

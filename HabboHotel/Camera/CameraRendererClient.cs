@@ -52,12 +52,43 @@ internal sealed class CameraRendererClient : IDisposable
     internal static bool IsPrivateAddress(IPAddress address) =>
         CameraEffectCatalogue.IsPrivateHttp(new Uri($"http://{(address.AddressFamily == AddressFamily.InterNetworkV6 ? "[" + address + "]" : address.ToString())}/render"));
 
-    public async Task<CameraRenderedImage> Render(JsonElement scene, CameraViewport viewport, IReadOnlyList<CameraEffectSelection> effects, bool zoom, int level, CancellationToken token)
+    private Uri Endpoint()
     {
         if (_options.Bearer.Length < 32 || !Uri.TryCreate(_options.RendererUrl, UriKind.Absolute, out var uri) ||
             !CameraEffectCatalogue.IsPrivateHttp(uri) || uri.AbsolutePath != "/render" || uri.Query.Length != 0 || uri.Fragment.Length != 0) {
             throw new InvalidOperationException("Camera renderer is not configured");
         }
+
+        return uri;
+    }
+
+    // Builds the room in the camera's view ahead of a photo. It takes no render capacity: the renderer
+    // prepares on an idle page only and answers 409 when it has none.
+    public async Task Prepare(JsonElement scene, CameraViewport viewport, CancellationToken token)
+    {
+        var uri = new Uri(Endpoint(), "/prepare");
+        byte[] body = JsonSerializer.SerializeToUtf8Bytes(new { scene, viewport }, Json);
+
+        if (body.Length > 1024 * 1024) {
+            return;
+        }
+
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+        deadline.CancelAfter(TimeSpan.FromSeconds(_options.TimeoutSeconds));
+        using var request = new HttpRequestMessage(HttpMethod.Post, uri);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _options.Bearer);
+        request.Content = new ByteArrayContent(body);
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+
+        if (response.StatusCode is not (HttpStatusCode.NoContent or HttpStatusCode.Conflict)) {
+            throw new InvalidOperationException($"Camera renderer could not prepare the room ({(int)response.StatusCode})");
+        }
+    }
+
+    public async Task<CameraRenderedImage> Render(JsonElement scene, CameraViewport viewport, IReadOnlyList<CameraEffectSelection> effects, bool zoom, int level, CancellationToken token)
+    {
+        var uri = Endpoint();
 
         if (!await _capacity.WaitAsync(0, token)) {
             throw new InvalidOperationException("Camera renderer is busy");

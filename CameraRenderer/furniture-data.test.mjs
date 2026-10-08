@@ -38,6 +38,21 @@ test('revalidates the hotel catalogue and replaces its version without altering 
     assert.equal(await source(), current);
 });
 
+test('concurrent callers share one catalogue refresh', async t => {
+    let requests = 0;
+    const server = http.createServer((request, response) => {
+        requests++;
+        response.setHeader('ETag', '"1"');
+        setTimeout(() => response.end(JSON.stringify(catalogue(1))), 20);
+    }).listen(0, '127.0.0.1');
+    t.after(() => server.close());
+    await once(server, 'listening');
+    const source = createFurnitureDataSource({ url: `http://127.0.0.1:${server.address().port}/furnidata` });
+    const [first, second] = await Promise.all([source(), source()]);
+    assert.equal(first, second);
+    assert.equal(requests, 1);
+});
+
 test('local catalogues refresh after replacement and invalid data does not become a snapshot', async t => {
     const directory = await mkdtemp(join(tmpdir(), 'camera-furnidata-'));
     t.after(() => rm(directory, { recursive: true, force: true }));
@@ -49,6 +64,17 @@ test('local catalogues refresh after replacement and invalid data does not becom
     assert.notEqual((await source()).version, old.version);
     await writeFile(filename, '{}');
     await assert.rejects(source(), /Invalid camera furniture catalogue/);
+});
+
+test('a camera data fetch stops when its caller leaves', async t => {
+    const server = http.createServer(() => {}).listen(0, '127.0.0.1');
+    t.after(() => server.close());
+    await once(server, 'listening');
+    const caller = new AbortController();
+    const fetching = fetchCameraData(`http://127.0.0.1:${server.address().port}/asset`, {}, caller.signal);
+    setTimeout(() => caller.abort(new Error('page closed')), 20);
+    await assert.rejects(fetching, /page closed/);
+    server.closeAllConnections();
 });
 
 test('camera data fetches refuse redirects to another source', async t => {

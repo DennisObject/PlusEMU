@@ -7,6 +7,7 @@ export const MAX_ACTIVE = 2;
 export const MAX_QUEUE = 4;
 export const QUEUE_WAIT_MS = 5000;
 export const JOB_DEADLINE_MS = 20000;
+export const PREPARE_DEADLINE_MS = 12000;
 export const CROP_MAIN = 320;
 export const CROP_THUMBNAIL = 110;
 export const SMALL_PNG_SIZE = 110;
@@ -114,12 +115,7 @@ export function validPng(base64, size) {
 
 export function validateJob(job, catalogue) {
     if (!job || Object.keys(job).some(key => !['scene','viewport','effects','zoom','level'].includes(key))) throw new Error('Invalid render job');
-    const view = job.viewport;
-    const numeric = ['width','height','offsetX','offsetY','x','y','cropWidth','cropHeight','scale','locationX','locationY','locationZ'];
-    if (!view || Object.keys(view).length !== numeric.length || numeric.some(key => !Number.isFinite(view[key]))) throw new Error('Invalid viewport');
-    if (view.scale !== 1 || !Number.isInteger(view.width) || !Number.isInteger(view.height) || view.width < 320 || view.height < 320 || view.width > 2048 || view.height > 2048) throw new Error('Invalid viewport dimensions');
-    renderedPngSize(view.cropWidth, view.cropHeight);
-    if (['x','y','offsetX','offsetY'].some(key => Math.abs(view[key]) > 4096) || ['locationX','locationY','locationZ'].some(key => Math.abs(view[key]) > 256)) throw new Error('Invalid viewport position');
+    const view = validateViewport(job.viewport);
     job.zoom = cameraZoom(job.zoom, view.cropWidth);
     if (!Number.isInteger(job.level) || job.level < 0 || job.level > 1000 || !Array.isArray(job.effects) || job.effects.length > 8) throw new Error('Invalid effects');
     const names = new Set();
@@ -134,7 +130,28 @@ export function validateJob(job, catalogue) {
         } else if (!Number.isFinite(selection.strength) || selection.strength < 0 || selection.strength > 1) throw new Error('Invalid effect selection');
         names.add(selection.name);
     }
-    const scene = job.scene;
+    validateScene(job.scene);
+    return job;
+}
+
+// Preparation readies a scene ahead of its photo. It carries the scene and, once the camera knows it, the viewport.
+export function validatePreparation(body) {
+    if (!body || Object.keys(body).some(key => key !== 'scene' && key !== 'viewport')) throw new Error('Invalid preparation');
+    validateScene(body.scene);
+    if (body.viewport !== undefined) validateViewport(body.viewport);
+    return body;
+}
+
+function validateViewport(view) {
+    const numeric = ['width','height','offsetX','offsetY','x','y','cropWidth','cropHeight','scale','locationX','locationY','locationZ'];
+    if (!view || Object.keys(view).length !== numeric.length || numeric.some(key => !Number.isFinite(view[key]))) throw new Error('Invalid viewport');
+    if (view.scale !== 1 || !Number.isInteger(view.width) || !Number.isInteger(view.height) || view.width < 320 || view.height < 320 || view.width > 2048 || view.height > 2048) throw new Error('Invalid viewport dimensions');
+    renderedPngSize(view.cropWidth, view.cropHeight);
+    if (['x','y','offsetX','offsetY'].some(key => Math.abs(view[key]) > 4096) || ['locationX','locationY','locationZ'].some(key => Math.abs(view[key]) > 256)) throw new Error('Invalid viewport position');
+    return view;
+}
+
+function validateScene(scene) {
     if (!scene || !Number.isInteger(scene.roomId) || scene.roomId <= 0 || typeof scene.heightmap !== 'string' || scene.heightmap.length > 65536 || !Array.isArray(scene.items) || scene.items.length > 5000 || !Array.isArray(scene.users) || scene.users.length > 1000) throw new Error('Invalid server scene');
     // URLs are never a scene instruction. Photographs refer only to previously minted files.
     const scan = value => {
@@ -144,5 +161,4 @@ export function validateJob(job, catalogue) {
     };
     scan(scene);
     for (const user of scene.users) if (user && typeof user === 'object' && user.gesture === '0') user.gesture = '';
-    return job;
 }

@@ -41,17 +41,19 @@ public sealed class RemainingPresentationHandlerTests
         await new RefreshCampaignEvent(landing).Parse(null!, HabbiconTestSupport.Incoming());
         Assert.Equal(new[] { "id,name;" }, campaigns);
 
-        var cameraCalls = 0;
-        var photos = CatalogSnapshotTestSupport.Proxy<ICameraPhotoService>((method, _) =>
+        var viewports = new List<string?>();
+        var photos = CatalogSnapshotTestSupport.Proxy<ICameraPhotoService>((method, args) =>
         {
             Assert.Equal("Initialize", method);
-            cameraCalls++;
+            viewports.Add((string?)args[1]);
 
             return null;
         });
         await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming());
+        await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming("{\"width\":1280}"));
         await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming(1));
-        Assert.Equal(1, cameraCalls);
+        await new InitCameraEvent(photos).Parse(null!, HabbiconTestSupport.Incoming("{}", 1));
+        Assert.Equal(new[] { null, "{\"width\":1280}" }, viewports);
     }
 
     [Theory]
@@ -105,7 +107,15 @@ public sealed class RemainingPresentationHandlerTests
                 _ => throw new NotSupportedException(method)
             };
         });
-        var service = new CameraPhotoService(null!, checkout, null!, null!, NullLogger<CameraPhotoService>.Instance);
+        var prepared = 0;
+        var camera = CatalogSnapshotTestSupport.Proxy<ICameraService>((method, _) =>
+        {
+            Assert.Equal("Prepare", method);
+            prepared++;
+
+            return null;
+        });
+        var service = new CameraPhotoService(camera, checkout, null!, null!, NullLogger<CameraPhotoService>.Instance);
         var (client, sent) = HabbiconTestSupport.Client(new Habbo());
         client.IsAuthenticated = false;
         service.Initialize(client);
@@ -118,6 +128,7 @@ public sealed class RemainingPresentationHandlerTests
         Assert.Equal(new[] { credits, points, publish }, new[] { packet.ReadInt(), packet.ReadInt(), packet.ReadInt() });
         Assert.Empty(packet.Buffer.ToArray());
         Assert.Equal(enabled ? 2 : 1, reads);
+        Assert.Equal(1, prepared);
     }
 
     [Fact]
