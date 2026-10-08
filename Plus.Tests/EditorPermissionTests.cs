@@ -32,7 +32,7 @@ public class EditorPermissionTests
     {
         var refresher = DispatchProxy.Create<ICatalogCacheRefresher, Recorder>();
 
-        return (new FurniEditorService(EditorTestSupport.UntouchableDatabase(), new FurnidataStore(Options.Create(new FurniEditorConfiguration())),
+        return (new FurniEditorService(EditorTestSupport.UntouchableDatabase(), DispatchProxy.Create<ICatalogFurnidata, Recorder>(),
             DispatchProxy.Create<IFurniEditorTextImporter, Recorder>(), refresher, DispatchProxy.Create<IGameClientManager, Recorder>(),
             NullLogger<FurniEditorService>.Instance, TimeProvider.System), (Recorder)(object)refresher);
     }
@@ -86,7 +86,7 @@ public class EditorPermissionTests
     [Fact]
     public async Task ImportWithoutAnImportUrlSaysItIsNotConfigured()
     {
-        var service = new FurniEditorService(EditorTestSupport.UntouchableDatabase(), new FurnidataStore(Options.Create(new FurniEditorConfiguration())),
+        var service = new FurniEditorService(EditorTestSupport.UntouchableDatabase(), DispatchProxy.Create<ICatalogFurnidata, Recorder>(),
             new FurniEditorTextImporter(Options.Create(new FurniEditorConfiguration()), TimeProvider.System), DispatchProxy.Create<ICatalogCacheRefresher, Recorder>(),
             DispatchProxy.Create<IGameClientManager, Recorder>(), NullLogger<FurniEditorService>.Instance, TimeProvider.System);
         var refused = await Assert.ThrowsAsync<FurniEditorRejected>(() => service.ImportText(EditorTestSupport.Staff(), 41));

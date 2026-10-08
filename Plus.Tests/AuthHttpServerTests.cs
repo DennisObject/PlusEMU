@@ -717,6 +717,8 @@ public sealed class AuthHttpServerTests : IAsyncLifetime
     private sealed class FixedFurnidata(CatalogFurnidataFile? file) : ICatalogFurnidata
     {
         public CatalogFurnidataFile? Current() => file;
+
+        public void Invalidate() { }
     }
 
     private sealed class FixedBadgeRarity(BadgeLeaderboardSnapshot snapshot) : IBadgeRarityManager
