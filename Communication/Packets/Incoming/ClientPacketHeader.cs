@@ -400,8 +400,8 @@ public static class ClientPacketHeader
     //crafting
     public const uint CraftEvent = 2324;
     //public const uint CraftSecretEvent =;
-    public const uint GetCraftableProductsEvent = 1420;
-    public const uint GetCraftingRecipeEvent = 2698;
+    public const uint GetCraftableProductsEvent = 2698;
+    public const uint GetCraftingRecipeEvent = 1420;
     //public const uint GetCraftingRecipesAvailableEvent =;
 
     // SnowStorm (AIR Game2 payloads); internal IDs match Octane's wire IDs.
