@@ -94,6 +94,17 @@ public class SnowStormPacketTests
     {
         foreach (var file in Directory.GetFiles(HabbiconPacketTests.Repo("Resources/Revisions"), "*.json")) {
             using var json = JsonDocument.Parse(File.ReadAllText(file));
+            var airProfile = json.RootElement.TryGetProperty("ZeroHeaderIsValid", out var zeroHeader) && zeroHeader.GetBoolean()
+                ? JsonSerializer.Deserialize<Plus.Communication.Revisions.Revision>(File.ReadAllText(file)) : null;
+
+            if (airProfile is not null) {
+                airProfile.BuildMappings(new Plus.Communication.Revisions.Revision
+                {
+                    IncomingHeaders = typeof(ClientPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue()!),
+                    OutgoingHeaders = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue()!)
+                });
+            }
+
             // example.json is the internal revision, rewritten at startup from the header classes.
             var internalIds = Path.GetFileName(file) == "example.json";
 
@@ -102,7 +113,17 @@ public class SnowStormPacketTests
 
                 foreach (var (name, id) in expected) {
                     var constant = (uint)type.GetField(name)!.GetRawConstantValue()!;
-                    Assert.Equal(internalIds ? constant : id, section.GetProperty(name).GetUInt32());
+                    var wire = section.GetProperty(name).GetUInt32();
+
+                    if (airProfile is null) {
+                        Assert.Equal(internalIds ? constant : id, wire);
+                    }
+                    else if (key == "IncomingHeaders") {
+                        Assert.Equal(constant, airProfile.IncomingIdToInternalIdMapping[wire]);
+                    }
+                    else {
+                        Assert.Equal(wire, airProfile.InternalIdToOutgoingIdMapping[constant]);
+                    }
                 }
 
                 var ids = section.EnumerateObject().Select(header => header.Value.GetUInt32()).Where(id => id > 0).ToList();

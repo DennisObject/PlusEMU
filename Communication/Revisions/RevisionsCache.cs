@@ -52,13 +52,20 @@ public class RevisionsCache : IRevisionsCache, IStartable
         var revisions = new Dictionary<string, Revision>();
 
         foreach (var file in Directory.GetFiles(Location).Where(f => f.EndsWith(".json"))) {
-            var revision = JsonSerializer.Deserialize<Revision>(await File.ReadAllTextAsync(file), SerializerOptions);
+            var revision = JsonSerializer.Deserialize<Revision>(await File.ReadAllTextAsync(file), SerializerOptions)
+                ?? throw new InvalidOperationException($"{file}: empty packet revision.");
+
+            if (string.IsNullOrWhiteSpace(revision.Name)) {
+                throw new InvalidOperationException($"{file}: packet revision name is missing.");
+            }
 
             if (revision.Name.Equals(InternalRevision.Name)) {
                 continue;
             }
 
-            revisions[revision.Name] = revision;
+            if (!revisions.TryAdd(revision.Name, revision)) {
+                throw new InvalidOperationException($"{file}: duplicate packet revision name '{revision.Name}'.");
+            }
         }
 
         revisions[InternalRevision.Name] = InternalRevision;
@@ -68,28 +75,11 @@ public class RevisionsCache : IRevisionsCache, IStartable
     private void Validate()
     {
         foreach (var revision in Revisions.Values) {
-            var undefinedIncoming = revision.IncomingHeaders.Keys.Where(key => !InternalRevision.IncomingHeaders.ContainsKey(key)).ToList();
-            var undefinedOutgoing = revision.OutgoingHeaders.Keys.Where(key => !InternalRevision.OutgoingHeaders.ContainsKey(key)).ToList();
-
-            if (undefinedIncoming.Any()) {
-                Console.WriteLine($"{revision.Name}: Missing Incoming Headers ({undefinedIncoming.Count}):");
-
-                foreach (var incoming in undefinedIncoming) {
-                    Console.WriteLine(incoming);
-                }
+            if (ReferenceEquals(revision, InternalRevision)) {
+                continue;
             }
 
-            if (undefinedOutgoing.Any()) {
-                Console.WriteLine($"{revision.Name}: Missing Outgoing Headers ({undefinedOutgoing.Count}):");
-
-                foreach (var outgoing in undefinedOutgoing) {
-                    Console.WriteLine(outgoing);
-                }
-            }
-
-
-            revision.IncomingIdToInternalIdMapping = revision.IncomingHeaders.Where(kvp => kvp.Value > 0).ToDictionary(kvp => kvp.Value, kvp => InternalRevision.IncomingHeaders[kvp.Key]);
-            revision.InternalIdToOutgoingIdMapping = revision.OutgoingHeaders.Where(kvp => kvp.Value > 0).ToDictionary(kvp => InternalRevision.OutgoingHeaders[kvp.Key], kvp => kvp.Value);
+            revision.BuildMappings(InternalRevision);
         }
     }
 }
