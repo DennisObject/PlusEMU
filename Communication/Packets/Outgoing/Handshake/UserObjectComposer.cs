@@ -27,7 +27,7 @@ public class UserObjectComposer : IServerPacket
         packet.WriteInteger(_user.DailyRespectPoints);
         packet.WriteInteger(_user.DailyPetRespectPoints);
         packet.WriteBoolean(false); // Friends stream active
-        packet.WriteString((_user.LastOnlineAt?.ToUnixTimeSeconds() ?? 0).ToString(CultureInfo.InvariantCulture)); // last online?
+        packet.WriteString((_user.LastOnlineAt?.ToUnixTimeSeconds() ?? 0).ToString(CultureInfo.InvariantCulture)); // Last-access timestamp.
         packet.WriteBoolean(_user.ChangingName); // Can change name
         packet.WriteBoolean(false);
     }

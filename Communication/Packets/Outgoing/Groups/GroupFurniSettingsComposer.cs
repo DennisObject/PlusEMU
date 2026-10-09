@@ -13,10 +13,10 @@ public class GroupFurniSettingsComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteUInteger(_snapshot.ItemId); //Item Id
-        packet.WriteInteger(_snapshot.GroupId); //Group Id?
+        packet.WriteInteger(_snapshot.GroupId); // Group ID.
         packet.WriteString(_snapshot.Name);
         packet.WriteUInteger(_snapshot.RoomId); //RoomId
-        packet.WriteBoolean(_snapshot.IsMember); //Member?
+        packet.WriteBoolean(_snapshot.IsMember); // Whether the viewer is a group member.
         packet.WriteBoolean(_snapshot.ForumEnabled); //Has a forum
     }
 }

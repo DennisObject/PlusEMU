@@ -7,7 +7,7 @@ internal class GetRentableSpaceEvent : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        packet.ReadInt(); //unknown
+        packet.ReadInt(); // Rentable-space item ID; the current status response is not item-specific.
         session.Send(new RentableSpaceComposer());
 
         return Task.CompletedTask;

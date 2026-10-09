@@ -21,7 +21,7 @@ public class GroupCreationWindowComposer : IServerPacket
         foreach (var room in _presentation.Rooms) {
             packet.WriteUInteger(room.Id); //Room Id
             packet.WriteString(room.Name); //Room Name
-            packet.WriteBoolean(false); //What?
+            packet.WriteBoolean(false); // Whether the room has controllers.
         }
 
         packet.WriteInteger(5);

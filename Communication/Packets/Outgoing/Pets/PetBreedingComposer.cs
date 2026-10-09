@@ -9,13 +9,13 @@ public class PetBreedingComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        packet.WriteInteger(219005779); //An Id?
+        packet.WriteInteger(219005779); // Breeding nest ID (legacy example data).
         {
             //Pet 1.
             packet.WriteInteger(2169464); //Pet Id
             packet.WriteString("Tes");
             packet.WriteInteger(69); //Level
-            packet.WriteString("1 22 F2E5CC"); //Breed/figure?
+            packet.WriteString("1 22 F2E5CC"); // Pet figure.
             packet.WriteString("Sledmore"); //Owner
 
             //Pet 2.

@@ -19,7 +19,7 @@ internal static class MessengerBuddyWire
         message.WriteString(string.Empty); // Facebook username
         message.WriteString(string.Empty);
         message.WriteBoolean(true); // Allows offline messaging
-        message.WriteBoolean(false); // ?
+        message.WriteBoolean(false); // VIP membership flag.
         message.WriteBoolean(false); // Uses phone
         message.WriteShort(buddy.Relationship);
     }

@@ -13,7 +13,7 @@ public class GroupMembershipRequestedComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(_snapshot.GroupId); //GroupId
-        packet.WriteInteger(_snapshot.Role); //Type?
+        packet.WriteInteger(_snapshot.Role); // Membership role (owner, administrator, pending, member, or blocked).
         {
             packet.WriteInteger(_snapshot.UserId); //UserId
             packet.WriteString(_snapshot.Username);

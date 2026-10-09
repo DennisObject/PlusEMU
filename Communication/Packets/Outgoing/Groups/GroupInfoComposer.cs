@@ -28,7 +28,7 @@ public class GroupInfoComposer : IServerPacket
         packet.WriteString(_info.RoomName);
         packet.WriteInteger(_info.ViewerIsCreator ? 3 : _info.ViewerHasRequest ? 2 : _info.ViewerIsMember ? 1 : 0);
         packet.WriteInteger(_info.MemberCount); // Members
-        packet.WriteBoolean(false); //?? CHANGED
+        packet.WriteBoolean(false); // Whether this is the viewer's favorite group.
         packet.WriteString(_info.CreatedOn);
         packet.WriteBoolean(_info.ViewerIsCreator);
         packet.WriteBoolean(_info.ViewerIsAdmin); // admin
@@ -36,7 +36,6 @@ public class GroupInfoComposer : IServerPacket
         packet.WriteBoolean(_newWindow); // Show group info
         packet.WriteBoolean(_info.AdminOnlyDecoOpen); // Any user can place furni in home room
         packet.WriteInteger(_info.PendingRequests); // Pending users
-        //base.WriteInteger(0);//what the fuck
         packet.WriteBoolean(_info.ForumEnabled); //HabboTalk.
     }
 }

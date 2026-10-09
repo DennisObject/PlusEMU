@@ -22,7 +22,7 @@ public class GameAchievementListComposer(int gameId, ImmutableArray<AchievementP
             packet.WriteInteger(achievement.RewardPixels); // pixels
             packet.WriteInteger(0); // ach score
             packet.WriteInteger(achievement.Progress); // Current progress
-            packet.WriteBoolean(achievement.Completed); // Set 100% completed(??)
+            packet.WriteBoolean(achievement.Completed); // Final achievement level completed.
             packet.WriteString(achievement.Category);
             packet.WriteString("basejump");
             packet.WriteInteger(0); // total levels

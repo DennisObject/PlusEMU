@@ -8,6 +8,6 @@ public class GiftWrappingErrorComposer : IServerPacket
 
     public void Compose(IOutgoingPacket packet)
     {
-        // TODO @80O: Verify empty body?
+        // This notification currently sends an empty payload.
     }
 }

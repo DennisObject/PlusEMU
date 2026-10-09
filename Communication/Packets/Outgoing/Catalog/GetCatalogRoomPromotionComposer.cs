@@ -18,8 +18,8 @@ public class GetCatalogRoomPromotionComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
 
-        packet.WriteBoolean(true); //wat
-        packet.WriteInteger(_usersRooms.Length); //Count of rooms?
+        packet.WriteBoolean(true); // VIP eligibility flag.
+        packet.WriteInteger(_usersRooms.Length); // Available room count.
 
         foreach (var room in _usersRooms) {
             packet.WriteUInteger(room.Id);
