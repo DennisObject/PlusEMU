@@ -1,6 +1,7 @@
 using System.Reflection;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
+using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
@@ -68,5 +69,54 @@ public sealed class TradeSettingsDependencyTests
         Assert.Equal(new uint[] { ServerPacketHeader.FurniListRemoveComposer, ServerPacketHeader.TradingFinishComposer }, alice.Sent);
         Assert.Equal(new[] { (1, 2, "100;", "") }, fixture.Store.Logged);
         Assert.False(fixture.Trading.TryGetTrade(trade.Id, out _));
+    }
+
+    [Fact]
+    public void RecipientCanListReceivedItemWithoutReauthenticating()
+    {
+        using var fixture = new TradeConfirmationServiceTests.TradeFixture(new TestRoomSettings());
+        var alice = fixture.Join(1, 7);
+        var bob = fixture.Join(2, 8);
+        var item = new InventoryItem
+        {
+            Id = 101,
+            OwnerId = 1,
+            Definition = new ItemDefinition
+            {
+                Id = 900,
+                Type = ItemType.Floor,
+                SpriteId = 11,
+                PublicName = "Chair",
+                AllowTrade = true,
+                AllowMarketplaceSell = true
+            }
+        };
+        Assert.True(alice.Habbo.Inventory.Furniture.AddItem(item));
+        var trade = fixture.Start(alice, bob);
+        trade.Users[0].OfferedItems.Add(item.Id, item);
+
+        trade.Finish();
+
+        var store = new SameSessionMarketplaceStore();
+        var manager = CatalogSnapshotTestSupport.Proxy<IMarketplaceManager>((method, args) => method switch
+        {
+            "CalculateComissionPrice" => 1,
+            _ => throw new InvalidOperationException(method)
+        });
+        Assert.True(new MarketplaceListingService(store, manager, TimeProvider.System, TestRoomSettings.Empty).TryList(bob.Habbo, item.Id, 50));
+        Assert.Equal((uint)bob.Habbo.Id, item.OwnerId);
+        Assert.Single(store.Listings);
+    }
+
+    private sealed class SameSessionMarketplaceStore : IMarketplaceOfferStore
+    {
+        public List<MarketplaceListing> Listings { get; } = [];
+        public bool ListFurni(MarketplaceListing listing)
+        {
+            Listings.Add(listing);
+
+            return true;
+        }
+        public int? ClaimSold(int userId, Func<int, bool> accepts) => null;
     }
 }

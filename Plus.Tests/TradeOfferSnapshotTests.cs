@@ -30,8 +30,8 @@ public sealed class TradeOfferSnapshotTests
         composer.Compose(before);
         Assert.Equal(new object[]
         {
-            7, 2, 100u, "floor", 100u, 11, 0, false, 256, "", 2u, 20u, 0, 0, 0, 0,
-            101u, "wall", 101u, 12, 0, true, 0, "", 0, 0, 0, 2, 10,
+            7, 2, 100u, "S", 100u, 11, 0, false, 256, "", 2u, 20u, 0, 0, 0, 0,
+            101u, "I", 101u, 12, 0, true, 0, "", 0, 0, 0, 2, 10,
             8, 0, 0, 0
         }, before.Writes);
 
