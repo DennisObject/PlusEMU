@@ -20,7 +20,9 @@ using Plus.Database;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.UserData;
 
@@ -33,10 +35,14 @@ public class PlusEnvironment : IPlusEnvironment
     private static ILogger<PlusEnvironment>? _logger;
     private static ILogger<PlusEnvironment> Logger => _logger ?? throw new InvalidOperationException("The environment has not been constructed.");
 
-    private static Encoding _defaultEncoding;
+    private static Encoding _defaultEncoding = Encoding.Default;
     public static CultureInfo CultureInfo;
 
     private static IGame _game;
+    private static IGameClientManager? _clientManager;
+    private static IGameClientManager Clients => _clientManager ?? throw new InvalidOperationException("The environment has not been constructed.");
+    private static IRoomManager? _roomManager;
+    private static IRoomManager Rooms => _roomManager ?? throw new InvalidOperationException("The environment has not been constructed.");
     private static ILanguageManager _languageManager;
     private static ISettingsManager _settingsManager;
     private static IDatabase _database;
@@ -61,6 +67,8 @@ public class PlusEnvironment : IPlusEnvironment
         ISettingsManager settingsManager,
         IFigureDataManager figureDataManager,
         IGame game,
+        IGameClientManager clientManager,
+        IRoomManager roomManager,
         IEnumerable<IStartable> startableTasks,
         IRconSocket rconSocket,
         IOptions<RconConfiguration> rconConfiguration,
@@ -75,6 +83,8 @@ public class PlusEnvironment : IPlusEnvironment
         _settingsManager = settingsManager;
         _figureManager = figureDataManager;
         _game = game;
+        _clientManager = clientManager;
+        _roomManager = roomManager;
         _startableTasks = startableTasks;
         _rcon = rconSocket;
         _flashServer = flashServer;
@@ -101,7 +111,6 @@ public class PlusEnvironment : IPlusEnvironment
         Console.WriteLine("                                http://PlusIndustry.com");
         Console.WriteLine("");
         ConsoleWindow.SetTitle("Loading Plus Emulator");
-        _defaultEncoding = Encoding.Default;
         Console.WriteLine("");
         Console.WriteLine("");
         CultureInfo = CultureInfo.InvariantCulture;
@@ -223,10 +232,12 @@ public class PlusEnvironment : IPlusEnvironment
     }
 
     [Obsolete("Use GameClientManager instead")]
-    public static Habbo? GetHabboById(int userId)
+    public static Habbo? GetHabboById(int userId) => FindHabbo(userId);
+
+    private static Habbo? FindHabbo(int userId)
     {
         try {
-            var user = Game.ClientManager.GetClientByUserId(userId)?.GetHabbo();
+            var user = Clients.GetClientByUserId(userId)?.GetHabbo();
 
             if (user is { Id: > 0 }) {
                 _usersCached.TryRemove(userId, out _);
@@ -244,11 +255,11 @@ public class PlusEnvironment : IPlusEnvironment
     public static Habbo? GetHabboByUsername(string userName)
     {
         try {
-            using var connection = DatabaseManager.Connection();
+            using var connection = _database.Connection();
             var id = connection.QuerySingleOrDefault<int>("SELECT id FROM users WHERE username=@userName LIMIT 1", new { userName });
 
             if (id > 0) {
-                return GetHabboById(Convert.ToInt32(id));
+                return FindHabbo(Convert.ToInt32(id));
             }
 
             return null;
@@ -266,12 +277,12 @@ public class PlusEnvironment : IPlusEnvironment
         ConsoleWindow.SetTitle("PLUS EMULATOR: SHUTTING DOWN!");
         // No new logins while the hotel goes down.
         _authHttpServer.Stop().Wait(TimeSpan.FromSeconds(5));
-        Game.ClientManager.SendPacket(new BroadcastMessageAlertComposer(LanguageManager.TryGetValue("server.shutdown.message")));
-        Game.StopGameLoop();
+        Clients.SendPacket(new BroadcastMessageAlertComposer(LanguageManager.TryGetValue("server.shutdown.message")));
+        _game.StopGameLoop();
         Thread.Sleep(2500);
         _flashServer.Stop();
-        Game.ClientManager.CloseAll(); //Close all connections
-        Game.RoomManager.Dispose(); //Stop the game loop.
+        Clients.CloseAll(); //Close all connections
+        Rooms.Dispose(); //Stop the game loop.
 
         if (!Debugger.IsAttached) {
             using var connection = _database.Connection();

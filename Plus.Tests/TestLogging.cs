@@ -27,7 +27,7 @@ internal static class TestLogging
         Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
         Dapper.SqlMapper.AddTypeHandler(new Plus.Database.UtcDateTimeOffsetHandler());
         Plus.Core.ExceptionLogger.Configure(Factory);
-        Plus.Core.ConsoleCommands.Configure(Factory);
+        Plus.Core.ConsoleCommands.Configure(Factory, TestGameClientManager.Empty);
     }
 
     internal static ILogger Logger => NullLogger.Instance;
