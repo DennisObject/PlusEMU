@@ -71,6 +71,20 @@ public sealed class InventoryItemSnapshotTests
     }
 
     [Theory]
+    [InlineData(InteractionType.Wallpaper, FurniCategory.WallPaper)]
+    [InlineData(InteractionType.Floor, FurniCategory.Floor)]
+    [InlineData(InteractionType.Landscape, FurniCategory.Landscape)]
+    [InlineData(InteractionType.None, FurniCategory.Default)]
+    public void RoomDecorationsCarryTheCategoryTheClientAppliesToTheRoom(InteractionType interaction, FurniCategory category)
+    {
+        var item = Item(17, new LegacyDataFormat { Data = "110" });
+        item.Definition.Type = ItemType.Wall;
+        item.Definition.InteractionType = interaction;
+
+        Assert.Equal(category, InventoryItemSnapshot.Capture(item).Category);
+    }
+
+    [Theory]
     [InlineData(0, 1)]
     [InlineData(700, 1)]
     [InlineData(701, 2)]

@@ -164,7 +164,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
 
         switch (product.Type) {
             case CatalogProductType.Furni when !offer.IsBundle:
-                if (ReadFurniExtraData(session, product.Definition!, extraData, utcNow) is not { } furniExtraData) {
+                if (ReadFurniExtraData(session, product, extraData, utcNow) is not { } furniExtraData) {
                     return;
                 }
 
@@ -360,8 +360,10 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
     }
 
     // The extra data a bought piece of furniture starts with; null when the purchase must be refused.
-    private string? ReadFurniExtraData(GameClient session, ItemDefinition definition, string extraData, DateTimeOffset utcNow)
+    private string? ReadFurniExtraData(GameClient session, CatalogProduct product, string extraData, DateTimeOffset utcNow)
     {
+        var definition = product.Definition!;
+
         switch (definition.InteractionType) {
             case InteractionType.GuildItem:
             case InteractionType.GuildGate:
@@ -369,6 +371,11 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
             case InteractionType.Floor:
             case InteractionType.Wallpaper:
             case InteractionType.Landscape:
+                // Each pattern offer names its pattern; the client sends an empty value for those.
+                if (!string.IsNullOrEmpty(product.ExtraParam)) {
+                    return product.ExtraParam;
+                }
+
                 double number = 0;
 
                 try {

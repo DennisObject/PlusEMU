@@ -81,6 +81,20 @@ public sealed class CatalogPurchaseServiceTests
         Assert.Contains(context.Sent, packet => packet.Header == ServerPacketHeader.FurniListUpdateComposer);
     }
 
+    [Theory]
+    [InlineData("110", "", "110")]
+    [InlineData("2.10", "999", "2.10")]
+    [InlineData("", "205", "205")]
+    [InlineData("", "", "0")]
+    public async Task RoomDecorationPurchaseStoresTheOfferPattern(string offerParam, string clientData, string stored)
+    {
+        var context = Context(interaction: InteractionType.Floor, extraParam: offerParam);
+
+        await context.Service.Purchase(context.Client, new(1, 2, clientData, 1));
+
+        Assert.Equal(stored, Assert.Single(context.Factory.ExtraData));
+    }
+
     [Fact]
     public async Task SeasonalCurrencyOfferChargesItsOwnTypeAndPublishesThatBalance()
     {
@@ -263,7 +277,8 @@ public sealed class CatalogPurchaseServiceTests
 
     private static TestContext Context(bool enabled = true, bool chargeSucceeds = true,
         bool factorySucceeds = true, bool club = false, bool bot = false, bool botPreset = true,
-        bool botStoreFails = false, int points = 0, int pointsType = 0, bool effect = false)
+        bool botStoreFails = false, int points = 0, int pointsType = 0, bool effect = false,
+        InteractionType interaction = InteractionType.None, string extraParam = "")
     {
         var definition = new ItemDefinition
         {
@@ -271,7 +286,7 @@ public sealed class CatalogPurchaseServiceTests
             ItemName = "chair",
             ProductType = bot ? "r" : "s",
             Type = ItemType.Floor,
-            InteractionType = InteractionType.None
+            InteractionType = interaction
         };
         var offer = new CatalogOffer
         {
@@ -284,7 +299,7 @@ public sealed class CatalogPurchaseServiceTests
                 ? new CatalogProduct { Type = CatalogProductType.Effect, EffectId = 108 }
                 : bot
                 ? new CatalogProduct { Type = CatalogProductType.Bot, BotPresetId = (int)definition.Id }
-                : new CatalogProduct { Type = CatalogProductType.Furni, Definition = definition }]
+                : new CatalogProduct { Type = CatalogProductType.Furni, Definition = definition, ExtraParam = extraParam }]
         };
         var page = new CatalogPage { Id = 1, Enabled = true, Layout = club ? "club_buy" : "default_3x3" };
         page.Offers.Add(2, offer);
@@ -433,10 +448,12 @@ public sealed class CatalogPurchaseServiceTests
     private sealed class RecordingFactory(bool succeeds) : IItemFactory
     {
         public int Creates { get; private set; }
+        public List<string> ExtraData { get; } = [];
         public Item CreateSingleItemNullable(ItemDefinition definition, Habbo habbo, string extraData,
             string displayFlags, int groupId = 0, uint limitedNumber = 0, uint limitedStack = 0)
         {
             Creates++;
+            ExtraData.Add(extraData);
 
             if (!succeeds) {
                 return null!;
