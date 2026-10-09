@@ -163,7 +163,7 @@ public sealed class CatalogPromotionUtcTests
     }
 
     private static CatalogManager Manager(IDatabase database) =>
-        new(null!, null!, null!, null!, database, TestLogging.For<CatalogManager>(), null!);
+        new(null!, null!, null!, database, TestLogging.For<CatalogManager>(), null!);
 
     private static async Task InSchema(Func<MySqlConnection, IDatabase, Task> run)
     {

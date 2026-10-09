@@ -33,6 +33,10 @@ public class ItemDefinition
     public WiredBoxDescriptor? WiredDescriptor => WiredBoxRegistry.TryGet(InteractionName, out var descriptor)
         || WiredBoxRegistry.TryGet(ItemName, out descriptor) ? descriptor : null;
     public int BehaviourData { get; set; }
+
+    /// <summary>The figure set ids a purchasable clothing item unlocks: its Habbo furnidata customparams.</summary>
+    public IReadOnlyList<int> FigureSetIds { get; set; } = [];
+
     public int Modes { get; set; }
     public List<int> VendingIds { get; set; } = new();
     public List<double> AdjustableHeights { get; set; } = new();
