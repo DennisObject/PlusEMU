@@ -303,6 +303,7 @@ public sealed class TradeConfirmationServiceTests
             string firstItems, string secondItems, Func<bool> apply)
         {
             CommitCalls++;
+
             if (LogFailure != null) {
                 throw LogFailure;
             }
@@ -312,6 +313,7 @@ public sealed class TradeConfirmationServiceTests
             }
 
             Logged.Add((firstUserId, secondUserId, firstItems, secondItems));
+
             return true;
         }
     }

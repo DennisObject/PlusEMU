@@ -97,31 +97,38 @@ public sealed class Trade
     {
         var firstHabbo = Users[0].RoomUser.GetClient()?.GetHabbo();
         var secondHabbo = Users[1].RoomUser.GetClient()?.GetHabbo();
+
         if (firstHabbo == null || secondHabbo == null) {
             EndTrade(0);
+
             return;
         }
 
         var firstInventory = firstHabbo.Id < secondHabbo.Id ? firstHabbo.InventoryMutationSync : secondHabbo.InventoryMutationSync;
         var secondInventory = firstHabbo.Id < secondHabbo.Id ? secondHabbo.InventoryMutationSync : firstHabbo.InventoryMutationSync;
-        lock (firstInventory)
-        lock (secondInventory) {
-            if (!ProcessItems()) {
-                EndTrade(0);
-                return;
-            }
 
-            foreach (var tradeUser in Users) {
-                RemoveTrade(tradeUser.RoomUser.UserId);
-            }
-            _instance.GetTrading().RemoveTrade(Id);
-            foreach (var tradeUser in Users) {
-                var client = tradeUser.RoomUser.GetClient();
-                if (client != null) {
-                    PublishCommitted(() => client.Send(new TradingFinishComposer()));
+        lock (firstInventory)
+            lock (secondInventory) {
+                if (!ProcessItems()) {
+                    EndTrade(0);
+
+                    return;
+                }
+
+                foreach (var tradeUser in Users) {
+                    RemoveTrade(tradeUser.RoomUser.UserId);
+                }
+
+                _instance.GetTrading().RemoveTrade(Id);
+
+                foreach (var tradeUser in Users) {
+                    var client = tradeUser.RoomUser.GetClient();
+
+                    if (client != null) {
+                        PublishCommitted(() => client.Send(new TradingFinishComposer()));
+                    }
                 }
             }
-        }
     }
 
     public void RemoveTrade(int userId)
@@ -145,6 +152,7 @@ public sealed class Trade
         var userTwo = Users[1].OfferedItems.Values.ToList();
         var roomUserOne = Users[0].RoomUser;
         var roomUserTwo = Users[1].RoomUser;
+
         if (roomUserOne == null || roomUserOne.GetClient() == null || roomUserOne.GetClient().GetHabbo() == null || roomUserOne.GetClient().GetHabbo().Inventory == null) {
             return false;
         }
@@ -157,8 +165,10 @@ public sealed class Trade
         var clientTwo = roomUserTwo.GetClient();
         var habboOne = clientOne.GetHabbo();
         var habboTwo = clientTwo.GetHabbo();
+
         if (!OwnsAll(habboOne, userOne) || !OwnsAll(habboTwo, userTwo) || HasAny(habboTwo, userOne) || HasAny(habboOne, userTwo)) {
             SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
+
             return false;
         }
 
@@ -166,36 +176,41 @@ public sealed class Trade
         var firstWallet = habboOne.Id < habboTwo.Id ? habboOne.WalletSync : habboTwo.WalletSync;
         var secondWallet = habboOne.Id < habboTwo.Id ? habboTwo.WalletSync : habboOne.WalletSync;
         var applied = new List<(Plus.HabboHotel.Users.Habbo Sender, Plus.HabboHotel.Users.Habbo Recipient, InventoryItem Item, bool Redeemed)>();
-        lock (firstWallet)
-        lock (secondWallet) {
-            // a session that disconnected, saved or was unregistered while this waited on the wallet locks has its wallet row written already: committing now would overwrite it
-            if (habboOne.WalletClosed || habboTwo.WalletClosed) {
-                SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
-                return false;
-            }
 
-            var oneCreditDelta = RedeemedCredits(habboOne, userTwo, autoRedeem);
-            var twoCreditDelta = RedeemedCredits(habboTwo, userOne, autoRedeem);
-            var transfers = userOne.Select(item => Transfer(habboOne, habboTwo, item, autoRedeem))
-                .Concat(userTwo.Select(item => Transfer(habboTwo, habboOne, item, autoRedeem))).ToArray();
-            try {
-                if (!_store.Commit(transfers, habboOne.Id, habboTwo.Id, habboOne.Credits + oneCreditDelta, habboTwo.Credits + twoCreditDelta,
-                    string.Concat(userOne.Select(item => $"{item.Id};")), string.Concat(userTwo.Select(item => $"{item.Id};")),
-                    () => ApplyItems(habboOne, habboTwo, userOne, autoRedeem, applied) && ApplyItems(habboTwo, habboOne, userTwo, autoRedeem, applied))) {
-                    RestoreItems(applied);
+        lock (firstWallet)
+            lock (secondWallet) {
+                // a session that disconnected, saved or was unregistered while this waited on the wallet locks has its wallet row written already: committing now would overwrite it
+                if (habboOne.WalletClosed || habboTwo.WalletClosed) {
                     SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
+
                     return false;
                 }
-            }
-            catch {
-                RestoreItems(applied);
-                SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
-                return false;
-            }
 
-            PublishTransfers(clientOne, clientTwo, userOne, autoRedeem);
-            PublishTransfers(clientTwo, clientOne, userTwo, autoRedeem);
-        }
+                var oneCreditDelta = RedeemedCredits(habboOne, userTwo, autoRedeem);
+                var twoCreditDelta = RedeemedCredits(habboTwo, userOne, autoRedeem);
+                var transfers = userOne.Select(item => Transfer(habboOne, habboTwo, item, autoRedeem))
+                    .Concat(userTwo.Select(item => Transfer(habboTwo, habboOne, item, autoRedeem))).ToArray();
+
+                try {
+                    if (!_store.Commit(transfers, habboOne.Id, habboTwo.Id, habboOne.Credits + oneCreditDelta, habboTwo.Credits + twoCreditDelta,
+                        string.Concat(userOne.Select(item => $"{item.Id};")), string.Concat(userTwo.Select(item => $"{item.Id};")),
+                        () => ApplyItems(habboOne, habboTwo, userOne, autoRedeem, applied) && ApplyItems(habboTwo, habboOne, userTwo, autoRedeem, applied))) {
+                        RestoreItems(applied);
+                        SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
+
+                        return false;
+                    }
+                }
+                catch {
+                    RestoreItems(applied);
+                    SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
+
+                    return false;
+                }
+
+                PublishTransfers(clientOne, clientTwo, userOne, autoRedeem);
+                PublishTransfers(clientTwo, clientOne, userTwo, autoRedeem);
+            }
 
         return true;
     }
@@ -224,11 +239,13 @@ public sealed class Trade
             }
 
             var redeem = ShouldRedeem(recipient, item, autoRedeem);
+
             if (redeem) {
                 recipient.Credits += item.Definition.BehaviourData;
             }
             else if (!recipient.Inventory.Furniture.AddItem(item)) {
                 sender.Inventory.Furniture.AddItem(item);
+
                 return false;
             }
 
@@ -246,6 +263,7 @@ public sealed class Trade
     {
         for (var index = applied.Count - 1; index >= 0; index--) {
             var transfer = applied[index];
+
             if (transfer.Redeemed) {
                 transfer.Recipient.Credits -= transfer.Item.Definition.BehaviourData;
             }
@@ -263,8 +281,10 @@ public sealed class Trade
     private static void PublishTransfers(GameClient sender, GameClient recipient, IEnumerable<InventoryItem> items, bool autoRedeem)
     {
         var creditsChanged = false;
+
         foreach (var item in items) {
             PublishCommitted(() => sender.Send(new FurniListRemoveComposer(item.Id)));
+
             if (ShouldRedeem(recipient.GetHabbo(), item, autoRedeem)) {
                 creditsChanged = true;
                 continue;

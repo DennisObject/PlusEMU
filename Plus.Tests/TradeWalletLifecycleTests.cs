@@ -6,6 +6,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
+[Collection("Trade game fixture")]
 public class TradeWalletLifecycleTests
 {
     [Theory]

@@ -59,8 +59,10 @@ public sealed class RoomTradingComponent(IDatabase database, TimeProvider clock,
                 var changed = transfer.Redeem
                     ? connection.Execute("DELETE FROM items WHERE id = @ItemId AND user_id = @SenderId LIMIT 1", transfer, transaction)
                     : connection.Execute("UPDATE items SET user_id = @RecipientId WHERE id = @ItemId AND user_id = @SenderId LIMIT 1", transfer, transaction);
+
                 if (changed != 1) {
                     transaction.Rollback();
+
                     return false;
                 }
             }
@@ -68,19 +70,23 @@ public sealed class RoomTradingComponent(IDatabase database, TimeProvider clock,
             if (connection.Execute("UPDATE users SET credits = @firstCredits WHERE id = @firstUserId LIMIT 1", new { firstCredits, firstUserId }, transaction) != 1 ||
                 connection.Execute("UPDATE users SET credits = @secondCredits WHERE id = @secondUserId LIMIT 1", new { secondCredits, secondUserId }, transaction) != 1) {
                 transaction.Rollback();
+
                 return false;
             }
 
             var now = clock.GetUtcNow();
+
             if (connection.Execute("""
                 INSERT INTO logs_client_trade (`1id`, `2id`, `1items`, `2items`, `timestamp`)
                 VALUES (@firstUserId, @secondUserId, @firstItems, @secondItems, @createdAt)
                 """, new { firstUserId, secondUserId, firstItems, secondItems, createdAt = now.UtcDateTime }, transaction) != 1 || !apply()) {
                 transaction.Rollback();
+
                 return false;
             }
 
             transaction.Commit();
+
             return true;
         }
         catch {
