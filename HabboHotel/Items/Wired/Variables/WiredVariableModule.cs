@@ -270,7 +270,7 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
             var after = builtins.Read(builtin, holder, frame);
 
-            if (after is not null && after.Value != current.Value) {
+            if (after is not null && after.Value != current.Value && builtins.CanInterceptChanges(builtin, holder, frame)) {
                 _changes.Enqueue(new(roomId, new(0, holder.Target, holder.StorageId), WiredVariableChangeKind.Updated,
                     current, after, holder.EntityId, frame.Depth + 1)
                 { Origin = origin, InternalKey = RoomWiredBuiltinVariables.Normalize(builtin.Token) });

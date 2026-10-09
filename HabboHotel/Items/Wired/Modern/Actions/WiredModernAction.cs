@@ -17,6 +17,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 {
     private readonly WiredCounterController _clocks;
     private readonly Action<WiredRuntimeEvent> _publish;
+    private Action<WiredRuntimeEvent>? _headingPublisher;
+    private Func<WiredRuntimeContext, WiredRuntimeEvent, bool?>? _headingCollision;
     private readonly WiredRoomMovement _movement;
     private readonly WiredRoomLog _roomLog;
     private readonly WiredDirectionalActions _directions = new();
@@ -39,7 +41,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
         Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger,
         TimeProvider clock, IWiredRewardService rewards, IBotManagementStore botStore, IGameClientManager clients, IItemDataManager definitions,
-        IItemTravelStore travelStore) : base(room, item, descriptor)
+        IItemTravelStore travelStore, bool transparentWalkTransition = false) : base(room, item, descriptor)
     {
         if (!Supports(descriptor.CanonicalName)) {
             throw new ArgumentException("Unknown action.", nameof(descriptor));
@@ -47,7 +49,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 
         _clocks = clocks;
         _publish = publish;
-        _movement = new(walkTransition);
+        _movement = new(walkTransition, transparentWalkTransition);
         _roomLog = roomLog;
         _logger = logger;
         _clock = clock;
@@ -57,6 +59,58 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
         _definitions = definitions;
         _travelStore = travelStore;
     }
+
+    internal void BindHeadingCollision(Func<WiredRuntimeContext, WiredRuntimeEvent, bool?> enqueue)
+    {
+        _headingPublisher = _publish;
+        _headingCollision = enqueue;
+    }
+
+    internal bool WalkBindingIsCurrent(Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walk) =>
+        _movement.WalkBindingIsCurrent(walk);
+
+    internal void BindCarryPublication(Action<WiredRuntimeContext, IReadOnlyList<RoomUser>> prepare,
+        Func<WiredRuntimeContext, RoomUser, WiredMovementComposer, WiredMoveStyleComposer, bool> append) =>
+        _movement.BindCarryPublication(prepare, append);
+
+    internal bool PublicationBridge => Descriptor.CanonicalName is "wf_act_send_signal" or "wf_act_neg_send_signal"
+        or "wf_act_call_stacks" or "wf_act_neg_call_stacks";
+
+    internal bool SupportsPublication(WiredRuntimeContext context)
+    {
+        var config = context.ConfigurationOf(this);
+        var name = Descriptor.CanonicalName;
+
+        if (!TryValidateConfiguration(config, out _, out _)) {
+            return false;
+        }
+
+        if (PublicationBridge) {
+            return true;
+        }
+
+        if (context.Policy.Addons.Projectile != null || context.Policy.Addons.DisableAnimation) {
+            return false;
+        }
+
+        string slot;
+
+        if (name == "wf_act_move_to_dir" && config.IntParams.Length == 4
+            && config.IntParams[0] is >= 0 and <= 7 && config.IntParams[1] == 0) {
+            slot = "items";
+        }
+        else if (name == "wf_act_match_to_sshot" && config.IntParams.Length == 5
+            && config.IntParams.Take(4).SequenceEqual(new[] { 0, 0, 1, 1 })
+            && config.Snapshots.All(snapshot => snapshot.Wall == null)) {
+            slot = "movers";
+        }
+        else {
+            return false;
+        }
+
+        return Furni(context, config, slot).All(WiredRoomMovement.PlainPublicationItem);
+    }
+
     public WiredConfiguration GetEditorConfiguration()
     {
         if (Descriptor.CanonicalName == "wf_act_place_furni") {
@@ -312,8 +366,16 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
         }
 
         if (WiredMovementActions.Names.Contains(name)) {
-            return new WiredMovementActions().Execute(name, config,
-                config.FurniSources.ContainsKey("movers") ? Furni(context, config, "movers") : [],
+            var movers = config.FurniSources.ContainsKey("movers")
+                ? Furni(context, config, "movers") : [];
+
+            if (name is not ("wf_act_match_to_sshot" or "wf_act_set_altitude" or "wf_act_toggle_state" or "wf_act_toggle_to_rnd")) {
+                movers = movers.Where(item => item.IsFloorItem).ToArray();
+            }
+
+            var passengers = WiredRoomMovement.CapturePassengers(context, movers);
+
+            return new WiredMovementActions().Execute(name, config, movers,
                 config.FurniSources.ContainsKey("targets") ? Furni(context, config, "targets", name == "wf_act_furni_to_furni"
                     || name == "wf_act_move_furni_to" && config.IntParams.Length == 4
                     || name == "wf_act_move_furni_as_group" && config.IntParams.Length == 6) : [],
@@ -321,7 +383,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
                 (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height,
                     WiredMovementActions.Steps.Contains(name)
                     && !(name == "wf_act_move_furni_to" && config.IntParams.Length == 4
-                        || name == "wf_act_move_furni_as_group" && config.IntParams.Length == 6)),
+                        || name == "wf_act_move_furni_as_group" && config.IntParams.Length == 6), passengers: passengers),
                 (user, target, slide, fast, walkMode) => slide
                     ? _movement.MoveAvatar(context, user, target.GetX, target.GetY, true, walkMode)
                     : Teleport(context, user, target, fast),
@@ -344,11 +406,15 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
                             _publish(new(WiredEventKind.StateChanged) { Actor = FurnitureStateEvents.Present(context.Room, context.Event.Actor), EventItem = item });
                         }
                     }) is GateTransition.Applied or GateTransition.Queued,
-                (movers, step) => _movement.MoveTogether(context, movers, step), context.Room.GetGameMap().ValidTile);
+                (movers, step) => _movement.MoveTogether(context, movers, step, passengers), context.Room.GetGameMap().ValidTile,
+                (item, snapshot, position, altitude) => _movement.RestoreWallSnapshot(context, item, snapshot, position, altitude),
+                (item, operation, altitude) => _movement.SetWallAltitude(context, item, operation, altitude));
         }
 
         // Reset timers always covers the whole room, unlimited, so it resolves its own targets.
         var items = name != "wf_act_reset_timers" && config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
+        var carry = name is "wf_act_chase" or "wf_act_flee" or "wf_act_move_to_dir"
+            ? WiredRoomMovement.CapturePassengers(context, items) : null;
         var changed = false;
 
         switch (name) {
@@ -441,7 +507,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 
                 bool ChaseOrFlee(Item item)
                 {
-                    bool Move(int x, int y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null);
+                    bool Move(int x, int y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null, passengers: carry);
                     var nearest = WiredDirectionalActions.Nearest(item, context.Targets.AllUsers());
 
                     if (nearest == null) {
@@ -473,9 +539,19 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 
                 foreach (var item in items) {
                     changed |= _directions.MoveHeading(item, Param(config, 0), HeadingTurnRule(Param(config, 1)), Param(config, 3) == 1,
-                        (x, y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null),
+                        (x, y) => _movement.MoveFurniture(context, item, x, y, item.Rotation, null, passengers: carry),
                         (x, y) => context.Room.GetGameMap().ValidTile(x, y) ? context.Room.GetGameMap().GetRoomUsers(new(x, y)).ToArray() : [],
-                        (furni, actor) => _publish(new(WiredEventKind.Collision) { Actor = actor, EventItem = furni }));
+                        (furni, actor) =>
+                        {
+                            var collision = new WiredRuntimeEvent(WiredEventKind.Collision) { Actor = actor, EventItem = furni };
+
+                            if (ReferenceEquals(_publish, _headingPublisher) && _headingCollision?.Invoke(context, collision) is not null) {
+                                return;
+                            }
+
+                            context.Publication?.Flush();
+                            _publish(collision);
+                        });
                 }
 
                 return changed;

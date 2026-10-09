@@ -89,6 +89,7 @@ internal sealed partial class WiredStackEngine
 
     private bool AdvanceDispatch(PendingDispatch pending)
     {
+        BeforePublicationDispatch(pending);
         _dispatchAdvanceDepth++;
 
         try {
@@ -133,6 +134,8 @@ internal sealed partial class WiredStackEngine
 
             pending.Root = pending.Call is { } call ? call.Parent.Fork(pending.Event, pending.Depth)
                 : pending.Signal?.Context ?? pending.Root ?? CreateContext(pending.Event, pending.Depth);
+
+            pending.Root.InheritedPublication = pending.Publication;
 
             if (pending.Call is { } called) {
                 pending.Root.Triggering = called.Selection.Copy();

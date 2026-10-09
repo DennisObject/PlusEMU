@@ -2,6 +2,7 @@ namespace Plus.Communication.Packets.Incoming;
 
 public static class ClientPacketHeader
 {
+    public const uint WiredVariableInspectionRequestEvent = 10112;
     // Handshake
     public const uint InitDiffieHandshakeEvent = 3392; //316
     public const uint CompleteDiffieHandshakeEvent = 3622; //3847

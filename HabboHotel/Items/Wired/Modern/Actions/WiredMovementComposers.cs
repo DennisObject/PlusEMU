@@ -3,6 +3,7 @@ using Plus.Communication.Packets;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Rooms.Chat;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -14,6 +15,11 @@ public sealed record WiredMovementComposer(int Type, int Id, int FromX, int From
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteInteger(1);
+        WriteEntry(packet);
+    }
+
+    internal void WriteEntry(IOutgoingPacket packet)
+    {
         packet.WriteInteger(Type);
         packet.WriteInteger(FromX);
         packet.WriteInteger(FromY);
@@ -39,6 +45,19 @@ public sealed record WiredMovementComposer(int Type, int Id, int FromX, int From
     }
 }
 
+internal sealed record WiredMovementBatchComposer(IReadOnlyList<WiredMovementComposer> Movements) : IServerPacket
+{
+    public uint MessageId => ServerPacketHeader.WiredMovementsComposer;
+    public void Compose(IOutgoingPacket packet)
+    {
+        packet.WriteInteger(Movements.Count);
+
+        foreach (var movement in Movements) {
+            movement.WriteEntry(packet);
+        }
+    }
+}
+
 public sealed record WiredMoveStyleComposer(int Id, int Style, int Intensity, int Overshoot, bool Avatar = false) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.WiredFurniMoveStyleComposer;
@@ -50,6 +69,27 @@ public sealed record WiredMoveStyleComposer(int Id, int Style, int Intensity, in
         packet.WriteInteger(Intensity);
         packet.WriteInteger(Overshoot);
         packet.WriteInteger(Avatar ? 1 : 0);
+    }
+}
+
+public sealed record WiredWallMovementComposer(int Id, WiredWallSnapshot From, WiredWallSnapshot To, int DurationMs) : IServerPacket
+{
+    public uint MessageId => ServerPacketHeader.WiredMovementsComposer;
+    public void Compose(IOutgoingPacket packet)
+    {
+        packet.WriteInteger(1);
+        packet.WriteInteger(2);
+        packet.WriteInteger(Id);
+        packet.WriteBoolean(!To.Left);
+        packet.WriteInteger(From.TileX);
+        packet.WriteInteger(From.TileY);
+        packet.WriteInteger(From.LocalX);
+        packet.WriteInteger(From.PixelY);
+        packet.WriteInteger(To.TileX);
+        packet.WriteInteger(To.TileY);
+        packet.WriteInteger(To.LocalX);
+        packet.WriteInteger(To.PixelY);
+        packet.WriteInteger(DurationMs);
     }
 }
 

@@ -57,6 +57,11 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     // v2 only: legacy and shadow rooms write gate states directly and never enter the module's admission.
     public bool SequencesGateWrites => GateTransitionService.For(room) != null;
 
+    public bool CanInterceptChanges(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame) =>
+        reference.Target != WiredVariableTarget.Furni || FindItem(holder, frame)?.IsWallItem != true
+        || Normalize(reference.Token) is not ("@position" or "@occupation" or "@position.x" or "@position.y"
+            or "@altitude" or "@rotation" or "@wallitem_offset");
+
     // The gate's per-write FIFO decides: behind a pending write, or a closing from another thread, the whole
     // transaction waits for the owner. Otherwise it runs now with the transform's single, already evaluated result.
     public IDisposable? Admit(WiredVariableReference reference, WiredVariableHolder holder, ref Func<int, int> transform,
@@ -92,6 +97,19 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         }
 
         var key = Normalize(reference.Token);
+
+        if (holder.Target == WiredVariableTarget.Furni && frame.WallInspectionSnapshot is not null && WiredWallBuiltinValues.Supports(key)) {
+            var item = FindItem(holder, frame);
+
+            if (item is null || !item.IsWallItem || item.RoomId != room.Id) {
+                return null;
+            }
+
+            WiredWallBuiltinValues.TryReadInspection(room, item, key, holder, frame, out var inspected);
+
+            return inspected is long capturedNumber ? new(capturedNumber, null, null) : null;
+        }
+
         long? value = holder.Target switch
         {
             WiredVariableTarget.Furni => ReadItem(key, holder, frame),
@@ -270,7 +288,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
     {
         var item = FindItem(holder, frame);
 
-        if (item is null) {
+        if (item is null || item.IsWallItem && item.RoomId != room.Id) {
             return null;
         }
 
@@ -286,9 +304,9 @@ public sealed class RoomWiredBuiltinVariables(Room room,
 
         return key switch
         {
-            "@id" => unchecked((int)item.Id),
+            "@id" => item.IsWallItem ? WiredWallBuiltinValues.ReadIdentity(item.Id, item.Definition.SpriteId, key) : unchecked((int)item.Id),
             "@owner_id" => checked((int)item.OwnerId),
-            "@class_id" => item.Definition.SpriteId,
+            "@class_id" => item.IsWallItem ? WiredWallBuiltinValues.ReadIdentity(item.Id, item.Definition.SpriteId, key) : item.Definition.SpriteId,
             "@height" => Hundredths(item.TotalHeight - item.GetZ),
             "@state" => int.TryParse(item.LegacyDataString, out var state) ? state : null,
             "@position" => (item.GetX << 8) | item.GetY,

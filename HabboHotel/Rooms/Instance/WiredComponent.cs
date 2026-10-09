@@ -39,6 +39,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly ICommandManager _commands;
     private readonly IAccessControl _access;
     private readonly IItemTravelStore _travelStore;
+    private readonly Action<WiredModernAction> _bindMovementPublication;
 
     public WiredComponent(Room instance, ILogger logger, TimeProvider clock, ISettingsManager settings, IWiredRoomSettingsFactory settingsFactory,
         IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
@@ -71,7 +72,8 @@ public partial class WiredComponent : IWiredRuntimeOperations
             () => _room.GetRoomItemHandler().GetFloor,
             () => _room.GetRoomUserManager().GetUserList(),
             id => _room.GetRoomItemHandler().GetItem(id),
-            id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id));
+            id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id),
+            () => _room.GetRoomItemHandler().GetWallAndFloor);
         _engine.BindRuntime(_room, _targets, this,
             () => _counters.HasRunning || WiredBotTargets.For(_room).HasTargets || _chests?.HasPending == true, PollCounters, FlushExternalChanges);
         _engine.ObserveEvent = (evt, now) =>
@@ -89,6 +91,17 @@ public partial class WiredComponent : IWiredRuntimeOperations
                 }
             }
         };
+        // Only these concrete adapters are known silent for publication purposes.
+        _engine.PublicationBridgesAreTrusted = true;
+        _engine.PublicationEvaluationIsSilent = box => box is Plus.HabboHotel.Items.Wired.Modern.Addons.WiredAddonBox or Plus.HabboHotel.Items.Wired.Modern.Selectors.WiredSelectorBox
+            or Plus.HabboHotel.Items.Wired.Modern.Conditions.WiredModernCondition
+            || box.GetType() == typeof(Plus.HabboHotel.Items.Wired.Modern.Triggers.WiredModernTrigger)
+            || box is Plus.HabboHotel.Items.Wired.Modern.Triggers.WiredModernTimedTrigger;
+        _engine.PublicationObserverIsSilent = evt => evt.Kind != WiredEventKind.Leave;
+        // This concrete flush seals from each drained snapshot before publishing its work.
+        _engine.PublicationFlushIsSilent = () => true;
+        _engine.PublicationPollIsSilent = () => _counterItems.Count == 0 && _chests == null
+            && !WiredBotTargets.For(_room).HasTargets;
         _engine.LimitReached = NoteLimit;
         _engine.SpeechHidden = evt => evt.Actor?.GetClient()?.Send(
             new Plus.Communication.Packets.Outgoing.Rooms.Chat.WhisperComposer(evt.Actor.VirtualId, evt.Message, 0, evt.ChatStyle));
@@ -102,6 +115,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
                 _variables.Value.ConfigurationSaved(box);
             }
         };
+        _bindMovementPublication = _engine.CreateMovementPublicationFactory(this, DispatchWalkTransition);
     }
 
     private void ControlGameTimer(Item item, bool start)

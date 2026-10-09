@@ -67,7 +67,7 @@ public static class WiredMovementConfiguration
                 break;
             case "wf_act_set_altitude":
                 if (p.Length != 2 || !Range(0, 0, 2) || !Source(1)
-                    || !WiredRoomOperations.TryAltitude(proposed.Text, out var altitude) || altitude > 40) {
+                    || !WiredRoomOperations.TryAltitude(proposed.Text, out _)) {
                     return false;
                 }
 

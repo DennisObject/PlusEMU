@@ -158,9 +158,9 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
     }
     private (WiredVariableFrame Frame, IReadOnlyDictionary<long, string> Names) LiveHolders(WiredVariableTarget target)
     {
-        var users = room.GetRoomUserManager().GetRoomUsers().ToArray();
-        var items = room.GetRoomItemHandler().GetWallAndFloor.ToArray();
-        var holders = users.Select(WiredVariableRuntimeFrames.UserHolder).Concat(items.Select(WiredVariableRuntimeFrames.FurniHolder)).ToArray();
+        var frame = room.GetWired().CaptureVariableInspectionFrame();
+        var users = frame.RuntimeContext!.UserIdentity.Values.Where(user => !user.IsBot);
+        var items = frame.RuntimeContext.FurniIdentity.Values;
         var names = new Dictionary<long, string>();
 
         if (target == WiredVariableTarget.User) {
@@ -177,6 +177,6 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
             names[0] = room.Name;
         }
 
-        return (new(room.Id, holders), names);
+        return (frame, names);
     }
 }

@@ -6,6 +6,7 @@ namespace Plus.HabboHotel.Rooms;
 public class RoomModel
 {
     public bool IsCustom { get; }
+    public RoomModelPresentation Presentation { get; }
     public int TileSize => Heightmap.Count(tile => tile is >= '0' and <= '9' or >= 'a' and <= 'w');
     public int RequiredClubLevel { get; set; }
     public string? RequiredPermission { get; set; }
@@ -26,8 +27,9 @@ public class RoomModel
 
     public int WallHeight;
 
-    public RoomModel(string id, int doorX, int doorY, double doorZ, int doorOrientation, string heightmap, int requiredClubLevel, int wallHeight, bool custom)
+    public RoomModel(string id, int doorX, int doorY, double doorZ, int doorOrientation, string heightmap, int requiredClubLevel, int wallHeight, bool custom, RoomModelPresentation? presentation = null)
     {
+        Presentation = presentation ?? RoomModelPresentation.Default;
         IsCustom = custom;
         RequiredClubLevel = requiredClubLevel;
 

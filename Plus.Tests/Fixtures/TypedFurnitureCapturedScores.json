@@ -1,0 +1,344 @@
+[
+  {
+    "NativeItemId": 2147419851,
+    "Classname": "highscore_fastesttime*1",
+    "Stored": {
+      "Version": 1,
+      "State": "0",
+      "ScoreType": 3,
+      "ClearType": 0,
+      "Entries": [
+        {
+          "Score": 1941,
+          "Users": [
+            "EncikShadow9"
+          ]
+        },
+        {
+          "Score": 2832,
+          "Users": [
+            "Fastest_Posible"
+          ]
+        },
+        {
+          "Score": 3018,
+          "Users": [
+            "TopBanterMate"
+          ]
+        },
+        {
+          "Score": 3054,
+          "Users": [
+            "AchiIles"
+          ]
+        },
+        {
+          "Score": 3180,
+          "Users": [
+            "Paan."
+          ]
+        },
+        {
+          "Score": 3330,
+          "Users": [
+            "azekure7"
+          ]
+        },
+        {
+          "Score": 3366,
+          "Users": [
+            "acewho."
+          ]
+        },
+        {
+          "Score": 3375,
+          "Users": [
+            "yusuftolha"
+          ]
+        },
+        {
+          "Score": 3492,
+          "Users": [
+            "Nouvo"
+          ]
+        },
+        {
+          "Score": 3708,
+          "Users": [
+            "--Sai"
+          ]
+        },
+        {
+          "Score": 3741,
+          "Users": [
+            "-.Snowwhite.-"
+          ]
+        },
+        {
+          "Score": 3804,
+          "Users": [
+            "JackisGood"
+          ]
+        },
+        {
+          "Score": 3822,
+          "Users": [
+            "5oya"
+          ]
+        },
+        {
+          "Score": 3870,
+          "Users": [
+            "Fahmi_Lee"
+          ]
+        },
+        {
+          "Score": 4293,
+          "Users": [
+            "Y0uka"
+          ]
+        },
+        {
+          "Score": 5004,
+          "Users": [
+            "Exia_"
+          ]
+        },
+        {
+          "Score": 15183,
+          "Users": [
+            "hazelnut.com"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "NativeItemId": 2147419918,
+    "Classname": "highscore_mostwin*1",
+    "Stored": {
+      "Version": 1,
+      "State": "1",
+      "ScoreType": 1,
+      "ClearType": 0,
+      "Entries": [
+        {
+          "Score": 20,
+          "Users": [
+            "AchiIles"
+          ]
+        },
+        {
+          "Score": 7,
+          "Users": [
+            "acewho."
+          ]
+        },
+        {
+          "Score": 6,
+          "Users": [
+            "EncikShadow9"
+          ]
+        },
+        {
+          "Score": 5,
+          "Users": [
+            "azekure7"
+          ]
+        },
+        {
+          "Score": 4,
+          "Users": [
+            "yusuftolha"
+          ]
+        },
+        {
+          "Score": 4,
+          "Users": [
+            "-.Snowwhite.-"
+          ]
+        },
+        {
+          "Score": 3,
+          "Users": [
+            "Nouvo"
+          ]
+        },
+        {
+          "Score": 3,
+          "Users": [
+            "--Sai"
+          ]
+        },
+        {
+          "Score": 2,
+          "Users": [
+            "JackisGood"
+          ]
+        },
+        {
+          "Score": 2,
+          "Users": [
+            "TopBanterMate"
+          ]
+        },
+        {
+          "Score": 2,
+          "Users": [
+            "Exia_"
+          ]
+        },
+        {
+          "Score": 1,
+          "Users": [
+            "Fastest_Posible"
+          ]
+        },
+        {
+          "Score": 1,
+          "Users": [
+            "Paan."
+          ]
+        },
+        {
+          "Score": 1,
+          "Users": [
+            "Fahmi_Lee"
+          ]
+        },
+        {
+          "Score": 1,
+          "Users": [
+            "5oya"
+          ]
+        },
+        {
+          "Score": 1,
+          "Users": [
+            "hazelnut.com"
+          ]
+        },
+        {
+          "Score": 1,
+          "Users": [
+            "Y0uka"
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "NativeItemId": 2147419919,
+    "Classname": "highscore_fastesttime*1",
+    "Stored": {
+      "Version": 1,
+      "State": "0",
+      "ScoreType": 3,
+      "ClearType": 0,
+      "Entries": [
+        {
+          "Score": 1941,
+          "Users": [
+            "EncikShadow9"
+          ]
+        },
+        {
+          "Score": 2832,
+          "Users": [
+            "Fastest_Posible"
+          ]
+        },
+        {
+          "Score": 3018,
+          "Users": [
+            "TopBanterMate"
+          ]
+        },
+        {
+          "Score": 3054,
+          "Users": [
+            "AchiIles"
+          ]
+        },
+        {
+          "Score": 3180,
+          "Users": [
+            "Paan."
+          ]
+        },
+        {
+          "Score": 3330,
+          "Users": [
+            "azekure7"
+          ]
+        },
+        {
+          "Score": 3366,
+          "Users": [
+            "acewho."
+          ]
+        },
+        {
+          "Score": 3375,
+          "Users": [
+            "yusuftolha"
+          ]
+        },
+        {
+          "Score": 3492,
+          "Users": [
+            "Nouvo"
+          ]
+        },
+        {
+          "Score": 3708,
+          "Users": [
+            "--Sai"
+          ]
+        },
+        {
+          "Score": 3741,
+          "Users": [
+            "-.Snowwhite.-"
+          ]
+        },
+        {
+          "Score": 3804,
+          "Users": [
+            "JackisGood"
+          ]
+        },
+        {
+          "Score": 3822,
+          "Users": [
+            "5oya"
+          ]
+        },
+        {
+          "Score": 3870,
+          "Users": [
+            "Fahmi_Lee"
+          ]
+        },
+        {
+          "Score": 4293,
+          "Users": [
+            "Y0uka"
+          ]
+        },
+        {
+          "Score": 5004,
+          "Users": [
+            "Exia_"
+          ]
+        },
+        {
+          "Score": 15183,
+          "Users": [
+            "hazelnut.com"
+          ]
+        }
+      ]
+    }
+  }
+]

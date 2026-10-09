@@ -81,8 +81,10 @@ public partial class WiredComponent
                 descriptor.CanonicalName == "wf_cnd_match_date" ? CalendarTime.Year : 0);
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName)) {
-            box = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event),
-                DispatchWalkTransition, _roomLog, _logger, _clock, _rewards, _botStore, _clients, _definitions, _travelStore);
+            var action = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event),
+                DispatchWalkTransition, _roomLog, _logger, _clock, _rewards, _botStore, _clients, _definitions, _travelStore, transparentWalkTransition: true);
+            _bindMovementPublication(action);
+            box = action;
             defaults = WiredActionConfiguration.Defaults(descriptor.CanonicalName);
         }
         else if (WiredVariableExecutors.Supports(descriptor.CanonicalName) || WiredVariableMetadataBox.Supports(descriptor.CanonicalName)
@@ -239,13 +241,25 @@ public partial class WiredComponent
     private void FlushExternalChanges()
     {
         // Display writes made by boxes are already queued; they are reported by the room's pass.
-        PublishCounterChanges(_counters.TakeChanges(), FurnitureStateEvents.Mark());
+        var counters = _counters.TakeChanges();
+
+        if (counters.Count > 0) {
+            _engine.SealExternalPublication();
+        }
+
+        PublishCounterChanges(counters, FurnitureStateEvents.Mark());
 
         if (_variables?.IsValueCreated != true) {
             return;
         }
 
-        foreach (var change in _variables.Value.DrainChanges()) {
+        var variables = _variables.Value.DrainChanges();
+
+        if (variables.Count > 0) {
+            _engine.SealExternalPublication();
+        }
+
+        foreach (var change in variables) {
             QueueRuntimeEvent(new(WiredEventKind.Variable)
             {
                 Code = unchecked((int)change.Key.DefinitionId),

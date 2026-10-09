@@ -173,6 +173,11 @@ public class RoomItemHandling
                 return null;
             }
 
+            if (wallPosition.Split(' ').Length != 3) {
+                return Plus.HabboHotel.Items.Wired.Configuration.WiredWallSnapshot.TryParse(wallPosition, out var native)
+                    ? native!.ToString() : null;
+            }
+
             var posD = wallPosition.Split(' ');
 
             if (posD[2] != "l" && posD[2] != "r") {
@@ -311,7 +316,7 @@ public class RoomItemHandling
             }
             else if (item.Definition.InteractionType == InteractionType.Toner) {
                 if (_room.TonerData == null) {
-                    _room.TonerData = LoadToner(item.Id);
+                    _room.TonerData = LoadToner(item);
                 }
             }
             else if (item.IsWired) {
@@ -347,8 +352,19 @@ public class RoomItemHandling
         _room.MoodlightData ??= moodlight;
     }
 
-    private Plus.HabboHotel.Items.Data.Toner.TonerData? LoadToner(uint itemId) =>
-        _metadata.LoadToner(itemId) is { } record ? new Plus.HabboHotel.Items.Data.Toner.TonerData(itemId, record) : null;
+    private Plus.HabboHotel.Items.Data.Toner.TonerData? LoadToner(Item item)
+    {
+        if (_metadata.LoadToner(item.Id) is not { } record) {
+            return null;
+        }
+
+        var toner = new Plus.HabboHotel.Items.Data.Toner.TonerData(item.Id, record);
+        var data = Plus.HabboHotel.Items.Data.Toner.TonerState.CreateData(toner);
+        _room.TonerData = toner;
+        item.ExtraData = data;
+
+        return toner;
+    }
 
     public Item? GetItem(uint pId)
     {
@@ -888,7 +904,7 @@ public class RoomItemHandling
 
         if (item.Definition.InteractionType == InteractionType.Toner) {
             if (_room.TonerData == null) {
-                _room.TonerData = LoadToner(item.Id);
+                _room.TonerData = LoadToner(item);
             }
         }
 
@@ -990,7 +1006,7 @@ public class RoomItemHandling
             map.AddItemEffects(item);
 
             if (item.Definition.InteractionType == InteractionType.Toner && _room.TonerData == null) {
-                _room.TonerData = LoadToner(item.Id);
+                _room.TonerData = LoadToner(item);
             }
 
             UpdateItem(item);
@@ -1043,6 +1059,35 @@ public class RoomItemHandling
         _store.PlaceWall(item.Id, _room.RoomId, item.GetX, item.GetY, item.GetZ, item.Rotation, item.WallCoordinates);
         _wallItems.TryAdd(item.Id, item);
         _room.SendObject(item);
+
+        return true;
+    }
+
+    // Restore only attached wall instances; persistence failure leaves memory and packets untouched.
+    internal bool MoveWallItem(Item item, string wallPosition, bool announce = true)
+    {
+        RoomItemSnapshot snapshot;
+
+        lock (item.NavSync) {
+            if (!item.IsWallItem || item.IsTemporary || item.RoomId != _room.Id
+                || !ReferenceEquals(GetItem(item.Id), item)) {
+                return false;
+            }
+
+            var validated = WallPositionCheck(wallPosition);
+
+            if (validated == null || string.Equals(item.WallCoordinates, validated, StringComparison.Ordinal)) {
+                return false;
+            }
+
+            _store.MoveWall(item.Id, _room.Id, validated);
+            item.WallCoordinates = validated;
+            snapshot = RoomItemSnapshot.Capture(item);
+        }
+
+        if (announce) {
+            _room.SendPacket(new ItemUpdateComposer(snapshot));
+        }
 
         return true;
     }

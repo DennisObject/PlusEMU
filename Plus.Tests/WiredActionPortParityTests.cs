@@ -227,7 +227,7 @@ public sealed class WiredActionPortParityTests
     }
 
     [Fact]
-    public void AltitudeAdditionStopsAtTheFortyTileRoomBaseline()
+    public void AltitudeAdditionCanPassFortyWithinThePlatformTopLimit()
     {
         var (room, map, items) = World();
         var item = Floor(1, 1, 1);
@@ -235,7 +235,22 @@ public sealed class WiredActionPortParityTests
         Place(map, items, item);
         var action = Box(room, "wf_act_set_altitude", [0, 100], [1], text: "20");
         Assert.True(action.Execute(Context(room, [item], [])));
-        Assert.Equal(40, item.GetZ);
+        Assert.Equal(50, item.GetZ);
+    }
+
+    [Theory]
+    [InlineData(1, "50", 50)]
+    [InlineData(1, "80", 79)]
+    [InlineData(0.65, "80", 79.35)]
+    public void AltitudeSetHonorsTheEightyTileTopLimitAndDefinitionHeight(double height, string requested, double expected)
+    {
+        var (room, map, items) = World();
+        var item = Floor(1, 1, 1);
+        item.Definition.Height = height;
+        Place(map, items, item);
+        var action = Box(room, "wf_act_set_altitude", [2, 100], [1], text: requested);
+        Assert.True(action.Execute(Context(room, [item], [])));
+        Assert.Equal(expected, item.GetZ);
     }
 
     [Theory]

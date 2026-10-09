@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Globalization;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
 
@@ -34,7 +35,9 @@ public static class WiredRoomOperations
 
         var handler = box.Instance.GetRoomItemHandler();
         var picked = proposed.SelectedItems.Distinct().Select(handler.GetItem)
-            .Where(item => item is { IsFloorItem: true }).ToArray();
+            .Where(item => item is { IsFloorItem: true }
+                || box.Descriptor.CanonicalName == "wf_act_match_to_sshot" && item is { IsWallItem: true }
+                && WiredWallSnapshot.TryParse(item.WallCoordinates, out _)).ToArray();
         var templates = box.Descriptor.CanonicalName == "wf_act_place_furni" && proposed.TemporaryPlacement != null;
 
         return proposed with
@@ -299,11 +302,28 @@ public static class WiredRoomOperations
     }
 
     public static WiredFurniSnapshot Capture(Item item) => new(item.Id, item.Definition.Id,
-        item.GetX, item.GetY, item.GetZ, item.Rotation, item.LegacyDataString ?? string.Empty);
+        item.GetX, item.GetY, item.GetZ, item.Rotation, item.LegacyDataString ?? string.Empty)
+    {
+        Wall = CaptureWall(item)
+    };
+
+    private static WiredWallSnapshot? CaptureWall(Item item)
+    {
+        if (!item.IsWallItem || !WiredWallSnapshot.TryParse(item.WallCoordinates, out var wall)) {
+            return null;
+        }
+
+        if (wall!.NativeAltitude == null && item.GetRoom()?.GetGameMap().StaticModel is { } model) {
+            wall = wall with { CapturedAltitudeHundredths = (int)Math.Floor(WiredWallGeometry.Altitude(model, wall) * 100 + 0.5) };
+        }
+
+        return wall;
+    }
 
     public static bool MatchesSnapshot(Item item, WiredFurniSnapshot snapshot,
         bool state, bool direction, bool position, bool altitude) =>
-        (!state || string.Equals(item.LegacyDataString ?? string.Empty, snapshot.State, StringComparison.Ordinal))
+        item.IsFloorItem && snapshot.Wall == null
+        && (!state || string.Equals(item.LegacyDataString ?? string.Empty, snapshot.State, StringComparison.Ordinal))
         && (!direction || item.Rotation == snapshot.Rotation)
         && (!position || item.GetX == snapshot.X && item.GetY == snapshot.Y)
         && (!altitude || Math.Abs(item.GetZ - snapshot.Z) < 0.00001);

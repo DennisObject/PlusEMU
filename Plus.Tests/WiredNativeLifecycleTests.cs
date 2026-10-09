@@ -417,7 +417,10 @@ public sealed class WiredNativeLifecycleTests
     {
         var f = new World();
         var viewer = f.Human();
+        var store = new NativeWallStore();
+        Set(f.Room.GetRoomItemHandler(), "_store", store);
         var wall = f.Wall(4);
+        wall.WallCoordinates = ":w=1,1 l=10,20 l a=201";
         var context = f.Context(new(WiredEventKind.ClickFurni) { EventItem = wall });
         context.Triggering.FurniIds.Add(wall.Id);
         var frame = WiredVariableRuntimeFrames.Create(context);
@@ -427,20 +430,24 @@ public sealed class WiredNativeLifecycleTests
         Assert.Equal(1, Read("@position.x"));
         Assert.Equal(1, Read("@position.y"));
         Assert.Equal(10, Read("@wallitem_offset"));
-        Assert.Equal(2000, Read("@altitude"));
-        Assert.Equal(4, Read("@rotation"));
+        Assert.Equal(201, Read("@altitude"));
+        Assert.Equal(0, Read("@rotation"));
         var packets = 0;
         ((FlashGameClient)viewer.GetClient()).SendCallback = _ => { packets++; return true; };
         Assert.True(Write("@wallitem_offset", 12));
-        Assert.True(Write("@altitude", 2100));
-        Assert.True(Write("@rotation", 6));
-        Assert.Equal(":w=1,1 l=12,21 r", wall.WallCoordinates);
+        Assert.True(Write("@altitude", 210));
+        Assert.True(Write("@rotation", 1));
+        Assert.Equal(":w=1,1 l=4,-32 r a=210", wall.WallCoordinates);
         Assert.Equal(3, packets);
-        Assert.Same(wall, ((ConcurrentDictionary<uint, Item>)Get(f.Room.GetRoomItemHandler(), "_movedItems"))[wall.Id]);
-        Assert.False(Write("@altitude", 2150));
+        Assert.Equal(3, store.Writes.Count);
+        Assert.Empty((ConcurrentDictionary<uint, Item>)Get(f.Room.GetRoomItemHandler(), "_movedItems"));
+        Assert.True(Write("@altitude", 215));
+        Assert.Equal(215, Read("@altitude"));
+        Assert.Equal(4, store.Writes.Count);
+        Assert.Equal(4, packets);
         Assert.False(Write("@position.x", 701));
         Assert.False(Write("@rotation", 2));
-        Assert.Equal(":w=1,1 l=12,21 r", wall.WallCoordinates);
+        Assert.Equal(":w=1,1 l=4,-32 r a=215", wall.WallCoordinates);
         var replacement = f.Wall(wall.Id);
         Assert.False(Write("@wallitem_offset", 13));
         Assert.Null(Read("@wallitem_offset"));
@@ -481,6 +488,18 @@ public sealed class WiredNativeLifecycleTests
         private WiredRoomSettingsSnapshot? _saved;
         public WiredRoomSettingsSnapshot? Load(uint roomId) => _saved;
         public void Save(uint roomId, int actorId, bool staff, WiredRoomSettingsSnapshot? expected, WiredRoomSettingsSnapshot settings) => _saved = settings;
+    }
+
+    private sealed class NativeWallStore : IRoomItemStore
+    {
+        public List<string> Writes { get; } = [];
+        public void MoveWall(uint itemId, uint roomId, string wallPosition) => Writes.Add(wallPosition);
+        public void AssignOwner(uint itemId, int userId) { }
+        public void ClearRoom(uint itemId) { }
+        public void SaveWallPosition(uint itemId, string wallPosition) { }
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
     }
 
     private sealed class World

@@ -1,7 +1,7 @@
 using System.Globalization;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Items;
-using Plus.Communication.Packets.Outgoing.Rooms.Engine;
+using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -125,18 +125,17 @@ public partial class WiredComponent
             };
         }
 
-        if (item.IsWallItem && ReadWall(item, out var position)) {
-            return key switch
-            {
-                "@position" => (position.X << 8) | position.Y,
-                "@occupation" => (position.X << 16) | (position.Y << 8) | (position.Left ? 4 : 6),
-                "@position.x" => position.X,
-                "@position.y" => position.Y,
-                "@wallitem_offset" => position.Offset,
-                "@altitude" => position.Altitude * 100,
-                "@rotation" => position.Left ? 4 : 6,
-                _ => null
-            };
+        if (item.IsWallItem && item.RoomId != _room.Id) {
+            return null;
+        }
+
+        if (WiredWallBuiltinValues.TryReadInspection(_room, item, key, holder, frame, out var inspected)) {
+            return inspected;
+        }
+
+        if (item.IsWallItem && WiredWallSnapshot.TryParse(item.WallCoordinates, out var position)) {
+            return WiredWallBuiltinValues.ReadPlacement(position!, key == "@altitude"
+                ? WiredWallGeometry.CaptureAltitudeInputs(_room.GetGameMap().StaticModel, position!) : default, key);
         }
 
         return WiredProjectileFlights.For(_room).Read(item, key,
@@ -173,62 +172,6 @@ public partial class WiredComponent
         score = key.EndsWith(".score", StringComparison.Ordinal);
 
         return team != Team.None;
-    }
-
-    private bool ReadWall(Item item, out WiredWallPosition position) =>
-        WiredWallPosition.TryParse(_room.GetRoomItemHandler().WallPositionCheck(item.WallCoordinates), out position);
-
-    private bool WriteWall(Item item, string key, int value)
-    {
-        if (!ReadWall(item, out var position)) {
-            return false;
-        }
-
-        WiredWallPosition next;
-
-        switch (key) {
-            case "@position":
-                next = position with { X = (value >> 8) & 255, Y = value & 255 };
-                break;
-            case "@occupation":
-                var rotation = value & 255;
-                next = position with
-                {
-                    X = (value >> 16) & 255,
-                    Y = (value >> 8) & 255,
-                    Left = rotation is >= 0 and <= 7 ? rotation == 4 : position.Left
-                };
-                break;
-            case "@position.x":
-                next = position with { X = value };
-                break;
-            case "@position.y":
-                next = position with { Y = value };
-                break;
-            case "@wallitem_offset":
-                next = position with { Offset = value };
-                break;
-            case "@altitude" when value % 100 == 0:
-                next = position with { Altitude = value / 100 };
-                break;
-            case "@rotation" when value is 4 or 6:
-                next = position with { Left = value == 4 };
-                break;
-            default:
-                return false;
-        }
-
-        var validated = _room.GetRoomItemHandler().WallPositionCheck(next.ToString());
-
-        if (validated == null || next == position) {
-            return false;
-        }
-
-        item.WallCoordinates = validated;
-        _room.GetRoomItemHandler().UpdateItem(item);
-        _room.SendPacket(new ItemUpdateComposer(RoomItemSnapshot.Capture(item)));
-
-        return true;
     }
 
     internal bool WriteBuiltin(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame)
@@ -270,7 +213,13 @@ public partial class WiredComponent
             }
 
             if (item.IsWallItem) {
-                return WriteWall(item, key, value);
+                var changed = movement.WriteWallBuiltin(context, item, key, value);
+
+                if (changed && _variables?.IsValueCreated == true) {
+                    _variables.Value.InvalidateFx();
+                }
+
+                return changed;
             }
 
             if (!item.IsFloorItem) {

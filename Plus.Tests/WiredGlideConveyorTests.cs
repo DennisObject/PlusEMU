@@ -4,6 +4,8 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Plus.Communication.Flash;
+using Plus.Communication.Packets.Outgoing;
+using Plus.Communication.Revisions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
@@ -20,7 +22,7 @@ namespace Plus.Tests;
 
 // Swaps the room engine's clock; shares the wired collection with the other engine fixtures.
 [Collection("Modern Wired database seam")]
-public sealed class WiredGlideConveyorTests
+public sealed partial class WiredGlideConveyorTests
 {
     // Room 14 as dumped live on 2026-10-07: id, x, y, z, rotation, name, saved configuration.
     private static readonly (uint Id, int X, int Y, double Z, int Rot, string Name, string? Json)[] Room14 =
@@ -133,7 +135,7 @@ public sealed class WiredGlideConveyorTests
     }
 
     // The same room once stack A moves through all furni, the restore uses its picked furni and stack B moves through all users:
-    // each repeater pulse moves items independently, carrying a rider again when they land on a later item.
+    // each repeater pulse carries an initially supported rider once, regardless of mover order.
     // The signal puts the tiles back after each pulse.
     [Fact]
     public void Room14GlidesTheRiderAcrossTheLineWithRoomWideSources()
@@ -147,7 +149,7 @@ public sealed class WiredGlideConveyorTests
             f.Advance(200);
 
             // The rider leaves the line onto unpicked tile 120 and stays there.
-            Assert.Equal((pulse == 1 ? 5 : 10, 13, 0.1), (rider.X, rider.Y, rider.Z));
+            Assert.Equal((Math.Min(4 + pulse, 10), 13, 0.1), (rider.X, rider.Y, rider.Z));
             AssertLineAtSnapshot(f);
         }
     }
@@ -168,7 +170,7 @@ public sealed class WiredGlideConveyorTests
     }
 
     // The live room on its real heightmap with v2 movement: once 107 takes its picked furni again, each repeater pulse carries
-    // a rider on the first tile. Later movers can carry that rider again in the same pulse.
+    // a rider one tile per pulse. Later movers cannot acquire that rider during the same action.
     [Fact]
     public void LiveRoom14GlidesAWalkedOnRiderWithPickedFurni()
     {
@@ -179,7 +181,7 @@ public sealed class WiredGlideConveyorTests
 
         for (var pulse = 1; pulse <= 6; pulse++) {
             f.Advance(100);
-            Assert.Equal((pulse == 1 ? 5 : 10, 13, 0.1), (rider.X, rider.Y, rider.Z));
+            Assert.Equal((Math.Min(4 + pulse, 10), 13, 0.1), (rider.X, rider.Y, rider.Z));
             // The zero-delay receiver restores the line in the same drain after the sender moves it.
             AssertLineAtSnapshot(f);
 
@@ -265,10 +267,13 @@ public sealed class WiredGlideConveyorTests
         private readonly bool _live;
         private long _now;
         public ConcurrentDictionary<uint, Item> Items { get; }
+        public WiredStackEngine Engine => (WiredStackEngine)Get(_wired, "_engine");
+        public IWiredItem Box(uint id) => ((Dictionary<uint, IWiredItem>)Get(Engine, "_items"))[id];
 
         public Fixture((uint Id, int X, int Y, double Z, int Rot, string Name, string? Json)[] layout, bool live = false)
         {
             _room.Id = 14;
+            _room.WordFilterList = [];
             Set(_room, "_interactionClock", TimeProvider.System);
             _map = new(_room, live ? new RoomModel("model_bc_14", 3, 5, 0, 2, Model14, 0, 0, true)
                     : new RoomModel("model_bc_14", 0, 0, 0, 0, string.Join('\r', Enumerable.Repeat(new string('0', 16), 18)), 0, 0, true),
@@ -301,9 +306,10 @@ public sealed class WiredGlideConveyorTests
             engine.GetType().GetField("_now", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(engine, (Func<long>)(() => _now));
 
             foreach (var entry in layout) {
-                var tile = entry.Name == "wf_colortile";
+                var tile = entry.Name is "wf_colortile" or "bc_tile_1";
+                var builderTile = entry.Name == "bc_tile_1";
                 var antenna = entry.Name == "wf_antenna2";
-                var interaction = tile ? "pressure_pad" : antenna ? "antenna" : entry.Name;
+                var interaction = builderTile ? "default" : tile ? "pressure_pad" : antenna ? "antenna" : entry.Name;
                 var item = new Item
                 {
                     Id = entry.Id,
@@ -315,10 +321,10 @@ public sealed class WiredGlideConveyorTests
                         Type = ItemType.Floor,
                         Width = 1,
                         Length = 1,
-                        Height = tile ? 0.1 : antenna ? 1 : 0.65,
+                        Height = builderTile ? 1 : tile ? 0.1 : antenna ? 1 : 0.65,
                         Stackable = true,
                         Walkable = tile,
-                        Modes = tile ? 7 : 1,
+                        Modes = tile && !builderTile ? 7 : 1,
                         ItemName = entry.Name,
                         PublicName = entry.Name,
                         InteractionName = interaction,
@@ -348,6 +354,17 @@ public sealed class WiredGlideConveyorTests
             }
         }
 
+        public Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext MovementContext() =>
+            new(_room, new(Plus.HabboHotel.Items.Wired.Runtime.WiredEventKind.Use),
+                new(() => Items.Values, () => _users.Values), _wired);
+
+        public void Owned(Action action) => _room.RunFastPass(action);
+        public void SetBoxField(uint id, string name, object value) => Set(Box(id), name, value);
+        public object? EngineField(string name) => Get(Engine, name);
+        public void SetEngineCallback(string name, object callback) => Set(Engine, name, callback);
+        public void ReplaceUser(RoomUser user) => _users[user.VirtualId] = user;
+        public void DrainMovement() => _room.RunFastPass(_map.Navigation!.DrainCommands);
+
         public RoomUser User(int x, int y)
         {
             var user = new RoomUser(1, 14, 1, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { InternalRoomId = 1 };
@@ -372,10 +389,11 @@ public sealed class WiredGlideConveyorTests
                 Username = $"user{virtualId}",
                 CurrentRoom = _room,
                 Access = UserAccess.Empty,
+                IgnoresComponent = new([]),
                 Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch)),
                 HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0)
             });
-            var user = new RoomUser(virtualId, 14, virtualId, _room, client, TestChatEmotions.Unused, new TestRewardProgress())
+            var user = new RoomUser(virtualId, 14, virtualId, _room, client, new TestChatEmotions(), new TestRewardProgress())
             {
                 InternalRoomId = virtualId,
                 X = fromX,
@@ -428,11 +446,22 @@ public sealed class WiredGlideConveyorTests
             ?? Field(type.BaseType ?? throw new MissingFieldException(name), name);
     }
 
-    private sealed class Client() : GameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
+    private sealed class Client : GameClient
     {
+        public Client() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
+        {
+            Revision = new Revision
+            {
+                InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields()
+                    .Where(field => field.IsLiteral && field.FieldType == typeof(uint))
+                    .Select(field => (uint)field.GetRawConstantValue()!).Distinct().ToDictionary(id => id)
+            };
+            SendCallback = _ => false;
+        }
         internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
             (true, false, 0, 0, 0);
-        public override void CreateHeader(Memory<byte> memory, uint messageId) { }
+        public override void CreateHeader(Memory<byte> memory, uint messageId) =>
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(memory.Span, messageId);
     }
 
     private sealed class SavedConfigurations(IReadOnlyDictionary<uint, WiredConfiguration> saved) : IWiredConfigurationStore

@@ -53,6 +53,24 @@ internal static class FurniExtraData
     {
         stored ??= "";
 
+        if (definition.Type == ItemType.Floor && HighscoreDataFormat.TryDefinition(definition.ItemName, out var scoreType, out var clearType)) {
+            var board = new HighscoreDataFormat { ScoreType = scoreType, ClearType = clearType };
+
+            // Legacy newly-created boards carry only their switch state; typed captured payloads never fall back to empty.
+            if (stored is "" or "0" or "1") {
+                board.State = stored;
+            }
+            else {
+                board.Store(stored);
+
+                if (board.ScoreType != scoreType || board.ClearType != clearType) {
+                    throw new ArgumentException("Highscore types do not match the furniture definition.", nameof(stored));
+                }
+            }
+
+            return board;
+        }
+
         switch (definition.InteractionType) {
             case InteractionType.CrackableEgg: {
                     var data = definition.CreateData();

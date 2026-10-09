@@ -13,6 +13,7 @@ public sealed class WiredVariableFrame(uint roomId, IReadOnlyList<WiredVariableH
 {
     public uint RoomId { get; } = roomId;
     public Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext? RuntimeContext { get; init; }
+    internal WiredWallInspectionSnapshot? WallInspectionSnapshot { get; init; }
     public IReadOnlyList<WiredVariableHolder> Holders { get; } = holders;
     public MemoryWiredVariableStore Context { get; init; } = new();
     public WiredVariableChangeBatch? VariableChanges { get; set; }
@@ -37,6 +38,7 @@ public interface IWiredBuiltinVariables
     bool HasValue(WiredVariableReference reference) => RoomWiredBuiltinVariables.HasNumericValue(reference);
     WiredVariableValue? Read(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame);
     bool Write(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame);
+    bool CanInterceptChanges(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame) => true;
     bool MutatePresence(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableMutation mutation, WiredVariableFrame frame) => false;
     /// <summary>True only for sources whose gate writes use the v2 per-gate sequencer; the module then admits writes.</summary>
     bool SequencesGateWrites => false;

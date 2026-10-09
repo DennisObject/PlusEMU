@@ -32,7 +32,8 @@ public sealed class WiredMovementActions
         IReadOnlyList<Item> targets, IReadOnlyList<RoomUser> users,
         MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState,
         Func<Item, Func<string, string?>, bool>? toggleState = null, MoveTogether? together = null,
-        Func<int, int, bool>? inBounds = null)
+        Func<int, int, bool>? inBounds = null, Func<Item, WiredFurniSnapshot, bool, bool, bool>? restoreWall = null,
+        Func<Item, int, double, bool>? setWallAltitude = null)
     {
         if (!WiredMovementConfiguration.TryValidate(name, configuration, out configuration, out _)) {
             return false;
@@ -62,8 +63,14 @@ public sealed class WiredMovementActions
                 }
 
                 foreach (var item in movers) {
+                    if (item.IsWallItem) {
+                        affected |= setWallAltitude?.Invoke(item, Param(0, 2), altitude) == true;
+
+                        continue;
+                    }
+
                     var z = Param(0, 2) switch { 0 => item.GetZ + altitude, 1 => item.GetZ - altitude, _ => altitude };
-                    affected |= move(item, item.GetX, item.GetY, item.Rotation, Math.Clamp(z, 0, 40));
+                    affected |= move(item, item.GetX, item.GetY, item.Rotation, Math.Clamp(z, 0, Math.Max(0, 80 - item.Definition.Height)));
                 }
 
                 break;
@@ -158,6 +165,18 @@ public sealed class WiredMovementActions
                     var snapshot = configuration.Snapshots.FirstOrDefault(entry => entry.ItemId == item.Id);
 
                     if (snapshot == null) {
+                        continue;
+                    }
+
+                    if (item.IsWallItem) {
+                        if (Param(0) == 0 && Param(1) == 0 && (Param(2) == 1 || Param(3) == 1) && restoreWall != null) {
+                            affected |= restoreWall(item, snapshot, Param(2) == 1, Param(3) == 1);
+                        }
+
+                        continue;
+                    }
+
+                    if (!item.IsFloorItem || snapshot.Wall != null) {
                         continue;
                     }
 

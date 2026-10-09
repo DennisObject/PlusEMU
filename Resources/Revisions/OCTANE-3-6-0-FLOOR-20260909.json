@@ -1,6 +1,7 @@
 {
   "Name": "OCTANE-3-6-0-FLOOR-20260909",
   "IncomingHeaders": {
+    "WiredVariableInspectionRequestEvent": 10112,
     "WiredChestLockEvent": 9329,
     "ChestUpgradeEvent": 9317,
     "ChestOpenEvent": 9327,
@@ -433,6 +434,7 @@
     "GetForumsUnreadCountEvent": 2908
   },
   "OutgoingHeaders": {
+    "WiredVariableInspectionDataComposer": 9483,
     "AreaHideComposer": 6001,
     "WiredChestLockComposer": 9329,
     "WiredChestSettingsAckComposer": 9347,

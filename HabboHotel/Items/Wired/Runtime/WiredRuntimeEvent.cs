@@ -7,7 +7,7 @@ public enum WiredEventKind
 {
     Enter, Speech, WalkOn, WalkOff, Use, StateChanged, GameStart, GameEnd, Collision,
     Score, AvatarAction, Leave, ClickFurni, ClickTile, ClickUser, BotReachedFurni,
-    BotReachedUser, Counter, Signal, Variable, Periodic, Elapsed, TransactionComplete, TransactionFail
+    BotReachedUser, Counter, Signal, Variable, Periodic, Elapsed, TransactionComplete, TransactionFail, Inspection
 }
 
 public sealed record WiredRuntimeEvent(WiredEventKind Kind)

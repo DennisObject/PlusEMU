@@ -2,6 +2,7 @@ namespace Plus.Communication.Packets.Outgoing;
 
 public static class ServerPacketHeader
 {
+    public const uint WiredVariableInspectionDataComposer = 9483;
     // Handshake
     public const uint SimplePollStartComposer = 2665;
     public const uint SimplePollAnswerComposer = 2589;

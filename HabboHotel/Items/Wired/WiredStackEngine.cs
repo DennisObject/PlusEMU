@@ -604,6 +604,10 @@ internal sealed partial class WiredStackEngine
                     _executingAction = scheduled;
 
                     try {
+                        if (scheduled.Callback != null) {
+                            SealPublication();
+                        }
+
                         var succeeded = scheduled.Callback == null ? Execute(action, chain.Context)
                             : Invoke(action, chain.Context, () => { scheduled.Callback(); return true; });
 
@@ -652,9 +656,13 @@ internal sealed partial class WiredStackEngine
     private void FlushVariableChanges(ActionChain chain)
     {
         try {
-            chain.Context.Runtime?.VariableChanges?.Flush();
+            if (chain.Context.Runtime?.VariableChanges is { IsEmpty: false } batch) {
+                SealPublication();
+                batch.Flush();
+            }
         }
         catch (Exception error) {
+            SealPublication();
             _error(error);
         }
     }
@@ -669,6 +677,7 @@ internal sealed partial class WiredStackEngine
             _flash(box.Item);
         }
         catch (Exception e) {
+            SealPublication();
             _error(e);
         }
     }
@@ -683,9 +692,26 @@ internal sealed partial class WiredStackEngine
         : _actorPresent(context.Arguments)
             && (_actorVisit == null || ReferenceEquals(context.ActorVisit, _actorVisit(context.Arguments)));
 
-    private bool Execute(IWiredItem box, WiredExecutionContext context) =>
-        Invoke(box, context, () => context.Runtime is { } runtime
-            ? ExecuteRuntimeBody(box, runtime) : box.Execute(context.Arguments));
+    private bool Execute(IWiredItem box, WiredExecutionContext context)
+    {
+        var runtime = context.Runtime;
+        var previous = runtime?.Publication;
+        var publication = PublicationFor(box, runtime);
+
+        if (runtime != null) {
+            runtime.Publication = publication;
+        }
+
+        try {
+            return Invoke(box, context, () => runtime != null
+                ? ExecuteRuntimeBody(box, runtime) : box.Execute(context.Arguments));
+        }
+        finally {
+            if (runtime != null) {
+                runtime.Publication = previous;
+            }
+        }
+    }
 
     private bool Invoke(IWiredItem box, WiredExecutionContext context, Func<bool> body)
     {
@@ -708,6 +734,7 @@ internal sealed partial class WiredStackEngine
             return body();
         }
         catch (Exception e) {
+            SealPublication();
             _error(e);
 
             return false;
@@ -789,6 +816,7 @@ internal sealed partial class WiredStackEngine
     {
         lock (_sync) {
             if (_passDepth++ == 0) {
+                _publicationEpoch++;
                 _remaining = _limits.MaxExecutionsPerPass;
                 _passPeakDepth = 0;
                 _budgetDenied = false;
@@ -809,6 +837,7 @@ internal sealed partial class WiredStackEngine
     // Observes the pass that just ended. It reports the limits the pass met and changes none of its decisions.
     private void EndPass()
     {
+        SealPublication();
         var executions = _limits.MaxExecutionsPerPass - Math.Max(0, _remaining);
 
         if (_budgetDenied) {
@@ -827,6 +856,7 @@ internal sealed partial class WiredStackEngine
             return false;
         }
 
+        SealPublication();
         _budgetDenied = true;
 
         return true;
@@ -864,9 +894,11 @@ internal sealed partial class WiredStackEngine
         action.Finished = true;
 
         try {
+            SealPublication();
             action.OnCancelled();
         }
         catch (Exception error) {
+            SealPublication();
             _error(error);
         }
     }

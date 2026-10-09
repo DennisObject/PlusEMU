@@ -4,12 +4,13 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 namespace Plus.HabboHotel.Items.Wired.Runtime;
 
 public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnumerable<RoomUser>> users,
-    Func<uint, Item?>? findFurni = null, Func<int, RoomUser?>? findUser = null)
+    Func<uint, Item?>? findFurni = null, Func<int, RoomUser?>? findUser = null, Func<IEnumerable<Item>>? attachedFurni = null)
 {
     public Item[] AllFurni() => furni().ToArray();
+    internal Item[] AttachedFurni() => (attachedFurni?.Invoke() ?? furni()).ToArray();
     public RoomUser[] AllUsers() => users().ToArray();
     public bool IsAttached(Item item) => ReferenceEquals(item,
-        findFurni == null ? furni().FirstOrDefault(candidate => candidate.Id == item.Id) : findFurni(item.Id));
+        findFurni == null ? AttachedFurni().FirstOrDefault(candidate => candidate.Id == item.Id) : findFurni(item.Id));
 
     public Item[] ResolveFurni(WiredRuntimeContext context, IEnumerable<uint> saved, int source, bool raw = false)
     {
@@ -30,7 +31,7 @@ public sealed class WiredTargetResolver(Func<IEnumerable<Item>> furni, Func<IEnu
         }
 
         var wanted = ids.ToHashSet();
-        var candidates = findFurni == null ? AllFurni().Where(x => wanted.Contains(x.Id))
+        var candidates = findFurni == null ? AttachedFurni().Where(x => wanted.Contains(x.Id))
             : wanted.Select(findFurni).OfType<Item>();
 
         if (source == WiredSources.AllRoom) {

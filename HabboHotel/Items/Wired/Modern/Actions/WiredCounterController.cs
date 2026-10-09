@@ -20,6 +20,7 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, Action<It
     }
     private readonly Dictionary<uint, Clock> _clocks = [];
     private readonly Queue<WiredCounterChange> _changes = [];
+    internal bool HasPendingChanges => _changes.Count > 0;
     public bool HasRunning => _clocks.Values.Any(clock => clock.Running);
     public static bool Recognizes(Item item) => Name(item) is "wf_upcounter1" or "wf_upcounter2" or "wf_game_upcounter1" or "wf_game_upcounter2"
         || IsGameTimer(item);

@@ -48,7 +48,17 @@ internal static class FurnitureDataSerializer
                 packet.WriteString(score.State);
                 packet.WriteUInt(score.ScoreType);
                 packet.WriteUInt(score.ClearType);
-                packet.WriteUInt(0);
+                packet.WriteInt(score.Entries.Length);
+
+                foreach (var entry in score.Entries) {
+                    packet.WriteInt(entry.Score);
+                    packet.WriteInt(entry.Users.Length);
+
+                    foreach (var user in entry.Users) {
+                        packet.WriteString(user);
+                    }
+                }
+
                 break;
             case FurnitureDataSnapshot.Crackable crackable:
                 packet.WriteString(crackable.State);

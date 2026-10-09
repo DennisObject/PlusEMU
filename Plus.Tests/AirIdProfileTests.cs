@@ -344,6 +344,7 @@ public class AirIdProfileTests
         [nameof(ClientPacketHeader.WiredChestAcceptEvent)] = 9336,
         [nameof(ClientPacketHeader.WiredChestCancelEvent)] = 9337,
         [nameof(ClientPacketHeader.WiredUserVariableUpdate64Event)] = 10110,
+        [nameof(ClientPacketHeader.WiredVariableInspectionRequestEvent)] = 10112,
         [nameof(ClientPacketHeader.WiredUserVariableManage64Event)] = 10111
     };
     private static readonly Dictionary<string, uint> OutgoingExtensions = new()
@@ -362,10 +363,11 @@ public class AirIdProfileTests
         [nameof(ServerPacketHeader.WiredUserVariablesData64Composer)] = 9480,
         [nameof(ServerPacketHeader.WiredVariableHolders64Composer)] = 9481,
         [nameof(ServerPacketHeader.WiredVariableHoldersPage64Composer)] = 9482,
+        [nameof(ServerPacketHeader.WiredVariableInspectionDataComposer)] = 9483,
         [nameof(ServerPacketHeader.WiredEnvironmentComposer)] = 347
     };
-    private static readonly Dictionary<uint, uint> ExactRequestWires = new() { [10110] = 10110, [10111] = 10111 };
-    private static readonly Dictionary<uint, uint> NewResponseWires = new() { [9346] = 9346, [9347] = 9347, [9480] = 9480, [9481] = 9481, [9482] = 9482 };
+    private static readonly Dictionary<uint, uint> ExactRequestWires = new() { [10110] = 10110, [10111] = 10111, [10112] = 10112 };
+    private static readonly Dictionary<uint, uint> NewResponseWires = new() { [9346] = 9346, [9347] = 9347, [9480] = 9480, [9481] = 9481, [9482] = 9482, [9483] = 9483 };
     private static Dictionary<string, uint> AirExtensions(bool incoming)
     {
         var baseline = LoadOverlay(BaselinePath("AirIdProfileRenderer.json"));

@@ -311,6 +311,7 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
         room.TonerData.Saturation = request.Saturation;
         room.TonerData.Lightness = request.Lightness;
         room.TonerData.Enabled = 1;
+        Plus.HabboHotel.Items.Data.Toner.TonerState.Synchronize(room, item);
         room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
         item.UpdateState();
 

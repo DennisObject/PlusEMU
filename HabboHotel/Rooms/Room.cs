@@ -673,7 +673,9 @@ public class Room
     public void SendObjects(GameClient session)
     {
         GetGameMap().SendPlacementHeightMap(session);
-        session.Send(new FloorHeightMapComposer(GetGameMap().Model.GetRelativeHeightmap(), GetGameMap().StaticModel.WallHeight));
+        var presentation = GetGameMap().StaticModel.Presentation;
+        session.Send(new FloorHeightMapComposer(GetGameMap().Model.GetRelativeHeightmap(), GetGameMap().StaticModel.WallHeight,
+            presentation.HalfScale, cameraX: presentation.CameraX, cameraY: presentation.CameraY, cameraZ: presentation.CameraZ));
         var snapshotUsers = _roomUserManager.GetUserList().Where(user => user != null).ToArray();
 
         foreach (var user in snapshotUsers) {

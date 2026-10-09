@@ -48,6 +48,8 @@ internal sealed partial class WiredStackEngine
 
     public bool Mutate(Func<bool> mutation) => Pass(() =>
     {
+        SealPublication();
+
         try {
             return mutation();
         }
@@ -56,17 +58,27 @@ internal sealed partial class WiredStackEngine
         }
     });
 
-    public bool Enqueue(WiredRuntimeEvent @event, int? depth = null) => Pass(() =>
+    public bool Enqueue(WiredRuntimeEvent @event, int? depth = null) => Pass(() => EnqueueCore(@event, depth));
+
+    private bool EnqueueCore(WiredRuntimeEvent @event, int? depth = null, HeadingCollisionProof? collision = null, bool sealOnRejection = false)
     {
         var eventDepth = depth ?? (_runtimeContext?.Depth ?? -1) + 1;
+
+        if (sealOnRejection && eventDepth > _limits.MaxDepth) {
+            SealPublication();
+        }
 
         if (TooDeep(eventDepth) || _runtimeRoom == null) {
             return false;
         }
 
         RefreshStacks();
-        var dispatch = new PendingDispatch(@event, eventDepth);
+        var dispatch = new PendingDispatch(@event, eventDepth) { CollisionProof = collision };
         SnapshotDispatch(dispatch);
+
+        if (sealOnRejection && PendingCount + dispatch.Slots > _limits.MaxPendingStacks) {
+            SealPublication();
+        }
 
         if (QueueFull(dispatch.Slots)) {
             return false;
@@ -76,7 +88,7 @@ internal sealed partial class WiredStackEngine
         UpdateFastWork();
 
         return true;
-    });
+    }
 
     public void ActorLeaving(RoomUser actor) => Pass(() =>
     {
@@ -228,7 +240,7 @@ internal sealed partial class WiredStackEngine
 
             var dispatch = new PendingDispatch(parent.Event, parent.Depth + 1,
                 call: new(source, parent, parent.Selected.Copy()))
-            { ResumeImmediately = true };
+            { ResumeImmediately = true, Publication = parent.Publication };
             SnapshotDispatch(dispatch);
 
             if (QueueFull(dispatch.Slots)) {
@@ -286,7 +298,7 @@ internal sealed partial class WiredStackEngine
             child.Selected = child.Triggering.Copy();
             var dispatch = new PendingDispatch(child.Event, child.Depth,
                 new([(antenna, antenna.MovementGeneration)], child, parent))
-            { ResumeImmediately = true };
+            { ResumeImmediately = true, Publication = parent.Publication };
             SnapshotDispatch(dispatch);
 
             if (QueueFull(dispatch.Slots)) {
@@ -510,13 +522,17 @@ internal sealed partial class WiredStackEngine
             context.SelectorKinds |= kind;
         }
         Apply(context.SelectorPool.FurniIds, context.SelectorFurniOrder, context.Triggering.FurniIds, result.Selection.FurniIds,
-            context.FurniIdentity.Keys, WiredSelectionKind.Furni);
+            context.FurniIdentity.Where(pair => pair.Value.IsFloorItem).Select(pair => pair.Key), WiredSelectionKind.Furni);
         Apply(context.SelectorPool.UserIds, context.SelectorUserOrder, context.Triggering.UserIds, result.Selection.UserIds,
             context.UserIdentity.Keys, WiredSelectionKind.Users);
     }
 
     private bool InvokeRuntime(IWiredItem box, WiredRuntimeContext context, Func<bool> invoke)
     {
+        if (PublicationEvaluationIsSilent?.Invoke(box) != true) {
+            SealPublication();
+        }
+
         if (OutOfBudget() || !IsAttached(box)) {
             return false;
         }
@@ -531,6 +547,7 @@ internal sealed partial class WiredStackEngine
             return invoke();
         }
         catch (Exception error) {
+            SealPublication();
             _error(error);
 
             return false;
@@ -547,7 +564,13 @@ internal sealed partial class WiredStackEngine
                 return RuntimeSupported(contextual) && contextual.Execute(context);
             }
             finally {
-                _flushExternal?.Invoke();
+                if (_flushExternal != null) {
+                    if (PublicationFlushIsSilent?.Invoke() != true) {
+                        SealPublication();
+                    }
+
+                    _flushExternal();
+                }
             }
         }
 
@@ -568,7 +591,14 @@ internal sealed partial class WiredStackEngine
     {
         var now = _now();
 
-        _pollExternal?.Invoke(now);
+        if (_pollExternal != null) {
+            if (PublicationPollIsSilent?.Invoke() != true) {
+                SealPublication();
+            }
+
+            _pollExternal(now);
+        }
+
         // Every pass polls: the room paces passes, and each timer keeps its own deadlines.
         WiredRuntimeContext? snapshot = null;
         var timers = _items.Values.OfType<IWiredTimedTrigger>().Where(RuntimeSupported)
@@ -587,10 +617,16 @@ internal sealed partial class WiredStackEngine
             }
 
             try {
+                // Native modern timer polling only reads deadlines; custom callbacks may publish.
+                if (timer is not WiredModernTimedTrigger) {
+                    SealPublication();
+                }
+
                 if (timer.Poll(now) is not { } @event) {
                     continue;
                 }
 
+                SealPublication();
                 snapshot ??= CreateContext(@event, 0);
                 var context = snapshot.Fork(@event, 0);
                 context.Trigger = timer;
@@ -735,6 +771,8 @@ internal sealed partial class WiredStackEngine
         public bool Initialized, IsQueued;
         public bool IncludeLegacy = true;
         public bool ResumeImmediately;
+        public Modern.Actions.WiredFurniturePublication? Publication;
+        public HeadingCollisionProof? CollisionProof;
         public bool Accepted, ConsumedChat;
         public WiredClickResult Click;
     }

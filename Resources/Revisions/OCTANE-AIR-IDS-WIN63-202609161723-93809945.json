@@ -2,6 +2,7 @@
   "Name": "OCTANE-AIR-IDS-WIN63-202609161723-93809945",
   "ZeroHeaderIsValid": true,
   "IncomingHeaders": {
+    "WiredVariableInspectionRequestEvent": 10112,
     "WiredChestLockEvent": 65327,
     "ChestUpgradeEvent": 65336,
     "ChestOpenEvent": 65329,
@@ -434,6 +435,7 @@
     "GetForumsUnreadCountEvent": 1402
   },
   "OutgoingHeaders": {
+    "WiredVariableInspectionDataComposer": 9483,
     "AreaHideComposer": 9,
     "WiredChestLockComposer": 65397,
     "WiredChestSettingsAckComposer": 9347,
