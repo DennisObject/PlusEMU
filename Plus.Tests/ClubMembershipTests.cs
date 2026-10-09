@@ -122,7 +122,7 @@ public class ClubMembershipTests
     [Fact]
     public void FigureFallbackCannotPickSameGenderPremiumSetsOrPremiumColors()
     {
-        var manager = new FigureDataManager(null!, NullLogger<FigureDataManager>.Instance);
+        var manager = new FigureDataManager(NullLogger<FigureDataManager>.Instance);
         var types = (Dictionary<string, FigureSet>)typeof(FigureDataManager).GetField("_setTypes", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
         var palettes = (Dictionary<int, Palette>)typeof(FigureDataManager).GetField("_palettes", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
         var hd = new FigureSet(SetTypeUtility.GetSetType("hd"), 1);

@@ -96,6 +96,7 @@ public class ItemDataManager : IItemDataManager, IStartable
                         EffectId = Convert.ToInt32(row["effect_id"]),
                         IsRare = FurnitureNumbers.BooleanFromCell(row["is_rare"]),
                         ExtraRot = FurnitureNumbers.BooleanFromCell(row["extra_rot"]),
+                        FigureSetIds = ReadFigureSetIds(row.Table.Columns.Contains("custom_params") ? row["custom_params"] : null),
                     };
 
                     gifts.TryAdd(definition.SpriteId, definition.Id);
@@ -143,6 +144,20 @@ public class ItemDataManager : IItemDataManager, IStartable
         }
 
         return InteractionTypes.GetTypeFromString(interactionType);
+    }
+
+    // Habbo writes clothing customparams as "3442, 3443" or "3592," as well as "3375".
+    internal static IReadOnlyList<int> ReadFigureSetIds(object? cell)
+    {
+        var ids = new List<int>();
+
+        foreach (var value in (Convert.ToString(cell, CultureInfo.InvariantCulture) ?? string.Empty).Split(',')) {
+            if (int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && id > 0 && !ids.Contains(id)) {
+                ids.Add(id);
+            }
+        }
+
+        return ids;
     }
 
     internal static WiredBoxType ReadWiredType(object cell)

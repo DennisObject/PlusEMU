@@ -289,14 +289,6 @@ public sealed class EditorDatabaseTests : IDisposable
     }
 
     [EditorDatabaseFact]
-    public void ConcurrentCatalogReloadsKeepTheClothingTableWhole()
-    {
-        var clothing = new Plus.HabboHotel.Catalog.Clothing.ClothingManager(_database);
-        Parallel.For(0, 8, _ => clothing.Init());
-        Assert.Equal(Scalar<int>("SELECT COUNT(*) FROM catalog_clothing", 0), clothing.GetClothingAllParts.Count);
-    }
-
-    [EditorDatabaseFact]
     public void PageMovesAndParentsRespectPermissionsAndMoveUndoRestoresEverySibling()
     {
         var owner = EditorTestSupport.Owner();
