@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Users;
-using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.Catalog.Vouchers;
@@ -26,6 +25,4 @@ public interface ICatalogManager
     [Obsolete("Use dependency injection instead.")] IPetRaceManager PetRaceManager { get; }
 
     [Obsolete("Use dependency injection instead.")] IVoucherManager VoucherManager { get; }
-
-    [Obsolete("Use dependency injection instead.")] IClothingManager ClothingManager { get; }
 }

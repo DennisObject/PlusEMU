@@ -1,7 +1,6 @@
 using System.Xml;
 using Microsoft.Extensions.Logging;
 using Plus.Core.FigureData.Types;
-using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.Users.Clothing.Parts;
 using Plus.Utilities;
 
@@ -9,16 +8,14 @@ namespace Plus.Core.FigureData;
 
 public class FigureDataManager : IFigureDataManager, IStartable
 {
-    private readonly IClothingManager _clothingManager;
     private readonly ILogger<FigureDataManager> _logger;
     private readonly Dictionary<int, Palette> _palettes; //pallet id, Pallet
 
     private readonly List<string> _requirements;
     private readonly Dictionary<string, FigureSet> _setTypes; //type (hr, ch, etc), Set
 
-    public FigureDataManager(IClothingManager clothingManager, ILogger<FigureDataManager> logger)
+    public FigureDataManager(ILogger<FigureDataManager> logger)
     {
-        _clothingManager = clothingManager;
         _logger = logger;
         _palettes = new();
         _setTypes = new();
@@ -75,7 +72,7 @@ public class FigureDataManager : IFigureDataManager, IStartable
                     _setTypes[RequiredAttribute(child, "type")].Sets.Add(Convert.ToInt32(RequiredAttribute(sub, "id")),
                         new(Convert.ToInt32(RequiredAttribute(sub, "id")), Convert.ToString(RequiredAttribute(sub, "gender")), Convert.ToInt32(RequiredAttribute(sub, "club")),
                             Convert.ToInt32(RequiredAttribute(sub, "colorable")) == 1, Convert.ToInt32(RequiredAttribute(sub, "selectable")) == 1,
-                            Convert.ToInt32(RequiredAttribute(sub, "preselectable")) == 1));
+                            Convert.ToInt32(RequiredAttribute(sub, "preselectable")) == 1, sub.Attributes?["sellable"]?.Value == "1"));
 
                     foreach (XmlNode subb in sub.ChildNodes) {
                         if (subb.Attributes?["type"] != null) {
@@ -103,8 +100,9 @@ public class FigureDataManager : IFigureDataManager, IStartable
         gender = gender.ToUpperInvariant();
         var rebuilt = new Dictionary<string, string>();
         var owned = clothingParts?.Select(part => part.PartId).ToHashSet();
-        var purchased = owned == null ? new HashSet<int>() : _clothingManager.GetClothingAllParts
-            .SelectMany(part => part.PartIds).ToHashSet();
+
+        // As on Habbo, a sellable set is only worn once its clothing furni has been redeemed. Without a wardrobe there is no check.
+        bool Owns(Set candidate) => owned == null || !candidate.Sellable || owned.Contains(candidate.Id);
 
         foreach (var part in figure.ToLowerInvariant().Split('.')) {
             var pieces = part.Split('-');
@@ -117,8 +115,7 @@ public class FigureDataManager : IFigureDataManager, IStartable
                 continue;
             }
 
-            bool Allowed(Set candidate) => (candidate.Gender == gender || candidate.Gender == "U") && candidate.ClubLevel <= clubLevel &&
-                (!purchased.Contains(candidate.Id) || (owned?.Contains(candidate.Id) ?? false));
+            bool Allowed(Set candidate) => (candidate.Gender == gender || candidate.Gender == "U") && candidate.ClubLevel <= clubLevel && Owns(candidate);
 
             if (!Allowed(set)) {
                 set = type.Sets.Values.FirstOrDefault(candidate => candidate.Selectable && Allowed(candidate));
@@ -153,7 +150,7 @@ public class FigureDataManager : IFigureDataManager, IStartable
             }
 
             var set = type.Sets.Values.FirstOrDefault(candidate => candidate.Selectable && (candidate.Gender == gender || candidate.Gender == "U") &&
-                candidate.ClubLevel <= clubLevel && (!purchased.Contains(candidate.Id) || (owned?.Contains(candidate.Id) ?? false)));
+                candidate.ClubLevel <= clubLevel && Owns(candidate));
 
             if (set != null) {
                 rebuilt[requirement] = $"{requirement}-{set.Id}-{GetRandomColor(type.PalletId, clubLevel)}";

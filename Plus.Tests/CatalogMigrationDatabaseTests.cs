@@ -63,7 +63,7 @@ public sealed class CatalogMigrationDatabaseTests
             connection.Execute($"DELETE FROM catalog_offers WHERE id = {Custom + 115}");
             Assert.Throws<MySqlException>(() => connection.Execute("INSERT INTO catalog_offer_products (offer_id, position, product_type) VALUES (500, 9, 'furni')"));
 
-            var catalog = new CatalogManager(null!, null!, null!, null!, database, TestLogging.For<CatalogManager>(), Items());
+            var catalog = new CatalogManager(null!, null!, null!, database, TestLogging.For<CatalogManager>(), Items());
             await catalog.Start();
 
             Assert.True(catalog.TryGetPage(1, out var page));
@@ -87,7 +87,7 @@ public sealed class CatalogMigrationDatabaseTests
             connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/52_NormalizeCatalog.sql")));
             connection.Execute("UPDATE catalog_offers SET cost_points = 12, points_type = 101 WHERE id = 500");
 
-            var catalog = new CatalogManager(null!, null!, null!, null!, database, TestLogging.For<CatalogManager>(), Items());
+            var catalog = new CatalogManager(null!, null!, null!, database, TestLogging.For<CatalogManager>(), Items());
             await catalog.Start();
 
             Assert.True(catalog.TryGetOffer(500, EditorTestSupport.Player(), out _, out var offer));

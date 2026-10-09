@@ -6,7 +6,6 @@ using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.Communication.Packets.Outgoing.Rooms.Notifications;
 using Plus.Core.Settings;
 using Plus.Database;
-using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users.Clothing.Parts;
@@ -87,7 +86,7 @@ public interface IItemRedemptionService
     void RedeemClothing(GameClient session, uint itemId);
 }
 
-public sealed class ItemRedemptionService(IItemRedemptionStore store, ISettingsManager settings, IClothingManager clothingManager) : IItemRedemptionService
+public sealed class ItemRedemptionService(IItemRedemptionStore store, ISettingsManager settings) : IItemRedemptionService
 {
     public void RedeemCredits(Room room, GameClient session, uint itemId)
     {
@@ -167,24 +166,17 @@ public sealed class ItemRedemptionService(IItemRedemptionStore store, ISettingsM
                 return;
             }
 
-            if (item.Definition.BehaviourData == 0) {
+            if (item.Definition.FigureSetIds.Count == 0) {
                 session.SendNotification("Oops, this item doesn't have a linking clothing configuration, please report it!");
 
                 return;
             }
 
-            if (!clothingManager.TryGetClothing(item.Definition.BehaviourData, out var clothing)) {
-                session.SendNotification("Oops, we couldn't find this clothing part!");
-
-                return;
-            }
-
-            var committed = store.ConsumeClothing(item.Id, habbo.Id, room.RoomId, clothing.ClothingName, clothing.PartIds);
+            var committed = store.ConsumeClothing(item.Id, habbo.Id, room.RoomId, item.Definition.ItemName, item.Definition.FigureSetIds);
             wardrobe.PublishCommitted(committed);
             room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
             session.Send(new FigureSetIdsComposer(wardrobe.GetClothingParts.ToArray()));
             session.Send(new RoomNotificationComposer("figureset.redeemed.success"));
-            session.SendWhisper("If for some reason cannot see your new clothing, reload the hotel!");
         }
     }
 }

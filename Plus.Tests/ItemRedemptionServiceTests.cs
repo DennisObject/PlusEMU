@@ -4,7 +4,6 @@ using System.Runtime.CompilerServices;
 using Plus.Core.Settings;
 using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffect;
 using Plus.Communication.Packets.Outgoing.Inventory.AvatarEffects;
-using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
@@ -67,9 +66,9 @@ public sealed class ItemRedemptionServiceTests
     [Fact]
     public void ClothingTransactionFailurePublishesNothing()
     {
-        var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 12);
+        var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 0, figureSetIds: [10, 11]);
         var store = new Store { Fail = true };
-        Assert.Throws<InvalidOperationException>(() => Service(store, new ClothingItem(12, "shirt", "10,11")).RedeemClothing(client, item.Id));
+        Assert.Throws<InvalidOperationException>(() => Service(store).RedeemClothing(client, item.Id));
         Assert.Empty(Assert.IsType<ClothingComponent>(client.GetHabbo().Clothing).GetClothingParts);
         Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
         Assert.Empty(sent);
@@ -78,7 +77,7 @@ public sealed class ItemRedemptionServiceTests
     [Fact]
     public void ClothingSuccessPublishesCommittedPartsAfterStoreReturns()
     {
-        var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 12);
+        var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 0, figureSetIds: [10, 11]);
         var store = new Store(() =>
         {
             Assert.Empty(Assert.IsType<ClothingComponent>(client.GetHabbo().Clothing).GetClothingParts);
@@ -86,9 +85,10 @@ public sealed class ItemRedemptionServiceTests
             Assert.Empty(sent);
         });
 
-        Service(store, new ClothingItem(12, "shirt", "10,11")).RedeemClothing(client, item.Id);
+        Service(store).RedeemClothing(client, item.Id);
 
         Assert.Equal(new[] { 10, 11 }, Assert.IsType<ClothingComponent>(client.GetHabbo().Clothing).GetClothingParts.Select(part => part.PartId).OrderBy(id => id));
+        Assert.All(Assert.IsType<ClothingComponent>(client.GetHabbo().Clothing).GetClothingParts, part => Assert.Equal("clothing_shirt", part.Part));
         Assert.Null(room.GetRoomItemHandler().GetItem(item.Id));
         Assert.NotEmpty(sent);
     }
@@ -96,11 +96,12 @@ public sealed class ItemRedemptionServiceTests
     [Fact]
     public void ClothingIsNotConsumedForAUserWithoutAWardrobe()
     {
-        var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 12);
+        // A valid redeemable item, so the missing wardrobe is the only reason nothing is consumed.
+        var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 0, figureSetIds: [10, 11]);
         client.GetHabbo().Clothing = null;
         var consumed = false;
 
-        Service(new Store(() => consumed = true), new ClothingItem(12, "shirt", "10,11")).RedeemClothing(client, item.Id);
+        Service(new Store(() => consumed = true)).RedeemClothing(client, item.Id);
 
         Assert.False(consumed);
         Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
@@ -123,7 +124,30 @@ public sealed class ItemRedemptionServiceTests
         Assert.Equal(sent[0].Payload, sent[1].Payload);
     }
 
-    private static ItemRedemptionService Service(Store store, ClothingItem? clothing = null) => new(store, Settings(), new Clothing(clothing));
+    [Fact]
+    public void ClothingWithoutFigureSetsIsKeptAndNothingIsGranted()
+    {
+        var (room, client, _, item) = Context(InteractionType.PurchasableClothing, 0);
+        var store = new Store(() => throw new InvalidOperationException("consumed"));
+        Service(store).RedeemClothing(client, item.Id);
+
+        Assert.Empty(Assert.IsType<ClothingComponent>(client.GetHabbo().Clothing).GetClothingParts);
+        Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
+    }
+
+    [Theory]
+    [InlineData("3375", new[] { 3375 })]
+    [InlineData("3442, 3443", new[] { 3442, 3443 })]
+    [InlineData("3592,", new[] { 3592 })]
+    [InlineData("5077,  5078", new[] { 5077, 5078 })]
+    [InlineData("", new int[0])]
+    [InlineData(null, new int[0])]
+    public void FigureSetIdsAreReadFromHabboCustomParams(string? customParams, int[] expected)
+    {
+        Assert.Equal(expected, ItemDataManager.ReadFigureSetIds(customParams));
+    }
+
+    private static ItemRedemptionService Service(Store store) => new(store, Settings());
     private static ISettingsManager Settings()
     {
         var proxy = DispatchProxy.Create<ISettingsManager, SettingsProxy>();
@@ -133,16 +157,6 @@ public sealed class ItemRedemptionServiceTests
     public class SettingsProxy : DispatchProxy
     {
         protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "TryGetValue" ? "1" : null;
-    }
-    private sealed class Clothing(ClothingItem? item) : IClothingManager
-    {
-        public ICollection<ClothingItem> GetClothingAllParts => item == null ? [] : [item]; public void Init() { }
-        public bool TryGetClothing(int itemId, out ClothingItem clothing)
-        {
-            clothing = item!;
-
-            return item?.Id == itemId;
-        }
     }
     private sealed class Store(Action? before = null) : IItemRedemptionStore
     {
@@ -168,7 +182,7 @@ public sealed class ItemRedemptionServiceTests
         }
     }
 
-    private static (Room Room, Plus.HabboHotel.GameClients.GameClient Client, List<(uint Header, byte[] Payload)> Sent, Item Item) Context(InteractionType type, int value, bool temporary = false)
+    private static (Room Room, Plus.HabboHotel.GameClients.GameClient Client, List<(uint Header, byte[] Payload)> Sent, Item Item) Context(InteractionType type, int value, bool temporary = false, int[]? figureSetIds = null)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 9;
@@ -179,7 +193,7 @@ public sealed class ItemRedemptionServiceTests
         typeof(Room).GetField("_roomItemHandling", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomItemHandling(room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         typeof(Room).GetField("_roomUserManager", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new RoomUserManager(room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
         typeof(Room).GetField("_gamemap", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, new Gamemap(room, new RoomModel("test", 0, 0, 0, 0, "00\r00", 0, 0, false), TestLogging.Navigation, TestRoomSettings.Empty, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance));
-        var item = new Item { Id = 7, RoomId = 9, OwnerId = 1, IsTemporary = temporary, Definition = new() { Type = ItemType.Wall, InteractionType = type, BehaviourData = value } };
+        var item = new Item { Id = 7, RoomId = 9, OwnerId = 1, IsTemporary = temporary, Definition = new() { Type = ItemType.Wall, ItemName = "clothing_shirt", InteractionType = type, BehaviourData = value, FigureSetIds = figureSetIds ?? [] } };
         item.Attach(room, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
         var walls = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(room.GetRoomItemHandler())!;
         walls[item.Id] = item;

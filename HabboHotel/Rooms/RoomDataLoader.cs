@@ -72,7 +72,7 @@ public sealed class RoomDataLoader(IDatabase database, IRoomManager rooms, IGrou
 
 internal static class RoomDataMapping
 {
-    internal const string SelectRoom = "SELECT rooms.`allow_pets` AS AllowPets, rooms.`allow_pets_eat` AS AllowPetsEat, rooms.`room_blocking_disabled` AS RoomBlockingDisabled, rooms.`allow_hidewall` AS AllowHidewall, rooms.`push_enabled` AS PushEnabled, rooms.`pull_enabled` AS PullEnabled, rooms.`spush_enabled` AS SpushEnabled, rooms.`spull_enabled` AS SpullEnabled, rooms.`enables_enabled` AS EnablesEnabled, rooms.`respect_notifications_enabled` AS RespectNotificationsEnabled, rooms.`pet_morphs_allowed` AS PetMorphsAllowed, rooms.`lay_enabled` AS LayEnabled, rooms.`id` AS Id, rooms.`caption` AS Caption, rooms.`model_name` AS ModelName, users.`username` AS Username, rooms.`owner` AS Owner, rooms.`password` AS Password, rooms.`score` AS Score, rooms.`roomtype` AS Roomtype, rooms.`state` AS State, rooms.`users_now` AS UsersNow, rooms.`users_max` AS UsersMax, rooms.`category` AS Category, rooms.`description` AS Description, rooms.`tags` AS Tags, rooms.`floor` AS Floor, rooms.`landscape` AS Landscape, rooms.`wallthick` AS Wallthick, rooms.`floorthick` AS Floorthick, rooms.`wallpaper` AS Wallpaper, rooms.`mute_settings` AS MuteSettings, rooms.`ban_settings` AS BanSettings, rooms.`kick_settings` AS KickSettings, rooms.`chat_mode` AS ChatMode, rooms.`chat_size` AS ChatSize, rooms.`chat_speed` AS ChatSpeed, rooms.`chat_extra_flood` AS ChatExtraFlood, rooms.`chat_hearing_distance` AS ChatHearingDistance, rooms.`trade_settings` AS TradeSettings, rooms.`group_id` AS GroupId, rooms.`sale_price` AS SalePrice FROM `users` INNER JOIN `rooms` ON rooms.owner = users.id ";
+    internal const string SelectRoom = "SELECT rooms.`allow_pets` AS AllowPets, rooms.`allow_pets_eat` AS AllowPetsEat, rooms.`room_blocking_disabled` AS RoomBlockingDisabled, rooms.`allow_hidewall` AS AllowHidewall, rooms.`push_enabled` AS PushEnabled, rooms.`pull_enabled` AS PullEnabled, rooms.`spush_enabled` AS SpushEnabled, rooms.`spull_enabled` AS SpullEnabled, rooms.`enables_enabled` AS EnablesEnabled, rooms.`respect_notifications_enabled` AS RespectNotificationsEnabled, rooms.`pet_morphs_allowed` AS PetMorphsAllowed, rooms.`lay_enabled` AS LayEnabled, rooms.`hide_wired` AS HideWired, rooms.`id` AS Id, rooms.`caption` AS Caption, rooms.`model_name` AS ModelName, users.`username` AS Username, rooms.`owner` AS Owner, rooms.`password` AS Password, rooms.`score` AS Score, rooms.`roomtype` AS Roomtype, rooms.`state` AS State, rooms.`users_now` AS UsersNow, rooms.`users_max` AS UsersMax, rooms.`category` AS Category, rooms.`description` AS Description, rooms.`tags` AS Tags, rooms.`floor` AS Floor, rooms.`landscape` AS Landscape, rooms.`wallthick` AS Wallthick, rooms.`floorthick` AS Floorthick, rooms.`wallpaper` AS Wallpaper, rooms.`mute_settings` AS MuteSettings, rooms.`ban_settings` AS BanSettings, rooms.`kick_settings` AS KickSettings, rooms.`chat_mode` AS ChatMode, rooms.`chat_size` AS ChatSize, rooms.`chat_speed` AS ChatSpeed, rooms.`chat_extra_flood` AS ChatExtraFlood, rooms.`chat_hearing_distance` AS ChatHearingDistance, rooms.`trade_settings` AS TradeSettings, rooms.`group_id` AS GroupId, rooms.`sale_price` AS SalePrice FROM `users` INNER JOIN `rooms` ON rooms.owner = users.id ";
 
     internal static RoomData CreateData(RoomDataRow row, RoomModel model, bool fallbackOwnerName) => new(
         row.Id, row.Caption, row.ModelName,
@@ -83,7 +83,10 @@ internal static class RoomDataMapping
         row.MuteSettings, row.BanSettings, row.KickSettings, row.ChatMode, row.ChatSize, row.ChatSpeed,
         row.ChatExtraFlood, row.ChatHearingDistance, row.TradeSettings, row.PushEnabled, row.PullEnabled,
         row.SpushEnabled, row.SpullEnabled, row.EnablesEnabled, row.RespectNotificationsEnabled,
-        row.PetMorphsAllowed, row.GroupId, row.SalePrice, row.LayEnabled, model);
+        row.PetMorphsAllowed, row.GroupId, row.SalePrice, row.LayEnabled, model)
+    {
+        HideWired = row.HideWired
+    };
 }
 
 internal sealed class RoomDataRow
@@ -100,6 +103,7 @@ internal sealed class RoomDataRow
     public bool RespectNotificationsEnabled { get; set; }
     public bool PetMorphsAllowed { get; set; }
     public bool LayEnabled { get; set; }
+    public bool HideWired { get; set; }
     public uint Id { get; set; }
     public string Caption { get; set; } = string.Empty;
     public string ModelName { get; set; } = string.Empty;

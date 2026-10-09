@@ -8,9 +8,8 @@ public class FigureDataManagerTests
 {
     private static FigureDataManager Manager()
     {
-        // Init reads Config/figuredata.xml from the working directory (the test output folder).
-        // The catalog is only consulted when clothing parts are passed.
-        var manager = new FigureDataManager(null!, NullLogger<FigureDataManager>.Instance);
+        // Init reads Config/figuredata.xml, Habbo's figuredata, from the working directory (the test output folder).
+        var manager = new FigureDataManager(NullLogger<FigureDataManager>.Instance);
         manager.Init();
 
         return manager;
@@ -41,5 +40,20 @@ public class FigureDataManagerTests
 
         Assert.Contains("hd-180-1.", processed);
         Assert.Contains("ch-215-66.", processed);
+    }
+
+    [Fact]
+    public void SellableSetsNeedTheirClothingRedeemed()
+    {
+        // ch-3438 and mc-3360 are sellable on Habbo; ch-215 is not.
+        const string Look = "hd-180-1.ch-3438-66.lg-270-82.mc-3360-66";
+        var unowned = Manager().ProcessFigure(Look, "M", [], 0);
+        var owned = Manager().ProcessFigure(Look, "M", [new(1, 3438, "clothing_a"), new(2, 3360, "clothing_b")], 0);
+
+        Assert.DoesNotContain("ch-3438-", unowned);
+        Assert.DoesNotContain("mc-3360-", unowned);
+        Assert.Contains("ch-3438-66.", owned);
+        Assert.Contains("mc-3360-66.", owned);
+        Assert.Contains("ch-215-66.", Manager().ProcessFigure("hd-180-1.ch-215-66.lg-270-82", "M", [], 0));
     }
 }

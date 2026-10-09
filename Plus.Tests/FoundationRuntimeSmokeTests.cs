@@ -21,7 +21,6 @@ using Plus.Database;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Badges;
-using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Housekeeping;
 using Plus.HabboHotel.Items;
@@ -69,7 +68,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
 
             foreach (var type in new[] { typeof(ItemDataManager), typeof(FigureDataManager), typeof(RoomManager),
                          typeof(AccessControl), typeof(ModerationManager), typeof(AchievementManager), typeof(BadgeManager),
-                         typeof(PetLocale), typeof(ChatStyleManager), typeof(ClothingManager), typeof(RewardManager) }) {
+                         typeof(PetLocale), typeof(ChatStyleManager), typeof(RewardManager) }) {
                 await ((IStartable)services.GetRequiredService(type)).Start();
             }
 

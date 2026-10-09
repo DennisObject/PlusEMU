@@ -177,6 +177,7 @@ public class Room
     public int SalePrice { get => Data.SalePrice; set => Data.SalePrice = value; }
     public bool ReverseRollers { get => Data.ReverseRollers; set => Data.ReverseRollers = value; }
     public bool LayEnabled { get => Data.LayEnabled; set => Data.LayEnabled = value; }
+    public bool HideWired { get => Data.HideWired; set => Data.HideWired = value; }
     public RoomModel Model { get => Data.Model; set => Data.Model = value; }
     public RoomPromotion Promotion { get => Data.Promotion; set => Data.Promotion = value; }
     public Plus.HabboHotel.Groups.Group? Group { get => Data.Group; set => Data.Group = value; }
@@ -707,7 +708,7 @@ public class Room
         }
 
         session.Send(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(_roomUserManager.GetUserList())));
-        var snapshotFurniture = GetRoomItemHandler().GetFloor.ToArray();
+        var snapshotFurniture = VisibleFloorItems.ToArray();
         session.Send(new ObjectsComposer(RoomFurnitureSnapshot.Capture(snapshotFurniture, OwnerId, OwnerName)));
         var snapshotWalls = GetRoomItemHandler().GetWall.ToArray();
         session.Send(new ItemsComposer(RoomFurnitureSnapshot.Capture(snapshotWalls, OwnerId, OwnerName)));
@@ -791,6 +792,29 @@ public class Room
     }
 
     public void SendPacket(IServerPacket packet, bool withRightsOnly = false) => SendPacket(packet, withRightsOnly, null);
+
+    public IEnumerable<Item> VisibleFloorItems => GetRoomItemHandler().GetFloor.Where(item => !HideWired || !item.IsWired);
+
+    public void SetWiredHidden(bool hidden)
+    {
+        HideWired = hidden;
+        var wired = GetRoomItemHandler().GetFloor.Where(item => item.IsWired).ToArray();
+
+        if (hidden) {
+            foreach (var item in wired) {
+                SendPacket(new ObjectRemoveComposer(item.Id, item.IsTemporary, item.UserId));
+            }
+
+            return;
+        }
+
+        SendPacket(new ObjectsComposer(RoomFurnitureSnapshot.Capture(wired, OwnerId, OwnerName)), false, viewer =>
+        {
+            foreach (var item in wired) {
+                _wiredComponent?.ObjectEnqueued(viewer, item, null);
+            }
+        });
+    }
 
     public void SendObject(Item item) => SendPacket(item.IsWallItem ? new ItemAddComposer(RoomItemSnapshot.Capture(item)) : new ObjectAddComposer(RoomItemSnapshot.Capture(item)), false,
         viewer => _wiredComponent?.ObjectEnqueued(viewer, item, null));

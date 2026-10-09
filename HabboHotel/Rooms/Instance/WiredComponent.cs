@@ -519,6 +519,11 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public void OnEvent(Item item)
     {
+        // Hidden wired boxes are not on the clients, so they do not flash.
+        if (_room.HideWired) {
+            return;
+        }
+
         // A box saved mid-flash loads as "1" with no reset pending, so only a pending reset means it is still lit.
         if (item.LegacyDataString == "1" && item.UpdateNeeded) {
             return;

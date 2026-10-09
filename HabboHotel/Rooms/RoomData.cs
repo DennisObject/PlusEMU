@@ -112,6 +112,7 @@ public class RoomData
         EnablesEnabled = data.EnablesEnabled;
         ReverseRollers = data.ReverseRollers;
         LayEnabled = data.LayEnabled;
+        HideWired = data.HideWired;
         Model = data.Model;
     }
 
@@ -157,6 +158,7 @@ public class RoomData
     public int GroupId { get; set; }
     public bool ReverseRollers { get; set; }
     public bool LayEnabled { get; set; }
+    public bool HideWired { get; set; }
 
 
     public RoomModel Model { get; set; }
