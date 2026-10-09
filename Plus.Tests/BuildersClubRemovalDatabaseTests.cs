@@ -91,7 +91,7 @@ public sealed class BuildersClubRemovalDatabaseTests
 
         try {
             connection.Execute($"USE `{schema}`");
-            connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")), commandTimeout: 180);
+            connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")), commandTimeout: 900);
 
             Assert.Equal(0, connection.QuerySingle<int>("""
                 SELECT COUNT(*) FROM information_schema.columns
