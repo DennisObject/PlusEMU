@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Data;
 using System.Reflection;
@@ -127,6 +128,64 @@ public sealed class GroupRemovalServiceTests
         Assert.Empty(sent);
         Assert.Empty(ownerSent);
     }
+
+    [Fact]
+    public async Task OrdinaryMemberAndAdminCanConfirmLeavingThemselves()
+    {
+        var group = Members();
+        var store = new Store();
+
+        foreach (var id in new[] { 10, 8 }) {
+            var (leaver, sent) = Client(id, 0);
+            await Service(group, store, leaver).ConfirmRemove(leaver, group.Id, id);
+            var body = sent.Single().Payload;
+            Assert.Equal(ServerPacketHeader.GroupConfirmRemoveMemberComposer, sent.Single().Header);
+            Assert.Equal(id, BinaryPrimitives.ReadInt32BigEndian(body));
+            Assert.Equal(4, BinaryPrimitives.ReadInt32BigEndian(body.AsSpan(4)));
+            Assert.True(group.IsMember(id));
+        }
+
+        Assert.Equal(2, store.Counts);
+        Assert.Equal(0, store.Removes);
+    }
+
+    [Theory]
+    [InlineData(7, 7)]
+    [InlineData(99, 99)]
+    [InlineData(10, 7)]
+    [InlineData(10, 8)]
+    [InlineData(10, 11)]
+    [InlineData(99, 10)]
+    [InlineData(8, 7)]
+    [InlineData(8, 12)]
+    [InlineData(8, 99)]
+    public async Task ConfirmRefusesTheOwnerStrangersAndEveryoneTheActorMayNotRemove(int actor, int target)
+    {
+        var group = Members();
+        var store = new Store();
+        var (client, sent) = Client(actor, 0);
+        await Service(group, store, client).ConfirmRemove(client, group.Id, target);
+        Assert.Empty(sent);
+        Assert.Equal(0, store.Counts);
+        Assert.Equal(0, store.Removes);
+    }
+
+    [Theory]
+    [InlineData(7, 8)]
+    [InlineData(7, 10)]
+    [InlineData(8, 10)]
+    public async Task OwnerAndAdminsKeepConfirmingTheRemovalsTheyAreAllowed(int actor, int target)
+    {
+        var group = Members();
+        var store = new Store();
+        var (client, sent) = Client(actor, 0);
+        await Service(group, store, client).ConfirmRemove(client, group.Id, target);
+        Assert.Equal(target, BinaryPrimitives.ReadInt32BigEndian(sent.Single().Payload));
+        Assert.Equal(1, store.Counts);
+    }
+
+    private static Group Members() => new(9, "Crew", "", "b01014s02024", 42, 7, null,
+        0, 1, 1, 0, false, new([7, 10, 11], [8, 12], []));
 
     [Fact]
     public async Task RemovalWaitsForAccountPublicationBeforeClearingFavourite()
