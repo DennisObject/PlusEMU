@@ -205,6 +205,7 @@ public class WiredRoomSettingsTests
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)typeof(PacketManager).GetField("_incomingPackets", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
+        revision.BuildMappings(HabbiconTestSupport.InternalRevision());
 
         foreach (var handler in handlers) {
             var name = handler.GetType().Name;
@@ -212,14 +213,13 @@ public class WiredRoomSettingsTests
             Assert.Same(handler, registered[id]);
             Assert.Single(typeof(ClientPacketHeader).GetFields(), field => field.IsLiteral && field.GetRawConstantValue() is uint value && value == id);
 
-            if (profile == "example.json" && handler is WiredMenuPermissionsSaveEvent) {
-                Assert.False(revision.IncomingHeaders.ContainsKey(name));
-                Assert.Equal(1936u, revision.IncomingHeaders["UpdateFloorPropertiesEvent"]);
-                continue;
+            var wire = revision.IncomingHeaders[name];
+            Assert.Equal(id, revision.IncomingIdToInternalIdMapping[wire]);
+
+            if (profile == "1.6.6.json" && handler is WiredMenuPermissionsSaveEvent) {
+                Assert.Equal(1936u, wire);
             }
 
-            var wire = handler is WiredMenuPermissionsSaveEvent ? 1936u : id;
-            Assert.Equal(wire, revision.IncomingHeaders[name]);
             Assert.Single(revision.IncomingHeaders, entry => entry.Value == wire);
         }
 

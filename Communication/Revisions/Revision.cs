@@ -19,14 +19,14 @@ public class Revision
             throw new InvalidOperationException("A packet revision must have a name.");
         }
 
-        var incoming = BuildMapping(IncomingHeaders, internalRevision.IncomingHeaders, "incoming", true);
-        var outgoing = BuildMapping(OutgoingHeaders, internalRevision.OutgoingHeaders, "outgoing", false);
+        var incoming = BuildMapping(IncomingHeaders, internalRevision.IncomingHeaders, "incoming", true, internalRevision.ZeroHeaderIsValid);
+        var outgoing = BuildMapping(OutgoingHeaders, internalRevision.OutgoingHeaders, "outgoing", false, false);
         IncomingIdToInternalIdMapping = incoming;
         InternalIdToOutgoingIdMapping = outgoing;
     }
 
     private Dictionary<uint, uint> BuildMapping(IReadOnlyDictionary<string, uint> headers,
-        IReadOnlyDictionary<string, uint> internalHeaders, string direction, bool incoming)
+        IReadOnlyDictionary<string, uint> internalHeaders, string direction, bool incoming, bool zeroInternalIdIsValid)
     {
         if (headers == null) {
             throw new InvalidOperationException($"{Name}: missing {direction} headers.");
@@ -49,7 +49,7 @@ public class Revision
                 continue;
             }
 
-            if (internalId == 0) {
+            if (internalId == 0 && !zeroInternalIdIsValid) {
                 throw new InvalidOperationException($"{Name}: {direction} packet '{key}' has no internal ID.");
             }
 

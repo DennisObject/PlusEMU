@@ -69,10 +69,10 @@ public sealed class CatalogBrowsingSnapshotTests
         var index = HabbiconTestSupport.Incoming("BUILDERS_CLUB");
         var mode = HabbiconTestSupport.Incoming("BUILDERS_CLUB");
         await new GetCatalogPageEvent(service).Parse(null!, page);
-        await new GetCatalogIndexEvent(service).Parse(null!, index);
-        await new GetCatalogModeEvent(service).Parse(null!, mode);
+        await new GetCatalogIndexWithDiscountEvent(service).Parse(null!, index);
+        await new GetCatalogIndexEvent(service).Parse(null!, mode);
         var offer = HabbiconTestSupport.Incoming(44);
-        await new GetClubOffersEvent(service).Parse(null!, offer);
+        await new GetProductOfferEvent(service).Parse(null!, offer);
         Assert.Equal(44, service.OfferId);
         Assert.False(offer.HasDataRemaining());
         Assert.Equal("pet", service.Type);
@@ -219,7 +219,7 @@ public sealed class CatalogBrowsingSnapshotTests
     public async Task OfferHandlerDoesNotDelegateATruncatedIdentifier()
     {
         var service = new RecordingBrowsing();
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => new GetClubOffersEvent(service).Parse(null!, HabbiconTestSupport.Incoming()));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new GetProductOfferEvent(service).Parse(null!, HabbiconTestSupport.Incoming()));
         Assert.Null(service.OfferId);
     }
 

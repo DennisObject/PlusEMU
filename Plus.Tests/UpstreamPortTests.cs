@@ -93,8 +93,8 @@ public class UpstreamPortTests
         var packet = new RecordingPacket();
         new KickbackInfoComposer(new Plus.HabboHotel.Subscriptions.ClubKickback(0, "", 0d, 0, 0, 0, 0, 0, 0)).Compose(packet);
         Assert.Equal(new object[] { 0, "", 0d, 0, 0, 0, 0, 0, 0 }, packet.Writes);
-        Assert.Equal(4001u, ServerPacketHeader.KickbackInfoComposer);
-        Assert.Equal(4001u, ClientPacketHeader.GetKickbackInfoEvent);
+        Assert.Equal(2959u, ServerPacketHeader.KickbackInfoComposer);
+        Assert.Equal(2179u, ClientPacketHeader.GetKickbackInfoEvent);
         Assert.Equal(nameof(GetKickbackInfoEvent), typeof(GetKickbackInfoEvent).Name);
 
         var incoming = HeaderValues(typeof(ClientPacketHeader));

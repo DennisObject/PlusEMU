@@ -54,6 +54,7 @@ public class RevisionMappingTests
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(path))!;
         var internalRevision = new Revision
         {
+            ZeroHeaderIsValid = true,
             IncomingHeaders = Headers(typeof(ClientPacketHeader)),
             OutgoingHeaders = Headers(typeof(ServerPacketHeader))
         };
@@ -205,6 +206,7 @@ public class RevisionMappingTests
     {
         var internalRevision = new Revision
         {
+            ZeroHeaderIsValid = true,
             IncomingHeaders = Headers(typeof(ClientPacketHeader)),
             OutgoingHeaders = Headers(typeof(ServerPacketHeader)),
             IncomingIdToInternalIdMapping = new Dictionary<uint, uint>

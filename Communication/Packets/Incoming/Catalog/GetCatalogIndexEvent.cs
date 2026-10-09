@@ -7,7 +7,7 @@ public sealed class GetCatalogIndexEvent(ICatalogBrowsingService catalog) : IPac
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        catalog.ShowIndex(session, packet.ReadString());
+        catalog.ShowMode(session, packet.ReadString());
 
         return Task.CompletedTask;
     }

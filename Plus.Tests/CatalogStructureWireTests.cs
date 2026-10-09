@@ -30,7 +30,7 @@ public class CatalogStructureWireTests
         var packet = HabbiconTestSupport.Incoming("BUILDERS_CLUB");
 
         var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, null!, CatalogSnapshotTestSupport.Snapshots());
-        await new GetCatalogIndexEvent(service).Parse(client, packet);
+        await new GetCatalogIndexWithDiscountEvent(service).Parse(client, packet);
 
         Assert.False(packet.HasDataRemaining());
         Assert.Equal([ServerPacketHeader.CatalogIndexComposer, ServerPacketHeader.CatalogItemDiscountComposer], sent.Select(value => value.Header));
@@ -64,7 +64,7 @@ public class CatalogStructureWireTests
             foreach (var name in new[] { "NITRO-1-6-6", "NITRO-3-6-0", "OCTANE-3-6-0-FLOOR-20260909" }) {
                 var revision = cache.Revisions[name];
                 Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetBundleDiscountRulesetEvent, revision.IncomingIdToInternalIdMapping[223]);
-                Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetCatalogModeEvent, revision.IncomingIdToInternalIdMapping[1195]);
+                Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetCatalogIndexEvent, revision.IncomingIdToInternalIdMapping[1195]);
                 Assert.Equal(2347u, revision.InternalIdToOutgoingIdMapping[ServerPacketHeader.CatalogItemDiscountComposer]);
             }
         }

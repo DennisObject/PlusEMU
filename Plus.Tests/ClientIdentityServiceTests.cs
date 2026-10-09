@@ -13,7 +13,7 @@ public sealed class ClientIdentityServiceTests
     public async Task IdentityHandlerDecodesBothStringsBeforeDelegatingTheMachineId()
     {
         var identity = new RecordingIdentity();
-        var packet = HabbiconTestSupport.Incoming("ignored", "machine");
+        var packet = HabbiconTestSupport.Incoming("machine", "fingerprint");
         await new UniqueIdEvent(identity).Parse(null!, packet);
         Assert.Equal("machine", identity.MachineId);
         Assert.False(packet.HasDataRemaining());

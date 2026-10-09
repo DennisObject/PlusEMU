@@ -240,7 +240,7 @@ public class ModernWiredRuntimeTests
 
         var alice = Capture(f.Habbo.Client);
         await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
-        var page = Reply(alice, 918);
+        var page = Reply(alice, ServerPacketHeader.WiredRoomLogPageComposer);
         Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
         Assert.Equal((1d, 2, 8, "Gate opened"), (page.Long(), page.Byte(), page.Byte(), page.String()));
         var millis = page.Long();
@@ -250,14 +250,14 @@ public class ModernWiredRuntimeTests
         page.End();
 
         await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(9, 50, 2, 8, " GATE "));
-        page = Reply(alice, 918);
+        page = Reply(alice, ServerPacketHeader.WiredRoomLogPageComposer);
         Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
         Assert.Equal("Gate opened", page.Skip(2, 1, 1).String());
         page.Skip(2).String();
         Assert.Equal((true, 2, true, 8, true, "GATE"), (page.Bool(), page.Byte(), page.Bool(), page.Byte(), page.Bool(), page.String()));
         page.End();
         await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, 4, "")); // a source Plus never writes
-        page = Reply(alice, 918);
+        page = Reply(alice, ServerPacketHeader.WiredRoomLogPageComposer);
         Assert.Equal((0, 1, 50, 0), (page.Int(), page.Int(), page.Int(), page.Int()));
 
         await MonitorRequest().Parse(f.Room, f.Habbo.Client, Request(0));
@@ -296,7 +296,7 @@ public class ModernWiredRuntimeTests
         var pages = RoomLogsPage();
         await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
         await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, "")); // inside the 250 ms page interval
-        Assert.Equal(1, Reply(bobReplies, 918).Int());
+        Assert.Equal(1, Reply(bobReplies, ServerPacketHeader.WiredRoomLogPageComposer).Int());
         Assert.Empty(bobReplies);
 
         await MonitorRequest().Parse(f.Room, f.Habbo.Client, Request(1));
@@ -399,7 +399,7 @@ public class ModernWiredRuntimeTests
         var pages = new WiredRoomLogsPageEvent(monitor);
         var alice = Capture(f.Habbo.Client);
         int Monitors() => alice.Count(reply => reply.Header == 5101);
-        int Pages() => alice.Count(reply => reply.Header == 918);
+        int Pages() => alice.Count(reply => reply.Header == ServerPacketHeader.WiredRoomLogPageComposer);
 
         await fetch.Parse(f.Room, f.Habbo.Client, Request(0));
         Assert.Equal(1, Monitors()); // the first request passes

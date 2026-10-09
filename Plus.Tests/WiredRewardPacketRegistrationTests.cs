@@ -14,9 +14,12 @@ public class WiredRewardPacketRegistrationTests
     public void ConcreteRewardResultUsesActiveCollisionFreeProfileMapping(string profile)
     {
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
+        revision.BuildMappings(HabbiconTestSupport.InternalRevision());
         var composer = new WiredRewardResultComposer(5);
         Assert.Equal(ServerPacketHeader.WiredRewardResultComposer, composer.MessageId);
-        Assert.Equal(178u, revision.OutgoingHeaders[nameof(ServerPacketHeader.WiredRewardResultComposer)]);
-        Assert.Single(revision.OutgoingHeaders, pair => pair.Value == 178);
+        var wire = revision.OutgoingHeaders[nameof(ServerPacketHeader.WiredRewardResultComposer)];
+        Assert.Equal(profile == "example.json" ? ServerPacketHeader.WiredRewardResultComposer : 178u, wire);
+        Assert.Equal(wire, revision.InternalIdToOutgoingIdMapping[composer.MessageId]);
+        Assert.Single(revision.OutgoingHeaders, pair => pair.Value == wire);
     }
 }

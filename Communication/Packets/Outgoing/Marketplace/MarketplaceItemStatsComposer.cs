@@ -26,5 +26,7 @@ public class MarketplaceItemStatsComposer : IServerPacket
         packet.WriteInteger(0); //No idea.
         packet.WriteInteger(_itemId);
         packet.WriteUInteger(_spriteId);
+        packet.WriteInteger(0); // Lowest current price is unavailable in this snapshot.
+        packet.WriteInteger(0); // Suggested price is unavailable in this snapshot.
     }
 }

@@ -33,9 +33,10 @@ public class RevisionsCache : IRevisionsCache, IStartable
         var outgoingHeaders = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue());
         InternalRevision = new()
         {
-            Name = "PRODUCTION-201701242205-837386173",
+            Name = "WIN63-202609161723-93809945",
+            ZeroHeaderIsValid = true,
             IncomingHeaders = incomingHeaders,
-            IncomingIdToInternalIdMapping = incomingHeaders.Where(kvp => kvp.Value > 0).ToDictionary(kvp => kvp.Value, kvp => kvp.Value),
+            IncomingIdToInternalIdMapping = incomingHeaders.ToDictionary(kvp => kvp.Value, kvp => kvp.Value),
             OutgoingHeaders = outgoingHeaders,
             InternalIdToOutgoingIdMapping = outgoingHeaders.Where(kvp => kvp.Value > 0).ToDictionary(kvp => kvp.Value, kvp => kvp.Value)
         };

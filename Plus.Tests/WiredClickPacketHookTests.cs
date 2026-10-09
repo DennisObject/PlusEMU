@@ -203,19 +203,22 @@ public class WiredClickPacketHookTests
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)Get(manager, "_incomingPackets");
         var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
+        revision.BuildMappings(HabbiconTestSupport.InternalRevision());
 
         foreach (var handler in handlers) {
             var name = handler.GetType().Name;
             var id = (uint)typeof(ClientPacketHeader).GetField(name)!.GetRawConstantValue()!;
             Assert.Same(handler, registered[id]);
-            Assert.Equal(id, revision.IncomingHeaders[name]);
-            Assert.Single(revision.IncomingHeaders, pair => pair.Value == id);
+            var wire = revision.IncomingHeaders[name];
+            Assert.Equal(id, revision.IncomingIdToInternalIdMapping[wire]);
+            Assert.Single(revision.IncomingHeaders, pair => pair.Value == wire);
         }
 
         foreach (var name in new[] { nameof(ServerPacketHeader.WiredClickUserResponseComposer), nameof(ServerPacketHeader.InClientLinkComposer) }) {
             var id = (uint)typeof(ServerPacketHeader).GetField(name)!.GetRawConstantValue()!;
-            Assert.Equal(id, revision.OutgoingHeaders[name]);
-            Assert.Single(revision.OutgoingHeaders, pair => pair.Value == id);
+            var wire = revision.OutgoingHeaders[name];
+            Assert.Equal(wire, revision.InternalIdToOutgoingIdMapping[id]);
+            Assert.Single(revision.OutgoingHeaders, pair => pair.Value == wire);
         }
     }
 

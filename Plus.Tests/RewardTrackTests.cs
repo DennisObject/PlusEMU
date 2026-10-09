@@ -120,16 +120,16 @@ public class RewardTrackTests
     }
 
     [Fact]
-    public void HeadersMatchTheNitroClientNumbers()
+    public void CurrentHeadersAndLegacyClientTranslationsMatch()
     {
-        Assert.Equal(48000u, ClientPacketHeader.GetRewardTracksEvent);
-        Assert.Equal(48001u, ClientPacketHeader.ClaimRewardTrackPrizeEvent);
-        Assert.Equal(48002u, ClientPacketHeader.PurchaseRewardTrackPremiumEvent);
-        Assert.Equal(48003u, ServerPacketHeader.RewardTracksComposer);
-        Assert.Equal(48004u, ServerPacketHeader.RewardTrackClaimResultComposer);
-        Assert.Equal(48005u, ServerPacketHeader.RewardTrackProgressComposer);
-        Assert.Equal(48006u, ServerPacketHeader.RewardTrackPremiumPurchaseResultComposer);
-        Assert.Equal(2248u, ServerPacketHeader.UserChangeComposer);
+        Assert.Equal(9450u, ClientPacketHeader.GetRewardTracksEvent);
+        Assert.Equal(3859u, ClientPacketHeader.ClaimRewardTrackPrizeEvent);
+        Assert.Equal(1663u, ClientPacketHeader.PurchaseRewardTrackPremiumEvent);
+        Assert.Equal(2693u, ServerPacketHeader.RewardTracksComposer);
+        Assert.Equal(3629u, ServerPacketHeader.RewardTrackClaimResultComposer);
+        Assert.Equal(465u, ServerPacketHeader.RewardTrackProgressComposer);
+        Assert.Equal(1374u, ServerPacketHeader.RewardTrackPremiumPurchaseResultComposer);
+        Assert.Equal(3050u, ServerPacketHeader.UserChangeComposer);
         Assert.NotEqual(ServerPacketHeader.UserChangeComposer, ServerPacketHeader.RewardTrackPremiumPurchaseResultComposer);
 
         AssertClient("3.6.0.json", 9450, 1111, 3022, 2327, 9451, 9452, 2248);
