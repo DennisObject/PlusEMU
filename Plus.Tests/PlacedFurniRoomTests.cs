@@ -16,6 +16,7 @@ using Plus.HabboHotel;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
+using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Quests;
@@ -124,6 +125,22 @@ public partial class PlacedFurniRoomTests : IDisposable
 
         Assert.True(_room.GetRoomItemHandler().SetWallItem(_client, item));
         Assert.Same(_room, item.GetRoom());
+    }
+
+    [Fact]
+    public void UsingAPlacedPhotoKeepsItsImage()
+    {
+        // Photo furni have two modes, so a generic switch would replace the image record with "1".
+        const string image = "{\"w\":\"/camera/photo.png\"}";
+        var photo = Furni(13, InteractionType.CameraPicture, WiredBoxType.None, ItemType.Wall);
+        photo.Definition.Modes = 2;
+        photo.ExtraData = new LegacyDataFormat { Data = image };
+
+        Assert.True(_room.GetRoomItemHandler().SetWallItem(_client, photo));
+        photo.Interactor.OnTrigger(_client, photo, 0, true);
+        photo.Interactor.OnWiredTrigger(photo);
+
+        Assert.Equal(image, photo.LegacyDataString);
     }
 
     [Theory]

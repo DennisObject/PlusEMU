@@ -33,7 +33,8 @@ public sealed class FurnitureInventoryLoader(IDatabase database, IItemDataManage
                 Id = row.Id,
                 OwnerId = (uint)userId,
                 Definition = definition,
-                ExtraData = FurniExtraData.Load(definition, row.ExtraData, keepLegacy: RecyclerBox.IsDefinition(definition) || Plus.HabboHotel.Rooms.Music.RoomMusicDefinition.IsDisc(definition)),
+                ExtraData = FurniExtraData.Load(definition, row.ExtraData, keepLegacy: RecyclerBox.IsDefinition(definition) || Plus.HabboHotel.Rooms.Music.RoomMusicDefinition.IsDisc(definition)
+                    || definition.InteractionType == InteractionType.CameraPicture),
                 UniqueNumber = row.LimitedNumber,
                 UniqueSeries = row.LimitedStack
             });
