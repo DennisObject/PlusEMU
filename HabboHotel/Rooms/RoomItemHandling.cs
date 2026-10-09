@@ -15,7 +15,6 @@ using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms;
 
-[Obsolete("Everything in here is bad and whoever wrote this must've been high on some crack or something")]
 public class RoomItemHandling
 {
     private readonly ConcurrentDictionary<uint, Item> _floorItems;

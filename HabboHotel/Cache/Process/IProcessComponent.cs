@@ -6,9 +6,4 @@ public interface IProcessComponent : IDisposable
     /// Initializes the ProcessComponent.
     /// </summary>
     void Init(Action sweep);
-
-    /// <summary>
-    /// Stops the timer and disposes everything.
-    /// </summary>
-    void Dispose();
 }

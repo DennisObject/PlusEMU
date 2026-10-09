@@ -8,8 +8,8 @@ namespace Plus.Communication.Revisions;
 
 public class RevisionsCache : IRevisionsCache, IStartable
 {
-    public IReadOnlyDictionary<string, Revision> Revisions { get; set; }
-    public Revision InternalRevision { get; private set; }
+    public IReadOnlyDictionary<string, Revision> Revisions { get; set; } = new Dictionary<string, Revision>();
+    public Revision InternalRevision { get; } = CreateInternalRevision();
 
     private string? _directory;
     public string Location => _directory ??= Path.Join(Directory.GetCurrentDirectory(), "revisions");
@@ -22,16 +22,17 @@ public class RevisionsCache : IRevisionsCache, IStartable
 
     public async Task Start()
     {
-        LoadInternalRevision();
+        WriteExampleRevision();
         await LoadRevisions();
         Validate();
     }
 
-    private void LoadInternalRevision()
+    private static Revision CreateInternalRevision()
     {
-        var incomingHeaders = typeof(ClientPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue());
-        var outgoingHeaders = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue());
-        InternalRevision = new()
+        var incomingHeaders = ReadHeaderIds(typeof(ClientPacketHeader));
+        var outgoingHeaders = ReadHeaderIds(typeof(ServerPacketHeader));
+
+        return new()
         {
             Name = "WIN63-202609161723-93809945",
             ZeroHeaderIsValid = true,
@@ -40,7 +41,14 @@ public class RevisionsCache : IRevisionsCache, IStartable
             OutgoingHeaders = outgoingHeaders,
             InternalIdToOutgoingIdMapping = outgoingHeaders.Where(kvp => kvp.Value > 0).ToDictionary(kvp => kvp.Value, kvp => kvp.Value)
         };
+    }
 
+    private static Dictionary<string, uint> ReadHeaderIds(Type headers) =>
+        headers.GetFields(BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy).ToDictionary(field => field.Name,
+            field => field.GetRawConstantValue() is uint id ? id : throw new InvalidOperationException($"{headers.Name}.{field.Name} is not a packet ID constant."));
+
+    private void WriteExampleRevision()
+    {
         if (!Directory.Exists(Location)) {
             Directory.CreateDirectory(Location);
         }
