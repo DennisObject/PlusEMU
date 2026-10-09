@@ -288,6 +288,7 @@ public sealed class TradeConfirmationServiceTests
     {
         public List<(int, int, string, string)> Logged { get; } = [];
         public Exception? LogFailure { get; set; }
+        public int CommitCalls { get; private set; }
         public void DeleteItem(uint itemId) { }
         public void TransferItem(uint itemId, int userId) { }
         public void Log(int firstUserId, int secondUserId, string firstItems, string secondItems)
@@ -301,6 +302,7 @@ public sealed class TradeConfirmationServiceTests
         public bool Commit(IReadOnlyList<TradeTransfer> transfers, int firstUserId, int secondUserId, int firstCredits, int secondCredits,
             string firstItems, string secondItems, Func<bool> apply)
         {
+            CommitCalls++;
             if (LogFailure != null) {
                 throw LogFailure;
             }

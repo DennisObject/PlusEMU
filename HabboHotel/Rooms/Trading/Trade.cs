@@ -168,6 +168,12 @@ public sealed class Trade
         var applied = new List<(Plus.HabboHotel.Users.Habbo Sender, Plus.HabboHotel.Users.Habbo Recipient, InventoryItem Item, bool Redeemed)>();
         lock (firstWallet)
         lock (secondWallet) {
+            // a session that disconnected, saved or was unregistered while this waited on the wallet locks has its wallet row written already: committing now would overwrite it
+            if (habboOne.WalletClosed || habboTwo.WalletClosed) {
+                SendPacket(new BroadcastMessageAlertComposer("Error! Trading Failed!"));
+                return false;
+            }
+
             var oneCreditDelta = RedeemedCredits(habboOne, userTwo, autoRedeem);
             var twoCreditDelta = RedeemedCredits(habboTwo, userOne, autoRedeem);
             var transfers = userOne.Select(item => Transfer(habboOne, habboTwo, item, autoRedeem))
