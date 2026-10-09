@@ -28,6 +28,7 @@ public sealed class ActorTickService(Room room)
 
         if (actor.IsRolling && actor.RollerDelay-- <= 0) {
             actor.IsRolling = false;
+            actor.UpdateNeeded = true;
         }
 
         return true;
