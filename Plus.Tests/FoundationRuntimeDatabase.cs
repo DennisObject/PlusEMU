@@ -85,6 +85,7 @@ internal static class FoundationRuntimeDatabase
     private static void AssertShippedShapes(MySqlConnection connection)
     {
         Assert.Equal("tinyint(1)", Column(connection, "rooms", "lay_enabled"));
+        Assert.Equal("tinyint(1)", Column(connection, "rooms", "hide_wired"));
         Assert.NotNull(Column(connection, "users", "bubble_id"));
         Assert.NotNull(Column(connection, "users", "auth_ticket_expires_at"));
         Assert.NotNull(Column(connection, "user_statistics", "id"));

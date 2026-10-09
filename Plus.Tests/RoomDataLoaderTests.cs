@@ -101,15 +101,16 @@ public sealed class RoomDataLoaderTests
                     push_enabled BOOL NOT NULL DEFAULT FALSE, pull_enabled BOOL NOT NULL DEFAULT FALSE,
                     spush_enabled BOOL NOT NULL DEFAULT FALSE, spull_enabled BOOL NOT NULL DEFAULT FALSE,
                     enables_enabled BOOL NOT NULL DEFAULT FALSE, respect_notifications_enabled BOOL NOT NULL DEFAULT FALSE,
-                    pet_morphs_allowed BOOL NOT NULL DEFAULT FALSE, lay_enabled BOOL NOT NULL DEFAULT FALSE);
+                    pet_morphs_allowed BOOL NOT NULL DEFAULT FALSE, lay_enabled BOOL NOT NULL DEFAULT FALSE,
+                    hide_wired BOOL NOT NULL DEFAULT FALSE);
                 INSERT INTO users VALUES (7, 'owner'), (8, '');
                 INSERT INTO rooms (id, owner, caption, model_name) VALUES
                     (1, 7, 'Zulu', 'model_a'), (3, 7, 'Missing model', 'unknown');
                 INSERT INTO rooms (id, owner, caption, model_name, state, tags, allow_pets, allow_pets_eat,
                     room_blocking_disabled, allow_hidewall, kick_settings, group_id, push_enabled, pull_enabled,
-                    spush_enabled, spull_enabled, enables_enabled, respect_notifications_enabled, pet_morphs_allowed, lay_enabled)
+                    spush_enabled, spull_enabled, enables_enabled, respect_notifications_enabled, pet_morphs_allowed, lay_enabled, hide_wired)
                     VALUES (2, 7, 'Alpha', 'model_a', 'password', 'one,two', TRUE, TRUE, TRUE, TRUE, 2, 9,
-                        TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE);
+                        TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE);
                 INSERT INTO rooms (id, owner, caption, model_name) VALUES (4, 999, 'Orphan', 'model_a');
                 INSERT INTO rooms (id, owner, caption, model_name) VALUES (5, 8, 'Empty owner name', 'model_a');
                 """);
@@ -152,6 +153,8 @@ public sealed class RoomDataLoaderTests
             Assert.True(materialized.Hidewall);
             Assert.True(materialized.PushEnabled && materialized.PullEnabled && materialized.SuperPushEnabled && materialized.SuperPullEnabled);
             Assert.True(materialized.EnablesEnabled && materialized.RespectNotificationsEnabled && materialized.PetMorphsAllowed && materialized.LayEnabled);
+            Assert.True(materialized.HideWired);
+            Assert.False(unnamedOwner.HideWired);
             Assert.Same(group, materialized.Group);
             Assert.Same(promotions.Promotion, materialized.Promotion);
 
