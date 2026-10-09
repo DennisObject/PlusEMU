@@ -74,7 +74,9 @@ public sealed class RoomPollStore(IDatabase database) : IRoomPollStore
         using var connection = database.Connection();
         connection.Open();
         using var transaction = connection.BeginTransaction();
-        connection.Execute("INSERT IGNORE INTO room_poll_responses (poll_id, user_id, answers) VALUES (@pollId, @userId, '{}')", new { pollId = poll.Id, userId }, transaction);
+        // Take the row's exclusive lock now: INSERT IGNORE only share-locks an existing row, and two
+        // answers upgrading that lock for the SELECT ... FOR UPDATE below deadlock each other.
+        connection.Execute("INSERT INTO room_poll_responses (poll_id, user_id, answers) VALUES (@pollId, @userId, '{}') ON DUPLICATE KEY UPDATE poll_id = poll_id", new { pollId = poll.Id, userId }, transaction);
         var response = connection.QuerySingle<ResponseRow>("SELECT answers, (completed_at IS NOT NULL) Completed FROM room_poll_responses WHERE poll_id = @pollId AND user_id = @userId FOR UPDATE", new { pollId = poll.Id, userId }, transaction);
 
         if (response.Completed) {
