@@ -179,7 +179,7 @@ public class Room
     public bool LayEnabled { get => Data.LayEnabled; set => Data.LayEnabled = value; }
     public RoomModel Model { get => Data.Model; set => Data.Model = value; }
     public RoomPromotion Promotion { get => Data.Promotion; set => Data.Promotion = value; }
-    public Plus.HabboHotel.Groups.Group Group { get => Data.Group; set => Data.Group = value; }
+    public Plus.HabboHotel.Groups.Group? Group { get => Data.Group; set => Data.Group = value; }
     public bool HasActivePromotion => Data.HasActivePromotion;
     public void EndPromotion() => Data.EndPromotion();
 

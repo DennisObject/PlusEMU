@@ -55,7 +55,7 @@ namespace Plus.Tests
             service.Present(client);
             Assert.Equal(ServerPacketHeader.CampaignCalendarDataComposer, Assert.Single(sent).Header);
             sent.Clear();
-            var original = client.SendCallback;
+            var original = Assert.IsAssignableFrom<Func<System.Net.Sockets.SocketAsyncEventArgs, bool>>(client.SendCallback);
             client.SendCallback = args =>
             {
                 Assert.Equal((13, 24, 35), (user.Credits, user.Duckets, user.Diamonds));

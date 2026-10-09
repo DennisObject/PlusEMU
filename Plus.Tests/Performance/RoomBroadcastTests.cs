@@ -265,7 +265,7 @@ public class RoomBroadcastTests
         using var stream = PlusMemoryStream.GetStream();
         composer.Compose(new FlashOutgoingPacket(stream));
         var memory = stream.GetBuffer().AsMemory(0, (int)stream.Length);
-        client.CreateHeader(memory, client.Revision.InternalIdToOutgoingIdMapping[composer.MessageId]);
+        client.CreateHeader(memory, Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping[composer.MessageId]);
 
         return memory.ToArray();
     }

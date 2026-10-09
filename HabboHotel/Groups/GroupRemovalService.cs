@@ -167,9 +167,7 @@ public sealed class GroupRemovalService(
                         user.RemoveStatus("flatctrl 1");
                         user.UpdateNeeded = true;
 
-                        if (user.GetClient() != null) {
-                            user.GetClient().Send(new YouAreControllerComposer(0));
-                        }
+                        user.GetClient()?.Send(new YouAreControllerComposer(0));
                     }
                 }
 
@@ -185,22 +183,20 @@ public sealed class GroupRemovalService(
                             user.RemoveStatus("flatctrl 1");
                             user.UpdateNeeded = true;
 
-                            if (user.GetClient() != null) {
-                                user.GetClient().Send(new YouAreControllerComposer(0));
-                            }
+                            user.GetClient()?.Send(new YouAreControllerComposer(0));
                         }
                     }
 
-                    if (session.GetHabbo().InRoom && session.GetHabbo().CurrentRoom != null) {
-                        var user = session.GetHabbo().CurrentRoom.GetRoomUserManager()
+                    if (session.GetHabbo().InRoom && session.GetHabbo().CurrentRoom is { } currentRoom) {
+                        var user = currentRoom.GetRoomUserManager()
                             .GetRoomUserByHabbo(session.GetHabbo().Id);
 
                         if (user != null) {
-                            session.GetHabbo().CurrentRoom
+                            currentRoom
                                 .SendPacket(new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(group, user.VirtualId)));
                         }
 
-                        session.GetHabbo().CurrentRoom
+                        currentRoom
                             .SendPacket(new RefreshFavouriteGroupComposer(session.GetHabbo().Id));
                     }
                     else {

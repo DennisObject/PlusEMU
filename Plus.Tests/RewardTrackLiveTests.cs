@@ -135,7 +135,7 @@ public class RewardTrackLiveTests
         Assert.True(habbo.Inventory.Badges.HasBadge(Badge));
     }
 
-    private static uint ServerHeader(TestClient client, uint internalId) => client.Revision.InternalIdToOutgoingIdMapping[internalId];
+    private static uint ServerHeader(TestClient client, uint internalId) => Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping[internalId];
 
     // RevisionsCache.Start rewrites example.json; a private copy keeps it from racing tests that read the shared one.
     private static async Task<Revision> Profile(string name)

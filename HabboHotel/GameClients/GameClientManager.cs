@@ -349,7 +349,7 @@ public class GameClientManager : IGameClientManager
                     GameClient? client = null;
 
                     if (_timedOutConnections.Count > 0) {
-                        client = (GameClient)_timedOutConnections.Dequeue();
+                        client = (GameClient?)_timedOutConnections.Dequeue();
                     }
 
                     if (client != null) {

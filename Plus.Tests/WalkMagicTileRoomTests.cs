@@ -482,7 +482,7 @@ public partial class PlacedFurniRoomTests
     public void OlderRevisionViewerReceivesFullProjectionWithoutChangingItsHeaders()
     {
         Viewer();
-        _client.Revision.InternalIdToOutgoingIdMapping = _client.Revision.InternalIdToOutgoingIdMapping
+        Assert.IsType<Plus.Communication.Revisions.Revision>(_client.Revision).InternalIdToOutgoingIdMapping = Assert.IsType<Plus.Communication.Revisions.Revision>(_client.Revision).InternalIdToOutgoingIdMapping
             .Where(pair => pair.Key != ServerPacketHeader.HeightMapUpdateComposer).ToDictionary();
         Add(10, 1, 1, height: 1.25);
         Assert.DoesNotContain(ServerPacketHeader.HeightMapUpdateComposer, _client.Sent);

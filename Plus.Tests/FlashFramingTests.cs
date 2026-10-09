@@ -180,7 +180,7 @@ public class FlashFramingTests
     {
         var server = new FakeServer { Modify = packet => packet.WriteByte(7) };
         var client = Client(server);
-        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
         var key = new byte[] { 1, 2, 3, 4 };
         client.ActivateLegacyCrypto(key);
         byte[]? sent = null;
@@ -198,7 +198,7 @@ public class FlashFramingTests
     {
         var server = new FakeServer();
         var client = Client(server);
-        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
         var key = new byte[] { 1, 2, 3, 4 };
         client.ActivateLegacyCrypto(key);
         byte[]? sent = null;
@@ -251,8 +251,8 @@ public class FlashFramingTests
         var secondServer = new FakeServer { Modify = packet => packet.WriteByte(8) };
         var first = Client(firstServer);
         var second = Client(secondServer);
-        first.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
-        second.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        Assert.IsType<Plus.Communication.Revisions.Revision>(first.Revision).InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        Assert.IsType<Plus.Communication.Revisions.Revision>(second.Revision).InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
         byte[]? firstBytes = null;
         byte[]? secondBytes = null;
         first.SendCallback = args => { firstBytes = args.MemoryBuffer.ToArray(); return false; };
@@ -262,6 +262,37 @@ public class FlashFramingTests
 
         Assert.Equal(new byte[] { 0, 0, 0, 4, 0, 20, 5, 7 }, firstBytes);
         Assert.Equal(new byte[] { 0, 0, 0, 4, 0, 20, 5, 8 }, secondBytes);
+    }
+
+    [Fact]
+    public void BroadcastSkipsAClientWithoutARevisionAndStillReachesTheOthers()
+    {
+        var server = new FakeServer();
+        var unready = Client(server);
+        unready.Revision = null;
+        var ready = Client(server);
+        Assert.IsType<Plus.Communication.Revisions.Revision>(ready.Revision).InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        var unreadySends = 0;
+        byte[]? readyBytes = null;
+        unready.SendCallback = _ => { unreadySends++; return false; };
+        ready.SendCallback = args => { readyBytes = args.MemoryBuffer.ToArray(); return false; };
+
+        GameClient.SendBroadcast(new TestComposer(), new[] { unready, ready });
+
+        Assert.Equal(0, unreadySends);
+        Assert.Equal(new byte[] { 0, 0, 0, 3, 0, 20, 5 }, readyBytes);
+    }
+
+    [Fact]
+    public void SendWithoutAnAttachedTransportIsDroppedInsteadOfThrowing()
+    {
+        var client = Client(new FakeServer());
+        Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        client.SendCallback = null;
+
+        client.Send(new TestComposer());
+
+        Assert.Null(client.SendCallback);
     }
 
     [Fact]
@@ -287,7 +318,7 @@ public class FlashFramingTests
     {
         var server = new FakeServer { Modify = packet => packet.WriteByte(7), RejectModification = true };
         var client = Client(server);
-        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
+        Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping = new Dictionary<uint, uint> { [10] = 20 };
         var sends = 0;
         client.SendCallback = _ => { sends++; return false; };
 

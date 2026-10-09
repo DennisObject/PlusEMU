@@ -184,7 +184,7 @@ public class NavInputsTests
     {
         var fixture = Plus.Tests.Performance.RoomPerformanceFixture.Create(0, 1);
         var client = fixture.Clients[0];
-        client.Revision.InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>(client.Revision.InternalIdToOutgoingIdMapping)
+        Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping = new Dictionary<uint, uint>(Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping)
         {
             [Plus.Communication.Packets.Outgoing.ServerPacketHeader.FurniListAddComposer] = 2020
         };

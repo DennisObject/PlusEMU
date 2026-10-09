@@ -246,8 +246,8 @@ public class Gamemap
                 var currentClients = recipients.Where(IsCurrentPlacementRecipient).Select(recipient => recipient.Session);
                 bool CanSend(GameClient client) => recipients.Any(recipient => ReferenceEquals(recipient.Session, client)
                     && IsCurrentPlacementRecipient(recipient));
-                bool SupportsDelta(GameClient client) => client.Revision.InternalIdToOutgoingIdMapping
-                    .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer);
+                bool SupportsDelta(GameClient client) => client.Revision?.InternalIdToOutgoingIdMapping
+                    .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapUpdateComposer) == true;
 
                 if (delivery.Changes != null) {
                     foreach (var chunk in delivery.Changes.Chunk(byte.MaxValue)) {
@@ -255,8 +255,8 @@ public class Gamemap
                     }
                 }
 
-                var needsFull = currentClients.Where(client => client.Revision.InternalIdToOutgoingIdMapping
-                    .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapComposer)
+                var needsFull = currentClients.Where(client => client.Revision?.InternalIdToOutgoingIdMapping
+                    .ContainsKey(Plus.Communication.Packets.Outgoing.ServerPacketHeader.HeightMapComposer) == true
                     && (delivery.Changes == null || !SupportsDelta(client)));
                 GameClient.SendBroadcast(new HeightMapComposer(delivery.Heights), needsFull, CanSend);
             }

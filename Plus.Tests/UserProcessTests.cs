@@ -171,7 +171,7 @@ public class UserProcessTests
             return null;
         }));
         var client = Assert.IsAssignableFrom<GameClient>(habbo.Client);
-        var send = client.SendCallback;
+        var send = Assert.IsAssignableFrom<Func<System.Net.Sockets.SocketAsyncEventArgs, bool>>(client.SendCallback);
         client.SendCallback = args =>
         {
             var result = send(args);

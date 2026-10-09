@@ -37,7 +37,7 @@ public class WiredRoomSettingsTests
         room.UsersWithRights.Add(2);
         var admin = Client(room, 3);
         var guest = Client(room, 4);
-        Set(room.Group, "_administrators", new List<int> { 3 });
+        Set(Assert.IsType<Plus.HabboHotel.Groups.Group>(room.Group), "_administrators", new List<int> { 3 });
         var settings = new WiredRoomSettings(room, new MemoryStore());
         Assert.True(settings.CanModify(rights));
         Assert.True(settings.CanInspect(rights));
@@ -57,8 +57,8 @@ public class WiredRoomSettingsTests
     {
         var room = Room();
         room.UsersWithRights.Add(2);
-        Set(room.Group, "_members", new List<int> { 3 });
-        Set(room.Group, "_administrators", new List<int> { 4 });
+        Set(Assert.IsType<Plus.HabboHotel.Groups.Group>(room.Group), "_members", new List<int> { 3 });
+        Set(Assert.IsType<Plus.HabboHotel.Groups.Group>(room.Group), "_administrators", new List<int> { 4 });
         var settings = new WiredRoomSettings(room, new MemoryStore { Saved = new(mask, 0) });
         Assert.Equal(rightsAllowed, settings.CanInspect(Client(room, 2)));
         Assert.Equal(memberAllowed, settings.CanInspect(Client(room, 3)));
@@ -259,8 +259,8 @@ public class WiredRoomSettingsTests
         room.Type = "private";
         room.UsersWithRights = [];
         room.Group = (Group)RuntimeHelpers.GetUninitializedObject(typeof(Group));
-        Set(room.Group, "_administrators", new List<int>());
-        Set(room.Group, "_members", new List<int>());
+        Set(Assert.IsType<Plus.HabboHotel.Groups.Group>(room.Group), "_administrators", new List<int>());
+        Set(Assert.IsType<Plus.HabboHotel.Groups.Group>(room.Group), "_members", new List<int>());
 
         return room;
     }

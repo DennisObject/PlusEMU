@@ -4,7 +4,7 @@ namespace Plus.HabboHotel.Rooms;
 
 public class RoomData
 {
-    private Group _group;
+    private Group? _group;
 
     public List<string> Tags;
 
@@ -163,7 +163,7 @@ public class RoomData
 
     public RoomPromotion Promotion { get; set; }
 
-    public Group Group
+    public Group? Group
     {
         get => _group;
         set => _group = value;

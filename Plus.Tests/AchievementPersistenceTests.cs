@@ -148,7 +148,7 @@ public sealed class AchievementPersistenceTests
     {
         using var fixture = new Fixture();
         var manager = fixture.Manager();
-        var send = fixture.Client.SendCallback;
+        var send = Assert.IsAssignableFrom<Func<System.Net.Sockets.SocketAsyncEventArgs, bool>>(fixture.Client.SendCallback);
         fixture.Client.SendCallback = args =>
         {
             var result = send(args);
