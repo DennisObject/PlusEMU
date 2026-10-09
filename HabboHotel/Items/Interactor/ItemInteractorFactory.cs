@@ -55,6 +55,7 @@ public sealed class ItemInteractorFactory(
             InteractionType.Counter => new InteractorCounter(),
             InteractionType.CrackableEgg => new InteractorCrackable(achievements),
             InteractionType.Skateboard => new InteractorSkateboard(achievements),
+            InteractionType.CameraPicture => new InteractorCameraPicture(),
             _ => new InteractorGenericSwitch(quests, rewards)
         };
     }

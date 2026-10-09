@@ -197,7 +197,8 @@ public sealed class FurnitureInventoryPersistenceTests
             await connection.ExecuteAsync(RoomMusicDatabaseTests.Fixture.SchemaSql);
             var definitions = new Definitions(
                 new ItemDefinition { Id = 100, Type = ItemType.Floor },
-                new ItemDefinition { Id = 101, Type = ItemType.Wall });
+                new ItemDefinition { Id = 101, Type = ItemType.Wall },
+                new ItemDefinition { Id = 102, Type = ItemType.Wall, InteractionType = InteractionType.CameraPicture });
             var database = new TestDatabase(builder.ConnectionString);
 
             var loaded = await new FurnitureInventoryLoader(database, definitions).Load(1);
@@ -237,6 +238,11 @@ public sealed class FurnitureInventoryPersistenceTests
             Assert.Equal(1, await connection.ExecuteScalarAsync<int>("SELECT COUNT(*) FROM items WHERE id=14 AND user_id=2 AND room_id=0"));
             Assert.NotNull(Assert.IsType<InventoryComponent>(missingOwner.Habbo.Inventory).Furniture.GetItem(14));
             Assert.Empty(missingOwner.Sent);
+
+            // A photo's image record must survive a relog, or it is placed without its image.
+            const string photo = "{\"w\":\"/camera/photo.png\"}";
+            await connection.ExecuteAsync("INSERT INTO items VALUES (15,1,0,102,@photo,0,0)", new { photo });
+            Assert.Equal(photo, Assert.Single(await new FurnitureInventoryLoader(database, definitions).Load(1)).ExtraData.Serialize());
         }
         finally {
             await server.ExecuteAsync($"DROP DATABASE IF EXISTS `{schema}`");
