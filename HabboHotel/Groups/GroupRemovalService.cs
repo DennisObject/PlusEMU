@@ -108,12 +108,15 @@ public sealed class GroupRemovalService(
 
         var actorId = session.GetHabbo().Id;
 
-        if (actorId != group.CreatorId && !group.IsAdmin(actorId)) {
-            return Task.CompletedTask;
-        }
+        // leaving is the member's own to ask about (Remove allows it too); removing someone else takes the owner, or an admin for a non admin
+        if (actorId != userId) {
+            if (actorId != group.CreatorId && !group.IsAdmin(actorId)) {
+                return Task.CompletedTask;
+            }
 
-        if (group.IsAdmin(userId) && actorId != group.CreatorId) {
-            return Task.CompletedTask;
+            if (group.IsAdmin(userId) && actorId != group.CreatorId) {
+                return Task.CompletedTask;
+            }
         }
 
         if (!group.IsMember(userId)) {
