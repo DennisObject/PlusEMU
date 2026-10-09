@@ -53,6 +53,9 @@ public abstract class GameClient
 
     // The factory sets the internal revision before ClientHello replaces it; a client built without one cannot speak the protocol.
     public Revision? Revision { get; set; }
+    private int _revisionSelectionLogged;
+
+    internal bool TryRecordRevisionSelection() => Interlocked.Exchange(ref _revisionSelectionLogged, 1) == 0;
 
     // True only when the supplied args have a pending operation that will raise Completed; unset until a transport attaches.
     internal Func<SocketAsyncEventArgs, bool>? SendCallback { get; set; }
