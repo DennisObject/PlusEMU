@@ -33,6 +33,10 @@ public class ClientHelloEvent : IPacketEvent
 
         session.Revision = revision;
 
+        if (session.TryRecordRevisionSelection()) {
+            _logger.LogInformation("Packet revision selected {revision}.", revision.Name);
+        }
+
         return Task.CompletedTask;
     }
 }
