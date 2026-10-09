@@ -504,7 +504,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
     /// <param name="key"></param>
     /// <param name="ban"></param>
     /// <returns></returns>
-    public bool IsBanned(string key, out ModerationBan ban)
+    public bool IsBanned(string key, [NotNullWhen(true)] out ModerationBan? ban)
     {
         if (_bans.TryGetValue(key, out ban)) {
             if (!ban.IsExpiredAt(_clock.GetUtcNow())) {

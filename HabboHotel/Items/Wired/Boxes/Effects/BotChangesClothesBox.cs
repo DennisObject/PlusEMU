@@ -57,14 +57,14 @@ internal class BotChangesClothesBox : IWiredItem
         var username = stuff[0];
         var user = Instance.GetRoomUserManager().GetBotByName(username);
 
-        if (user == null) {
+        if (user?.BotData is not { } botData) {
             return false;
         }
 
         var figure = stuff[1];
-        _botStore.SaveAppearance(user.BotData.Id, Instance.RoomId, figure, "M");
-        user.BotData.Look = figure;
-        user.BotData.Gender = "M";
+        _botStore.SaveAppearance(botData.Id, Instance.RoomId, figure, "M");
+        botData.Look = figure;
+        botData.Gender = "M";
         Instance.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user.BotData)));
 
         return true;

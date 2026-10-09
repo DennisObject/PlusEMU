@@ -77,7 +77,7 @@ public partial class PlacedFurniRoomTests
     {
         var rider = LegacyRider();
         var horse = LegacyHorse(2, 1);
-        horse.PetData.AnyoneCanRide = 0;
+        Assert.IsType<Pet>(horse.PetData).AnyoneCanRide = 0;
         horse.PetData.OwnerId = 99;
         var before = _client.Sent.Count;
 
@@ -93,7 +93,7 @@ public partial class PlacedFurniRoomTests
     {
         var rider = LegacyRider();
         var horse = LegacyHorse(2, 1);
-        horse.PetData.AnyoneCanRide = 0;
+        Assert.IsType<Pet>(horse.PetData).AnyoneCanRide = 0;
         horse.PetData.OwnerId = rider.UserId;
 
         new HorseRidingService(Locale()).Ride(_room, _client, 50, true);
@@ -108,7 +108,7 @@ public partial class PlacedFurniRoomTests
         var rider = ExecutorActor(0, 1);
         var horse = ExternalLifecycleHorse(2, 1);
         ExecutorTick();
-        horse.PetData.AnyoneCanRide = 0;
+        Assert.IsType<Pet>(horse.PetData).AnyoneCanRide = 0;
         horse.PetData.OwnerId = 99;
 
         RideExternalHorse(horse, mount: true);

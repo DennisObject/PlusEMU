@@ -49,15 +49,19 @@ public sealed class RoomUserSnapshotService(IGroupManager groups, IGameClientMan
         }
 
         var kind = user.BotData.AiType == BotAiType.Pet ? 2 : 4;
+        // A placed bot always has its AI, and a placed pet its pet data.
+        var ai = user.BotAi ?? throw new InvalidOperationException("A placed bot has no AI.");
 
         if (user.IsPet) {
-            return new(user.BotAi.BaseId, user.BotData.Name, user.BotData.Motto, user.PetData.Look.ToLowerInvariant(),
+            var pet = user.PetData ?? throw new InvalidOperationException("A placed pet has no pet data.");
+
+            return new(ai.BaseId, user.BotData.Name, user.BotData.Motto, pet.Look.ToLowerInvariant(),
                 user.VirtualId, user.X, user.Y, user.Z.ToString(CultureInfo.InvariantCulture), 0, kind, "", 0, "", 0,
-                true, user.PetData.Type, user.PetData.OwnerId, user.PetData.OwnerName, user.PetData.Saddle > 0,
+                true, pet.Type, pet.OwnerId, pet.OwnerName, pet.Saddle > 0,
                 user.RidingHorse);
         }
 
-        return new(user.BotAi.BaseId, user.BotData.Name, user.BotData.Motto, user.BotData.Look.ToLowerInvariant(),
+        return new(ai.BaseId, user.BotData.Name, user.BotData.Motto, user.BotData.Look.ToLowerInvariant(),
             user.VirtualId, user.X, user.Y, user.Z.ToString(CultureInfo.InvariantCulture), 0, kind,
             user.BotData.Gender.ToLowerInvariant(), 0, "", 0, false, 0, user.BotData.OwnerId,
             ResolveUsername(user.BotData.OwnerId), false, false);

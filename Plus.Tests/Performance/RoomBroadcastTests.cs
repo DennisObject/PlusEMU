@@ -159,7 +159,7 @@ public class RoomBroadcastTests
     {
         var fixture = RoomPerformanceFixture.Create(1, 2);
         var bot = fixture.Bots[0];
-        bot.BotData.AiType = pet ? BotAiType.Pet : BotAiType.Generic;
+        Assert.IsType<RoomBot>(bot.BotData).AiType = pet ? BotAiType.Pet : BotAiType.Generic;
         var muted = fixture.Clients[1].GetHabbo();
         muted.AllowBotSpeech = true;
         muted.AllowPetSpeech = true;

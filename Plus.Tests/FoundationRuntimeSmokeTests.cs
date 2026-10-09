@@ -127,7 +127,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 Assert.True(room.AllowPets);
                 Assert.Contains(sent, packet => packet.Header == ServerPacketHeader.RoomReadyComposer);
                 Assert.True(room.GetRoomUserManager().TryGetBot(12, out var bot));
-                Assert.Equal("room bot", bot!.BotData.Name);
+                Assert.Equal("room bot", Assert.IsType<Plus.HabboHotel.Rooms.AI.RoomBot>(bot!.BotData).Name);
                 Assert.True(bot.BotData.AutomaticChat);
                 Assert.True(bot.BotData.MixSentences);
                 var roomPet = Assert.Single(room.GetRoomUserManager().GetPets());

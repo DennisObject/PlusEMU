@@ -40,14 +40,14 @@ internal class KickBotsCommand : IChatCommand
 
             RoomUser? botUser = null;
 
-            if (!room.GetRoomUserManager().TryGetBot(user.BotData.Id, out botUser)) {
+            if (!room.GetRoomUserManager().TryGetBot(user.BotData.Id, out botUser) || botUser.BotData is not { } botData) {
                 return;
             }
 
             using var connection = _database.Connection();
             connection.Execute("UPDATE bots SET room_id=0 WHERE id=@id LIMIT 1", new { user.BotData.Id });
-            inventory.Bots.AddBot(new(Convert.ToInt32(botUser.BotData.Id), Convert.ToInt32(botUser.BotData.OwnerId), botUser.BotData.Name, botUser.BotData.Motto,
-                botUser.BotData.Look, botUser.BotData.Gender));
+            inventory.Bots.AddBot(new(Convert.ToInt32(botData.Id), Convert.ToInt32(botData.OwnerId), botData.Name, botData.Motto,
+                botData.Look, botData.Gender));
             session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(inventory.Bots.Bots.Values)));
             room.GetRoomUserManager().RemoveBot(botUser.VirtualId, false);
         }

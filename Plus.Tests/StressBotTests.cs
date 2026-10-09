@@ -62,6 +62,21 @@ public class StressBotTests
     }
 
     [Fact]
+    public void BotsAreFoundByNameIgnoringCaseAndMissingNamesFindNothing()
+    {
+        var (manager, _) = CreateRoom();
+        var replies = new List<string>();
+        Assert.True(manager.QueueStressBots(2, 7, replies.Add));
+        manager.ProcessStressBots();
+
+        var found = manager.GetBotByName("stress 2");
+
+        Assert.NotNull(found);
+        Assert.Equal("Stress 2", Assert.IsType<Plus.HabboHotel.Rooms.AI.RoomBot>(found.BotData).Name);
+        Assert.Null(manager.GetBotByName("nobody"));
+    }
+
+    [Fact]
     public void CreatesFiveHundredTemporaryGenericBotsThenCapsAndClearsOnlyThem()
     {
         var (manager, map) = CreateRoom();
@@ -73,10 +88,10 @@ public class StressBotTests
         var bots = manager.GetUserList().ToList();
         Assert.Equal(500, bots.Count);
         Assert.Equal(500, bots.Select(bot => bot.VirtualId).Distinct().Count());
-        Assert.Equal(500, bots.Select(bot => bot.BotData.Id).Distinct().Count());
+        Assert.Equal(500, bots.Select(bot => Assert.IsType<Plus.HabboHotel.Rooms.AI.RoomBot>(bot.BotData).Id).Distinct().Count());
         Assert.All(bots, bot =>
         {
-            Assert.True(bot.BotData.IsTemporary);
+            Assert.True(Assert.IsType<Plus.HabboHotel.Rooms.AI.RoomBot>(bot.BotData).IsTemporary);
             Assert.True(bot.BotData.Id < 0);
             Assert.Equal(7, bot.BotData.OwnerId);
             Assert.True(bot.AllowOverride);
@@ -96,7 +111,7 @@ public class StressBotTests
         Assert.Contains("limit is 1000", replies.Last());
 
         // Use an ordinary bot as a control; clearing must preserve it.
-        var regularData = bots[0].BotData;
+        var regularData = Assert.IsType<Plus.HabboHotel.Rooms.AI.RoomBot>(bots[0].BotData);
         var speeches = regularData.RandomSpeech;
         var regular = manager.DeployBot(new(42, 0, "generic", "stand", "Regular", "", regularData.Look,
             1, 1, 0, 0, 0, 0, 0, 0, ref speeches, "M", 0, 1, false, 60, false, 0), null!);
@@ -146,7 +161,7 @@ public class StressBotTests
         }
 
         var walking = bots[0];
-        walking.MoveTo(2, 2, walking.BotData.IsTemporary);
+        walking.MoveTo(2, 2, Assert.IsType<Plus.HabboHotel.Rooms.AI.RoomBot>(walking.BotData).IsTemporary);
         Assert.Equal(2, walking.GoalX);
         Assert.Equal(2, walking.GoalY);
         Assert.True(walking.PathRecalcNeeded);
@@ -185,7 +200,7 @@ public class StressBotTests
         manager.QueueStressBots(0, 7, _ => { });
         manager.ProcessStressBots();
         Assert.Equal(500, manager.GetUserList().Count);
-        Assert.All(manager.GetUserList(), user => Assert.False(user.BotData.IsTemporary));
+        Assert.All(manager.GetUserList(), user => Assert.False(Assert.IsType<Plus.HabboHotel.Rooms.AI.RoomBot>(user.BotData).IsTemporary));
     }
 
     // Bypass Room's DB-loading constructor while retaining its real user manager and map.

@@ -52,7 +52,7 @@ public partial class PlacedFurniRoomTests
     {
         var owner = LegacyRider();
         var petUser = LegacyHorse(2, 1);
-        petUser.PetData.ExperienceLevels = Enumerable.Range(1, 20).Select(i => i * 100).ToArray();
+        Assert.IsType<Pet>(petUser.PetData).ExperienceLevels = Enumerable.Range(1, 20).Select(i => i * 100).ToArray();
         petUser.PetData.Experience = 1600;
         var locale = new RecordingLocale();
         var valid = new PetBot(petUser.VirtualId, locale, new RecordingCommands(3));

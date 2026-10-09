@@ -38,7 +38,7 @@ public partial class PlacedFurniRoomTests
     public void PetRespectPreservesAchievementPetRewardAndCarryOrder()
     {
         var actor = LegacyRider();
-        var pet = LegacyHorse(2, 1).PetData;
+        var pet = Assert.IsType<Plus.HabboHotel.Rooms.AI.Pet>(LegacyHorse(2, 1).PetData);
         _client.GetHabbo().HabboStats = RespectStats(2);
         var order = new List<string>();
         var service = RespectService((method, args) =>
@@ -68,7 +68,7 @@ public partial class PlacedFurniRoomTests
     public void ExhaustedPetRespectDoesNotMutatePetOrPublish(int available)
     {
         LegacyRider();
-        var pet = LegacyHorse(2, 1).PetData;
+        var pet = Assert.IsType<Plus.HabboHotel.Rooms.AI.Pet>(LegacyHorse(2, 1).PetData);
         _client.GetHabbo().HabboStats = RespectStats(available);
         DeniedRespectService().Respect(_room, _client, 50);
         Assert.Equal(0, pet.Respect);
@@ -83,7 +83,7 @@ public partial class PlacedFurniRoomTests
         DeniedRespectService().Respect(_room, _client, 50);
         LegacyRider();
         DeniedRespectService().Respect(_room, _client, 99);
-        var pet = LegacyHorse(2, 1).PetData;
+        var pet = Assert.IsType<Plus.HabboHotel.Rooms.AI.Pet>(LegacyHorse(2, 1).PetData);
         _client.GetHabbo().CurrentRoom = null!;
         DeniedRespectService().Respect(_room, _client, 50);
         Assert.Equal(0, pet.Respect);

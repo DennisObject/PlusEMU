@@ -59,11 +59,11 @@ public sealed class Trade
     public void SendPacket(IServerPacket packet)
     {
         foreach (var user in Users) {
-            if (user == null || user.RoomUser == null || user.RoomUser.GetClient() == null) {
+            if (user?.RoomUser?.GetClient() is not { } client) {
                 continue;
             }
 
-            user.RoomUser.GetClient().Send(packet);
+            client.Send(packet);
         }
     }
 

@@ -191,7 +191,8 @@ public class QuestManager : IQuestManager, IStartable
     public void GetList(GameClient session, ClientPacket? message)
     {
         var userQuestGoals = new Dictionary<string, int>();
-        var userQuests = new Dictionary<string, Quest>();
+        // A category without a current quest is listed as empty.
+        var userQuests = new Dictionary<string, Quest?>();
 
         foreach (var quest in _quests.Values.ToList()) {
             if (quest.Category.Contains("xmas2012")) {
@@ -225,8 +226,8 @@ public class QuestManager : IQuestManager, IStartable
             }
         }
 
-        var wireQuests = userQuests.Where(entry => entry.Value != null)
-            .Select(entry => QuestWireDataFactory.Create(session, entry.Value, GetAmountOfQuestsInCategory(entry.Key)))
+        var wireQuests = userQuests
+            .SelectMany(entry => entry.Value is { } quest ? [QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(entry.Key))] : Array.Empty<QuestWireData>())
             .Concat(userQuests.Where(entry => entry.Value == null).Select(entry => QuestWireDataFactory.Empty(entry.Key)))
             .ToImmutableArray();
         session.Send(new QuestListComposer(new(message != null, wireQuests)));

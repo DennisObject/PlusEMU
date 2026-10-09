@@ -169,7 +169,7 @@ public partial class PlacedFurniRoomTests
             Proxy<IGameClientManager>((_, _) => _client),
             Proxy<ISettingsManager>((method, _) => throw new NotSupportedException(method)));
         new PickUpPetEvent(service)
-            .Parse(_room, _client, ClientPacket(horse.PetData.PetId)).GetAwaiter().GetResult();
+            .Parse(_room, _client, ClientPacket(Assert.IsType<Pet>(horse.PetData).PetId)).GetAwaiter().GetResult();
         Assert.Equal(NavState.Removing, horse.Movement.State);
         Assert.True(rider.RidingHorse);
         ExecutorTick();
@@ -264,7 +264,7 @@ public partial class PlacedFurniRoomTests
     private RoomUser ExternalLifecycleHorse(int x, int y)
     {
         var horse = ExecutorAdditionalBot(x, y, 2);
-        horse.BotData.AiType = BotAiType.Pet;
+        Assert.IsType<RoomBot>(horse.BotData).AiType = BotAiType.Pet;
         horse.PetData = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
         var pet = horse.PetData;
         pet.PetId = 50;
@@ -304,7 +304,7 @@ public partial class PlacedFurniRoomTests
 
     private void RideExternalHorse(RoomUser horse, bool mount)
         => new RideHorseEvent(new HorseRidingService(Proxy<IPetLocale>((_, _) => new[] { "horse" })))
-            .Parse(_room, _client, ClientPacket(horse.PetData.PetId, mount)).GetAwaiter().GetResult();
+            .Parse(_room, _client, ClientPacket(Assert.IsType<Pet>(horse.PetData).PetId, mount)).GetAwaiter().GetResult();
 
     private static int DrainRemainingSearches(RoomNavigation navigation)
     {

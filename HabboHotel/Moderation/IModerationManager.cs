@@ -39,7 +39,7 @@ public interface IModerationManager
     /// <param name="key"></param>
     /// <param name="ban"></param>
     /// <returns></returns>
-    bool IsBanned(string key, out ModerationBan ban);
+    bool IsBanned(string key, [NotNullWhen(true)] out ModerationBan? ban);
 
     /// <summary>
     /// Run a quick database check to see if this ban exists in the database.

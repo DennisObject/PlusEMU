@@ -94,7 +94,7 @@ public class RoomUserManager
                 return;
             }
 
-            var temporary = _bots.Values.Where(user => user.BotData.IsTemporary).ToList();
+            var temporary = _bots.Values.Where(user => user.BotData?.IsTemporary == true).ToList();
 
             if (request.Amount == 0) {
                 foreach (var user in temporary) {
@@ -125,7 +125,8 @@ public class RoomUserManager
                 { IsTemporary = true };
                 var user = DeployBot(bot, null);
                 user.AllowOverride = true;
-                user.BotAi.OnSelfEnterRoom();
+                // DeployBot always assigns the AI it just created.
+                user.BotAi?.OnSelfEnterRoom();
             }
 
             request.Reply($"Created {request.Amount} temporary stress bots ({temporary.Count + request.Amount}/{MaxStressBots}). Use :stress bots clear to remove them.");
@@ -209,12 +210,12 @@ public class RoomUserManager
 
         _room.SendUser(user);
 
-        if (user.IsPet) {
-            if (_pets.ContainsKey(user.PetData.PetId)) {
-                _pets[user.PetData.PetId] = user;
+        if (user.IsPet && user.PetData is { } petData) {
+            if (_pets.ContainsKey(petData.PetId)) {
+                _pets[petData.PetId] = user;
             }
             else {
-                _pets.TryAdd(user.PetData.PetId, user);
+                _pets.TryAdd(petData.PetId, user);
             }
 
             PetCount++;
@@ -251,7 +252,7 @@ public class RoomUserManager
             }
 
             if (user.IsPet) {
-                if (_pets.TryRemove(new KeyValuePair<int, RoomUser>(user.PetData.PetId, user))) {
+                if (user.PetData is { } petData && _pets.TryRemove(new KeyValuePair<int, RoomUser>(petData.PetId, user))) {
                     PetCount--;
                 }
             }
@@ -261,7 +262,7 @@ public class RoomUserManager
 
             _room.IceTagLeave(user);
             _room.GetWired()?.BeforeActorLeaves(user);
-            user.BotAi.OnSelfLeaveRoom(kicked);
+            user.BotAi?.OnSelfLeaveRoom(kicked);
             _room.SendPacket(new UserRemoveComposer(user.VirtualId));
             _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
             OnRemove(user);
@@ -593,7 +594,7 @@ public class RoomUserManager
 
                 bot.BotAi.OnUserLeaveRoom(session);
 
-                if (bot.IsPet && bot.PetData.OwnerId == user.UserId && !_room.CheckRights(session, true)) {
+                if (bot.IsPet && bot.PetData?.OwnerId == user.UserId && !_room.CheckRights(session, true)) {
                     if (!petsToRemove.Contains(bot)) {
                         petsToRemove.Add(bot);
                     }
@@ -609,9 +610,9 @@ public class RoomUserManager
                     continue;
                 }
 
-                if (inventory.Pets.AddPet(toRemove.PetData)) {
-                    toRemove.PetData.RoomId = 0;
-                    toRemove.PetData.PlacedInRoom = false;
+                if (toRemove.PetData is { } pet && inventory.Pets.AddPet(pet)) {
+                    pet.RoomId = 0;
+                    pet.PlacedInRoom = false;
                     RemoveBot(toRemove.VirtualId, false);
                 }
             }
@@ -694,15 +695,9 @@ public class RoomUserManager
 
     public RoomUser? GetBotByName(string name)
     {
-        var foundBot = _bots.Count(x => x.Value.BotData != null && x.Value.BotData.Name.ToLower() == name.ToLower()) > 0;
+        var match = _bots.Values.FirstOrDefault(x => x.BotData != null && x.BotData.Name.ToLower() == name.ToLower());
 
-        if (foundBot) {
-            var id = _bots.FirstOrDefault(x => x.Value.BotData != null && x.Value.BotData.Name.ToLower() == name.ToLower()).Value.BotData.Id;
-
-            return _bots[id];
-        }
-
-        return null;
+        return match?.BotData is { } data ? _bots[data.Id] : null;
     }
 
     public void UpdateUserCount(int count)
@@ -817,11 +812,11 @@ public class RoomUserManager
         var pets = new List<Pet>();
 
         foreach (var user in _pets.Values.ToList()) {
-            if (user == null || !user.IsPet) {
+            if (user?.PetData is not { } pet || !user.IsPet) {
                 continue;
             }
 
-            pets.Add(user.PetData);
+            pets.Add(pet);
         }
 
         return pets;
