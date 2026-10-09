@@ -301,9 +301,9 @@ public class Room
 
     public TradingComponent GetTrading() => _tradingComponent;
 
-    public bool CheckRights(GameClient session) => CheckRights(session, false);
+    public bool CheckRights(GameClient? session) => CheckRights(session, false);
 
-    public bool CheckRights(GameClient session, bool requireOwnership, bool checkForGroups = false)
+    public bool CheckRights(GameClient? session, bool requireOwnership, bool checkForGroups = false)
     {
         try {
             if (session == null || session.GetHabbo() == null) {

@@ -253,18 +253,18 @@ public static class WiredRewards
     {
         if (grant.Badge is { } badge) {
             habbo.Inventory.Badges.AddBadge(new(badge, 0));
-            habbo.Client.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
-            habbo.Client.Send(new FurniListNotificationComposer(1, 4));
+            habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
+            habbo.Client?.Send(new FurniListNotificationComposer(1, 4));
         }
 
         if (grant.Furniture is { } item) {
             habbo.Inventory.Furniture.AddItem(item);
-            habbo.Client.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
-            habbo.Client.Send(new FurniListUpdateComposer());
-            habbo.Client.Send(new FurniListNotificationComposer(item.Id, item.IsFloorItem ? 1 : 2));
+            habbo.Client?.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
+            habbo.Client?.Send(new FurniListUpdateComposer());
+            habbo.Client?.Send(new FurniListNotificationComposer(item.Id, item.IsFloorItem ? 1 : 2));
         }
 
-        habbo.Client.Send(new WiredRewardResultComposer(grant.Reason));
+        habbo.Client?.Send(new WiredRewardResultComposer(grant.Reason));
     }
 }
 

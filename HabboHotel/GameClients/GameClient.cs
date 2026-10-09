@@ -30,8 +30,17 @@ public abstract class GameClient
     [Obsolete("Will be removed")]
     public string MachineId { get; set; } = string.Empty;
 
+    private int _pingCount;
+
     [Obsolete("Will be removed")]
-    public int PingCount { get; set; }
+    public int PingCount
+    {
+        get => _pingCount;
+        set => _pingCount = value;
+    }
+
+    // A pong clears the ping counter without going through the deprecated property.
+    public void ResetPingCount() => _pingCount = 0;
 
     public Revision Revision { get; set; }
 

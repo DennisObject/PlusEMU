@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Plus.Utilities;
 
 namespace Plus.Communication.Packets.Incoming;
@@ -16,7 +17,8 @@ public class ClientPacket
 
     public int RemainingLength => _body.Length - _pointer;
 
-    public void Init(int messageId, byte[] body)
+    [MemberNotNull(nameof(_body))]
+    public void Init(int messageId, byte[]? body)
     {
         if (body == null) {
             body = new byte[0];

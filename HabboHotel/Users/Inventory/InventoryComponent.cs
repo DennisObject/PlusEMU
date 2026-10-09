@@ -7,8 +7,9 @@ namespace Plus.HabboHotel.Users.Inventory;
 
 public class InventoryComponent
 {
-    public BadgesInventoryComponent Badges { get; init; }
-    public FurnitureInventoryComponent Furniture { get; init; }
-    public PetsInventoryComponent Pets { get; init; }
-    public BotInventoryComponent Bots { get; init; }
+    // A part the loader does not set is an empty inventory, never a missing one.
+    public BadgesInventoryComponent Badges { get; init; } = new(new());
+    public FurnitureInventoryComponent Furniture { get; init; } = new([], []);
+    public PetsInventoryComponent Pets { get; init; } = new([]);
+    public BotInventoryComponent Bots { get; init; } = new([]);
 }

@@ -72,7 +72,7 @@ public sealed class UserCurrencyDatabaseTests
             Assert.Equal(11, connection.QuerySingle<int>("SELECT credits FROM users WHERE id = 7"));
 
             var factory = new UserDataFactory(null!, database, [], null!, null!, null!, new Plus.HabboHotel.Rooms.RoomVisitRecorder(database, TimeProvider.System),
-                TimeProvider.System, TestRoomAchievements.Unused);
+                TimeProvider.System, TestRoomAchievements.Unused, TestGameClientManager.Empty, TestRoomManager.Unused);
             var loaded = (await factory.GetUserDataByIdAsync(7))!;
             Assert.Equal((11, 5, 6, 7, 8, 2), (loaded.Credits, loaded.Duckets, loaded.Diamonds, loaded.GotwPoints, loaded.Currencies[101], loaded.Currencies[104]));
 

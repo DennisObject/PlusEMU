@@ -21,7 +21,7 @@ internal class DisconnectCommand : ITargetChatCommand
             return Task.CompletedTask;
         }
 
-        target.Client.Disconnect();
+        target.Client?.Disconnect();
 
         return Task.CompletedTask;
     }

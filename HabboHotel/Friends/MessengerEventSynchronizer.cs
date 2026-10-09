@@ -54,14 +54,14 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
     }
 
 
-    private void OnRoomInviteReceived(Habbo habbo, MessengerMessageEventArgs args) => habbo.Client.Send(new RoomInviteComposer(args.Friend.Id, args.Message));
+    private void OnRoomInviteReceived(Habbo habbo, MessengerMessageEventArgs args) => habbo.Client?.Send(new RoomInviteComposer(args.Friend.Id, args.Message));
 
-    private void OnMessageReceived(Habbo habbo, MessengerMessageEventArgs args) => habbo.Client.Send(new NewConsoleMessageComposer(args.Friend.Id, args.Message));
+    private void OnMessageReceived(Habbo habbo, MessengerMessageEventArgs args) => habbo.Client?.Send(new NewConsoleMessageComposer(args.Friend.Id, args.Message));
 
     private async Task OnMessageSend(Habbo habbo, MessengerMessageEventArgs args)
     {
         if (habbo.TimeMuted > 0) {
-            habbo.Client.Send(new InstantMessageErrorComposer(MessengerMessageErrors.YourMuted, args.Friend.Id));
+            habbo.Client?.Send(new InstantMessageErrorComposer(MessengerMessageErrors.YourMuted, args.Friend.Id));
 
             return;
         }
@@ -76,13 +76,13 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
         }
 
         if (target.GetHabbo().TimeMuted > 0) {
-            habbo.Client.Send(new InstantMessageErrorComposer(MessengerMessageErrors.FriendMuted, args.Friend.Id));
+            habbo.Client?.Send(new InstantMessageErrorComposer(MessengerMessageErrors.FriendMuted, args.Friend.Id));
 
             return;
         }
 
         if (!target.GetHabbo().AllowConsoleMessages || target.GetHabbo().IgnoresComponent.IsIgnored(habbo.Id)) {
-            habbo.Client.Send(new InstantMessageErrorComposer(MessengerMessageErrors.FriendBusy, args.Friend.Id));
+            habbo.Client?.Send(new InstantMessageErrorComposer(MessengerMessageErrors.FriendBusy, args.Friend.Id));
 
             return;
         }
@@ -99,21 +99,21 @@ internal class MessengerEventSynchronizer : IAuthenticationTask
 
     private void OnFriendsUpdated(Habbo habbo, MessengerBuddiesModifiedEventArgs args)
     {
-        habbo.Client.Send(new FriendListUpdateComposer(args.Changes.Select(change => MessengerBuddyModification.Capture(change.Key, change.Value)).ToList()));
+        habbo.Client?.Send(new FriendListUpdateComposer(args.Changes.Select(change => MessengerBuddyModification.Capture(change.Key, change.Value)).ToList()));
     }
 
     private void OnFriendUpdated(Habbo habbo, MessengerBuddyModifiedEventArgs args)
     {
-        habbo.Client.Send(new FriendListUpdateComposer([MessengerBuddyModification.Capture(args.Buddy, args.BuddyModificationType)]));
+        habbo.Client?.Send(new FriendListUpdateComposer([MessengerBuddyModification.Capture(args.Buddy, args.BuddyModificationType)]));
     }
 
-    private void OnFriendStatusUpdated(Habbo habbo, FriendStatusUpdatedEventArgs args) => habbo.Client.Send(new FriendNotificationComposer(args.Friend.Id, args.EventType, args.Value));
+    private void OnFriendStatusUpdated(Habbo habbo, FriendStatusUpdatedEventArgs args) => habbo.Client?.Send(new FriendNotificationComposer(args.Friend.Id, args.EventType, args.Value));
 
     // Friend requests and removals are persisted by IMessengerFriendMutationService before memory changes; these handlers only present.
     private void OnFriendRequestUpdated(Habbo habbo, FriendRequestModifiedEventArgs args)
     {
         if (args.FriendRequestModificationType == FriendRequestModificationType.Received) {
-            habbo.Client.Send(new NewBuddyRequestComposer(args.Request.FromId, args.Request.Username, args.Request.Figure));
+            habbo.Client?.Send(new NewBuddyRequestComposer(args.Request.FromId, args.Request.Username, args.Request.Figure));
         }
         else if (args.FriendRequestModificationType == FriendRequestModificationType.Sent) {
             var target = _gameClientManager.GetClientByUserId(args.Request.ToId);

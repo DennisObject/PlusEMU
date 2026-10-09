@@ -22,6 +22,6 @@ public interface IGameClientManager
     void SendPacket(IServerPacket packet, PermissionDefinition? permission = null);
     void LogClonesOut(int userId);
     void RegisterClient(GameClient client, int userId, string username);
-    void UnregisterClient(GameClient client, int userId, string username);
+    void UnregisterClient(GameClient? client, int userId, string username);
     void CloseAll();
 }

@@ -456,7 +456,7 @@ public class RoomUserManager
         return true;
     }
 
-    public void RemoveUserFromRoom(GameClient session, bool nofityUser, bool notifyKick = false)
+    public void RemoveUserFromRoom(GameClient? session, bool nofityUser, bool notifyKick = false)
     {
         RoomUser? removedUser = null;
 

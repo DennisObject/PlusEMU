@@ -170,8 +170,9 @@ public class UserProcessTests
 
             return null;
         }));
-        var send = habbo.Client.SendCallback;
-        habbo.Client.SendCallback = args =>
+        var client = Assert.IsAssignableFrom<GameClient>(habbo.Client);
+        var send = client.SendCallback;
+        client.SendCallback = args =>
         {
             var result = send(args);
             habbo.OnDisconnect();
@@ -453,14 +454,10 @@ public class UserProcessTests
 
     private sealed class DisconnectContext : IDisposable
     {
-        private readonly System.Reflection.FieldInfo _game = typeof(PlusEnvironment).GetField("_game",
-            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
-        private readonly object? _previous;
         public int Unregisters { get; private set; }
 
         public DisconnectContext(Habbo habbo, ProcessComponent process, IUserPersistenceService persistence)
         {
-            _previous = _game.GetValue(null);
             habbo.Persistence = persistence;
             Assert.True(habbo.InitProcess(Proxy<IUserProcessFactory>((_, _) => process)));
             var clients = Proxy<IGameClientManager>((method, _) =>
@@ -470,11 +467,10 @@ public class UserProcessTests
 
                 return null;
             });
-            _game.SetValue(null, Proxy<IGame>((method, _) => method == "get_ClientManager"
-                ? clients : throw new InvalidOperationException(method)));
+            habbo.SetHotelServices(clients, TestRoomManager.Unused);
         }
 
-        public void Dispose() => _game.SetValue(null, _previous);
+        public void Dispose() { }
     }
 
     private sealed class ManualClock : TimeProvider

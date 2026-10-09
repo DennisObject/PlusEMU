@@ -322,6 +322,7 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         var game = DispatchProxy.Create<IGame, Game>();
         ((Game)(object)game).Clients = _clients;
         field.SetValue(null, game);
+        _target.SetHotelServices(_clients, TestRoomManager.Unused);
         // Skip persistence already tested by the wallet suites; exercise the real disconnect/unregister path.
         typeof(Habbo).GetField("_habboSaved", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_target, true);
 

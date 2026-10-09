@@ -237,7 +237,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
 
             if (habbo != null && reward > 0) {
                 habbo.Credits = (int)credits;
-                habbo.Client.Send(new CreditBalanceComposer(habbo.Credits));
+                habbo.Client?.Send(new CreditBalanceComposer(habbo.Credits));
             }
         }
     }

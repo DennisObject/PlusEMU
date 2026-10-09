@@ -167,7 +167,7 @@ public class WiredLegacyCommandEditorTests
         {
             actor.WiredInteraction = false;
             _packets[actor.Id].Clear();
-            Assert.True(await _commands.Parse(actor.Client, command));
+            Assert.True(await _commands.Parse(Assert.IsAssignableFrom<GameClient>(actor.Client), command));
             Assert.Equal(accepted, actor.WiredInteraction);
 
             if (!accepted) {

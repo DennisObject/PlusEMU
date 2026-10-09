@@ -280,7 +280,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         public void SendPacket(Plus.Communication.Packets.IServerPacket packet, Plus.HabboHotel.Permissions.PermissionDefinition? permission = null) { }
         public void LogClonesOut(int userId) { }
         public void RegisterClient(GameClient client, int userId, string username) { }
-        public void UnregisterClient(GameClient client, int userId, string username) { }
+        public void UnregisterClient(GameClient? client, int userId, string username) { }
         public void CloseAll() { }
     }
 

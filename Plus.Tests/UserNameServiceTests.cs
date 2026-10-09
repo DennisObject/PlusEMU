@@ -391,7 +391,7 @@ public sealed class UserNameServiceTests
         public void SendPacket(IServerPacket packet, HabboHotel.Permissions.PermissionDefinition? permission = null) => throw new NotSupportedException();
         public void LogClonesOut(int userId) => throw new NotSupportedException();
         public void RegisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
-        public void UnregisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
+        public void UnregisterClient(GameClient? client, int userId, string username) => throw new NotSupportedException();
         public void CloseAll() => throw new NotSupportedException();
     }
 

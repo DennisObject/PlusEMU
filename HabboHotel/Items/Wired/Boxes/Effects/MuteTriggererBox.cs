@@ -62,7 +62,7 @@ internal class MuteTriggererBox : IWiredItem
         }
 
         if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id) {
-            player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Mute Exception: Unmutable Player", 0, 0));
+            player.Client?.Send(new WhisperComposer(user.VirtualId, "Wired Mute Exception: Unmutable Player", 0, 0));
 
             return false;
         }
@@ -77,7 +77,7 @@ internal class MuteTriggererBox : IWiredItem
                 return false;
             }
 
-            player.Client.Send(new WhisperComposer(user.VirtualId, $"Wired Mute: Muted for {time}! Message: {message}", 0, 0));
+            player.Client?.Send(new WhisperComposer(user.VirtualId, $"Wired Mute: Muted for {time}! Message: {message}", 0, 0));
             Instance.MutedUsers[player.Id] = mutedUntil;
         }
 

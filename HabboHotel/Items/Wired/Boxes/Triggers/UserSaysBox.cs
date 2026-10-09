@@ -57,7 +57,7 @@ internal class UserSaysBox : IWiredItem
             return Instance.GetWired().RunStack(this, [player], () =>
             {
                 player.WiredInteraction = true;
-                player.Client.Send(new WhisperComposer(user.VirtualId, message, 0, 0));
+                player.Client?.Send(new WhisperComposer(user.VirtualId, message, 0, 0));
             });
         }
 

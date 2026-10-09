@@ -151,8 +151,8 @@ namespace Plus.Tests
         private sealed class Fixture : IDisposable
         {
             private readonly MySqlConnection _admin;
-            private readonly FieldInfo _game = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
-            private readonly object? _previousGame;
+            private readonly IGameClientManager _clients = CatalogSnapshotTestSupport.Proxy<IGameClientManager>((method, _) =>
+                method == "UnregisterClient" ? null : throw new InvalidOperationException(method));
             private readonly string _schema = "task_safety_quiz_" + Guid.NewGuid().ToString("N");
             private readonly string _dump = File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql"));
             public MySqlConnection Connection { get; }
@@ -160,7 +160,6 @@ namespace Plus.Tests
             public SafetyQuizStore Store { get; }
             public Fixture()
             {
-                _previousGame = _game.GetValue(null);
                 SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
                 var options = new MySqlConnectionStringBuilder(Environment.GetEnvironmentVariable("SAFETY_QUIZ_DATABASE")!)
                 {
@@ -189,10 +188,6 @@ namespace Plus.Tests
                     Connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/59_UserCurrencies.sql")));
                     Connection.Execute("INSERT INTO users(id,username,auth_ticket) VALUES(7,'quiz','quiz-ticket'); INSERT INTO users_settings(user_id) VALUES(7); INSERT INTO user_statistics(id) VALUES(7); INSERT INTO talents(type,level,data_actions,data_gifts) VALUES('citizenship',0,'TRADE',''),('citizenship',1,'TRADE',''); INSERT INTO talents_sub_levels(talent_type,talent_level,sub_level,badge_code,required_progress) VALUES('citizenship',0,1,'ACH_SafetyQuizGraduate1',1),('citizenship',1,1,'ACH_HabboWayGraduate1',1)");
                     Migrate();
-                    var clients = CatalogSnapshotTestSupport.Proxy<IGameClientManager>((method, _) =>
-                        method == "UnregisterClient" ? null : throw new InvalidOperationException(method));
-                    _game.SetValue(null, CatalogSnapshotTestSupport.Proxy<IGame>((method, _) =>
-                        method == "get_ClientManager" ? clients : throw new InvalidOperationException(method)));
                 }
                 catch {
                     Dispose();
@@ -232,6 +227,7 @@ namespace Plus.Tests
                 await new LoadUserAchievementsTask(Database).Load(habbo);
                 var (client, packets) = HabbiconTestSupport.Client(habbo);
                 habbo.Client = client;
+                habbo.SetHotelServices(_clients, TestRoomManager.Unused);
                 var badges = new BadgeManager(Database, TestGameClientManager.Empty, TestLogging.For<BadgeManager>());
                 await badges.Init();
 
@@ -264,7 +260,6 @@ namespace Plus.Tests
             }
             public void Dispose()
             {
-                _game.SetValue(null, _previousGame);
                 Connection.Dispose();
 
                 try {

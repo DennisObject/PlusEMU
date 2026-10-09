@@ -268,7 +268,6 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 Set("_settingsManager", Services.GetRequiredService<ISettingsManager>());
                 Set("_languageManager", Services.GetRequiredService<ILanguageManager>());
                 Set("_figureManager", Services.GetRequiredService<IFigureDataManager>());
-                Set("_itemDataManager", Services.GetRequiredService<IItemDataManager>());
                 Set("_defaultEncoding", Encoding.UTF8);
                 PlusEnvironment.CultureInfo = CultureInfo.InvariantCulture;
                 DefaultTypeMap.MatchNamesWithUnderscores = true;

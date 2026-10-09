@@ -100,9 +100,9 @@ public sealed class UserGrantService(IUserGrantStore store, IAccountSessionGate 
 
         if (habbo != null && !habbo.Inventory.Badges.HasBadge(definition.Code)) {
             habbo.Inventory.Badges.AddBadge(new Badge(definition.Code, 0));
-            habbo.Client.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
-            habbo.Client.Send(new FurniListNotificationComposer(1, 4));
-            habbo.Client.Send(new BroadcastMessageAlertComposer("You have been given a new badge!"));
+            habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
+            habbo.Client?.Send(new FurniListNotificationComposer(1, 4));
+            habbo.Client?.Send(new BroadcastMessageAlertComposer("You have been given a new badge!"));
         }
 
         return GrantOutcome.Success(new { userId, badge = definition.Code, granted, online = habbo != null });

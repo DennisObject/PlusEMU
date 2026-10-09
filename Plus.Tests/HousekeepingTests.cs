@@ -269,7 +269,7 @@ public class HousekeepingActionTests
         public void DoAdvertisingReport(GameClient reporter, GameClient target) => throw new NotSupportedException();
         public void LogClonesOut(int userId) => throw new NotSupportedException();
         public void RegisterClient(GameClient client, int userId, string username) => Online[userId] = client;
-        public void UnregisterClient(GameClient client, int userId, string username) => Online.Remove(userId);
+        public void UnregisterClient(GameClient? client, int userId, string username) => Online.Remove(userId);
         public void CloseAll() => throw new NotSupportedException();
     }
 }

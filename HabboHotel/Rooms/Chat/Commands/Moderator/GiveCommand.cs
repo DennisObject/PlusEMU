@@ -45,11 +45,11 @@ internal class GiveCommand : ITargetChatCommand
                             }
 
                             target.Credits = target.Credits += amount;
-                            target.Client.Send(new CreditBalanceComposer(target.Credits));
+                            target.Client?.Send(new CreditBalanceComposer(target.Credits));
                         }
 
                         if (target.Id != session.GetHabbo().Id) {
-                            target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Credit(s)!");
+                            target.Client?.SendNotification($"{session.GetHabbo().Username} has given you {amount} Credit(s)!");
                         }
 
                         session.SendWhisper($"Successfully given {amount} Credit(s) to {target.Username}!");
@@ -73,11 +73,11 @@ internal class GiveCommand : ITargetChatCommand
                             }
 
                             target.Duckets += amount;
-                            target.Client.Send(new HabboActivityPointNotificationComposer(target.Duckets, amount));
+                            target.Client?.Send(new HabboActivityPointNotificationComposer(target.Duckets, amount));
                         }
 
                         if (target.Id != session.GetHabbo().Id) {
-                            target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Ducket(s)!");
+                            target.Client?.SendNotification($"{session.GetHabbo().Username} has given you {amount} Ducket(s)!");
                         }
 
                         session.SendWhisper($"Successfully given {amount} Ducket(s) to {target.Username}!");
@@ -100,11 +100,11 @@ internal class GiveCommand : ITargetChatCommand
                             }
 
                             target.Diamonds += amount;
-                            target.Client.Send(new HabboActivityPointNotificationComposer(target.Diamonds, amount, 5));
+                            target.Client?.Send(new HabboActivityPointNotificationComposer(target.Diamonds, amount, 5));
                         }
 
                         if (target.Id != session.GetHabbo().Id) {
-                            target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} Diamond(s)!");
+                            target.Client?.SendNotification($"{session.GetHabbo().Username} has given you {amount} Diamond(s)!");
                         }
 
                         session.SendWhisper($"Successfully given {amount} Diamond(s) to {target.Username}!");
@@ -123,10 +123,10 @@ internal class GiveCommand : ITargetChatCommand
 
                     if (int.TryParse(parameters[2], out var amount)) {
                         target.GotwPoints = target.GotwPoints + amount;
-                        target.Client.Send(new HabboActivityPointNotificationComposer(target.GotwPoints, amount, 103));
+                        target.Client?.Send(new HabboActivityPointNotificationComposer(target.GotwPoints, amount, 103));
 
                         if (target.Id != session.GetHabbo().Id) {
-                            target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} GOTW Point(s)!");
+                            target.Client?.SendNotification($"{session.GetHabbo().Username} has given you {amount} GOTW Point(s)!");
                         }
 
                         session.SendWhisper($"Successfully given {amount} GOTW point(s) to {target.Username}!");
@@ -157,11 +157,11 @@ internal class GiveCommand : ITargetChatCommand
                             }
 
                             target.Currencies[pointsType] += amount;
-                            target.Client.Send(new HabboActivityPointNotificationComposer(target.Currencies[pointsType], amount, pointsType));
+                            target.Client?.Send(new HabboActivityPointNotificationComposer(target.Currencies[pointsType], amount, pointsType));
                         }
 
                         if (target.Id != session.GetHabbo().Id) {
-                            target.Client.SendNotification($"{session.GetHabbo().Username} has given you {amount} activity point(s) of type {pointsType}!");
+                            target.Client?.SendNotification($"{session.GetHabbo().Username} has given you {amount} activity point(s) of type {pointsType}!");
                         }
 
                         session.SendWhisper($"Successfully given {amount} activity point(s) of type {pointsType} to {target.Username}!");

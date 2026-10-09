@@ -56,8 +56,8 @@ public class BadgeManager : IBadgeManager, IStartable
         });
         habbo.Inventory.Badges.AddBadge(new Badge(code, 0));
 
-        habbo.Client.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
-        habbo.Client.Send(new FurniListNotificationComposer(1, 4));
+        habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
+        habbo.Client?.Send(new FurniListNotificationComposer(1, 4));
     }
 
     public async Task RemoveBadge(Habbo habbo, string badge)
