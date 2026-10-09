@@ -143,10 +143,30 @@ public class HabbiconPacketTests
 
         foreach (var file in Directory.GetFiles(Repo("Resources/Revisions"), "*.json")) {
             using var json = JsonDocument.Parse(File.ReadAllText(file));
+            var airProfile = json.RootElement.TryGetProperty("ZeroHeaderIsValid", out var zeroHeader) && zeroHeader.GetBoolean()
+                ? JsonSerializer.Deserialize<Plus.Communication.Revisions.Revision>(File.ReadAllText(file)) : null;
+
+            if (airProfile is not null) {
+                airProfile.BuildMappings(new Plus.Communication.Revisions.Revision
+                {
+                    IncomingHeaders = typeof(ClientPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue()!),
+                    OutgoingHeaders = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue()!)
+                });
+            }
 
             foreach (var (key, expected) in new[] { ("IncomingHeaders", expectedIncoming), ("OutgoingHeaders", expectedOutgoing) }) {
                 foreach (var (name, id) in expected) {
-                    Assert.Equal(id, json.RootElement.GetProperty(key).GetProperty(name).GetUInt32());
+                    var wire = json.RootElement.GetProperty(key).GetProperty(name).GetUInt32();
+
+                    if (airProfile is null) {
+                        Assert.Equal(id, wire);
+                    }
+                    else if (key == "IncomingHeaders") {
+                        Assert.Equal((uint)(key == "IncomingHeaders" ? typeof(ClientPacketHeader) : typeof(ServerPacketHeader)).GetField(name)!.GetRawConstantValue()!, airProfile.IncomingIdToInternalIdMapping[wire]);
+                    }
+                    else {
+                        Assert.Equal(wire, airProfile.InternalIdToOutgoingIdMapping[(uint)(key == "IncomingHeaders" ? typeof(ClientPacketHeader) : typeof(ServerPacketHeader)).GetField(name)!.GetRawConstantValue()!]);
+                    }
                 }
             }
         }

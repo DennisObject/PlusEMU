@@ -309,12 +309,32 @@ namespace Plus.Tests
 
             foreach (var file in Directory.GetFiles(Path.Combine(GroupForumDatabaseTests.RepositoryRoot(), "Resources", "Revisions"), "*.json")) {
                 using var json = JsonDocument.Parse(File.ReadAllText(file));
+                var airProfile = json.RootElement.TryGetProperty("ZeroHeaderIsValid", out var zeroHeader) && zeroHeader.GetBoolean()
+                    ? JsonSerializer.Deserialize<Plus.Communication.Revisions.Revision>(File.ReadAllText(file)) : null;
+
+                if (airProfile is not null) {
+                    airProfile.BuildMappings(new Plus.Communication.Revisions.Revision
+                    {
+                        IncomingHeaders = typeof(ClientPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue()!),
+                        OutgoingHeaders = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static).ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue()!)
+                    });
+                }
 
                 foreach (var (key, headers, type) in new[] { ("IncomingHeaders", incoming, typeof(ClientPacketHeader)), ("OutgoingHeaders", outgoing, typeof(ServerPacketHeader)) }) {
                     foreach (var (name, header) in headers) {
                         var expected = Path.GetFileName(file) == "example.json" && name is not nameof(GetForumThreadEvent) and not nameof(UpdateForumReadMarkersEvent) and not nameof(GetForumsUnreadCountEvent) and not nameof(ForumsUnreadCountComposer)
                             ? (uint)type.GetField(name)!.GetRawConstantValue()! : header;
-                        Assert.Equal(expected, json.RootElement.GetProperty(key).GetProperty(name).GetUInt32());
+                        var wire = json.RootElement.GetProperty(key).GetProperty(name).GetUInt32();
+
+                        if (airProfile is null) {
+                            Assert.Equal(expected, wire);
+                        }
+                        else if (key == "IncomingHeaders") {
+                            Assert.Equal((uint)type.GetField(name)!.GetRawConstantValue()!, airProfile.IncomingIdToInternalIdMapping[wire]);
+                        }
+                        else {
+                            Assert.Equal(wire, airProfile.InternalIdToOutgoingIdMapping[(uint)type.GetField(name)!.GetRawConstantValue()!]);
+                        }
                     }
                 }
             }
