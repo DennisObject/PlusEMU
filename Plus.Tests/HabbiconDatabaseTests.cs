@@ -56,13 +56,13 @@ public class HabbiconDatabaseTests
 
         ImportPristineSchemaOnce(connectionString);
         Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Updates/14_Habbicons.sql")));
-        Execute("DELETE FROM users_habbicons; DELETE FROM users WHERE id = 910001");
+        Execute("DELETE FROM users_habbicons; DELETE FROM users WHERE id IN (910001, 910002)");
 
         using (var connection = _database.Connection()) {
             bool hasTicket = connection.QuerySingle<int>("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'auth_ticket'") > 0;
             Execute(hasTicket
-                ? "INSERT INTO users (id, username, auth_ticket, credits) VALUES (910001, 'habicon_tests', '', 100)"
-                : "INSERT INTO users (id, username, credits) VALUES (910001, 'habicon_tests', 100)");
+                ? "INSERT INTO users (id, username, auth_ticket, credits) VALUES (910001, 'habicon_tests', '', 100), (910002, 'habicon_recipient', '', 0)"
+                : "INSERT INTO users (id, username, credits) VALUES (910001, 'habicon_tests', 100), (910002, 'habicon_recipient', 0)");
             Execute("INSERT INTO user_currencies (user_id, type, amount) VALUES (910001, 0, 20), (910001, 5, 20)");
         }
 

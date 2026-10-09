@@ -9,12 +9,12 @@ CONTAINER=${1:?mariadb container}
 DB=${2:?database}
 OUT="$(dirname "$0")/../Database/FreshInstall.sql"
 
-CONTENT_TABLES="achievements achievements_talents acl_permissions badge_definitions
+CONTENT_TABLES="achievements acl_permissions badge_definitions
 bots_pet_commands bots_pet_responses bots_responses campaign_calendar_rewards campaign_calendars
-catalog_bot_presets catalog_clothing catalog_club_offers catalog_deals catalog_items
+catalog_bot_presets catalog_club_offers catalog_deals catalog_items
 catalog_offer_limited catalog_offer_products catalog_offers catalog_page_images
 catalog_page_offers catalog_page_texts catalog_pages catalog_pet_races catalog_promotions
-client_external_badge_texts client_external_texts club_gift_offers crafting_altars_recipes
+club_gift_offers crafting_altars_recipes
 crafting_recipes crafting_recipes_ingredients furniture games_config groups_items habbicons
 habbicon_collections moderation_presets moderation_preset_action_categories
 moderation_preset_action_messages moderation_topics moderation_topic_actions navigator_categories
@@ -50,6 +50,5 @@ tables=$(for table in $CONTENT_TABLES; do grep -qx "$table" <<< "$existing" && e
     dump --no-create-info --skip-triggers "$DB" $tables
     # A new hotel starts with every limited edition unsold.
     if grep -qx catalog_offer_limited <<< "$existing"; then echo "UPDATE \`catalog_offer_limited\` SET \`sold\` = 0;"; fi
-    echo "INSERT INTO \`server_status\` (\`users_online\`, \`loaded_rooms\`) VALUES (0, 0);"
 } > "$OUT"
 echo "wrote $OUT ($(wc -c < "$OUT") bytes)"

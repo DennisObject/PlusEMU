@@ -194,6 +194,9 @@ public sealed class UserOnlineFlagTests
             connection.Open();
             var install = File.ReadAllText(HabbiconPacketTests.Repo("Database/FreshInstall.sql"));
 
+            // Only these tables are copied, so their keys to rooms and groups have nothing to check against.
+            connection.Execute("SET FOREIGN_KEY_CHECKS = 0");
+
             foreach (var table in new[] { "users", "users_settings", "user_statistics", "user_currencies" }) {
                 connection.Execute(Regex.Match(install, $@"CREATE TABLE `{table}` \([\s\S]*?\) ENGINE=[^;]+;").Value);
             }

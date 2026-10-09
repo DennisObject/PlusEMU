@@ -522,7 +522,7 @@ public sealed class UserGrantDatabaseTests : IDisposable
         public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public void Save(Habbo habbo, bool reopenModerationTickets = false)
+        public void Save(Habbo habbo)
         {
             Entered.TrySetResult();
 
@@ -530,7 +530,7 @@ public sealed class UserGrantDatabaseTests : IDisposable
                 throw new TimeoutException("The paused test step was never released.");
             }
 
-            inner.Save(habbo, reopenModerationTickets);
+            inner.Save(habbo);
         }
         public void MarkOnline(GameClient session, int userId) => inner.MarkOnline(session, userId);
         public void SetProfileValue(int userId, string column, object? value) => inner.SetProfileValue(userId, column, value);

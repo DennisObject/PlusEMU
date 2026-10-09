@@ -95,7 +95,7 @@ public sealed class GameLobbyPresentationTests
         Assert.Equal(1, new FlashIncomingPacket { Buffer = sent[0].Payload }.ReadInt());
     }
 
-    private static GameData Game() => new(9, "game", "AA", "BB", "path/", "three", "game.swf", "assets", "host", "3000", "policy", true);
+    private static GameData Game() => new(9, "game", "AA", "BB", "path/", "three", "game.swf", "assets", "host", "3000", true);
 
     private sealed class Games : IGameDataManager
     {

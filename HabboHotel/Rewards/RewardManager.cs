@@ -88,7 +88,7 @@ public class RewardManager : IRewardManager, IStartable
         }
 
         using var connection = _database.Connection();
-        connection.Execute("INSERT INTO server_reward_logs (user_id, reward_id) VALUES (@userId, @rewardId)", new { userId = id, rewardId });
+        connection.Execute("INSERT IGNORE INTO server_reward_logs (user_id, reward_id) VALUES (@userId, @rewardId)", new { userId = id, rewardId });
     }
 
     public async Task CheckRewards(GameClient session)

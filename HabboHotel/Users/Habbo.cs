@@ -227,7 +227,7 @@ public class Habbo
                 return;
             }
 
-            Persistence.Save(this, Access.Can(PermissionKeys.ModerationTickets));
+            Persistence.Save(this);
             _habboSaved = true;
         }
     }

@@ -26616,3 +26616,1323 @@ VALUES ('command.hidewired', 'command', 'Hide or show the wired furniture in an 
 
 INSERT IGNORE INTO role_permissions (role_id, permission_key)
 SELECT id, 'command.hidewired' FROM roles WHERE slug = 'default';
+-- 64_DropUnusedSchema
+-- Drops tables and columns that neither the emulator nor the CMS reads or writes. Apply while PlusEMU is stopped.
+-- Write-only audit tables (logs_client_*, chatlogs_console*, ambassador_logs, catalog_admin_log, furni_editor_log)
+-- stay: they are records for staff, not stale data.
+
+-- Clothing furni carry their figure sets in furniture.custom_params; tickets live in memory; the client reads its
+-- texts and talents from gamedata; nothing reads server_status.
+DROP TABLE IF EXISTS `catalog_clothing`;
+DROP TABLE IF EXISTS `moderation_tickets`;
+DROP TABLE IF EXISTS `achievements_talents`;
+DROP TABLE IF EXISTS `client_external_badge_texts`;
+DROP TABLE IF EXISTS `client_external_texts`;
+DROP TABLE IF EXISTS `server_status`;
+
+ALTER TABLE `furniture` DROP COLUMN IF EXISTS `clothing_id`;
+ALTER TABLE `bans` DROP COLUMN IF EXISTS `appeal_state`;
+ALTER TABLE `bots`
+    DROP COLUMN IF EXISTS `min_x`, DROP COLUMN IF EXISTS `min_y`, DROP COLUMN IF EXISTS `max_x`, DROP COLUMN IF EXISTS `max_y`,
+    DROP COLUMN IF EXISTS `effect`, DROP COLUMN IF EXISTS `dance`;
+ALTER TABLE `bots_speech` DROP COLUMN IF EXISTS `shout`, DROP COLUMN IF EXISTS `type`;
+ALTER TABLE `bots_pet_commands` DROP COLUMN IF EXISTS `input_title`;
+ALTER TABLE `catalog_promotions` DROP COLUMN IF EXISTS `unknown`, DROP COLUMN IF EXISTS `parent_id`;
+ALTER TABLE `games_config` DROP COLUMN IF EXISTS `socket_policy_port`, DROP COLUMN IF EXISTS `last_reset`;
+ALTER TABLE `room_models` DROP COLUMN IF EXISTS `poolmap`;
+ALTER TABLE `server_settings` DROP COLUMN IF EXISTS `description`;
+ALTER TABLE `user_info` DROP COLUMN IF EXISTS `reg_timestamp`, DROP COLUMN IF EXISTS `login_timestamp`;
+ALTER TABLE `user_statistics`
+    DROP COLUMN IF EXISTS `lev_builder`, DROP COLUMN IF EXISTS `lev_social`, DROP COLUMN IF EXISTS `lev_identity`,
+    DROP COLUMN IF EXISTS `lev_explore`, DROP COLUMN IF EXISTS `tickets_answered`;
+-- Trading locks live in user_info.trading_locked; machine ids are only logged in logs_client_staff.
+ALTER TABLE `users` DROP INDEX IF EXISTS `machine_id`, DROP COLUMN IF EXISTS `machine_id`, DROP COLUMN IF EXISTS `trading_locked`;
+ALTER TABLE `users_settings`
+    DROP COLUMN IF EXISTS `is_muted`, DROP COLUMN IF EXISTS `hide_online`, DROP COLUMN IF EXISTS `hide_inroom`,
+    DROP COLUMN IF EXISTS `advertising_report_blocked`;
+ALTER TABLE `wordfilter` DROP COLUMN IF EXISTS `addedby`;
+-- 65_Utf8mb4InnoDB
+-- One character set and engine for the whole database: every table InnoDB, every text column utf8mb4 with
+-- utf8mb4_unicode_ci (what the CMS creates its tables with), so names and chat keep emoji and any language, and string
+-- joins between tables compare with one collation and can use their indexes. Columns that are deliberately ASCII or
+-- binary (permission keys, idempotency keys, UUIDs, JSON payloads, case-sensitive codes) keep their collation.
+-- Apply while PlusEMU is stopped; large tables are rebuilt. Each table's statement is built from its current columns,
+-- and a table this install does not have is skipped. No stored procedures, so it runs through any MySQL client.
+
+ALTER DATABASE CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- MariaDB will not change the collation of a column in a foreign key, so those keys come off and go back unchanged.
+CREATE TEMPORARY TABLE `migration_65_keys` AS
+    SELECT r.TABLE_NAME, r.CONSTRAINT_NAME,
+           CONCAT('ADD CONSTRAINT `', r.CONSTRAINT_NAME, '` FOREIGN KEY (',
+                  GROUP_CONCAT(CONCAT('`', k.COLUMN_NAME, '`') ORDER BY k.ORDINAL_POSITION), ') REFERENCES `', r.REFERENCED_TABLE_NAME, '` (',
+                  GROUP_CONCAT(CONCAT('`', k.REFERENCED_COLUMN_NAME, '`') ORDER BY k.ORDINAL_POSITION), ') ON DELETE ', r.DELETE_RULE,
+                  ' ON UPDATE ', r.UPDATE_RULE) AS `addition`
+    FROM information_schema.REFERENTIAL_CONSTRAINTS r
+    JOIN information_schema.KEY_COLUMN_USAGE k
+      ON k.CONSTRAINT_SCHEMA = r.CONSTRAINT_SCHEMA AND k.TABLE_NAME = r.TABLE_NAME AND k.CONSTRAINT_NAME = r.CONSTRAINT_NAME
+    LEFT JOIN information_schema.COLUMNS c
+      ON c.TABLE_SCHEMA = k.TABLE_SCHEMA AND c.TABLE_NAME = k.TABLE_NAME AND c.COLUMN_NAME = k.COLUMN_NAME
+    LEFT JOIN information_schema.COLUMNS p
+      ON p.TABLE_SCHEMA = k.TABLE_SCHEMA AND p.TABLE_NAME = k.REFERENCED_TABLE_NAME AND p.COLUMN_NAME = k.REFERENCED_COLUMN_NAME
+    WHERE r.CONSTRAINT_SCHEMA = DATABASE()
+    GROUP BY r.TABLE_NAME, r.CONSTRAINT_NAME, r.REFERENCED_TABLE_NAME, r.DELETE_RULE, r.UPDATE_RULE
+    HAVING SUM(c.CHARACTER_SET_NAME IS NOT NULL AND c.CHARACTER_SET_NAME <> 'ascii' AND c.COLLATION_NAME NOT IN ('utf8mb4_unicode_ci', 'utf8mb4_bin') OR p.CHARACTER_SET_NAME IS NOT NULL AND p.CHARACTER_SET_NAME <> 'ascii' AND p.COLLATION_NAME NOT IN ('utf8mb4_unicode_ci', 'utf8mb4_bin')) > 0;
+
+SET SESSION group_concat_max_len = 1048576;
+PREPARE `migration_65_drop` FROM
+    'SELECT COALESCE(CONCAT(''ALTER TABLE `'', MAX(TABLE_NAME), ''` '', GROUP_CONCAT(CONCAT(''DROP FOREIGN KEY `'', CONSTRAINT_NAME, ''`'') SEPARATOR '', '')), ''DO 0'')
+     INTO @migration_65_statement FROM `migration_65_keys` WHERE TABLE_NAME = ?';
+PREPARE `migration_65_restore` FROM
+    'SELECT COALESCE(CONCAT(''ALTER TABLE `'', MAX(TABLE_NAME), ''` '', GROUP_CONCAT(`addition` SEPARATOR '', '')), ''DO 0'')
+     INTO @migration_65_statement FROM `migration_65_keys` WHERE TABLE_NAME = ?';
+PREPARE `migration_65_convert` FROM
+    'SELECT COALESCE(MAX(CONCAT(''ALTER TABLE `'', t.TABLE_NAME, ''`'', IF(t.ENGINE <> ''InnoDB'', '' ENGINE=InnoDB,'', ''''),
+            '' DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci'',
+            COALESCE((SELECT GROUP_CONCAT(CONCAT('', MODIFY `'', c.COLUMN_NAME, ''` '', c.COLUMN_TYPE, '' CHARACTER SET utf8mb4 COLLATE '',
+                         IF(c.COLLATION_NAME LIKE ''%\\_bin'', ''utf8mb4_bin'', ''utf8mb4_unicode_ci''),
+                         IF(c.EXTRA LIKE ''%GENERATED%'',
+                            CONCAT('' GENERATED ALWAYS AS ('', c.GENERATION_EXPRESSION, '') '', IF(c.EXTRA LIKE ''STORED%'', ''STORED'', ''VIRTUAL'')),
+                            CONCAT(IF(c.IS_NULLABLE = ''YES'', '' NULL'', '' NOT NULL''),
+                                   IF(c.COLUMN_DEFAULT IS NULL, '''', CONCAT('' DEFAULT '', c.COLUMN_DEFAULT)))),
+                         IF(c.COLUMN_COMMENT = '''', '''', CONCAT('' COMMENT '', QUOTE(c.COLUMN_COMMENT))))
+                         ORDER BY c.ORDINAL_POSITION SEPARATOR '''')
+                      FROM information_schema.COLUMNS c
+                      WHERE c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME AND c.CHARACTER_SET_NAME IS NOT NULL AND c.CHARACTER_SET_NAME <> ''ascii'' AND c.COLLATION_NAME NOT IN (''utf8mb4_unicode_ci'', ''utf8mb4_bin'')), ''''))), ''DO 0'')
+     INTO @migration_65_statement FROM information_schema.TABLES t
+     WHERE t.TABLE_SCHEMA = DATABASE() AND t.TABLE_TYPE = ''BASE TABLE'' AND t.TABLE_NAME = ?
+       AND (t.ENGINE <> ''InnoDB'' OR t.TABLE_COLLATION <> ''utf8mb4_unicode_ci'' OR EXISTS (
+            SELECT 1 FROM information_schema.COLUMNS c WHERE c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME AND c.CHARACTER_SET_NAME IS NOT NULL AND c.CHARACTER_SET_NAME <> ''ascii'' AND c.COLLATION_NAME NOT IN (''utf8mb4_unicode_ci'', ''utf8mb4_bin'')))';
+
+SET @migration_65_checks = @@FOREIGN_KEY_CHECKS;
+SET FOREIGN_KEY_CHECKS = 0;
+EXECUTE `migration_65_drop` USING 'catalog_offer_products'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_drop` USING 'catalog_pages'; EXECUTE IMMEDIATE @migration_65_statement;
+
+EXECUTE `migration_65_convert` USING 'achievements'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'acl_audit_log'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'acl_permissions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'activity_log'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'ambassador_logs'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'badge_definitions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'bans'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'bots'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'bots_pet_commands'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'bots_pet_responses'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'bots_petdata'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'bots_responses'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'bots_speech'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'cache'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'cache_locks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'camera_accounts'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'camera_competition_entries'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'camera_media'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'camera_publications'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'camera_purchases'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'camera_quota'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'campaign_calendar_rewards'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'campaign_calendars'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_admin_log'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_bot_presets'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_club_offers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_marketplace_data'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_marketplace_offers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_offer_limited'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_offer_products'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_offers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_page_images'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_page_offers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_page_texts'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_pages'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_pet_races'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_promotions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'catalog_vouchers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'chatlogs'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'chatlogs_console'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'chatlogs_console_invitations'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'claimed_referral_logs'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'club_credit_spending'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'club_gift_claims'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'club_gift_offers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'club_membership_intervals'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'club_paydays'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'crafting_altars_recipes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'crafting_recipes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'crafting_recipes_ingredients'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'failed_jobs'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'furni_editor_log'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'furniture'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'games_config'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'group_forum_messages'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'group_forum_post_limits'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'group_forum_read_markers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'group_forum_threads'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'group_forums'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'group_memberships'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'group_requests'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'groups'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'groups_items'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'habbicon_collections'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'habbicons'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'home_categories'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'home_items'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'housekeeping_log'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'housekeeping_online_peaks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'items'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'items_groups'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'items_youtube'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'logs_client_namechange'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'logs_client_staff'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'logs_client_trade'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'messenger_friendships'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'messenger_offline_messages'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'messenger_requests'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'migrations'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'moderation_preset_action_categories'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'moderation_preset_action_messages'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'moderation_presets'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'moderation_topic_actions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'moderation_topics'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'navigator_categories'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'navigator_publics'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'personal_access_tokens'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'quests'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'rcon_grants'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'recycler_levels'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'recycler_prizes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'recycler_settings'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'referrals'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'reward_track_prizes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'reward_track_task_levels'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'reward_track_tasks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'reward_tracks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'role_limits'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'role_permissions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'roles'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_bans'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_chat_styles'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_filter'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_items_moodlight'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_items_tele_links'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_items_toner'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_models'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_music_disc_definitions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_music_players'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_music_playlist'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_music_songs'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_poll_questions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_poll_responses'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_polls'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_promotions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_rights'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'room_wired_settings'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'rooms'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'safety_quiz_questions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'safety_quizzes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'server_landing'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'server_locale'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'server_reward_logs'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'server_rewards'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'server_settings'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'sessions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'snowwar_game_tokens'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'snowwar_scores'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'snowwar_token_offers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'taggables'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'tags'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'talents'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'talents_sub_levels'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_access_tokens'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_achievements'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_badges'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_calendar_claims'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_clothing'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_club_memberships'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_crafting_recipes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_currencies'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_effects'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_favorites'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_home_items'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_home_messages'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_home_ratings'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_ignores'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_info'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_permissions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_presents'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_quests'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_recycler'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_referrals'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_remember_tokens'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_roles'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_roomvisits'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_safety_quizzes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_saved_searches'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_sessions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_statistics'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_talent_rewards'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_vouchers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'user_wardrobe'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'users'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'users_habbicons'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'users_reward_track_prizes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'users_reward_track_tasks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'users_reward_tracks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'users_settings'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_ads'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_api_idempotency_keys'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_article_comments'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_article_reactions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_articles'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_badge_grant_locks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_badges'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_beta_codes'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_drawbadges'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_help_center_categories'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_help_center_ticket_replies'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_help_center_tickets'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_housekeeping_permissions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_installation'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_ip_blacklist'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_ip_whitelist'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_languages'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_maintenance_tasks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_open_positions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_password_resets'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_paypal_transactions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_permissions'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_rare_value_categories'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_rare_values'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_registration_locks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_rule_categories'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_rules'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_settings'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_shop_article_features'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_shop_articles'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_shop_categories'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_shop_items'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_shop_package_items'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_shop_packages'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_shop_purchases'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_shop_vouchers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_staff_applications'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_teams'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_used_shop_vouchers'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_user_guestbooks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_users'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'website_wordfilter'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'wired_item_configurations'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'wired_items'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'wired_reward_state'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'wired_variable_locks'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'wired_variable_values'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_convert` USING 'wordfilter'; EXECUTE IMMEDIATE @migration_65_statement;
+
+EXECUTE `migration_65_restore` USING 'catalog_offer_products'; EXECUTE IMMEDIATE @migration_65_statement;
+EXECUTE `migration_65_restore` USING 'catalog_pages'; EXECUTE IMMEDIATE @migration_65_statement;
+SET FOREIGN_KEY_CHECKS = @migration_65_checks;
+
+DEALLOCATE PREPARE `migration_65_drop`;
+DEALLOCATE PREPARE `migration_65_restore`;
+DEALLOCATE PREPARE `migration_65_convert`;
+DROP TEMPORARY TABLE `migration_65_keys`;
+SET @migration_65_statement = NULL, @migration_65_checks = NULL;
+-- 66_KeysAndIndexes
+-- Primary and unique keys that say what a row is, indexes for the queries the emulator and CMS run on logins, room loads
+-- and packets, and no index that nothing uses. Duplicate rows a new key forbids are removed first, keeping the oldest.
+-- Apply while PlusEMU is stopped.
+
+DELETE a FROM `room_rights` a JOIN `room_rights` b ON b.`room_id` = a.`room_id` AND b.`user_id` = a.`user_id` AND b.`id` < a.`id`;
+DELETE a FROM `room_filter` a JOIN `room_filter` b ON b.`room_id` = a.`room_id` AND b.`word` = a.`word` AND b.`id` < a.`id`;
+DELETE a FROM `messenger_requests` a JOIN `messenger_requests` b ON b.`from_id` = a.`from_id` AND b.`to_id` = a.`to_id` AND b.`id` < a.`id`;
+DELETE a FROM `user_favorites` a JOIN `user_favorites` b ON b.`user_id` = a.`user_id` AND b.`room_id` = a.`room_id` AND b.`id` < a.`id`;
+DELETE a FROM `user_presents` a JOIN `user_presents` b ON b.`item_id` = a.`item_id` AND b.`id` < a.`id`;
+DELETE a FROM `user_vouchers` a JOIN `user_vouchers` b ON b.`user_id` = a.`user_id` AND b.`voucher` = a.`voucher` AND b.`id` < a.`id`;
+DELETE a FROM `room_items_tele_links` a JOIN `room_items_tele_links` b ON b.`tele_one_id` = a.`tele_one_id` AND b.`id` < a.`id`;
+DELETE a FROM `server_reward_logs` a JOIN `server_reward_logs` b ON b.`user_id` = a.`user_id` AND b.`reward_id` = a.`reward_id` AND b.`id` < a.`id`;
+DELETE a FROM `group_memberships` a JOIN `group_memberships` b ON b.`group_id` = a.`group_id` AND b.`user_id` = a.`user_id` AND b.`id` < a.`id`;
+DELETE a FROM `user_clothing` a JOIN `user_clothing` b ON b.`user_id` = a.`user_id` AND b.`part_id` = a.`part_id` AND b.`id` < a.`id`;
+DELETE a FROM `catalog_marketplace_data` a JOIN `catalog_marketplace_data` b ON b.`sprite` = a.`sprite` AND b.`id` < a.`id`;
+DELETE a FROM `talents` a JOIN `talents` b ON b.`type` = a.`type` AND b.`level` <=> a.`level` AND b.`id` < a.`id`;
+-- group_requests and catalog_pet_races have no id to choose by; identical rows collapse to one.
+CREATE TEMPORARY TABLE `migration_66_group_requests` AS SELECT DISTINCT * FROM `group_requests`;
+DELETE FROM `group_requests`;
+INSERT INTO `group_requests` SELECT * FROM `migration_66_group_requests`;
+DROP TEMPORARY TABLE `migration_66_group_requests`;
+CREATE TEMPORARY TABLE `migration_66_pet_races` AS
+    SELECT `raceid`, `color1`, `color2`, MAX(`has1color`) AS `has1color`, MAX(`has2color`) AS `has2color`
+    FROM `catalog_pet_races` WHERE `raceid` IS NOT NULL AND `color1` IS NOT NULL AND `color2` IS NOT NULL GROUP BY `raceid`, `color1`, `color2`;
+DELETE FROM `catalog_pet_races`;
+INSERT INTO `catalog_pet_races` (`raceid`, `color1`, `color2`, `has1color`, `has2color`) SELECT * FROM `migration_66_pet_races`;
+DROP TEMPORARY TABLE `migration_66_pet_races`;
+
+-- Natural keys instead of surrogate ids nothing reads; each also stops duplicate rows.
+ALTER TABLE `room_rights` DROP PRIMARY KEY, DROP COLUMN `id`, DROP INDEX IF EXISTS `room_id`, ADD PRIMARY KEY (`room_id`, `user_id`);
+ALTER TABLE `room_filter` DROP PRIMARY KEY, DROP COLUMN `id`, DROP INDEX IF EXISTS `room_id`, DROP INDEX IF EXISTS `word`,
+    ADD PRIMARY KEY (`room_id`, `word`);
+ALTER TABLE `messenger_requests` DROP PRIMARY KEY, DROP COLUMN `id`, DROP INDEX IF EXISTS `from_id`, ADD PRIMARY KEY (`from_id`, `to_id`);
+ALTER TABLE `user_favorites` DROP PRIMARY KEY, DROP COLUMN `id`, DROP INDEX IF EXISTS `user_id`, ADD PRIMARY KEY (`user_id`, `room_id`);
+ALTER TABLE `user_presents` DROP PRIMARY KEY, DROP COLUMN `id`, DROP INDEX IF EXISTS `item_id`, ADD PRIMARY KEY (`item_id`);
+ALTER TABLE `user_vouchers` DROP PRIMARY KEY, DROP COLUMN `id`, DROP INDEX IF EXISTS `user_id, voucher`, ADD PRIMARY KEY (`user_id`, `voucher`);
+ALTER TABLE `room_items_tele_links` DROP PRIMARY KEY, DROP COLUMN `id`, DROP INDEX IF EXISTS `tele_one_id`,
+    ADD PRIMARY KEY (`tele_one_id`), ADD KEY `tele_two_id` (`tele_two_id`);
+ALTER TABLE `server_reward_logs` DROP PRIMARY KEY, DROP COLUMN `id`, ADD PRIMARY KEY (`user_id`, `reward_id`);
+ALTER TABLE `group_requests` DROP INDEX IF EXISTS `groupid`, ADD PRIMARY KEY (`group_id`, `user_id`);
+ALTER TABLE `catalog_pet_races` MODIFY `raceid` INT NOT NULL, MODIFY `color1` INT NOT NULL, MODIFY `color2` INT NOT NULL,
+    ADD PRIMARY KEY (`raceid`, `color1`, `color2`);
+
+-- Unique keys the code already assumes.
+ALTER TABLE `group_memberships` DROP INDEX IF EXISTS `groupid`, DROP INDEX IF EXISTS `rank`, ADD UNIQUE KEY `group_user` (`group_id`, `user_id`);
+ALTER TABLE `user_clothing` MODIFY `part_id` INT UNSIGNED NOT NULL, DROP INDEX IF EXISTS `user_id`, ADD UNIQUE KEY `user_part` (`user_id`, `part_id`);
+ALTER TABLE `catalog_marketplace_data` ADD UNIQUE KEY `sprite` (`sprite`);
+ALTER TABLE `talents` ADD UNIQUE KEY `type_level` (`type`, `level`);
+
+-- Group ranks were an ENUM('0','1','2') written with numbers, so MariaDB stored 1 (administrator) as '0' (member).
+-- Members are 0 and administrators 1, and a group's owner is always an administrator.
+ALTER TABLE `group_memberships` ADD COLUMN `rank_number` TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER `rank`;
+UPDATE `group_memberships` SET `rank_number` = IF(CAST(`rank` AS CHAR) IN ('1', '2'), 1, 0);
+UPDATE `group_memberships` m JOIN `groups` g ON g.`id` = m.`group_id` AND g.`owner_id` = m.`user_id` SET m.`rank_number` = 1;
+ALTER TABLE `group_memberships` DROP COLUMN `rank`, CHANGE `rank_number` `rank` TINYINT UNSIGNED NOT NULL DEFAULT 0;
+
+-- Room owners are user ids, stored as text, so neither the owner index nor a join to users could be used.
+ALTER TABLE `rooms` MODIFY `owner` INT NOT NULL;
+
+-- Indexes that duplicate the primary key or the start of another index.
+ALTER TABLE `ambassador_logs` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `badge_definitions` DROP INDEX IF EXISTS `code`;
+ALTER TABLE `bots` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `bots_petdata` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `chatlogs_console_invitations` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `furniture` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `games_config` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `groups` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `items_groups` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `items_youtube` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `messenger_friendships` DROP INDEX IF EXISTS `user_one_id`;
+ALTER TABLE `room_bans` DROP INDEX IF EXISTS `user_id`;
+ALTER TABLE `room_items_toner` DROP INDEX IF EXISTS `id`, DROP INDEX IF EXISTS `enabled`;
+ALTER TABLE `room_items_moodlight` DROP INDEX IF EXISTS `enabled`;
+ALTER TABLE `room_models` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `server_landing` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `user_achievements` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `user_badges` DROP INDEX IF EXISTS `user_id`;
+ALTER TABLE `user_ignores` DROP INDEX IF EXISTS `user_id`;
+ALTER TABLE `user_info` DROP INDEX IF EXISTS `user_id`;
+ALTER TABLE `wired_items` DROP INDEX IF EXISTS `id`;
+ALTER TABLE `wordfilter` DROP INDEX IF EXISTS `word`;
+ALTER TABLE `user_saved_searches` DROP INDEX IF EXISTS `value`;
+
+-- users: point lookups by id, username, mail, SSO ticket and IP; nothing filters on rank, credits or ip_reg.
+ALTER TABLE `users` DROP INDEX IF EXISTS `id`, DROP INDEX IF EXISTS `rank`, DROP INDEX IF EXISTS `ip_reg`,
+    DROP INDEX IF EXISTS `credits`, DROP INDEX IF EXISTS `messenger`;
+ALTER TABLE `user_statistics` DROP INDEX IF EXISTS `id`, ADD KEY `AchievementScore` (`AchievementScore`);
+-- The CMS ranks duckets and diamonds per currency type.
+ALTER TABLE `user_currencies` ADD KEY `type_amount` (`type`, `amount`);
+
+-- rooms: owner lookups for My Rooms, the navigator and every login; nothing filters on roomtype, score or category.
+ALTER TABLE `rooms` DROP INDEX IF EXISTS `id`, DROP INDEX IF EXISTS `roomtype`, DROP INDEX IF EXISTS `score`,
+    DROP INDEX IF EXISTS `category`, DROP INDEX IF EXISTS `owner`, ADD KEY `owner_caption` (`owner`, `caption`);
+
+-- items: inventories load by owner where room_id is 0, rooms by room_id; the CMS counts holdings per furni.
+ALTER TABLE `items` DROP INDEX IF EXISTS `id`, DROP INDEX IF EXISTS `userid`, DROP INDEX IF EXISTS `base_item`,
+    ADD KEY `user_room` (`user_id`, `room_id`), ADD KEY `base_user` (`base_item`, `user_id`);
+
+-- Every login reads and locks the user's offline messages.
+ALTER TABLE `messenger_offline_messages` ADD KEY `to_id` (`to_id`);
+
+-- Leaving a room closes the user's latest visit to it.
+ALTER TABLE `user_roomvisits` DROP INDEX IF EXISTS `user_id`, DROP INDEX IF EXISTS `entry_timestamp`, DROP INDEX IF EXISTS `exit_timestamp`,
+    ADD KEY `user_room_entry` (`user_id`, `room_id`, `entry_timestamp`), ADD KEY `room_id` (`room_id`);
+
+-- Logins check bans by type and value; the startup sweep removes expired ones.
+ALTER TABLE `bans` DROP INDEX IF EXISTS `value`, DROP INDEX IF EXISTS `bantype`, ADD KEY `type_value_expire` (`bantype`, `value`, `expire`);
+
+-- Moderator chat logs read a room's or user's lines newest first.
+ALTER TABLE `chatlogs` DROP INDEX IF EXISTS `user_id`, DROP INDEX IF EXISTS `room_id`,
+    ADD KEY `room_time` (`room_id`, `timestamp`), ADD KEY `user_id` (`user_id`, `id`);
+
+-- Marketplace: own offers by user and state, the search by state and listing time.
+ALTER TABLE `catalog_marketplace_offers` ADD KEY `user_state` (`user_id`, `state`), ADD KEY `state_listed` (`state`, `listed_at`),
+    ADD KEY `item_id` (`item_id`);
+
+-- Groups: forum lists filter on forum_enabled.
+ALTER TABLE `groups` ADD KEY `forum_enabled` (`forum_enabled`);
+
+-- Camera quota cleanup deletes by day.
+ALTER TABLE `camera_quota` ADD KEY `quota_date` (`quota_date`);
+
+-- Wired variables: holder reads skip the target kind; the manager page sorts by value.
+ALTER TABLE `wired_variable_values` ADD KEY `definition_holder` (`definition_id`, `holder_id`),
+    ADD KEY `definition_kind_value` (`definition_id`, `target_kind`, `value`);
+-- 67_ForeignKeys
+-- Foreign keys for the relations the emulator and CMS use, so a row can no longer point at something that is gone.
+-- Child columns take their parent's exact type first; rows that already point nowhere are removed (or, for optional
+-- references, cleared). Rows only meaningful for their parent go with it (CASCADE); definitions in use and rooms or
+-- groups that still have an owner cannot be deleted (RESTRICT); audit and history tables keep no key on purpose.
+-- Apply while PlusEMU is stopped. A statement whose table or column an install does not have is skipped.
+
+-- 1. Child columns take their parent's type (user and room ids are signed, item and furniture ids unsigned).
+SET @migration_67_checks = @@FOREIGN_KEY_CHECKS;
+SET FOREIGN_KEY_CHECKS = 0;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots', 'room_id'))) = 1,
+    'ALTER TABLE `bots` MODIFY `room_id` int(10) NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots', 'user_id'))) = 1,
+    'ALTER TABLE `bots` MODIFY `user_id` int(11) NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('catalog_marketplace_offers', 'user_id'))) = 1,
+    'ALTER TABLE `catalog_marketplace_offers` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_memberships', 'user_id'))) = 1,
+    'ALTER TABLE `group_memberships` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_requests', 'user_id'))) = 1,
+    'ALTER TABLE `group_requests` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('groups', 'owner_id'))) = 1,
+    'ALTER TABLE `groups` MODIFY `owner_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items', 'room_id'))) = 1,
+    'ALTER TABLE `items` MODIFY `room_id` int(10) NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items_groups', 'group_id'))) = 1,
+    'ALTER TABLE `items_groups` MODIFY `group_id` int(11) unsigned NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_friendships', 'user_one_id'))) = 1,
+    'ALTER TABLE `messenger_friendships` MODIFY `user_one_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_friendships', 'user_two_id'))) = 1,
+    'ALTER TABLE `messenger_friendships` MODIFY `user_two_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_offline_messages', 'from_id'))) = 1,
+    'ALTER TABLE `messenger_offline_messages` MODIFY `from_id` int(11) NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_offline_messages', 'to_id'))) = 1,
+    'ALTER TABLE `messenger_offline_messages` MODIFY `to_id` int(11) NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_requests', 'from_id'))) = 1,
+    'ALTER TABLE `messenger_requests` MODIFY `from_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_requests', 'to_id'))) = 1,
+    'ALTER TABLE `messenger_requests` MODIFY `to_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('moderation_topic_actions', 'parent_id'))) = 1,
+    'ALTER TABLE `moderation_topic_actions` MODIFY `parent_id` int(11) unsigned NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_bans', 'room_id'))) = 1,
+    'ALTER TABLE `room_bans` MODIFY `room_id` int(10) NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_bans', 'user_id'))) = 1,
+    'ALTER TABLE `room_bans` MODIFY `user_id` int(11) NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_polls', 'room_id'))) = 1,
+    'ALTER TABLE `room_polls` MODIFY `room_id` int(10) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_rights', 'room_id'))) = 1,
+    'ALTER TABLE `room_rights` MODIFY `room_id` int(10) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_rights', 'user_id'))) = 1,
+    'ALTER TABLE `room_rights` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_wired_settings', 'room_id'))) = 1,
+    'ALTER TABLE `room_wired_settings` MODIFY `room_id` int(10) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_achievements', 'userid'))) = 1,
+    'ALTER TABLE `user_achievements` MODIFY `userid` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_badges', 'user_id'))) = 1,
+    'ALTER TABLE `user_badges` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_effects', 'user_id'))) = 1,
+    'ALTER TABLE `user_effects` MODIFY `user_id` int(11) NULL DEFAULT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_favorites', 'room_id'))) = 1,
+    'ALTER TABLE `user_favorites` MODIFY `room_id` int(10) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_favorites', 'user_id'))) = 1,
+    'ALTER TABLE `user_favorites` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_ignores', 'ignore_id'))) = 1,
+    'ALTER TABLE `user_ignores` MODIFY `ignore_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_ignores', 'user_id'))) = 1,
+    'ALTER TABLE `user_ignores` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_quests', 'user_id'))) = 1,
+    'ALTER TABLE `user_quests` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roomvisits', 'room_id'))) = 1,
+    'ALTER TABLE `user_roomvisits` MODIFY `room_id` int(10) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roomvisits', 'user_id'))) = 1,
+    'ALTER TABLE `user_roomvisits` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_statistics', 'groupid'))) = 1,
+    'ALTER TABLE `user_statistics` MODIFY `groupid` int(11) unsigned NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_wardrobe', 'user_id'))) = 1,
+    'ALTER TABLE `user_wardrobe` MODIFY `user_id` int(11) NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_settings', 'home_room'))) = 1,
+    'ALTER TABLE `users_settings` MODIFY `home_room` int(10) NOT NULL DEFAULT 0', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_items', 'id'))) = 1,
+    'ALTER TABLE `wired_items` MODIFY `id` int(10) unsigned NOT NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET FOREIGN_KEY_CHECKS = @migration_67_checks;
+
+-- 2. Rows pointing at a parent that no longer exists.
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `bots` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots_petdata', 'id'), ('bots', 'id'))) = 2,
+    'DELETE c FROM `bots_petdata` c WHERE c.`id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `bots` p WHERE p.`id` = c.`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots_speech', 'bot_id'), ('bots', 'id'))) = 2,
+    'DELETE c FROM `bots_speech` c WHERE c.`bot_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `bots` p WHERE p.`id` = c.`bot_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_accounts', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `camera_accounts` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_competition_entries', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `camera_competition_entries` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_media', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `camera_media` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_publications', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `camera_publications` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_purchases', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `camera_purchases` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_purchases', 'item_id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `camera_purchases` c WHERE c.`item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_quota', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `camera_quota` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('catalog_marketplace_offers', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `catalog_marketplace_offers` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('catalog_marketplace_offers', 'item_id'), ('furniture', 'id'))) = 2,
+    'DELETE c FROM `catalog_marketplace_offers` c WHERE c.`item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `furniture` p WHERE p.`id` = c.`item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('club_credit_spending', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `club_credit_spending` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('club_gift_claims', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `club_gift_claims` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('club_membership_intervals', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `club_membership_intervals` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('club_paydays', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `club_paydays` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('crafting_altars_recipes', 'altar_item_id'), ('furniture', 'id'))) = 2,
+    'DELETE c FROM `crafting_altars_recipes` c WHERE c.`altar_item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `furniture` p WHERE p.`id` = c.`altar_item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('crafting_recipes', 'reward_item_id'), ('furniture', 'id'))) = 2,
+    'DELETE c FROM `crafting_recipes` c WHERE c.`reward_item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `furniture` p WHERE p.`id` = c.`reward_item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('crafting_recipes_ingredients', 'item_id'), ('furniture', 'id'))) = 2,
+    'DELETE c FROM `crafting_recipes_ingredients` c WHERE c.`item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `furniture` p WHERE p.`id` = c.`item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_forum_messages', 'author_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `group_forum_messages` c WHERE c.`author_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`author_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_forum_post_limits', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `group_forum_post_limits` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_forum_read_markers', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `group_forum_read_markers` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_forum_threads', 'author_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `group_forum_threads` c WHERE c.`author_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`author_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_memberships', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `group_memberships` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_memberships', 'group_id'), ('groups', 'id'))) = 2,
+    'DELETE c FROM `group_memberships` c WHERE c.`group_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `groups` p WHERE p.`id` = c.`group_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_requests', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `group_requests` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_requests', 'group_id'), ('groups', 'id'))) = 2,
+    'DELETE c FROM `group_requests` c WHERE c.`group_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `groups` p WHERE p.`id` = c.`group_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('groups', 'owner_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `groups` c WHERE c.`owner_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`owner_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `items` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items', 'base_item'), ('furniture', 'id'))) = 2,
+    'DELETE c FROM `items` c WHERE c.`base_item` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `furniture` p WHERE p.`id` = c.`base_item`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items_groups', 'id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `items_groups` c WHERE c.`id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items_groups', 'group_id'), ('groups', 'id'))) = 2,
+    'DELETE c FROM `items_groups` c WHERE c.`group_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `groups` p WHERE p.`id` = c.`group_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_friendships', 'user_one_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `messenger_friendships` c WHERE c.`user_one_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_one_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_friendships', 'user_two_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `messenger_friendships` c WHERE c.`user_two_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_two_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_offline_messages', 'to_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `messenger_offline_messages` c WHERE c.`to_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`to_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_offline_messages', 'from_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `messenger_offline_messages` c WHERE c.`from_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`from_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_requests', 'from_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `messenger_requests` c WHERE c.`from_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`from_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_requests', 'to_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `messenger_requests` c WHERE c.`to_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`to_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('moderation_preset_action_messages', 'parent_id'), ('moderation_preset_action_categories', 'id'))) = 2,
+    'DELETE c FROM `moderation_preset_action_messages` c WHERE c.`parent_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `moderation_preset_action_categories` p WHERE p.`id` = c.`parent_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('moderation_topic_actions', 'parent_id'), ('moderation_topics', 'id'))) = 2,
+    'DELETE c FROM `moderation_topic_actions` c WHERE c.`parent_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `moderation_topics` p WHERE p.`id` = c.`parent_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('navigator_publics', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `navigator_publics` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rcon_grants', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `rcon_grants` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('recycler_prizes', 'item_id'), ('furniture', 'id'))) = 2,
+    'DELETE c FROM `recycler_prizes` c WHERE c.`item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `furniture` p WHERE p.`id` = c.`item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('recycler_prizes', 'level'), ('recycler_levels', 'level'))) = 2,
+    'DELETE c FROM `recycler_prizes` c WHERE c.`level` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `recycler_levels` p WHERE p.`level` = c.`level`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('reward_track_prizes', 'track_id'), ('reward_tracks', 'id'))) = 2,
+    'DELETE c FROM `reward_track_prizes` c WHERE c.`track_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `reward_tracks` p WHERE p.`id` = c.`track_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('reward_track_tasks', 'track_id'), ('reward_tracks', 'id'))) = 2,
+    'DELETE c FROM `reward_track_tasks` c WHERE c.`track_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `reward_tracks` p WHERE p.`id` = c.`track_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_bans', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `room_bans` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_bans', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `room_bans` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_filter', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `room_filter` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_items_moodlight', 'item_id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `room_items_moodlight` c WHERE c.`item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_items_tele_links', 'tele_one_id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `room_items_tele_links` c WHERE c.`tele_one_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`tele_one_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_items_tele_links', 'tele_two_id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `room_items_tele_links` c WHERE c.`tele_two_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`tele_two_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_items_toner', 'id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `room_items_toner` c WHERE c.`id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_music_disc_definitions', 'base_item'), ('furniture', 'id'))) = 2,
+    'DELETE c FROM `room_music_disc_definitions` c WHERE c.`base_item` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `furniture` p WHERE p.`id` = c.`base_item`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_poll_questions', 'poll_id'), ('room_polls', 'id'))) = 2,
+    'DELETE c FROM `room_poll_questions` c WHERE c.`poll_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `room_polls` p WHERE p.`id` = c.`poll_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_poll_responses', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `room_poll_responses` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_poll_responses', 'poll_id'), ('room_polls', 'id'))) = 2,
+    'DELETE c FROM `room_poll_responses` c WHERE c.`poll_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `room_polls` p WHERE p.`id` = c.`poll_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_polls', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `room_polls` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_promotions', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `room_promotions` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_rights', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `room_rights` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_rights', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `room_rights` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_wired_settings', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `room_wired_settings` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rooms', 'owner'), ('users', 'id'))) = 2,
+    'DELETE c FROM `rooms` c WHERE c.`owner` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`owner`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rooms', 'model_name'), ('room_models', 'id'))) = 2,
+    'DELETE c FROM `rooms` c WHERE c.`model_name` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `room_models` p WHERE p.`id` = c.`model_name`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rooms', 'category'), ('navigator_categories', 'id'))) = 2,
+    'DELETE c FROM `rooms` c WHERE c.`category` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `navigator_categories` p WHERE p.`id` = c.`category`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('safety_quiz_questions', 'quiz_code'), ('safety_quizzes', 'code'))) = 2,
+    'DELETE c FROM `safety_quiz_questions` c WHERE c.`quiz_code` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `safety_quizzes` p WHERE p.`code` = c.`quiz_code`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('server_reward_logs', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `server_reward_logs` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('server_reward_logs', 'reward_id'), ('server_rewards', 'id'))) = 2,
+    'DELETE c FROM `server_reward_logs` c WHERE c.`reward_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `server_rewards` p WHERE p.`id` = c.`reward_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('snowwar_game_tokens', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `snowwar_game_tokens` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('snowwar_scores', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `snowwar_scores` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_access_tokens', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_access_tokens` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_access_tokens', 'session_id'), ('user_sessions', 'id'))) = 2,
+    'DELETE c FROM `user_access_tokens` c WHERE c.`session_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `user_sessions` p WHERE p.`id` = c.`session_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_achievements', 'userid'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_achievements` c WHERE c.`userid` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`userid`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_badges', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_badges` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_calendar_claims', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_calendar_claims` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_calendar_claims', 'campaign_id'), ('campaign_calendars', 'id'))) = 2,
+    'DELETE c FROM `user_calendar_claims` c WHERE c.`campaign_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `campaign_calendars` p WHERE p.`id` = c.`campaign_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_calendar_claims', 'reward_id'), ('campaign_calendar_rewards', 'id'))) = 2,
+    'DELETE c FROM `user_calendar_claims` c WHERE c.`reward_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `campaign_calendar_rewards` p WHERE p.`id` = c.`reward_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_clothing', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_clothing` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_club_memberships', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_club_memberships` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_crafting_recipes', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_crafting_recipes` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_effects', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_effects` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_favorites', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_favorites` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_favorites', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `user_favorites` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_ignores', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_ignores` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_ignores', 'ignore_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_ignores` c WHERE c.`ignore_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`ignore_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_info', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_info` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_permissions', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_permissions` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_permissions', 'granted_by'), ('users', 'id'))) = 2,
+    'UPDATE `user_permissions` c SET c.`granted_by` = NULL WHERE c.`granted_by` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`granted_by`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_presents', 'item_id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `user_presents` c WHERE c.`item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_presents', 'base_id'), ('furniture', 'id'))) = 2,
+    'DELETE c FROM `user_presents` c WHERE c.`base_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `furniture` p WHERE p.`id` = c.`base_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_quests', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_quests` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_quests', 'quest_id'), ('quests', 'id'))) = 2,
+    'DELETE c FROM `user_quests` c WHERE c.`quest_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `quests` p WHERE p.`id` = c.`quest_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_recycler', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_recycler` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_remember_tokens', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_remember_tokens` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_remember_tokens', 'family_id'), ('user_sessions', 'id'))) = 2,
+    'DELETE c FROM `user_remember_tokens` c WHERE c.`family_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `user_sessions` p WHERE p.`id` = c.`family_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roles', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_roles` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roles', 'granted_by'), ('users', 'id'))) = 2,
+    'UPDATE `user_roles` c SET c.`granted_by` = NULL WHERE c.`granted_by` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`granted_by`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roomvisits', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_roomvisits` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roomvisits', 'room_id'), ('rooms', 'id'))) = 2,
+    'DELETE c FROM `user_roomvisits` c WHERE c.`room_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_safety_quizzes', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_safety_quizzes` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_safety_quizzes', 'quiz_code'), ('safety_quizzes', 'code'))) = 2,
+    'DELETE c FROM `user_safety_quizzes` c WHERE c.`quiz_code` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `safety_quizzes` p WHERE p.`code` = c.`quiz_code`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_saved_searches', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_saved_searches` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_sessions', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_sessions` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_statistics', 'id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_statistics` c WHERE c.`id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_talent_rewards', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_talent_rewards` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_vouchers', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_vouchers` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_vouchers', 'voucher'), ('catalog_vouchers', 'voucher'))) = 2,
+    'DELETE c FROM `user_vouchers` c WHERE c.`voucher` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `catalog_vouchers` p WHERE p.`voucher` = c.`voucher`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_wardrobe', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `user_wardrobe` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_habbicons', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `users_habbicons` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_reward_track_prizes', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `users_reward_track_prizes` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_reward_track_tasks', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `users_reward_track_tasks` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_reward_tracks', 'user_id'), ('users', 'id'))) = 2,
+    'DELETE c FROM `users_reward_tracks` c WHERE c.`user_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `users` p WHERE p.`id` = c.`user_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_reward_tracks', 'track_id'), ('reward_tracks', 'id'))) = 2,
+    'DELETE c FROM `users_reward_tracks` c WHERE c.`track_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `reward_tracks` p WHERE p.`id` = c.`track_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_item_configurations', 'item_id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `wired_item_configurations` c WHERE c.`item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_items', 'id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `wired_items` c WHERE c.`id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_reward_state', 'item_id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `wired_reward_state` c WHERE c.`item_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`item_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_variable_values', 'definition_id'), ('items', 'id'))) = 2,
+    'DELETE c FROM `wired_variable_values` c WHERE c.`definition_id` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM `items` p WHERE p.`id` = c.`definition_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items', 'room_id'), ('rooms', 'id'))) = 2,
+    'UPDATE `items` c SET c.`room_id` = 0 WHERE c.`room_id` <> 0 AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots', 'room_id'), ('rooms', 'id'))) = 2,
+    'UPDATE `bots` c SET c.`room_id` = 0 WHERE c.`room_id` <> 0 AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`room_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_settings', 'home_room'), ('rooms', 'id'))) = 2,
+    'UPDATE `users_settings` c SET c.`home_room` = 0 WHERE c.`home_room` <> 0 AND NOT EXISTS (SELECT 1 FROM `rooms` p WHERE p.`id` = c.`home_room`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rooms', 'group_id'), ('groups', 'id'))) = 2,
+    'UPDATE `rooms` c SET c.`group_id` = 0 WHERE c.`group_id` <> 0 AND NOT EXISTS (SELECT 1 FROM `groups` p WHERE p.`id` = c.`group_id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_statistics', 'groupid'), ('groups', 'id'))) = 2,
+    'UPDATE `user_statistics` c SET c.`groupid` = 0 WHERE c.`groupid` <> 0 AND NOT EXISTS (SELECT 1 FROM `groups` p WHERE p.`id` = c.`groupid`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+
+-- 3. Jukebox playlists and crafting recipes follow their player, disc or recipe instead of blocking its removal.
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_music_playlist', 'player_id'), ('room_music_players', 'item_id'))) = 2,
+    'ALTER TABLE `room_music_playlist` DROP FOREIGN KEY IF EXISTS `room_music_playlist_ibfk_1`, ADD CONSTRAINT `fk_room_music_playlist_player_id` FOREIGN KEY (`player_id`) REFERENCES `room_music_players` (`item_id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_music_playlist', 'disc_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `room_music_playlist` DROP FOREIGN KEY IF EXISTS `room_music_playlist_ibfk_2`, ADD CONSTRAINT `fk_room_music_playlist_disc_id` FOREIGN KEY (`disc_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('crafting_altars_recipes', 'recipe_id'), ('crafting_recipes', 'id'))) = 2,
+    'ALTER TABLE `crafting_altars_recipes` DROP FOREIGN KEY IF EXISTS `crafting_altars_recipes_ibfk_1`, ADD CONSTRAINT `fk_crafting_altars_recipes_recipe_id` FOREIGN KEY (`recipe_id`) REFERENCES `crafting_recipes` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('crafting_recipes_ingredients', 'recipe_id'), ('crafting_recipes', 'id'))) = 2,
+    'ALTER TABLE `crafting_recipes_ingredients` DROP FOREIGN KEY IF EXISTS `crafting_recipes_ingredients_ibfk_1`, ADD CONSTRAINT `fk_crafting_recipes_ingredients_recipe_id` FOREIGN KEY (`recipe_id`) REFERENCES `crafting_recipes` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_crafting_recipes', 'recipe_id'), ('crafting_recipes', 'id'))) = 2,
+    'ALTER TABLE `user_crafting_recipes` DROP FOREIGN KEY IF EXISTS `user_crafting_recipes_ibfk_1`, ADD CONSTRAINT `fk_user_crafting_recipes_recipe_id` FOREIGN KEY (`recipe_id`) REFERENCES `crafting_recipes` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+
+-- 4. Where the code writes 0 for "none" (inventory, no home room, no group), a stored NULLIF(column, 0) carries the key.
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `items` ADD COLUMN `room_ref` int(10) GENERATED ALWAYS AS (NULLIF(`room_id`, 0)) STORED, ADD CONSTRAINT `fk_items_room_ref` FOREIGN KEY (`room_ref`) REFERENCES `rooms` (`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `bots` ADD COLUMN `room_ref` int(10) GENERATED ALWAYS AS (NULLIF(`room_id`, 0)) STORED, ADD CONSTRAINT `fk_bots_room_ref` FOREIGN KEY (`room_ref`) REFERENCES `rooms` (`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_settings', 'home_room'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `users_settings` ADD COLUMN `home_room_ref` int(10) GENERATED ALWAYS AS (NULLIF(`home_room`, 0)) STORED, ADD CONSTRAINT `fk_users_settings_home_room_ref` FOREIGN KEY (`home_room_ref`) REFERENCES `rooms` (`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rooms', 'group_id'), ('groups', 'id'))) = 2,
+    'ALTER TABLE `rooms` ADD COLUMN `group_ref` int(11) unsigned GENERATED ALWAYS AS (NULLIF(`group_id`, 0)) STORED, ADD CONSTRAINT `fk_rooms_group_ref` FOREIGN KEY (`group_ref`) REFERENCES `groups` (`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_statistics', 'groupid'), ('groups', 'id'))) = 2,
+    'ALTER TABLE `user_statistics` ADD COLUMN `group_ref` int(11) unsigned GENERATED ALWAYS AS (NULLIF(`groupid`, 0)) STORED, ADD CONSTRAINT `fk_user_statistics_group_ref` FOREIGN KEY (`group_ref`) REFERENCES `groups` (`id`)', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+
+-- 5. The keys.
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `bots` ADD CONSTRAINT `fk_bots_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots_petdata', 'id'), ('bots', 'id'))) = 2,
+    'ALTER TABLE `bots_petdata` ADD CONSTRAINT `fk_bots_petdata_id` FOREIGN KEY (`id`) REFERENCES `bots` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('bots_speech', 'bot_id'), ('bots', 'id'))) = 2,
+    'ALTER TABLE `bots_speech` ADD CONSTRAINT `fk_bots_speech_bot_id` FOREIGN KEY (`bot_id`) REFERENCES `bots` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_accounts', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `camera_accounts` ADD CONSTRAINT `fk_camera_accounts_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_competition_entries', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `camera_competition_entries` ADD CONSTRAINT `fk_camera_competition_entries_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_media', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `camera_media` ADD CONSTRAINT `fk_camera_media_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_publications', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `camera_publications` ADD CONSTRAINT `fk_camera_publications_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_purchases', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `camera_purchases` ADD CONSTRAINT `fk_camera_purchases_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_purchases', 'item_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `camera_purchases` ADD CONSTRAINT `fk_camera_purchases_item_id` FOREIGN KEY (`item_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('camera_quota', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `camera_quota` ADD CONSTRAINT `fk_camera_quota_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('catalog_marketplace_offers', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `catalog_marketplace_offers` ADD CONSTRAINT `fk_catalog_marketplace_offers_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('catalog_marketplace_offers', 'item_id'), ('furniture', 'id'))) = 2,
+    'ALTER TABLE `catalog_marketplace_offers` ADD CONSTRAINT `fk_catalog_marketplace_offers_item_id` FOREIGN KEY (`item_id`) REFERENCES `furniture` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('club_credit_spending', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `club_credit_spending` ADD CONSTRAINT `fk_club_credit_spending_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('club_gift_claims', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `club_gift_claims` ADD CONSTRAINT `fk_club_gift_claims_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('club_membership_intervals', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `club_membership_intervals` ADD CONSTRAINT `fk_club_membership_intervals_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('club_paydays', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `club_paydays` ADD CONSTRAINT `fk_club_paydays_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('crafting_altars_recipes', 'altar_item_id'), ('furniture', 'id'))) = 2,
+    'ALTER TABLE `crafting_altars_recipes` ADD CONSTRAINT `fk_crafting_altars_recipes_altar_item_id` FOREIGN KEY (`altar_item_id`) REFERENCES `furniture` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('crafting_recipes', 'reward_item_id'), ('furniture', 'id'))) = 2,
+    'ALTER TABLE `crafting_recipes` ADD CONSTRAINT `fk_crafting_recipes_reward_item_id` FOREIGN KEY (`reward_item_id`) REFERENCES `furniture` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('crafting_recipes_ingredients', 'item_id'), ('furniture', 'id'))) = 2,
+    'ALTER TABLE `crafting_recipes_ingredients` ADD CONSTRAINT `fk_crafting_recipes_ingredients_item_id` FOREIGN KEY (`item_id`) REFERENCES `furniture` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_forum_messages', 'author_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `group_forum_messages` ADD CONSTRAINT `fk_group_forum_messages_author_id` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_forum_post_limits', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `group_forum_post_limits` ADD CONSTRAINT `fk_group_forum_post_limits_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_forum_read_markers', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `group_forum_read_markers` ADD CONSTRAINT `fk_group_forum_read_markers_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_forum_threads', 'author_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `group_forum_threads` ADD CONSTRAINT `fk_group_forum_threads_author_id` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_memberships', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `group_memberships` ADD CONSTRAINT `fk_group_memberships_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_memberships', 'group_id'), ('groups', 'id'))) = 2,
+    'ALTER TABLE `group_memberships` ADD CONSTRAINT `fk_group_memberships_group_id` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_requests', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `group_requests` ADD CONSTRAINT `fk_group_requests_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('group_requests', 'group_id'), ('groups', 'id'))) = 2,
+    'ALTER TABLE `group_requests` ADD CONSTRAINT `fk_group_requests_group_id` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('groups', 'owner_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `groups` ADD CONSTRAINT `fk_groups_owner_id` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `items` ADD CONSTRAINT `fk_items_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items', 'base_item'), ('furniture', 'id'))) = 2,
+    'ALTER TABLE `items` ADD CONSTRAINT `fk_items_base_item` FOREIGN KEY (`base_item`) REFERENCES `furniture` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items_groups', 'id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `items_groups` ADD CONSTRAINT `fk_items_groups_id` FOREIGN KEY (`id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('items_groups', 'group_id'), ('groups', 'id'))) = 2,
+    'ALTER TABLE `items_groups` ADD CONSTRAINT `fk_items_groups_group_id` FOREIGN KEY (`group_id`) REFERENCES `groups` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_friendships', 'user_one_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `messenger_friendships` ADD CONSTRAINT `fk_messenger_friendships_user_one_id` FOREIGN KEY (`user_one_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_friendships', 'user_two_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `messenger_friendships` ADD CONSTRAINT `fk_messenger_friendships_user_two_id` FOREIGN KEY (`user_two_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_offline_messages', 'to_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `messenger_offline_messages` ADD CONSTRAINT `fk_messenger_offline_messages_to_id` FOREIGN KEY (`to_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_offline_messages', 'from_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `messenger_offline_messages` ADD CONSTRAINT `fk_messenger_offline_messages_from_id` FOREIGN KEY (`from_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_requests', 'from_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `messenger_requests` ADD CONSTRAINT `fk_messenger_requests_from_id` FOREIGN KEY (`from_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('messenger_requests', 'to_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `messenger_requests` ADD CONSTRAINT `fk_messenger_requests_to_id` FOREIGN KEY (`to_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('moderation_preset_action_messages', 'parent_id'), ('moderation_preset_action_categories', 'id'))) = 2,
+    'ALTER TABLE `moderation_preset_action_messages` ADD CONSTRAINT `fk_moderation_preset_action_messages_parent_id` FOREIGN KEY (`parent_id`) REFERENCES `moderation_preset_action_categories` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('moderation_topic_actions', 'parent_id'), ('moderation_topics', 'id'))) = 2,
+    'ALTER TABLE `moderation_topic_actions` ADD CONSTRAINT `fk_moderation_topic_actions_parent_id` FOREIGN KEY (`parent_id`) REFERENCES `moderation_topics` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('navigator_publics', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `navigator_publics` ADD CONSTRAINT `fk_navigator_publics_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rcon_grants', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `rcon_grants` ADD CONSTRAINT `fk_rcon_grants_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('recycler_prizes', 'item_id'), ('furniture', 'id'))) = 2,
+    'ALTER TABLE `recycler_prizes` ADD CONSTRAINT `fk_recycler_prizes_item_id` FOREIGN KEY (`item_id`) REFERENCES `furniture` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('recycler_prizes', 'level'), ('recycler_levels', 'level'))) = 2,
+    'ALTER TABLE `recycler_prizes` ADD CONSTRAINT `fk_recycler_prizes_level` FOREIGN KEY (`level`) REFERENCES `recycler_levels` (`level`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('reward_track_prizes', 'track_id'), ('reward_tracks', 'id'))) = 2,
+    'ALTER TABLE `reward_track_prizes` ADD CONSTRAINT `fk_reward_track_prizes_track_id` FOREIGN KEY (`track_id`) REFERENCES `reward_tracks` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('reward_track_tasks', 'track_id'), ('reward_tracks', 'id'))) = 2,
+    'ALTER TABLE `reward_track_tasks` ADD CONSTRAINT `fk_reward_track_tasks_track_id` FOREIGN KEY (`track_id`) REFERENCES `reward_tracks` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_bans', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `room_bans` ADD CONSTRAINT `fk_room_bans_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_bans', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `room_bans` ADD CONSTRAINT `fk_room_bans_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_filter', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `room_filter` ADD CONSTRAINT `fk_room_filter_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_items_moodlight', 'item_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `room_items_moodlight` ADD CONSTRAINT `fk_room_items_moodlight_item_id` FOREIGN KEY (`item_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_items_tele_links', 'tele_one_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `room_items_tele_links` ADD CONSTRAINT `fk_room_items_tele_links_tele_one_id` FOREIGN KEY (`tele_one_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_items_tele_links', 'tele_two_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `room_items_tele_links` ADD CONSTRAINT `fk_room_items_tele_links_tele_two_id` FOREIGN KEY (`tele_two_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_items_toner', 'id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `room_items_toner` ADD CONSTRAINT `fk_room_items_toner_id` FOREIGN KEY (`id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_music_disc_definitions', 'base_item'), ('furniture', 'id'))) = 2,
+    'ALTER TABLE `room_music_disc_definitions` ADD CONSTRAINT `fk_room_music_disc_definitions_base_item` FOREIGN KEY (`base_item`) REFERENCES `furniture` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_poll_questions', 'poll_id'), ('room_polls', 'id'))) = 2,
+    'ALTER TABLE `room_poll_questions` ADD CONSTRAINT `fk_room_poll_questions_poll_id` FOREIGN KEY (`poll_id`) REFERENCES `room_polls` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_poll_responses', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `room_poll_responses` ADD CONSTRAINT `fk_room_poll_responses_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_poll_responses', 'poll_id'), ('room_polls', 'id'))) = 2,
+    'ALTER TABLE `room_poll_responses` ADD CONSTRAINT `fk_room_poll_responses_poll_id` FOREIGN KEY (`poll_id`) REFERENCES `room_polls` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_polls', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `room_polls` ADD CONSTRAINT `fk_room_polls_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_promotions', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `room_promotions` ADD CONSTRAINT `fk_room_promotions_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_rights', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `room_rights` ADD CONSTRAINT `fk_room_rights_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_rights', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `room_rights` ADD CONSTRAINT `fk_room_rights_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('room_wired_settings', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `room_wired_settings` ADD CONSTRAINT `fk_room_wired_settings_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rooms', 'owner'), ('users', 'id'))) = 2,
+    'ALTER TABLE `rooms` ADD CONSTRAINT `fk_rooms_owner` FOREIGN KEY (`owner`) REFERENCES `users` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rooms', 'model_name'), ('room_models', 'id'))) = 2,
+    'ALTER TABLE `rooms` ADD CONSTRAINT `fk_rooms_model_name` FOREIGN KEY (`model_name`) REFERENCES `room_models` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('rooms', 'category'), ('navigator_categories', 'id'))) = 2,
+    'ALTER TABLE `rooms` ADD CONSTRAINT `fk_rooms_category` FOREIGN KEY (`category`) REFERENCES `navigator_categories` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('safety_quiz_questions', 'quiz_code'), ('safety_quizzes', 'code'))) = 2,
+    'ALTER TABLE `safety_quiz_questions` ADD CONSTRAINT `fk_safety_quiz_questions_quiz_code` FOREIGN KEY (`quiz_code`) REFERENCES `safety_quizzes` (`code`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('server_reward_logs', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `server_reward_logs` ADD CONSTRAINT `fk_server_reward_logs_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('server_reward_logs', 'reward_id'), ('server_rewards', 'id'))) = 2,
+    'ALTER TABLE `server_reward_logs` ADD CONSTRAINT `fk_server_reward_logs_reward_id` FOREIGN KEY (`reward_id`) REFERENCES `server_rewards` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('snowwar_game_tokens', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `snowwar_game_tokens` ADD CONSTRAINT `fk_snowwar_game_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('snowwar_scores', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `snowwar_scores` ADD CONSTRAINT `fk_snowwar_scores_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_access_tokens', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_access_tokens` ADD CONSTRAINT `fk_user_access_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_access_tokens', 'session_id'), ('user_sessions', 'id'))) = 2,
+    'ALTER TABLE `user_access_tokens` ADD CONSTRAINT `fk_user_access_tokens_session_id` FOREIGN KEY (`session_id`) REFERENCES `user_sessions` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_achievements', 'userid'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_achievements` ADD CONSTRAINT `fk_user_achievements_userid` FOREIGN KEY (`userid`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_badges', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_badges` ADD CONSTRAINT `fk_user_badges_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_calendar_claims', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_calendar_claims` ADD CONSTRAINT `fk_user_calendar_claims_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_calendar_claims', 'campaign_id'), ('campaign_calendars', 'id'))) = 2,
+    'ALTER TABLE `user_calendar_claims` ADD CONSTRAINT `fk_user_calendar_claims_campaign_id` FOREIGN KEY (`campaign_id`) REFERENCES `campaign_calendars` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_calendar_claims', 'reward_id'), ('campaign_calendar_rewards', 'id'))) = 2,
+    'ALTER TABLE `user_calendar_claims` ADD CONSTRAINT `fk_user_calendar_claims_reward_id` FOREIGN KEY (`reward_id`) REFERENCES `campaign_calendar_rewards` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_clothing', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_clothing` ADD CONSTRAINT `fk_user_clothing_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_club_memberships', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_club_memberships` ADD CONSTRAINT `fk_user_club_memberships_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_crafting_recipes', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_crafting_recipes` ADD CONSTRAINT `fk_user_crafting_recipes_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_effects', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_effects` ADD CONSTRAINT `fk_user_effects_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_favorites', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_favorites` ADD CONSTRAINT `fk_user_favorites_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_favorites', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `user_favorites` ADD CONSTRAINT `fk_user_favorites_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_ignores', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_ignores` ADD CONSTRAINT `fk_user_ignores_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_ignores', 'ignore_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_ignores` ADD CONSTRAINT `fk_user_ignores_ignore_id` FOREIGN KEY (`ignore_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_info', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_info` ADD CONSTRAINT `fk_user_info_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_permissions', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_permissions` ADD CONSTRAINT `fk_user_permissions_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_permissions', 'granted_by'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_permissions` ADD CONSTRAINT `fk_user_permissions_granted_by` FOREIGN KEY (`granted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_presents', 'item_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `user_presents` ADD CONSTRAINT `fk_user_presents_item_id` FOREIGN KEY (`item_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_presents', 'base_id'), ('furniture', 'id'))) = 2,
+    'ALTER TABLE `user_presents` ADD CONSTRAINT `fk_user_presents_base_id` FOREIGN KEY (`base_id`) REFERENCES `furniture` (`id`) ON DELETE RESTRICT', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_quests', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_quests` ADD CONSTRAINT `fk_user_quests_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_quests', 'quest_id'), ('quests', 'id'))) = 2,
+    'ALTER TABLE `user_quests` ADD CONSTRAINT `fk_user_quests_quest_id` FOREIGN KEY (`quest_id`) REFERENCES `quests` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_recycler', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_recycler` ADD CONSTRAINT `fk_user_recycler_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_remember_tokens', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_remember_tokens` ADD CONSTRAINT `fk_user_remember_tokens_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_remember_tokens', 'family_id'), ('user_sessions', 'id'))) = 2,
+    'ALTER TABLE `user_remember_tokens` ADD CONSTRAINT `fk_user_remember_tokens_family_id` FOREIGN KEY (`family_id`) REFERENCES `user_sessions` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roles', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_roles` ADD CONSTRAINT `fk_user_roles_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roles', 'granted_by'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_roles` ADD CONSTRAINT `fk_user_roles_granted_by` FOREIGN KEY (`granted_by`) REFERENCES `users` (`id`) ON DELETE SET NULL', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roomvisits', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_roomvisits` ADD CONSTRAINT `fk_user_roomvisits_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_roomvisits', 'room_id'), ('rooms', 'id'))) = 2,
+    'ALTER TABLE `user_roomvisits` ADD CONSTRAINT `fk_user_roomvisits_room_id` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_safety_quizzes', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_safety_quizzes` ADD CONSTRAINT `fk_user_safety_quizzes_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_safety_quizzes', 'quiz_code'), ('safety_quizzes', 'code'))) = 2,
+    'ALTER TABLE `user_safety_quizzes` ADD CONSTRAINT `fk_user_safety_quizzes_quiz_code` FOREIGN KEY (`quiz_code`) REFERENCES `safety_quizzes` (`code`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_saved_searches', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_saved_searches` ADD CONSTRAINT `fk_user_saved_searches_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_sessions', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_sessions` ADD CONSTRAINT `fk_user_sessions_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_statistics', 'id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_statistics` ADD CONSTRAINT `fk_user_statistics_id` FOREIGN KEY (`id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_talent_rewards', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_talent_rewards` ADD CONSTRAINT `fk_user_talent_rewards_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_vouchers', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_vouchers` ADD CONSTRAINT `fk_user_vouchers_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_vouchers', 'voucher'), ('catalog_vouchers', 'voucher'))) = 2,
+    'ALTER TABLE `user_vouchers` ADD CONSTRAINT `fk_user_vouchers_voucher` FOREIGN KEY (`voucher`) REFERENCES `catalog_vouchers` (`voucher`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('user_wardrobe', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `user_wardrobe` ADD CONSTRAINT `fk_user_wardrobe_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_habbicons', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `users_habbicons` ADD CONSTRAINT `fk_users_habbicons_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_reward_track_prizes', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `users_reward_track_prizes` ADD CONSTRAINT `fk_users_reward_track_prizes_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_reward_track_tasks', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `users_reward_track_tasks` ADD CONSTRAINT `fk_users_reward_track_tasks_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_reward_tracks', 'user_id'), ('users', 'id'))) = 2,
+    'ALTER TABLE `users_reward_tracks` ADD CONSTRAINT `fk_users_reward_tracks_user_id` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('users_reward_tracks', 'track_id'), ('reward_tracks', 'id'))) = 2,
+    'ALTER TABLE `users_reward_tracks` ADD CONSTRAINT `fk_users_reward_tracks_track_id` FOREIGN KEY (`track_id`) REFERENCES `reward_tracks` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_item_configurations', 'item_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `wired_item_configurations` ADD CONSTRAINT `fk_wired_item_configurations_item_id` FOREIGN KEY (`item_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_items', 'id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `wired_items` ADD CONSTRAINT `fk_wired_items_id` FOREIGN KEY (`id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_reward_state', 'item_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `wired_reward_state` ADD CONSTRAINT `fk_wired_reward_state_item_id` FOREIGN KEY (`item_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+SET @migration_67 = IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND (TABLE_NAME, COLUMN_NAME) IN (('wired_variable_values', 'definition_id'), ('items', 'id'))) = 2,
+    'ALTER TABLE `wired_variable_values` ADD CONSTRAINT `fk_wired_variable_values_definition_id` FOREIGN KEY (`definition_id`) REFERENCES `items` (`id`) ON DELETE CASCADE', 'DO 0');
+EXECUTE IMMEDIATE @migration_67;
+
+SET @migration_67 = NULL;

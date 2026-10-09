@@ -31,11 +31,11 @@ public class GameDataManager : IGameDataManager, IStartable
     private async Task Load()
     {
         using var connection = _database.Connection();
-        var games = await connection.QueryAsync<GameRow>("SELECT id, name, colour_one AS ColourOne, colour_two AS ColourTwo, resource_path AS ResourcePath, string_three AS StringThree, game_swf AS Swf, game_assets AS Assets, game_server_host AS ServerHost, game_server_port AS ServerPort, socket_policy_port AS SocketPolicyPort, game_enabled AS Enabled FROM games_config");
+        var games = await connection.QueryAsync<GameRow>("SELECT id, name, colour_one AS ColourOne, colour_two AS ColourTwo, resource_path AS ResourcePath, string_three AS StringThree, game_swf AS Swf, game_assets AS Assets, game_server_host AS ServerHost, game_server_port AS ServerPort, game_enabled AS Enabled FROM games_config");
         _games.Clear();
 
         foreach (var game in games) {
-            _games.Add(game.Id, new(game.Id, game.Name, game.ColourOne, game.ColourTwo, game.ResourcePath, game.StringThree, game.Swf, game.Assets, game.ServerHost, game.ServerPort, game.SocketPolicyPort, game.Enabled));
+            _games.Add(game.Id, new(game.Id, game.Name, game.ColourOne, game.ColourTwo, game.ResourcePath, game.StringThree, game.Swf, game.Assets, game.ServerHost, game.ServerPort, game.Enabled));
         }
 
         _logger.LogInformation("Game Data Manager -> LOADED");
@@ -53,7 +53,6 @@ public class GameDataManager : IGameDataManager, IStartable
         public string Assets { get; set; } = string.Empty;
         public string ServerHost { get; set; } = string.Empty;
         public string ServerPort { get; set; } = string.Empty;
-        public string SocketPolicyPort { get; set; } = string.Empty;
         public bool Enabled { get; set; }
     }
 
