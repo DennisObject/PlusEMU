@@ -18,10 +18,10 @@ public sealed class WiredSelectorTests
         new(5, 100, "Wired", "0", 1, 2, 0, 1, [(1, 2)], IsWired: true)
     ],
     [
-        new(1, "Ada", WiredSelectorEntityKind.Player, 2, 1, 1, new HashSet<int> { 9 }, 7, Sitting: true, Sign: 3, Dance: 2),
+        new(1, "Ada", WiredSelectorEntityKind.Player, 2, 1, 1, new HashSet<int> { 9 }, 7, Sitting: true, Sign: 3, Dance: 2, EquippedGroupId: 9),
         new(2, "Bob", WiredSelectorEntityKind.Bot, 4, 4),
         new(3, "Cat", WiredSelectorEntityKind.Pet, 0, 0),
-        new(4, "Ana", WiredSelectorEntityKind.Player, 1, 2, 2, new HashSet<int> { 10 })
+        new(4, "Ana", WiredSelectorEntityKind.Player, 1, 2, 2, new HashSet<int> { 10 }, EquippedGroupId: 10)
     ], 9, new Dictionary<uint, WiredRemoteSelector> { [99] = new("wf_slc_furni_picks", Config(picks: [3])) });
 
     internal static WiredSelectorInputs Inputs()
@@ -44,7 +44,7 @@ public sealed class WiredSelectorTests
         yield return ["wf_slc_furni_picks", Config(picks: [3]), new uint[] { 3 }, Array.Empty<int>()];
         yield return ["wf_slc_users_bytype", Config([2]), Array.Empty<uint>(), new[] { 3 }];
         yield return ["wf_slc_users_team", Config([1]), Array.Empty<uint>(), new[] { 1 }];
-        yield return ["wf_slc_furni_onfurni", Config([0, 100], [1]), new uint[] { 2 }, Array.Empty<int>()];
+        yield return ["wf_slc_furni_onfurni", Config([0, 100], [1]), Array.Empty<uint>(), Array.Empty<int>()];
         yield return ["wf_slc_furni_signal", Config(), new uint[] { 3 }, Array.Empty<int>()];
         yield return ["wf_slc_furni_neighborhood", Config([0, 0, 0, 0, 0, 1, 0, 0]), new uint[] { 1, 2 }, Array.Empty<int>()];
         yield return ["wf_slc_furni_area", Config([1, 1, 2, 1]), new uint[] { 1, 2 }, Array.Empty<int>()];
@@ -56,7 +56,7 @@ public sealed class WiredSelectorTests
         yield return ["wf_slc_users_area", Config([1, 1, 2, 1]), Array.Empty<uint>(), new[] { 1 }];
         yield return ["wf_slc_users_handitem", Config([0]), Array.Empty<uint>(), new[] { 1 }];
         yield return ["wf_slc_users_group", Config([0]), Array.Empty<uint>(), new[] { 1 }];
-        yield return ["wf_slc_furni_altitude", Config([1], text: "1.004"), new uint[] { 2 }, Array.Empty<int>()];
+        yield return ["wf_slc_furni_altitude", Config([1], text: "1.004"), Array.Empty<uint>(), Array.Empty<int>()];
         yield return ["wf_slc_furni_with_var", Config(text: "custom:77"), new uint[] { 3 }, Array.Empty<int>()];
         yield return ["wf_slc_users_with_var", Config(text: "custom:77"), Array.Empty<uint>(), new[] { 4 }];
         yield return ["wf_slc_remote", Config(picks: [99]), new uint[] { 3 }, Array.Empty<int>()];
@@ -114,6 +114,56 @@ public sealed class WiredSelectorTests
         Assert.Empty(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([1]), world, Inputs() with { NowMs = 5101 }).Selection.UserIds);
         Assert.Empty(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([9, 1, 4]), world, Inputs()).Selection.UserIds);
         Assert.Single(WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([10, 0, 0, 1, 2]), world, Inputs()).Selection.UserIds);
+    }
+
+    [Fact]
+    public void EmptyNeighborhoodSelectsNothingAndTheFullEditorGridIsAccepted()
+    {
+        foreach (var name in new[] { "wf_slc_furni_neighborhood", "wf_slc_users_neighborhood" }) {
+            var empty = WiredSelectorConfiguration.Normalize(name, Config([0, 0, 0, 0, 0, 0]));
+            var result = WiredSelectorModule.SelectRaw(name, empty, World(), Inputs());
+            Assert.Empty(result.Selection.FurniIds);
+            Assert.Empty(result.Selection.UserIds);
+
+            var fields = new List<int> { 0, 0, 0, 0, 0, 81 };
+
+            for (var y = -4; y <= 4; y++) {
+                for (var x = -4; x <= 4; x++) {
+                    fields.Add(x);
+                    fields.Add(y);
+                }
+            }
+
+            var full = WiredSelectorConfiguration.Normalize(name, Config(fields.ToArray()));
+            Assert.True(WiredLegacyProtocol.IsWithinLimits(full));
+            var selected = WiredSelectorModule.SelectRaw(name, full, World(), Inputs()).Selection;
+
+            if (name == "wf_slc_furni_neighborhood") {
+                Assert.Equal(new uint[] { 1, 2, 3 }, selected.FurniIds.Order());
+            }
+            else {
+                Assert.Equal(new[] { 1, 2, 3, 4 }, selected.UserIds.Order());
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(4)]
+    [InlineData(7)]
+    public void AwakeAndStandingSelectorsReadCurrentStateWithoutARecentAction(int action)
+    {
+        var users = World().Users;
+        var world = World() with
+        {
+            Users = [
+            users[0] with { Sitting = false },
+            users[1] with { Sitting = true, Idle = true, LastAction = action, LastActionAtMs = 100 },
+            users[2] with { Lying = true, Idle = true }
+        ]
+        };
+        var selected = WiredSelectorModule.SelectRaw("wf_slc_users_byaction", Config([action]), world,
+            Inputs() with { NowMs = 200 }).Selection;
+        Assert.Equal(new[] { 1 }, selected.UserIds);
     }
 
     [Fact]

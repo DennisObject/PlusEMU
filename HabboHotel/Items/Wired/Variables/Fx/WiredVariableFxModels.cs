@@ -6,7 +6,7 @@ public sealed record WiredVariableFxConfig(int Id, bool UserFx, int ShowMode, in
     int StyleId, int ColorId, int WidthId, int RendererId, long Min, long Max, ImmutableSortedDictionary<string, string> Extra);
 public sealed record WiredVariableFxBinding(WiredVariableFxConfig Config, WiredVariableReference Variable, int Visibility,
     WiredVariableReference? Audience, int AudienceValue, WiredVariableReference? OverrideMin, WiredVariableReference? OverrideMax,
-    Func<int, WiredVariableLevel>? Level = null);
+    Func<long, WiredVariableLevel>? Level = null);
 public readonly record struct WiredVariableFxKey(int ConfigId, string VariableId, bool UserEntity, int EntityId)
 {
     public override string ToString() => $"{ConfigId}|{VariableId}|{(UserEntity ? "u" : "f")}|{EntityId}";

@@ -27,11 +27,11 @@ public sealed class WiredVariableTests
         directory.Definitions[11] = directory.Definitions[10] with { ItemId = 11, Name = "b", HasValue = false };
         var module = new WiredVariableModule(1, directory, new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1)));
         var frame = Frame();
-        Assert.False(module.CaptureContextValues(new Dictionary<uint, int> { [10] = 10, [11] = 20 }, frame));
+        Assert.False(module.CaptureContextValues(new Dictionary<uint, long> { [10] = 10, [11] = 20 }, frame));
         Assert.Empty(frame.Context.GetHolders(10));
         Assert.Empty(module.DrainChanges());
         directory.Definitions[11] = directory.Definitions[11] with { HasValue = true };
-        Assert.True(module.CaptureContextValues(new Dictionary<uint, int> { [10] = 10, [11] = 20 }, frame));
+        Assert.True(module.CaptureContextValues(new Dictionary<uint, long> { [10] = 10, [11] = 20 }, frame));
         Assert.Equal(10, module.Read(new(WiredVariableTarget.Context, "custom:10"), new(WiredVariableTarget.Context, 0, 0), frame)!.Value);
         Assert.Equal(2, module.DrainChanges().Count);
         Assert.Null(module.Read(new(WiredVariableTarget.Context, "custom:10"), new(WiredVariableTarget.Context, 0, 0), Frame()));
@@ -174,13 +174,13 @@ public sealed class WiredVariableTests
         var clock = new MutableTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(600));
         var module = new WiredVariableModule(1, directory, store, clock);
 
-        Assert.True(module.CaptureContextValues(new Dictionary<uint, int> { [11] = 2 }, frame));
+        Assert.True(module.CaptureContextValues(new Dictionary<uint, long> { [11] = 2 }, frame));
         Assert.True(new WiredVariableEditor(module).SaveGlobalValue(10, 2));
         Assert.Null(frame.Context.Read(new(11, WiredVariableTarget.Context, 0))!.CreatedAt);
         Assert.Null(store.Read(new(10, WiredVariableTarget.Global, 0))!.CreatedAt);
         Assert.Equal(2, clock.Reads);
         module.DrainChanges();
-        Assert.True(module.CaptureContextValues(new Dictionary<uint, int> { [11] = 2 }, frame));
+        Assert.True(module.CaptureContextValues(new Dictionary<uint, long> { [11] = 2 }, frame));
         Assert.True(new WiredVariableEditor(module).SaveGlobalValue(10, 2));
         Assert.Equal(2, clock.Reads);
         Assert.Empty(module.DrainChanges());
@@ -347,15 +347,15 @@ public sealed class WiredVariableTests
     }
 
     [Theory]
-    [InlineData(1, int.MaxValue, 1, int.MaxValue)]
-    [InlineData(4, int.MinValue, -1, int.MaxValue)]
+    [InlineData(1, int.MaxValue, 1, 2147483648L)]
+    [InlineData(4, int.MinValue, -1, 2147483648L)]
     [InlineData(4, 42, 0, 42)]
     [InlineData(40, 8, 3, 3)]
     [InlineData(41, 8, 3, 8)]
-    [InlineData(110, -1, 0, 32)]
+    [InlineData(110, -1, 0, 64)]
     [InlineData(112, 16, 0, 4)]
     [InlineData(120, 16, 4, -1)]
-    public void OctaneArithmeticHasSaturatedMathAndBitScans(int operation, int current, int operand, int expected) =>
+    public void OctaneArithmeticUsesSignedLongMathAndBitScans(int operation, int current, int operand, long expected) =>
         Assert.Equal(expected, WiredVariableArithmetic.Apply(operation, current, operand));
 
     [Fact]

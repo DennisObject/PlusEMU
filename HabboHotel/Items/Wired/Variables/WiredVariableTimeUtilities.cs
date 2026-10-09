@@ -29,19 +29,25 @@ public sealed record WiredVariableTimeUtilities(int Mask, int Mode)
         26 => "month",
         _ => throw new ArgumentOutOfRangeException(nameof(id))
     };
-    public int? Read(WiredVariableValue value, int id, TimeZoneInfo zone)
+    public long? Read(WiredVariableValue value, int id, TimeZoneInfo zone)
     {
         if (!Has(id)) {
             return null;
         }
 
-        long? seconds = Mode switch { 1 => value.CreatedAt?.ToUnixTimeSeconds(), 2 => value.UpdatedAt?.ToUnixTimeSeconds(), _ => Math.Max(0, value.Value) };
+        DateTimeOffset? instant = Mode switch
+        {
+            1 => value.CreatedAt,
+            2 => value.UpdatedAt,
+            _ => value.Value <= 253402300799 ? DateTimeOffset.FromUnixTimeSeconds(Math.Max(0, value.Value)) : null
+        };
 
-        if (seconds is null || Mode != 0 && seconds <= 0) {
+        if (instant is null || Mode != 0 && instant.Value.ToUnixTimeMilliseconds() <= 0) {
             return null;
         }
 
-        var utc = DateTimeOffset.FromUnixTimeSeconds(seconds.Value);
+        var utc = instant.Value;
+        var milliseconds = utc.ToUnixTimeMilliseconds();
         var local = TimeZoneInfo.ConvertTime(utc, zone);
         long? result = id switch
         {
@@ -55,17 +61,17 @@ public sealed record WiredVariableTimeUtilities(int Mask, int Mode)
             8 => ISOWeek.GetWeekOfYear(local.DateTime),
             9 => local.Month,
             10 => local.Year,
-            20 => seconds.Value * 1000,
-            21 => seconds.Value,
-            22 => seconds.Value / 60,
-            23 => seconds.Value / 3600,
-            24 => seconds.Value / 86400,
-            25 => seconds.Value / 604800,
+            20 => milliseconds,
+            21 => milliseconds / 1000,
+            22 => milliseconds / 60000,
+            23 => milliseconds / 3600000,
+            24 => milliseconds / 86400000,
+            25 => milliseconds / 604800000,
             26 => (utc.Year - 1970L) * 12 + utc.Month - 1,
             _ => null
         };
 
-        return result is { } number ? (int)Math.Clamp(number, int.MinValue, int.MaxValue) : null;
+        return result;
     }
 }
 

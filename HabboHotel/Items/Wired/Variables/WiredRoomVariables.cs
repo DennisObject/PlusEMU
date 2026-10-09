@@ -26,14 +26,14 @@ public sealed partial class WiredRoomVariables
     public bool FxDirty { get; private set; } = true;
 
     public WiredRoomVariables(Room room, IDatabase database, TimeProvider clock,
-        Func<WiredVariableReference, WiredVariableHolder, WiredVariableFrame, int?>? builtinRead = null,
+        Func<WiredVariableReference, WiredVariableHolder, WiredVariableFrame, long?>? builtinRead = null,
         Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? builtinWrite = null,
-        Action<Item, WiredVariableFrame>? stateChanged = null)
+        Action<Item, WiredVariableFrame>? stateChanged = null, IItemTravelStore? travelStore = null)
     {
         _room = room;
         _clock = clock;
         Module = new(room.Id, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), clock,
-            new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite, stateChanged), ResolveDerived);
+            new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite, stateChanged, new RoomItemMetadataStore(database), travelStore), ResolveDerived);
         Editor = new(Module);
         Fx = new(Module);
         _persistence = new(database, Module, clock);

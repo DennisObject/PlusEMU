@@ -166,10 +166,10 @@ public static class WiredRoomOperations
     }
 
     public static bool RelocateAvatar(Room room, RoomUser avatar, int x, int y,
-        bool slide, bool throughUsers = false)
+        bool slide, bool throughUsers = false, bool ignoreOccupants = false, long? discardThrough = null)
     {
         if (room.UsesV2Movement) {
-            return RelocateExecutorAvatar(room, avatar, x, y, slide, throughUsers);
+            return RelocateExecutorAvatar(room, avatar, x, y, slide, throughUsers, ignoreOccupants, discardThrough);
         }
 
         var map = room.GetGameMap();
@@ -183,7 +183,14 @@ public static class WiredRoomOperations
             return false;
         }
 
-        if (!throughUsers && (!map.CanWalk(x, y, false)
+        // throughUsers also skips CanWalk, which is the user-occupancy check. Teleport must not use it:
+        // other users are ignored, but a furni that cannot be stood on still refuses.
+        if (ignoreOccupants) {
+            if (!AvatarCanStand(map, x, y)) {
+                return false;
+            }
+        }
+        else if (!throughUsers && (!map.CanWalk(x, y, false)
                              || map.GetRoomUsers(new(x, y)).Any(other => other != avatar))) {
             return false;
         }
@@ -211,7 +218,7 @@ public static class WiredRoomOperations
         return true;
     }
 
-    private static bool CanRelocateAvatar(Room room, RoomUser avatar, int x, int y, bool throughUsers)
+    private static bool CanRelocateAvatar(Room room, RoomUser avatar, int x, int y, bool throughUsers, bool ignoreOccupants)
     {
         var map = room.GetGameMap();
 
@@ -224,13 +231,46 @@ public static class WiredRoomOperations
             return false;
         }
 
+        if (ignoreOccupants) {
+            return AvatarCanStand(map, x, y);
+        }
+
         return throughUsers || map.CanWalk(x, y, false) && !map.GetRoomUsers(new(x, y)).Any(other => other != avatar);
     }
 
-    private static void RelocateOwned(Room room, RoomNavigation navigation, RoomUser actor,
-        int x, int y, bool slide, bool throughUsers, long discardThrough)
+    // A magic tile or an empty square can be stood on. Otherwise the highest furni must be walkable or a seat/bed.
+    // An uninitialized map byte of 0 is not solid: tests and unloaded tiles have no furni there.
+    private static bool AvatarCanStand(Gamemap map, int x, int y)
     {
-        if (!CanRelocateAvatar(room, actor, x, y, throughUsers)) {
+        if (map.WalkMagicAt(x, y) != null) {
+            return true;
+        }
+
+        var items = map.GetCoordinatedItems(new(x, y));
+
+        if (items.Count == 0) {
+            return true;
+        }
+
+        Item? top = null;
+
+        foreach (var item in items) {
+            if (item.Definition.InteractionType == InteractionType.WalkMagicTile) {
+                continue;
+            }
+
+            if (top == null || item.TotalHeight > top.TotalHeight || item.TotalHeight == top.TotalHeight && item.Id > top.Id) {
+                top = item;
+            }
+        }
+
+        return top == null || map.ItemWalkState(top) is 1 or 3;
+    }
+
+    private static void RelocateOwned(Room room, RoomNavigation navigation, RoomUser actor,
+        int x, int y, bool slide, bool throughUsers, bool ignoreOccupants, long discardThrough)
+    {
+        if (!CanRelocateAvatar(room, actor, x, y, throughUsers, ignoreOccupants)) {
             return;
         }
 
@@ -246,14 +286,14 @@ public static class WiredRoomOperations
     }
 
     private static bool RelocateExecutorAvatar(Room room, RoomUser avatar, int x, int y,
-        bool slide, bool throughUsers = false)
+        bool slide, bool throughUsers = false, bool ignoreOccupants = false, long? discardThrough = null)
     {
-        if (!CanRelocateAvatar(room, avatar, x, y, throughUsers)) {
+        if (!CanRelocateAvatar(room, avatar, x, y, throughUsers, ignoreOccupants)) {
             return false;
         }
 
         var navigation = room.GetGameMap().Navigation!;
-        navigation.RunOwner(avatar, (actor, sequence) => RelocateOwned(room, navigation, actor, x, y, slide, throughUsers, sequence));
+        navigation.RunOwner(avatar, (actor, sequence) => RelocateOwned(room, navigation, actor, x, y, slide, throughUsers, ignoreOccupants, discardThrough ?? sequence));
 
         return true;
     }

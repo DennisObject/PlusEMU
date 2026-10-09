@@ -2,6 +2,7 @@ using Plus.Communication.Packets.Incoming.Rooms;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Rooms;
+using Plus.Communication.Packets.Outgoing.WiredVariables;
 
 namespace Plus.Communication.Packets.Incoming.WiredVariables;
 
@@ -73,8 +74,12 @@ public sealed class WiredVariableHoldersRequestEvent(IWiredVariableMenuService m
             return Task.CompletedTask;
         }
 
-        if (id.Length is < 1 or > 64 || packet.HasDataRemaining()) {
+        if (id.Length is < 1 or > 64 || !WiredVariableWireProtocol.TryReadRequestVersion(packet, out var exact)) {
             return Task.CompletedTask;
+        }
+
+        if (exact) {
+            WiredVariableWireProtocol.Enable(session);
         }
 
         menus.ShowHolders(room, session, id);
@@ -101,8 +106,12 @@ public sealed class WiredVariableHoldersPageEvent(IWiredVariableMenuService menu
             return Task.CompletedTask;
         }
 
-        if (id.Length is < 1 or > 64 || users is not (0 or 1) || sort is < -1 or > 2 || packet.HasDataRemaining()) {
+        if (id.Length is < 1 or > 64 || users is not (0 or 1) || sort is < -1 or > 2 || !WiredVariableWireProtocol.TryReadRequestVersion(packet, out var exact)) {
             return Task.CompletedTask;
+        }
+
+        if (exact) {
+            WiredVariableWireProtocol.Enable(session);
         }
 
         menus.ShowHolderPage(room, session, id, page, size, users, sort);

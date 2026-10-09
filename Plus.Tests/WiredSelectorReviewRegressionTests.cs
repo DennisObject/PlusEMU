@@ -83,16 +83,18 @@ public sealed class WiredSelectorReviewRegressionTests
     }
 
     [Fact]
-    public void SavedOrderReorderingRetainsSourceCapsAndObjectIdentityGuards()
+    public void SavedOrderReorderingPreservesCompleteSourcesAndObjectIdentityGuards()
     {
         var f = new Fixture();
         f.Context.Policy.Addons.FurniLimit = 1;
         Assert.True(f.Addon(new() { IntParams = [2, 100], SelectedItems = [4, 3], Text = "items\t;" }).Apply(f.Context));
-        var capped = Assert.Single(f.Context.Targets.ResolveFurni(f.Context, [4, 3], WiredSources.Selected));
-        Assert.Equal(capped.Definition.PublicName, f.Context.Policy.FormatText(f.Context, "$(items)"));
+        var picked = f.Context.Targets.ResolveFurni(f.Context, [4, 3], WiredSources.Selected);
+        Assert.Equal(2, picked.Length);
+        var capped = picked.Single(item => item.Id == 4);
+        Assert.Equal("Above saved;Above trigger", f.Context.Policy.FormatText(f.Context, "$(items)"));
         f.Items.Remove(capped);
         f.Items.Add(new() { Id = capped.Id, Definition = new() { PublicName = "Replacement" } });
-        Assert.Equal("", f.Context.Policy.FormatText(f.Context, "$(items)"));
+        Assert.Equal("Above trigger", f.Context.Policy.FormatText(f.Context, "$(items)"));
         Assert.Equal(1, f.WorldCaptures);
     }
 

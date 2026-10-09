@@ -27,7 +27,7 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
         _ => ["current_level", "current_xp", "level_progress", "level_progress_percent", "total_xp_required", "xp_remaining", "is_at_max", "max_level"]
     };
     public bool HasDerived(int sub) => sub >= 0 && sub < DerivedKeys.Length && (IsQuest || LevelSystem is { } level && (level.SubvariableMask & (1 << sub)) != 0);
-    public int ReadDerived(int value, int sub)
+    public long ReadDerived(long value, int sub)
     {
         if (!HasDerived(sub)) {
             throw new ArgumentOutOfRangeException(nameof(sub));
@@ -45,7 +45,7 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
             0 => Descriptor.CanonicalName == "wf_var_quest_chain" && target > 0 ? Math.Min(progress, target) : progress,
             1 => target,
             2 => target > 0 && progress >= target ? 1 : 0,
-            3 => target == 0 ? 100 : (int)Math.Min(100, (long)progress * 100 / target),
+            3 => target == 0 ? 100 : (long)Math.Min(100m, (decimal)progress * 100 / target),
             4 => Math.Max(0, target - progress),
             _ => throw new ArgumentOutOfRangeException(nameof(sub))
         };

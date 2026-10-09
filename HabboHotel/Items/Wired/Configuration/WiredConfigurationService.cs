@@ -34,6 +34,15 @@ public sealed class WiredConfigurationService(
         try {
             var selectedItem = room.GetRoomItemHandler().GetItem(request.ItemId);
 
+            if (selectedItem is { IsTemporary: false } && Plus.HabboHotel.Items.Wired.Chests.WiredChestFurniture.IsContract(selectedItem.Definition)) {
+                var saved = false;
+                room.GetWired().WithChests(module => saved = request.Envelope == WiredBoxCategory.Action
+                    && Plus.HabboHotel.Items.Wired.Chests.WiredChestContractEditor.TrySave(module, selectedItem, request.Configuration));
+                session.Send(saved ? new HideWiredConfigComposer() : new WiredValidationErrorComposer("Invalid contract requirements."));
+
+                return;
+            }
+
             if (selectedItem == null || selectedItem.IsTemporary || !room.GetWired().TryGet(request.ItemId, out var box)) {
                 return;
             }
@@ -167,7 +176,7 @@ public sealed class WiredConfigurationService(
         var saved = box.Configuration;
         proposed = proposed with { ScoreQuotaPerGame = saved.ScoreQuotaPerGame };
 
-        if (box.Descriptor.CanonicalName == "wf_act_place_furni" && saved.TemporaryPlacement != null) {
+        if (box.Descriptor.CanonicalName == "wf_act_place_furni" && proposed.IntParams.Length == 6 && saved.TemporaryPlacement != null) {
             proposed = proposed with
             {
                 TemporaryPlacement = saved.TemporaryPlacement,

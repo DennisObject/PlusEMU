@@ -95,12 +95,17 @@ public static class ServerPacketHeader
     public const uint WiredMovementsComposer = 3999;
     public const uint WiredFurniMoveStyleComposer = 5110;
     public const uint WiredClickSettingsComposer = 9477;
+    public const uint WiredEnvironmentComposer = 347;
     public const uint WiredClickUserResponseComposer = 9460;
     public const uint InClientLinkComposer = 2023;
     public const uint WiredVariableFxConfigsComposer = 9473;
     public const uint WiredVariableFxConfigsRemovedComposer = 9474;
     public const uint WiredVariableFxStatusComposer = 9475;
     public const uint WiredVariableFxStatusRemovedComposer = 9476;
+    public const uint AreaHideComposer = 6001;
+    public const uint WiredUserVariablesData64Composer = 9480;
+    public const uint WiredVariableHolders64Composer = 9481;
+    public const uint WiredVariableHoldersPage64Composer = 9482;
     public const uint WiredUserVariablesDataComposer = 5103;
     public const uint WiredAllVariablesHashComposer = 1646;
     public const uint WiredAllVariablesDiffComposer = 2498;
@@ -436,5 +441,15 @@ public static class ServerPacketHeader
     public const uint QuizDataComposer = 2927;
     public const uint QuizResultsComposer = 2772;
     public const uint CampaignCalendarDataComposer = 2531;
+    public const uint WiredChestContentsComposer = 9312;
+    public const uint WiredChestFurniChunkComposer = 9322;
+    public const uint WiredChestTradeOpenComposer = 9331;
+    public const uint WiredChestTradeItemsComposer = 9332;
+    public const uint WiredChestTradeCancelledComposer = 9333;
+    public const uint WiredChestTradeCompletedComposer = 9334;
+    public const uint WiredChestRewardComposer = 9346;
+    public const uint WiredChestUpgradeComposer = 9335;
+    public const uint WiredChestSettingsAckComposer = 9347;
+    public const uint WiredChestLockComposer = 9329;
 }
 

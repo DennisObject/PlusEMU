@@ -1,6 +1,8 @@
 """pytest scripts/test_import_habbo_catalog.py — mapping and derivation rules of import-habbo-catalog.py."""
 import importlib.util
 import json
+import csv
+import sqlite3
 from pathlib import Path
 import struct
 import zlib
@@ -55,8 +57,94 @@ def test_library_and_icon_names_follow_the_client_templates():
 
 
 def test_every_derivable_interaction_is_parsed_by_the_emulator():
-    assert m.derivable_interactions() <= m.interaction_names()
+    assert m.derivable_interactions() <= m.interaction_names() | m.wired_box_names().keys()
     assert 'wf_trg_says_something' in m.wired_box_names()
+
+
+WIRED_FURNITURE_INTERACTIONS = [
+    ('wf_xtra_varfx_hp', 'wf_xtra_var_fx_health'),
+    ('wf_xtra_varfx_prog', 'wf_xtra_var_fx_progress'),
+    ('wf_xtra_varfx_levelling', 'wf_xtra_var_fx_level'),
+    ('wf_xtra_varfx_status', 'wf_xtra_var_fx_status'),
+    ('wf_xtra_varfx_boss', 'wf_xtra_var_fx_boss'),
+    ('wf_xtra_varfx_number', 'wf_xtra_var_fx_number'),
+    ('wf_proto_trg_at_given_time', 'wf_trg_at_given_time'),
+    ('wf_proto_cnd_trggrer_on_frn', 'wf_cnd_trggrer_on_frn'),
+    ('wf_ltdproto_act_toggle_state', 'wf_act_toggle_state'),
+]
+
+
+@pytest.mark.parametrize('classname,interaction', WIRED_FURNITURE_INTERACTIONS)
+def test_official_wired_import_stores_a_concrete_database_interaction(classname, interaction):
+    wired = m.wired_box_names()
+    assert classname not in wired
+    assert interaction in wired
+    assert m.derive_interaction('s', entry(classname), None, None, wired) == (interaction, 'classname')
+
+
+@pytest.mark.parametrize('classname,interaction', WIRED_FURNITURE_INTERACTIONS)
+def test_official_wired_database_repair_and_new_import_are_idempotent(classname, interaction):
+    evidence = m.Evidence(wired=m.wired_box_names())
+    habbo = {('s', classname): entry(classname, id=123)}
+    furniture = [row(7, classname, 123, interaction='default', interaction_modes_count=3)]
+    before = furniture[0].copy()
+    repair = m.plan_furniture(furniture, habbo, set(), evidence, {})
+    assert repair['updates'][7]['interaction_type'] == interaction
+    assert 'interaction_modes_count' not in repair['updates'][7]
+    apply_furniture(furniture, repair)
+    assert (furniture[0]['id'], furniture[0]['item_name'], furniture[0]['sprite_id']) == (7, classname, 123)
+    assert furniture[0]['interaction_modes_count'] == before['interaction_modes_count']
+    repeat = m.plan_furniture(furniture, habbo, set(), evidence, {})
+    assert not repeat['updates'] and not repeat['inserts']
+    created = m.plan_furniture([], habbo, {('s', classname)}, evidence, {})
+    assert created['inserts'][0]['interaction_type'] == interaction
+    assert created['inserts'][0]['item_name'] == classname
+
+
+def test_wired_migration_repairs_only_known_definitions_and_keeps_saved_configuration():
+    root = Path(__file__).resolve().parents[1]
+    fresh = (root / 'Database/FreshInstall.sql').read_text()
+    migration = (root / 'Database/Migrations/64_WiredFurnitureInteractions.sql').read_text()
+    database = sqlite3.connect(':memory:')
+    database.execute('CREATE TABLE furniture (id INTEGER PRIMARY KEY, item_name TEXT, type TEXT, sprite_id INTEGER, interaction_type TEXT)')
+    database.execute('CREATE TABLE wired_item_configurations (item_id INTEGER, box_name TEXT, configuration TEXT)')
+    expected = {}
+    for index, (classname, interaction) in enumerate(WIRED_FURNITURE_INTERACTIONS):
+        line = next(line for line in fresh.splitlines()
+                    if line.startswith('(') and ",'%s'," % classname in line and ",'s'," in line)
+        values = next(csv.reader([line[1:].rstrip(',;')[:-1]], quotechar="'", escapechar='\\'))
+        # Fresh installs must already contain the explicit interaction; no runtime name rewrite is involved.
+        assert values[1] == classname and values[16] == interaction
+        sprite = int(values[10])
+        generic = m.wired_box_names()[interaction]
+        for offset, (name, kind, graphic, old, new) in enumerate([
+            (classname, 's', sprite, 'default', interaction),
+            (classname, 's', sprite, generic, interaction),
+            (classname, 's', sprite, classname, interaction),
+            (classname, 's', sprite, interaction, interaction),
+            (classname, 's', sprite, 'gate', 'gate'),
+            (classname, 's', sprite + 1, 'default', 'default'),
+            ('custom_' + classname, 's', sprite, 'default', 'default'),
+            (classname, 'i', sprite, 'default', 'default'),
+        ]):
+            if len(old) > 25:  # The production column cannot store the long Ancient asset names.
+                continue
+            item_id = index * 10 + offset
+            database.execute('INSERT INTO furniture VALUES (?,?,?,?,?)', (item_id, name, kind, graphic, old))
+            expected[item_id] = new
+        database.execute('INSERT INTO wired_item_configurations VALUES (?,?,?)', (index, interaction, '{"IntParams":[1,2],"Text":"saved"}'))
+    identities = database.execute('SELECT id,item_name,type,sprite_id FROM furniture ORDER BY id').fetchall()
+    saved = database.execute('SELECT * FROM wired_item_configurations').fetchall()
+    before = database.total_changes
+    database.executescript(migration)
+    assert database.total_changes - before == 24
+    assert dict(database.execute('SELECT id,interaction_type FROM furniture')) == expected
+    assert database.execute('SELECT id,item_name,type,sprite_id FROM furniture ORDER BY id').fetchall() == identities
+    assert database.execute('SELECT * FROM wired_item_configurations').fetchall() == saved
+    before = database.total_changes
+    database.executescript(migration)
+    assert database.total_changes == before
+    database.close()
 
 
 # ---- furnidata columns -----------------------------------------------------
@@ -515,3 +603,30 @@ def test_precedence_plus_configuration_then_wired_then_habbo_then_references():
     assert report['modes']['hab_vs_references'] == [{'classname': 'lamp', 'hab': 3, 'references': 2}]
     assert updates[6]['interaction_modes_count'] == 5                          # no .hab: the references
     assert 'interaction_modes_count' not in updates.get(3, {})                 # wired boxes keep theirs
+
+
+@pytest.mark.parametrize('classname,interaction', [
+    ('wf_storage_furni1', 'wired_chest_furni'),
+    ('wf_storage_furni2', 'wired_chest_furni'),
+    ('wf_storage_furni_starter', 'wired_chest_furni'),
+    ('wf_storage_coins1', 'wired_chest_coins'),
+    ('wf_storage_coins2', 'wired_chest_coins'),
+    ('wf_contract_payment', 'wired_contract_payment'),
+    ('wf_contract_reward', 'wired_contract_reward'),
+    ('wf_contract_trade', 'wired_contract_trade'),
+])
+def test_chest_and_contract_imports_store_concrete_interactions_without_runtime_aliases(classname, interaction):
+    wired = m.wired_box_names()
+    assert m.derive_interaction('s', entry(classname), None, None, wired) == (interaction, 'classname')
+    evidence = m.Evidence(wired=wired)
+    habbo = {('s', classname): entry(classname, id=123)}
+    furniture = [row(7, classname, 123, interaction='default')]
+    repair = m.plan_furniture(furniture, habbo, set(), evidence, {})
+    assert repair['updates'][7]['interaction_type'] == interaction
+    apply_furniture(furniture, repair)
+    assert not m.plan_furniture(furniture, habbo, set(), evidence, {})['updates']
+    assert m.plan_furniture([], habbo, {('s', classname)}, evidence, {})['inserts'][0]['interaction_type'] == interaction
+
+
+def test_area_hide_import_uses_canonical_interaction_without_runtime_asset_alias():
+    assert m.derive_interaction('s', entry('conf_area_hide'), None, None, m.wired_box_names()) == ('area_hide', 'classname')

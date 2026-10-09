@@ -7,7 +7,7 @@ namespace Plus.Tests;
 public sealed class WiredVariableQueryTests
 {
     [Fact]
-    public void SelectorCapturesReferencesOnceAndPrefersMatchingHolderThenFirstReference()
+    public void SelectorCapturesTheFirstReadableReferenceOnceForEveryCandidate()
     {
         var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(1000)));
         var first = new WiredVariableHolder(WiredVariableTarget.User, 901, 1);
@@ -29,7 +29,7 @@ public sealed class WiredVariableQueryTests
         using (var queries = new WiredVariableQueries(module, frame)) {
             Assert.True(queries.MatchSelector("wf_slc_users_with_var", config, first));
             module.Mutate(reference, second, WiredVariableMutation.Set, 99, frame);
-            Assert.True(queries.MatchSelector("wf_slc_users_with_var", config, second));
+            Assert.False(queries.MatchSelector("wf_slc_users_with_var", config, second));
             Assert.True(queries.MatchSelector("wf_slc_users_with_var", config, third));
         }
 

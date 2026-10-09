@@ -3212,7 +3212,7 @@ CREATE TABLE `wired_variable_values` (
   `definition_id` int(10) unsigned NOT NULL,
   `target_kind` tinyint(3) unsigned NOT NULL,
   `holder_id` bigint(20) NOT NULL,
-  `value` int(11) NOT NULL,
+  `value` bigint(20) NOT NULL,
   `created_at` datetime(6) DEFAULT NULL,
   `updated_at` datetime(6) DEFAULT NULL,
   PRIMARY KEY (`definition_id`,`target_kind`,`holder_id`)
@@ -88376,12 +88376,12 @@ INSERT INTO `furniture` VALUES
 (1000007582,'diamond_painting94','Duck Bath','s',1,1,1,0,0,0,15409,1,1,1,1,1,'default',0,1,'0','0',0,0,0,0,0,1,71546,'other',0,1,1,NULL,'Duck Bath','diamond_painting94 desc',NULL,0,NULL,1,0,0,0,0,1,'diamond',NULL,0,1,1,15409,'diamond_painting94'),
 (1000007583,'CF_350_d20dice','Golden Icosahedron Die','s',1,1,0.7,1,0,0,15410,1,1,1,1,1,'exchange',0,1,'0','0',0,0,0,0,0,1,71546,'credit',0,1,1,NULL,'Golden Icosahedron Die','CF_350_d20dice desc',NULL,0,NULL,1,0,0,0,1,0.7,'credit_furni',NULL,0,1,0,15410,'CF_350_d20dice'),
 (1000007584,'mini_c24_kingsday24','Delfstblauw Clog','s',1,2,1,0,1,0,15411,1,1,1,1,1,'default',0,1,'0','0',0,0,0,0,0,1,71546,'chair',2,1,2,NULL,'Delfstblauw Clog','mini_c24_kingsday24 desc',NULL,0,NULL,1,0,1,0,0,1,'miniatures',NULL,0,1,1,15411,'mini_c24_kingsday24'),
-(1000007585,'wf_xtra_varfx_boss','Variable FX: Boss Health Bar','s',1,1,1,1,0,1,19195,1,1,1,1,1,'default',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Boss Health Bar','wf_xtra_varfx_boss desc',NULL,0,'1204',1,1,0,0,1,1,'wired',NULL,0,1,1,19195,'wf_xtra_varfx_boss'),
-(1000007586,'wf_xtra_varfx_hp','Variable FX: Health Points','s',1,1,1,1,0,1,19196,1,1,1,1,1,'default',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Health Points','wf_xtra_varfx_hp desc',NULL,0,'1200',1,1,0,0,1,1,'wired',NULL,0,1,1,19196,'wf_xtra_varfx_hp'),
-(1000007587,'wf_xtra_varfx_levelling','Variable FX: Levelling Progress','s',1,1,1,1,0,1,19197,1,1,1,1,1,'default',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Levelling Progress','wf_xtra_varfx_levelling desc',NULL,0,'1202',1,1,0,0,1,1,'wired',NULL,0,1,1,19197,'wf_xtra_varfx_levelling'),
-(1000007588,'wf_xtra_varfx_number','Variable FX: Number Display','s',1,1,1,1,0,1,19198,1,1,1,1,1,'default',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Number Display','wf_xtra_varfx_number desc',NULL,0,'1205',1,1,0,0,1,1,'wired',NULL,0,1,1,19198,'wf_xtra_varfx_number'),
-(1000007589,'wf_xtra_varfx_prog','Variable FX: Progress Bar','s',1,1,1,1,0,1,19199,1,1,1,1,1,'default',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Progress Bar','wf_xtra_varfx_prog desc',NULL,0,'1201',1,1,0,0,1,1,'wired',NULL,0,1,1,19199,'wf_xtra_varfx_prog'),
-(1000007590,'wf_xtra_varfx_status','Variable FX: Status Bar','s',1,1,1,1,0,1,19200,1,1,1,1,1,'default',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Status Bar','wf_xtra_varfx_status desc',NULL,0,'1203',1,1,0,0,1,1,'wired',NULL,0,1,1,19200,'wf_xtra_varfx_status'),
+(1000007585,'wf_xtra_varfx_boss','Variable FX: Boss Health Bar','s',1,1,1,1,0,1,19195,1,1,1,1,1,'wf_xtra_var_fx_boss',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Boss Health Bar','wf_xtra_varfx_boss desc',NULL,0,'1204',1,1,0,0,1,1,'wired',NULL,0,1,1,19195,'wf_xtra_varfx_boss'),
+(1000007586,'wf_xtra_varfx_hp','Variable FX: Health Points','s',1,1,1,1,0,1,19196,1,1,1,1,1,'wf_xtra_var_fx_health',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Health Points','wf_xtra_varfx_hp desc',NULL,0,'1200',1,1,0,0,1,1,'wired',NULL,0,1,1,19196,'wf_xtra_varfx_hp'),
+(1000007587,'wf_xtra_varfx_levelling','Variable FX: Levelling Progress','s',1,1,1,1,0,1,19197,1,1,1,1,1,'wf_xtra_var_fx_level',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Levelling Progress','wf_xtra_varfx_levelling desc',NULL,0,'1202',1,1,0,0,1,1,'wired',NULL,0,1,1,19197,'wf_xtra_varfx_levelling'),
+(1000007588,'wf_xtra_varfx_number','Variable FX: Number Display','s',1,1,1,1,0,1,19198,1,1,1,1,1,'wf_xtra_var_fx_number',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Number Display','wf_xtra_varfx_number desc',NULL,0,'1205',1,1,0,0,1,1,'wired',NULL,0,1,1,19198,'wf_xtra_varfx_number'),
+(1000007589,'wf_xtra_varfx_prog','Variable FX: Progress Bar','s',1,1,1,1,0,1,19199,1,1,1,1,1,'wf_xtra_var_fx_progress',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Progress Bar','wf_xtra_varfx_prog desc',NULL,0,'1201',1,1,0,0,1,1,'wired',NULL,0,1,1,19199,'wf_xtra_varfx_prog'),
+(1000007590,'wf_xtra_varfx_status','Variable FX: Status Bar','s',1,1,1,1,0,1,19200,1,1,1,1,1,'wf_xtra_var_fx_status',0,3,'0','0',0,0,0,0,0,1,75717,'wired',0,1,1,NULL,'Variable FX: Status Bar','wf_xtra_varfx_status desc',NULL,0,'1203',1,1,0,0,1,1,'wired',NULL,0,1,1,19200,'wf_xtra_varfx_status'),
 (1000007591,'photo','Photo','i',1,1,0,1,0,0,3,1,1,1,1,1,'default',0,1,'0','0',0,0,0,0,0,1,45508,'wall_decoration',0,1,1,NULL,'Photo','Photo from Habbo',NULL,0,NULL,1,0,0,0,NULL,NULL,'legacy',NULL,0,0,1,3,'photo'),
 (1000007592,'Chess','','i',1,1,0,1,0,0,1001,1,1,1,1,1,'default',0,2,'0','0',0,0,0,0,0,1,0,NULL,0,1,1,NULL,NULL,NULL,NULL,0,NULL,1,0,0,0,NULL,NULL,NULL,NULL,0,1,0,1001,'Chess'),
 (1000007593,'TicTacToe','','i',1,1,0,1,0,0,1011,1,1,1,1,1,'default',0,2,'0','0',0,0,0,0,0,1,0,NULL,0,1,1,NULL,NULL,NULL,NULL,0,NULL,1,0,0,0,NULL,NULL,NULL,NULL,0,1,0,1011,'TicTacToe'),
@@ -92266,11 +92266,11 @@ INSERT INTO `furniture` VALUES
 (1000012077,'wf_contract_trade','WIRED Contract: Trade Contract','s',1,1,0.11,1,0,1,18485,1,1,1,1,1,'default',0,1,'0','0',0,0,0,0,0,1,74772,'wired',0,1,1,NULL,'WIRED Contract: Trade Contract','wf_contract_trade desc',NULL,0,NULL,1,1,0,0,1,0.11,'wired',NULL,0,1,1,18485,'wf_contract_trade'),
 (1000012078,'wf_fx_firegate','Fire Gate','s',1,1,0,1,0,1,19194,1,1,1,1,1,'default',0,4,'0','0',0,0,0,0,0,1,75717,'games',2,1,1,NULL,'Fire Gate','wf_fx_firegate desc',NULL,0,NULL,1,1,0,0,1,0,'wired',NULL,0,1,1,19194,'wf_fx_firegate'),
 (1000012079,'wf_knob','Knob','s',1,1,1,0,0,0,17875,1,1,1,1,1,'default',0,8,'0','0',0,0,0,0,0,1,74315,'other',0,1,1,NULL,'Knob','wf_knob desc',NULL,0,NULL,1,0,0,0,0,1,'wired',NULL,0,1,1,17875,'wf_knob'),
-(1000012080,'wf_ltdproto_act_toggle_state','Ancient WIRED Effect: Toggle Furni State','s',1,1,1,1,0,1,17676,0,1,1,1,1,'default',0,3,'0','0',0,0,0,0,0,1,74122,'wired',0,1,1,NULL,'Ancient WIRED Effect: Toggle Furni State','wf_ltdproto_act_toggle_state desc',NULL,0,'0',1,1,0,0,1,1,'wired',NULL,0,1,0,17676,'wf_ltdproto_act_toggle_state'),
+(1000012080,'wf_ltdproto_act_toggle_state','Ancient WIRED Effect: Toggle Furni State','s',1,1,1,1,0,1,17676,0,1,1,1,1,'wf_act_toggle_state',0,3,'0','0',0,0,0,0,0,1,74122,'wired',0,1,1,NULL,'Ancient WIRED Effect: Toggle Furni State','wf_ltdproto_act_toggle_state desc',NULL,0,'0',1,1,0,0,1,1,'wired',NULL,0,1,0,17676,'wf_ltdproto_act_toggle_state'),
 (1000012081,'wf_numberscreen','Number Screen','s',1,1,1,0,0,0,17864,1,1,1,1,1,'default',0,11,'0','0',0,0,0,0,0,1,74315,'other',0,1,1,NULL,'Number Screen','wf_numberscreen desc',NULL,0,NULL,1,0,0,0,0,1,'wired',NULL,0,1,1,17864,'wf_numberscreen'),
-(1000012082,'wf_proto_cnd_trggrer_on_frn','Ancient WIRED Condition: Triggerer Is On Furni','s',1,1,1,1,0,1,17679,1,1,1,1,1,'default',0,4,'0','0',0,0,0,0,0,1,74122,'wired',0,1,1,NULL,'Ancient WIRED Condition: Triggerer Is On Furni','wf_proto_cnd_trggrer_on_frn desc',NULL,0,'2',1,1,0,0,1,1,'wired',NULL,0,1,1,17679,'wf_proto_cnd_trggrer_on_frn'),
+(1000012082,'wf_proto_cnd_trggrer_on_frn','Ancient WIRED Condition: Triggerer Is On Furni','s',1,1,1,1,0,1,17679,1,1,1,1,1,'wf_cnd_trggrer_on_frn',0,4,'0','0',0,0,0,0,0,1,74122,'wired',0,1,1,NULL,'Ancient WIRED Condition: Triggerer Is On Furni','wf_proto_cnd_trggrer_on_frn desc',NULL,0,'2',1,1,0,0,1,1,'wired',NULL,0,1,1,17679,'wf_proto_cnd_trggrer_on_frn'),
 (1000012083,'wf_proto_pyramid','Ancient WIRED Pyramid','s',1,1,0.01,0,0,1,17677,1,1,1,1,1,'default',0,4,'0','0',0,0,0,0,0,1,74122,'wired',0,1,1,NULL,'Ancient WIRED Pyramid','wf_proto_pyramid desc',NULL,0,'10,8,20,12',1,1,0,0,0,0.01,'wired',NULL,0,1,1,17677,'wf_proto_pyramid'),
-(1000012084,'wf_proto_trg_at_given_time','Ancient WIRED Trigger: At Given Time','s',1,1,1,1,0,1,17678,1,1,1,1,1,'default',0,4,'0','0',0,0,0,0,0,1,74122,'wired',0,1,1,NULL,'Ancient WIRED Trigger: At Given Time','wf_proto_trg_at_given_time desc',NULL,0,'3',1,1,0,0,1,1,'wired',NULL,0,1,1,17678,'wf_proto_trg_at_given_time'),
+(1000012084,'wf_proto_trg_at_given_time','Ancient WIRED Trigger: At Given Time','s',1,1,1,1,0,1,17678,1,1,1,1,1,'wf_trg_at_given_time',0,4,'0','0',0,0,0,0,0,1,74122,'wired',0,1,1,NULL,'Ancient WIRED Trigger: At Given Time','wf_proto_trg_at_given_time desc',NULL,0,'3',1,1,0,0,1,1,'wired',NULL,0,1,1,17678,'wf_proto_trg_at_given_time'),
 (1000012085,'wf_room_linker','WIRED Room Linker','s',1,1,0,1,0,1,16744,1,1,1,1,1,'default',0,1,'0','0',0,0,0,0,0,1,72921,'wired',0,1,1,NULL,'WIRED Room Linker','wf_room_linker desc',NULL,0,NULL,1,1,0,0,1,0,'wired',NULL,0,1,1,16744,'wf_room_linker'),
 (1000012086,'wf_screenseparator','Screen Separator','s',1,1,1,0,0,0,18028,1,1,1,1,1,'default',0,13,'0','0',0,0,0,0,0,1,74315,'other',0,1,1,NULL,'Screen Separator','wf_screenseparator desc',NULL,0,NULL,1,0,0,0,0,1,'wired',NULL,0,1,1,18028,'wf_screenseparator'),
 (1000012087,'wf_slider','Slider','s',1,1,1,0,0,0,17879,1,1,1,1,1,'default',0,4,'0','0',0,0,0,0,0,1,74173,'other',0,1,1,NULL,'Slider','wf_slider desc',NULL,0,NULL,1,0,0,0,0,1,'wired',NULL,0,1,1,17879,'wf_slider'),
@@ -95005,3 +95005,59 @@ UNLOCK TABLES;
 -- Dump completed
 UPDATE `catalog_offer_limited` SET `sold` = 0;
 INSERT INTO `server_status` (`users_online`, `loaded_rooms`) VALUES (0, 0);
+
+-- Chest stock consists of existing inventory items or redeemed credit vouchers.
+ALTER TABLE items ADD COLUMN IF NOT EXISTS chest_item_id INT UNSIGNED NULL,
+    ADD COLUMN IF NOT EXISTS chest_transaction_id BIGINT UNSIGNED NULL,
+    ADD COLUMN IF NOT EXISTS chest_random_order BIGINT UNSIGNED NULL;
+CREATE TABLE IF NOT EXISTS wired_chests (
+    item_id INT UNSIGNED NOT NULL PRIMARY KEY,
+    kind TINYINT UNSIGNED NOT NULL,
+    coins INT UNSIGNED NOT NULL DEFAULT 0,
+    capacity_level INT UNSIGNED NOT NULL DEFAULT 0,
+    settings LONGTEXT NOT NULL,
+    CONSTRAINT wired_chest_item FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS wired_contracts (
+    item_id INT UNSIGNED NOT NULL PRIMARY KEY,
+    contract LONGTEXT NOT NULL,
+    CONSTRAINT wired_contract_item FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS wired_chest_transactions (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    operation_id CHAR(32) NOT NULL UNIQUE,
+    user_id INT NOT NULL,
+    room_id INT UNSIGNED NOT NULL,
+    source_id INT UNSIGNED NOT NULL,
+    result LONGTEXT NOT NULL,
+    created_at DATETIME(6) NOT NULL
+) ENGINE=InnoDB;
+CREATE TABLE IF NOT EXISTS wired_chest_transaction_entries (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    transaction_id BIGINT UNSIGNED NOT NULL,
+    chest_id INT UNSIGNED NOT NULL,
+    item_id INT UNSIGNED NULL,
+    is_deposit TINYINT(1) NOT NULL,
+    coins INT UNSIGNED NOT NULL DEFAULT 0,
+    CONSTRAINT wired_chest_entry_log FOREIGN KEY (transaction_id) REFERENCES wired_chest_transactions(id)
+) ENGINE=InnoDB;
+CREATE INDEX IF NOT EXISTS items_chest ON items(chest_item_id,chest_transaction_id);
+SET @wired_chest_fk_sql = IF(EXISTS(SELECT 1 FROM information_schema.REFERENTIAL_CONSTRAINTS
+    WHERE CONSTRAINT_SCHEMA=DATABASE() AND TABLE_NAME='items' AND CONSTRAINT_NAME='wired_stored_item_chest'),
+    'SELECT 1', 'ALTER TABLE items ADD CONSTRAINT wired_stored_item_chest FOREIGN KEY (chest_item_id) REFERENCES wired_chests(item_id) ON DELETE RESTRICT');
+PREPARE wired_chest_fk FROM @wired_chest_fk_sql;
+EXECUTE wired_chest_fk;
+DEALLOCATE PREPARE wired_chest_fk;
+UPDATE furniture SET interaction_type='wired_chest_furni' WHERE item_name IN ('wf_storage_furni1','wf_storage_furni2','wf_storage_furni_starter');
+UPDATE furniture SET interaction_type='wired_chest_coins' WHERE item_name IN ('wf_storage_coins1','wf_storage_coins2');
+UPDATE furniture SET interaction_type='wired_contract_payment' WHERE item_name='wf_contract_payment';
+UPDATE furniture SET interaction_type='wired_contract_reward' WHERE item_name='wf_contract_reward';
+UPDATE furniture SET interaction_type='wired_contract_trade' WHERE item_name='wf_contract_trade';
+UPDATE furniture SET interaction_type='wired_effect' WHERE item_name IN ('wf_act_give_currency','wf_act_give_furni','wf_act_init_transaction','wf_act_cancel_transaction');
+UPDATE furniture SET interaction_type='wired_condition' WHERE item_name IN ('wf_cnd_chest_has_items','wf_cnd_chest_has_item_type');
+UPDATE furniture SET interaction_type='wired_trigger' WHERE item_name IN ('wf_trg_transaction_complete','wf_trg_transaction_fail');
+UPDATE furniture SET interaction_type='wired_addon' WHERE item_name IN ('wf_xtra_custom_contract','wf_xtra_scan_chest_furni_by_type');
+
+UPDATE furniture SET interaction_type = 'area_hide'
+WHERE item_name = 'conf_area_hide' AND type = 's' AND sprite_id = 15215
+  AND interaction_type IN ('default', 'default_floor', 'conf_area_hide');

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Variables;
@@ -13,12 +14,95 @@ public static class WiredTemporaryFurnitureActions
         IntParams = name == "wf_act_place_furni" ? [0, 1, 0, 0, 0, 0] : [0, 100]
     };
 
+    public static WiredConfiguration ForEditor(WiredConfiguration configuration)
+    {
+        if (configuration.TemporaryPlacement is not { } placement) {
+            return configuration;
+        }
+
+        return configuration with
+        {
+            IntParams = [1, placement.TargetIsUser ? 1 : 0, (int)placement.Location, (int)placement.Altitude,
+                placement.OffsetX, placement.OffsetY, placement.OffsetAltitudeHundredths,
+                configuration.FurniSources.GetValueOrDefault("target", 100), configuration.UserSources.GetValueOrDefault("target", 0),
+                placement.SpawnWithVariable ? 1 : 0, placement.ValueIsVariable ? 1 : 0, placement.Value, placement.ValueTarget,
+                configuration.FurniSources.GetValueOrDefault("value", 0), configuration.UserSources.GetValueOrDefault("value", 0)],
+            Text = string.Join(';', configuration.SecondarySelectedItems) + "\t"
+                + configuration.VariableIds.ElementAtOrDefault(0) + "\t" + configuration.VariableIds.ElementAtOrDefault(1)
+        };
+    }
+
+    // Decode once into the companion policy before save-time template capture. The six legacy fields keep their meaning.
+    public static bool TryDecodeEditor(WiredConfiguration proposed, out WiredConfiguration decoded)
+    {
+        decoded = proposed;
+        var p = proposed.IntParams;
+
+        if (p.Length == 6) {
+            return true;
+        }
+
+        if (p.Length == 7 && p[0] == 0) {
+            decoded = proposed with
+            {
+                IntParams = p.RemoveAt(0),
+                TemporaryPlacement = null,
+                Snapshots = [],
+                SecondarySelectedItems = [],
+                FurniSources = ImmutableDictionary<string, int>.Empty,
+                UserSources = ImmutableDictionary<string, int>.Empty,
+                VariableIds = [],
+                Text = ""
+            };
+
+            return true;
+        }
+
+        if (p.Length != 15 || p[0] != 1 || p[1] is < 0 or > 1 || p[2] is < 0 or > 1 || p[3] is < 0 or > 2
+            || p[4] is < -64 or > 64 || p[5] is < -64 or > 64 || p[6] is < -8000 or > 8000
+            || !FurniSource(p[7]) || !UserSource(p[8]) || p[9] is < 0 or > 1 || p[10] is < 0 or > 1
+            || p[12] is < 0 or > 3 || !FurniSource(p[13]) || !UserSource(p[14])) {
+            return false;
+        }
+
+        var parts = proposed.Text.Split('\t');
+
+        if (parts.Length != 3 || !WiredMovementConfiguration.TryItemIds(parts[0], out var targets)
+            || parts.Skip(1).Any(token => token.Length > 1024 || token.Contains('\n') || token.Contains('\r'))
+            || p[9] == 1 && !WiredVariableModule.TryDefinitionId(parts[1], out _)
+            || p[9] == 1 && p[10] == 1 && !(WiredVariableModule.TryDefinitionId(parts[2], out _)
+                || (parts[2].StartsWith("internal:@", StringComparison.Ordinal) || parts[2].StartsWith("internal:~", StringComparison.Ordinal))
+                    && parts[2].Length > 10)) {
+            return false;
+        }
+
+        decoded = proposed with
+        {
+            IntParams = [0, 1, 0, 0, 0, 0],
+            Text = "",
+            SecondarySelectedItems = targets,
+            TemporaryPlacement = new(p[1] == 1, (WiredPlaceLocationType)p[2], (WiredPlaceAltitudeType)p[3], p[4], p[5], p[6],
+                p[9] == 1, p[10] == 1, p[11], p[12]),
+            FurniSources = proposed.FurniSources.SetItem("target", p[7]).SetItem("value", p[13]),
+            UserSources = proposed.UserSources.SetItem("target", p[8]).SetItem("value", p[14]),
+            VariableIds = [parts[1], parts[2]]
+        };
+
+        return true;
+    }
+
+    private static bool UserSource(int source) => source is 0 or 10 or 11 or 200 or 201;
+
     public static bool TryValidate(string name, WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed;
         error = "Invalid temporary furniture configuration.";
 
         if (!WiredLegacyProtocol.IsWithinLimits(proposed)) {
+            return false;
+        }
+
+        if (name == "wf_act_place_furni" && !TryDecodeEditor(proposed, out proposed)) {
             return false;
         }
 
@@ -46,6 +130,7 @@ public static class WiredTemporaryFurnitureActions
             }
         }
 
+        validated = name == "wf_act_place_furni" ? proposed : validated;
         error = "";
 
         return true;
@@ -118,12 +203,12 @@ public static class WiredTemporaryFurnitureActions
             dy += targetY - config.Snapshots[0].Y;
         }
 
-        var spawnValue = policy.Value;
+        long spawnValue = policy.Value;
 
         if (policy.SpawnWithVariable && policy.ValueIsVariable && context.VariableFrame is { } valueFrame) {
             using var queries = new WiredVariableQueries(context.Room.GetWired().Variables.Module, valueFrame);
-            spawnValue = config.VariableIds.Length > 1 ? (int)Math.Clamp(queries.ReadOperand((WiredVariableTarget)policy.ValueTarget,
-                config.VariableIds[1], config.UserSources.GetValueOrDefault("value", 0), config.FurniSources.GetValueOrDefault("value", 0), config) ?? 0, int.MinValue, int.MaxValue) : 0;
+            spawnValue = config.VariableIds.Length > 1 ? queries.ReadOperand((WiredVariableTarget)policy.ValueTarget,
+                config.VariableIds[1], config.UserSources.GetValueOrDefault("value", 0), config.FurniSources.GetValueOrDefault("value", 0), config) ?? 0 : 0;
         }
 
         var placedAny = false;

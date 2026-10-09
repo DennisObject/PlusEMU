@@ -11,13 +11,14 @@ using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Database;
+using Plus.HabboHotel.Items.Wired.Chests;
 
 namespace Plus.HabboHotel.Rooms.Instance;
 
 public partial class WiredComponent
 {
     private readonly WiredSelectorRoomState _selectorState = new();
-    private readonly WiredCounterController _counters = new();
+    private readonly WiredCounterController _counters;
     private readonly WiredRoomLog _roomLog = new();
     // The monitor polls several times a second; the full log stays on the paged log request.
     private const int MonitorHistory = 100;
@@ -26,13 +27,17 @@ public partial class WiredComponent
     private readonly IDatabase _database;
     private readonly IWiredRewardService _rewards;
     private Lazy<WiredRoomVariables>? _variables;
+    private WiredChestRoom? _chests;
+    public WiredChestRoom Chests => _chests ??= new(_room, new DatabaseWiredChestStore(_database, _definitions), _clock, evt => Dispatch(evt));
+    public void WithChests(Action<WiredChestRoom> action) => _engine.Mutate(() => { action(Chests); return true; });
     public WiredRoomSettings Settings { get; }
+    private TimeZoneInfo EffectiveTimeZone => Settings.ExplicitTimeZone ?? _clock.LocalTimeZone;
     internal DateTimeOffset CalendarTime =>
-        TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), Settings.ExplicitTimeZone ?? _clock.LocalTimeZone);
+        TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), EffectiveTimeZone);
     private IWiredConfigurationStore ConfigurationStore => _configurationStore;
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        _database, _clock, builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged)
-    { TimeZone = () => Settings.ExplicitTimeZone ?? TimeZoneInfo.Utc })).Value;
+        _database, _clock, builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged, travelStore: _travelStore)
+    { TimeZone = () => EffectiveTimeZone })).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
     public IWiredConfiguredItem? CreateConfiguredBox(Item item, WiredBoxDescriptor? descriptor = null)
@@ -51,7 +56,10 @@ public partial class WiredComponent
         IWiredConfiguredItem? box = null;
         WiredConfiguration? defaults = null;
 
-        if (descriptor.Category == WiredBoxCategory.Selector && WiredSelectorModule.Names.Contains(descriptor.CanonicalName)) {
+        if (WiredChestBox.Names.Contains(descriptor.CanonicalName)) {
+            box = WiredChestBox.Create(_room, item, descriptor, Chests);
+        }
+        else if (descriptor.Category == WiredBoxCategory.Selector && WiredSelectorModule.Names.Contains(descriptor.CanonicalName)) {
             box = new WiredSelectorBox(_room, item, descriptor, _selectorState, _groups,
                 context => WiredSelectorVariableBridge.Create(context, Variables.Module));
         }
@@ -96,6 +104,7 @@ public partial class WiredComponent
 
     public void BeforeActorLeaves(RoomUser actor) => _engine.Mutate(() =>
     {
+        _chests?.Leave(actor);
         WiredTemporaryEffects.For(_room).Forget(actor);
         _engine.ActorLeaving(actor);
         WiredAvatarState.For(_room).Thaw(actor);
@@ -123,6 +132,10 @@ public partial class WiredComponent
 
     public void AttachRoomItem(Item item) => _engine.Mutate(() =>
     {
+        if (WiredChestFurniture.IsChest(item.Definition) && !item.IsTemporary) {
+            Chests.Refresh(item);
+        }
+
         if (WiredCounterController.Recognizes(item) && ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)
             && (!_counterItems.TryGetValue(item.Id, out var previous) || !ReferenceEquals(previous, item))) {
             _counterItems[item.Id] = item;
@@ -155,7 +168,7 @@ public partial class WiredComponent
             _variables.Value.ItemDetached(item);
         }
 
-        _engine.Remove(item.Id);
+        TryRemove(item.Id);
 
         return true;
     });
@@ -205,6 +218,8 @@ public partial class WiredComponent
 
     private void PollCounters(long now)
     {
+        _chests?.Poll();
+
         foreach (var stale in _counterItems.Values.Where(item => !ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)).ToArray()) {
             DetachRoomItem(stale);
         }

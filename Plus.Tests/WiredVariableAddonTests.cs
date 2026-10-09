@@ -11,7 +11,7 @@ namespace Plus.Tests;
 public sealed class WiredVariableAddonTests
 {
     [Fact]
-    public void VariableFilterRanksSelectedHoldersAndUsesSnapshotReferenceAmount()
+    public void VariableFilterRanksSelectorPoolAndUsesSnapshotReferenceAmount()
     {
         var (room, context, module, holders) = World();
         var box = Box("wf_xtra_filter_users_by_var", room, module);
@@ -40,6 +40,33 @@ public sealed class WiredVariableAddonTests
         module.Mutate(new(WiredVariableTarget.User, "custom:10"), holders[0], WiredVariableMutation.Set, 40, context.VariableFrame!);
         Assert.Equal("scores=40|twenty|30", context.Policy.FormatText(context, "scores=$(points)"));
     }
+    [Theory]
+    [InlineData(long.MinValue)]
+    [InlineData(long.MaxValue)]
+    [InlineData(9007199254740993L)]
+    public void TextOutputPreservesExactWideNumbersInsteadOfNarrowingConnectorKeys(long number)
+    {
+        var (room, context, module, holders) = World();
+        Assert.True(module.Mutate(new(WiredVariableTarget.User, "custom:10"), holders[0], WiredVariableMutation.Set, number, context.VariableFrame!));
+        var box = Box("wf_xtra_text_output_variable", room, module);
+        box.ApplyConfiguration(new() { IntParams = [0, 2, 1, 200, 0], Text = "custom:10\tpoints\t|" });
+        Assert.True(box.Apply(context));
+        Assert.Equal(number.ToString(System.Globalization.CultureInfo.InvariantCulture), context.Policy.FormatText(context, "$(points)"));
+    }
+
+    [Theory]
+    [InlineData("wf_xtra_text_output_variable")]
+    [InlineData("wf_xtra_filter_furni_by_var")]
+    public void SmartBuiltinTokensAreAcceptedForOutputAndFilterOperands(string name)
+    {
+        var (room, _, module, _) = World();
+        var box = Box(name, room, module);
+        var config = name == "wf_xtra_text_output_variable"
+            ? new WiredConfiguration { IntParams = [1, 1, 1, 0, 0], Text = "internal:~area_hide.width\twidth\t, " }
+            : new WiredConfiguration { IntParams = [0, 1, 1, 1, 0, 0], Text = "internal:~area_hide.width\tinternal:~background_color.hue" };
+        Assert.True(box.TryValidateConfiguration(config, out _, out _));
+    }
+
     private static WiredVariableAddonBox Box(string name, Room room, WiredVariableModule module)
     {
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
@@ -53,6 +80,8 @@ public sealed class WiredVariableAddonTests
         var users = Enumerable.Range(1, 3).Select(i => new RoomUser(900 + i, 0, i, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)).ToArray();
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Enter), new(() => [], () => users), new Operations());
         context.SelectorPool.UserIds.UnionWith(users.Select(x => x.VirtualId));
+        context.SelectorUserOrder.AddRange(users.Select(x => x.VirtualId));
+        context.SelectorKinds = WiredSelectionKind.Users;
         context.Selected.UserIds.UnionWith(users.Select(x => x.VirtualId));
         var frame = WiredVariableRuntimeFrames.Create(context);
         context.VariableFrame = frame;

@@ -46,7 +46,7 @@ public sealed class WiredMenuDelegationTests
         var session = Session();
         var menus = new RecordingMenus();
 
-        await new WiredUserVariablesRequestEvent(menus).Parse(room, session, Packet(1));
+        await new WiredUserVariablesRequestEvent(menus).Parse(room, session, Packet(2));
         await new WiredAllVariablesRequestEvent(menus).Parse(room, session, Packet(1));
         await new WiredVariableHashesEvent(menus).Parse(room, session, Packet(1, "user:10", 1, "user:10", 2));
         await new WiredVariableHoldersRequestEvent(menus).Parse(room, session, Packet(new string('x', 65)));

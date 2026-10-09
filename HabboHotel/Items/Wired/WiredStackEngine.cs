@@ -12,9 +12,12 @@ internal sealed partial class WiredStackEngine
     private readonly object _sync = new();
     private readonly Dictionary<uint, IWiredItem> _items = new();
     private readonly Dictionary<(int X, int Y), IWiredItem[]> _stacks = new();
-    private readonly PriorityQueue<ScheduledAction, (long Due, double Height, uint Id, long Firing)> _schedule = new();
+    private (IWiredItem Box, int X, int Y, double Z)[] _stackSnapshot = [];
+    private bool _stacksDirty = true;
+    private readonly PriorityQueue<ScheduledAction, (long Due, double Height, uint Id, long Firing, int Order)> _schedule = new();
     private readonly HashSet<ActionChain> _pending = new();
     private readonly Func<long> _now;
+    private readonly Random _effectOrderRandom;
     private readonly Func<IWiredItem, bool> _attached;
     private readonly Func<object[], bool> _actorPresent;
     private readonly Func<object[], object?>? _actorVisit;
@@ -29,14 +32,16 @@ internal sealed partial class WiredStackEngine
     private bool _budgetDenied;
     private long _passStarted;
     private long _sequence;
+    private long _cycle;
     private bool _draining;
     private ScheduledAction? _executingAction;
 
     public WiredStackEngine(Func<long> now, Func<IWiredItem, bool> attached,
         Func<object[], bool> actorPresent, Action<Item> flash, Action<Exception> error,
-        WiredEngineLimits? limits = null, Func<object[], object?>? actorVisit = null)
+        WiredEngineLimits? limits = null, Func<object[], object?>? actorVisit = null, Random? effectOrderRandom = null)
     {
         _now = now;
+        _effectOrderRandom = effectOrderRandom ?? Random.Shared;
         _attached = attached;
         _actorPresent = actorPresent;
         _actorVisit = actorVisit;
@@ -63,6 +68,8 @@ internal sealed partial class WiredStackEngine
                 return false;
             }
 
+            _stacksDirty = true;
+
             if (box is IWiredTimedTrigger timer) {
                 timer.Reset(_now());
             }
@@ -80,6 +87,7 @@ internal sealed partial class WiredStackEngine
                 return false;
             }
 
+            _stacksDirty = true;
             CancelPending(removed);
             ResetRuntimeTile(removed.Item.GetX, removed.Item.GetY);
             UpdateRuntimeItems();
@@ -100,6 +108,8 @@ internal sealed partial class WiredStackEngine
         lock (_sync) {
             _items.Clear();
             _stacks.Clear();
+            _stackSnapshot = [];
+            _stacksDirty = true;
 
             foreach (var entry in _schedule.UnorderedItems.ToArray()) {
                 CancelAuxiliary(entry.Element);
@@ -133,11 +143,24 @@ internal sealed partial class WiredStackEngine
 
             _pending.RemoveWhere(chain => chain.Contains(box));
             PruneSchedule();
-            var tile = (box.Item.GetX, box.Item.GetY);
-            var kept = _dispatches.Where(pending => pending.Current?.Stack.Contains(box) != true
-                && pending.Triggers?.Contains(box) != true
-                && !pending.CapturedBoxes.Contains(box)
-                && (pending.Signal == null || (pending.Signal.Receiver.GetX, pending.Signal.Receiver.GetY) != tile)).ToArray();
+            var kept = _dispatches.Where(pending =>
+            {
+                if (pending.Signal is not { } signal) {
+                    return pending.Current?.Stack.Contains(box) != true && pending.Triggers?.Contains(box) != true
+                        && !pending.CapturedBoxes.Contains(box);
+                }
+
+                // A receiving stack owns its snapshot; changing it cannot veto another recipient.
+                foreach (var recipient in pending.RecipientStacks.Where(pair => pair.Value.Any(position => ReferenceEquals(position.Box, box)))) {
+                    pending.CancelledRecipients.Add(recipient.Key);
+                }
+
+                if (pending.Current?.Stack.Contains(box) == true) {
+                    pending.Current.Cancelled = true;
+                }
+
+                return !signal.Receivers.Any(antenna => ReferenceEquals(antenna.Receiver, box.Item));
+            }).ToArray();
 
             foreach (var pending in _dispatches.Except(kept)) {
                 pending.Current?.Dispose();
@@ -181,7 +204,15 @@ internal sealed partial class WiredStackEngine
                 break;
             }
 
-            matched |= Execute(trigger, context);
+            var previousOrigin = _legacySpeechOrigin;
+            _legacySpeechOrigin = _legacySpeechAdmission ? trigger : null;
+
+            try {
+                matched |= Execute(trigger, context);
+            }
+            finally {
+                _legacySpeechOrigin = previousOrigin;
+            }
         }
 
         return matched;
@@ -223,6 +254,7 @@ internal sealed partial class WiredStackEngine
 
     public void OnCycle() => Pass(() =>
     {
+        _cycle++;
         RefreshStacks();
         DrainDueActions();
 
@@ -281,6 +313,12 @@ internal sealed partial class WiredStackEngine
                 ?? CreateContext((_legacyRuntimeEvent ?? new(WiredEventKind.Periodic)) with
                 { Actor = context.ActorVisit as Plus.HabboHotel.Rooms.RoomUser ?? context.Arguments.FirstOrDefault() as Plus.HabboHotel.Rooms.RoomUser ?? _legacyRuntimeEvent?.Actor }, context.Depth);
             typed.Trigger = source;
+
+            if (_runtimeContext == null && ReferenceEquals(source, _legacySpeechOrigin)) {
+                typed.ResumeImmediately = true;
+                // Only the originating legacy trigger may grant the synchronous speech response.
+                _legacySpeechOrigin = null;
+            }
 
             if (_runtimeContext == null) {
                 SeedEvent(typed);
@@ -381,17 +419,86 @@ internal sealed partial class WiredStackEngine
             return true;
         }
 
-        var chain = new ActionChain(source, capturedStack, context, actions.Length);
-        var firing = ++_sequence;
-        var startedAt = firedAt ?? _now();
+        if (context.Runtime == null) {
+            return ScheduleLegacyActions(source, capturedStack, actions, context, delayMilliseconds, firedAt, prepared);
+        }
+
+        var steps = new List<(IWiredItem Box, long Delay)>();
+
+        foreach (var action in actions) {
+            if (!prepared && action is IWiredFiringPreparation preparation
+                && !Invoke(action, context, () => preparation.Prepare(context.Arguments))) {
+                continue;
+            }
+
+            steps.Add((action, Math.Max(0, (delayMilliseconds ?? GetDelay)(action))));
+        }
+
+        if (steps.Count == 0) {
+            return true;
+        }
+
+        var chain = new ActionChain(source, capturedStack, context, steps.Count)
+        {
+            ReadyAtCycle = context.Runtime.ResumeImmediately ? _cycle : _cycle + 1,
+            FirstResumeAt = context.Runtime.ResumeImmediately ? firedAt ?? _now() : null
+        };
         _pending.Add(chain);
+        var due = firedAt ?? _now();
+        var firing = ++_sequence;
+
+        // Official captures show independent delays in both modes. Default equal-delay order varies;
+        // a per-firing permutation models that observation without claiming Habbo's random algorithm.
+        foreach (var group in steps.GroupBy(step => step.Delay)) {
+            var effects = group.ToArray();
+            var ranks = Enumerable.Range(0, effects.Length).ToArray();
+            var ordered = context.Runtime.Policy.Addons.ExecuteInOrder;
+
+            if (!ordered) {
+                for (var index = ranks.Length - 1; index > 0; index--) {
+                    var other = _effectOrderRandom.Next(index + 1);
+                    (ranks[index], ranks[other]) = (ranks[other], ranks[index]);
+                }
+            }
+
+            var height = effects.Min(step => step.Box.Item.GetZ);
+            var id = effects.Min(step => step.Box.Item.Id);
+
+            for (var index = 0; index < effects.Length; index++) {
+                var step = effects[index];
+                var delay = step.Delay + Math.Max(0, context.Runtime.Policy.DelayMilliseconds);
+                var scheduled = new ScheduledAction(chain, step.Box)
+                {
+                    DelayMilliseconds = delay,
+                    PriorityHeight = ordered ? step.Box.Item.GetZ : height,
+                    PriorityId = ordered ? step.Box.Item.Id : id,
+                    PriorityFiring = firing,
+                    PriorityOrder = ranks[index]
+                };
+                _schedule.Enqueue(scheduled, (due, scheduled.PriorityHeight, scheduled.PriorityId,
+                    scheduled.PriorityFiring, scheduled.PriorityOrder));
+            }
+        }
+
+        DrainDueActions();
+
+        return true;
+    }
+
+    // Legacy-only extensions retain their existing synchronous/parallel delay contract.
+    // Promoted boxes and mixed modern stacks use the runtime chain scheduler above.
+    private bool ScheduleLegacyActions(IWiredItem source, IWiredItem[] stack, IWiredItem[] actions,
+        WiredExecutionContext context, Func<IWiredItem, long>? delayMilliseconds, long? firedAt, bool prepared)
+    {
+        var chain = new ActionChain(source, stack, context, actions.Length);
+        _pending.Add(chain);
+        var startedAt = firedAt ?? _now();
+        var firing = ++_sequence;
 
         foreach (var action in actions) {
             if (!_pending.Contains(chain)) {
                 break;
             }
-
-            var due = startedAt + Math.Max(0, (delayMilliseconds ?? GetDelay)(action));
 
             if (!prepared && action is IWiredFiringPreparation preparation
                 && !Invoke(action, context, () => preparation.Prepare(context.Arguments))) {
@@ -402,8 +509,8 @@ internal sealed partial class WiredStackEngine
                 continue;
             }
 
-            var scheduled = new ScheduledAction(chain, action);
-            _schedule.Enqueue(scheduled, (due, action.Item.GetZ, action.Item.Id, firing));
+            var due = startedAt + Math.Max(0, (delayMilliseconds ?? GetDelay)(action));
+            _schedule.Enqueue(new(chain, action), (due, action.Item.GetZ, action.Item.Id, firing, 0));
         }
 
         DrainDueActions();
@@ -422,22 +529,29 @@ internal sealed partial class WiredStackEngine
         }
 
         foreach (var entry in entries.Where(x => !_pending.Contains(x.Element.Chain))) {
+            if (entry.Element.Callback == null) {
+                entry.Element.Chain.Context.Runtime?.VariableChanges?.Clear();
+            }
+
             CancelAuxiliary(entry.Element);
         }
     }
 
     private void DrainDueActions()
     {
-        // Nested stack calls enqueue their actions, and the active drain keeps global ordering.
+        // Nested callbacks use the active drain; effect delays retain a common resume time.
         if (_draining) {
             return;
         }
 
         _draining = true;
+        var resumeAt = _now();
         var prune = false;
+        var batches = new HashSet<ActionChain>();
+        var deferred = new List<(ScheduledAction Action, (long Due, double Height, uint Id, long Firing, int Order) Priority)>();
 
         try {
-            while (_schedule.TryPeek(out _, out var priority) && priority.Due <= _now() && !OutOfBudget()) {
+            while (_schedule.TryPeek(out _, out var priority) && priority.Due <= resumeAt && !OutOfBudget()) {
                 var scheduled = _schedule.Dequeue();
                 var chain = scheduled.Chain;
 
@@ -448,8 +562,27 @@ internal sealed partial class WiredStackEngine
 
                 if (!IsChainValid(chain)) {
                     _pending.Remove(chain);
+
+                    if (scheduled.Callback == null) {
+                        chain.Context.Runtime?.VariableChanges?.Clear();
+                    }
+
                     CancelAuxiliary(scheduled);
                     prune = true;
+                    continue;
+                }
+
+                if (chain.ReadyAtCycle > _cycle) {
+                    deferred.Add((scheduled, priority));
+                    continue;
+                }
+
+                chain.FirstResumeAt ??= resumeAt;
+
+                if (scheduled.Callback == null && !scheduled.DelayElapsed && scheduled.DelayMilliseconds > 0) {
+                    scheduled.DelayElapsed = true;
+                    _schedule.Enqueue(scheduled, (chain.FirstResumeAt.Value + scheduled.DelayMilliseconds,
+                        scheduled.PriorityHeight, scheduled.PriorityId, scheduled.PriorityFiring, scheduled.PriorityOrder));
                     continue;
                 }
 
@@ -462,6 +595,11 @@ internal sealed partial class WiredStackEngine
                     }
 
                     scheduled.Finished = true;
+
+                    if (scheduled.Callback == null) {
+                        batches.Add(chain);
+                    }
+
                     var previousAction = _executingAction;
                     _executingAction = scheduled;
 
@@ -470,6 +608,7 @@ internal sealed partial class WiredStackEngine
                             : Invoke(action, chain.Context, () => { scheduled.Callback(); return true; });
 
                         if (succeeded && chain.Context.Runtime?.Policy.StopOnSuccess == true) {
+                            FlushVariableChanges(chain);
                             _pending.Remove(chain);
                             prune = true;
                         }
@@ -482,17 +621,41 @@ internal sealed partial class WiredStackEngine
                 }
                 finally {
                     if (--chain.Remaining == 0) {
+                        if (scheduled.Callback == null) {
+                            FlushVariableChanges(chain);
+                        }
+
                         _pending.Remove(chain);
                     }
                 }
             }
         }
         finally {
+            foreach (var batch in batches.Where(_pending.Contains)) {
+                FlushVariableChanges(batch);
+            }
+
+            foreach (var entry in deferred) {
+                _schedule.Enqueue(entry.Action, entry.Priority);
+            }
+
             if (prune) {
                 PruneSchedule();
             }
 
             _draining = false;
+        }
+
+        DrainReadySignals();
+    }
+
+    private void FlushVariableChanges(ActionChain chain)
+    {
+        try {
+            chain.Context.Runtime?.VariableChanges?.Flush();
+        }
+        catch (Exception error) {
+            _error(error);
         }
     }
 
@@ -579,21 +742,48 @@ internal sealed partial class WiredStackEngine
     private void RefreshStacks()
     {
         // Item coordinates can change through rollers and movement without a wired hook.
-        // Rebuild the tile index at the seam, so callers never have to remember invalidation.
-        foreach (var box in _items.Values.ToArray()) {
+        // Check at every seam, but only allocate and sort when the index actually changed.
+        _stacksDirty |= _items.Count != _stackSnapshot.Length;
+        List<uint>? detached = null;
+        var index = 0;
+
+        foreach (var box in _items.Values) {
             if (!_attached(box)) {
-                Remove(box.Item.Id);
+                (detached ??= []).Add(box.Item.Id);
+            }
+            else if (!_stacksDirty) {
+                var previous = _stackSnapshot[index];
+                _stacksDirty = !ReferenceEquals(box, previous.Box)
+                    || (box.Item.GetX, box.Item.GetY, box.Item.GetZ) != (previous.X, previous.Y, previous.Z);
+            }
+
+            index++;
+        }
+
+        if (detached != null) {
+            foreach (var id in detached) {
+                Remove(id);
             }
         }
 
-        _stacks.Clear();
+        if (_stacksDirty) {
+            _stacks.Clear();
 
-        foreach (var group in _items.Values.GroupBy(x => (x.Item.GetX, x.Item.GetY))) {
-            _stacks[group.Key] = group.OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
+            foreach (var group in _items.Values.GroupBy(x => (x.Item.GetX, x.Item.GetY))) {
+                _stacks[group.Key] = group.OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).ToArray();
+            }
+
+            _stackSnapshot = CaptureStackPositions();
+            _stacksDirty = false;
+            UpdateRuntimeItems();
         }
-
-        UpdateRuntimeItems();
+        else {
+            UpdateFastWork();
+        }
     }
+
+    private (IWiredItem Box, int X, int Y, double Z)[] CaptureStackPositions() =>
+        _items.Values.Select(box => (box, box.Item.GetX, box.Item.GetY, box.Item.GetZ)).ToArray();
 
     private T Pass<T>(Func<T> body)
     {
@@ -684,6 +874,12 @@ internal sealed partial class WiredStackEngine
     private sealed record ScheduledAction(ActionChain Chain, IWiredItem Box, Action? Callback = null, Action? OnCancelled = null)
     {
         public bool Finished { get; set; }
+        public double PriorityHeight { get; init; } = Box.Item.GetZ;
+        public uint PriorityId { get; init; } = Box.Item.Id;
+        public long PriorityFiring { get; init; }
+        public int PriorityOrder { get; init; }
+        public long DelayMilliseconds { get; init; }
+        public bool DelayElapsed { get; set; }
     }
 
     private sealed class ActionChain(IWiredItem source, IWiredItem[] stack,
@@ -695,6 +891,8 @@ internal sealed partial class WiredStackEngine
         public long MovementGeneration { get; } = source.Item.MovementGeneration;
         public WiredExecutionContext Context { get; } = context;
         public int Remaining { get; set; } = remaining;
+        public long ReadyAtCycle { get; init; }
+        public long? FirstResumeAt { get; set; }
         public bool Contains(IWiredItem box) => stack.Contains(box);
     }
 }

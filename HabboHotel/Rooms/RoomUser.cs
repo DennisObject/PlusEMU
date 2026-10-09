@@ -421,7 +421,7 @@ public class RoomUser
             return;
         }
 
-        if (room.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, habbo, message)) {
+        if (room.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, habbo, message, colour, shout)) {
             return;
         }
 

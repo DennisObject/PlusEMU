@@ -9,7 +9,7 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 public sealed class WiredGameState
 {
     private readonly Dictionary<(uint Box, int Player), int> _grants = [];
-    private readonly Dictionary<RoomUser, int> _types = [];
+    private readonly Dictionary<RoomUser, (int Type, Team Team)> _types = [];
     private static readonly ConditionalWeakTable<Room, WiredGameState> Rooms = new();
     public static WiredGameState For(Room room) => Rooms.GetValue(room, _ => new());
     public void ResetQuotas() => _grants.Clear();
@@ -69,7 +69,7 @@ public sealed class WiredGameState
 
         RemoveFromManagers(room, user);
         user.Team = team;
-        _types[user] = type;
+        _types[user] = (type, team);
         manager?.AddUser(user);
         user.ApplyEffect((int)team + 39);
         user.UpdateNeeded = true;
@@ -94,7 +94,23 @@ public sealed class WiredGameState
 
         return true;
     }
-    private int TeamType(Room room, RoomUser user) => _types.TryGetValue(user, out var type) ? type
+    public int? ReadTeamType(Room room, RoomUser user)
+    {
+        if (user.IsBot || user.Team == Team.None) {
+            return null;
+        }
+
+        if (Contains(room.Teambanzai, user)) {
+            return 0;
+        }
+
+        if (Contains(room.Teamfreeze, user)) {
+            return 1;
+        }
+
+        return _types.TryGetValue(user, out var joined) && joined.Team == user.Team && joined.Type == 0 ? 4 : null;
+    }
+    private int TeamType(Room room, RoomUser user) => _types.TryGetValue(user, out var joined) && joined.Team == user.Team ? joined.Type
         : Contains(room.Teambanzai, user) ? 1 : Contains(room.Teamfreeze, user) ? 2 : 0;
     private static bool Contains(TeamManager? manager, RoomUser user) => manager != null
         && (manager.RedTeam.Contains(user) || manager.GreenTeam.Contains(user) || manager.BlueTeam.Contains(user) || manager.YellowTeam.Contains(user));

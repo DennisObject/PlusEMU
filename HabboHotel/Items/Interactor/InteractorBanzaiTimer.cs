@@ -1,10 +1,16 @@
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
 public class InteractorBanzaiTimer : IFurniInteractor
 {
-    public void OnPlace(GameClient? session, Item item) { }
+    public void OnPlace(GameClient? session, Item item)
+    {
+        if (WiredCounterController.Recognizes(item)) {
+            item.GetRoom()?.GetWired().AttachRoomItem(item);
+        }
+    }
 
     public void OnRemove(GameClient? session, Item item) { }
 
@@ -17,6 +23,12 @@ public class InteractorBanzaiTimer : IFurniInteractor
         }
 
         if (!hasRights) {
+            return;
+        }
+
+        if (WiredCounterController.Recognizes(item)) {
+            itemRoom.GetWired().TryUseCounter(item, request);
+
             return;
         }
 

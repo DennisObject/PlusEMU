@@ -27,13 +27,16 @@ public sealed class WiredAddonBox : WiredConfiguredBehaviorBox, IWiredContextual
         _readWorld = readWorld;
     }
 
-    public bool AfterConditions => Descriptor.CanonicalName == "wf_xtra_execution_limit";
+    // Acquired with the other add-ons, before conditions, so a failed condition spends a slot.
+    public bool AfterConditions => false;
 
     public bool Apply(WiredRuntimeContext context)
     {
         var configuration = context.ConfigurationOf(this);
         var needsVariables = Descriptor.CanonicalName switch
         {
+            "wf_xtra_filter_furni" or "wf_xtra_filter_users" => configuration.IntParams.Length == 3
+                && WiredSelectorSources.Param(configuration, 1) == 1,
             "wf_xtra_mov_curve" => WiredSelectorSources.Param(configuration, 3) == 1,
             "wf_xtra_rotate_to_dir" => WiredSelectorSources.Param(configuration, 14) != 0
                 && WiredSelectorSources.Param(configuration, 15) == 1,

@@ -127,7 +127,13 @@ public sealed class RoomChatServiceTests
 
         Assert.Equal(2, world.Logs.Entries.Count);
         Assert.Equal(2, world.Quests.Progresses.Count);
-        Assert.Empty(world.SenderPackets);
+        Assert.Equal(2, world.SenderPackets.Count);
+        Assert.All(world.SenderPackets, packet =>
+        {
+            Assert.Equal(ServerPacketHeader.WhisperComposer, packet.Header);
+            Assert.Contains("filtered words", Text(packet.Payload));
+        });
+        Assert.Empty(world.RecipientPackets);
         Assert.False(world.Sender.GetHabbo().HasSpoken);
     }
 

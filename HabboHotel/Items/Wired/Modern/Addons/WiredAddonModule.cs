@@ -4,7 +4,7 @@ using Plus.HabboHotel.Items.Wired.Modern.Selectors;
 namespace Plus.HabboHotel.Items.Wired.Modern.Addons;
 
 public sealed record WiredAddonVariableRequest(int Target, string Token, int UserSource, int FurniSource,
-    WiredConfiguration Configuration);
+    WiredConfiguration Configuration, bool UseSelected = false);
 public sealed record WiredAddonInputs(WiredSelectorWorld World, WiredSelectorInputs Selection, long NowMs,
     Func<WiredAddonVariableRequest, long?>? ReadVariable = null,
     Func<int, WiredConfiguration, IEnumerable<uint>>? ResolveFurni = null,
@@ -20,10 +20,10 @@ public sealed class WiredAddonModule
         "wf_xtra_filter_furni", "wf_xtra_mov_curve", "wf_xtra_mov_physics", "wf_xtra_rotate_to_dir",
         "wf_xtra_random", "wf_xtra_unseen", "wf_xtra_filter_users", "wf_xtra_text_output_username"
     ];
-    private readonly Queue<long> _executions = new();
     private readonly Random _random;
     private IWiredActionPicker? _picker;
-    private long _lastNow;
+    private long _windowStartMs;
+    private int _executionsInWindow;
     public string Name { get; }
     public WiredConfiguration Configuration { get; private set; }
 
@@ -44,8 +44,8 @@ public sealed class WiredAddonModule
 
     public void Reset()
     {
-        _executions.Clear();
-        _lastNow = 0;
+        _windowStartMs = 0;
+        _executionsInWindow = 0;
         _picker?.Reset();
     }
 
@@ -87,17 +87,29 @@ public sealed class WiredAddonModule
                 policy.ActionPicker = _picker;
                 break;
             case "wf_xtra_filter_furni":
-                if (P(0) > 0) {
-                    policy.FurniLimit = Math.Min(policy.FurniLimit ?? int.MaxValue, P(0));
-                }
+            case "wf_xtra_filter_users": {
+                    long count = P(0);
+                    var expanded = c.IntParams.Length == 3;
 
-                break;
-            case "wf_xtra_filter_users":
-                if (P(0) > 0) {
-                    policy.UserLimit = Math.Min(policy.UserLimit ?? int.MaxValue, P(0));
-                }
+                    if (expanded && P(1) == 1) {
+                        var token = c.VariableIds.FirstOrDefault() ?? c.Text;
+                        count = input.ReadVariable?.Invoke(new(P(2), token, 0, 0, c, UseSelected: true)) ?? count;
+                    }
 
-                break;
+                    // Legacy [0] means unlimited; an expanded operand can deliberately keep zero.
+                    if (expanded || count > 0) {
+                        var keep = (int)Math.Clamp(count, 0, 10000);
+
+                        if (Name == "wf_xtra_filter_furni") {
+                            policy.FurniLimit = Math.Min(policy.FurniLimit ?? int.MaxValue, keep);
+                        }
+                        else {
+                            policy.UserLimit = Math.Min(policy.UserLimit ?? int.MaxValue, keep);
+                        }
+                    }
+
+                    break;
+                }
             case "wf_xtra_text_output_furni_name":
             case "wf_xtra_text_output_username": {
                     var parts = c.Text.Split('\t', 2);
@@ -178,21 +190,16 @@ public sealed class WiredAddonModule
 
     private bool Acquire(long now, int max, int window)
     {
-        if (now < _lastNow) {
-            _executions.Clear();
+        if (now < _windowStartMs || now - _windowStartMs >= window) {
+            _windowStartMs = now;
+            _executionsInWindow = 0;
         }
 
-        _lastNow = now;
-
-        while (_executions.TryPeek(out var oldest) && now - oldest >= window) {
-            _executions.Dequeue();
-        }
-
-        if (_executions.Count >= max) {
+        if (_executionsInWindow >= max) {
             return false;
         }
 
-        _executions.Enqueue(now);
+        _executionsInWindow++;
 
         return true;
     }

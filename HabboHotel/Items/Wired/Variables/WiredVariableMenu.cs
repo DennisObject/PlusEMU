@@ -7,13 +7,13 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
 {
     public WiredVariableCatalog Catalog() => variables.Catalog();
 
-    public bool Write(WiredVariableTarget target, int targetId, uint definitionId, int value, WiredVariableMutation mutation, string token = "")
+    public bool Write(WiredVariableTarget target, int targetId, uint definitionId, long value, WiredVariableMutation mutation, string token = "")
     {
         if (target is not (WiredVariableTarget.User or WiredVariableTarget.Furni or WiredVariableTarget.Global)) {
             return false;
         }
 
-        if (token.Length > 0 && (definitionId != 0 || !token.StartsWith("internal:@", StringComparison.Ordinal) || mutation != WiredVariableMutation.Set)) {
+        if (token.Length > 0 && (definitionId != 0 || !(token.StartsWith("internal:@", StringComparison.Ordinal) || token.StartsWith("internal:~", StringComparison.Ordinal)) || mutation != WiredVariableMutation.Set && !RoomWiredBuiltinVariables.SupportsPresenceMutation(new(target, token)))) {
             return false;
         }
 
@@ -52,7 +52,7 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
             }
         }
 
-        var changed = variables.Module.Mutate(new(target, token.Length > 0 ? token : $"custom:{definitionId}"), holder, mutation, value, frame, origin: 2);
+        var changed = variables.Module.Change(new(target, token.Length > 0 ? token : $"custom:{definitionId}"), holder, mutation, _ => value, frame, origin: 2, notifyUnchanged: true);
 
         if (changed) {
             variables.InvalidateFx();

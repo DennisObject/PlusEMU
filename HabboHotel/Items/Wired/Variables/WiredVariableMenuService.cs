@@ -44,7 +44,7 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
             return;
         }
 
-        session.Send(new WiredUserVariablesDataComposer(Menu(room).Snapshot()));
+        SendSnapshot(session, Menu(room).Snapshot());
     }
 
     public void ShowHolders(Room room, GameClient session, string id)
@@ -56,7 +56,11 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
         var menu = Menu(room);
 
         if (menu.Catalog().Find(id) is { } variable) {
-            session.Send(new WiredVariableHoldersComposer(room.Id, variable, menu.Live(variable)));
+            var holders = menu.Live(variable).ToArray();
+
+            if (WiredVariableWireProtocol.CanSend(session, holders)) {
+                session.Send(new WiredVariableHoldersComposer(room.Id, variable, holders, WiredVariableWireProtocol.IsExact(session)));
+            }
         }
     }
 
@@ -69,19 +73,31 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
         var menu = Menu(room);
 
         if (menu.Catalog().Find(id) is { } variable) {
-            session.Send(new WiredVariableHoldersPageComposer(id, menu.Page(variable, page, size, users, sort), users, sort));
+            var result = menu.Page(variable, page, size, users, sort);
+            result = result with { Holders = result.Holders.ToArray() };
+
+            if (WiredVariableWireProtocol.CanSend(session, result.Holders)) {
+                session.Send(new WiredVariableHoldersPageComposer(id, result, users, sort, WiredVariableWireProtocol.IsExact(session)));
+            }
         }
     }
 
     public void Write(Room room, GameClient session, WiredVariableMenuWrite request)
     {
         if (!room.GetWired().Settings.CanModify(session)) {
+            session.SendNotification("You do not have permission to change variables.");
+            ShowSnapshot(room, session);
+
             return;
         }
 
         var menu = Menu(room);
-        menu.Write(request.Target, request.TargetId, request.DefinitionId, request.Value, WiredVariableMutation.Set, request.Token);
-        session.Send(new WiredUserVariablesDataComposer(menu.Snapshot()));
+
+        if (!menu.Write(request.Target, request.TargetId, request.DefinitionId, request.Value, WiredVariableMutation.Set, request.Token)) {
+            session.SendNotification("The variable value could not be changed.");
+        }
+
+        SendSnapshot(session, menu.Snapshot());
     }
 
     // This reaches offline holders, so clearing needs manage rights on top of ordinary modify rights.
@@ -90,6 +106,9 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
         var settings = room.GetWired().Settings;
 
         if (!settings.CanModify(session)) {
+            session.SendNotification("You do not have permission to change variables.");
+            ShowSnapshot(room, session);
+
             return;
         }
 
@@ -99,13 +118,27 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
             if (settings.CanManage(session)) {
                 menu.Clear(request.Target, request.DefinitionId);
             }
+            else {
+                session.SendNotification("You do not have permission to clear variable holders.");
+            }
         }
         else {
-            menu.Write(request.Target, request.TargetId, request.DefinitionId, request.Value,
-            request.Action == 1 ? WiredVariableMutation.Remove : WiredVariableMutation.Replace);
+            if (!menu.Write(request.Target, request.TargetId, request.DefinitionId, request.Value,
+                request.Action == 1 ? WiredVariableMutation.Remove : WiredVariableMutation.Replace)) {
+                session.SendNotification("The variable value could not be changed.");
+            }
         }
 
-        session.Send(new WiredUserVariablesDataComposer(menu.Snapshot()));
+        SendSnapshot(session, menu.Snapshot());
+    }
+
+    private static void SendSnapshot(GameClient session, WiredVariableMenuSnapshot snapshot)
+    {
+        snapshot = snapshot with { Assignments = snapshot.Assignments.ToArray() };
+
+        if (WiredVariableWireProtocol.CanSend(session, snapshot.Assignments)) {
+            session.Send(new WiredUserVariablesDataComposer(snapshot, WiredVariableWireProtocol.IsExact(session)));
+        }
     }
 
     private static WiredVariableMenu Menu(Room room) => new(room, room.GetWired().Variables);

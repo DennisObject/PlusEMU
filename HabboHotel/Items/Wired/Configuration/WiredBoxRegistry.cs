@@ -10,6 +10,16 @@ public static class WiredBoxRegistry
 {
     private static readonly FrozenDictionary<string, WiredBoxDescriptor> Descriptors = new WiredBoxDescriptor[]
     {
+        new("wf_act_give_currency", WiredBoxCategory.Action, 99, 45, "Turbo f702041c/WiredTrading"),
+        new("wf_act_give_furni", WiredBoxCategory.Action, 102, 46, "Turbo f702041c/WiredTrading"),
+        new("wf_act_init_transaction", WiredBoxCategory.Action, 104, 47, "Turbo f702041c/WiredTrading"),
+        new("wf_act_cancel_transaction", WiredBoxCategory.Action, 105, 48, "Turbo f702041c/WiredTrading"),
+        new("wf_cnd_chest_has_items", WiredBoxCategory.Condition, 47, 45, "Turbo f702041c/WiredTrading"),
+        new("wf_cnd_chest_has_item_type", WiredBoxCategory.Condition, 48, 46, "Turbo f702041c/WiredTrading"),
+        new("wf_trg_transaction_complete", WiredBoxCategory.Trigger, 27, 25, "Turbo f702041c/WiredTrading"),
+        new("wf_trg_transaction_fail", WiredBoxCategory.Trigger, 28, 26, "Turbo f702041c/WiredTrading"),
+        new("wf_xtra_scan_chest_furni_by_type", WiredBoxCategory.Addon, 103, 18, "Turbo f702041c/WiredTrading"),
+        new("wf_xtra_custom_contract", WiredBoxCategory.Addon, 113, 20, "Turbo f702041c/WiredTrading"),
         new("wf_act_adjust_clock", WiredBoxCategory.Action, 42, 38, "habbohotel/items/interactions/wired/effects/WiredEffectAdjustClock.java"),
         new("wf_act_bot_clothes", WiredBoxCategory.Action, 26, 26, "habbohotel/items/interactions/wired/effects/WiredEffectBotClothes.java"),
         new("wf_act_bot_follow_avatar", WiredBoxCategory.Action, 25, 25, "habbohotel/items/interactions/wired/effects/WiredEffectBotFollowHabbo.java"),

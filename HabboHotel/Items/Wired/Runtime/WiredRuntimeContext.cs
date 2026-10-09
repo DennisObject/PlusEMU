@@ -8,23 +8,25 @@ namespace Plus.HabboHotel.Items.Wired.Runtime;
 public sealed class WiredRuntimeContext
 {
     private readonly Dictionary<uint, WiredConfiguration> _configurations = [];
-    internal Dictionary<(int Source, string Saved, int Limit), uint[]> FurniSubsets { get; } = [];
-    internal Dictionary<(int Source, string Saved, string? Name, int Limit, string Triggered), int[]> UserSubsets { get; } = [];
     internal Dictionary<uint, Item> FurniIdentity { get; } = [];
     internal Dictionary<int, RoomUser> UserIdentity { get; } = [];
     public Room Room { get; }
     public WiredRuntimeEvent Event { get; }
     public IWiredItem? Trigger { get; internal set; }
     public int Depth { get; internal set; }
+    internal bool ResumeImmediately { get; set; }
     public long NowMilliseconds { get; internal set; }
     public WiredSelection Triggering { get; internal set; } = new();
     public WiredSelection SelectorPool { get; } = new();
+    internal List<uint> SelectorFurniOrder { get; } = [];
+    internal List<int> SelectorUserOrder { get; } = [];
     public WiredSelection Selected { get; internal set; } = new();
     public WiredSelectionKind SelectorKinds { get; internal set; }
     public WiredSignalPayload? Signal { get; internal set; }
     public Dictionary<string, long> Values { get; } = [];
     public WiredSelectorWorld? SelectorWorldSnapshot { get; set; }
     public WiredVariableFrame? VariableFrame { get; set; }
+    public WiredVariableChangeBatch? VariableChanges { get; set; }
     public WiredExecutionPolicy Policy { get; } = new();
     public WiredTargetResolver Targets { get; }
     public IWiredRuntimeOperations Operations { get; }
@@ -71,9 +73,9 @@ public sealed class WiredRuntimeContext
             _configurations = parent._configurations;
             Policy = parent.Policy;
             SelectorPool = parent.SelectorPool;
+            SelectorFurniOrder = parent.SelectorFurniOrder;
+            SelectorUserOrder = parent.SelectorUserOrder;
             Values = parent.Values;
-            FurniSubsets = parent.FurniSubsets;
-            UserSubsets = parent.UserSubsets;
         }
     }
 
@@ -93,6 +95,7 @@ public sealed class WiredRuntimeContext
         var context = new WiredRuntimeContext(this, Event with { Actor = actor }, shareFiring: true)
         {
             Depth = Depth,
+            ResumeImmediately = ResumeImmediately,
             NowMilliseconds = NowMilliseconds,
             Trigger = Trigger,
             Triggering = Triggering.Copy(),

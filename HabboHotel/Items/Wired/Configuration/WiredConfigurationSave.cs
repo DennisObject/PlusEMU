@@ -31,6 +31,11 @@ public static class WiredConfigurationSave
             return false;
         }
 
+        if (box.Descriptor.CanonicalName == "wf_act_place_furni"
+            && !Plus.HabboHotel.Items.Wired.Modern.Actions.WiredTemporaryFurnitureActions.TryDecodeEditor(proposed, out proposed)) {
+            return false;
+        }
+
         if (existsInRoom != null && (!proposed.SelectedItems.All(existsInRoom)
             || !proposed.SecondarySelectedItems.All(existsInRoom))) {
             return false;

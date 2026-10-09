@@ -63,6 +63,8 @@ internal static class FurniExtraData
 
                     return data;
                 }
+            case InteractionType.AreaHide:
+                return AreaHide.AreaHideState.Load(stored);
             case InteractionType.Background: {
                     var data = definition.CreateData();
 

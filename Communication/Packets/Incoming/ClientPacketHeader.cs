@@ -190,6 +190,8 @@ public static class ClientPacketHeader
     public const uint WiredMenuPermissionsSaveEvent = 9478;
     public const uint ClickFurniEvent = 6002;
     public const uint ClickUserEvent = 10020;
+    public const uint WiredUserVariableUpdate64Event = 10110;
+    public const uint WiredUserVariableManage64Event = 10111;
     public const uint WiredUserVariablesRequestEvent = 10024;
     public const uint WiredUserVariableUpdateEvent = 10025;
     public const uint WiredUserVariableManageEvent = 10026;
@@ -526,4 +528,21 @@ public static class ClientPacketHeader
     public const uint GetUserSongDisksEvent = 9604;
     public const uint GetNowPlayingEvent = 9605;
     public const uint GetOfficialSongIdEvent = 9606;
+    public const uint ChestOpenEvent = 9327;
+    public const uint ChestCloseEvent = 9339;
+    public const uint ChestStartDepositEvent = 9324;
+    public const uint ChestDepositInventoryItemEvent = 9325;
+    public const uint ChestWithdrawAllEvent = 9326;
+    public const uint ChestWithdrawFurniEvent = 9320;
+    public const uint ChestWithdrawCoinsEvent = 9314;
+    public const uint ChestDepositCoinsEvent = 9313;
+    public const uint ChestSaveOptionsEvent = 9338;
+    public const uint ChestSavePreferencesEvent = 9315;
+    public const uint ChestEnableWiredEvent = 9345;
+    public const uint ChestSaveNotificationsEvent = 9316;
+    public const uint WiredChestOfferItemsEvent = 9335;
+    public const uint WiredChestAcceptEvent = 9336;
+    public const uint WiredChestCancelEvent = 9337;
+    public const uint ChestUpgradeEvent = 9317;
+    public const uint WiredChestLockEvent = 9329;
 }

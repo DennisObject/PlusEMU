@@ -42,6 +42,23 @@ public class WiredCalendarClockTests
         Assert.Equal(2, clock.Reads);
     }
 
+    [Theory]
+    [InlineData("", 16, 2040)]
+    [InlineData("Europe/Berlin", 0, 2041)]
+    public void CalendarBuiltinAndTimeUtilityShareTheEffectiveRoomTimezone(string zone, int hour, int year)
+    {
+        var clock = new CountingClock();
+        var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
+        var wired = new WiredComponent(room, TestLogging.Logger, clock, TestRoomSettings.Empty, new Factory(zone),
+            TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+        var frame = new Plus.HabboHotel.Items.Wired.Variables.WiredVariableFrame(room.Id, []);
+        var target = Plus.HabboHotel.Items.Wired.Variables.WiredVariableTarget.Global;
+        Assert.Equal(hour, wired.ReadBuiltin(new(target, "@current_time.hour_of_day"), new(target, 0, 0), frame));
+        Assert.Equal(year, wired.ReadBuiltin(new(target, "@current_time.year"), new(target, 0, 0), frame));
+        Assert.Equal(wired.CalendarTime.Offset, TimeZoneInfo.ConvertTime(clock.Now, wired.Variables.TimeZone()).Offset);
+        Assert.Equal(zone, wired.Settings.Snapshot.TimeZoneId);
+    }
+
     private sealed class CountingClock : TimeProvider
     {
         public DateTimeOffset Now { get; } = new(2040, 12, 31, 23, 30, 0, TimeSpan.Zero);

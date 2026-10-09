@@ -242,6 +242,14 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
 
+        if (room != null && room.GetRoomItemHandler().GetItem(request.ItemId) is { } area && AreaHide.AreaHideState.IsAreaHide(area)) {
+            if (request.Values is { } fields) {
+                AreaHide.AreaHideState.Configure(room, session, area, fields);
+            }
+
+            return;
+        }
+
         if (!habbo.InRoom || room == null || !room.CheckRights(session, true) || !habbo.Access.Can(PermissionKeys.RoomItemSaveBrandingItems)) {
             return;
         }
@@ -287,6 +295,17 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
             return;
         }
 
+        SetTonerFromWired(room, item, request, store);
+    }
+
+    internal static bool SetTonerFromWired(Room room, Item item, TonerSettingsRequest request, IRoomItemMetadataStore store)
+    {
+        if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(request.ItemId), item) || request.ItemId != item.Id
+            || item.IsTemporary || item.Definition?.InteractionType != InteractionType.Toner || room.TonerData?.ItemId != item.Id
+            || request.Hue is < 0 or > 255 || request.Saturation is < 0 or > 255 || request.Lightness is < 0 or > 255) {
+            return false;
+        }
+
         store.SetToner(item.Id, room.Id, request.Hue, request.Saturation, request.Lightness);
         room.TonerData.Hue = request.Hue;
         room.TonerData.Saturation = request.Saturation;
@@ -294,5 +313,7 @@ public sealed class RoomItemMetadataService(IRoomItemMetadataStore store, IFigur
         room.TonerData.Enabled = 1;
         room.SendPacket(new ObjectUpdateComposer(RoomItemSnapshot.Capture(item)));
         item.UpdateState();
+
+        return true;
     }
 }

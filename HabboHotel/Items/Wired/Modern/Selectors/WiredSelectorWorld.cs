@@ -14,7 +14,7 @@ public sealed record WiredSelectorFurniture(uint Id, int DefinitionId, string Na
 public sealed record WiredSelectorAvatar(int Id, string Name, WiredSelectorEntityKind Kind, int X, int Y,
     int Team = 0, IReadOnlySet<int>? GroupIds = null, int HandItem = 0, bool Sitting = false,
     bool Lying = false, bool Idle = false, int? Sign = null, int Dance = 0,
-    int? LastAction = null, int LastActionParameter = 0, long LastActionAtMs = 0);
+    int? LastAction = null, int LastActionParameter = 0, long LastActionAtMs = 0, int EquippedGroupId = 0);
 
 public sealed record WiredRemoteSelector(string Name, WiredConfiguration Configuration);
 
@@ -43,7 +43,9 @@ public sealed record WiredSelectorInputs(WiredSelectedIds Triggering, WiredSelec
     int? ActionUserId = null, int? Action = null, int ActionParameter = 0,
     Func<string, WiredConfiguration, uint, bool>? FurniVariablePredicate = null,
     Func<string, WiredConfiguration, int, bool>? UserVariablePredicate = null,
-    bool FurniModified = false, bool UsersModified = false, bool IncludeWired = false);
+    bool FurniModified = false, bool UsersModified = false, bool IncludeWired = false,
+    Func<string, WiredConfiguration, uint, WiredSelectorInputs, bool>? ScopedFurniVariablePredicate = null,
+    Func<string, WiredConfiguration, int, WiredSelectorInputs, bool>? ScopedUserVariablePredicate = null);
 
 public enum WiredSelectorTarget
 {

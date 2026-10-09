@@ -17,6 +17,37 @@ namespace Plus.Tests;
 
 public sealed class WiredRuntimeFactoryTests
 {
+    [Theory]
+    [InlineData("wf_xtra_varfx_hp", "wf_xtra_var_fx_health", InteractionType.WiredAddon)]
+    [InlineData("wf_xtra_varfx_prog", "wf_xtra_var_fx_progress", InteractionType.WiredAddon)]
+    [InlineData("wf_xtra_varfx_levelling", "wf_xtra_var_fx_level", InteractionType.WiredAddon)]
+    [InlineData("wf_xtra_varfx_status", "wf_xtra_var_fx_status", InteractionType.WiredAddon)]
+    [InlineData("wf_xtra_varfx_boss", "wf_xtra_var_fx_boss", InteractionType.WiredAddon)]
+    [InlineData("wf_xtra_varfx_number", "wf_xtra_var_fx_number", InteractionType.WiredAddon)]
+    [InlineData("wf_proto_trg_at_given_time", "wf_trg_at_given_time", InteractionType.WiredTrigger)]
+    [InlineData("wf_proto_cnd_trggrer_on_frn", "wf_cnd_trggrer_on_frn", InteractionType.WiredCondition)]
+    [InlineData("wf_ltdproto_act_toggle_state", "wf_act_toggle_state", InteractionType.WiredEffect)]
+    public void ExplicitDatabaseInteractionLoadsTheOfficialFurniture(string classname, string canonicalName, InteractionType interaction)
+    {
+        // The database stores the asset classname and concrete server interaction separately.
+        var definition = new ItemDefinition
+        {
+            ItemName = classname,
+            InteractionName = canonicalName,
+            InteractionType = ItemDataManager.ReadInteractionType(classname, canonicalName)
+        };
+        var item = new Item { Id = 1, Definition = definition };
+        Assert.False(WiredBoxRegistry.TryGet(classname, out _));
+        Assert.Equal(interaction, definition.InteractionType);
+        Assert.True(item.IsWired);
+        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+        var box = Assert.IsAssignableFrom<IWiredConfiguredItem>(facade.LoadWiredBox(item));
+        Assert.Equal(canonicalName, box.Descriptor.CanonicalName);
+        Assert.Equal(WiredBoxSupport.Implemented, box.Descriptor.Support);
+        Assert.True(facade.TryGet(item.Id, out var registered));
+        Assert.Same(box, registered);
+    }
+
     private static Room Room()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
@@ -43,7 +74,7 @@ public sealed class WiredRuntimeFactoryTests
 
             return new { name = descriptor.CanonicalName, support = box?.Descriptor.Support.ToString() ?? "DescriptorOnly" };
         }).ToArray();
-        Assert.Equal(172, boxes.Length);
+        Assert.Equal(182, boxes.Length);
         Assert.Contains(boxes, x => x.name == "wf_act_teleport_to" && x.support == "Implemented");
         Assert.All(boxes, x => Assert.Equal("Implemented", x.support));
         var auxiliaries = new[] { "wf_upcounter1", "wf_upcounter2", "wf_game_upcounter1", "wf_game_upcounter2", "wf_antenna1", "wf_antenna2" }
@@ -52,7 +83,7 @@ public sealed class WiredRuntimeFactoryTests
                 var interaction = name.StartsWith("wf_antenna") ? "antenna" : name;
                 var item = new Item { Definition = new() { ItemName = name, InteractionName = interaction, Type = ItemType.Floor } };
 
-                return new { name, interaction, supported = WiredCounterController.Recognizes(item) || WiredStackEngine.IsSignalReceiver(item) };
+                return new { name, interaction, supported = WiredCounterController.Recognizes(item) || WiredStackEngine.IsSignalAntenna(item) };
             }).ToArray();
         Assert.All(auxiliaries, auxiliary => Assert.True(auxiliary.supported));
 

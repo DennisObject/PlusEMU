@@ -6,7 +6,7 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVariableFrame frame) : IDisposable
 {
     private readonly Dictionary<WiredVariableReference, WiredVariableReadSnapshot> _reads = [];
-    private readonly Dictionary<(string Name, WiredConfiguration Configuration), Dictionary<WiredVariableHolder, int>> _operands = [];
+    private readonly Dictionary<(string Name, WiredConfiguration Configuration), long?> _operands = [];
     private bool _disposed;
 
     public bool MatchSelector(string name, WiredConfiguration configuration, WiredVariableHolder holder)
@@ -36,31 +36,31 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
             return true;
         }
 
-        var operand = p[3];
+        long operand = p[3];
 
         if (p[2] == 1) {
             if (tokens.Length < 2 || tokens[1].Length == 0) {
                 return false;
             }
 
-            if (!_operands.TryGetValue((name, configuration), out var operands)) {
+            if (!_operands.TryGetValue((name, configuration), out var captured)) {
                 var reference = new WiredVariableReference((WiredVariableTarget)p[4], tokens[1]);
-                operands = [];
 
                 foreach (var source in WiredVariableExecutors.Select(frame, reference.Target, p[5], p[6], configuration.SelectedItems)) {
                     if (Read(reference, source) is { } found) {
-                        operands[source] = found.Value;
+                        captured = found.Value;
+                        break;
                     }
                 }
 
-                _operands[(name, configuration)] = operands;
+                _operands[(name, configuration)] = captured;
             }
 
-            if (operands.Count == 0) {
+            if (captured is not { } capturedOperand) {
                 return false;
             }
 
-            operand = operands.TryGetValue(holder, out var sameHolder) ? sameHolder : operands.First().Value;
+            operand = capturedOperand;
         }
 
         return WiredVariablePredicates.Compare(p[1], value.Value, operand);
@@ -77,6 +77,35 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
         var reference = new WiredVariableReference(target, token);
 
         foreach (var holder in WiredVariableExecutors.Select(frame, target, userSource, furniSource, configuration.SelectedItems)) {
+            if (Read(reference, holder) is { } value) {
+                return value.Value;
+            }
+        }
+
+        return null;
+    }
+
+    public long? ReadSelectedOperand(WiredVariableTarget target, string token)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        if (!Enum.IsDefined(target) || string.IsNullOrWhiteSpace(token)) {
+            return null;
+        }
+
+        IEnumerable<WiredVariableHolder> selected = target is WiredVariableTarget.Context or WiredVariableTarget.Global
+            ? [new(target, 0, 0)] : frame.Trigger.Where(holder => holder.Target == target);
+
+        if (frame.RuntimeContext is { } context && target is WiredVariableTarget.User or WiredVariableTarget.Furni) {
+            var holders = frame.Holders.Where(holder => holder.Target == target).ToDictionary(holder => holder.EntityId);
+            var ids = target == WiredVariableTarget.User ? context.Selected.UserIds
+                : context.Selected.FurniIds.Select(id => unchecked((int)id));
+            selected = ids.Where(holders.ContainsKey).Select(id => holders[id]);
+        }
+
+        var reference = new WiredVariableReference(target, token);
+
+        foreach (var holder in selected) {
             if (Read(reference, holder) is { } value) {
                 return value.Value;
             }

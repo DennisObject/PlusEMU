@@ -41,12 +41,13 @@ public class AirIdProfileTests
 
         Assert.Equal(ProfileName, selected.Name);
         Assert.True(selected.ZeroHeaderIsValid);
-        Assert.Equal(411, legacy.IncomingHeaders.Count);
-        Assert.Equal(381, legacy.OutgoingHeaders.Count);
+        var baseline = LoadBaseline("OCTANE-3-6-0-FLOOR-20260909.json");
+        Assert.Equal(411, baseline.IncomingHeaders.Count);
+        Assert.Equal(381, baseline.OutgoingHeaders.Count);
         Assert.Equal(legacy.IncomingHeaders.Keys.Order(), selected.IncomingHeaders.Keys.Order());
         Assert.Equal(legacy.OutgoingHeaders.Keys.Where(key => InternalRevision().OutgoingHeaders[key] > 0).Order(), selected.OutgoingHeaders.Keys.Order());
-        Assert.Equal(411, selected.IncomingIdToInternalIdMapping.Count);
-        Assert.Equal(377, selected.InternalIdToOutgoingIdMapping.Count);
+        Assert.Equal(baseline.IncomingHeaders.Count + IncomingExtensions.Count, selected.IncomingIdToInternalIdMapping.Count);
+        Assert.Equal(baseline.OutgoingHeaders.Count + OutgoingExtensions.Count - 4, selected.InternalIdToOutgoingIdMapping.Count);
         Assert.Equal(ClientPacketHeader.InfoRetrieveEvent, selected.IncomingIdToInternalIdMapping[0]);
         Assert.Equal(ClientPacketHeader.ClientHelloEvent, selected.IncomingIdToInternalIdMapping[4000]);
     }
@@ -79,7 +80,7 @@ public class AirIdProfileTests
 
         Assert.Equal(1090u, overlay.Outgoing[1195]);
         Assert.Equal(2697u, overlay.Outgoing[223]);
-        Assert.Equal(403, checkedRequests);
+        Assert.Equal(legacy.IncomingHeaders.Count - BackendOnlyRequests.Count, checkedRequests);
         Assert.Equal(ClientPacketHeader.GetCatalogModeEvent, selected.IncomingIdToInternalIdMapping[overlay.Outgoing[1195]]);
         Assert.Equal(ClientPacketHeader.GetBundleDiscountRulesetEvent, selected.IncomingIdToInternalIdMapping[overlay.Outgoing[223]]);
         Assert.Equal(9910u, ClientPacketHeader.GetBundleDiscountRulesetEvent);
@@ -128,7 +129,7 @@ public class AirIdProfileTests
             checkedResponses++;
         }
 
-        Assert.Equal(374, checkedResponses);
+        Assert.Equal(legacy.OutgoingHeaders.Count(key => internalRevision.OutgoingHeaders[key.Key] > 0 && !BackendOnlyResponses.Contains(key.Key)), checkedResponses);
     }
 
     [Theory]
@@ -277,8 +278,106 @@ public class AirIdProfileTests
     [InlineData("3.6.0.json", "fd0bd91c8a85e2c050402c9bc69b94e529749b09eb6f088d2d893d34d39e0fdd")]
     [InlineData("OCTANE-3-6-0-FLOOR-20260909.json", "90be589fdb859736dc094340d0d5f33f1cdb4326d79fc3a9eb5dc040875c07c4")]
     [InlineData("example.json", "39fbcf7f7d52ac225b820751bcd97703c47625bdc8423b243c3a89984ab56a6c")]
-    public void LegacyProfileFilesRemainByteExact(string file, string expectedSha256) =>
-        Assert.Equal(expectedSha256, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(RevisionPath(file)))));
+    [InlineData(ProfileName + ".json", "518b3ef65ea4a6e74fec9377e0cf3d7443b431288872522400ff8af71569203e")]
+    [InlineData("AirIdProfileRenderer.json", "9fbebe399b8e6321c09824f64a0244ee7c4351f0cf7da3dcdc49eb96855fc1ed")]
+    public void PinnedProfileBaselinesRemainByteExact(string file, string expectedSha256) =>
+        Assert.Equal(expectedSha256, Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(BaselinePath(file)))));
+
+    [Theory]
+    [InlineData("1.6.6.json")]
+    [InlineData("3.6.0.json")]
+    [InlineData("OCTANE-3-6-0-FLOOR-20260909.json")]
+    [InlineData("example.json")]
+    public void CurrentProfilesPreserveEveryBaselineMappingAndOnlyDeclareBoundedAdapters(string file)
+    {
+        var baseline = LoadBaseline(file);
+        var current = LoadRevision(file);
+        Assert.Equal(baseline.Name, current.Name);
+        Assert.Equal(baseline.ZeroHeaderIsValid, current.ZeroHeaderIsValid);
+        AssertHeaders(baseline.IncomingHeaders, current.IncomingHeaders, IncomingExtensions);
+        AssertHeaders(baseline.OutgoingHeaders, current.OutgoingHeaders, OutgoingExtensions);
+        current.BuildMappings(InternalRevision()); // Reject duplicate wires/internal destinations and unknown packet keys.
+    }
+
+    [Fact]
+    public void InstalledProfileAndOverlayPreservePinnedAssignmentsWithOnlyExplicitExtensions()
+    {
+        var baseline = LoadBaseline(ProfileName + ".json");
+        var current = LoadRevision(ProfileName + ".json");
+        Assert.Equal(baseline.Name, current.Name);
+        Assert.Equal(baseline.ZeroHeaderIsValid, current.ZeroHeaderIsValid);
+        AssertHeaders(baseline.IncomingHeaders, current.IncomingHeaders, AirExtensions(incoming: true));
+        AssertHeaders(baseline.OutgoingHeaders, current.OutgoingHeaders, AirExtensions(incoming: false));
+        current.BuildMappings(InternalRevision());
+        var oldOverlay = LoadOverlay(BaselinePath("AirIdProfileRenderer.json"));
+        var overlay = LoadOverlay();
+        Assert.Equal(oldOverlay.Outgoing.Concat(ExactRequestWires).OrderBy(pair => pair.Key), overlay.Outgoing.OrderBy(pair => pair.Key));
+        Assert.Equal(oldOverlay.Incoming.Concat(NewResponseWires).OrderBy(pair => pair.Key), overlay.Incoming.OrderBy(pair => pair.Key));
+        Assert.Equal(overlay.Outgoing.Count, overlay.Outgoing.Values.Distinct().Count());
+        Assert.Equal(overlay.Incoming.Count, overlay.Incoming.Values.Distinct().Count());
+
+        foreach (var wire in NewResponseWires.Where(pair => pair.Key is 9480 or 9481 or 9482)) {
+            // V2 parsers inspect the original wrapper.header; routing must preserve its exact header identity.
+            Assert.Equal(wire.Key, wire.Value);
+            Assert.Equal(wire.Key, current.InternalIdToOutgoingIdMapping[wire.Value]);
+        }
+    }
+
+    // Immutable originals come from ddb3d1d9f14d74b6db781c2a51dcd90c27f786e4. Additions are Octane adapters, not native AIR schemas.
+    private static readonly Dictionary<string, uint> IncomingExtensions = new()
+    {
+        [nameof(ClientPacketHeader.WiredChestLockEvent)] = 9329,
+        [nameof(ClientPacketHeader.ChestUpgradeEvent)] = 9317,
+        [nameof(ClientPacketHeader.ChestOpenEvent)] = 9327,
+        [nameof(ClientPacketHeader.ChestCloseEvent)] = 9339,
+        [nameof(ClientPacketHeader.ChestStartDepositEvent)] = 9324,
+        [nameof(ClientPacketHeader.ChestDepositInventoryItemEvent)] = 9325,
+        [nameof(ClientPacketHeader.ChestWithdrawAllEvent)] = 9326,
+        [nameof(ClientPacketHeader.ChestWithdrawFurniEvent)] = 9320,
+        [nameof(ClientPacketHeader.ChestWithdrawCoinsEvent)] = 9314,
+        [nameof(ClientPacketHeader.ChestDepositCoinsEvent)] = 9313,
+        [nameof(ClientPacketHeader.ChestSaveOptionsEvent)] = 9338,
+        [nameof(ClientPacketHeader.ChestSavePreferencesEvent)] = 9315,
+        [nameof(ClientPacketHeader.ChestEnableWiredEvent)] = 9345,
+        [nameof(ClientPacketHeader.ChestSaveNotificationsEvent)] = 9316,
+        [nameof(ClientPacketHeader.WiredChestOfferItemsEvent)] = 9335,
+        [nameof(ClientPacketHeader.WiredChestAcceptEvent)] = 9336,
+        [nameof(ClientPacketHeader.WiredChestCancelEvent)] = 9337,
+        [nameof(ClientPacketHeader.WiredUserVariableUpdate64Event)] = 10110,
+        [nameof(ClientPacketHeader.WiredUserVariableManage64Event)] = 10111
+    };
+    private static readonly Dictionary<string, uint> OutgoingExtensions = new()
+    {
+        [nameof(ServerPacketHeader.AreaHideComposer)] = 6001,
+        [nameof(ServerPacketHeader.WiredChestLockComposer)] = 9329,
+        [nameof(ServerPacketHeader.WiredChestSettingsAckComposer)] = 9347,
+        [nameof(ServerPacketHeader.WiredChestUpgradeComposer)] = 9335,
+        [nameof(ServerPacketHeader.WiredChestRewardComposer)] = 9346,
+        [nameof(ServerPacketHeader.WiredChestContentsComposer)] = 9312,
+        [nameof(ServerPacketHeader.WiredChestFurniChunkComposer)] = 9322,
+        [nameof(ServerPacketHeader.WiredChestTradeOpenComposer)] = 9331,
+        [nameof(ServerPacketHeader.WiredChestTradeItemsComposer)] = 9332,
+        [nameof(ServerPacketHeader.WiredChestTradeCancelledComposer)] = 9333,
+        [nameof(ServerPacketHeader.WiredChestTradeCompletedComposer)] = 9334,
+        [nameof(ServerPacketHeader.WiredUserVariablesData64Composer)] = 9480,
+        [nameof(ServerPacketHeader.WiredVariableHolders64Composer)] = 9481,
+        [nameof(ServerPacketHeader.WiredVariableHoldersPage64Composer)] = 9482,
+        [nameof(ServerPacketHeader.WiredEnvironmentComposer)] = 347
+    };
+    private static readonly Dictionary<uint, uint> ExactRequestWires = new() { [10110] = 10110, [10111] = 10111 };
+    private static readonly Dictionary<uint, uint> NewResponseWires = new() { [9346] = 9346, [9347] = 9347, [9480] = 9480, [9481] = 9481, [9482] = 9482 };
+    private static Dictionary<string, uint> AirExtensions(bool incoming)
+    {
+        var baseline = LoadOverlay(BaselinePath("AirIdProfileRenderer.json"));
+
+        return (incoming ? IncomingExtensions : OutgoingExtensions).ToDictionary(pair => pair.Key, pair => incoming
+            ? ExactRequestWires.TryGetValue(pair.Value, out var requestWire) ? requestWire : baseline.Outgoing[pair.Value]
+            : NewResponseWires.TryGetValue(pair.Value, out var responseWire) ? responseWire : baseline.Incoming.Single(old => old.Value == pair.Value).Key);
+    }
+    private static void AssertHeaders(IReadOnlyDictionary<string, uint> baseline, IReadOnlyDictionary<string, uint> current,
+        Dictionary<string, uint> additions) => Assert.Equal(baseline.Concat(additions).OrderBy(pair => pair.Key), current.OrderBy(pair => pair.Key));
+    private static string BaselinePath(string file) => Path.Combine(EmulatorRoot, "Plus.Tests", "Fixtures", "LegacyRevisionBaselines", file);
+    private static Revision LoadBaseline(string file) => JsonSerializer.Deserialize<Revision>(File.ReadAllText(BaselinePath(file)))!;
 
     private static readonly HashSet<string> BackendOnlyRequests = new()
     {
@@ -303,9 +402,9 @@ public class AirIdProfileTests
     private static Dictionary<string, uint> Headers(Type type) => type.GetFields(BindingFlags.Public | BindingFlags.Static)
         .ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue()!);
 
-    private static (Dictionary<uint, uint> Outgoing, Dictionary<uint, uint> Incoming) LoadOverlay()
+    private static (Dictionary<uint, uint> Outgoing, Dictionary<uint, uint> Incoming) LoadOverlay(string? sourcePath = null)
     {
-        var path = Path.Combine(EmulatorRoot, "Plus.Tests", "Fixtures", "AirIdProfileRenderer.json");
+        var path = sourcePath ?? Path.Combine(EmulatorRoot, "Plus.Tests", "Fixtures", "AirIdProfileRenderer.json");
         using var document = JsonDocument.Parse(File.ReadAllText(path));
         var profile = document.RootElement.GetProperty("communication.packet.profile");
 

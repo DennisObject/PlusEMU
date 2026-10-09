@@ -50,6 +50,10 @@ public static class ItemTypeExtensions
 
     public static IFurniObjectData CreateData(this ItemDefinition definition)
     {
+        if (definition.InteractionType == InteractionType.AreaHide) {
+            return new IntArrayDataFormat { Data = Enumerable.Repeat(0, 8).ToList() };
+        }
+
         if (definition.InteractionType == InteractionType.Gift) {
             return new MapDataFormat();
         }

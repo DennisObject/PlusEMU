@@ -51,25 +51,25 @@ public sealed class WiredAddonPolicy
         return text;
     }
 
-    public WiredSelectedIds FilterSelection(WiredSelectedIds selection, Random random)
+    public WiredSelectedIds FilterSelection(WiredSelectedIds selection,
+        IEnumerable<uint>? furniOrder = null, IEnumerable<int>? userOrder = null)
     {
         var result = selection.Copy();
-        Limit(result.FurniIds, FurniLimit, random);
-        Limit(result.UserIds, UserLimit, random);
+        Limit(result.FurniIds, FurniLimit, furniOrder);
+        Limit(result.UserIds, UserLimit, userOrder);
 
         return result;
     }
 
-    private static void Limit<T>(HashSet<T> values, int? limit, Random random)
+    private static void Limit<T>(HashSet<T> values, int? limit, IEnumerable<T>? order)
     {
-        if (limit is not > 0 || values.Count <= limit.Value) {
+        if (limit is not >= 0 || values.Count <= limit.Value) {
             return;
         }
 
-        var candidates = values.ToArray();
-        random.Shuffle(candidates);
+        var candidates = (order ?? values).Where(values.Contains).Take(limit.Value).ToArray();
         values.Clear();
-        values.UnionWith(candidates.Take(limit.Value));
+        values.UnionWith(candidates);
     }
 }
 

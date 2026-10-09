@@ -22,7 +22,7 @@ public sealed record WiredVariableReference(WiredVariableTarget Target, string T
 public sealed record WiredVariableLink(uint SourceRoomId, WiredVariableReference Source, bool ReadOnly);
 
 public sealed record WiredVariableDefinition(uint ItemId, uint RoomId, uint OwnerId, string Name,
-    WiredVariableTarget Target, WiredVariableAvailability Availability, bool HasValue, int InitialValue = 0,
+    WiredVariableTarget Target, WiredVariableAvailability Availability, bool HasValue, long InitialValue = 0,
     WiredVariableLink? Link = null)
 {
     public string Token => $"custom:{ItemId}";

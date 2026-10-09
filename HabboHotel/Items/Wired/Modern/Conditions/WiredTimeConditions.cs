@@ -34,9 +34,10 @@ public static class WiredTimeConditions
 
     public static bool MatchesElapsed(WiredConfiguration config, long elapsedMs, bool moreThan)
     {
-        var targetMs = Param(config, 0, 1) * 500L;
+        var elapsedPulses = Math.Max(0, elapsedMs) / 500;
+        var targetPulses = Param(config, 0, 1);
 
-        return moreThan ? elapsedMs > targetMs : elapsedMs < targetMs;
+        return moreThan ? elapsedPulses > targetPulses : elapsedPulses < targetPulses;
     }
 
     public static bool MatchesCounter(WiredConfiguration config, IEnumerable<long> currentTimesMs)

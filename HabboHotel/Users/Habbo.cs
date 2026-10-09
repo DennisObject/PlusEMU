@@ -32,6 +32,8 @@ public class Habbo
     private IRoomVisitRecorder _roomVisits = null!;
     private IAchievementManager _roomAchievements = null!;
     internal uint WiredRoomNetworkDestination { get; set; }
+    internal uint WiredRoomEntrySourceRoomId { get; set; }
+    internal uint WiredRoomEntryDestinationRoomId { get; set; }
     public HabboStats HabboStats { get; set; }
 
     private readonly DateTimeOffset? _cachedAt;
@@ -358,6 +360,12 @@ public class Habbo
 
     public void PrepareRoom(uint id, string password)
     {
+        var networkDestination = WiredRoomNetworkDestination;
+        var sourceRoomId = (IsTeleporting || IsHopping || networkDestination == id) ? CurrentRoom?.Id ?? 0 : 0;
+        WiredRoomNetworkDestination = 0;
+        WiredRoomEntrySourceRoomId = 0;
+        WiredRoomEntryDestinationRoomId = 0;
+
         if (Client == null || Client.GetHabbo() == null) {
             return;
         }
@@ -437,7 +445,14 @@ public class Habbo
             }
         }
 
+        WiredRoomNetworkDestination = networkDestination == id ? id : 0;
+        WiredRoomEntrySourceRoomId = sourceRoomId;
+        WiredRoomEntryDestinationRoomId = id;
+
         if (!EnterRoom(room)) {
+            WiredRoomNetworkDestination = 0;
+            WiredRoomEntrySourceRoomId = 0;
+            WiredRoomEntryDestinationRoomId = 0;
             Client.Send(new CloseConnectionComposer());
         }
     }

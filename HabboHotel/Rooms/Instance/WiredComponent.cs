@@ -46,6 +46,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         ICommandManager commands, IAccessControl access, IItemTravelStore travelStore) //, RoomItem Items)
     {
         _room = instance;
+        _counters = new(gameControl: ControlGameTimer);
         _logger = logger;
         _clock = clock;
         _configurationStore = configurationStore;
@@ -72,7 +73,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
             id => _room.GetRoomItemHandler().GetItem(id),
             id => _room.GetRoomUserManager().GetRoomUserByVirtualId(id));
         _engine.BindRuntime(_room, _targets, this,
-            () => _counters.HasRunning || WiredBotTargets.For(_room).HasTargets, PollCounters, FlushExternalChanges);
+            () => _counters.HasRunning || WiredBotTargets.For(_room).HasTargets || _chests?.HasPending == true, PollCounters, FlushExternalChanges);
         _engine.ObserveEvent = (evt, now) =>
         {
             _selectorState.Observe(evt, now);
@@ -89,14 +90,52 @@ public partial class WiredComponent : IWiredRuntimeOperations
             }
         };
         _engine.LimitReached = NoteLimit;
+        _engine.SpeechHidden = evt => evt.Actor?.GetClient()?.Send(
+            new Plus.Communication.Packets.Outgoing.Rooms.Chat.WhisperComposer(evt.Actor.VirtualId, evt.Message, 0, evt.ChatStyle));
         _engine.CaptureSpeech = (context, trigger) => _variables?.IsValueCreated == true
             ? _variables.Value.CaptureSpeech(context, trigger) : null;
         _engine.ConfigurationPublished = box =>
         {
+            UpdateClickEnvironment(box.Item.Id, box);
+
             if (_variables?.IsValueCreated == true) {
                 _variables.Value.ConfigurationSaved(box);
             }
         };
+    }
+
+    private void ControlGameTimer(Item item, bool start)
+    {
+        var type = item.Definition.InteractionType;
+        var banzai = type == InteractionType.Banzaicounter || item.Definition.ItemName == "bb_counter";
+        var freeze = type == InteractionType.Freezetimer || item.Definition.ItemName == "es_counter";
+
+        if (start) {
+            _room.GetGameManager().Reset();
+
+            if (banzai) {
+                _room.GetBanzai().BanzaiStart();
+            }
+            else {
+                if (freeze) {
+                    _room.GetFreeze().StartGame();
+                }
+                else {
+                    _room.GetSoccer().StartGame();
+                }
+
+                TriggerEvent(WiredBoxType.TriggerGameStarts, null);
+            }
+        }
+        else if (banzai) {
+            _room.GetBanzai().BanzaiEnd();
+        }
+        else if (freeze) {
+            _room.GetFreeze().StopGame();
+        }
+        else {
+            _room.GetSoccer().StopGame();
+        }
     }
 
     public void OnCycle()
@@ -117,14 +156,17 @@ public partial class WiredComponent : IWiredRuntimeOperations
     }
     internal bool NeedsFastCycle => _engine.NeedsFastCycle;
     internal void ObserveFastWork(Action<bool>? observer) => _engine.ObserveFastWork(observer);
-    public bool Dispatch(WiredRuntimeEvent @event)
+    public bool Dispatch(WiredRuntimeEvent @event) => _engine.Mutate(() =>
     {
         if (@event.Kind == WiredEventKind.GameStart) {
             WiredGameState.For(_room).ResetQuotas();
         }
+        else if (@event.Kind == WiredEventKind.GameEnd) {
+            _counters.OnGameEnded();
+        }
 
-        return _engine.Dispatch(@event);
-    }
+        return @event.Kind == WiredEventKind.Speech ? _engine.DispatchSynchronously(@event) : _engine.Enqueue(@event);
+    });
     public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) =>
         _engine.CallStacks(context, targets, negative);
     public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) =>
@@ -446,9 +488,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public bool TriggerEvent(WiredBoxType type, params object[] arguments)
     {
-        if (type == WiredBoxType.TriggerGameStarts) {
-            WiredGameState.For(_room).ResetQuotas();
-        }
+        arguments ??= [];
 
         WiredEventKind? kind = type switch
         {
@@ -469,8 +509,24 @@ public partial class WiredComponent : IWiredRuntimeOperations
         {
             Actor = actor,
             EventItem = arguments.OfType<Item>().FirstOrDefault(),
-            Message = kind == WiredEventKind.Speech ? arguments.OfType<string>().FirstOrDefault() ?? "" : ""
+            Message = kind == WiredEventKind.Speech ? arguments.OfType<string>().FirstOrDefault() ?? "" : "",
+            ChatStyle = kind == WiredEventKind.Speech ? arguments.OfType<int>().FirstOrDefault() : 0,
+            ChatType = kind == WiredEventKind.Speech && arguments.OfType<bool>().FirstOrDefault() ? 1 : 0
         };
+
+        if (kind is WiredEventKind.GameStart or WiredEventKind.GameEnd) {
+            return _engine.Mutate(() =>
+            {
+                if (kind == WiredEventKind.GameStart) {
+                    WiredGameState.For(_room).ResetQuotas();
+                }
+                else {
+                    _counters.OnGameEnded();
+                }
+
+                return _engine.DispatchLegacy(type, typed, arguments);
+            });
+        }
 
         return _engine.DispatchLegacy(type, typed, arguments);
     }
@@ -568,9 +624,27 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _engine.CancelPending(item);
     }
 
-    public bool AddBox(IWiredItem item) => _engine.Add(item);
+    public bool AddBox(IWiredItem item) => _engine.Mutate(() =>
+    {
+        if (!_engine.Add(item)) {
+            return false;
+        }
 
-    public bool TryRemove(uint itemId) => _engine.Remove(itemId);
+        UpdateClickEnvironment(item.Item.Id, item);
+
+        return true;
+    });
+
+    public bool TryRemove(uint itemId) => _engine.Mutate(() =>
+    {
+        if (!_engine.Remove(itemId)) {
+            return false;
+        }
+
+        UpdateClickEnvironment(itemId);
+
+        return true;
+    });
 
     public bool TryGet(uint id, [NotNullWhen(true)] out IWiredItem? item) => _engine.TryGet(id, out item);
 
@@ -593,6 +667,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         WiredAvatarState.For(_room).Clear();
         _counters.Clear();
         _counterItems.Clear();
+        _clickUserTriggers.Clear();
         _fxViewers.Clear();
         _roomLog.Clear();
         ClearStateWrites();

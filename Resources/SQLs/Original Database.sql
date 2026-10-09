@@ -25496,7 +25496,7 @@ CREATE TABLE IF NOT EXISTS `wired_variable_values` (
     `definition_id` int unsigned NOT NULL,
     `target_kind` tinyint unsigned NOT NULL,
     `holder_id` bigint NOT NULL,
-    `value` int NOT NULL,
+    `value` bigint NOT NULL,
     `created_at` DATETIME(6) NULL DEFAULT NULL,
     `updated_at` DATETIME(6) NULL DEFAULT NULL,
     PRIMARY KEY (`definition_id`, `target_kind`, `holder_id`)

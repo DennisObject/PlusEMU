@@ -21,6 +21,96 @@ namespace Plus.Tests;
 public class WiredStackEngineTests
 {
     [Fact]
+    public void ReusedStackIndexObservesUnannouncedMovesAndHeightChanges()
+    {
+        var fixture = new Fixture();
+        var trigger = fixture.Trigger();
+        var calls = new List<string>();
+        var first = fixture.Effect(execute: _ => { calls.Add("first"); return true; });
+        var second = fixture.Effect(execute: _ => { calls.Add("second"); return true; });
+
+        void Expect(params string[] expected)
+        {
+            calls.Clear();
+            Assert.True(fixture.Engine.RunStack(trigger, []));
+            Assert.Equal(expected, calls);
+        }
+
+        Expect("first", "second");
+        Expect("first", "second");
+        second.Item.GetZ = -1;
+        Expect("second", "first");
+        first.Item.GetX = 1;
+        Assert.Equal(0, first.Item.MovementGeneration);
+        Assert.DoesNotContain(first, fixture.Engine.GetBoxes(trigger, InteractionType.WiredEffect));
+        Expect("second");
+        first.Item.GetX = 0;
+        first.Item.GetY = 1;
+        Expect("second");
+        first.Item.GetY = 0;
+        Expect("second", "first");
+        fixture.Detached.Add(second.Item.Id);
+        Expect("first");
+        fixture.Detached.Clear();
+        Assert.True(fixture.Engine.Add(second));
+        Expect("second", "first");
+    }
+
+    [Fact]
+    public void ReusedStackIndexReturnsReplacementWithTheSameItemId()
+    {
+        var fixture = new Fixture();
+        var trigger = fixture.Trigger();
+        var original = fixture.Effect();
+        Assert.Same(original, Assert.Single(fixture.Engine.GetBoxes(trigger, InteractionType.WiredEffect)));
+        Assert.True(fixture.Engine.Remove(original.Item.Id));
+        var replacement = new DelayedBox { Item = original.Item };
+        Assert.True(fixture.Engine.Add(replacement));
+
+        Assert.Same(replacement, Assert.Single(fixture.Engine.GetBoxes(trigger, InteractionType.WiredEffect)));
+        Assert.True(fixture.Engine.RunStack(trigger, []));
+        Assert.Single(replacement.Calls);
+        Assert.Empty(original.Calls);
+    }
+
+    [Fact]
+    public void StableStackIndexAllocationDoesNotGrowWithUnrelatedBoxes()
+    {
+        static long Measure(int boxes, bool move)
+        {
+            var fixture = new Fixture();
+            var trigger = fixture.Trigger();
+            fixture.Effect();
+            Box? moving = null;
+
+            for (var i = 0; i < boxes; i++) {
+                moving = fixture.Effect();
+                moving.Item.GetX = i + 1;
+            }
+
+            fixture.Engine.RunStack(trigger, []);
+            var before = GC.GetAllocatedBytesForCurrentThread();
+
+            for (var i = 0; i < 200; i++) {
+                if (move) {
+                    moving!.Item.GetY = i % 2;
+                }
+
+                fixture.Engine.RunStack(trigger, []);
+            }
+
+            return GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        var smallClean = Measure(40, false);
+        var largeClean = Measure(400, false);
+        var smallMoving = Measure(40, true);
+        var largeMoving = Measure(400, true);
+        Assert.True(largeClean < smallClean * 2, $"Clean index allocations grew from {smallClean} to {largeClean} bytes.");
+        Assert.True(largeMoving > smallMoving * 4, $"Moving index control did not scale: {smallMoving} to {largeMoving} bytes.");
+    }
+
+    [Fact]
     public void ConditionsGateOnceAndRandomAddonChoosesOneActionWithActor()
     {
         var fixture = new Fixture();
@@ -514,7 +604,7 @@ public class WiredStackEngineTests
     {
         var defaults = WiredEngineLimits.FromSettings(_ => "0");
         var configured = WiredEngineLimits.FromSettings(key => key == "wired.max_depth" ? "8" : "200");
-        Assert.Equal(32, defaults.MaxDepth);
+        Assert.Equal(20, defaults.MaxDepth);
         Assert.Equal(10000, defaults.MaxExecutionsPerPass);
         Assert.Equal(8, configured.MaxDepth);
         Assert.Equal(200, configured.MaxExecutionsPerPass);
@@ -697,6 +787,7 @@ public class WiredStackEngineTests
         trigger.Item.SetState(7, 0, trigger.Item.GetZ, []);
         trigger.Item.SetState(0, 0, trigger.Item.GetZ, []);
         Assert.Equal(2, trigger.Item.MovementGeneration);
+        Assert.Same(effect, Assert.Single(fixture.Engine.GetBoxes(trigger, InteractionType.WiredEffect)));
 
         fixture.Advance(2000);
         Assert.Empty(effect.Calls);

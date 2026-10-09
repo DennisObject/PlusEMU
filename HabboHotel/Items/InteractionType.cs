@@ -122,5 +122,11 @@ public enum InteractionType
     WiredSelector,
     WiredAddon,
     WiredVariable,
-    IceTagPole
+    IceTagPole,
+    AreaHide,
+    WiredChestFurni,
+    WiredChestCoins,
+    WiredContractPayment,
+    WiredContractTrade,
+    WiredContractReward
 }

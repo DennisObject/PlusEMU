@@ -12,7 +12,7 @@ namespace Plus.Tests;
 public sealed class WiredVariableRuntimeFrameTests
 {
     [Fact]
-    public void HolderUniverseIgnoresQuantityCapsWhileSourceOperandsStillApplyThem()
+    public void SelectorQuantityCapsLeaveHolderUniverseAndOtherSourcesComplete()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         var items = Enumerable.Range(1, 3).Select(id => new Item { Id = (uint)id, OwnerId = 5 }).ToList();
@@ -25,8 +25,8 @@ public sealed class WiredVariableRuntimeFrameTests
         Assert.Same(context, frame.RuntimeContext);
         Assert.Equal(3, frame.Holders.Count(x => x.Target == WiredVariableTarget.Furni));
         Assert.Equal(3, frame.Holders.Count(x => x.Target == WiredVariableTarget.User));
-        Assert.Single(frame.ResolveSource!(WiredVariableTarget.Furni, WiredSources.AllRoom, []));
-        Assert.Single(frame.ResolveSource!(WiredVariableTarget.User, WiredSources.AllRoom, []));
+        Assert.Equal(3, frame.ResolveSource!(WiredVariableTarget.Furni, WiredSources.AllRoom, []).Count());
+        Assert.Equal(3, frame.ResolveSource!(WiredVariableTarget.User, WiredSources.AllRoom, []).Count());
 
         // Raw still enforces captured object identities; a replacement cannot inherit the former occupant's membership.
         items[0] = new Item { Id = 1, OwnerId = 5 };

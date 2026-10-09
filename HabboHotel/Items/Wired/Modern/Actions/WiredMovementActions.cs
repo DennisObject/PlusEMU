@@ -31,7 +31,8 @@ public sealed class WiredMovementActions
     public bool Execute(string name, WiredConfiguration configuration, IReadOnlyList<Item> movers,
         IReadOnlyList<Item> targets, IReadOnlyList<RoomUser> users,
         MoveFurniture move, MoveAvatar relocate, Action<Item, string> setState,
-        Func<Item, Func<string, string?>, bool>? toggleState = null, MoveTogether? together = null)
+        Func<Item, Func<string, string?>, bool>? toggleState = null, MoveTogether? together = null,
+        Func<int, int, bool>? inBounds = null)
     {
         if (!WiredMovementConfiguration.TryValidate(name, configuration, out configuration, out _)) {
             return false;
@@ -62,7 +63,7 @@ public sealed class WiredMovementActions
 
                 foreach (var item in movers) {
                     var z = Param(0, 2) switch { 0 => item.GetZ + altitude, 1 => item.GetZ - altitude, _ => altitude };
-                    affected |= move(item, item.GetX, item.GetY, item.Rotation, Math.Clamp(z, 0, 80));
+                    affected |= move(item, item.GetX, item.GetY, item.Rotation, Math.Clamp(z, 0, 40));
                 }
 
                 break;
@@ -85,6 +86,32 @@ public sealed class WiredMovementActions
 
                 break;
             case "wf_act_move_furni_as_group":
+                if (p.Length == 6) {
+                    if (movers.Count == 0 || (Param(0) == 1 ? users.Count == 0 : targets.Count == 0)) {
+                        return false;
+                    }
+
+                    var anchorX = Param(0) == 1 ? users[0].X : targets[0].GetX;
+                    var anchorY = Param(0) == 1 ? users[0].Y : targets[0].GetY;
+                    var groupDx = anchorX + Param(1) - movers[0].GetX;
+                    var groupDy = anchorY + Param(2) - movers[0].GetY;
+
+                    if (groupDx == 0 && groupDy == 0
+                        || inBounds != null && movers.Any(item => !inBounds(item.GetX + groupDx, item.GetY + groupDy))) {
+                        return false;
+                    }
+
+                    foreach (var item in movers.OrderByDescending(item => item.GetX * Math.Sign(groupDx) + item.GetY * Math.Sign(groupDy))) {
+                        if (!move(item, item.GetX + groupDx, item.GetY + groupDy, item.Rotation, null)) {
+                            break;
+                        }
+
+                        affected = true;
+                    }
+
+                    break;
+                }
+
                 var groupOffset = WiredRoomOperations.Offset(Param(0));
 
                 // Octane/Polaris direction editor: leading edge first, blocked members skipped.
@@ -105,7 +132,7 @@ public sealed class WiredMovementActions
                 var targetX = target.GetX + spacing.X * Param(1, 1);
                 var targetY = target.GetY + spacing.Y * Param(1, 1);
 
-                if (Steps.Contains(name)) {
+                if (Steps.Contains(name) && p.Length == 3) {
                     affected = together(movers, (item, step) => step(targetX, targetY, item.Rotation));
 
                     break;

@@ -1,4 +1,5 @@
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 
 namespace Plus.HabboHotel.Items.Interactor;
 
@@ -6,6 +7,12 @@ internal class InteractorFreezeTimer : IFurniInteractor
 {
     public void OnPlace(GameClient? session, Item item)
     {
+        if (WiredCounterController.Recognizes(item)) {
+            item.GetRoom()?.GetWired().AttachRoomItem(item);
+
+            return;
+        }
+
         item.LegacyDataString = "30";
         item.UpdateState();
     }
@@ -21,6 +28,12 @@ internal class InteractorFreezeTimer : IFurniInteractor
         }
 
         if (!hasRights) {
+            return;
+        }
+
+        if (WiredCounterController.Recognizes(item)) {
+            itemRoom.GetWired().TryUseCounter(item, request);
+
             return;
         }
 

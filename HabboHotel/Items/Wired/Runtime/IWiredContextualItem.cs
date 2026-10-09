@@ -33,7 +33,7 @@ public interface IWiredContextualSelector : IWiredConfiguredItem
 
 public interface IWiredContextualAddon : IWiredConfiguredItem
 {
-    // Quota acquisition runs after conditions, so a rejected condition spends no quota.
+    // False applies before conditions. The execution limit uses that, so a failed condition spends its slot.
     bool AfterConditions { get; }
     bool Apply(WiredRuntimeContext context);
     void Reset();

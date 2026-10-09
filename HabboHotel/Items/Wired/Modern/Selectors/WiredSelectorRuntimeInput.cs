@@ -9,7 +9,9 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Selectors;
 
 public sealed record WiredSelectorVariableQueries(Func<string, WiredConfiguration, uint, bool> FurniPredicate,
     Func<string, WiredConfiguration, int, bool> UserPredicate, Func<WiredAddonVariableRequest, long?> ReadOperand,
-    Action? DisposeSession = null) : IDisposable
+    Action? DisposeSession = null,
+    Func<string, WiredConfiguration, uint, WiredSelectorInputs, bool>? ScopedFurniPredicate = null,
+    Func<string, WiredConfiguration, int, WiredSelectorInputs, bool>? ScopedUserPredicate = null) : IDisposable
 {
     public void Dispose() => DisposeSession?.Invoke();
 }
@@ -41,7 +43,7 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
             context.NowMilliseconds, context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Actor?.VirtualId : null,
             context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Action : null, context.Event.Code,
             variables?.FurniPredicate, variables?.UserPredicate,
-            (context.SelectorKinds & WiredSelectionKind.Furni) != 0, (context.SelectorKinds & WiredSelectionKind.Users) != 0, world.IncludeWired);
+            (context.SelectorKinds & WiredSelectionKind.Furni) != 0, (context.SelectorKinds & WiredSelectionKind.Users) != 0, world.IncludeWired, variables?.ScopedFurniPredicate, variables?.ScopedUserPredicate);
 
         return new(world, input, variables?.ReadOperand,
             (source, configuration) => context.Targets.ResolveFurni(context, configuration.SelectedItems, source).Select(x => x.Id),
@@ -54,7 +56,9 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
             Selection = Selection with
             {
                 FurniVariablePredicate = variables.FurniPredicate,
-                UserVariablePredicate = variables.UserPredicate
+                UserVariablePredicate = variables.UserPredicate,
+                ScopedFurniVariablePredicate = variables.ScopedFurniPredicate,
+                ScopedUserVariablePredicate = variables.ScopedUserPredicate
             },
             ReadVariable = variables.ReadOperand
         };
@@ -73,15 +77,6 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
             }
         }
 
-        var groupIds = remotes.Values.Where(x => x.Name == "wf_slc_users_group")
-            .Select(x => WiredSelectorSources.Param(x.Configuration, 1)).Where(x => x > 0).ToHashSet();
-
-        if (context.Room.Group is { } roomGroup) {
-            groupIds.Add(roomGroup.Id);
-        }
-
-        var groups = groupIds.Select(id => groupManager.TryGetGroup(id, out var group) ? group : null)
-            .Where(x => x != null).ToArray();
         var furni = items.Select(item => new WiredSelectorFurniture(item.Id, checked((int)item.Definition.Id),
             item.Definition.PublicName, item.LegacyDataString, item.GetX, item.GetY, item.GetZ,
             item.TotalHeight - item.GetZ, item.GetAffectedTiles.Values.Select(t => (t.X, t.Y))
@@ -90,14 +85,15 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
         {
             var action = state.Read(user);
             var name = user.IsBot ? user.BotData.Name : user.GetClient()?.GetHabbo()?.Username ?? "";
-            var memberships = user.IsBot ? new HashSet<int>() : groups.Where(x => x!.IsMember(user.HabboId)).Select(x => x!.Id).ToHashSet();
+            var equippedGroupId = user.IsBot ? 0 : user.GetClient()?.GetHabbo()?.HabboStats?.FavouriteGroupId ?? 0;
 
             return new WiredSelectorAvatar(user.VirtualId, name,
                 user.IsPet ? WiredSelectorEntityKind.Pet : user.IsBot ? WiredSelectorEntityKind.Bot : WiredSelectorEntityKind.Player,
-                user.X, user.Y, (int)user.Team, memberships, user.CarryItemId,
-                user.IsSitting || user.HasStatus("sit"), user.IsLying || user.HasStatus("lay"), user.IsAsleep,
-                user.Statusses.TryGetValue("sign", out var signText) && int.TryParse(signText, out var sign) ? sign : null,
-                user.DanceId, action?.Action, action?.Parameter ?? 0, action?.At ?? 0);
+                user.X, user.Y, (int)user.Team, HandItem: user.CarryItemId,
+                Sitting: user.IsSitting || user.HasStatus("sit"), Lying: user.IsLying || user.HasStatus("lay"), Idle: user.IsAsleep,
+                Sign: user.Statusses.TryGetValue("sign", out var signText) && int.TryParse(signText, out var sign) ? sign : null,
+                Dance: user.DanceId, LastAction: action?.Action, LastActionParameter: action?.Parameter ?? 0,
+                LastActionAtMs: action?.At ?? 0, EquippedGroupId: equippedGroupId);
         }).ToArray();
         var model = context.Room.GetGameMap().Model;
         var includeWired = context.Trigger is { } trigger && items.Any(item => item.GetX == trigger.Item.GetX

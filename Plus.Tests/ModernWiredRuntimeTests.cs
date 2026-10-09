@@ -26,6 +26,8 @@ using Plus.HabboHotel.Items.Wired.Modern.Conditions;
 using Plus.HabboHotel.Items.Wired.Modern.Triggers;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
+using Plus.HabboHotel.Items.Wired.Modern.Addons;
 using Plus.HabboHotel.Users.Inventory.Furniture;
 using Xunit;
 using Dapper;
@@ -69,6 +71,8 @@ public class ModernWiredRuntimeTests
         Assert.False(more.Execute(Context(room, new(WiredEventKind.Use), [], [])));
         now = instant.AddMilliseconds(1001);
         Assert.False(less.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+        Assert.False(more.Execute(Context(room, new(WiredEventKind.Use), [], [])));
+        now = instant.AddMilliseconds(1500);
         Assert.True(more.Execute(Context(room, new(WiredEventKind.Use), [], [])));
         Assert.Equal(instant, room.LastTimerResetAt);
 
@@ -101,7 +105,9 @@ public class ModernWiredRuntimeTests
         AssertBoundary("wf_cnd_time_less_than", instant.AddMilliseconds(999).ToOffset(TimeSpan.FromHours(9)), true);
         AssertBoundary("wf_cnd_time_less_than", instant.AddSeconds(1).ToOffset(TimeSpan.FromHours(9)), false);
         AssertBoundary("wf_cnd_time_more_than", instant.AddSeconds(1).ToOffset(TimeSpan.FromHours(-7)), false);
-        AssertBoundary("wf_cnd_time_more_than", instant.AddMilliseconds(1001).ToOffset(TimeSpan.FromHours(-7)), true);
+        AssertBoundary("wf_cnd_time_more_than", instant.AddMilliseconds(1001).ToOffset(TimeSpan.FromHours(-7)), false);
+        AssertBoundary("wf_cnd_time_more_than", instant.AddMilliseconds(1499).ToOffset(TimeSpan.FromHours(-7)), false);
+        AssertBoundary("wf_cnd_time_more_than", instant.AddMilliseconds(1500).ToOffset(TimeSpan.FromHours(-7)), true);
 
         void AssertBoundary(string name, DateTimeOffset now, bool expected)
         {
@@ -268,7 +274,7 @@ public class ModernWiredRuntimeTests
         monitor.Skip(1);
         Assert.Equal(100, monitor.Int());
         monitor.Skip(3);
-        Assert.Equal(32, monitor.Int());
+        Assert.Equal(20, monitor.Int());
         Assert.Equal((0, 1000, 0, 0, 0, 0, 0, 0), (monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int(), monitor.Int()));
         Assert.Equal(4, monitor.Int());
         var tallies = Enumerable.Range(0, 4).Select(_ => (Type: monitor.String(), Severity: monitor.String(), Count: monitor.Int(), Seconds: monitor.Int(),
@@ -319,7 +325,7 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
-    public async Task UnauthorizedMenuAndMonitorRequestsNeverReadOrAnswer()
+    public async Task UnauthorizedMenuAndMonitorRequestsNeverReadStateAndWritesRefuseVisibly()
     {
         using var f = new TeleportFixture();
         f.Room.OwnerName = "Alice";
@@ -340,7 +346,8 @@ public class ModernWiredRuntimeTests
         await new WiredUserVariableManageEvent(menus).Parse(f.Room, bob, Request(2, 0, 2, 12, 0));
         await new WiredMonitorRequestEvent(monitor).Parse(f.Room, bob, Request(0));
         await new WiredRoomLogsPageEvent(monitor).Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
-        Assert.Empty(replies);
+        Assert.Equal(2, replies.Count);
+        Assert.All(replies, reply => Assert.Equal(ServerPacketHeader.BroadcastMessageAlertComposer, reply.Header));
     }
 
     [Fact]
@@ -888,28 +895,29 @@ public class ModernWiredRuntimeTests
     [InlineData("wf_act_move_to_dir", 2, false)]
     [InlineData("wf_act_move_rotate", 1, true)]
     [InlineData("wf_act_move_rotate", 1, false)]
-    public void LineBlockedByItselfKeepsItsSpacingInFreeSpace(string name, int spacing, bool frontFirst)
+    public void StepOrderDeterminesWhetherALineKeepsItsSpacingInFreeSpace(string name, int spacing, bool frontFirst)
     {
         var (room, line) = TileLine(6 * spacing, 1, spacing, frontFirst);
         var action = LineBox(room, name, 2, line);
 
         for (var pulse = 1; pulse <= 2; pulse++) {
             Assert.True(Pulse(room, action, line, blockedBySelf: true));
-            Assert.Equal(Enumerable.Range(0, line.Length).Select(i => 6 * spacing - spacing * i + pulse), line.Select(item => item.GetX));
+            Assert.Equal(Enumerable.Range(0, line.Length).Select(i => 6 * spacing - spacing * i
+                + (name == "wf_act_move_to_dir" && spacing == 1 && !frontFirst ? Math.Max(0, pulse - i) : pulse)), line.Select(item => item.GetX));
         }
     }
 
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void LineBlockedByItselfTurnsBackTogetherAtAWall(bool frontFirst)
+    public void DirectionalItemsTurnAtAWallInTheirOwnExecutionOrder(bool frontFirst)
     {
         var (room, line) = TileLine(0, -1, 1, frontFirst);
         var action = LineBox(room, "wf_act_move_to_dir", 6, line, turn: 5);
 
         Assert.True(Pulse(room, action, line, blockedBySelf: true));
 
-        Assert.Equal(new[] { 1, 2, 3, 4, 5, 6, 7 }, line.Select(item => item.GetX));
+        Assert.Equal(frontFirst ? new[] { 0, 1, 2, 3, 4, 5, 7 } : [1, 2, 3, 4, 5, 6, 7], line.Select(item => item.GetX));
     }
 
     [Theory]
@@ -917,16 +925,16 @@ public class ModernWiredRuntimeTests
     [InlineData("wf_act_move_to_dir", false)]
     [InlineData("wf_act_move_rotate", true)]
     [InlineData("wf_act_move_rotate", false)]
-    public void LineWithoutPhysicsWaitsIntactAtAWallAndKeepsItsSpacingInFreeSpace(string name, bool frontFirst)
+    public void NormalDirectionalPlacementStacksWhileGroupedStepsWaitAtAWall(string name, bool frontFirst)
     {
         var (room, line) = TileLine(0, -1, 1, frontFirst);
         var action = LineBox(room, name, 6, line);
 
         for (var pulse = 0; pulse < 3; pulse++) {
-            Assert.False(Pulse(room, action, line, blockedBySelf: false));
+            Assert.Equal(name == "wf_act_move_to_dir", Pulse(room, action, line, blockedBySelf: false));
         }
 
-        Assert.Equal(new[] { 0, 1, 2, 3, 4, 5, 6 }, line.Select(item => item.GetX));
+        Assert.Equal(name == "wf_act_move_to_dir" ? new[] { 0, 0, 0, 0, 1, 2, 3 } : [0, 1, 2, 3, 4, 5, 6], line.Select(item => item.GetX));
 
         var (open, free) = TileLine(6, 1, 1, frontFirst);
         var east = LineBox(open, name, 2, free);
@@ -1074,7 +1082,7 @@ public class ModernWiredRuntimeTests
     [InlineData("wf_act_move_furni_as_group", false)]
     [InlineData("wf_act_move_to_dir", true)]
     [InlineData("wf_act_move_to_dir", false)]
-    public void SelectedStackStepsAsOneUnitKeepingItsHeights(string name, bool tileFirst)
+    public void StepActionsPreserveGroupsWhileDirectionalMovesUseIndependentItems(string name, bool tileFirst)
     {
         var (room, map, items) = World(new RecordingPlacementStore());
         var stack = TileWithChair(map, items, 0, tileFirst);
@@ -1082,8 +1090,8 @@ public class ModernWiredRuntimeTests
 
         Assert.True(StackPulse(room, action, stack));
 
-        Assert.Equal((1, 1, 0.0), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
-        Assert.Equal((1, 1, 0.5), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
+        Assert.Equal((name == "wf_act_move_to_dir" && !tileFirst ? 0 : 1, 1, 0.0), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
+        Assert.Equal((1, 1, name == "wf_act_move_to_dir" && !tileFirst ? 0.0 : 0.5), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
     }
 
     [Theory]
@@ -1093,22 +1101,21 @@ public class ModernWiredRuntimeTests
     [InlineData("wf_act_move_rotate", false)]
     [InlineData("wf_act_move_to_dir", true)]
     [InlineData("wf_act_move_to_dir", false)]
-    public void SelectedStackBlockedByAStackableTileAheadStaysWhole(string name, bool tileFirst)
+    public void GroupedStepsBlockOnStackableTilesWhileDirectionalItemsUseNormalPlacement(string name, bool tileFirst)
     {
         var (room, map, items) = World(new RecordingPlacementStore());
         var stack = TileWithChair(map, items, 0, tileFirst);
         var ahead = StackItem(map, items, 9, "color_tile", 1, 0, 0.5, true);
         var action = StackBox(room, name, 2, stack);
 
-        Assert.False(StackPulse(room, action, stack, ahead));
+        var directional = name == "wf_act_move_to_dir";
+        Assert.Equal(directional, StackPulse(room, action, stack, ahead));
 
-        Assert.Equal((0, 1, 0.0), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
-        Assert.Equal((0, 1, 0.5), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
+        Assert.Equal((directional && tileFirst ? 1 : 0, 1, directional && tileFirst ? 0.5 : 0.0), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
+        Assert.Equal((directional ? 1 : 0, 1, directional && tileFirst ? 1.0 : 0.5), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
     }
 
     [Theory]
-    [InlineData("wf_act_move_to_dir", true)]
-    [InlineData("wf_act_move_to_dir", false)]
     [InlineData("wf_act_move_rotate", true)]
     [InlineData("wf_act_move_rotate", false)]
     [InlineData("wf_act_rel_mov", true)]
@@ -1136,17 +1143,20 @@ public class ModernWiredRuntimeTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void StackTurnsBackAsOneUnitAndKeepsMovingTogether(bool tileFirst)
+    public void StackedDirectionalItemsKeepTheirOwnHeadingAfterBlockedAttempts(bool tileFirst)
     {
         var (room, map, items) = World(new RecordingPlacementStore());
         var stack = TileWithChair(map, items, 1, tileFirst);
         var action = StackBox(room, "wf_act_move_to_dir", 2, stack, turn: 5);
 
-        // East to the wall, back west, then on west across the room.
-        foreach (var x in new[] { 2, 1, 0 }) {
+        var first = tileFirst ? stack[0] : stack[1];
+        var second = tileFirst ? stack[1] : stack[0];
+        var positions = tileFirst ? new[] { (2, 2), (1, 1), (0, 0) } : [(2, 0), (1, 0), (0, 1)];
+
+        for (var pulse = 0; pulse < positions.Length; pulse++) {
             Assert.True(StackPulse(room, action, stack));
-            Assert.Equal((x, 1, 0.0), (stack[0].GetX, stack[0].GetY, stack[0].GetZ));
-            Assert.Equal((x, 1, 0.5), (stack[1].GetX, stack[1].GetY, stack[1].GetZ));
+            Assert.Equal((positions[pulse].Item1, 1, !tileFirst && pulse == 2 ? 0.5 : 0.0), (first.GetX, first.GetY, first.GetZ));
+            Assert.Equal((positions[pulse].Item2, 1, tileFirst ? 0.5 : 0.0), (second.GetX, second.GetY, second.GetZ));
         }
     }
 
@@ -1690,13 +1700,396 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
-    public void ActualTeleportRestoresImmediatelyWhenSharedQueueCannotAcceptCleanup()
+    public void SelectedUsersArriveTogetherOnOneTeleportDestination()
     {
-        using var f = new TeleportFixture(2);
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = true;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        var second = f.AddPlayer(8, 2, 0);
+        f.SelectPlayers();
+        f.Use(0, 200);
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(new Point(1, 1), second.Coordinate);
+        var durations = MovementDurations(replies);
+        Assert.Equal(2, durations.Length);
+        Assert.All(durations, duration => Assert.Equal(500, duration));
+        f.Advance(500);
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(new Point(1, 1), second.Coordinate);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void FastTeleportKeepsWhoeverIsAlreadyThereAndStillBringsTheOthers()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = true;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        var resident = f.AddPlayer(8, 1, 1);
+        f.SelectPlayers();
+        f.Use(1, 200);
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(new Point(1, 1), resident.Coordinate);
+        Assert.Equal(new[] { 0 }, MovementDurations(replies));
+        Assert.Equal(8, f.User.CurrentEffect);
+        Assert.DoesNotContain(replies, reply => reply.Header == ServerPacketHeader.AvatarEffectComposer);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void FastTeleportMovesAtOnceAndSendsNoAnimationTime()
+    {
+        using var f = new TeleportFixture();
+        f.Use(1, 0);
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(8, f.User.CurrentEffect);
+        Assert.Equal(new[] { 0 }, MovementDurations(replies));
+        Assert.DoesNotContain(replies, reply => reply.Header == ServerPacketHeader.AvatarEffectComposer);
+        f.Advance(500);
+        Assert.Equal(8, f.User.CurrentEffect);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void TeleportMovesAtOnceAndGlidesForTheStackAnimationTime()
+    {
+        using var f = new TeleportFixture();
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(8, f.User.CurrentEffect);
+        Assert.Equal(new[] { 500 }, MovementDurations(replies));
+        Assert.DoesNotContain(replies, reply => reply.Header == ServerPacketHeader.AvatarEffectComposer);
+        f.Advance(1500);
+        Assert.Equal(8, f.User.CurrentEffect);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void TeleportStillRefusesAClosedTile()
+    {
+        using var f = new TeleportFixture();
+        f.Room.GetGameMap().Model.SqState[1, 1] = SquareState.Blocked;
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        f.Advance(500);
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Equal(8, f.User.CurrentEffect);
+        Assert.Empty(MovementDurations(replies));
+        Assert.DoesNotContain(replies, reply => reply.Header == ServerPacketHeader.AvatarEffectComposer);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void TeleportStillRefusesFurniNobodyCanStandOn()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = false;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        f.Advance(500);
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Equal(8, f.User.CurrentEffect);
+        Assert.Empty(MovementDurations(replies));
+        Assert.DoesNotContain(replies, reply => reply.Header == ServerPacketHeader.AvatarEffectComposer);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void TeleportCanShareASeatWithTheUserAlreadyOnIt()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.IsSeat = true;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        var resident = f.AddPlayer(8, 1, 1);
+        f.SelectPlayers();
+        f.Use(0, 200);
+        f.Fire();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(new Point(1, 1), resident.Coordinate);
+        Assert.Empty(f.Errors);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void TeleportThawsOnlyAFreezeThatEndsOnTeleport(bool cancelOnTeleport)
+    {
+        using var f = new TeleportFixture();
+        Assert.True(WiredAvatarState.For(f.Room).FreezeUser(f.User, 0, cancelOnTeleport));
+        Assert.True(f.User.Frozen);
+        f.Fire();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(!cancelOnTeleport, f.User.Frozen);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void UserToFurniSlideStillStopsWhenTheDestinationIsOccupied()
+    {
+        using var f = new TeleportFixture(actionName: "wf_act_user_to_furni", intParams: [100, 0, 1]);
+        var resident = f.AddPlayer(8, 1, 1);
+        f.Fire();
+        f.Advance(500);
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Equal(new Point(1, 1), resident.Coordinate);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2TeleportSharesAnOccupiedDestinationWhenTheFlagAllowsIt()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = true;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        var resident = f.AddPlayer(8, 1, 1);
+        f.SelectPlayers();
+        f.Use(0, 200);
+        f.UseExecutor();
+        Assert.True(f.Room.UsesV2Movement);
+        Assert.False(WiredRoomOperations.RelocateAvatar(f.Room, f.User, 1, 1, false));
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Equal(new Point(1, 1), resident.Coordinate);
+        f.FireOwned();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(new Point(1, 1), resident.Coordinate);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2TeleportStillRefusesAClosedTileWithTheFlag()
+    {
+        using var f = new TeleportFixture();
+        f.Room.GetGameMap().Model.SqState[1, 1] = SquareState.Blocked;
+        f.UseExecutor();
+        Assert.False(WiredRoomOperations.RelocateAvatar(f.Room, f.User, 1, 1, false, ignoreOccupants: true));
+        f.FireOwned();
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2TeleportStillRefusesFurniNobodyCanStandOnWithTheFlag()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = false;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        f.UseExecutor();
+        Assert.False(WiredRoomOperations.RelocateAvatar(f.Room, f.User, 1, 1, false, ignoreOccupants: true));
+        f.FireOwned();
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2TeleportCanStandOnAWalkMagicTile()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = false;
+        f.Target.Definition.InteractionType = InteractionType.WalkMagicTile;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        f.UseExecutor();
+        f.FireOwned();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2TeleportStillRefusesAPhysicsBlockingFurni()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = true;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        f.BlockDestination();
+        f.UseExecutor();
+        f.FireOwned();
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+
+        using (RoomOwnerScope.Enter(f.Room)) {
+            Assert.True(WiredRoomOperations.RelocateAvatar(f.Room, f.User, 1, 1, false, ignoreOccupants: true));
+        }
+
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2IncomingTeleportPublishesDestinationAndWalkOnlyAfterTheOwnerMoves()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = true;
+        f.Room.GetGameMap().AddToMap(f.Target);
+        f.Target.Attach(f.Room, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
+        f.UseExecutor();
+        var replies = Capture(f.Habbo.Client);
+        Assert.False(RoomOwnerScope.IsOwner(f.Room));
+        f.Fire();
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Null(f.User.LastItem);
+        Assert.Empty(MovementEndpoints(replies));
+        Assert.DoesNotContain(replies, reply => reply.Header == ServerPacketHeader.WiredFurniMoveStyleComposer);
+        f.DrainOwned();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Same(f.Target, f.User.LastItem);
+        Assert.Equal((0, 0, 1, 1, 500), Assert.Single(MovementEndpoints(replies)));
+        Assert.Contains(replies, reply => reply.Header == ServerPacketHeader.WiredFurniMoveStyleComposer);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2IncomingTeleportRevalidatesAClosedTileBeforeThePacket()
+    {
+        using var f = new TeleportFixture();
+        f.UseExecutor();
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        f.Room.GetGameMap().Model.SqState[1, 1] = SquareState.Blocked;
+        f.DrainOwned();
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Empty(MovementEndpoints(replies));
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2IncomingTeleportRevalidatesPhysicsBlockingFurniBeforeThePacket()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Walkable = true;
+        f.BlockDestination();
+        f.UseExecutor();
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        f.Room.GetGameMap().AddToMap(f.Target);
+        f.DrainOwned();
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Empty(MovementEndpoints(replies));
+        Assert.Empty(f.Errors);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void V2IncomingMovementKeepsAWalkingRequestPublishedAfterTheMove(bool slide)
+    {
+        using var f = slide
+            ? new TeleportFixture(actionName: "wf_act_user_to_furni", intParams: [100, 0, 1])
+            : new TeleportFixture();
+        f.UseExecutor();
+        f.User.IsWalking = true;
+        f.User.GoalX = 1;
+        f.User.GoalY = 0;
+        f.User.MoveTo(1, 0);
+        var before = f.User.Movement.Commands.Read()!.Sequence;
+        f.Fire();
+        f.User.MoveTo(0, 1);
+        var after = f.User.Movement.Commands.Read()!.Sequence;
+        f.DrainOwned();
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.Equal(before, f.User.Movement.ConsumedSequence);
+        Assert.True(after > f.User.Movement.ConsumedSequence);
+        Assert.Equal(after, f.User.Movement.Commands.Read()!.Sequence);
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2IncomingTeleportDropsTheMoveWhenTheActorIsRemoved()
+    {
+        using var f = new TeleportFixture();
+        f.UseExecutor();
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        f.Room.GetGameMap().Navigation!.Remove(f.User);
+        f.DrainOwned();
+        Assert.NotEqual(new Point(1, 1), f.User.Coordinate);
+        Assert.Empty(MovementEndpoints(replies));
+        Assert.Empty(f.Errors);
+    }
+
+    [Fact]
+    public void V2IncomingTeleportDropsTheMoveWhenTheActorLifetimeChanges()
+    {
+        using var f = new TeleportFixture();
+        f.UseExecutor();
+        var replies = Capture(f.Habbo.Client);
+        f.Fire();
+        typeof(RoomUser).GetField("_movement", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(f.User, new ActorMovementState());
+        f.DrainOwned();
+        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Empty(MovementEndpoints(replies));
+        Assert.Empty(f.Errors);
+    }
+
+    private static int[] MovementDurations(List<(uint Header, byte[] Body)> replies)
+    {
+        var durations = new List<int>();
+
+        foreach (var reply in replies) {
+            if (reply.Header != ServerPacketHeader.WiredMovementsComposer) {
+                continue;
+            }
+
+            var packet = new WireReader(reply.Body);
+            Assert.Equal(1, packet.Int());
+            Assert.Equal(0, packet.Int());
+            packet.Skip(4);
+            packet.String();
+            packet.String();
+            packet.Int();
+            Assert.Equal(1, packet.Int());
+            packet.Skip(2);
+            durations.Add(packet.Int());
+            packet.End();
+        }
+
+        return durations.ToArray();
+    }
+
+    private static (int FromX, int FromY, int ToX, int ToY, int Duration)[] MovementEndpoints(List<(uint Header, byte[] Body)> replies)
+    {
+        var endpoints = new List<(int, int, int, int, int)>();
+
+        foreach (var reply in replies) {
+            if (reply.Header != ServerPacketHeader.WiredMovementsComposer) {
+                continue;
+            }
+
+            var packet = new WireReader(reply.Body);
+            Assert.Equal(1, packet.Int());
+            Assert.Equal(0, packet.Int());
+            var fromX = packet.Int();
+            var fromY = packet.Int();
+            var toX = packet.Int();
+            var toY = packet.Int();
+            packet.String();
+            packet.String();
+            packet.Int();
+            Assert.Equal(1, packet.Int());
+            packet.Skip(2);
+            endpoints.Add((fromX, fromY, toX, toY, packet.Int()));
+            packet.End();
+        }
+
+        return endpoints.ToArray();
+    }
+
+    [Fact]
+    public void TeleportMovesImmediatelyWhenThePendingQueueHasRoomForOnlyTheFiring()
+    {
+        using var f = new TeleportFixture(1);
+        var replies = Capture(f.Habbo.Client);
         f.Fire();
         Assert.Equal(8, f.User.CurrentEffect);
-        Assert.Equal(new Point(0, 0), f.User.Coordinate);
-        f.Advance(500);
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
+        Assert.DoesNotContain(replies, reply => reply.Header == ServerPacketHeader.AvatarEffectComposer);
+        f.Advance(1500);
         Assert.Equal(new Point(1, 1), f.User.Coordinate);
         Assert.Equal(8, f.User.CurrentEffect);
         Assert.Empty(f.Errors);
@@ -1707,11 +2100,12 @@ public class ModernWiredRuntimeTests
     [InlineData("source")]
     [InlineData("save")]
     [InlineData("visit")]
-    public void ActualTeleportCancelsOrRejectsRemovedTargetSourceAndAvatarVisit(string change)
+    public void TeleportAlreadyHappenedSoRemovingTargetSourceOrVisitDoesNotPullTheUserBack(string change)
     {
         using var f = new TeleportFixture();
         f.Fire();
-        Assert.Equal(4, f.User.CurrentEffect);
+        Assert.Equal(8, f.User.CurrentEffect);
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
 
         if (change == "target") {
             f.Items.TryRemove(f.Target.Id, out _);
@@ -1731,7 +2125,7 @@ public class ModernWiredRuntimeTests
         }
 
         f.Advance(1500);
-        Assert.Equal(new Point(0, 0), f.User.Coordinate);
+        Assert.Equal(new Point(1, 1), f.User.Coordinate);
         Assert.Equal(change == "visit" ? -1 : 8, f.Habbo.Effects.CurrentEffect);
         Assert.Empty(f.Errors);
     }
@@ -1742,7 +2136,7 @@ public class ModernWiredRuntimeTests
         using var f = new TeleportFixture();
         f.Fire();
         f.Fire();
-        Assert.Equal(4, f.User.CurrentEffect);
+        Assert.Equal(8, f.User.CurrentEffect);
         f.Advance(1500);
         Assert.Equal(8, f.User.CurrentEffect);
         f.User.SetPos(0, 0, 0);
@@ -1797,7 +2191,8 @@ public class ModernWiredRuntimeTests
         public IItemDataManager? DefinitionManager;
         public readonly TestRewardProgress HandRewards = new();
         private readonly object? _originalGame; private long _now;
-        public TeleportFixture(int cap = 100, IDatabase? database = null, IGameClientManager? clientsForText = null)
+        public TeleportFixture(int cap = 100, IDatabase? database = null, IGameClientManager? clientsForText = null,
+            string actionName = "wf_act_teleport_to", int[]? intParams = null)
         {
             (Room, _, Items) = World();
             var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -1843,20 +2238,87 @@ public class ModernWiredRuntimeTests
             Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room"));
             Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
-            Action = new(Room, MakeItem(100, "wf_act_teleport_to"), Descriptor("wf_act_teleport_to"), new(),
+            Action = new(Room, MakeItem(100, actionName), Descriptor(actionName), new(),
                 evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
-            Action.TryValidateConfiguration(new() { IntParams = [0, 100, 0], SelectedItems = [1] }, out var config, out _);
+            var parameters = intParams == null
+                ? new WiredConfiguration { IntParams = [0, 100, 0], SelectedItems = [1] }
+                : new WiredConfiguration { IntParams = System.Collections.Immutable.ImmutableArray.Create(intParams), SelectedItems = [1] };
+            Action.TryValidateConfiguration(parameters, out var config, out _);
             Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item;
             Items[100] = Action.Item;
             Engine.Add(Trigger);
             Engine.Add(Action);
         }
-        public void Fire() => Assert.True(Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = User }));
+        public void Fire()
+        {
+            Assert.True(Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = User }));
+            Engine.OnFastCycle();
+        }
         public void Advance(int milliseconds)
         {
             _now += milliseconds;
             Engine.OnFastCycle();
+        }
+        public RoomUser AddPlayer(int virtualId, int x, int y)
+        {
+            var player = new RoomUser(virtualId, 0, virtualId, Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = x, Y = y };
+            RoomUsers(Room)[virtualId] = player;
+            Room.GetGameMap().AddUserToMap(player, new(x, y));
+
+            return player;
+        }
+        public void SelectPlayers()
+        {
+            var item = MakeItem(102, "wf_slc_users_bytype");
+            var selector = Plus.HabboHotel.Items.Wired.Modern.Selectors.WiredSelectorFactory.Create(Room, item, new(), TestGroupManager.Empty);
+            Assert.NotNull(selector);
+            Assert.True(selector.TryValidateConfiguration(new() { IntParams = [1, 0, 0] }, out var config, out var error), error);
+            selector.ApplyConfiguration(config);
+            Items[102] = item;
+            Assert.True(Engine.Add(selector));
+        }
+        public void Use(int fast, int userSource)
+        {
+            Assert.True(Action.TryValidateConfiguration(new() { IntParams = [fast, 100, userSource], SelectedItems = [1] }, out var config, out var error), error);
+            Action.ApplyConfiguration(config);
+        }
+        public void UseExecutor()
+        {
+            var map = Room.GetGameMap();
+            var navigation = new RoomNavigation(Room, map.StaticModel, new() { Engine = PathfindingEngine.V2 },
+                TestLogging.Navigation, TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+            typeof(Gamemap).GetField("<Navigation>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(map, navigation);
+
+            using (RoomOwnerScope.Enter(Room)) {
+                foreach (var user in RoomUsers(Room).Values.ToArray()) {
+                    map.RemoveUserFromMap(user, new(user.X, user.Y));
+                    navigation.Admit(user);
+                }
+            }
+        }
+        public void FireOwned()
+        {
+            using (RoomOwnerScope.Enter(Room)) {
+                Fire();
+            }
+        }
+        public void DrainOwned()
+        {
+            using (RoomOwnerScope.Enter(Room)) {
+                Room.GetGameMap().Navigation!.DrainCommands();
+            }
+        }
+        public void BlockDestination()
+        {
+            var item = MakeItem(103, "wf_xtra_mov_physics");
+            var addon = WiredAddonFactory.Create(Room, item, new(), TestGroupManager.Empty);
+            Assert.NotNull(addon);
+            Assert.True(addon.TryValidateConfiguration(new() { IntParams = [0, 0, 0, 1, 0, 100, 0], SelectedItems = [1] }, out var config, out var error), error);
+            addon.ApplyConfiguration(config);
+            Items[item.Id] = item;
+            Assert.True(Engine.Add(addon));
         }
         public void Dispose()
         {
@@ -1900,7 +2362,7 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
-    public void ClockStopResetRestartAndRemovalHaveActualLifecycleState()
+    public void ClockStopResetResumeAndRemovalHaveActualLifecycleState()
     {
         var item = MakeItem(1, "wf_upcounter1");
         var clocks = new WiredCounterController();
@@ -1910,11 +2372,11 @@ public class ModernWiredRuntimeTests
         clocks.Control(item, 1, 500);
         Assert.Empty(clocks.Poll(5000));
         Assert.Equal(500, clocks.ReadMilliseconds(item));
-        clocks.Control(item, 3, 5000);
+        clocks.Control(item, 4, 5000);
         Assert.True(clocks.IsRunning(item));
-        Assert.Equal(0, clocks.ReadMilliseconds(item));
+        Assert.Equal(500, clocks.ReadMilliseconds(item));
         clocks.TakeChanges();
-        Assert.Equal(500, Assert.Single(clocks.Poll(5500)).Event.Value);
+        Assert.Equal(1000, Assert.Single(clocks.Poll(5500)).Event.Value);
         clocks.Control(item, 2, 5500);
         Assert.False(clocks.IsRunning(item));
         clocks.Forget(item);
@@ -1924,23 +2386,26 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
-    public void GameCounterCountsDownAndPublishesStartEndExactlyOnce()
+    public void GameCounterCountsUpAndSupportsWiredClockControlsWithoutStartingAGame()
     {
         var item = MakeItem(1, "wf_game_upcounter1");
         item.LegacyDataString = "2";
         var clocks = new WiredCounterController();
         clocks.Attach(item);
         Assert.True(clocks.Use(item, 0, 0));
-        Assert.Equal(WiredEventKind.GameStart, Assert.Single(clocks.TakeChanges()).Event.Kind);
-        Assert.False(clocks.Control(item, 0, 0)); // Wired clock controls target upcounters, not game countdowns.
-        Assert.Empty(clocks.Poll(999));
-        Assert.Equal("1", Assert.Single(clocks.Poll(1000)).Item.LegacyDataString);
-        Assert.Equal(new[] { WiredEventKind.StateChanged, WiredEventKind.GameEnd }, clocks.Poll(2000).Select(change => change.Event.Kind));
+        Assert.Empty(clocks.TakeChanges());
+        Assert.True(clocks.Control(item, 0, 0));
+        Assert.Empty(clocks.Poll(499));
+        Assert.Equal(2500, Assert.Single(clocks.Poll(500)).Event.Value);
+        Assert.Equal("3", Assert.Single(clocks.Poll(1000)).Item.LegacyDataString);
+        Assert.True(clocks.IsRunning(item));
+        Assert.True(clocks.Adjust(item, 0, 0, 2));
+        Assert.Equal(4000, clocks.ReadMilliseconds(item));
+        clocks.TakeChanges();
+        clocks.Use(item, 2, 1000);
+        Assert.Equal("0", item.LegacyDataString);
+        Assert.Equal(WiredEventKind.Counter, Assert.Single(clocks.TakeChanges()).Event.Kind);
         Assert.False(clocks.IsRunning(item));
-        Assert.Empty(clocks.Poll(3000));
-        clocks.Use(item, 2, 3000);
-        Assert.Equal("60", item.LegacyDataString);
-        Assert.Equal(WiredEventKind.StateChanged, Assert.Single(clocks.TakeChanges()).Event.Kind);
     }
 
     [Fact]

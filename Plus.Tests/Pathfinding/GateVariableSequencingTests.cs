@@ -210,7 +210,7 @@ public partial class PlacedFurniRoomTests
         var frame = new WiredVariableFrame(_room.Id, [holder]);
         var script = new Queue<int>(closing ? [0, 1] : [1, 0]);
         var calls = 0;
-        Func<int, int> transform = _ => { calls++; return script.Dequeue(); };
+        Func<long, long> transform = _ => { calls++; return script.Dequeue(); };
         Assert.True(Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, transform, frame, 2)).Result);
         Assert.Equal(1, calls);
         DrainOnOwner();
@@ -231,7 +231,7 @@ public partial class PlacedFurniRoomTests
         var frame = new WiredVariableFrame(_room.Id, [holder]);
         using var evaluating = new ManualResetEventSlim();
         using var proceed = new ManualResetEventSlim();
-        Func<int, int> slowIncrement = value => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return value + 1; };
+        Func<long, long> slowIncrement = value => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return value + 1; };
         var first = Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, slowIncrement, frame));
 
         try {
@@ -283,7 +283,7 @@ public partial class PlacedFurniRoomTests
         var frame = new WiredVariableFrame(_room.Id, [holder]);
         using var evaluating = new ManualResetEventSlim();
         using var proceed = new ManualResetEventSlim();
-        Func<int, int> slowClose = _ => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return 0; };
+        Func<long, long> slowClose = _ => { evaluating.Set(); proceed.Wait(TimeSpan.FromSeconds(5)); return 0; };
         var first = Task.Run(() => module.Change(StateReference, holder, WiredVariableMutation.Set, slowClose, frame));
 
         try {

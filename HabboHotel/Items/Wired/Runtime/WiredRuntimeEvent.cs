@@ -7,7 +7,7 @@ public enum WiredEventKind
 {
     Enter, Speech, WalkOn, WalkOff, Use, StateChanged, GameStart, GameEnd, Collision,
     Score, AvatarAction, Leave, ClickFurni, ClickTile, ClickUser, BotReachedFurni,
-    BotReachedUser, Counter, Signal, Variable, Periodic, Elapsed
+    BotReachedUser, Counter, Signal, Variable, Periodic, Elapsed, TransactionComplete, TransactionFail
 }
 
 public sealed record WiredRuntimeEvent(WiredEventKind Kind)
@@ -16,11 +16,14 @@ public sealed record WiredRuntimeEvent(WiredEventKind Kind)
     public Item? EventItem { get; init; }
     public RoomUser? TargetUser { get; init; }
     public string Message { get; init; } = "";
+    public int ChatType { get; init; }
+    public int ChatStyle { get; init; }
     public int Action { get; init; }
     public int Code { get; init; }
     public WiredVariableChange? VariableChange { get; init; }
     public long PreviousValue { get; init; }
     public long Value { get; init; }
+    public Plus.HabboHotel.Items.Wired.Chests.WiredChestFigures? Transaction { get; init; }
     public int Team { get; init; }
     public int X { get; init; }
     public int Y { get; init; }

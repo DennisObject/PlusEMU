@@ -117,22 +117,24 @@ public sealed class WiredGlideConveyorTests
         Configure(Room14, (110, [1, 1, 0, 0, 900, 0, 0]), (109, [0, 0, 1, 1, 100]), (121, [0, 0, 1, 0, 0, 0, 900]))
             .Select(entry => entry.Id == 107 ? entry with { Json = Source(entry.Json!, 201) } : entry).ToArray();
 
-    // As saved live, the front tile steps into unpicked tile 120 and every step mover is blocked by furniture unless the
-    // physics add-on moves it through, so the whole line waits. The snapshot restore's source 0 is the antenna, which has no snapshot.
+    // Normal independent placements can move onto stackable tile 120. Restore source 0 is the antenna,
+    // which has no snapshot, so four completed pulses translate the picked line four tiles.
     [Fact]
-    public void LiveRoom14LineWaitsBehindItsUnpickedEndTile()
+    public void Room14IndependentLineMovesOntoItsStackableUnpickedEndTile()
     {
         var f = new Fixture(Room14);
         var rider = f.User(4, 13);
 
         f.Advance(1000);
 
-        Assert.Equal((4, 13), (rider.X, rider.Y));
-        AssertLineAtSnapshot(f);
+        Assert.Equal((8, 13), (rider.X, rider.Y));
+        Assert.Equal(new[] { 8, 9, 10, 11, 12, 13 }, Line.Select(id => f.Items[id].GetX));
+        Assert.Equal(10, f.Items[120].GetX);
     }
 
     // The same room once stack A moves through all furni, the restore uses its picked furni and stack B moves through all users:
-    // each repeater pulse slides the line one tile east carrying the rider, and the signal puts the tiles back under them.
+    // each repeater pulse moves items independently, carrying a rider again when they land on a later item.
+    // The signal puts the tiles back after each pulse.
     [Fact]
     public void Room14GlidesTheRiderAcrossTheLineWithRoomWideSources()
     {
@@ -145,7 +147,7 @@ public sealed class WiredGlideConveyorTests
             f.Advance(200);
 
             // The rider leaves the line onto unpicked tile 120 and stays there.
-            Assert.Equal((Math.Min(4 + pulse, 10), 13, 0.1), (rider.X, rider.Y, rider.Z));
+            Assert.Equal((pulse == 1 ? 5 : 10, 13, 0.1), (rider.X, rider.Y, rider.Z));
             AssertLineAtSnapshot(f);
         }
     }
@@ -166,19 +168,20 @@ public sealed class WiredGlideConveyorTests
     }
 
     // The live room on its real heightmap with v2 movement: once 107 takes its picked furni again, each repeater pulse carries
-    // a rider who walked onto the first tile one tile east; standing on the moving tile never blocks it.
+    // a rider on the first tile. Later movers can carry that rider again in the same pulse.
     [Fact]
     public void LiveRoom14GlidesAWalkedOnRiderWithPickedFurni()
     {
         var f = new Fixture(Picked(LiveRoom14), live: true);
         var rider = f.Walker(1, 4, 13);
         Assert.Equal((4, 13, 0.1), (rider.X, rider.Y, rider.Z));
-        f.Advance(100);
+        f.Advance(150); // The first periodic chain resumes at the boundary after its 200ms admission.
 
         for (var pulse = 1; pulse <= 6; pulse++) {
             f.Advance(100);
-            Assert.Equal((4 + pulse, 13, 0.1), (rider.X, rider.Y, rider.Z));
-            Assert.Equal(10, f.Items[119].GetX);
+            Assert.Equal((pulse == 1 ? 5 : 10, 13, 0.1), (rider.X, rider.Y, rider.Z));
+            // The zero-delay receiver restores the line in the same drain after the sender moves it.
+            AssertLineAtSnapshot(f);
 
             f.Advance(100);
             AssertLineAtSnapshot(f);

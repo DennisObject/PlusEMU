@@ -12,7 +12,9 @@ public sealed class WiredVariableTextCaptureTests
         Assert.True(WiredVariableTextCapture.TryMatch("set #score# for #team#", "SET -12 for blue team", 1, capturers, out var values));
         Assert.Equal(-12, values[10]);
         Assert.Equal(2, values[11]);
-        Assert.False(WiredVariableTextCapture.TryMatch("set #score# for #team#", "set 2147483648 for blue team", 1, capturers, out values));
+        Assert.True(WiredVariableTextCapture.TryMatch("set #score# for #team#", "set 2147483648 for blue team", 1, capturers, out values));
+        Assert.Equal(2147483648L, values[10]);
+        Assert.False(WiredVariableTextCapture.TryMatch("set #score# for #team#", "set 9223372036854775808 for blue team", 1, capturers, out values));
         Assert.Empty(values);
         Assert.False(WiredVariableTextCapture.TryMatch("#score#", "3 words", 1, capturers, out _));
         Assert.True(WiredVariableTextCapture.TryMatch("", "+42", 2, [capturers[0]], out values));

@@ -40,16 +40,6 @@ public sealed class WiredDirectionalActions
         return moved;
     }
     public int Heading(Item item, int initial) => _headings.GetValueOrDefault(item, initial);
-    public void Follow(Item leader, IEnumerable<Item> members)
-    {
-        if (!_headings.TryGetValue(leader, out var heading)) {
-            return;
-        }
-
-        foreach (var member in members) {
-            _headings[member] = heading;
-        }
-    }
     public void Retain(IEnumerable<Item> attached)
     {
         var live = attached.ToHashSet();
@@ -69,7 +59,7 @@ public sealed class WiredDirectionalActions
         _ => (direction + 4) % 8
     };
     public static RoomUser? Nearest(Item item, IEnumerable<RoomUser> users) => users.Where(user => !user.IsBot)
-        .Select(user => (User: user, Distance: Math.Max(Math.Abs(user.X - item.GetX), Math.Abs(user.Y - item.GetY))))
+        .Select(user => (User: user, Distance: Math.Abs(user.X - item.GetX) + Math.Abs(user.Y - item.GetY)))
         .Where(pair => pair.Distance <= 3).OrderBy(pair => pair.Distance).Select(pair => pair.User).FirstOrDefault();
     public static IEnumerable<Point> Steps(Item item, RoomUser user, bool away)
     {

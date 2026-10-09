@@ -633,6 +633,25 @@ public class RoomItemHandling
     public bool SetFloorItem(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses = false, double height = -1, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision = null) =>
         PlaceFloor(session, item, newX, newY, newRot, newItem, onRoller, sendMessage, updateRoomUserStatuses, height, wiredCollision, null);
 
+    public bool PersistFurnitureData(Item item, Plus.HabboHotel.Items.DataFormat.IFurniObjectData data)
+    {
+        RoomItemSnapshot snapshot;
+
+        lock (item.NavSync) {
+            if (item.IsTemporary || item.RoomId != _room.Id || !ReferenceEquals(GetItem(item.Id), item)) {
+                return false;
+            }
+
+            _metadata.SetBrandingData(item.Id, _room.Id, data.Serialize());
+            item.ExtraData = data;
+            snapshot = RoomItemSnapshot.Capture(item);
+        }
+
+        _room.SendPacket(new ObjectUpdateComposer(snapshot));
+
+        return true;
+    }
+
     // Prepared data is persisted inside the placement lock after every denial, then attached and published through the same path.
     public bool SetFloorItemData(GameClient session, Item item, Plus.HabboHotel.Items.DataFormat.IFurniObjectData data, Action persist) =>
         PlaceFloor(session, item, item.GetX, item.GetY, item.Rotation, false, false, true, false, -1, null, (data, persist));

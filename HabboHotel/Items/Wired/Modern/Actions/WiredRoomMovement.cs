@@ -2,6 +2,7 @@ using Plus.HabboHotel.Items.Wired.Modern.Addons;
 using Plus.HabboHotel.Items.Wired.Modern.Selectors;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Rooms.PathFinding;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
@@ -164,7 +165,23 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
             && (context.Policy.Addons.Carry.SameTile || Math.Abs(user.Z - item.TotalHeight) < 0.001)).ToArray();
 
     public bool MoveAvatar(WiredRuntimeContext context, RoomUser user, int x, int y, bool animate,
-        int walkMode = 2, bool throughUsers = false)
+        int walkMode = 2, bool throughUsers = false, bool ignoreOccupants = false, int? animationTimeMs = null)
+    {
+        var room = context.Room;
+
+        if (room.UsesV2Movement && !RoomOwnerScope.IsOwner(room)) {
+            // Placement, walk hooks and packets must observe the same owner-side move.
+            room.GetGameMap().Navigation!.RunOwner(user, (actor, sequence) => MoveAvatarOwned(context, actor,
+                x, y, animate, walkMode, throughUsers, ignoreOccupants, animationTimeMs, sequence));
+
+            return true;
+        }
+
+        return MoveAvatarOwned(context, user, x, y, animate, walkMode, throughUsers, ignoreOccupants, animationTimeMs, null);
+    }
+
+    private bool MoveAvatarOwned(WiredRuntimeContext context, RoomUser user, int x, int y, bool animate,
+        int walkMode, bool throughUsers, bool ignoreOccupants, int? animationTimeMs, long? discardThrough)
     {
         var room = context.Room;
 
@@ -174,24 +191,28 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
                 return false;
             }
 
-            var occupants = room.GetGameMap().GetRoomUsers(new(x, y)).Where(other => !ReferenceEquals(other, user)).ToArray();
+            // ignoreOccupants skips people only. Blocking furniture and a closed tile still refuse.
+            if (!ignoreOccupants) {
+                var occupants = room.GetGameMap().GetRoomUsers(new(x, y)).Where(other => !ReferenceEquals(other, user)).ToArray();
 
-            if (!throughUsers && occupants.Any(other => !physics.ThroughUsers.Contains(other.VirtualId))) {
-                return false;
+                if (!throughUsers && occupants.Any(other => !physics.ThroughUsers.Contains(other.VirtualId))) {
+                    return false;
+                }
+
+                throughUsers |= occupants.Length > 0 && occupants.All(other => physics.ThroughUsers.Contains(other.VirtualId));
             }
-
-            throughUsers |= occupants.Length > 0 && occupants.All(other => physics.ThroughUsers.Contains(other.VirtualId));
         }
 
         var oldX = user.X;
         var oldY = user.Y;
         var oldZ = user.Z;
         var wasWalking = user.IsWalking;
+        var resumeThrough = discardThrough ?? (room.UsesV2Movement ? user.Movement.Commands.Read()?.Sequence ?? 0 : (long?)null);
         var goalX = user.GoalX;
         var goalY = user.GoalY;
         var oldItems = room.GetGameMap().GetCoordinatedItems(user.Coordinate).DistinctBy(item => item.Id).ToArray();
 
-        if (!WiredRoomOperations.RelocateAvatar(room, user, x, y, false, throughUsers)) {
+        if (!WiredRoomOperations.RelocateAvatar(room, user, x, y, false, throughUsers, ignoreOccupants, discardThrough)) {
             return false;
         }
 
@@ -203,11 +224,13 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
             room.SendPacket(new WiredMoveStyleComposer(user.VirtualId, curve?.Type ?? 0,
                 curve?.Type == 7 ? curve.Strength : curve?.Intensity ?? 100, 0, true));
             room.SendPacket(new WiredMovementComposer(0, user.VirtualId, oldX, oldY, oldZ, user.X, user.Y, user.Z,
-                user.RotBody, user.RotHead, context.Policy.Addons.AnimationTimeMs));
+                user.RotBody, user.RotHead, animationTimeMs ?? context.Policy.Addons.AnimationTimeMs));
         }
 
-        if (wasWalking && (walkMode == 1 || walkMode == 0
-            && Math.Abs(goalX - x) + Math.Abs(goalY - y) < Math.Abs(goalX - oldX) + Math.Abs(goalY - oldY))) {
+        // A newer walk request takes precedence over restoring the route captured by this move.
+        if (wasWalking && (!resumeThrough.HasValue || (user.Movement.Commands.Read()?.Sequence ?? 0) <= resumeThrough.Value)
+            && (walkMode == 1 || walkMode == 0
+            && Math.Max(Math.Abs(goalX - x), Math.Abs(goalY - y)) < Math.Max(Math.Abs(goalX - oldX), Math.Abs(goalY - oldY)))) {
             user.MoveTo(goalX, goalY);
         }
 
