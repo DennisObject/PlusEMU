@@ -15,16 +15,16 @@ DELETE a FROM `user_clothing` a JOIN `user_clothing` b ON b.`user_id` = a.`user_
 DELETE a FROM `catalog_marketplace_data` a JOIN `catalog_marketplace_data` b ON b.`sprite` = a.`sprite` AND b.`id` < a.`id`;
 DELETE a FROM `talents` a JOIN `talents` b ON b.`type` = a.`type` AND b.`level` <=> a.`level` AND b.`id` < a.`id`;
 -- group_requests and catalog_pet_races have no id to choose by; identical rows collapse to one.
-CREATE TEMPORARY TABLE `migration_66_group_requests` AS SELECT DISTINCT * FROM `group_requests`;
+CREATE TEMPORARY TABLE `migration_71_group_requests` AS SELECT DISTINCT * FROM `group_requests`;
 DELETE FROM `group_requests`;
-INSERT INTO `group_requests` SELECT * FROM `migration_66_group_requests`;
-DROP TEMPORARY TABLE `migration_66_group_requests`;
-CREATE TEMPORARY TABLE `migration_66_pet_races` AS
+INSERT INTO `group_requests` SELECT * FROM `migration_71_group_requests`;
+DROP TEMPORARY TABLE `migration_71_group_requests`;
+CREATE TEMPORARY TABLE `migration_71_pet_races` AS
     SELECT `raceid`, `color1`, `color2`, MAX(`has1color`) AS `has1color`, MAX(`has2color`) AS `has2color`
     FROM `catalog_pet_races` WHERE `raceid` IS NOT NULL AND `color1` IS NOT NULL AND `color2` IS NOT NULL GROUP BY `raceid`, `color1`, `color2`;
 DELETE FROM `catalog_pet_races`;
-INSERT INTO `catalog_pet_races` (`raceid`, `color1`, `color2`, `has1color`, `has2color`) SELECT * FROM `migration_66_pet_races`;
-DROP TEMPORARY TABLE `migration_66_pet_races`;
+INSERT INTO `catalog_pet_races` (`raceid`, `color1`, `color2`, `has1color`, `has2color`) SELECT * FROM `migration_71_pet_races`;
+DROP TEMPORARY TABLE `migration_71_pet_races`;
 
 -- Natural keys instead of surrogate ids nothing reads; each also stops duplicate rows.
 ALTER TABLE `room_rights` DROP PRIMARY KEY, DROP COLUMN `id`, DROP INDEX IF EXISTS `room_id`, ADD PRIMARY KEY (`room_id`, `user_id`);
