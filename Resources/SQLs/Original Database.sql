@@ -26608,3 +26608,11 @@ CREATE TABLE IF NOT EXISTS rcon_grants (
     PRIMARY KEY (idempotency_key),
     KEY idx_rcon_grants_user (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- 63_HideWiredCommand
+ALTER TABLE rooms ADD COLUMN IF NOT EXISTS hide_wired TINYINT(1) NOT NULL DEFAULT 0;
+
+INSERT IGNORE INTO acl_permissions (`key`, category, description, is_orphan)
+VALUES ('command.hidewired', 'command', 'Hide or show the wired furniture in an owned room.', FALSE);
+
+INSERT IGNORE INTO role_permissions (role_id, permission_key)
+SELECT id, 'command.hidewired' FROM roles WHERE slug = 'default';
