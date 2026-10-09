@@ -323,7 +323,7 @@ public sealed class UserGrantDatabaseTests : IDisposable
             try {
                 habbo.OnDisconnect();
             }
-            catch (NullReferenceException) { }
+            catch (InvalidOperationException) { }
         });
         Task<GrantOutcome> grant, settings;
 

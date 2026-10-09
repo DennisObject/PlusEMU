@@ -21,7 +21,6 @@ using Plus.HabboHotel;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Catalog;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.UserData;
@@ -33,25 +32,29 @@ public class PlusEnvironment : IPlusEnvironment
     public const string PrettyVersion = "Plus Emulator";
     public const string PrettyBuild = "3.4.3.0";
     private static ILogger<PlusEnvironment>? _logger;
-    private static ILogger<PlusEnvironment> Logger => _logger ?? throw new InvalidOperationException("The environment has not been constructed.");
+    private static ILogger<PlusEnvironment> Logger => Constructed(_logger);
 
     private static Encoding _defaultEncoding = Encoding.Default;
-    public static CultureInfo CultureInfo;
+    public static CultureInfo CultureInfo = CultureInfo.InvariantCulture;
 
-    private static IGame _game;
+    // The static services are set by the DI-built instance; reading one earlier is a startup bug.
+    private static IGame? _game;
+    private static IGame CurrentGame => Constructed(_game);
     private static IGameClientManager? _clientManager;
-    private static IGameClientManager Clients => _clientManager ?? throw new InvalidOperationException("The environment has not been constructed.");
+    private static IGameClientManager Clients => Constructed(_clientManager);
     private static IRoomManager? _roomManager;
-    private static IRoomManager Rooms => _roomManager ?? throw new InvalidOperationException("The environment has not been constructed.");
-    private static ILanguageManager _languageManager;
-    private static ISettingsManager _settingsManager;
-    private static IDatabase _database;
-    private static IRconSocket _rcon;
-    private static IFlashServer _flashServer;
+    private static IRoomManager Rooms => Constructed(_roomManager);
+    private static ILanguageManager? _languageManager;
+    private static ISettingsManager? _settingsManager;
+    private static IDatabase? _database;
+    private static IDatabase Database => Constructed(_database);
+    private static IRconSocket? _rcon;
+    private static IFlashServer? _flashServer;
+    private static IFlashServer FlashServer => Constructed(_flashServer);
     private readonly INitroServer _nitroServer;
-    private static IAuthHttpServer _authHttpServer;
-    private static IFigureDataManager _figureManager;
-    private static IItemDataManager _itemDataManager;
+    private static IAuthHttpServer? _authHttpServer;
+    private static IAuthHttpServer AuthHttpServer => Constructed(_authHttpServer);
+    private static IFigureDataManager? _figureManager;
 
     private readonly IServerUptime _uptime;
 
@@ -72,7 +75,6 @@ public class PlusEnvironment : IPlusEnvironment
         IEnumerable<IStartable> startableTasks,
         IRconSocket rconSocket,
         IOptions<RconConfiguration> rconConfiguration,
-        IItemDataManager itemDataManager,
         IFlashServer flashServer,
         INitroServer nitroServer,
         IAuthHttpServer authHttpServer,
@@ -91,7 +93,6 @@ public class PlusEnvironment : IPlusEnvironment
         _nitroServer = nitroServer;
         _authHttpServer = authHttpServer;
         _rconConfiguration = rconConfiguration.Value;
-        _itemDataManager = itemDataManager;
         _logger = logger;
         _uptime = uptime;
     }
@@ -113,10 +114,9 @@ public class PlusEnvironment : IPlusEnvironment
         ConsoleWindow.SetTitle("Loading Plus Emulator");
         Console.WriteLine("");
         Console.WriteLine("");
-        CultureInfo = CultureInfo.InvariantCulture;
 
         try {
-            if (!_database.IsConnected()) {
+            if (!Database.IsConnected()) {
                 Logger.LogError("Failed to Connect to the specified MySQL server.");
                 ConsoleWindow.WaitForKey();
 
@@ -129,8 +129,8 @@ public class PlusEnvironment : IPlusEnvironment
             await ResetStatistics();
 
             //Get the configuration & Game set.
-            await _languageManager.Reload();
-            await _settingsManager.Reload();
+            await LanguageManager.Reload();
+            await SettingsManager.Reload();
 
             //Have our encryption ready.
             HabboEncryptionV2.Initialize(new());
@@ -138,12 +138,12 @@ public class PlusEnvironment : IPlusEnvironment
             await StartupSequence.Start(_startableTasks);
 
             // Managers are ready before any listener accepts requests.
-            _rcon.Init(_rconConfiguration.Hostname, _rconConfiguration.Port, _rconConfiguration.AllowedAddresses);
-            _flashServer.Start();
+            RconSocket.Init(_rconConfiguration.Hostname, _rconConfiguration.Port, _rconConfiguration.AllowedAddresses);
+            FlashServer.Start();
             _nitroServer.Start();
-            await _authHttpServer.Start();
-            Logger.LogInformation("Auth API listening on {Urls}", string.Join(", ", _authHttpServer.Urls));
-            _game.StartGameLoop();
+            await AuthHttpServer.Start();
+            Logger.LogInformation("Auth API listening on {Urls}", string.Join(", ", AuthHttpServer.Urls));
+            CurrentGame.StartGameLoop();
             var timeUsed = _uptime.Elapsed;
             Console.WriteLine();
             Logger.LogInformation("EMULATOR -> READY! ({Seconds} s, {Milliseconds} ms)", timeUsed.Seconds, timeUsed.Milliseconds);
@@ -178,7 +178,7 @@ public class PlusEnvironment : IPlusEnvironment
 
     private async Task ResetStatistics()
     {
-        using var connection = _database.Connection();
+        using var connection = Database.Connection();
         await connection.ExecuteAsync("TRUNCATE `catalog_marketplace_data`");
         await connection.ExecuteAsync("UPDATE `rooms` SET `users_now` = '0' WHERE `users_now` > '0';");
         await connection.ExecuteAsync("UPDATE `users` SET `online` = false WHERE `online` = true");
@@ -255,7 +255,7 @@ public class PlusEnvironment : IPlusEnvironment
     public static Habbo? GetHabboByUsername(string userName)
     {
         try {
-            using var connection = _database.Connection();
+            using var connection = Database.Connection();
             var id = connection.QuerySingleOrDefault<int>("SELECT id FROM users WHERE username=@userName LIMIT 1", new { userName });
 
             if (id > 0) {
@@ -276,16 +276,16 @@ public class PlusEnvironment : IPlusEnvironment
         Logger.LogInformation("Server shutting down...");
         ConsoleWindow.SetTitle("PLUS EMULATOR: SHUTTING DOWN!");
         // No new logins while the hotel goes down.
-        _authHttpServer.Stop().Wait(TimeSpan.FromSeconds(5));
+        AuthHttpServer.Stop().Wait(TimeSpan.FromSeconds(5));
         Clients.SendPacket(new BroadcastMessageAlertComposer(LanguageManager.TryGetValue("server.shutdown.message")));
-        _game.StopGameLoop();
+        CurrentGame.StopGameLoop();
         Thread.Sleep(2500);
-        _flashServer.Stop();
+        FlashServer.Stop();
         Clients.CloseAll(); //Close all connections
         Rooms.Dispose(); //Stop the game loop.
 
         if (!Debugger.IsAttached) {
-            using var connection = _database.Connection();
+            using var connection = Database.Connection();
             connection.Execute("TRUNCATE catalog_marketplace_data");
             connection.Open();
             using var transaction = connection.BeginTransaction();
@@ -303,18 +303,20 @@ public class PlusEnvironment : IPlusEnvironment
     public static Encoding GetDefaultEncoding() => _defaultEncoding;
 
     [Obsolete("Use dependency injection instead and inject required services.")]
-    public static IGame Game => _game;
+    public static IGame Game => CurrentGame;
 
-    public static IRconSocket RconSocket => _rcon;
+    public static IRconSocket RconSocket => Constructed(_rcon);
 
-    public static IFigureDataManager FigureManager => _figureManager;
+    public static IFigureDataManager FigureManager => Constructed(_figureManager);
 
     [Obsolete("Inject IDatabase instead")]
-    public static IDatabase DatabaseManager => _database;
+    public static IDatabase DatabaseManager => Database;
 
-    public static ILanguageManager LanguageManager => _languageManager;
+    public static ILanguageManager LanguageManager => Constructed(_languageManager);
 
-    public static ISettingsManager SettingsManager => _settingsManager;
+    public static ISettingsManager SettingsManager => Constructed(_settingsManager);
+
+    private static T Constructed<T>(T? service) where T : class => service ?? throw new InvalidOperationException("The environment has not been constructed.");
 
     public static ICollection<Habbo> CachedUsers => _usersCached.Values;
 
