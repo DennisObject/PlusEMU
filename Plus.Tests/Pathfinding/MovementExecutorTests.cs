@@ -295,6 +295,27 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
+    public void ExecutorBedExitAnnouncesAndCommitsTheAdjacentDiagonalFloor()
+    {
+        var bed = Furni(10, InteractionType.Bed, WiredBoxType.None);
+        bed.Definition.Length = 2;
+        bed.Definition.Width = 1;
+        bed.Definition.Height = 1.9;
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, bed, 1, 1, 0, true, false, false));
+        ExecutorFloor(11, 2, 1, height: 17);
+        var actor = ExecutorActor(1, 1);
+        Assert.True(actor.HasStatus("lay"));
+        actor.MoveTo(2, 2);
+        ExecutorTick();
+        Assert.Contains("/mv 2,2,0/", ExecutorUpdate(actor).Status);
+        ExecutorTick();
+        Assert.Equal((2, 2, 0d), (actor.X, actor.Y, actor.Z));
+        Assert.False(actor.IsWalking);
+        Assert.False(actor.HasStatus("lay"));
+        Assert.DoesNotContain("/mv ", ExecutorUpdate(actor).Status);
+    }
+
+    [Fact]
     public void ExecutorDoorArrivalRemovesActorAfterWalkOffAndSkipsWalkOn()
     {
         var origin = ExecutorFloor(10, 1, 1);

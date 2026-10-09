@@ -191,11 +191,11 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
             return StepReason.CornerVoid;
         }
 
-        var openA = CanFlankKnownTile(actor, from.Z, a);
+        var openA = CanFlankKnownTile(actor, from, a);
 
         if (_cornerRule == CornerRule.Strict
-            ? !openA || !CanFlankKnownTile(actor, from.Z, b)
-            : !openA && !CanFlankKnownTile(actor, from.Z, b)) {
+            ? !openA || !CanFlankKnownTile(actor, from, b)
+            : !openA && !CanFlankKnownTile(actor, from, b)) {
             return StepReason.CornerBlocked;
         }
 
@@ -208,15 +208,15 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
             return false;
         }
 
-        return CanFlankKnownTile(actor, from.Z, grid.Tile(x, y));
+        return CanFlankKnownTile(actor, from, grid.Tile(x, y));
     }
 
     // A flank is open if some surface on it is open (§5.5 CanFlank).
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private bool CanFlankKnownTile(ActorProfile actor, double fromZ, int t)
+    private bool CanFlankKnownTile(ActorProfile actor, in NavPosition from, int t)
     {
         for (var ordinal = 0; ordinal < grid.SurfaceCount(t); ordinal++) {
-            if (FlankSurfaceOpen(actor, fromZ, grid.SurfaceAt(t, ordinal))) {
+            if (FlankSurfaceOpen(actor, from, grid.SurfaceAt(t, ordinal))) {
                 return true;
             }
         }
@@ -224,13 +224,36 @@ public sealed class MovementRules(NavGrid grid, PathfindingSettings settings, Ac
         return false;
     }
 
-    private bool FlankSurfaceOpen(ActorProfile actor, double fromZ, int slot)
+    private bool FlankSurfaceOpen(ActorProfile actor, in NavPosition from, int slot)
     {
         var flags = grid.Flags[slot];
 
-        return (flags & NavFlags.Transit) != 0 && (flags & NavFlags.FloorLocked) == 0
+        return ((flags & NavFlags.Transit) != 0 || IsDepartingBed(from, slot)) && (flags & NavFlags.FloorLocked) == 0
             && ((flags & NavFlags.GuildGate) == 0 || _access.CanEnterGuildGate(actor, grid.GroupId[slot]))
-            && (actor.IgnoreStepHeight || HeightReason(grid.WalkZ[slot] - fromZ) == StepReason.Ok);
+            && (actor.IgnoreStepHeight || HeightReason(grid.WalkZ[slot] - from.Z) == StepReason.Ok);
+    }
+
+    // The bed an actor is leaving supplies clearance beside its pillow, but remains goal-only.
+    private bool IsDepartingBed(in NavPosition from, int flank)
+    {
+        if ((grid.Flags[flank] & NavFlags.GoalOnlyBed) == 0 || grid.SupportItem[flank] == 0
+            || !grid.InBounds(from.X, from.Y)) {
+            return false;
+        }
+
+        var tile = grid.Tile(from.X, from.Y);
+
+        for (var ordinal = 0; ordinal < grid.SurfaceCount(tile); ordinal++) {
+            var source = grid.SurfaceAt(tile, ordinal);
+
+            if ((from.Slot < 0 || from.Slot == source) && grid.WalkZ[source] == from.Z
+                && (grid.Flags[source] & NavFlags.GoalOnlyBed) != 0
+                && grid.SupportItem[source] == grid.SupportItem[flank]) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private StepReason HeightReason(double dz) => dz > _maxUp ? StepReason.TooHigh
