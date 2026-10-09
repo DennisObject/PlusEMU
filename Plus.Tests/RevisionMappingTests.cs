@@ -101,8 +101,8 @@ public class RevisionMappingTests
             var exception = Assert.Throws<InvalidOperationException>(() => revision.BuildMappings(internalRevision));
             Assert.Contains(error, exception.Message);
             Assert.Contains(incoming ? "incoming" : "outgoing", exception.Message);
-            Assert.Null(revision.IncomingIdToInternalIdMapping);
-            Assert.Null(revision.InternalIdToOutgoingIdMapping);
+            Assert.Empty(revision.IncomingIdToInternalIdMapping);
+            Assert.Empty(revision.InternalIdToOutgoingIdMapping);
         }
     }
 
@@ -125,8 +125,8 @@ public class RevisionMappingTests
             }
 
             Assert.Contains(failure, Assert.Throws<InvalidOperationException>(() => revision.BuildMappings(internalRevision)).Message);
-            Assert.Null(revision.IncomingIdToInternalIdMapping);
-            Assert.Null(revision.InternalIdToOutgoingIdMapping);
+            Assert.Empty(revision.IncomingIdToInternalIdMapping);
+            Assert.Empty(revision.InternalIdToOutgoingIdMapping);
         }
     }
 
@@ -288,6 +288,45 @@ public class RevisionMappingTests
             var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CacheAt(directory).Start());
             Assert.Contains("duplicate packet revision name 'Duplicate'", exception.Message);
             Assert.Contains(".json", exception.Message);
+        }
+        finally {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Theory]
+    [InlineData("{\"Name\":\"Profile\",\"OutgoingHeaders\":{}}", "missing incoming headers")]
+    [InlineData("{\"Name\":\"Profile\",\"IncomingHeaders\":null,\"OutgoingHeaders\":{}}", "missing incoming headers")]
+    [InlineData("{\"Name\":\"Profile\",\"IncomingHeaders\":{}}", "missing outgoing headers")]
+    [InlineData("{\"Name\":\"Profile\",\"IncomingHeaders\":{},\"OutgoingHeaders\":null}", "missing outgoing headers")]
+    public async Task CacheRejectsMissingOrNullHeaderTables(string json, string error)
+    {
+        var directory = Directory.CreateTempSubdirectory("headerless-revision-").FullName;
+
+        try {
+            await File.WriteAllTextAsync(Path.Combine(directory, "profile.json"), json);
+            var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => CacheAt(directory).Start());
+            Assert.Contains(error, exception.Message);
+        }
+        finally {
+            Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public async Task CacheAcceptsEmptyHeaderTables()
+    {
+        var directory = Directory.CreateTempSubdirectory("empty-revision-").FullName;
+
+        try {
+            await File.WriteAllTextAsync(Path.Combine(directory, "profile.json"), "{\"Name\":\"Empty\",\"IncomingHeaders\":{},\"OutgoingHeaders\":{}}");
+            var cache = CacheAt(directory);
+            await cache.Start();
+            var revision = cache.Revisions["Empty"];
+            Assert.Empty(revision.IncomingHeaders);
+            Assert.Empty(revision.OutgoingHeaders);
+            Assert.Empty(revision.IncomingIdToInternalIdMapping);
+            Assert.Empty(revision.InternalIdToOutgoingIdMapping);
         }
         finally {
             Directory.Delete(directory, true);

@@ -4,14 +4,26 @@ namespace Plus.Communication.Revisions;
 
 public class Revision
 {
-    public string Name { get; set; }
+    // Profiles come from JSON, so a header table can be absent until BuildMappings rejects it.
+    private IReadOnlyDictionary<string, uint>? _incomingHeaders;
+    private IReadOnlyDictionary<string, uint>? _outgoingHeaders;
+
+    public string Name { get; set; } = string.Empty;
     public bool ZeroHeaderIsValid { get; set; }
-    public IReadOnlyDictionary<string, uint> IncomingHeaders { get; set; }
+    public IReadOnlyDictionary<string, uint> IncomingHeaders
+    {
+        get => _incomingHeaders ?? throw MissingHeaders("incoming");
+        set => _incomingHeaders = value;
+    }
     [JsonIgnore]
-    public IReadOnlyDictionary<uint, uint> IncomingIdToInternalIdMapping { get; set; }
-    public IReadOnlyDictionary<string, uint> OutgoingHeaders { get; set; }
+    public IReadOnlyDictionary<uint, uint> IncomingIdToInternalIdMapping { get; set; } = new Dictionary<uint, uint>();
+    public IReadOnlyDictionary<string, uint> OutgoingHeaders
+    {
+        get => _outgoingHeaders ?? throw MissingHeaders("outgoing");
+        set => _outgoingHeaders = value;
+    }
     [JsonIgnore]
-    public IReadOnlyDictionary<uint, uint> InternalIdToOutgoingIdMapping { get; set; }
+    public IReadOnlyDictionary<uint, uint> InternalIdToOutgoingIdMapping { get; set; } = new Dictionary<uint, uint>();
 
     public void BuildMappings(Revision internalRevision)
     {
@@ -19,17 +31,19 @@ public class Revision
             throw new InvalidOperationException("A packet revision must have a name.");
         }
 
-        var incoming = BuildMapping(IncomingHeaders, internalRevision.IncomingHeaders, "incoming", true, internalRevision.ZeroHeaderIsValid);
-        var outgoing = BuildMapping(OutgoingHeaders, internalRevision.OutgoingHeaders, "outgoing", false, false);
+        var incoming = BuildMapping(_incomingHeaders, internalRevision.IncomingHeaders, "incoming", true, internalRevision.ZeroHeaderIsValid);
+        var outgoing = BuildMapping(_outgoingHeaders, internalRevision.OutgoingHeaders, "outgoing", false, false);
         IncomingIdToInternalIdMapping = incoming;
         InternalIdToOutgoingIdMapping = outgoing;
     }
 
-    private Dictionary<uint, uint> BuildMapping(IReadOnlyDictionary<string, uint> headers,
+    private InvalidOperationException MissingHeaders(string direction) => new($"{Name}: missing {direction} headers.");
+
+    private Dictionary<uint, uint> BuildMapping(IReadOnlyDictionary<string, uint>? headers,
         IReadOnlyDictionary<string, uint> internalHeaders, string direction, bool incoming, bool zeroInternalIdIsValid)
     {
         if (headers == null) {
-            throw new InvalidOperationException($"{Name}: missing {direction} headers.");
+            throw MissingHeaders(direction);
         }
 
         var mapping = new Dictionary<uint, uint>();

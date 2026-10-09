@@ -8,8 +8,10 @@ namespace Plus.Communication.Encryption;
 
 public static class HabboEncryptionV2
 {
-    private static RsaKey _rsa;
-    private static DiffieHellman _diffieHellman;
+    private static RsaKey? _rsa;
+    private static DiffieHellman? _diffieHellman;
+    private static RsaKey Rsa => _rsa ?? throw new InvalidOperationException("Encryption has not been initialized.");
+    private static DiffieHellman DiffieHellman => _diffieHellman ?? throw new InvalidOperationException("Encryption has not been initialized.");
 
     public static void Initialize(RsaKeys keys)
     {
@@ -21,7 +23,7 @@ public static class HabboEncryptionV2
     {
         try {
             var m = Encoding.Default.GetBytes(message);
-            var c = _rsa.Sign(m);
+            var c = Rsa.Sign(m);
 
             return c == null ? "0" : Converter.BytesToHexString(c);
         }
@@ -32,21 +34,21 @@ public static class HabboEncryptionV2
 
     public static string GetRsaDiffieHellmanPrimeKey()
     {
-        var key = _diffieHellman.Prime.ToString(10);
+        var key = DiffieHellman.Prime.ToString(10);
 
         return GetRsaStringEncrypted(key);
     }
 
     public static string GetRsaDiffieHellmanGeneratorKey()
     {
-        var key = _diffieHellman.Generator.ToString(10);
+        var key = DiffieHellman.Generator.ToString(10);
 
         return GetRsaStringEncrypted(key);
     }
 
     public static string GetRsaDiffieHellmanPublicKey()
     {
-        var key = _diffieHellman.PublicKey.ToString(10);
+        var key = DiffieHellman.PublicKey.ToString(10);
 
         return GetRsaStringEncrypted(key);
     }
@@ -55,7 +57,7 @@ public static class HabboEncryptionV2
     {
         try {
             var cbytes = Converter.HexStringToBytes(publicKey);
-            var publicKeyBytes = _rsa.Verify(cbytes);
+            var publicKeyBytes = Rsa.Verify(cbytes);
 
             if (publicKeyBytes == null) {
                 return 0;
@@ -63,7 +65,7 @@ public static class HabboEncryptionV2
 
             var publicKeyString = Encoding.Default.GetString(publicKeyBytes);
 
-            return _diffieHellman.CalculateSharedKey(new(publicKeyString, 10));
+            return DiffieHellman.CalculateSharedKey(new(publicKeyString, 10));
         }
         catch {
             return 0;

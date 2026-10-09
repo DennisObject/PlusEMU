@@ -7,10 +7,9 @@ namespace Plus.Communication.RCON;
 
 public class RconSocket : IRconSocket
 {
-    private List<string> _allowedConnections;
+    private IReadOnlyList<string> _allowedConnections = [];
     private readonly ICommandManager _commands;
     private readonly ILogger<RconConnection> _connectionLogger;
-    private Socket _musSocket;
 
     public RconSocket(ICommandManager commandManager, ILogger<RconConnection> connectionLogger)
     {
@@ -20,17 +19,14 @@ public class RconSocket : IRconSocket
 
     public void Init(string host, int port, IEnumerable<string> allowedConnections)
     {
-        _allowedConnections = new();
-
-        foreach (var ipAddress in allowedConnections) {
-            _allowedConnections.Add(ipAddress);
-        }
+        // Swap in a complete list so the accept callback never sees a partly filled one.
+        _allowedConnections = allowedConnections.ToList();
 
         try {
-            _musSocket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-            _musSocket.Bind(new IPEndPoint(IPAddress.Parse(host), port)); // SHould be host?
-            _musSocket.Listen(0);
-            _musSocket.BeginAccept(OnCallBack, _musSocket);
+            var listener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            listener.Bind(new IPEndPoint(IPAddress.Parse(host), port));
+            listener.Listen(0);
+            listener.BeginAccept(OnCallBack, listener);
         }
         catch (Exception e) {
             throw new ArgumentException($"Could not set up Rcon socket:\n{e}");
@@ -39,11 +35,15 @@ public class RconSocket : IRconSocket
 
     private void OnCallBack(IAsyncResult iAr)
     {
-        try {
-            var socket = ((Socket)iAr.AsyncState).EndAccept(iAr);
-            var ip = socket.RemoteEndPoint.ToString().Split(':')[0];
+        if (iAr.AsyncState is not Socket listener) {
+            return;
+        }
 
-            if (_allowedConnections.Contains(ip)) {
+        try {
+            var socket = listener.EndAccept(iAr);
+            var ip = (socket.RemoteEndPoint as IPEndPoint)?.Address.ToString();
+
+            if (ip != null && _allowedConnections.Contains(ip)) {
                 new RconConnection(socket, _connectionLogger);
             }
             else {
@@ -54,7 +54,7 @@ public class RconSocket : IRconSocket
             // ignored
         }
 
-        _musSocket.BeginAccept(OnCallBack, _musSocket);
+        listener.BeginAccept(OnCallBack, listener);
     }
 
     public ICommandManager GetCommands() => _commands;
