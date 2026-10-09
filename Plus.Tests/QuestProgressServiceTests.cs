@@ -149,7 +149,7 @@ public sealed class QuestProgressServiceTests
 
             return _quests.Values.SingleOrDefault(quest => quest.Category == category && quest.Number == number)!;
         }
-        public void GetList(GameClient session, ClientPacket message) => ListRequests++;
+        public void GetList(GameClient session, ClientPacket? message) => ListRequests++;
         public int GetAmountOfQuestsInCategory(string category) => _quests.Values.Count(quest => quest.Category == category);
         public void Init() { }
         public void ProgressUserQuest(GameClient session, QuestType type, int data = 0) => throw new NotSupportedException();

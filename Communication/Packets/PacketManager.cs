@@ -44,7 +44,7 @@ public sealed class PacketManager : IPacketManager, IDisposable
                 continue;
             }
 
-            var header = (uint)field.GetValue(null);
+            var header = field.GetRawConstantValue() is uint id ? id : throw new InvalidOperationException($"{nameof(ClientPacketHeader)}.{field.Name} is not a packet ID constant.");
             _incomingPackets.Add(header, packet);
             _packetNames.Add(header, packet.GetType().Name);
 

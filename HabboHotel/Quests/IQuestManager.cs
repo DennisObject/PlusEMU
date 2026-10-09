@@ -10,6 +10,6 @@ public interface IQuestManager
     int GetAmountOfQuestsInCategory(string category);
     void ProgressUserQuest(GameClient session, QuestType type, int data = 0);
     Quest? GetNextQuestInSeries(string category, int number);
-    void GetList(GameClient session, ClientPacket message);
+    void GetList(GameClient session, ClientPacket? message);
     void QuestReminder(GameClient session, int questId);
 }

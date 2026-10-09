@@ -188,7 +188,7 @@ public class QuestManager : IQuestManager, IStartable
         return null;
     }
 
-    public void GetList(GameClient session, ClientPacket message)
+    public void GetList(GameClient session, ClientPacket? message)
     {
         var userQuestGoals = new Dictionary<string, int>();
         var userQuests = new Dictionary<string, Quest>();

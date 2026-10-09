@@ -518,7 +518,7 @@ public sealed class RoomChatServiceTests
         public Quest GetQuest(int id) => throw new NotSupportedException();
         public int GetAmountOfQuestsInCategory(string category) => throw new NotSupportedException();
         public Quest GetNextQuestInSeries(string category, int number) => throw new NotSupportedException();
-        public void GetList(GameClient session, Plus.Communication.Packets.Incoming.ClientPacket message) => throw new NotSupportedException();
+        public void GetList(GameClient session, Plus.Communication.Packets.Incoming.ClientPacket? message) => throw new NotSupportedException();
         public void QuestReminder(GameClient session, int questId) => throw new NotSupportedException();
     }
 

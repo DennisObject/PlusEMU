@@ -26,15 +26,10 @@ public class CommandManager : ICommandManager
             return false;
         }
 
-        var cmd = data.Split(Convert.ToChar(1))[0];
+        var parts = data.Split(Convert.ToChar(1));
 
-        if (_commands.TryGetValue(cmd.ToLower(), out var command)) {
-            string[] parameters = null;
-
-            if (data.Split(Convert.ToChar(1))[1] != null) {
-                var param = data.Split(Convert.ToChar(1))[1];
-                parameters = param.Split(':');
-            }
+        if (_commands.TryGetValue(parts[0].ToLower(), out var command)) {
+            var parameters = parts[1].Split(':');
 
             return command.TryExecute(parameters).Result;
         }

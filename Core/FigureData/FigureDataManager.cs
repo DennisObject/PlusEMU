@@ -1,7 +1,7 @@
 using System.Xml;
 using Microsoft.Extensions.Logging;
 using Plus.Core.FigureData.Types;
-using Plus.HabboHotel.Catalog;
+using Plus.HabboHotel.Catalog.Clothing;
 using Plus.HabboHotel.Users.Clothing.Parts;
 using Plus.Utilities;
 
@@ -9,16 +9,16 @@ namespace Plus.Core.FigureData;
 
 public class FigureDataManager : IFigureDataManager, IStartable
 {
-    private readonly ICatalogManager _catalogManager;
+    private readonly IClothingManager _clothingManager;
     private readonly ILogger<FigureDataManager> _logger;
     private readonly Dictionary<int, Palette> _palettes; //pallet id, Pallet
 
     private readonly List<string> _requirements;
     private readonly Dictionary<string, FigureSet> _setTypes; //type (hr, ch, etc), Set
 
-    public FigureDataManager(ICatalogManager catalogManager, ILogger<FigureDataManager> logger)
+    public FigureDataManager(IClothingManager clothingManager, ILogger<FigureDataManager> logger)
     {
-        _catalogManager = catalogManager;
+        _clothingManager = clothingManager;
         _logger = logger;
         _palettes = new();
         _setTypes = new();
@@ -103,7 +103,7 @@ public class FigureDataManager : IFigureDataManager, IStartable
         gender = gender.ToUpperInvariant();
         var rebuilt = new Dictionary<string, string>();
         var owned = clothingParts?.Select(part => part.PartId).ToHashSet();
-        var purchased = owned == null ? new HashSet<int>() : _catalogManager.ClothingManager.GetClothingAllParts
+        var purchased = owned == null ? new HashSet<int>() : _clothingManager.GetClothingAllParts
             .SelectMany(part => part.PartIds).ToHashSet();
 
         foreach (var part in figure.ToLowerInvariant().Split('.')) {

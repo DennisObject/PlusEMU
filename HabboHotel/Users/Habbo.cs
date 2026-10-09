@@ -55,8 +55,8 @@ public class Habbo
     public NavigatorPreferences NavigatorPreferences { get; set; }
     public UserAccess Access { get; set; } = UserAccess.Empty;
 
-    [Obsolete("Should be deleted /refactored to standalone service")]
-    private ProcessComponent Process { get; set; }
+    // Should be deleted / refactored to a standalone service; only InitProcess and OnDisconnect use it.
+    private ProcessComponent? Process { get; set; }
 
     public ConcurrentDictionary<string, UserAchievement> Achievements = new();
     public ArrayList FavoriteRooms = new();
