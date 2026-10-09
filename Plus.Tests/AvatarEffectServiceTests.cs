@@ -89,7 +89,7 @@ public class AvatarEffectServiceTests
         habbo.Client = client;
         store.OnSave = _ => Assert.Equal(2, effect.Quantity);
 
-        habbo.Effects.CheckEffectExpiry(habbo);
+        Assert.IsType<EffectsComponent>(habbo.Effects).CheckEffectExpiry(habbo);
 
         Assert.Equal(new[] { (effect.Id, 1, false) }, store.Saves);
         Assert.Equal(1, effect.Quantity);
@@ -106,7 +106,7 @@ public class AvatarEffectServiceTests
         var (habbo, effect) = Owner(sprite: 42, duration: 10, activated: true, activatedAt: Now.AddSeconds(-20), quantity: 2, store: store, clock: new FixedTimeProvider(Now));
         var (client, sent) = HabbiconTestSupport.Client(habbo);
 
-        Assert.Throws<InvalidOperationException>(() => habbo.Effects.CheckEffectExpiry(habbo));
+        Assert.Throws<InvalidOperationException>(() => Assert.IsType<EffectsComponent>(habbo.Effects).CheckEffectExpiry(habbo));
 
         Assert.Equal(2, effect.Quantity);
         Assert.True(effect.Activated);
@@ -146,7 +146,7 @@ public class AvatarEffectServiceTests
         var clock = new MutableClock(Now);
         var (habbo, _) = Owner(sprite: 42, duration: 100, activated: true, activatedAt: Now.AddSeconds(-50), clock: clock);
 
-        Assert.True(habbo.Effects.HasEffect(42, true));
+        Assert.True(Assert.IsType<EffectsComponent>(habbo.Effects).HasEffect(42, true));
         clock.Now = Now.AddSeconds(60);
         Assert.False(habbo.Effects.HasEffect(42, true));
         Assert.True(habbo.Effects.HasEffectAt(42, Now.AddSeconds(49), true));
@@ -177,7 +177,7 @@ public class AvatarEffectServiceTests
 
         await new AvatarEffectSelectedEvent(new AvatarEffectService(clock)).Parse(client, Packet(42));
 
-        Assert.Equal(42, habbo.Effects.CurrentEffect);
+        Assert.Equal(42, Assert.IsType<EffectsComponent>(habbo.Effects).CurrentEffect);
     }
 
     [Fact]
@@ -189,7 +189,7 @@ public class AvatarEffectServiceTests
 
         await new AvatarEffectSelectedEvent(new AvatarEffectService(clock)).Parse(client, Packet(42));
 
-        Assert.Equal(0, habbo.Effects.CurrentEffect);
+        Assert.Equal(0, Assert.IsType<EffectsComponent>(habbo.Effects).CurrentEffect);
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public class AvatarEffectServiceTests
 
         await new AvatarEffectSelectedEvent(new AvatarEffectService(clock)).Parse(client, Packet(-5));
 
-        Assert.Equal(0, habbo.Effects.CurrentEffect);
+        Assert.Equal(0, Assert.IsType<EffectsComponent>(habbo.Effects).CurrentEffect);
     }
 
     [Fact]
@@ -227,7 +227,7 @@ public class AvatarEffectServiceTests
         var service = new AvatarEffectService(clock);
         Assert.Equal(100, service.Capture(habbo).Single().RemainingSeconds);
 
-        habbo.Effects.GetAllEffects.Single().ActivatedAt = null;
+        Assert.IsType<EffectsComponent>(habbo.Effects).GetAllEffects.Single().ActivatedAt = null;
         Assert.Equal(100, service.Capture(habbo).Single().RemainingSeconds);
     }
 
@@ -252,7 +252,7 @@ public class AvatarEffectServiceTests
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
 
-        habbo.Effects.CheckEffectExpiry(habbo);
+        Assert.IsType<EffectsComponent>(habbo.Effects).CheckEffectExpiry(habbo);
 
         Assert.Equal(new[] { (effect.Id, 0, false) }, store.Saves);
         Assert.Empty(habbo.Effects.GetAllEffects);
@@ -275,9 +275,9 @@ public class AvatarEffectServiceTests
         var (client, sent) = HabbiconTestSupport.Client(habbo);
         habbo.Client = client;
 
-        Assert.Throws<InvalidOperationException>(() => habbo.Effects.CheckEffectExpiry(habbo));
+        Assert.Throws<InvalidOperationException>(() => Assert.IsType<EffectsComponent>(habbo.Effects).CheckEffectExpiry(habbo));
 
-        Assert.Same(effect, Assert.Single(habbo.Effects.GetAllEffects));
+        Assert.Same(effect, Assert.Single(Assert.IsType<EffectsComponent>(habbo.Effects).GetAllEffects));
         Assert.Equal(1, effect.Quantity);
         Assert.True(effect.Activated);
         Assert.Empty(sent);

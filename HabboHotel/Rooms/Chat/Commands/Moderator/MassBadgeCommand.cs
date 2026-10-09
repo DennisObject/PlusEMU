@@ -38,7 +38,11 @@ internal class MassBadgeCommand : IChatCommand
                 continue;
             }
 
-            if (!client.GetHabbo().Inventory.Badges.HasBadge(badgeCode)) {
+            if (client.GetHabbo().Inventory is not { } inventory) {
+                continue;
+            }
+
+            if (!inventory.Badges.HasBadge(badgeCode)) {
                 _badgeManager.GiveBadge(client.GetHabbo(), badgeCode).Wait();
                 client.SendNotification("You have just been given a badge!");
             }

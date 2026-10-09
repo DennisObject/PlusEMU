@@ -38,9 +38,10 @@ public class BadgeManager : IBadgeManager, IStartable
         _logger.LogInformation("Loaded " + Badges.Count + " badge definitions.");
     }
 
+    // Badges are given to and taken from the loaded inventory; without one nothing is written.
     public async Task GiveBadge(Habbo habbo, string code)
     {
-        if (habbo.Inventory.Badges.HasBadge(code)) {
+        if (habbo.Inventory is not { } inventory || inventory.Badges.HasBadge(code)) {
             return;
         }
 
@@ -54,15 +55,15 @@ public class BadgeManager : IBadgeManager, IStartable
             userId = habbo.Id,
             badge = badge.Code
         });
-        habbo.Inventory.Badges.AddBadge(new Badge(code, 0));
+        inventory.Badges.AddBadge(new Badge(code, 0));
 
-        habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
+        habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(inventory.Badges.Badges.Values)));
         habbo.Client?.Send(new FurniListNotificationComposer(1, 4));
     }
 
     public async Task RemoveBadge(Habbo habbo, string badge)
     {
-        if (!habbo.Inventory.Badges.HasBadge(badge)) {
+        if (habbo.Inventory is not { } inventory || !inventory.Badges.HasBadge(badge)) {
             return;
         }
 
@@ -72,7 +73,7 @@ public class BadgeManager : IBadgeManager, IStartable
             badge,
             userId = habbo.Id
         });
-        habbo.Inventory.Badges.RemoveBadge(badge);
+        inventory.Badges.RemoveBadge(badge);
     }
 
     public async Task<List<Badge>> LoadBadgesForHabbo(int userId)

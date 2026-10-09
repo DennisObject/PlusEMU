@@ -52,9 +52,15 @@ public sealed class UserProfileService(
     public void ApplyMannequin(GameClient session, FigureUpdateRequest request)
     {
         var habbo = session.GetHabbo();
+
+        // Paid clothing is only checked against a loaded wardrobe, so the look is not changed without one.
+        if (habbo.Clothing is not { } wardrobe) {
+            return;
+        }
+
         using var account = accountSessionGate.Enter(habbo.Id);
         var gender = request.Gender.ToUpper();
-        var look = figureManager.ProcessFigure(request.Figure, gender, habbo.Clothing.GetClothingParts,
+        var look = figureManager.ProcessFigure(request.Figure, gender, wardrobe.GetClothingParts,
             ClubAccess.LevelFor(habbo.Access));
 
         using (var connection = database.Connection()) {
@@ -137,9 +143,15 @@ public sealed class UserProfileService(
     public void UpdateFigure(GameClient session, FigureUpdateRequest request)
     {
         var habbo = session.GetHabbo();
+
+        // Paid clothing is only checked against a loaded wardrobe, so the look is not changed without one.
+        if (habbo.Clothing is not { } wardrobe) {
+            return;
+        }
+
         using var account = accountSessionGate.Enter(habbo.Id);
         var gender = request.Gender.ToUpper();
-        var look = figureManager.ProcessFigure(request.Figure, gender, habbo.Clothing.GetClothingParts,
+        var look = figureManager.ProcessFigure(request.Figure, gender, wardrobe.GetClothingParts,
             ClubAccess.LevelFor(habbo.Access));
 
         if (look == habbo.Look) {

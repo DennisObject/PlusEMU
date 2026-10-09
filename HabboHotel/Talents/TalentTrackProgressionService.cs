@@ -20,7 +20,8 @@ public sealed class TalentTrackProgressionService(ITalentTrackManager talents, I
     public void Progress(Habbo habbo, IReadOnlyDictionary<string, Achievement> achievements)
     {
         lock (habbo.WalletSync) {
-            if (habbo.WalletClosed) {
+            // Talent gifts are handed into the loaded inventory, so nothing is claimed without one.
+            if (habbo.WalletClosed || habbo.Inventory is not { } inventory) {
                 return;
             }
 
@@ -54,7 +55,7 @@ public sealed class TalentTrackProgressionService(ITalentTrackManager talents, I
                     }
 
                     foreach (var item in awarded) {
-                        habbo.Inventory.Furniture.AddItem(item);
+                        inventory.Furniture.AddItem(item);
                     }
 
                     // Publish all committed inventory before any send can synchronously disconnect.

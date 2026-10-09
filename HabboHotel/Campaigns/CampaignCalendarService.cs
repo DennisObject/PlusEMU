@@ -52,7 +52,8 @@ namespace Plus.HabboHotel.Campaigns
         {
             var habbo = session.GetHabbo();
 
-            if (habbo == null || campaignName.Length is 0 or > 64 || !Supported(session)) {
+            // Calendar rewards land in the loaded inventory, so nothing is claimed without one.
+            if (habbo?.Inventory is not { } inventory || campaignName.Length is 0 or > 64 || !Supported(session)) {
                 return;
             }
 
@@ -144,12 +145,12 @@ namespace Plus.HabboHotel.Campaigns
                     habbo.Diamonds = grant.Diamonds;
 
                     if (grant.Badge.Length > 0) {
-                        habbo.Inventory.Badges.AddBadge(new Badge(grant.Badge, 0));
+                        inventory.Badges.AddBadge(new Badge(grant.Badge, 0));
                     }
 
                     if (grant.ItemId != 0 && item != null) {
                         item.Id = grant.ItemId;
-                        habbo.Inventory.Furniture.AddItem(item);
+                        inventory.Furniture.AddItem(item);
                     }
                 }
             }
@@ -188,12 +189,12 @@ namespace Plus.HabboHotel.Campaigns
             }
 
             if (grant.Badge.Length > 0) {
-                session.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
+                session.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(inventory.Badges.Badges.Values)));
                 session.Send(new FurniListNotificationComposer(1, 4));
             }
 
             if (grant.ItemId != 0) {
-                habbo.Inventory.Furniture.SendInventory(session);
+                inventory.Furniture.SendInventory(session);
             }
 
             var product = reward.ProductName.Replace("%credits%", reward.Credits.ToString(CultureInfo.InvariantCulture))

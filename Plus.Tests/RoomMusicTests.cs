@@ -24,12 +24,12 @@ namespace Plus.Tests
             Inventory(disc);
             store.BeforeAdd = () =>
             {
-                Assert.Same(disc, _client.GetHabbo().Inventory.Furniture.GetItem(31));
+                Assert.Same(disc, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(31));
                 Assert.Empty(_client.Sent);
             };
             await new AddJukeboxDiskEvent().Parse(_room, _client, ClientPacket(31, 0));
             Assert.Equal((31u, 0), Assert.Single(store.Adds));
-            Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(31));
+            Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(31));
             var body = new FlashIncomingPacket { Buffer = _client.Packets.Last(entry => entry.Header == ServerPacketHeader.JukeboxPlaylistComposer).Body };
             Assert.Equal(10, body.ReadInt());
             Assert.Equal(1, body.ReadInt());
@@ -61,7 +61,7 @@ namespace Plus.Tests
             Assert.Empty(store.Adds);
             store.Failure = new InvalidOperationException("rollback");
             Assert.Throws<InvalidOperationException>(() => music.Add(_client, 31, 0));
-            Assert.Same(disc, _client.GetHabbo().Inventory.Furniture.GetItem(31));
+            Assert.Same(disc, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(31));
             Assert.Empty(_client.Sent);
             Assert.True(disc.TryReserve());
             disc.ReleaseReservation();
@@ -118,7 +118,7 @@ namespace Plus.Tests
             success.PickUp(_client, player.Id).GetAwaiter().GetResult();
             Assert.Null(_room.GetRoomItemHandler().GetItem(player.Id));
             Assert.Null(player.GetRoom());
-            Assert.Equal("0", _client.GetHabbo().Inventory.Furniture.GetItem(player.Id)!.ExtraData.Serialize());
+            Assert.Equal("0", Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(player.Id)!.ExtraData.Serialize());
             _client.Packets.Clear();
             music.RequestNowPlaying(_client);
             var body = new FlashIncomingPacket { Buffer = Assert.Single(_client.Packets).Body };
@@ -168,7 +168,7 @@ namespace Plus.Tests
             _room.GetRoomUserManager().RemoveUserFromRoom(_client, false, false);
             ExecutorTick();
             Assert.Empty(store.Adds);
-            Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(31));
+            Assert.NotNull(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(31));
             Assert.DoesNotContain(ServerPacketHeader.FurniListRemoveComposer, _client.Sent);
             Assert.Same(player, _room.GetRoomItemHandler().GetItem(player.Id));
         }
@@ -299,7 +299,7 @@ namespace Plus.Tests
             var clients = Proxy<Plus.HabboHotel.GameClients.IGameClientManager>((name, args) => name == "GetClientByUserId" ? (int)args[0]! == 7 ? _client : foreignClient : null);
             var clear = new InventoryClearService(new InventoryClearStore(fixture.Database, fixture.Definitions), new AccountSessionGate(), clients);
             Assert.True(clear.TryClear(_client, _room));
-            Assert.Equal(31u, Assert.Single(_client.GetHabbo().Inventory.Furniture.GetItems).Id);
+            Assert.Equal(31u, Assert.Single(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItems).Id);
             Assert.Equal(33u, Assert.Single(foreign.Inventory.Furniture.GetItems).Id);
             Assert.Equal(ServerPacketHeader.FurniListAddComposer, Assert.Single(sent).Header);
         }
@@ -341,7 +341,7 @@ namespace Plus.Tests
                 });
                 await teardown.WaitAsync(TimeSpan.FromSeconds(2));
                 Assert.True(_room.MDisposed);
-                Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(31));
+                Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(31));
             }
             finally {
                 held.Dispose();
@@ -355,7 +355,7 @@ namespace Plus.Tests
                 }
             }
 
-            Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(31));
+            Assert.NotNull(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(31));
         }
 
         [Theory]

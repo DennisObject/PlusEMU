@@ -33,14 +33,14 @@ public sealed class TalentTrackProgressionTests
         var capture = client.SendCallback;
         client.SendCallback = args =>
         {
-            Assert.True(habbo.Inventory.Furniture.HasItem(77));
+            Assert.True(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.HasItem(77));
 
             return capture!(args);
         };
         service.Progress(habbo, TalentTrackPresentationTests.Achievements());
         service.Progress(habbo, TalentTrackPresentationTests.Achievements());
         Assert.Equal(1, calls);
-        Assert.Single(habbo.Inventory.Furniture.AllItems);
+        Assert.Single(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.AllItems);
         Assert.Equal(new[] { ServerPacketHeader.FurniListNotificationComposer, ServerPacketHeader.FurniListUpdateComposer, ServerPacketHeader.TalentLevelUpComposer }, packets.Select(packet => packet.Header));
         packets.Clear();
         // A fresh service must honor existing durable claims without notifying again.
@@ -72,7 +72,7 @@ public sealed class TalentTrackProgressionTests
         Assert.Throws<InvalidOperationException>(() => service.Progress(habbo, TalentTrackPresentationTests.Achievements()));
         Assert.Throws<InvalidOperationException>(() => service.Progress(habbo, TalentTrackPresentationTests.Achievements()));
         Assert.Equal(2, calls);
-        Assert.Empty(habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.AllItems);
         Assert.Empty(packets);
     }
 
@@ -84,7 +84,7 @@ public sealed class TalentTrackProgressionTests
         var service = Service(CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((method, _) =>
             throw new InvalidOperationException("No store access expected")), null);
         service.Progress(habbo, TalentTrackPresentationTests.Achievements());
-        Assert.Empty(habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.AllItems);
     }
 
     [Theory]
@@ -98,7 +98,7 @@ public sealed class TalentTrackProgressionTests
         var service = Service(CatalogSnapshotTestSupport.Proxy<ITalentTrackRewardStore>((_, _) =>
             throw new InvalidOperationException("No store access expected")), gift);
         service.Progress(habbo, TalentTrackPresentationTests.Achievements());
-        Assert.Empty(habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.AllItems);
     }
 
     [Fact]

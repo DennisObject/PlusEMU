@@ -1727,12 +1727,12 @@ public class ModernWiredRuntimeTests
 
         if (change == "visit") {
             RoomUsers(f.Room)[7] = new RoomUser(1, 0, 7, f.Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
-            f.Habbo.Effects.CurrentEffect = -1;
+            Assert.IsType<EffectsComponent>(f.Habbo.Effects).CurrentEffect = -1;
         }
 
         f.Advance(1500);
         Assert.Equal(new Point(0, 0), f.User.Coordinate);
-        Assert.Equal(change == "visit" ? -1 : 8, f.Habbo.Effects.CurrentEffect);
+        Assert.Equal(change == "visit" ? -1 : 8, Assert.IsType<EffectsComponent>(f.Habbo.Effects).CurrentEffect);
         Assert.Empty(f.Errors);
     }
 
@@ -1747,7 +1747,7 @@ public class ModernWiredRuntimeTests
         Assert.Equal(8, f.User.CurrentEffect);
         f.User.SetPos(0, 0, 0);
         f.Fire();
-        f.Habbo.Effects.ApplyEffect(12);
+        Assert.IsType<EffectsComponent>(f.Habbo.Effects).ApplyEffect(12);
         f.Advance(1500);
         Assert.Equal(12, f.User.CurrentEffect);
         Assert.Empty(f.Errors);

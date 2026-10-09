@@ -253,7 +253,7 @@ public sealed class RoomChatService(
         session.Send(new WhisperComposer(user.VirtualId, message, 0, user.LastBubble));
 
         if (recipient.UserId != user.UserId
-            && !recipientHabbo.IgnoresComponent.IsIgnored(habbo.Id)) {
+            && recipientHabbo.IgnoresComponent?.IsIgnored(habbo.Id) != true) {
             recipientClient.Send(new WhisperComposer(user.VirtualId, message, 0, user.LastBubble));
         }
 

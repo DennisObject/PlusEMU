@@ -74,7 +74,8 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
     {
         Track(habbo);
         var level = ClubAccess.LevelFor(habbo.Access);
-        var look = figures.ProcessFigure(habbo.Look, habbo.Gender, habbo.Clothing.GetClothingParts, level);
+        // Paid clothing is only checked against a loaded wardrobe, so the look is reconciled only with one; the rest still runs.
+        var look = habbo.Clothing is { } wardrobe ? figures.ProcessFigure(habbo.Look, habbo.Gender, wardrobe.GetClothingParts, level) : habbo.Look;
 
         if (look != habbo.Look) {
             habbo.Look = look;

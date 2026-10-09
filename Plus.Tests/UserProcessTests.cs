@@ -27,7 +27,7 @@ public class UserProcessTests
         var store = new Store((id, respects, petRespects, day) =>
         {
             Assert.Equal((7, 10, 10, "01/02"), (id, respects, petRespects, day));
-            Assert.Equal(("old", 0, 0), (habbo.HabboStats.RespectsTimestamp,
+            Assert.Equal(("old", 0, 0), (Assert.IsType<HabboStats>(habbo.HabboStats).RespectsTimestamp,
                 habbo.HabboStats.DailyRespectPoints, habbo.HabboStats.DailyPetRespectPoints));
             Assert.Empty(sent);
             writes++;
@@ -38,7 +38,7 @@ public class UserProcessTests
         clock.Fire();
         Assert.Equal(1, clock.Reads);
         Assert.Equal(1, writes);
-        Assert.Equal(("01/02", 10, 10), (habbo.HabboStats.RespectsTimestamp,
+        Assert.Equal(("01/02", 10, 10), (Assert.IsType<HabboStats>(habbo.HabboStats).RespectsTimestamp,
             habbo.HabboStats.DailyRespectPoints, habbo.HabboStats.DailyPetRespectPoints));
         Assert.Single(sent);
         clock.Fire();
@@ -61,7 +61,7 @@ public class UserProcessTests
         }), logger);
         process.Init(habbo);
         clock.Fire();
-        Assert.Equal("old", habbo.HabboStats.RespectsTimestamp);
+        Assert.Equal("old", Assert.IsType<HabboStats>(habbo.HabboStats).RespectsTimestamp);
         Assert.Equal(0, habbo.HabboStats.DailyRespectPoints);
         Assert.Empty(sent);
         Assert.Equal(1, logger.Errors);
@@ -121,7 +121,7 @@ public class UserProcessTests
         clock.Fire();
 
         Assert.Equal(0, writes);
-        Assert.Equal(("old", 0, 0), (habbo.HabboStats.RespectsTimestamp,
+        Assert.Equal(("old", 0, 0), (Assert.IsType<HabboStats>(habbo.HabboStats).RespectsTimestamp,
             habbo.HabboStats.DailyRespectPoints, habbo.HabboStats.DailyPetRespectPoints));
         Assert.Empty(sent);
     }
@@ -148,7 +148,7 @@ public class UserProcessTests
 
         Assert.True(clock.TimerDisposed);
         Assert.Equal(0, writes);
-        Assert.Equal("old", habbo.HabboStats.RespectsTimestamp);
+        Assert.Equal("old", Assert.IsType<HabboStats>(habbo.HabboStats).RespectsTimestamp);
         Assert.Empty(sent);
         Assert.Equal(1, disconnect.Unregisters);
     }
@@ -164,7 +164,7 @@ public class UserProcessTests
         using var disconnect = new DisconnectContext(habbo, process, Proxy<IUserPersistenceService>((method, _) =>
         {
             Assert.Equal("Save", method);
-            saved = (habbo.HabboStats.RespectsTimestamp, habbo.HabboStats.DailyRespectPoints,
+            saved = (Assert.IsType<HabboStats>(habbo.HabboStats).RespectsTimestamp, Assert.IsType<HabboStats>(habbo.HabboStats).DailyRespectPoints,
                 habbo.HabboStats.DailyPetRespectPoints);
             saves++;
 
@@ -328,7 +328,7 @@ public class UserProcessTests
             try {
                 Assert.True(committed.Wait(TimeSpan.FromSeconds(5)));
                 Assert.Equal((10, 10, "01/02"), StoredRespects());
-                Assert.Equal(("old", 0, 0), (habbo.HabboStats.RespectsTimestamp,
+                Assert.Equal(("old", 0, 0), (Assert.IsType<HabboStats>(habbo.HabboStats).RespectsTimestamp,
                     habbo.HabboStats.DailyRespectPoints, habbo.HabboStats.DailyPetRespectPoints));
                 logout = Task.WhenAll(Task.Run(Disconnect), Task.Run(Disconnect));
                 Assert.True(disconnectStarted.Wait(TimeSpan.FromSeconds(5)));
@@ -372,7 +372,7 @@ public class UserProcessTests
     {
         var clock = new ManualClock();
         var (habbo, _) = Player(clock);
-        var stats = habbo.HabboStats;
+        var stats = Assert.IsType<HabboStats>(habbo.HabboStats);
         habbo.HabboStats = null!;
         var writes = 0;
         var statistics = Proxy<IHabboStatsService>((method, args) =>

@@ -19,14 +19,30 @@ public sealed class QuestProgressServiceTests
         var quest = TestQuest(3, "social", 1);
         var manager = new QuestManagerFake(quest);
         var (client, sent) = Client(7);
-        var store = new RecordingStore(() => Assert.Equal(0, client.GetHabbo().HabboStats.QuestId));
+        var store = new RecordingStore(() => Assert.Equal(0, Assert.IsType<HabboStats>(client.GetHabbo().HabboStats).QuestId));
 
         new QuestProgressService(store, manager).Start(client, quest.Id);
 
         Assert.Equal((7, quest.Id), Assert.Single(store.Starts));
-        Assert.Equal(quest.Id, client.GetHabbo().HabboStats.QuestId);
+        Assert.Equal(quest.Id, Assert.IsType<HabboStats>(client.GetHabbo().HabboStats).QuestId);
         Assert.Equal(1, manager.ListRequests);
         Assert.Single(sent);
+    }
+
+    [Fact]
+    public void StartWithoutLoadedStatisticsWritesNothing()
+    {
+        var quest = TestQuest(3, "social", 1);
+        var manager = new QuestManagerFake(quest);
+        var (client, sent) = Client(7);
+        client.GetHabbo().HabboStats = null;
+        var store = new RecordingStore();
+
+        new QuestProgressService(store, manager).Start(client, quest.Id);
+
+        Assert.Empty(store.Starts);
+        Assert.Equal(0, manager.ListRequests);
+        Assert.Empty(sent);
     }
 
     [Fact]
@@ -38,7 +54,7 @@ public sealed class QuestProgressServiceTests
         var store = new RecordingStore { Fail = true };
 
         Assert.Throws<InvalidOperationException>(() => new QuestProgressService(store, manager).Start(client, quest.Id));
-        Assert.Equal(0, client.GetHabbo().HabboStats.QuestId);
+        Assert.Equal(0, Assert.IsType<HabboStats>(client.GetHabbo().HabboStats).QuestId);
         Assert.Equal(0, manager.ListRequests);
         Assert.Empty(sent);
     }
@@ -52,7 +68,7 @@ public sealed class QuestProgressServiceTests
         var store = new RecordingStore { Fail = true };
 
         Assert.Throws<InvalidOperationException>(() => new QuestProgressService(store, manager).Cancel(client));
-        Assert.Equal(quest.Id, client.GetHabbo().HabboStats.QuestId);
+        Assert.Equal(quest.Id, Assert.IsType<HabboStats>(client.GetHabbo().HabboStats).QuestId);
         Assert.Equal(0, manager.ListRequests);
         Assert.Empty(sent);
     }
@@ -92,7 +108,7 @@ public sealed class QuestProgressServiceTests
         Assert.Throws<InvalidOperationException>(() => manager.ProgressUserQuest(client, QuestType.SocialChat));
 
         Assert.Equal(1, client.GetHabbo().Quests[quest.Id]);
-        Assert.Equal(quest.Id, client.GetHabbo().HabboStats.QuestId);
+        Assert.Equal(quest.Id, Assert.IsType<HabboStats>(client.GetHabbo().HabboStats).QuestId);
         Assert.Empty(sent);
     }
 

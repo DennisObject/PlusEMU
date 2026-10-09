@@ -137,7 +137,7 @@ public sealed class UserNameService(
         room.GetRoomUserManager().RemoveUserFromRoom(session, true);
         habbo.Username = newName;
         habbo.LastNameChangedAt = changedAt;
-        habbo.Messenger.NotifyChangesToFriends();
+        habbo.Messenger?.NotifyChangesToFriends();
         session.Send(new UpdateUsernameComposer(newName));
         room.SendPacket(new UserNameChangeComposer(room.Id, roomUser.VirtualId, newName));
 

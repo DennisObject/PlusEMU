@@ -20,6 +20,6 @@ public interface ICommandManager
     /// <param name="command">The command to execute.</param>
     void Register(string commandText, ICommandBase command);
 
-    void LogCommand(int userId, string data, string machineId);
+    void LogCommand(int userId, string data, string? machineId);
     bool TryGetCommand(string command, [NotNullWhen(true)] out ICommandBase? chatCommand);
 }

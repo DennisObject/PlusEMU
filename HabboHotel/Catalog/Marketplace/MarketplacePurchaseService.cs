@@ -38,6 +38,11 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
                 return MarketplacePurchaseOutcome.WalletClosed;
             }
 
+            // The bought item is handed straight into the loaded inventory, so nothing is claimed without one.
+            if (habbo.Inventory is not { } inventory) {
+                throw new InvalidOperationException("The user has no loaded inventory to receive a marketplace item.");
+            }
+
             var listedBefore = time.GetUtcNow().AddSeconds(-OfferLifetimeSeconds);
             MarketplacePurchaseResult result;
 
@@ -63,7 +68,7 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
             // The item was built before the commit; charging and handing it over cannot fail.
             habbo.Credits -= claim.TotalPrice;
             session.Send(new CreditBalanceComposer(habbo.Credits));
-            habbo.Inventory.Furniture.AddItem(claim.Delivery);
+            inventory.Furniture.AddItem(claim.Delivery);
             session.Send(new FurniListNotificationComposer(claim.Delivery.Id, 1));
             session.Send(new PurchaseOKComposer());
             session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(claim.Delivery)));

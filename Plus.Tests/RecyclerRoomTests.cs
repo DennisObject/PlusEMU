@@ -26,13 +26,13 @@ public partial class PlacedFurniRoomTests
             Assert.Empty(_client.Packets);
             Assert.All(inputs, item =>
             {
-                Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+                Assert.Same(item, Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
                 Assert.False(item.TryReserve());
             });
         };
         service.Recycle(_client, [21, 20]);
         Assert.Equal(new uint[] { 20, 21 }, store.Consumed);
-        var box = Assert.Single(_client.GetHabbo().Inventory.Furniture.GetItems);
+        var box = Assert.Single(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItems);
         Assert.Equal((99u, "ecotron_box", "3-2-2040"), (box.Id, box.Definition.ItemName, box.ExtraData.Serialize()));
         Assert.Equal(new[] { ServerPacketHeader.FurniListRemoveComposer, ServerPacketHeader.FurniListRemoveComposer,
             ServerPacketHeader.FurniListAddComposer, ServerPacketHeader.FurniListNotificationComposer,
@@ -75,7 +75,7 @@ public partial class PlacedFurniRoomTests
         habbo.CurrentRoom = null;
         service.Recycle(_client, [20, 21]);
         Assert.Empty(store.Consumed);
-        Assert.Equal(2, _client.GetHabbo().Inventory.Furniture.GetItems.Count());
+        Assert.Equal(2, Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItems.Count());
         Assert.All(_client.Packets, packet => Assert.Equal(ServerPacketHeader.RecyclerFinishedComposer, packet.Header));
     }
 
@@ -94,7 +94,7 @@ public partial class PlacedFurniRoomTests
         store.BeforeCommit = () => throw new RecyclerFailure();
         service.Recycle(_client, [20, 21]);
         Assert.Empty(store.Consumed);
-        Assert.Equal(2, _client.GetHabbo().Inventory.Furniture.GetItems.Count());
+        Assert.Equal(2, Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItems.Count());
         Assert.All(inputs, item => { Assert.True(item.TryReserve()); item.ReleaseReservation(); });
     }
 
@@ -139,7 +139,7 @@ public partial class PlacedFurniRoomTests
         store.BeforeOpen = () =>
         {
             Assert.Same(box, _room.GetRoomItemHandler().GetItem(box.Id));
-            Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(100));
+            Assert.Null(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(100));
             Assert.Empty(_client.Packets);
         };
         Assert.True(service.TryOpen(_client, box.Id));
@@ -152,7 +152,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(1, store.Opens);
         Assert.Null(_room.GetRoomItemHandler().GetItem(box.Id));
         Assert.Null(box.GetRoom());
-        var reward = _client.GetHabbo().Inventory.Furniture.GetItem(100)!;
+        var reward = Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(100)!;
         Assert.Equal((102u, "blue"), (reward.Definition.Id, reward.ExtraData.Serialize()));
         var packet = new FlashIncomingPacket { Buffer = _client.Packets.Single(packet => packet.Header == ServerPacketHeader.OpenGiftComposer).Body };
         Assert.Equal(wallReward ? "i" : "s", packet.ReadString());
@@ -198,7 +198,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(service.TryOpen(_client, box.Id));
         Assert.Equal(0, store.Opens);
         Assert.Same(box, _room.GetRoomItemHandler().GetItem(box.Id));
-        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(100));
+        Assert.Null(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(100));
         Assert.Empty(_client.Packets);
     }
 
@@ -221,13 +221,13 @@ public partial class PlacedFurniRoomTests
         _client.BeforeCapture = header =>
         {
             if (header == ServerPacketHeader.FurniListRemoveComposer) {
-                Assert.Equal(99u, Assert.Single(habbo.Inventory.Furniture.GetItems).Id);
+                Assert.Equal(99u, Assert.Single(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItems).Id);
                 typeof(GameClient).GetField("_habbo", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(_client, null);
             }
         };
         service.Recycle(_client, [20, 21]);
         Assert.Null(_client.GetHabbo());
-        Assert.Equal(99u, Assert.Single(habbo.Inventory.Furniture.GetItems).Id);
+        Assert.Equal(99u, Assert.Single(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItems).Id);
     }
 
     [Fact]
@@ -241,7 +241,7 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(store.Consumed);
         Assert.Equal(0, store.Opens);
         Assert.Same(box, _room.GetRoomItemHandler().GetItem(box.Id));
-        Assert.Equal(2, _client.GetHabbo().Inventory.Furniture.GetItems.Count());
+        Assert.Equal(2, Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItems.Count());
     }
 
     [Fact]
@@ -287,7 +287,7 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(store.Consumed);
         Assert.Equal(2, new FlashIncomingPacket { Buffer = _client.Packets[0].Body }.ReadInt());
         Assert.Equal(0, new FlashIncomingPacket { Buffer = _client.Packets[1].Body }.ReadInt());
-        Assert.Equal(2, _client.GetHabbo().Inventory.Furniture.GetItems.Count());
+        Assert.Equal(2, Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItems.Count());
     }
 
     [Fact]
@@ -304,7 +304,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(service.TryOpen(_client, box.Id));
         Assert.Equal(1, store.Opens);
         Assert.Null(_room.GetRoomItemHandler().GetItem(box.Id));
-        Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(100));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(100));
     }
 
     private (RecyclerService Service, RecyclerRecordingStore Store, InventoryItem[] Inputs, Item Box) RecyclerFixture(bool v2 = false, bool wallReward = false, bool ambiguousBox = false)

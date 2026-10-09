@@ -20,9 +20,9 @@ public partial class PlacedFurniRoomTests
         InitializeClientEffects();
         actor.MoveTo(1, 1);
         ExecutorTick();
-        Assert.Equal(0, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(0, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         ExecutorTick();
-        Assert.Equal(17, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(17, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         Assert.Equal("1", item.LegacyDataString);
         Assert.False(actor.HasStatus("mv"));
     }
@@ -37,7 +37,7 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(1, 1);
         ExecutorTick();
         Assert.True(actor.HasStatus("mv"));
-        Assert.Equal(38, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(38, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
     }
     [Fact]
     public void AnnounceServiceUsesInjectedRewardsOncePerSwimTransition()
@@ -57,7 +57,7 @@ public partial class PlacedFurniRoomTests
             actor.MoveTo(1, 1);
             ExecutorTick();
             Assert.True(actor.HasStatus("mv"));
-            Assert.Equal(29, _client.GetHabbo().Effects.CurrentEffect);
+            Assert.Equal(29, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
             Assert.Equal([(_client, RewardTrackActions.Swim, 1)], rewards.Calls);
             ExecutorTick();
             actor.MoveTo(2, 1);
@@ -103,7 +103,7 @@ public partial class PlacedFurniRoomTests
     {
         var habbo = _client.GetHabbo();
         habbo.Client = _client;
-        habbo.Effects.Init(habbo);
+        Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(habbo.Effects).Init(habbo);
     }
 
     private sealed class RecordingNavigationRewards : IRewardTrackManager

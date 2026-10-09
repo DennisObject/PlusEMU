@@ -29,7 +29,8 @@ public sealed class MessengerCommunicationService(
     public Task SendMessage(GameClient session, int friendId, string text)
     {
         var habbo = session.GetHabbo();
-        var friend = habbo.Messenger.GetFriend(friendId);
+        var messenger = habbo.Messenger;
+        var friend = messenger?.GetFriend(friendId);
 
         if (friend == null) {
             output.InstantMessageError(session, MessengerMessageErrors.NotFriends, friendId);
@@ -48,11 +49,11 @@ public sealed class MessengerCommunicationService(
         }
 
         // Without a friend there is nothing to deliver to, so the messenger is never asked to send.
-        if (friend == null) {
+        if (messenger == null || friend == null) {
             return Task.CompletedTask;
         }
 
-        var error = habbo.Messenger.SendMessage(friend, message);
+        var error = messenger.SendMessage(friend, message);
 
         if (error == null) {
             rewards.Progress(session, RewardTrackActions.SendMessengerMessage);

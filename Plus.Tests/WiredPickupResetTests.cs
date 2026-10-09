@@ -29,7 +29,7 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(store.Saved);
         Assert.Null(_room.GetRoomItemHandler().GetItem(40));
         Assert.False(_room.GetWired().TryGet(40, out _));
-        Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public partial class PlacedFurniRoomTests
         Assert.False(_room.GetWired().TryGet(43, out _));
         Assert.True(_room.GetWired().TryGet(44, out _));
         Assert.NotNull(_room.GetRoomItemHandler().GetItem(44));
-        Assert.All(new uint[] { 42, 43, 45 }, id => Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(id)));
+        Assert.All(new uint[] { 42, 43, 45 }, id => Assert.NotNull(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(id)));
     }
 
     [Fact]
@@ -105,7 +105,7 @@ public partial class PlacedFurniRoomTests
         Assert.Same(box.Item, _room.GetRoomItemHandler().GetItem(47));
         Assert.True(_room.GetWired().TryGet(47, out var attached));
         Assert.Same(box, attached);
-        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(47));
+        Assert.Null(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(47));
     }
 
     [Fact]
@@ -123,7 +123,7 @@ public partial class PlacedFurniRoomTests
         Assert.All(new uint[] { 48, 49, 50 }, id => Assert.NotNull(_room.GetRoomItemHandler().GetItem(id)));
         Assert.True(_room.GetWired().TryGet(48, out _));
         Assert.True(_room.GetWired().TryGet(49, out _));
-        Assert.All(new uint[] { 48, 49, 50 }, id => Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(id)));
+        Assert.All(new uint[] { 48, 49, 50 }, id => Assert.Null(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(id)));
     }
 
     [Fact]

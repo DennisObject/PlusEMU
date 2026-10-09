@@ -144,10 +144,15 @@ public sealed class GroupRemovalService(
             }
 
             if (userId == session.GetHabbo().Id) {
+                // Leaving also clears a favourite, which needs the loaded statistics to know about it.
+                if (session.GetHabbo().HabboStats is not { } stats) {
+                    return Task.CompletedTask;
+                }
+
                 var wasAdmin = group.IsAdmin(userId);
 
                 if (!_store.RemoveMember(group.Id, userId, group.IsMember(userId),
-                        session.GetHabbo().HabboStats.FavouriteGroupId == groupId)) {
+                        stats.FavouriteGroupId == groupId)) {
                     return Task.CompletedTask;
                 }
 
@@ -170,8 +175,8 @@ public sealed class GroupRemovalService(
 
                 session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
 
-                if (session.GetHabbo().HabboStats.FavouriteGroupId == groupId) {
-                    session.GetHabbo().HabboStats.FavouriteGroupId = 0;
+                if (stats.FavouriteGroupId == groupId) {
+                    stats.FavouriteGroupId = 0;
 
                     if (group.AdminOnlyDeco == 0 && _roomManager.TryGetRoom(group.RoomId, out var room)) {
                         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);

@@ -68,6 +68,10 @@ internal class EnableCommand : IChatCommand
             return;
         }
 
-        session.GetHabbo().Effects.ApplyEffect(effectId);
+        if (session.GetHabbo().Effects is not { } effects) {
+            return;
+        }
+
+        effects.ApplyEffect(effectId);
     }
 }

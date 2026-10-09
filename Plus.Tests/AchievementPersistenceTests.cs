@@ -55,7 +55,7 @@ public sealed class AchievementPersistenceTests
         Assert.Equal(0, fixture.StoredLevels());
         Assert.Equal((0, 0), fixture.StoredAward());
         Assert.Equal((0, 0, 0), (fixture.Habbo.GetAchievementData(Group)!.Level,
-            fixture.Habbo.Duckets, fixture.Habbo.HabboStats.AchievementPoints));
+            fixture.Habbo.Duckets, Assert.IsType<HabboStats>(fixture.Habbo.HabboStats).AchievementPoints));
         Assert.DoesNotContain(fixture.Sent, packet => packet.Header is
             ServerPacketHeader.HabboActivityPointNotificationComposer or ServerPacketHeader.AchievementScoreComposer);
     }
@@ -92,7 +92,7 @@ public sealed class AchievementPersistenceTests
         Assert.Equal(0, writes);
         Assert.Equal(0, fixture.StoredLevels());
         Assert.Equal((0, 0, 0), (fixture.Habbo.GetAchievementData(Group)!.Level,
-            fixture.Habbo.Duckets, fixture.Habbo.HabboStats.AchievementPoints));
+            fixture.Habbo.Duckets, Assert.IsType<HabboStats>(fixture.Habbo.HabboStats).AchievementPoints));
         Assert.DoesNotContain(fixture.Sent, packet => packet.Header is
             ServerPacketHeader.HabboActivityPointNotificationComposer or ServerPacketHeader.AchievementScoreComposer
             or ServerPacketHeader.AchievementProgressedComposer);
@@ -189,7 +189,7 @@ public sealed class AchievementPersistenceTests
         Assert.Throws<MySqlException>(() => fixture.Manager().ProgressAchievement(fixture.Client, Group, 1));
 
         Assert.Equal((0, 0, 0), (fixture.Habbo.GetAchievementData(Group)!.Level,
-            fixture.Habbo.Duckets, fixture.Habbo.HabboStats.AchievementPoints));
+            fixture.Habbo.Duckets, Assert.IsType<HabboStats>(fixture.Habbo.HabboStats).AchievementPoints));
         Assert.Equal(ServerPacketHeader.AchievementUnlockedComposer, Assert.Single(fixture.Sent).Header);
     }
 

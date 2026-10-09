@@ -30,7 +30,7 @@ public sealed class MessengerNavigationService(ISearchResultFactory search, IGam
         foreach (var result in search.GetSearchResult(query).ToList()) {
             var entry = new HabboSearchEntry(result, clients.GetClientByUserId(result.UserId) != null);
 
-            if (habbo.Messenger.FriendshipExists(result.UserId)) {
+            if (habbo.Messenger?.FriendshipExists(result.UserId) == true) {
                 friends.Add(entry);
             }
             else {

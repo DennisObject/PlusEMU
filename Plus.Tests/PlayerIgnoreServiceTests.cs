@@ -41,19 +41,19 @@ public sealed class PlayerIgnoreServiceTests
         f.Store.BeforeWrite = (_, target, ignored) =>
         {
             Assert.Equal(2, target);
-            Assert.Equal(!ignored, f.Actor.IgnoresComponent.IsIgnored(2));
+            Assert.Equal(!ignored, Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).IsIgnored(2));
             Assert.Empty(f.Sent);
             Assert.Equal(ignored ? 0 : 1, f.Achievements);
 
             return Task.CompletedTask;
         };
         await f.Service.Ignore(f.Client, "target");
-        Assert.True(f.Actor.IgnoresComponent.IsIgnored(2));
+        Assert.True(Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).IsIgnored(2));
         Assert.Equal(1, f.Achievements);
         AssertStatus(Assert.Single(f.Sent), IgnoreStatus.Added);
         f.Sent.Clear();
         await f.Service.Unignore(f.Client, "target");
-        Assert.False(f.Actor.IgnoresComponent.IsIgnored(2));
+        Assert.False(Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).IsIgnored(2));
         Assert.Equal(1, f.Achievements);
         AssertStatus(Assert.Single(f.Sent), IgnoreStatus.Removed);
         Assert.Equal(new[] { true, false }, f.Store.Writes);
@@ -67,12 +67,12 @@ public sealed class PlayerIgnoreServiceTests
         var f = new Fixture();
 
         if (!ignore) {
-            f.Actor.IgnoresComponent.PublishIgnore(2);
+            Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).PublishIgnore(2);
         }
 
         f.Store.BeforeWrite = (_, _, _) => throw new InvalidOperationException("forced store failure");
         await Assert.ThrowsAsync<InvalidOperationException>(() => ignore ? f.Service.Ignore(f.Client, "target") : f.Service.Unignore(f.Client, "target"));
-        Assert.Equal(!ignore, f.Actor.IgnoresComponent.IsIgnored(2));
+        Assert.Equal(!ignore, Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).IsIgnored(2));
         Assert.Empty(f.Sent);
         Assert.Equal(0, f.Achievements);
     }
@@ -91,14 +91,14 @@ public sealed class PlayerIgnoreServiceTests
         await f.Service.Ignore(f.Client, "target");
         f.Target.Access = UserAccess.Empty;
         await f.Service.Unignore(f.Client, "target");
-        f.Actor.IgnoresComponent.PublishIgnore(2);
+        Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).PublishIgnore(2);
         await f.Service.Ignore(f.Client, "target");
         Assert.Empty(f.Store.Writes);
         Assert.Empty(f.Sent);
         Assert.Equal(0, f.Achievements);
         f.Store.Refused = true;
         await f.Service.Unignore(f.Client, "target");
-        Assert.True(f.Actor.IgnoresComponent.IsIgnored(2));
+        Assert.True(Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).IsIgnored(2));
         Assert.Empty(f.Sent);
     }
 
@@ -115,7 +115,7 @@ public sealed class PlayerIgnoreServiceTests
                 await release.Task;
             }
             else {
-                Assert.True(f.Actor.IgnoresComponent.IsIgnored(2));
+                Assert.True(Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).IsIgnored(2));
             }
         };
         var first = f.Service.Ignore(f.Client, "target");
@@ -125,7 +125,7 @@ public sealed class PlayerIgnoreServiceTests
         try {
             Assert.False(first.IsCompleted);
             Assert.False(second.IsCompleted);
-            Assert.False(f.Actor.IgnoresComponent.IsIgnored(2));
+            Assert.False(Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).IsIgnored(2));
             Assert.Empty(f.Sent);
             Assert.Equal(new[] { true }, f.Store.Writes);
         }
@@ -134,7 +134,7 @@ public sealed class PlayerIgnoreServiceTests
             await Task.WhenAll(first, second);
         }
 
-        Assert.False(f.Actor.IgnoresComponent.IsIgnored(2));
+        Assert.False(Assert.IsType<IgnoresComponent>(f.Actor.IgnoresComponent).IsIgnored(2));
         Assert.Equal(new[] { true, false }, f.Store.Writes);
         Assert.Equal(2, f.Sent.Count);
     }
@@ -161,14 +161,14 @@ public sealed class PlayerIgnoreServiceTests
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_ignores"));
             var habbo = new Habbo { Id = 7 };
             await new IgnoresUserDataLoadingTask(database).Load(habbo);
-            Assert.Equal(new[] { 2 }, habbo.IgnoresComponent.IgnoredUsers);
+            Assert.Equal(new[] { 2 }, Assert.IsType<IgnoresComponent>(habbo.IgnoresComponent).IgnoredUsers);
             connection.Execute("CREATE TRIGGER refuse_ignore BEFORE INSERT ON user_ignores FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced ignore failure'");
             await Assert.ThrowsAsync<MySqlException>(() => store.SetIgnored(7, 3, true));
             Assert.Equal(new[] { 2 }, connection.Query<int>("SELECT ignore_id FROM user_ignores").ToArray());
             Assert.True(await store.SetIgnored(7, 2, false));
             Assert.Empty(connection.Query<int>("SELECT ignore_id FROM user_ignores"));
             await new IgnoresUserDataLoadingTask(database).Load(habbo);
-            Assert.Empty(habbo.IgnoresComponent.IgnoredUsers);
+            Assert.Empty(Assert.IsType<IgnoresComponent>(habbo.IgnoresComponent).IgnoredUsers);
         }
         finally {
             server.Execute($"DROP DATABASE `{schema}`");

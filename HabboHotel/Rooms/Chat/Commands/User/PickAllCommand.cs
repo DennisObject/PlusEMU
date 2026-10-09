@@ -23,7 +23,8 @@ internal class PickAllCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        if (!room.CheckRights(session, true)) {
+        // Everything picked up lands in the loaded inventory, so neither memory nor storage moves without one.
+        if (!room.CheckRights(session, true) || session.GetHabbo().Inventory == null) {
             return;
         }
 

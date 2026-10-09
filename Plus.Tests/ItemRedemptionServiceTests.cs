@@ -70,7 +70,7 @@ public sealed class ItemRedemptionServiceTests
         var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 12);
         var store = new Store { Fail = true };
         Assert.Throws<InvalidOperationException>(() => Service(store, new ClothingItem(12, "shirt", "10,11")).RedeemClothing(client, item.Id));
-        Assert.Empty(client.GetHabbo().Clothing.GetClothingParts);
+        Assert.Empty(Assert.IsType<ClothingComponent>(client.GetHabbo().Clothing).GetClothingParts);
         Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
         Assert.Empty(sent);
     }
@@ -81,16 +81,30 @@ public sealed class ItemRedemptionServiceTests
         var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 12);
         var store = new Store(() =>
         {
-            Assert.Empty(client.GetHabbo().Clothing.GetClothingParts);
+            Assert.Empty(Assert.IsType<ClothingComponent>(client.GetHabbo().Clothing).GetClothingParts);
             Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
             Assert.Empty(sent);
         });
 
         Service(store, new ClothingItem(12, "shirt", "10,11")).RedeemClothing(client, item.Id);
 
-        Assert.Equal(new[] { 10, 11 }, client.GetHabbo().Clothing.GetClothingParts.Select(part => part.PartId).OrderBy(id => id));
+        Assert.Equal(new[] { 10, 11 }, Assert.IsType<ClothingComponent>(client.GetHabbo().Clothing).GetClothingParts.Select(part => part.PartId).OrderBy(id => id));
         Assert.Null(room.GetRoomItemHandler().GetItem(item.Id));
         Assert.NotEmpty(sent);
+    }
+
+    [Fact]
+    public void ClothingIsNotConsumedForAUserWithoutAWardrobe()
+    {
+        var (room, client, sent, item) = Context(InteractionType.PurchasableClothing, 12);
+        client.GetHabbo().Clothing = null;
+        var consumed = false;
+
+        Service(new Store(() => consumed = true), new ClothingItem(12, "shirt", "10,11")).RedeemClothing(client, item.Id);
+
+        Assert.False(consumed);
+        Assert.Same(item, room.GetRoomItemHandler().GetItem(item.Id));
+        Assert.Empty(sent);
     }
 
     [Fact]

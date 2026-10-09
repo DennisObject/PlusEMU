@@ -13,7 +13,7 @@ internal sealed class TestWiredCommands : ICommandManager
         throw new InvalidOperationException("Unexpected command parse.");
     public void Register(string commandText, ICommandBase command) =>
         throw new InvalidOperationException("Unexpected command registration.");
-    public void LogCommand(int userId, string data, string machineId) =>
+    public void LogCommand(int userId, string data, string? machineId) =>
         throw new InvalidOperationException("Unexpected command logging.");
     public bool TryGetCommand(string command, out ICommandBase? chatCommand) =>
         throw new InvalidOperationException("Unexpected command lookup.");

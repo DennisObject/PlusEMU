@@ -66,8 +66,9 @@ internal class KickPetsCommand : IChatCommand
             room.GetRoomUserManager().RemoveBot(bot.VirtualId, false);
             var ownerClient = _gameClientManager.GetClientByUserId(pet.OwnerId);
 
-            if (ownerClient?.GetHabbo() != null && ownerClient.GetHabbo().Inventory.Pets.AddPet(pet)) {
-                ownerClient.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(ownerClient.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
+            // The owner's loaded inventory mirrors the kicked pet; one that is not loaded picks it up from storage later.
+            if (ownerClient?.GetHabbo()?.Inventory is { } ownerInventory && ownerInventory.Pets.AddPet(pet)) {
+                ownerClient.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(ownerInventory.Pets.Pets.Values.ToList())));
             }
         }
 

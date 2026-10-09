@@ -251,14 +251,17 @@ public static class WiredRewards
     }
     public static void Publish(Habbo habbo, WiredRewardGrant grant)
     {
+        // The service only claims for users with a loaded inventory, so the committed grant always has somewhere to go.
+        var inventory = habbo.Inventory ?? throw new InvalidOperationException("The rewarded user has no loaded inventory.");
+
         if (grant.Badge is { } badge) {
-            habbo.Inventory.Badges.AddBadge(new(badge, 0));
-            habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
+            inventory.Badges.AddBadge(new(badge, 0));
+            habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(inventory.Badges.Badges.Values)));
             habbo.Client?.Send(new FurniListNotificationComposer(1, 4));
         }
 
         if (grant.Furniture is { } item) {
-            habbo.Inventory.Furniture.AddItem(item);
+            inventory.Furniture.AddItem(item);
             habbo.Client?.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
             habbo.Client?.Send(new FurniListUpdateComposer());
             habbo.Client?.Send(new FurniListNotificationComposer(item.Id, item.IsFloorItem ? 1 : 2));
@@ -287,7 +290,8 @@ public sealed class WiredRewardService(IWiredRewardStore store, IItemDataManager
         foreach (var user in context.Targets.ResolveUsers(context, [], config.UserSources["users"]).Where(user => !user.IsBot)) {
             var habbo = user.GetClient()?.GetHabbo();
 
-            if (habbo == null || !ReferenceEquals(habbo.CurrentRoom, context.Room)) {
+            // Rewards land in the loaded inventory, so nothing is claimed for a user without one.
+            if (habbo?.Inventory == null || !ReferenceEquals(habbo.CurrentRoom, context.Room)) {
                 continue;
             }
 

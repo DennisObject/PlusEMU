@@ -26,13 +26,13 @@ public class MarketplaceListingTests
     {
         var store = new RecordingStore();
         var (habbo, item) = Owner(ItemType.Floor);
-        store.BeforeWrite = () => store.OwnedAtWrite = habbo.Inventory.Furniture.GetItem(item.Id) != null;
+        store.BeforeWrite = () => store.OwnedAtWrite = Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItem(item.Id) != null;
         var (client, sent) = HabbiconTestSupport.Client(habbo);
 
         await Offer(store).Parse(client, Packet(100, 0, (int)item.Id));
 
         Assert.True(store.OwnedAtWrite);
-        Assert.Null(habbo.Inventory.Furniture.GetItem(item.Id));
+        Assert.Null(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItem(item.Id));
         Assert.Equal(new[] { ServerPacketHeader.FurniListRemoveComposer, ServerPacketHeader.MarketplaceMakeOfferResultComposer }, sent.Select(message => message.Header));
         var listing = Assert.Single(store.Listings);
         Assert.Equal(item.Id, listing.FurniId);
@@ -72,7 +72,7 @@ public class MarketplaceListingTests
 
         Assert.Empty(store.Listings);
         Assert.Equal(new[] { ServerPacketHeader.MarketplaceMakeOfferResultComposer }, sent.Select(message => message.Header));
-        Assert.NotNull(habbo.Inventory.Furniture.GetItem(item.Id));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItem(item.Id));
     }
 
     [Theory]
@@ -104,7 +104,7 @@ public class MarketplaceListingTests
         Assert.False(new MarketplaceListingService(store, Manager(), new FixedClock(Now), Settings()).TryList(habbo, item.Id, 100));
 
         Assert.Empty(store.Listings);
-        Assert.NotNull(habbo.Inventory.Furniture.GetItem(item.Id));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItem(item.Id));
     }
 
     [Fact]
@@ -140,7 +140,7 @@ public class MarketplaceListingTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => Offer(store).Parse(client, Packet(100, 0, (int)item.Id)));
 
-        Assert.NotNull(habbo.Inventory.Furniture.GetItem(item.Id));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItem(item.Id));
         Assert.Empty(sent);
     }
 
@@ -172,7 +172,7 @@ public class MarketplaceListingTests
 
         Assert.DoesNotContain("commit", database.Transactions);
         Assert.DoesNotContain(database.Writes, write => write.Sql.StartsWith("DELETE FROM `items`", StringComparison.Ordinal));
-        Assert.NotNull(habbo.Inventory.Furniture.GetItem(item.Id));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItem(item.Id));
     }
 
     [Theory]
@@ -192,7 +192,7 @@ public class MarketplaceListingTests
 
         Assert.Equal(accepted, listing.TryList(habbo, item.Id, 100));
         Assert.Equal(accepted ? 1 : 0, store.Listings.Count);
-        Assert.Equal(!accepted, habbo.Inventory.Furniture.GetItem(item.Id) != null);
+        Assert.Equal(!accepted, Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItem(item.Id) != null);
     }
 
     [Fact]

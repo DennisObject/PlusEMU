@@ -140,7 +140,8 @@ public sealed class HousekeepingEconomyActions : IHousekeepingEconomyActions
 
         if (_clients.Online(userId) is { } client) {
             foreach (var item in items) {
-                if (client.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem())) {
+                // The items are already stored; an inventory that is not loaded picks them up later.
+                if (client.GetHabbo().Inventory?.Furniture.AddItem(item.ToInventoryItem()) == true) {
                     client.Send(new FurniListNotificationComposer(item.Id, 1));
                 }
             }

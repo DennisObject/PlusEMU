@@ -30,6 +30,11 @@ internal class ConvertCreditsCommand : IChatCommand
             var habbo = session.GetHabbo();
             InventoryItem[] deletedItems;
 
+            // The exchanged items are read from and removed out of the loaded inventory, so nothing is converted without one.
+            if (habbo.Inventory is not { } inventory) {
+                return;
+            }
+
             lock (habbo.WalletSync) {
                 using var connection = _database.Connection();
                 var itemIds = connection.Query<uint>("SELECT id FROM items WHERE user_id=@userId AND room_id=0",
@@ -41,7 +46,7 @@ internal class ConvertCreditsCommand : IChatCommand
                     return;
                 }
 
-                var exchangeItems = itemIds.Select(habbo.Inventory.Furniture.GetItem)
+                var exchangeItems = itemIds.Select(inventory.Furniture.GetItem)
                     .Where(item => item?.Definition.InteractionType == InteractionType.Exchange)
                     .ToArray();
                 var deleted = new List<InventoryItem>(exchangeItems.Length);
@@ -74,7 +79,7 @@ internal class ConvertCreditsCommand : IChatCommand
             }
 
             foreach (var item in deletedItems) {
-                habbo.Inventory.Furniture.RemoveItem(item.Id);
+                inventory.Furniture.RemoveItem(item.Id);
                 session.Send(new FurniListRemoveComposer(item.Id));
             }
 

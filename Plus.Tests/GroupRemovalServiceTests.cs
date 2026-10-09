@@ -41,7 +41,7 @@ public sealed class GroupRemovalServiceTests
         var store = new Store { DeleteResult = false };
         await Service(group, store, owner, () => deleted = true).Delete(owner, group.Id);
         Assert.False(deleted);
-        Assert.Equal(group.Id, owner.GetHabbo().HabboStats.FavouriteGroupId);
+        Assert.Equal(group.Id, Assert.IsType<HabboStats>(owner.GetHabbo().HabboStats).FavouriteGroupId);
         Assert.Empty(sent);
     }
 
@@ -56,13 +56,13 @@ public sealed class GroupRemovalServiceTests
             BeforeDelete = () =>
             {
                 Assert.False(deleted);
-                Assert.Equal(group.Id, owner.GetHabbo().HabboStats.FavouriteGroupId);
+                Assert.Equal(group.Id, Assert.IsType<HabboStats>(owner.GetHabbo().HabboStats).FavouriteGroupId);
                 Assert.Empty(sent);
             }
         };
         await Service(group, store, owner, () => deleted = true).Delete(owner, group.Id);
         Assert.True(deleted);
-        Assert.Equal(0, owner.GetHabbo().HabboStats.FavouriteGroupId);
+        Assert.Equal(0, Assert.IsType<HabboStats>(owner.GetHabbo().HabboStats).FavouriteGroupId);
         Assert.Equal(ServerPacketHeader.GroupDeactivatedComposer, sent[0].Header);
     }
 
@@ -85,7 +85,7 @@ public sealed class GroupRemovalServiceTests
 
         Assert.True(group.IsAdmin(8));
         Assert.True(group.IsMember(8));
-        Assert.Equal(group.Id, target.GetHabbo().HabboStats.FavouriteGroupId);
+        Assert.Equal(group.Id, Assert.IsType<HabboStats>(target.GetHabbo().HabboStats).FavouriteGroupId);
         Assert.Empty(sent);
     }
 
@@ -99,14 +99,14 @@ public sealed class GroupRemovalServiceTests
             BeforeRemove = () =>
             {
                 Assert.True(group.IsAdmin(8));
-                Assert.Equal(group.Id, target.GetHabbo().HabboStats.FavouriteGroupId);
+                Assert.Equal(group.Id, Assert.IsType<HabboStats>(target.GetHabbo().HabboStats).FavouriteGroupId);
                 Assert.Empty(sent);
             }
         };
         await Service(group, store, target).Remove(target, group.Id, 8);
         Assert.False(group.IsMember(8));
         Assert.False(group.IsAdmin(8));
-        Assert.Equal(0, target.GetHabbo().HabboStats.FavouriteGroupId);
+        Assert.Equal(0, Assert.IsType<HabboStats>(target.GetHabbo().HabboStats).FavouriteGroupId);
         Assert.Equal(new[] { ServerPacketHeader.GroupInfoComposer, ServerPacketHeader.RefreshFavouriteGroupComposer }, sent.Select(p => p.Header));
     }
 
@@ -146,7 +146,7 @@ public sealed class GroupRemovalServiceTests
         });
         var store = new Store
         {
-            BeforeRemove = () => Assert.Equal(11, member.GetHabbo().HabboStats.FavouriteGroupId)
+            BeforeRemove = () => Assert.Equal(11, Assert.IsType<HabboStats>(member.GetHabbo().HabboStats).FavouriteGroupId)
         };
         var lease = gate.Enter(8);
         Task removal;
@@ -155,7 +155,7 @@ public sealed class GroupRemovalServiceTests
             removal = Task.Run(() => Service(group, store, member, sessions: sessions).Remove(owner, group.Id, 8));
             Assert.True(entering.Wait(TimeSpan.FromSeconds(5)));
             Assert.Equal(0, store.Removes);
-            member.GetHabbo().HabboStats.FavouriteGroupId = 11;
+            Assert.IsType<HabboStats>(member.GetHabbo().HabboStats).FavouriteGroupId = 11;
         }
         finally {
             lease.Dispose();
@@ -163,7 +163,7 @@ public sealed class GroupRemovalServiceTests
 
         await removal.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.False(group.IsMember(8));
-        Assert.Equal(11, member.GetHabbo().HabboStats.FavouriteGroupId);
+        Assert.Equal(11, Assert.IsType<HabboStats>(member.GetHabbo().HabboStats).FavouriteGroupId);
     }
 
     [Fact]
@@ -192,7 +192,7 @@ public sealed class GroupRemovalServiceTests
             Assert.True(Monitor.TryEnter(group), "Deleted-group lock was held while waiting for account publication");
 
             try {
-                owner.GetHabbo().HabboStats.FavouriteGroupId = 11;
+                Assert.IsType<HabboStats>(owner.GetHabbo().HabboStats).FavouriteGroupId = 11;
             }
             finally {
                 Monitor.Exit(group);
@@ -203,7 +203,7 @@ public sealed class GroupRemovalServiceTests
         }
 
         await deletion.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(11, owner.GetHabbo().HabboStats.FavouriteGroupId);
+        Assert.Equal(11, Assert.IsType<HabboStats>(owner.GetHabbo().HabboStats).FavouriteGroupId);
     }
 
     [RoomComponentDatabaseFact]

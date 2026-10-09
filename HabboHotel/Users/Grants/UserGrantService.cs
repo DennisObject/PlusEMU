@@ -98,9 +98,10 @@ public sealed class UserGrantService(IUserGrantStore store, IAccountSessionGate 
 
         var granted = store.InsertBadge(userId, definition.Code);
 
-        if (habbo != null && !habbo.Inventory.Badges.HasBadge(definition.Code)) {
-            habbo.Inventory.Badges.AddBadge(new Badge(definition.Code, 0));
-            habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
+        // The badge is already stored; an online user whose inventory is not loaded picks it up from storage later.
+        if (habbo?.Inventory is { } inventory && !inventory.Badges.HasBadge(definition.Code)) {
+            inventory.Badges.AddBadge(new Badge(definition.Code, 0));
+            habbo.Client?.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(inventory.Badges.Badges.Values)));
             habbo.Client?.Send(new FurniListNotificationComposer(1, 4));
             habbo.Client?.Send(new BroadcastMessageAlertComposer("You have been given a new badge!"));
         }

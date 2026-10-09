@@ -28,7 +28,12 @@ public sealed class AvatarWardrobeService(IFigureDataManager figures, IAvatarWar
 
     public void SaveOutfit(Habbo habbo, int slotId, string look, string gender)
     {
-        var processed = figures.ProcessFigure(look, gender, habbo.Clothing.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
+        // Paid clothing is only checked against a loaded wardrobe, so no outfit is saved without one.
+        if (habbo.Clothing is not { } wardrobe) {
+            return;
+        }
+
+        var processed = figures.ProcessFigure(look, gender, wardrobe.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
         store.SaveSlot(habbo.Id, slotId, processed, gender.ToUpper());
     }
 }

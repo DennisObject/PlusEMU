@@ -10,7 +10,7 @@ internal sealed class InteractorCrackable(IAchievementManager achievements) : IF
 
     public void OnTrigger(GameClient? session, Item item, int request, bool hasRights)
     {
-        if (session?.GetHabbo()?.Effects == null || session.GetHabbo().Effects.CurrentEffect != RequiredEffect) {
+        if (session?.GetHabbo()?.Effects is not { } effects || effects.CurrentEffect != RequiredEffect) {
             return;
         }
 

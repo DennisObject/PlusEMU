@@ -96,7 +96,7 @@ public partial class PlacedFurniRoomTests
             effects[1, 1] = effects[2, 1] = 1;
             actor.SetPos(1, 1, 0);
             manager.OnCycle();
-            Assert.Equal(29, _client.GetHabbo().Effects.CurrentEffect);
+            Assert.Equal(29, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
             Assert.Equal([(_client, RewardTrackActions.Swim, 1)], rewards.Calls);
             manager.OnCycle();
             actor.SetPos(2, 1, 0);
@@ -104,7 +104,7 @@ public partial class PlacedFurniRoomTests
             Assert.Single(rewards.Calls);
             actor.SetPos(3, 1, 0);
             manager.OnCycle();
-            Assert.Equal(-1, _client.GetHabbo().Effects.CurrentEffect);
+            Assert.Equal(-1, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
             actor.SetPos(2, 1, 0);
             manager.OnCycle();
             Assert.Equal([(_client, RewardTrackActions.Swim, 1), (_client, RewardTrackActions.Swim, 1)], rewards.Calls);

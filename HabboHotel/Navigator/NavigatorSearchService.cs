@@ -52,7 +52,7 @@ public sealed class NavigatorSearchService(INavigatorManager navigator, INavigat
             NavigatorCategoryType.MyRooms => roomData.GetRoomsDataByOwnerSortByName(session.GetHabbo().Id).OrderByDescending(room => room.UsersNow),
             NavigatorCategoryType.MyFavourites => Resolve(session.GetHabbo().FavoriteRooms.ToArray().Select(id => (uint)id)),
             NavigatorCategoryType.MyGroups => Resolve(groups.GetGroupsForUser(session.GetHabbo().Id).Select(group => group.RoomId)).Take(limit),
-            NavigatorCategoryType.MyFriendsRooms => rooms.GetRoomsByIds(session.GetHabbo().Messenger.Friends.Values
+            NavigatorCategoryType.MyFriendsRooms => rooms.GetRoomsByIds((session.GetHabbo().Messenger?.Friends.Values ?? [])
                 .Where(friend => friend.InRoom && friend.Id != session.GetHabbo().Id).Select(friend => friend.CurrentRoom.Id).Distinct().ToList()).Select(room => room.Data),
             NavigatorCategoryType.MyRights => Resolve(store.FindWithRights(session.GetHabbo().Id, limit)),
             NavigatorCategoryType.TopPromotions => rooms.GetOnGoingRoomPromotions(16, limit).Select(room => room.Data),

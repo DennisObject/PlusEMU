@@ -45,14 +45,14 @@ internal class IsNotWearingBadgeBox : IWiredItem
             return false;
         }
 
-        if (!player.Inventory.Badges.HasBadge(StringData)) {
+        if (player.Inventory is not { } inventory || !inventory.Badges.HasBadge(StringData)) {
             return true;
         }
 
-        if (!player.Inventory.Badges.EquippedBadges.Any()) {
+        if (!inventory.Badges.EquippedBadges.Any()) {
             return true;
         }
 
-        return player.Inventory.Badges.EquippedBadges.All(badge => !badge.Code.Equals(StringData));
+        return inventory.Badges.EquippedBadges.All(badge => !badge.Code.Equals(StringData));
     }
 }

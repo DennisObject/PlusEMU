@@ -149,7 +149,7 @@ public class RoomUser
 
     public bool IsPet => IsBot && BotData.IsPet;
 
-    public int CurrentEffect => GetClient()?.GetHabbo()?.Effects.CurrentEffect ?? 0;
+    public int CurrentEffect => GetClient()?.GetHabbo()?.Effects?.CurrentEffect ?? 0;
 
 
     public bool IsDancing

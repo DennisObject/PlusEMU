@@ -471,7 +471,7 @@ public sealed class RoomChatServiceTests
             return Task.FromResult(Handled);
         }
         public void Register(string commandText, ICommandBase command) => throw new NotSupportedException();
-        public void LogCommand(int userId, string data, string machineId) => throw new NotSupportedException();
+        public void LogCommand(int userId, string data, string? machineId) => throw new NotSupportedException();
         public bool TryGetCommand(string command, out ICommandBase? chatCommand)
         {
             chatCommand = null;

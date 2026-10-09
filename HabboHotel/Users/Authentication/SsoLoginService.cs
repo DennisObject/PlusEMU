@@ -86,11 +86,11 @@ public sealed class SsoLoginService : ISsoLoginService
             session.Send(new AvatarEffectsComposer(_avatarEffects.Capture(session.GetHabbo())));
             session.Send(new NavigatorSettingsComposer(session.GetHabbo().HomeRoom));
             session.Send(new FavouritesComposer(session.GetHabbo().FavoriteRooms));
-            session.Send(new FigureSetIdsComposer(session.GetHabbo().Clothing.GetClothingParts));
+            session.Send(new FigureSetIdsComposer(session.GetHabbo().Clothing?.GetClothingParts ?? []));
             session.Send(new UserRightsComposer(UserRightsSnapshot.Capture(session.GetHabbo().Access)));
             _clientAccessLists.Send(session.GetHabbo());
             session.Send(new AvailabilityStatusComposer());
-            session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats.AchievementPoints));
+            session.Send(new AchievementScoreComposer(session.GetHabbo().HabboStats?.AchievementPoints ?? 0));
             session.Send(new CfhTopicsInitComposer(CfhTopicCategorySnapshot.Capture(_moderationManager.UserActionPresets)));
             _achievementShowcase.ShowDefinitions(session);
             session.Send(new SoundSettingsComposer(session.GetHabbo().ClientVolume, session.GetHabbo().ChatPreference, session.GetHabbo().AllowMessengerInvites,
@@ -100,7 +100,7 @@ public sealed class SsoLoginService : ISsoLoginService
 
 
             foreach (var role in session.GetHabbo().Access.Roles) {
-                if (!string.IsNullOrEmpty(role.BadgeCode) && !session.GetHabbo().Inventory.Badges.HasBadge(role.BadgeCode)) {
+                if (!string.IsNullOrEmpty(role.BadgeCode) && session.GetHabbo().Inventory?.Badges.HasBadge(role.BadgeCode) == false) {
                     await _badgeManager.GiveBadge(session.GetHabbo(), role.BadgeCode);
                 }
             }

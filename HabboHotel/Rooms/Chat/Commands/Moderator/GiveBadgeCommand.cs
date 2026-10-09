@@ -34,7 +34,13 @@ internal class GiveBadgeCommand : ITargetChatCommand
             return Task.CompletedTask;
         }
 
-        if (!target.Inventory.Badges.HasBadge(badgeCode)) {
+        if (target.Inventory is not { } inventory) {
+            session.SendWhisper($"Oops, that user's badges are not loaded ({parameters[2]}) !");
+
+            return Task.CompletedTask;
+        }
+
+        if (!inventory.Badges.HasBadge(badgeCode)) {
             _badgeManager.GiveBadge(target, badgeCode).Wait();
 
             if (target.Id != session.GetHabbo().Id) {

@@ -150,7 +150,7 @@ public class CommandManager : ICommandManager
         return merged.ToString();
     }
 
-    public void LogCommand(int userId, string data, string machineId)
+    public void LogCommand(int userId, string data, string? machineId)
     {
         using var connection = _database.Connection();
         var timestamp = _clock.GetUtcNow().UtcDateTime;

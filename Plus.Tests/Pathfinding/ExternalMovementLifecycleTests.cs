@@ -161,7 +161,7 @@ public partial class PlacedFurniRoomTests
         EstablishExternalMountedGroup(rider, horse);
         rider.MoveTo(2, 1);
         ExecutorTick();
-        var inventory = _client.GetHabbo().Inventory;
+        var inventory = Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory);
         _client.GetHabbo().Inventory = new InventoryComponent { Furniture = inventory.Furniture, Pets = new([]) };
         var database = Proxy<IDatabase>((method, _) => method == "Connection" ? new PetPickupConnection() : throw new NotSupportedException(method));
         var service = new PetPlacementService(
@@ -180,7 +180,7 @@ public partial class PlacedFurniRoomTests
         Assert.False(horse.HasStatus("mv"));
         Assert.Null(_room.GetRoomUserManager().GetRoomUserByVirtualId(horse.VirtualId));
         Assert.DoesNotContain(horse, _room.GetGameMap().GetRoomUsers(new(0, 1)));
-        Assert.Contains(horse.PetData.PetId, _client.GetHabbo().Inventory.Pets.Pets.Keys);
+        Assert.Contains(horse.PetData.PetId, Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Pets.Pets.Keys);
     }
 
     [Fact]

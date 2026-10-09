@@ -109,7 +109,7 @@ public sealed class RoomPromotionService(IRoomDataLoader dataLoader, IRoomManage
             snapshot = RoomEventSnapshot.Capture(data, promotion);
         }
 
-        if (!habbo.Inventory.Badges.HasBadge("RADZZ")) {
+        if (habbo.Inventory?.Badges.HasBadge("RADZZ") == false) {
             await badges.GiveBadge(habbo, "RADZZ");
         }
 

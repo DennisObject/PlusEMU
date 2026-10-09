@@ -34,27 +34,27 @@ public class Habbo
     private IGameClientManager? _clients;
     private IRoomManager? _rooms;
     internal uint WiredRoomNetworkDestination { get; set; }
-    public HabboStats HabboStats { get; set; }
+    public HabboStats? HabboStats { get; set; }
 
     private readonly DateTimeOffset? _cachedAt;
 
     public GameClient? Client { get; set; }
-    public ClothingComponent Clothing { get; set; }
+    public ClothingComponent? Clothing { get; set; }
 
     private bool _disconnected;
     private bool _disposed;
     internal bool AccessClosed => WalletClosed || _disposed;
     internal event EventHandler? Disposed;
-    public EffectsComponent Effects { get; set; }
+    public EffectsComponent? Effects { get; set; }
 
     private bool _habboSaved;
 
-    public IgnoresComponent IgnoresComponent { get; set; }
-    public InventoryComponent Inventory { get; set; }
+    public IgnoresComponent? IgnoresComponent { get; set; }
+    public InventoryComponent? Inventory { get; set; }
 
-    public HabboMessenger Messenger { get; set; }
+    public HabboMessenger? Messenger { get; set; }
 
-    public NavigatorPreferences NavigatorPreferences { get; set; }
+    public NavigatorPreferences? NavigatorPreferences { get; set; }
     public UserAccess Access { get; set; } = UserAccess.Empty;
 
     // Should be deleted / refactored to a standalone service; only InitProcess and OnDisconnect use it.
@@ -103,7 +103,7 @@ public class Habbo
 
     public DateTimeOffset? LastNameChangedAt { get; set; }
 
-    public string MachineId { get; set; }
+    public string? MachineId { get; set; }
 
     public bool ChatPreference { get; set; }
 
@@ -154,7 +154,13 @@ public class Habbo
     public DateTimeOffset? TradingLockExpiresAt { get; set; }
 
     public DateTimeOffset SessionStartedAt { get; internal set; }
-    internal IUserPersistenceService Persistence { get; set; }
+    // UserDataFactory sets this for a logged-in user; an offline snapshot has nothing to save through.
+    private IUserPersistenceService? _persistence;
+    internal IUserPersistenceService Persistence
+    {
+        get => _persistence ?? throw new InvalidOperationException("The user has no persistence service.");
+        set => _persistence = value;
+    }
 
     public uint TentId { get; set; }
 
@@ -188,7 +194,7 @@ public class Habbo
 
     public int CreditsUpdateTick { get; set; }
 
-    public ICommandBase ChatCommand { get; set; }
+    public ICommandBase? ChatCommand { get; set; }
 
     internal object GiftPurchaseSync { get; } = new();
     public DateTimeOffset? LastGiftPurchasedAt { get; set; }
@@ -466,7 +472,10 @@ public class Habbo
         _roomVisits.RecordEntry(Client.GetHabbo().Id, room.RoomId);
 
         if (room.OwnerId != Id) {
-            Client.GetHabbo().HabboStats.RoomVisits += 1;
+            if (HabboStats is { } stats) {
+                stats.RoomVisits += 1;
+            }
+
             _roomAchievements.ProgressAchievement(Client, "ACH_RoomEntry", 1);
         }
 

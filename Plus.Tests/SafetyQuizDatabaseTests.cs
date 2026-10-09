@@ -101,7 +101,7 @@ namespace Plus.Tests
             replay.Service.Start(replay.Client, "SafetyQuiz1");
             Assert.False(fixture.Store.Read(7, "SafetyQuiz1")!.AwardPending);
             Assert.Equal(1, replay.Habbo.GetAchievementData("ACH_SafetyQuizGraduate")!.Level);
-            Assert.Equal((5, 5), (replay.Habbo.Duckets, replay.Habbo.HabboStats.AchievementPoints));
+            Assert.Equal((5, 5), (replay.Habbo.Duckets, Assert.IsType<HabboStats>(replay.Habbo.HabboStats).AchievementPoints));
             Assert.Equal(1, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_achievements WHERE userid=7 AND `group`='ACH_SafetyQuizGraduate' AND level=1"));
             Assert.Equal(1, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_talent_rewards WHERE user_id=7 AND level=0"));
             Assert.Contains(replay.Packets, packet => packet.Header == ServerPacketHeader.TalentLevelUpComposer);
@@ -142,7 +142,7 @@ namespace Plus.Tests
             var loaded = await fixture.Runtime();
             Assert.Equal(1, loaded.Habbo.GetAchievementData("ACH_SafetyQuizGraduate")!.Level);
             loaded.Service.Start(loaded.Client, "SafetyQuiz1");
-            Assert.Equal((5, 5), (loaded.Habbo.Duckets, loaded.Habbo.HabboStats.AchievementPoints));
+            Assert.Equal((5, 5), (loaded.Habbo.Duckets, Assert.IsType<HabboStats>(loaded.Habbo.HabboStats).AchievementPoints));
             Assert.False(fixture.Store.Read(7, "SafetyQuiz1")!.AwardPending);
             Assert.Equal(1, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_achievements"));
             Assert.Equal(1, fixture.Connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_talent_rewards"));

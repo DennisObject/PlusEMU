@@ -212,8 +212,8 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
                     break;
             }
 
-            // A badge prize without a grantable definition would commit a claim that never pays out.
-            if (badge != null && !TryResolveBadge(habbo, badge, out badge)) {
+            // A badge prize without a grantable definition, or without a loaded inventory to receive it, would commit a claim that never pays out.
+            if (badge != null && (habbo.Inventory == null || !TryResolveBadge(habbo, badge, out badge))) {
                 _logger.LogError("Reward track prize {PrizeId} badge {Badge} has no grantable definition", prize.Id, prize.ExtraParams);
                 LogClaim(habbo.Id, trackId, prizeId, RewardTrackResults.Unknown);
                 SendTrackPacket(session, new RewardTrackClaimResultComposer(trackId, prizeId, RewardTrackResults.Unknown));
@@ -231,9 +231,9 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
 
             state.MarkClaimed(prize.Id);
 
-            if (badge != null && !habbo.Inventory.Badges.HasBadge(badge)) {
-                habbo.Inventory.Badges.AddBadge(new Badge(badge, 0));
-                session.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(habbo.Inventory.Badges.Badges.Values)));
+            if (badge != null && habbo.Inventory is { } inventory && !inventory.Badges.HasBadge(badge)) {
+                inventory.Badges.AddBadge(new Badge(badge, 0));
+                session.Send(new BadgesComposer(BadgeInventorySnapshot.Capture(inventory.Badges.Badges.Values)));
                 session.Send(new FurniListNotificationComposer(1, 4));
             }
 

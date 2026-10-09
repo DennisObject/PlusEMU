@@ -44,7 +44,7 @@ public sealed class CameraPhotoServiceTests
         {
             Assert.Equal("Purchase", method);
             Assert.Same(habbo, args[0]);
-            Assert.Empty(habbo.Inventory.Furniture.AllItems);
+            Assert.Empty(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.AllItems);
             Assert.Empty(sent);
             habbo.Credits = 95;
 
@@ -53,7 +53,7 @@ public sealed class CameraPhotoServiceTests
 
         service.Purchase(client, MediaId);
 
-        Assert.Same(item, habbo.Inventory.Furniture.GetItem(10));
+        Assert.Same(item, Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.GetItem(10));
         Assert.Equal(new uint[] { ServerPacketHeader.FurniListNotificationComposer, ServerPacketHeader.FurniListUpdateComposer,
             ServerPacketHeader.CreditBalanceComposer, ServerPacketHeader.HabboActivityPointNotificationComposer,
             ServerPacketHeader.CameraPurchaseOKComposer }, sent.Select(packet => packet.Header));
@@ -69,7 +69,7 @@ public sealed class CameraPhotoServiceTests
 
         service.Purchase(client, MediaId);
 
-        Assert.Empty(habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.AllItems);
         Assert.Equal(100, habbo.Credits);
         Assert.DoesNotContain(sent, packet => packet.Header == ServerPacketHeader.CameraPurchaseOKComposer);
         Assert.Single(sent);
@@ -105,7 +105,7 @@ public sealed class CameraPhotoServiceTests
         habbo.CurrentRoom = null;
         service.EnterCompetition(client, MediaId);
         Assert.Equal(0, checkoutCalls);
-        Assert.Empty(habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.AllItems);
     }
 
     private static CameraPhotoService Service(Func<string, object?[], object?> checkout,

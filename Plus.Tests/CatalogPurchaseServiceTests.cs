@@ -47,7 +47,7 @@ public sealed class CatalogPurchaseServiceTests
 
         Assert.Equal(0, context.Rewards.Charges);
         Assert.Equal(0, context.Factory.Creates);
-        Assert.Empty(context.Habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Furniture.AllItems);
         Assert.Empty(context.Tracks.Calls);
     }
 
@@ -60,7 +60,7 @@ public sealed class CatalogPurchaseServiceTests
 
         Assert.Equal(1, context.Rewards.Charges);
         Assert.Equal(0, context.Factory.Creates);
-        Assert.Empty(context.Habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Furniture.AllItems);
         Assert.Empty(context.Tracks.Calls);
         Assert.DoesNotContain(context.Sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
     }
@@ -74,7 +74,7 @@ public sealed class CatalogPurchaseServiceTests
 
         Assert.Equal(90, context.Habbo.Credits);
         Assert.Equal(1, context.Factory.Creates);
-        Assert.NotNull(context.Habbo.Inventory.Furniture.GetItem(700));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Furniture.GetItem(700));
         Assert.Equal((context.Client, Plus.HabboHotel.Quests.RewardTrackActions.BuyFromCatalogue, 1),
             Assert.Single(context.Tracks.Calls));
         Assert.Contains(context.Sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
@@ -111,7 +111,7 @@ public sealed class CatalogPurchaseServiceTests
 
         Assert.Equal(70, context.Habbo.Credits);
         Assert.Equal(3, context.Factory.Creates);
-        Assert.Equal(3, context.Habbo.Inventory.Furniture.AllItems.Count());
+        Assert.Equal(3, Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Furniture.AllItems.Count());
         Assert.Equal((context.Client, Plus.HabboHotel.Quests.RewardTrackActions.BuyFromCatalogue, 1),
             Assert.Single(context.Tracks.Calls));
     }
@@ -124,7 +124,7 @@ public sealed class CatalogPurchaseServiceTests
         await context.Service.Purchase(context.Client, new(1, 2, "ignored", 1));
 
         Assert.Equal(1, context.Factory.Creates);
-        Assert.Empty(context.Habbo.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Furniture.AllItems);
         Assert.DoesNotContain(context.Sent, packet => packet.Header == ServerPacketHeader.FurniListNotificationComposer);
         Assert.Empty(context.Tracks.Calls);
     }
@@ -136,7 +136,7 @@ public sealed class CatalogPurchaseServiceTests
         context.BotStore.BeforeCreate = () =>
         {
             Assert.Equal(100, context.Habbo.Credits);
-            Assert.Empty(context.Habbo.Inventory.Bots.Bots);
+            Assert.Empty(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Bots.Bots);
             Assert.Empty(context.Sent);
         };
 
@@ -148,7 +148,7 @@ public sealed class CatalogPurchaseServiceTests
         Assert.Same(context.Rewards.Transaction, context.BotStore.Transaction);
         Assert.Equal((50u, 42), (context.BotStore.Preset!.Id, context.BotStore.OwnerId));
         Assert.Equal(90, context.Habbo.Credits);
-        Assert.Single(context.Habbo.Inventory.Bots.Bots);
+        Assert.Single(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Bots.Bots);
         Assert.Equal(new[]
         {
             ServerPacketHeader.CreditBalanceComposer,
@@ -173,7 +173,33 @@ public sealed class CatalogPurchaseServiceTests
 
         Assert.Equal(90, context.Habbo.Credits);
         Assert.Equal(1, context.BotStore.Creates);
-        Assert.Single(context.Habbo.Inventory.Bots.Bots);
+        Assert.Single(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Bots.Bots);
+    }
+
+    [Fact]
+    public async Task FurniturePurchaseWithoutLoadedInventoryDoesNotCharge()
+    {
+        var context = Context();
+        context.Habbo.Inventory = null;
+
+        await context.Service.Purchase(context.Client, new(1, 2, "ignored", 1));
+
+        Assert.Equal(0, context.Rewards.Charges);
+        Assert.Equal(100, context.Habbo.Credits);
+        Assert.DoesNotContain(context.Sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
+    }
+
+    [Fact]
+    public async Task EffectPurchaseWithoutLoadedEffectsDoesNotCharge()
+    {
+        var context = Context(effect: true);
+
+        await context.Service.Purchase(context.Client, new(1, 2, "ignored", 1));
+
+        Assert.Null(context.Habbo.Effects);
+        Assert.Equal(0, context.Rewards.Charges);
+        Assert.Equal(100, context.Habbo.Credits);
+        Assert.DoesNotContain(context.Sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
     }
 
     [Fact]
@@ -186,7 +212,7 @@ public sealed class CatalogPurchaseServiceTests
         Assert.Equal(0, context.Rewards.Charges);
         Assert.Equal(0, context.BotStore.Creates);
         Assert.Equal(100, context.Habbo.Credits);
-        Assert.Empty(context.Habbo.Inventory.Bots.Bots);
+        Assert.Empty(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Bots.Bots);
         var error = Assert.Single(context.Sent);
         Assert.Equal(ServerPacketHeader.BroadcastMessageAlertComposer, error.Header);
         var payload = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = error.Payload };
@@ -205,7 +231,7 @@ public sealed class CatalogPurchaseServiceTests
 
         Assert.Equal(1, context.Rewards.Charges);
         Assert.Equal(0, context.BotStore.Creates);
-        Assert.Empty(context.Habbo.Inventory.Bots.Bots);
+        Assert.Empty(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Bots.Bots);
         Assert.Empty(context.Sent);
     }
 
@@ -219,7 +245,7 @@ public sealed class CatalogPurchaseServiceTests
 
         Assert.Equal(1, context.BotStore.Creates);
         Assert.Equal(100, context.Habbo.Credits);
-        Assert.Empty(context.Habbo.Inventory.Bots.Bots);
+        Assert.Empty(Assert.IsType<InventoryComponent>(context.Habbo.Inventory).Bots.Bots);
         Assert.Empty(context.Sent);
     }
 
@@ -237,7 +263,7 @@ public sealed class CatalogPurchaseServiceTests
 
     private static TestContext Context(bool enabled = true, bool chargeSucceeds = true,
         bool factorySucceeds = true, bool club = false, bool bot = false, bool botPreset = true,
-        bool botStoreFails = false, int points = 0, int pointsType = 0)
+        bool botStoreFails = false, int points = 0, int pointsType = 0, bool effect = false)
     {
         var definition = new ItemDefinition
         {
@@ -254,7 +280,9 @@ public sealed class CatalogPurchaseServiceTests
             CostPoints = points,
             PointsType = pointsType,
             LocalizationKey = "chair",
-            Products = [bot
+            Products = [effect
+                ? new CatalogProduct { Type = CatalogProductType.Effect, EffectId = 108 }
+                : bot
                 ? new CatalogProduct { Type = CatalogProductType.Bot, BotPresetId = (int)definition.Id }
                 : new CatalogProduct { Type = CatalogProductType.Furni, Definition = definition }]
         };
@@ -285,7 +313,7 @@ public sealed class CatalogPurchaseServiceTests
             Assert.Equal(1, amount);
             Assert.Equal(1, rewards.Charges);
             Assert.True(habbo.Credits < 100);
-            Assert.NotEmpty(habbo.Inventory.Furniture.AllItems);
+            Assert.NotEmpty(Assert.IsType<InventoryComponent>(habbo.Inventory).Furniture.AllItems);
             Assert.Contains(sent, packet => packet.Header == ServerPacketHeader.FurniListNotificationComposer);
             Assert.DoesNotContain(sent, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
         });

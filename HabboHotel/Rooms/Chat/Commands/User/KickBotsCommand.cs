@@ -28,6 +28,11 @@ internal class KickBotsCommand : IChatCommand
             return;
         }
 
+        // Kicked bots go into the owner's loaded inventory, so none are moved without one.
+        if (session.GetHabbo().Inventory is not { } inventory) {
+            return;
+        }
+
         foreach (var user in room.GetRoomUserManager().GetUserList().ToList()) {
             if (user == null || user.IsPet || !user.IsBot || user.BotData.IsTemporary) {
                 continue;
@@ -41,9 +46,9 @@ internal class KickBotsCommand : IChatCommand
 
             using var connection = _database.Connection();
             connection.Execute("UPDATE bots SET room_id=0 WHERE id=@id LIMIT 1", new { user.BotData.Id });
-            session.GetHabbo().Inventory.Bots.AddBot(new(Convert.ToInt32(botUser.BotData.Id), Convert.ToInt32(botUser.BotData.OwnerId), botUser.BotData.Name, botUser.BotData.Motto,
+            inventory.Bots.AddBot(new(Convert.ToInt32(botUser.BotData.Id), Convert.ToInt32(botUser.BotData.OwnerId), botUser.BotData.Name, botUser.BotData.Motto,
                 botUser.BotData.Look, botUser.BotData.Gender));
-            session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
+            session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(inventory.Bots.Bots.Values)));
             room.GetRoomUserManager().RemoveBot(botUser.VirtualId, false);
         }
 

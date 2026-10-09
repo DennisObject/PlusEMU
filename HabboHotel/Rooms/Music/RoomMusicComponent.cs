@@ -139,11 +139,12 @@ namespace Plus.HabboHotel.Rooms.Music
 
         private void AddOwned(GameClient session, uint discId, int position)
         {
-            if (!Admitted(session, out var habbo, out var actor) || actor.IsTrading) {
+            // The disc comes out of the loaded inventory, so nothing is queued without one.
+            if (!Admitted(session, out var habbo, out var actor) || actor.IsTrading || habbo.Inventory is not { } inventory) {
                 return;
             }
 
-            var disc = habbo.Inventory.Furniture.GetItem(discId);
+            var disc = inventory.Furniture.GetItem(discId);
 
             if (disc == null || !RoomMusicDefinition.IsDisc(disc.Definition) || !disc.TryReserve()) {
                 return;
@@ -154,7 +155,7 @@ namespace Plus.HabboHotel.Rooms.Music
             try {
                 lock (habbo.WalletSync) {
                     if (!Admitted(session, out var current, out actor) || !ReferenceEquals(current, habbo) || actor.IsTrading
-                        || habbo.AccessClosed || !ReferenceEquals(habbo.Inventory.Furniture.GetItem(discId), disc)) {
+                        || habbo.AccessClosed || !ReferenceEquals(inventory.Furniture.GetItem(discId), disc)) {
                         return;
                     }
 
@@ -177,7 +178,7 @@ namespace Plus.HabboHotel.Rooms.Music
                                 return;
                             }
 
-                            habbo.Inventory.Furniture.RemoveItem(discId);
+                            inventory.Furniture.RemoveItem(discId);
                             Apply(result);
                             changed = true;
                         }
@@ -296,7 +297,8 @@ namespace Plus.HabboHotel.Rooms.Music
 
                 var current = available(disc.Id, disc.OwnerId);
 
-                if (current != null && habbo.Inventory.Furniture.AddItem(current)) {
+                // The disc is already back in storage; an inventory that is not loaded picks it up later.
+                if (current != null && habbo.Inventory?.Furniture.AddItem(current) == true) {
                     snapshot = InventoryItemSnapshot.Capture(current);
                 }
             }

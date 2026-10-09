@@ -31,9 +31,10 @@ public sealed class UserSocialShowcaseService(
     public async Task ShowRelationships(GameClient session, int userId)
     {
         var target = clients.GetClientByUserId(userId)?.GetHabbo();
-        Dictionary<int, (MessengerBuddy buddy, int count)> relationships = target == null
+        // An online user without a loaded messenger is read from the database like an offline one.
+        Dictionary<int, (MessengerBuddy buddy, int count)> relationships = target?.Messenger is not { } messenger
             ? await messengerData.GetRelationshipsForUserAsync(userId)
-            : HabboMessenger.GetRelationships(new ConcurrentDictionary<int, MessengerBuddy>(target.Messenger.Friends));
+            : HabboMessenger.GetRelationships(new ConcurrentDictionary<int, MessengerBuddy>(messenger.Friends));
         var entries = relationships.Select(pair => new RelationshipEntry(
             pair.Key, pair.Value.count, pair.Value.buddy.Id, pair.Value.buddy.Username, pair.Value.buddy.Look))
             .ToImmutableArray();
@@ -42,7 +43,7 @@ public sealed class UserSocialShowcaseService(
 
     public async Task ShowIgnoredUsers(GameClient session)
     {
-        var ignored = session.GetHabbo().IgnoresComponent.IgnoredUsers.ToArray();
+        var ignored = session.GetHabbo().IgnoresComponent?.IgnoredUsers.ToArray() ?? [];
         var names = await ignoredUsers.GetIgnoredUsersByName(ignored);
         session.Send(new IgnoredUsersComposer(names));
     }

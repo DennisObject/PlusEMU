@@ -89,7 +89,7 @@ namespace Plus.Tests
             await new Plus.Communication.Packets.Incoming.Campaign.OpenCampaignCalendarDoorEvent(service)
                 .Parse(client, HabbiconTestSupport.Incoming("configured", 6));
             Assert.Equal((13, 24, 35), (user.Credits, user.Duckets, user.Diamonds));
-            Assert.True(user.Inventory.Badges.HasBadge("TEST"));
+            Assert.True(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(user.Inventory).Badges.HasBadge("TEST"));
             Assert.Single(user.Inventory.Furniture.AllItems);
             Assert.Equal(1, sent[^1].Payload[0]);
             sent.Clear();

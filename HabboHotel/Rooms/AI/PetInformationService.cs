@@ -86,6 +86,6 @@ public sealed class PetInformationService(TimeProvider clock) : IPetInformationS
         var age = (int)Math.Clamp(days, 0, int.MaxValue);
 
         return new(habbo.Id, habbo.Username, habbo.Access.SecurityLevel, 10, 0, 0, 100, 100, 100, 100,
-            habbo.HabboStats.Respect, habbo.Id, age, habbo.Username, false, 0);
+            habbo.HabboStats?.Respect ?? 0, habbo.Id, age, habbo.Username, false, 0);
     }
 }

@@ -70,13 +70,13 @@ public sealed class ProcessComponent(ILogger<ProcessComponent> logger, TimeProvi
 
             // Keep the reset and its live counts atomic with the final logout save.
             lock (player.WalletSync) {
-                if (!player.WalletClosed && player.HabboStats.RespectsTimestamp != day) {
+                if (!player.WalletClosed && player.HabboStats is { } stats && stats.RespectsTimestamp != day) {
                     var respects = player.Access.Limit("limit.daily_respects", 10);
                     var petRespects = player.Access.Limit("limit.daily_pet_respects", 10);
                     store.ResetDailyRespects(player.Id, respects, petRespects, day);
-                    player.HabboStats.RespectsTimestamp = day;
-                    player.HabboStats.DailyRespectPoints = respects;
-                    player.HabboStats.DailyPetRespectPoints = petRespects;
+                    stats.RespectsTimestamp = day;
+                    stats.DailyRespectPoints = respects;
+                    stats.DailyPetRespectPoints = petRespects;
 
                     if (player.Client != null) {
                         player.Client.Send(new UserObjectComposer(UserObjectSnapshot.Capture(player)));
@@ -101,7 +101,10 @@ public sealed class ProcessComponent(ILogger<ProcessComponent> logger, TimeProvi
             }
 
             player.CheckCreditsTimer(settings);
-            player.Effects.CheckEffectExpiryAt(player, now);
+
+            if (player.Effects is { } effects) {
+                effects.CheckEffectExpiryAt(player, now);
+            }
         }
         catch (Exception exception) {
             logger.LogError(exception, "Player process failed for {PlayerId}", player.Id);

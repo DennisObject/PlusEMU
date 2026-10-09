@@ -59,7 +59,8 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
     }
     private ClubGiftClaim? ClaimLocked(Habbo habbo, string productCode)
     {
-        if (productCode.Length is 0 or > 100 || ClubAccess.LevelFor(habbo.Access) == 0) {
+        // The gift furniture is handed into the loaded inventory, so nothing is claimed without one.
+        if (productCode.Length is 0 or > 100 || ClubAccess.LevelFor(habbo.Access) == 0 || habbo.Inventory is not { } inventory) {
             return null;
         }
 
@@ -107,7 +108,7 @@ public class ClubRewards(IDatabase database, ICatalogManager catalog, IGameClien
         permissions.Refresh(habbo.Id);
 
         foreach (var item in received) {
-            habbo.Inventory.Furniture.AddItem(item);
+            inventory.Furniture.AddItem(item);
         }
 
         return new(gift, received);

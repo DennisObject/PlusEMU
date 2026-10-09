@@ -75,7 +75,8 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
             var room = habbo.CurrentRoom;
 
             if (habbo.WalletClosed || !ReferenceEquals(habbo.Client, session) || room is null || altar is null
-                || altar.OwnerId != (uint)habbo.Id || room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id)?.IsTrading != false) {
+                || altar.OwnerId != (uint)habbo.Id || room.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id)?.IsTrading != false
+                || habbo.Inventory is not { } inventory) {
                 session.Send(new CraftingResultComposer(null));
 
                 return;
@@ -93,7 +94,7 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
                 return;
             }
 
-            selected ??= recipe.Ingredients.SelectMany(ingredient => habbo.Inventory.Furniture.GetItems
+            selected ??= recipe.Ingredients.SelectMany(ingredient => inventory.Furniture.GetItems
                 .Where(item => item.Definition.Id == ingredient.ItemId && item.OwnerId == (uint)habbo.Id && item.UniqueNumber == 0 && item.UniqueSeries == 0)
                 .OrderBy(item => item.Id).Take(ingredient.Amount)).ToArray();
 
@@ -115,7 +116,7 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
 
                     reserved.Add(item);
 
-                    if (!ReferenceEquals(habbo.Inventory.Furniture.GetItem(item.Id), item)) {
+                    if (!ReferenceEquals(inventory.Furniture.GetItem(item.Id), item)) {
                         session.Send(new CraftingResultComposer(null));
 
                         return;
@@ -149,10 +150,10 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
                 };
 
                 foreach (var item in selected) {
-                    habbo.Inventory.Furniture.RemoveItem(item.Id);
+                    inventory.Furniture.RemoveItem(item.Id);
                 }
 
-                if (!habbo.Inventory.Furniture.AddItem(reward)) {
+                if (!inventory.Furniture.AddItem(reward)) {
                     throw new InvalidOperationException("Committed crafting reward was already present in inventory.");
                 }
 
@@ -209,7 +210,12 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
         }
 
         var habbo = session.GetHabbo();
-        var selected = itemIds.Select(habbo.Inventory.Furniture.GetItem).ToArray();
+
+        if (habbo.Inventory is not { } inventory) {
+            return null;
+        }
+
+        var selected = itemIds.Select(inventory.Furniture.GetItem).ToArray();
 
         return selected.Any(item => item is null || item.OwnerId != (uint)habbo.Id || item.UniqueNumber != 0 || item.UniqueSeries != 0) ? null : selected.Select(item => item!).ToArray();
     }

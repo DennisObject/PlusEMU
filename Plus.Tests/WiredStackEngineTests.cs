@@ -616,7 +616,7 @@ public class WiredStackEngineTests
         teleport.SetItems.TryAdd(target.Id, target);
 
         Assert.True(fixture.Engine.RunStack(trigger, [actor.Player]));
-        Assert.Equal(4, actor.Player.Effects.CurrentEffect);
+        Assert.Equal(4, Assert.IsType<EffectsComponent>(actor.Player.Effects).CurrentEffect);
         Assert.Equal(new[] { ServerPacketHeader.AvatarEffectComposer }, actor.Packets);
         Assert.DoesNotContain(teleport.Item.Id, fixture.Flashes);
         fixture.Advance(999);

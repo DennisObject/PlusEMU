@@ -466,16 +466,16 @@ public partial class PlacedFurniRoomTests
         effect.ExtraData = new LegacyDataFormat { Data = "0" };
         var tile = Add(11, 1, 1, z: 0.75, type: InteractionType.WalkMagicTile);
         var user = Viewer(1, 1);
-        _client.GetHabbo().Effects.Init(_client.GetHabbo());
+        Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).Init(_client.GetHabbo());
         _room.GetRoomUserManager().UpdateUserStatus(user, true);
-        Assert.Equal(7, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(7, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         Assert.Equal("1", effect.LegacyDataString);
         effect.LegacyDataString = "0";
-        _client.GetHabbo().Effects.CurrentEffect = 0;
+        Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect = 0;
         _room.GetRoomItemHandler().SetFloorItem(tile, 1, 1, 1);
         Assert.Equal(1, user.Z);
         Assert.Equal("0", effect.LegacyDataString);
-        Assert.Equal(0, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(0, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
     }
 
     [Fact]

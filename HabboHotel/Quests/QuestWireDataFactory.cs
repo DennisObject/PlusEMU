@@ -27,7 +27,7 @@ public static class QuestWireDataFactory
         }
 
         return new(quest.Category, categoryProgress, total, quest.RewardType, quest.Id,
-            session.GetHabbo().HabboStats.QuestId == quest.Id, quest.ActionName, quest.DataBit, quest.Reward,
+            session.GetHabbo().HabboStats?.QuestId == quest.Id, quest.ActionName, quest.DataBit, quest.Reward,
             quest.Name, progress, quest.GoalData, LegacyTimestamp(quest.UnlocksAt));
     }
 

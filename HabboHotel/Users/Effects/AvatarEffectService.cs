@@ -29,9 +29,8 @@ public sealed class AvatarEffectService(TimeProvider time) : IAvatarEffectServic
     {
         var habbo = session.GetHabbo();
         var now = time.GetUtcNow();
-        var effect = habbo.Effects.GetEffectNullableAt(effectId, now, false, true);
 
-        if (effect == null || habbo.Effects.HasEffectAt(effectId, now, true)) {
+        if (habbo.Effects is not { } effects || effects.GetEffectNullableAt(effectId, now, false, true) is not { } effect || effects.HasEffectAt(effectId, now, true)) {
             return;
         }
 
@@ -62,16 +61,20 @@ public sealed class AvatarEffectService(TimeProvider time) : IAvatarEffectServic
 
         var now = time.GetUtcNow();
 
-        if (selected != 0 && habbo.Effects.HasEffectAt(selected, now, true)) {
+        if (selected != 0 && habbo.Effects?.HasEffectAt(selected, now, true) == true) {
             user.ApplyEffect(selected);
         }
     }
 
     public ImmutableArray<AvatarEffectEntry> Capture(Habbo habbo)
     {
+        if (habbo.Effects is not { } effects) {
+            return [];
+        }
+
         var now = time.GetUtcNow();
 
-        return habbo.Effects.GetAllEffects
+        return effects.GetAllEffects
             .Select(effect => new AvatarEffectEntry(effect.SpriteId, ToWire(effect.Duration), effect.Activated ? effect.Quantity - 1 : effect.Quantity,
                 effect.Activated, effect.Activated ? ToWire(effect.TimeLeftAt(now)) : -1))
             .ToImmutableArray();

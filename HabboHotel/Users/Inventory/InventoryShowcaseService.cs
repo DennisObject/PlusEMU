@@ -42,5 +42,5 @@ public sealed class InventoryShowcaseService : IInventoryShowcaseService
     }
 
     public void ShowBadges(GameClient session) => session.Send(new BadgesComposer(
-        BadgeInventorySnapshot.Capture(session.GetHabbo().Inventory.Badges.Badges.Values)));
+        BadgeInventorySnapshot.Capture(session.GetHabbo().Inventory?.Badges.Badges.Values ?? [])));
 }

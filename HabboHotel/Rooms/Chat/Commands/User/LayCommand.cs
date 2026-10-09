@@ -28,8 +28,8 @@ internal class LayCommand : IChatCommand
             return;
         }
 
-        if (session.GetHabbo().Effects.CurrentEffect > 0) {
-            session.GetHabbo().Effects.ApplyEffect(0);
+        if (session.GetHabbo().Effects is { CurrentEffect: > 0 } effects) {
+            effects.ApplyEffect(0);
         }
 
         if (!user.Statusses.ContainsKey("lay")) {

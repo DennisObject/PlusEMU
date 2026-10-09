@@ -71,7 +71,7 @@ public sealed class MessengerSocialMutationServiceTests
         var buddy = new MessengerBuddy { Id = 2, Username = "friend", Relationship = 1 };
         var (client, sent) = Client(1, new Dictionary<int, MessengerBuddy> { [2] = buddy });
         var updates = 0;
-        client.GetHabbo().Messenger.FriendUpdated += (_, _) => updates++;
+        Assert.IsType<HabboMessenger>(client.GetHabbo().Messenger).FriendUpdated += (_, _) => updates++;
         var loader = CatalogSnapshotTestSupport.Proxy<IMessengerDataLoader>((method, _) =>
             method == nameof(IMessengerDataLoader.SetRelationship)
                 ? Task.FromException(new InvalidOperationException("write failed"))
@@ -91,7 +91,7 @@ public sealed class MessengerSocialMutationServiceTests
         var buddy = new MessengerBuddy { Id = 2, Username = "friend", Relationship = 1 };
         var (client, _) = Client(1, new Dictionary<int, MessengerBuddy> { [2] = buddy });
         var published = false;
-        client.GetHabbo().Messenger.FriendUpdated += (_, _) => published = true;
+        Assert.IsType<HabboMessenger>(client.GetHabbo().Messenger).FriendUpdated += (_, _) => published = true;
         var rewards = new RecordingRewards();
         var loader = CatalogSnapshotTestSupport.Proxy<IMessengerDataLoader>((method, arguments) =>
         {
@@ -165,6 +165,25 @@ public sealed class MessengerSocialMutationServiceTests
 
         Assert.Empty(recipientPackets);
         Assert.Empty(rewards.Actions);
+    }
+
+    [Fact]
+    public async Task InvitationWithoutLoadedMessengerIsNotLoggedOrDelivered()
+    {
+        var (sender, senderPackets) = Client(1, new Dictionary<int, MessengerBuddy> { [2] = new() { Id = 2 } });
+        sender.GetHabbo().Messenger = null;
+        var (recipient, recipientPackets) = Client(2);
+        var store = new RecordingInvitationStore();
+        var rewards = new RecordingRewards();
+        var service = Service(store: store, rewards: rewards,
+            clients: ClientManager(new Dictionary<int, GameClient> { [2] = recipient }));
+
+        await service.SendRoomInvites(sender, new RoomInvitationRequest([2], "hello"));
+
+        Assert.Empty(store.Logs);
+        Assert.Empty(recipientPackets);
+        Assert.Empty(rewards.Actions);
+        Assert.Empty(senderPackets);
     }
 
     [Fact]

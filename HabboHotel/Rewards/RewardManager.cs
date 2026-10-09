@@ -110,7 +110,12 @@ public class RewardManager : IRewardManager, IStartable
             if (reward.IsActiveAt(now)) {
                 switch (reward.Type) {
                     case RewardType.Badge: {
-                            if (!session.GetHabbo().Inventory.Badges.HasBadge(reward.RewardData)) {
+                            // Without a loaded inventory the badge cannot be given, so the reward stays unclaimed rather than logged.
+                            if (session.GetHabbo().Inventory is not { } inventory) {
+                                continue;
+                            }
+
+                            if (!inventory.Badges.HasBadge(reward.RewardData)) {
                                 await _badgeManager.GiveBadge(session.GetHabbo(), reward.RewardData);
                             }
 

@@ -41,7 +41,8 @@ public sealed class PlayerIgnoreService(
             return;
         }
 
-        if (habbo.IgnoresComponent.IsIgnored(target.Id) == ignored) {
+        // Ignores are loaded at login; there is nothing to change on a user without them.
+        if (habbo.IgnoresComponent is not { } ignores || ignores.IsIgnored(target.Id) == ignored) {
             return;
         }
 
@@ -52,10 +53,10 @@ public sealed class PlayerIgnoreService(
         }
 
         if (ignored) {
-            habbo.IgnoresComponent.PublishIgnore(target.Id);
+            ignores.PublishIgnore(target.Id);
         }
         else {
-            habbo.IgnoresComponent.PublishUnignore(target.Id);
+            ignores.PublishUnignore(target.Id);
         }
 
         session.Send(new IgnoreStatusComposer(ignored ? IgnoreStatus.Added : IgnoreStatus.Removed, name));

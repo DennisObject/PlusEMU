@@ -44,9 +44,10 @@ internal class EjectAllCommand : IChatCommand
 
                 var targetClient = _gameClientManager.GetClientByUserId(item.UserId);
 
-                if (targetClient != null && targetClient.GetHabbo() != null) {
+                // An owner whose inventory is not loaded is handled like an offline one: the item moves in storage only.
+                if (targetClient?.GetHabbo()?.Inventory is { } targetInventory) {
                     room.GetRoomItemHandler().RemoveFurniture(targetClient, item.Id);
-                    targetClient.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem());
+                    targetInventory.Furniture.AddItem(item.ToInventoryItem());
                     targetClient.Send(new FurniListUpdateComposer());
                 }
                 else {
@@ -69,9 +70,10 @@ internal class EjectAllCommand : IChatCommand
 
                 var targetClient = _gameClientManager.GetClientByUserId(item.UserId);
 
-                if (targetClient != null && targetClient.GetHabbo() != null) {
+                // An owner whose inventory is not loaded is handled like an offline one: the item moves in storage only.
+                if (targetClient?.GetHabbo()?.Inventory is { } targetInventory) {
                     room.GetRoomItemHandler().RemoveFurniture(targetClient, item.Id);
-                    targetClient.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem());
+                    targetInventory.Furniture.AddItem(item.ToInventoryItem());
                     targetClient.Send(new FurniListUpdateComposer());
                 }
                 else {

@@ -140,7 +140,7 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
             return;
         }
 
-        if (!session.GetHabbo().Inventory.Bots.Bots.TryGetValue(botId, out var bot)) {
+        if (session.GetHabbo().Inventory is not { } inventory || !inventory.Bots.Bots.TryGetValue(botId, out var bot)) {
             return;
         }
 
@@ -159,8 +159,8 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
         botUser.Chat("Hello!");
         room.GetGameMap().UpdateUserMovement(new(x, y), new(x, y), botUser);
 
-        if (session.GetHabbo().Inventory.Bots.RemoveBot(botId)) {
-            session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
+        if (inventory.Bots.RemoveBot(botId)) {
+            session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(inventory.Bots.Bots.Values)));
         }
     }
 
@@ -168,7 +168,8 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
     {
         var habbo = session.GetHabbo();
 
-        if (!habbo.InRoom || botId == 0 || habbo.CurrentRoom == null) {
+        // A picked-up bot goes into the loaded inventory, so nothing is picked up without one.
+        if (!habbo.InRoom || botId == 0 || habbo.CurrentRoom == null || habbo.Inventory is not { } inventory) {
             return;
         }
 
@@ -186,8 +187,8 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
 
         store.PickUp(botId, room.RoomId);
         room.GetGameMap().RemoveUserFromMap(bot, new(bot.X, bot.Y));
-        habbo.Inventory.Bots.AddBot(new(bot.BotData.Id, bot.BotData.OwnerId, bot.BotData.Name, bot.BotData.Motto, bot.BotData.Look, bot.BotData.Gender));
-        session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(habbo.Inventory.Bots.Bots.Values)));
+        inventory.Bots.AddBot(new(bot.BotData.Id, bot.BotData.OwnerId, bot.BotData.Name, bot.BotData.Motto, bot.BotData.Look, bot.BotData.Gender));
+        session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(inventory.Bots.Bots.Values)));
         room.GetRoomUserManager().RemoveBot(bot.VirtualId, false);
     }
 
@@ -211,7 +212,12 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
 
         switch (request.Action) {
             case BotAction.CopyLooks:
-                var look = figures.ProcessFigure(habbo.Look, habbo.Gender, habbo.Clothing.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
+                // Paid clothing is only checked against a loaded wardrobe; without one the bot keeps its look.
+                if (habbo.Clothing is not { } wardrobe) {
+                    break;
+                }
+
+                var look = figures.ProcessFigure(habbo.Look, habbo.Gender, wardrobe.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
                 store.SaveAppearance(bot.BotData.Id, room.RoomId, look, habbo.Gender);
                 bot.BotData.Look = look;
                 bot.BotData.Gender = habbo.Gender;
