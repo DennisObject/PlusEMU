@@ -158,7 +158,7 @@ public static class ClientPacketHeader
     public const uint DeleteRoomEvent = 189;
     public const uint SetSoundSettingsEvent = 2127;
     public const uint InitializeGameCenterEvent = 65468;
-    public const uint RedeemOfferCreditsEvent = 3948;
+    public const uint RedeemOfferCreditsEvent = 1229;
     public const uint FriendListUpdateEvent = 217;
     public const uint FriendFurniConfirmLockEvent = 1051;
     public const uint UseHabboWheelEvent = 2257;
@@ -172,7 +172,7 @@ public static class ClientPacketHeader
     public const uint PickUpPetEvent = 3986;
     public const uint GetPetInventoryEvent = 133;
     public const uint GetRoomEntryTileEvent = 3355;
-    public const uint GetOwnOffersEvent = 3844;
+    public const uint GetOwnOffersEvent = 3217;
     public const uint CheckPetNameEvent = 1972;
     public const uint SetUserFocusPreferenceEvent = 1378;
     public const uint SubmitBullyReportEvent = 1390;
@@ -230,7 +230,7 @@ public static class ClientPacketHeader
     public const uint GiveAdminRightsEvent = 564;
     public const uint GetCatalogIndexEvent = 1090;
     public const uint SendBullyReportEvent = 1714;
-    public const uint CancelOfferEvent = 1229;
+    public const uint CancelOfferEvent = 802;
     public const uint SaveWiredConditionConfigEvent = 3636;
     public const uint RedeemVoucherEvent = 3401;
     public const uint ThrowDiceEvent = 3291;
@@ -296,7 +296,7 @@ public static class ClientPacketHeader
     public const uint AcceptGroupMembershipEvent = 1902;
     public const uint GetMarketplaceConfigurationEvent = 2848;
     public const uint Game2GetWeeklyLeaderboardEvent = 1281;
-    public const uint BuyOfferEvent = 3217;
+    public const uint BuyOfferEvent = 3948;
     public const uint RemoveSaddleFromHorseEvent = 723;
     public const uint GiveRoomScoreEvent = 474;
     public const uint GetHabboClubWindowEvent = 985;
