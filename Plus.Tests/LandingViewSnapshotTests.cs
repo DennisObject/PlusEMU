@@ -36,6 +36,23 @@ public sealed class LandingViewSnapshotTests
     }
 
     [Fact]
+    public void MissingArticleTextIsWrittenAsTheSameEmptyStrings()
+    {
+        static byte[] Encode(Promotion promotion)
+        {
+            using var stream = (Microsoft.IO.RecyclableMemoryStream)new Microsoft.IO.RecyclableMemoryStreamManager().GetStream();
+            new PromoArticlesComposer([LandingPromotionSnapshot.Capture(promotion)]).Compose(new FlashOutgoingPacket(stream));
+
+            return stream.ToArray()[6..];
+        }
+
+        var missing = new Promotion { Id = 7, ButtonType = 3 };
+        var empty = new Promotion { Id = 7, Title = "", Text = "", ButtonText = "", ButtonType = 3, ButtonLink = "", ImageLink = "" };
+
+        Assert.Equal(Encode(empty), Encode(missing));
+    }
+
+    [Fact]
     public async Task HandlerOnlyDelegatesAndServiceSendsEmptyAndPopulatedLists()
     {
         var recording = new RecordingService();

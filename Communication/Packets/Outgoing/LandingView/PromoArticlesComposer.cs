@@ -20,12 +20,12 @@ public class PromoArticlesComposer : IServerPacket
 
         foreach (var promotion in _landingPromotions) {
             packet.WriteInteger(promotion.Id); //ID
-            packet.WriteString(promotion.Title); //Title
-            packet.WriteString(promotion.Text); //Text
-            packet.WriteString(promotion.ButtonText); //Button text
+            packet.WriteString(promotion.Title ?? string.Empty); //Title
+            packet.WriteString(promotion.Text ?? string.Empty); //Text
+            packet.WriteString(promotion.ButtonText ?? string.Empty); //Button text
             packet.WriteInteger(promotion.ButtonType); //Link type 0 and 3
-            packet.WriteString(promotion.ButtonLink); //Link to article
-            packet.WriteString(promotion.ImageLink); //Image link
+            packet.WriteString(promotion.ButtonLink ?? string.Empty); //Link to article
+            packet.WriteString(promotion.ImageLink ?? string.Empty); //Image link
         }
     }
 }

@@ -439,7 +439,7 @@ public class HousekeepingCredentialRevocationDatabaseTests : IDisposable
     }
 
     private Plus.Communication.Packets.Incoming.Moderation.ModerationBanEvent ModTool() =>
-        new(new ModerationSanctionService(_clients, new ModeratorUserLookup(), Moderation(), TimeProvider.System));
+        new(new ModerationSanctionService(_clients, new ModeratorUserLookup(_clients, CatalogSnapshotTestSupport.Proxy<Plus.HabboHotel.Cache.ICacheManager>((method, _) => throw new InvalidOperationException(method))), Moderation(), TimeProvider.System));
 
     private static Plus.HabboHotel.GameClients.GameClient ModeratorSession() =>
         HabbiconTestSupport.Client(new Habbo { Id = Staff, Username = "cr_staff", Access = HousekeepingPolicyTests.Access(90, PermissionKeys.ModerationBanSoft, PermissionKeys.ModerationBan, PermissionKeys.ModerationIpBan, PermissionKeys.ModerationMachineBan) }).Client;

@@ -457,7 +457,8 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
             expiry = _clubMemberships.Purchase(habbo, offer);
         }
 
-        if (expiry == null) {
+        // A purchase only happened for a found offer, so either check alone means nothing was bought.
+        if (expiry == null || offer == null) {
             session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
 
             return;
