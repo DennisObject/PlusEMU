@@ -204,6 +204,12 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                 case InteractionType.Floor:
                 case InteractionType.Wallpaper:
                 case InteractionType.Landscape:
+                    // Each pattern offer names its pattern; the client sends an empty value for those.
+                    if (!string.IsNullOrEmpty(item.Product.ExtraParam)) {
+                        itemExtraData = item.Product.ExtraParam;
+                        break;
+                    }
+
                     double number = 0;
 
                     try {

@@ -11,9 +11,16 @@ public sealed record InventoryItemSnapshot(uint Id, string Type, int SpriteId, F
     {
         var definition = item.Definition;
 
-        var category = RecyclerBox.IsDefinition(definition)
-            ? FurniCategory.EcotronBox
-            : Plus.HabboHotel.Rooms.Music.RoomMusicDefinition.IsDisc(definition) ? FurniCategory.TraxSong : definition.Category;
+        // The client applies wallpaper, floor and landscape items to the room instead of placing them.
+        var category = definition.InteractionType switch
+        {
+            InteractionType.Wallpaper => FurniCategory.WallPaper,
+            InteractionType.Floor => FurniCategory.Floor,
+            InteractionType.Landscape => FurniCategory.Landscape,
+            _ => RecyclerBox.IsDefinition(definition)
+                ? FurniCategory.EcotronBox
+                : Plus.HabboHotel.Rooms.Music.RoomMusicDefinition.IsDisc(definition) ? FurniCategory.TraxSong : definition.Category
+        };
 
         return new(item.Id, definition.Type.ToCharCode(), definition.SpriteId, category,
             FurnitureDataSnapshot.Capture(item.ExtraData), item.UniqueNumber, item.UniqueSeries,
