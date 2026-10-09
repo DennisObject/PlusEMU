@@ -22,6 +22,17 @@ namespace Plus.Tests;
 public sealed class TradeConfirmationServiceTests
 {
     [Fact]
+    public void CommittedNotificationFailureDoesNotEscape()
+    {
+        var reached = false;
+
+        Trade.PublishCommitted(() => throw new InvalidOperationException("Injected publication failure"));
+        Trade.PublishCommitted(() => reached = true);
+
+        Assert.True(reached);
+    }
+
+    [Fact]
     public async Task TradingHandlersOnlyDelegateWithoutReadingPackets()
     {
         var calls = new List<string>();
@@ -243,9 +254,9 @@ public sealed class TradeConfirmationServiceTests
         f.Trades.Accept(bob.Session);
         f.Trades.Confirm(alice.Session);
 
-        Assert.Throws<InvalidOperationException>(() => f.Trades.Confirm(bob.Session));
+        f.Trades.Confirm(bob.Session);
 
-        Assert.True(f.Trading.TryGetTrade(trade.Id, out _));
+        Assert.False(f.Trading.TryGetTrade(trade.Id, out _));
         Assert.DoesNotContain(ServerPacketHeader.TradingFinishComposer, alice.Sent);
         Assert.DoesNotContain(ServerPacketHeader.TradingFinishComposer, bob.Sent);
         Assert.False(alice.RoomUser.IsTrading);
@@ -277,6 +288,7 @@ public sealed class TradeConfirmationServiceTests
     {
         public List<(int, int, string, string)> Logged { get; } = [];
         public Exception? LogFailure { get; set; }
+        public int CommitCalls { get; private set; }
         public void DeleteItem(uint itemId) { }
         public void TransferItem(uint itemId, int userId) { }
         public void Log(int firstUserId, int secondUserId, string firstItems, string secondItems)
@@ -286,6 +298,23 @@ public sealed class TradeConfirmationServiceTests
             }
 
             Logged.Add((firstUserId, secondUserId, firstItems, secondItems));
+        }
+        public bool Commit(IReadOnlyList<TradeTransfer> transfers, int firstUserId, int secondUserId, int firstCredits, int secondCredits,
+            string firstItems, string secondItems, Func<bool> apply)
+        {
+            CommitCalls++;
+
+            if (LogFailure != null) {
+                throw LogFailure;
+            }
+
+            if (!apply()) {
+                return false;
+            }
+
+            Logged.Add((firstUserId, secondUserId, firstItems, secondItems));
+
+            return true;
         }
     }
 

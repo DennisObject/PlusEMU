@@ -10,7 +10,7 @@ public sealed record TradeOfferSnapshot(int UserId, ImmutableArray<TradeItemWire
     public static ImmutableArray<TradeOfferSnapshot> Capture(Trade trade) => trade.Users.Select(user =>
     {
         var items = user.OfferedItems.Values.ToArray();
-        var data = items.Select(item => new TradeItemWireData(item.Id, item.Definition.Type.ToString().ToLowerInvariant(),
+        var data = items.Select(item => new TradeItemWireData(item.Id, item.Definition.Type.ToCharCode(),
             item.Definition.SpriteId, item.UniqueNumber, item.UniqueSeries, item.Definition.Type == ItemType.Floor)).ToImmutableArray();
         var credits = items.Where(item => item.Definition.InteractionType == InteractionType.Exchange).Sum(item => item.Definition.BehaviourData);
 

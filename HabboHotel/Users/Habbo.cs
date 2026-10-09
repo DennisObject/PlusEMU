@@ -81,6 +81,7 @@ public class Habbo
 
     internal DateTimeOffset? LastHabbiconTriggeredAt { get; set; }
     internal object WalletSync { get; } = new();
+    internal object InventoryMutationSync { get; } = new();
     internal bool WalletClosed => _habboSaved || _disconnected;
 
     public int Credits { get; set; }
