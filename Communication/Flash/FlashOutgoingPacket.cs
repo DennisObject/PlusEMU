@@ -30,7 +30,7 @@ public class FlashOutgoingPacket : IOutgoingPacket
             value = BinaryPrimitives.ReverseEndianness(value);
         }
 
-        MemoryMarshal.Write(span, ref value);
+        MemoryMarshal.Write(span, in value);
         _stream.Write(span.Slice(0, sizeof(short)));
         ArrayPool<byte>.Shared.Return(buffer);
     }
@@ -44,7 +44,7 @@ public class FlashOutgoingPacket : IOutgoingPacket
             value = BinaryPrimitives.ReverseEndianness(value);
         }
 
-        MemoryMarshal.Write(span, ref value);
+        MemoryMarshal.Write(span, in value);
         _stream.Write(span.Slice(0, sizeof(int)));
         ArrayPool<byte>.Shared.Return(buffer);
     }
@@ -57,7 +57,7 @@ public class FlashOutgoingPacket : IOutgoingPacket
             value = BinaryPrimitives.ReverseEndianness(value);
         }
 
-        MemoryMarshal.Write(span, ref value);
+        MemoryMarshal.Write(span, in value);
         _stream.Write(span.Slice(0, sizeof(uint)));
         ArrayPool<byte>.Shared.Return(buffer);
     }
@@ -92,7 +92,7 @@ public class FlashOutgoingPacket : IOutgoingPacket
             value = BitConverter.ToDouble(dSpan);
         }
 
-        MemoryMarshal.Write(span, ref value);
+        MemoryMarshal.Write(span, in value);
         _stream.Write(span.Slice(0, sizeof(double)));
         ArrayPool<byte>.Shared.Return(buffer);
     }

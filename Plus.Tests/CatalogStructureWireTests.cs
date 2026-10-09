@@ -1,3 +1,6 @@
+using Microsoft.IO;
+using Plus.Communication.Flash;
+using Plus.Communication.Packets;
 using Plus.Communication.Packets.Incoming.Catalog;
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Communication.Packets.Outgoing;
@@ -10,6 +13,27 @@ namespace Plus.Tests;
 
 public class CatalogStructureWireTests
 {
+    [Fact]
+    public void MissingCatalogTextIsWrittenAsTheSameEmptyStrings()
+    {
+        static CatalogIndexSnapshot Index(string? text) =>
+            new("NORMAL", [new CatalogIndexNode(true, 1, 2, -1, text, text, [], [])]);
+        static CatalogPageSnapshot Page(string? text, int itemType) =>
+            new(9, "NORMAL", "frontpage4", [], [], [], -1, [new CatalogPromotionSnapshot(1, text, text, itemType, 0, null, text, 60)]);
+
+        Assert.Equal(Encode(new CatalogIndexComposer(Index(""))), Encode(new CatalogIndexComposer(Index(null))));
+        Assert.Equal(Encode(new CatalogPageComposer(Page("", CatalogPromotion.CataloguePageItem))),
+            Encode(new CatalogPageComposer(Page(null, CatalogPromotion.CataloguePageItem))));
+    }
+
+    private static byte[] Encode(IServerPacket composer)
+    {
+        using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
+        composer.Compose(new FlashOutgoingPacket(stream));
+
+        return stream.ToArray()[6..];
+    }
+
     [Fact]
     public void UserPerksDoNotAdvertiseBuildersClub()
     {
@@ -30,7 +54,7 @@ public class CatalogStructureWireTests
         var packet = HabbiconTestSupport.Incoming("BUILDERS_CLUB");
 
         var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, null!, CatalogSnapshotTestSupport.Snapshots());
-        await new GetCatalogIndexEvent(service).Parse(client, packet);
+        await new GetCatalogIndexWithDiscountEvent(service).Parse(client, packet);
 
         Assert.False(packet.HasDataRemaining());
         Assert.Equal([ServerPacketHeader.CatalogIndexComposer, ServerPacketHeader.CatalogItemDiscountComposer], sent.Select(value => value.Header));
@@ -64,7 +88,7 @@ public class CatalogStructureWireTests
             foreach (var name in new[] { "NITRO-1-6-6", "NITRO-3-6-0", "OCTANE-3-6-0-FLOOR-20260909" }) {
                 var revision = cache.Revisions[name];
                 Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetBundleDiscountRulesetEvent, revision.IncomingIdToInternalIdMapping[223]);
-                Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetCatalogModeEvent, revision.IncomingIdToInternalIdMapping[1195]);
+                Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetCatalogIndexEvent, revision.IncomingIdToInternalIdMapping[1195]);
                 Assert.Equal(2347u, revision.InternalIdToOutgoingIdMapping[ServerPacketHeader.CatalogItemDiscountComposer]);
             }
         }

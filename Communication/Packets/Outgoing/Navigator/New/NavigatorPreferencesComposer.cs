@@ -14,6 +14,6 @@ public class NavigatorPreferencesComposer : IServerPacket
         packet.WriteInteger(425); //Width
         packet.WriteInteger(592); //Height
         packet.WriteBoolean(false); //Show or hide saved searches.
-        packet.WriteInteger(0); //No idea?
+        packet.WriteInteger(0); // Results mode.
     }
 }

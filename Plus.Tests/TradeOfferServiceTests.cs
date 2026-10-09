@@ -199,7 +199,7 @@ public sealed class TradeOfferServiceTests
         var trade = f.Start(alice, bob);
         Stock(alice, Floor(200, 77), Floor(201, 77), Floor(202, 77));
         // The batch enumerates the same order that AllItems reports here.
-        var ordered = alice.Habbo.Inventory.Furniture.AllItems.Where(x => x.Definition.Id == 77).Select(x => x.Id).ToArray();
+        var ordered = Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(alice.Habbo.Inventory).Furniture.AllItems.Where(x => x.Definition.Id == 77).Select(x => x.Id).ToArray();
         var first = ordered[0];
         var second = ordered[1];
         f.Trades.OfferItem(alice.Session, second);

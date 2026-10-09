@@ -323,7 +323,7 @@ public sealed class UserGrantDatabaseTests : IDisposable
             try {
                 habbo.OnDisconnect();
             }
-            catch (NullReferenceException) { }
+            catch (InvalidOperationException) { }
         });
         Task<GrantOutcome> grant, settings;
 
@@ -458,7 +458,7 @@ public sealed class UserGrantDatabaseTests : IDisposable
     private async Task<Habbo> LoadFromDatabase()
     {
         var factory = new UserDataFactory(null!, _database, [], null!, null!, null!, new Plus.HabboHotel.Rooms.RoomVisitRecorder(_database, TimeProvider.System),
-            TimeProvider.System, TestRoomAchievements.Unused);
+            TimeProvider.System, TestRoomAchievements.Unused, _clients, TestRoomManager.Unused);
         var habbo = (await factory.GetUserDataByIdAsync(User))!;
         habbo.HabboStats ??= new HabboStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
         habbo.Persistence = new UserPersistenceService(_database, TimeProvider.System, _clients);

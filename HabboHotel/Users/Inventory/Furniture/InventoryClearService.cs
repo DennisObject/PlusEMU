@@ -86,7 +86,9 @@ public sealed class InventoryClearService(IInventoryClearStore store, IAccountSe
 
         using (accounts.Enter(habbo.Id)) {
             lock (habbo.WalletSync) {
-                if (habbo.AccessClosed || !ReferenceEquals(habbo.Client, session) || !ReferenceEquals(habbo.CurrentRoom, room)) {
+                // Clearing empties the loaded inventory together with storage, so nothing is deleted without one.
+                if (habbo.AccessClosed || !ReferenceEquals(habbo.Client, session) || !ReferenceEquals(habbo.CurrentRoom, room)
+                    || habbo.Inventory is not { } inventory) {
                     return false;
                 }
 
@@ -97,7 +99,7 @@ public sealed class InventoryClearService(IInventoryClearStore store, IAccountSe
                 }
 
                 released = store.DeleteAll(habbo.Id);
-                habbo.Inventory.Furniture.ClearItems();
+                inventory.Furniture.ClearItems();
             }
         }
 

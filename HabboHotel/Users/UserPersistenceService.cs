@@ -43,6 +43,8 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
 
     private void SaveCore(Habbo habbo, bool reopenModerationTickets)
     {
+        // A session whose statistics never loaded must not overwrite the saved row with nothing.
+        var stats = habbo.HabboStats ?? throw new InvalidOperationException($"User {habbo.Id} has no loaded statistics to save.");
         // A newer session of this account owns the online flag; its own logout clears it.
         var replaced = clients.GetClientByUserId(habbo.Id) is { } current && !ReferenceEquals(current, habbo.Client);
         var now = clock.GetUtcNow();
@@ -66,19 +68,19 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
                 habbo.CustomBubbleId,
                 habbo.HomeRoom,
                 FriendbarState = Messenger.FriendBar.FriendBarStateUtility.GetInt(habbo.FriendbarState),
-                habbo.HabboStats.RoomVisits,
+                stats.RoomVisits,
                 SessionSeconds = Math.Max(0L, (long)(now - habbo.SessionStartedAt).TotalSeconds),
-                habbo.HabboStats.Respect,
-                habbo.HabboStats.RespectGiven,
-                habbo.HabboStats.GiftsGiven,
-                habbo.HabboStats.GiftsReceived,
-                habbo.HabboStats.DailyRespectPoints,
-                habbo.HabboStats.DailyPetRespectPoints,
-                habbo.HabboStats.AchievementPoints,
-                habbo.HabboStats.QuestId,
-                habbo.HabboStats.QuestProgress,
-                habbo.HabboStats.FavouriteGroupId,
-                habbo.HabboStats.ForumPosts,
+                stats.Respect,
+                stats.RespectGiven,
+                stats.GiftsGiven,
+                stats.GiftsReceived,
+                stats.DailyRespectPoints,
+                stats.DailyPetRespectPoints,
+                stats.AchievementPoints,
+                stats.QuestId,
+                stats.QuestProgress,
+                stats.FavouriteGroupId,
+                stats.ForumPosts,
                 now = now.UtcDateTime,
                 replaced
             }, transaction);

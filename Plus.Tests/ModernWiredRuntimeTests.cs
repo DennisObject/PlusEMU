@@ -238,9 +238,9 @@ public class ModernWiredRuntimeTests
         f.Engine.Add(box);
         f.Fire();
 
-        var alice = Capture(f.Habbo.Client);
-        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
-        var page = Reply(alice, 918);
+        var alice = Capture(f.Client);
+        await RoomLogsPage().Parse(f.Room, f.Client, Request(1, 50, -1, -1, ""));
+        var page = Reply(alice, ServerPacketHeader.WiredRoomLogPageComposer);
         Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
         Assert.Equal((1d, 2, 8, "Gate opened"), (page.Long(), page.Byte(), page.Byte(), page.String()));
         var millis = page.Long();
@@ -249,18 +249,18 @@ public class ModernWiredRuntimeTests
         Assert.Equal((false, false, false), (page.Bool(), page.Bool(), page.Bool()));
         page.End();
 
-        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(9, 50, 2, 8, " GATE "));
-        page = Reply(alice, 918);
+        await RoomLogsPage().Parse(f.Room, f.Client, Request(9, 50, 2, 8, " GATE "));
+        page = Reply(alice, ServerPacketHeader.WiredRoomLogPageComposer);
         Assert.Equal((1, 1, 50, 1), (page.Int(), page.Int(), page.Int(), page.Int()));
         Assert.Equal("Gate opened", page.Skip(2, 1, 1).String());
         page.Skip(2).String();
         Assert.Equal((true, 2, true, 8, true, "GATE"), (page.Bool(), page.Byte(), page.Bool(), page.Byte(), page.Bool(), page.String()));
         page.End();
-        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, 4, "")); // a source Plus never writes
-        page = Reply(alice, 918);
+        await RoomLogsPage().Parse(f.Room, f.Client, Request(1, 50, -1, 4, "")); // a source Plus never writes
+        page = Reply(alice, ServerPacketHeader.WiredRoomLogPageComposer);
         Assert.Equal((0, 1, 50, 0), (page.Int(), page.Int(), page.Int(), page.Int()));
 
-        await MonitorRequest().Parse(f.Room, f.Habbo.Client, Request(0));
+        await MonitorRequest().Parse(f.Room, f.Client, Request(0));
         var monitor = Reply(alice, 5101);
         monitor.Skip(1);
         Assert.Equal(10000, monitor.Int());
@@ -283,7 +283,7 @@ public class ModernWiredRuntimeTests
         monitor.End();
 
         // Without inspect rights neither request answers; with inspect only, a clear is refused.
-        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Client.Revision };
         bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
         var bobReplies = Capture(bob);
         await RoomLogsPage().Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
@@ -296,10 +296,10 @@ public class ModernWiredRuntimeTests
         var pages = RoomLogsPage();
         await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, ""));
         await pages.Parse(f.Room, bob, Request(1, 50, -1, -1, "")); // inside the 250 ms page interval
-        Assert.Equal(1, Reply(bobReplies, 918).Int());
+        Assert.Equal(1, Reply(bobReplies, ServerPacketHeader.WiredRoomLogPageComposer).Int());
         Assert.Empty(bobReplies);
 
-        await MonitorRequest().Parse(f.Room, f.Habbo.Client, Request(1));
+        await MonitorRequest().Parse(f.Room, f.Client, Request(1));
         monitor = Reply(alice, 5101).Skip(16, 1);
         Assert.Equal(4, monitor.Int());
 
@@ -314,7 +314,7 @@ public class ModernWiredRuntimeTests
 
         Assert.Equal(0, monitor.Int());
         monitor.End();
-        await RoomLogsPage().Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1)); // trailing data is malformed
+        await RoomLogsPage().Parse(f.Room, f.Client, Request(1, 50, -1, -1, "x", 1)); // trailing data is malformed
         Assert.Empty(alice);
     }
 
@@ -325,7 +325,7 @@ public class ModernWiredRuntimeTests
         f.Room.OwnerName = "Alice";
         f.Room.Type = "private";
         f.Room.UsersWithRights = [];
-        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Client.Revision };
         bob.SetHabbo(new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room });
         var replies = Capture(bob);
         var menus = new WiredVariableMenuService();
@@ -369,7 +369,7 @@ public class ModernWiredRuntimeTests
 
         // Bob can inspect but not manage, so his clear is denied and neither clears the log nor uses his clear gate.
         var bobHabbo = new Habbo { Id = 2, Username = "Bob", CurrentRoom = f.Room, Access = EditorTestSupport.Access([]) };
-        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Habbo.Client.Revision };
+        var bob = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient) { Revision = f.Client.Revision };
         bob.SetHabbo(bobHabbo);
         var bobReplies = Capture(bob);
         var clear = new WiredMonitorRequestEvent(new WiredMonitorService(new WiredRequestGateService(new ManualMonotonicClock())));
@@ -397,40 +397,40 @@ public class ModernWiredRuntimeTests
         var monitor = new WiredMonitorService(new WiredRequestGateService(clock));
         var fetch = new WiredMonitorRequestEvent(monitor);
         var pages = new WiredRoomLogsPageEvent(monitor);
-        var alice = Capture(f.Habbo.Client);
+        var alice = Capture(f.Client);
         int Monitors() => alice.Count(reply => reply.Header == 5101);
-        int Pages() => alice.Count(reply => reply.Header == 918);
+        int Pages() => alice.Count(reply => reply.Header == ServerPacketHeader.WiredRoomLogPageComposer);
 
-        await fetch.Parse(f.Room, f.Habbo.Client, Request(0));
+        await fetch.Parse(f.Room, f.Client, Request(0));
         Assert.Equal(1, Monitors()); // the first request passes
-        await fetch.Parse(f.Room, f.Habbo.Client, Request(0));
+        await fetch.Parse(f.Room, f.Client, Request(0));
         Assert.Equal(1, Monitors()); // a repeat at the same instant is refused
         clock.Advance(199);
-        await fetch.Parse(f.Room, f.Habbo.Client, Request(0));
+        await fetch.Parse(f.Room, f.Client, Request(0));
         Assert.Equal(1, Monitors());
         clock.Advance(1);
-        await fetch.Parse(f.Room, f.Habbo.Client, Request(0));
+        await fetch.Parse(f.Room, f.Client, Request(0));
         Assert.Equal(2, Monitors()); // exactly 200 ms passes
 
-        await fetch.Parse(f.Room, f.Habbo.Client, Request(1));
+        await fetch.Parse(f.Room, f.Client, Request(1));
         Assert.Equal(3, Monitors()); // a clear has its own gate
-        await fetch.Parse(f.Room, f.Habbo.Client, Request(1));
+        await fetch.Parse(f.Room, f.Client, Request(1));
         Assert.Equal(3, Monitors());
 
-        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
+        await pages.Parse(f.Room, f.Client, Request(1, 50, -1, -1, ""));
         Assert.Equal(1, Pages());
         clock.Advance(249);
-        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
+        await pages.Parse(f.Room, f.Client, Request(1, 50, -1, -1, ""));
         Assert.Equal(1, Pages());
         clock.Advance(1);
-        await pages.Parse(f.Room, f.Habbo.Client, Request(0, 50, -1, -1, ""));
+        await pages.Parse(f.Room, f.Client, Request(0, 50, -1, -1, ""));
         Assert.Equal(2, Pages()); // page 0 is normalized to page 1
 
         // Malformed requests return before the gate, so they cannot use up the interval.
         clock.Advance(250);
-        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, "x", 1));
+        await pages.Parse(f.Room, f.Client, Request(1, 50, -1, -1, "x", 1));
         Assert.Equal(2, Pages());
-        await pages.Parse(f.Room, f.Habbo.Client, Request(1, 50, -1, -1, ""));
+        await pages.Parse(f.Room, f.Client, Request(1, 50, -1, -1, ""));
         Assert.Equal(3, Pages());
     }
 
@@ -600,7 +600,7 @@ public class ModernWiredRuntimeTests
         using var fixture = new TeleportFixture(clientsForText: clients);
         fixture.Room.Name = "Lounge";
         Assert.Same(fixture.Habbo.Client, fixture.User.GetClient());
-        var replies = Capture(fixture.Habbo.Client);
+        var replies = Capture(fixture.Client);
         const string text = "%USERNAME%|%ROOMNAME%|%USERCOUNT%|%USERSONLINE%";
         var item = MakeItem(102, "wf_act_show_message");
         item.Definition.WiredType = WiredBoxType.EffectShowMessage;
@@ -1575,7 +1575,7 @@ public class ModernWiredRuntimeTests
     {
         using var fixture = new TeleportFixture();
         var sent = 0;
-        fixture.Habbo.Client.SendCallback = _ => { sent++; return true; };
+        fixture.Client.SendCallback = _ => { sent++; return true; };
         var action = ActionBox(fixture.Room, "wf_act_teleport_to_room");
         Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
         action.ApplyConfiguration(config);
@@ -1604,10 +1604,10 @@ public class ModernWiredRuntimeTests
         Assert.False(action.Execute(context));
         Assert.Equal(0u, f.Habbo.WiredRoomNetworkDestination);
         f.Habbo.CurrentRoom = f.Room;
-        f.Habbo.Client.SendCallback = _ => throw new IOException("forward enqueue failed");
+        f.Client.SendCallback = _ => throw new IOException("forward enqueue failed");
         Assert.Throws<IOException>(() => action.Execute(context));
         Assert.Equal(0u, f.Habbo.WiredRoomNetworkDestination);
-        f.Habbo.Client.SendCallback = _ => true;
+        f.Client.SendCallback = _ => true;
         Assert.True(action.Execute(context));
         Assert.Equal(42u, f.Habbo.WiredRoomNetworkDestination);
         var (destination, _, _) = World();
@@ -1617,7 +1617,7 @@ public class ModernWiredRuntimeTests
         f.Habbo.Motto = "";
         f.Habbo.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
         f.Habbo.Access = EditorTestSupport.Access([]);
-        Assert.True(destination.GetRoomUserManager().AddAvatarToRoom(f.Habbo.Client));
+        Assert.True(destination.GetRoomUserManager().AddAvatarToRoom(f.Client));
         var joined = Assert.IsType<RoomUser>(destination.GetRoomUserManager().GetRoomUserByHabbo(f.Habbo.Id));
         Assert.NotSame(f.User, joined);
         Assert.Equal(new WiredRoomEntrySnapshot(WiredRoomEntryMethod.RoomNetwork, 0), joined.WiredRoomEntry);
@@ -1727,12 +1727,12 @@ public class ModernWiredRuntimeTests
 
         if (change == "visit") {
             RoomUsers(f.Room)[7] = new RoomUser(1, 0, 7, f.Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
-            f.Habbo.Effects.CurrentEffect = -1;
+            Assert.IsType<EffectsComponent>(f.Habbo.Effects).CurrentEffect = -1;
         }
 
         f.Advance(1500);
         Assert.Equal(new Point(0, 0), f.User.Coordinate);
-        Assert.Equal(change == "visit" ? -1 : 8, f.Habbo.Effects.CurrentEffect);
+        Assert.Equal(change == "visit" ? -1 : 8, Assert.IsType<EffectsComponent>(f.Habbo.Effects).CurrentEffect);
         Assert.Empty(f.Errors);
     }
 
@@ -1747,7 +1747,7 @@ public class ModernWiredRuntimeTests
         Assert.Equal(8, f.User.CurrentEffect);
         f.User.SetPos(0, 0, 0);
         f.Fire();
-        f.Habbo.Effects.ApplyEffect(12);
+        Assert.IsType<EffectsComponent>(f.Habbo.Effects).ApplyEffect(12);
         f.Advance(1500);
         Assert.Equal(12, f.User.CurrentEffect);
         Assert.Empty(f.Errors);
@@ -1791,7 +1791,7 @@ public class ModernWiredRuntimeTests
     private sealed class TeleportFixture : IDisposable
     {
         public readonly Room Room; public readonly ConcurrentDictionary<uint, Item> Items;
-        public readonly RoomUser User; public readonly Habbo Habbo; public readonly Item Target;
+        public readonly RoomUser User; public readonly Habbo Habbo; public readonly FlashGameClient Client; public readonly Item Target;
         public readonly WiredModernAction Action; public readonly WiredModernTrigger Trigger;
         public readonly WiredStackEngine Engine; public readonly List<Exception> Errors = [];
         public IItemDataManager? DefinitionManager;
@@ -1820,6 +1820,7 @@ public class ModernWiredRuntimeTests
             Habbo.Username = "Alice";
             Habbo.CurrentRoom = Room;
             Habbo.Client = client;
+            Client = client;
             Habbo.Effects = new(new FixedTimeProvider(FixedTimeProvider.Epoch));
             typeof(EffectsComponent).GetField("_habbo", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Habbo.Effects, Habbo);
             Habbo.Effects.CurrentEffect = 8;
@@ -2277,9 +2278,9 @@ public class ModernWiredRuntimeTests
         f.Habbo.Motto = "";
         f.Habbo.Look = "test";
         f.Habbo.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
-        f.Room.SendObjects(f.Habbo.Client);
+        f.Room.SendObjects(f.Client);
         Assert.Single(f.Room.GetWired().CaptureFxViewers());
-        f.Habbo.Client.SendCallback = _ => enqueue ? true : throw new IOException("placement enqueue failed");
+        f.Client.SendCallback = _ => enqueue ? true : throw new IOException("placement enqueue failed");
         var databaseField = typeof(PlusEnvironment).GetField("_database", BindingFlags.Static | BindingFlags.NonPublic)!;
         var original = databaseField.GetValue(null);
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
@@ -2295,7 +2296,7 @@ public class ModernWiredRuntimeTests
                 placed.WallCoordinates = ":w=1,1 l=10,20 l";
                 placed.Username = "Alice";
                 typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(placed, f.Room);
-                Assert.True(f.Room.GetRoomItemHandler().SetWallItem(f.Habbo.Client, placed));
+                Assert.True(f.Room.GetRoomItemHandler().SetWallItem(f.Client, placed));
             }
             else {
                 placed = Assert.IsType<Item>(f.Room.GetRoomItemHandler().PlaceTemporaryFloorItem(MakeItem(50, "floor").Definition, 1, 2, 2, 0));
@@ -2539,7 +2540,7 @@ public class ModernWiredRuntimeTests
         using var f = new TeleportFixture();
         f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
         var sent = 0;
-        ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+        f.Client.SendCallback = _ => { sent++; return true; };
         var database = DispatchProxy.Create<IDatabase, RecordingProxy>();
         ((RecordingProxy)(object)database).InvokeMethod = (_, _) => throw new InvalidOperationException("Injected SQL failure");
         var rewards = new WiredRewardService(new WiredRewardStore(database), DispatchProxy.Create<IItemDataManager, RecordingProxy>(), TimeProvider.System, TestLogging.Rewards);
@@ -2559,7 +2560,7 @@ public class ModernWiredRuntimeTests
         using var f = new TeleportFixture();
         f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
         var sent = 0;
-        ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+        f.Client.SendCallback = _ => { sent++; return true; };
         var clock = new RewardClock(DateTimeOffset.FromUnixTimeSeconds(1234));
         var store = new RecordingRewardStore(() => sent, new(4, "BADGE1"));
         var rewards = new WiredRewardService(store, DispatchProxy.Create<IItemDataManager, RecordingProxy>(), clock, TestLogging.Rewards);
@@ -2580,7 +2581,7 @@ public class ModernWiredRuntimeTests
         using var f = new TeleportFixture();
         f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
         var sent = 0;
-        ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+        f.Client.SendCallback = _ => { sent++; return true; };
         var clock = new RewardClock(DateTimeOffset.FromUnixTimeSeconds(1234));
         var store = new RecordingRewardStore(() => sent, null, new InvalidOperationException("Injected commit failure"));
         var rewards = new WiredRewardService(store, DispatchProxy.Create<IItemDataManager, RecordingProxy>(), clock, TestLogging.Rewards);
@@ -2652,7 +2653,7 @@ public class ModernWiredRuntimeTests
             f.Habbo.Id = checked((int)userId);
             f.Habbo.Inventory = new() { Furniture = new([], []), Badges = new(new()) };
             var sent = 0;
-            ((FlashGameClient)f.Habbo.Client).SendCallback = _ => { sent++; return true; };
+            f.Client.SendCallback = _ => { sent++; return true; };
             var definition = MakeItem(baseId, "probe_product").Definition;
             definition.Id = baseId;
             var definitions = DispatchProxy.Create<IItemDataManager, RecordingProxy>();
@@ -2766,7 +2767,7 @@ public class ModernWiredRuntimeTests
             action.Item = ItemLoader.ReadRoomItem(Assert.Single(loadedRows.Rows.Cast<DataRow>()), roomId, action.Item.Definition);
             f.Items[spawnId] = action.Item;
             var removals = new List<byte[]>();
-            f.Habbo.Client.SendCallback = args =>
+            f.Client.SendCallback = args =>
             {
                 var packet = args.MemoryBuffer.Span.Slice(args.Offset, args.Count).ToArray();
 

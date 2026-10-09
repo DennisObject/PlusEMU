@@ -84,14 +84,13 @@ public sealed class QuestProgressService(IQuestProgressStore store, IQuestManage
     public void Cancel(GameClient session)
     {
         var habbo = session.GetHabbo();
-        var quest = quests.GetQuest(habbo.HabboStats.QuestId);
 
-        if (quest == null) {
+        if (habbo.HabboStats is not { } stats || quests.GetQuest(stats.QuestId) is not { } quest) {
             return;
         }
 
         store.Cancel(habbo.Id, quest.Id);
-        habbo.HabboStats.QuestId = 0;
+        stats.QuestId = 0;
         session.Send(new QuestAbortedComposer());
         quests.GetList(session, null);
     }
@@ -122,8 +121,14 @@ public sealed class QuestProgressService(IQuestProgressStore store, IQuestManage
     private void PublishStarted(GameClient session, Quest quest)
     {
         var habbo = session.GetHabbo();
+
+        // The active quest lives in the loaded statistics; without them the start would not be tracked.
+        if (habbo.HabboStats is not { } stats) {
+            return;
+        }
+
         store.Start(habbo.Id, quest.Id);
-        habbo.HabboStats.QuestId = quest.Id;
+        stats.QuestId = quest.Id;
         quests.GetList(session, null);
         session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, quests.GetAmountOfQuestsInCategory(quest.Category))));
     }

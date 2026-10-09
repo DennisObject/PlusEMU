@@ -55,11 +55,11 @@ namespace Plus.Tests
             service.Present(client);
             Assert.Equal(ServerPacketHeader.CampaignCalendarDataComposer, Assert.Single(sent).Header);
             sent.Clear();
-            var original = client.SendCallback;
+            var original = Assert.IsAssignableFrom<Func<System.Net.Sockets.SocketAsyncEventArgs, bool>>(client.SendCallback);
             client.SendCallback = args =>
             {
                 Assert.Equal((13, 24, 35), (user.Credits, user.Duckets, user.Diamonds));
-                Assert.True(user.Inventory.Badges.HasBadge("TEST"));
+                Assert.True(Assert.IsType<InventoryComponent>(user.Inventory).Badges.HasBadge("TEST"));
                 Assert.True(user.Inventory.Furniture.HasItem(99));
                 Assert.Equal(1, store.Writes);
 
@@ -131,7 +131,7 @@ namespace Plus.Tests
             Service(store).Open(client, "configured", 6);
             Assert.Equal(old, (user.Credits, user.Duckets, user.Diamonds));
             Assert.Equal(0, store.Writes);
-            Assert.Empty(user.Inventory.Badges.Badges);
+            Assert.Empty(Assert.IsType<InventoryComponent>(user.Inventory).Badges.Badges);
             Assert.Empty(user.Inventory.Furniture.AllItems);
             Assert.Equal(ServerPacketHeader.CampaignCalendarDoorOpenedComposer, Assert.Single(sent).Header);
             Assert.Equal(0, sent[0].Payload[0]);

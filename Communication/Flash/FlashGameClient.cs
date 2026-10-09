@@ -60,7 +60,14 @@ public class FlashGameClient : GameClient
     {
         var args = new SocketAsyncEventArgs();
         args.SetBuffer(XmlPolicy);
-        SendCallback(args);
+
+        if (SendCallback is not { } send) {
+            args.Dispose();
+
+            return;
+        }
+
+        send(args);
     }
 
     public override void CreateHeader(Memory<byte> memory, uint messageId)

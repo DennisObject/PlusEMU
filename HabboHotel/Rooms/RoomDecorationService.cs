@@ -57,12 +57,13 @@ public sealed class RoomDecorationService(IRoomDecorationStore store, IAchieveme
     {
         var habbo = session.GetHabbo();
 
-        if (habbo.CurrentRoom != room || !room.CheckRights(session, true)) {
+        // The decoration item comes out of the loaded inventory, so nothing is applied without one.
+        if (habbo.CurrentRoom != room || !room.CheckRights(session, true) || habbo.Inventory is not { } inventory) {
             return;
         }
 
-        lock (habbo.Inventory.Furniture) {
-            var item = habbo.Inventory.Furniture.GetItem(request.ItemId);
+        lock (inventory.Furniture) {
+            var item = inventory.Furniture.GetItem(request.ItemId);
 
             if (item?.Definition == null || item.OwnerId != habbo.Id) {
                 return;
@@ -100,7 +101,7 @@ public sealed class RoomDecorationService(IRoomDecorationStore store, IAchieveme
                     break;
             }
 
-            habbo.Inventory.Furniture.RemoveItem(item.Id);
+            inventory.Furniture.RemoveItem(item.Id);
             session.Send(new FurniListRemoveComposer(item.Id));
             room.SendPacket(new RoomPropertyComposer(kind.Value.ToString().ToLowerInvariant(), data));
         }

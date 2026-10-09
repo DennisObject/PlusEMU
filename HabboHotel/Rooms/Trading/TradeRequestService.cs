@@ -250,7 +250,7 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
             return;
         }
 
-        var item = habbo.Inventory.Furniture.GetItem(itemId);
+        var item = habbo.Inventory?.Furniture.GetItem(itemId);
 
         if (item == null) {
             return;
@@ -299,7 +299,7 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
             return;
         }
 
-        var item = habbo.Inventory.Furniture.GetItem(itemId);
+        var item = habbo.Inventory?.Furniture.GetItem(itemId);
 
         if (item == null) {
             return;
@@ -313,7 +313,7 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
             return;
         }
 
-        var allItems = habbo.Inventory.Furniture.AllItems.Where(x => x.Definition.Id == item.Definition.Id).Take(amount).ToList();
+        var allItems = (habbo.Inventory?.Furniture.AllItems ?? []).Where(x => x.Definition.Id == item.Definition.Id).Take(amount).ToList();
 
         foreach (var offered in allItems) {
             // A duplicate stops the batch without a packet, after earlier items in the batch were already added.
@@ -340,7 +340,7 @@ public sealed class TradeRequestService(ITradingLockService tradingLocks) : ITra
             return;
         }
 
-        var item = habbo.Inventory.Furniture.GetItem(itemId);
+        var item = habbo.Inventory?.Furniture.GetItem(itemId);
 
         if (item == null) {
             return;

@@ -13,15 +13,15 @@ public class AchievementProgressedComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
 
-        packet.WriteInteger(_snapshot.Id); // Unknown (ID?)
+        packet.WriteInteger(_snapshot.Id); // Achievement ID
         packet.WriteInteger(_snapshot.TargetLevel); // Target level
-        packet.WriteString(_snapshot.Badge); // Target name/desc/badge
-        packet.WriteInteger(1); // Progress req/target
-        packet.WriteInteger(_snapshot.Requirement); // Reward in Pixels
-        packet.WriteInteger(_snapshot.RewardPixels); // Reward Ach Score
-        packet.WriteInteger(0); // ?
+        packet.WriteString(_snapshot.Badge); // Badge code
+        packet.WriteInteger(1); // Score at the start of the level (legacy fixed value).
+        packet.WriteInteger(_snapshot.Requirement); // Score required to complete this level.
+        packet.WriteInteger(_snapshot.RewardPixels); // Level reward points.
+        packet.WriteInteger(0); // Level reward point type.
         packet.WriteInteger(_snapshot.Progress); // Current progress
-        packet.WriteBoolean(_snapshot.Completed); // Set 100% completed(??)
+        packet.WriteBoolean(_snapshot.Completed); // Final achievement level completed.
         packet.WriteString(_snapshot.Category); // Category
         packet.WriteString(string.Empty);
         packet.WriteInteger(_snapshot.TotalLevels); // Total amount of levels

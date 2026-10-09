@@ -64,7 +64,7 @@ namespace Plus.HabboHotel.Rooms.Music
                     return;
                 }
 
-                var ids = habbo.Inventory.Furniture.GetItems.Where(item => RoomMusicDefinition.IsDisc(item.Definition))
+                var ids = (habbo.Inventory?.Furniture.GetItems ?? []).Where(item => RoomMusicDefinition.IsDisc(item.Definition))
                     .Take(5000).Select(item => item.Id).ToArray();
                 tracks = store.Inventory(habbo.Id, ids).ToImmutableArray();
             }

@@ -63,7 +63,7 @@ public partial class PlacedFurniRoomTests
         Inventory(item);
         PlacementService(() => throw new InvalidOperationException("Sticky placement must not progress ordinary placement rewards"))
             .PlaceSticky(_room, _client, 30, "malformed");
-        Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Same(item, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
         Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
         Assert.Empty(_client.Sent);
     }
@@ -80,7 +80,7 @@ public partial class PlacedFurniRoomTests
         {
             Assert.Equal("PlaceWall", method);
             Assert.Equal(30u, args[0]);
-            Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Same(inventory, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
             Assert.Null(_room.GetRoomItemHandler().GetItem(30));
             Assert.Empty(_client.Sent);
             writes++;
@@ -100,12 +100,12 @@ public partial class PlacedFurniRoomTests
         inventory.ReleaseReservation();
 
         if (fail) {
-            Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Same(inventory, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
             Assert.Null(_room.GetRoomItemHandler().GetItem(30));
             Assert.Empty(_client.Sent);
         }
         else {
-            Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
             Assert.NotNull(_room.GetRoomItemHandler().GetItem(30));
             Assert.Equal(ServerPacketHeader.FurniListRemoveComposer, Assert.Single(_client.Sent));
         }
@@ -139,7 +139,7 @@ public partial class PlacedFurniRoomTests
         Inventory(inventory);
         PlacementService(() => throw new InvalidOperationException("Invalid input must not progress rewards"))
             .Place(_room, _client, placement);
-        Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Same(inventory, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
         Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
         Assert.Empty(_client.Sent);
     }
@@ -154,7 +154,7 @@ public partial class PlacedFurniRoomTests
         _room.UsersWithRights = [];
         PlacementService(() => throw new InvalidOperationException("Denied placement must not progress rewards"))
             .Place(_room, _client, "30 1 1 0");
-        Assert.Same(inventory, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Same(inventory, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
         Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
         Assert.Equal(ServerPacketHeader.RoomNotificationComposer, Assert.Single(_client.Sent));
     }
@@ -170,7 +170,7 @@ public partial class PlacedFurniRoomTests
         {
             Assert.Equal("ProgressAchievement", method);
             Assert.Equal("ACH_RoomDecoFurniCount", args[1]);
-            Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
             Assert.Contains(ServerPacketHeader.FurniListRemoveComposer, _client.Sent);
             progress.Add("achievement");
 
@@ -187,7 +187,7 @@ public partial class PlacedFurniRoomTests
             }), Proxy<IQuestManager>((_, _) => null), TestLogging.For<RoomItemPlacementService>()).Place(_room, _client, placement);
         Assert.Equal(new[] { "achievement", "reward" }, progress);
         Assert.NotNull(_room.GetRoomItemHandler().GetItem(30));
-        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
     }
 
     [Theory]
@@ -203,7 +203,7 @@ public partial class PlacedFurniRoomTests
 
         try {
             service.Place(_room, _client, placement);
-            Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Same(item, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
             Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
             Assert.Empty(_client.Sent);
             Assert.Equal(0, rewards);
@@ -213,7 +213,7 @@ public partial class PlacedFurniRoomTests
         }
 
         service.Place(_room, _client, placement);
-        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
         Assert.NotNull(_room.GetRoomItemHandler().GetItem(30));
         Assert.Equal(1, rewards);
     }
@@ -224,7 +224,7 @@ public partial class PlacedFurniRoomTests
         var item = new InventoryItem { Id = 30, Definition = Furni(30, InteractionType.None, WiredBoxType.None).Definition };
         Inventory(item);
         PlacementService(() => throw new InvalidOperationException()).Place(_room, _client, "30 x 1 0");
-        Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+        Assert.Same(item, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
         Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
         Assert.True(item.TryReserve());
         item.ReleaseReservation();
@@ -239,7 +239,7 @@ public partial class PlacedFurniRoomTests
 
         try {
             PlacementService(() => throw new InvalidOperationException()).PlaceSticky(_room, _client, 30, ":w=1,1 l=0,0 l");
-            Assert.Same(item, _client.GetHabbo().Inventory.Furniture.GetItem(30));
+            Assert.Same(item, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(30));
             Assert.Empty(_room.GetRoomItemHandler().GetWallAndFloor);
             Assert.Empty(_client.Sent);
         }

@@ -144,10 +144,15 @@ public sealed class GroupRemovalService(
             }
 
             if (userId == session.GetHabbo().Id) {
+                // Leaving also clears a favourite, which needs the loaded statistics to know about it.
+                if (session.GetHabbo().HabboStats is not { } stats) {
+                    return Task.CompletedTask;
+                }
+
                 var wasAdmin = group.IsAdmin(userId);
 
                 if (!_store.RemoveMember(group.Id, userId, group.IsMember(userId),
-                        session.GetHabbo().HabboStats.FavouriteGroupId == groupId)) {
+                        stats.FavouriteGroupId == groupId)) {
                     return Task.CompletedTask;
                 }
 
@@ -162,16 +167,14 @@ public sealed class GroupRemovalService(
                         user.RemoveStatus("flatctrl 1");
                         user.UpdateNeeded = true;
 
-                        if (user.GetClient() != null) {
-                            user.GetClient().Send(new YouAreControllerComposer(0));
-                        }
+                        user.GetClient()?.Send(new YouAreControllerComposer(0));
                     }
                 }
 
                 session.Send(new GroupInfoComposer(_groupInfo.Capture(group, session.GetHabbo().Id)));
 
-                if (session.GetHabbo().HabboStats.FavouriteGroupId == groupId) {
-                    session.GetHabbo().HabboStats.FavouriteGroupId = 0;
+                if (stats.FavouriteGroupId == groupId) {
+                    stats.FavouriteGroupId = 0;
 
                     if (group.AdminOnlyDeco == 0 && _roomManager.TryGetRoom(group.RoomId, out var room)) {
                         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
@@ -180,22 +183,20 @@ public sealed class GroupRemovalService(
                             user.RemoveStatus("flatctrl 1");
                             user.UpdateNeeded = true;
 
-                            if (user.GetClient() != null) {
-                                user.GetClient().Send(new YouAreControllerComposer(0));
-                            }
+                            user.GetClient()?.Send(new YouAreControllerComposer(0));
                         }
                     }
 
-                    if (session.GetHabbo().InRoom && session.GetHabbo().CurrentRoom != null) {
-                        var user = session.GetHabbo().CurrentRoom.GetRoomUserManager()
+                    if (session.GetHabbo().InRoom && session.GetHabbo().CurrentRoom is { } currentRoom) {
+                        var user = currentRoom.GetRoomUserManager()
                             .GetRoomUserByHabbo(session.GetHabbo().Id);
 
                         if (user != null) {
-                            session.GetHabbo().CurrentRoom
+                            currentRoom
                                 .SendPacket(new UpdateFavouriteGroupComposer(FavouriteGroupSnapshot.Capture(group, user.VirtualId)));
                         }
 
-                        session.GetHabbo().CurrentRoom
+                        currentRoom
                             .SendPacket(new RefreshFavouriteGroupComposer(session.GetHabbo().Id));
                     }
                     else {

@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using Dapper;
 using Plus.Database;
+using Plus.HabboHotel.Cache;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Logs;
 
@@ -21,11 +23,12 @@ public interface IModeratorUserLookup
     string? GetUsername(int userId) => GetById(userId)?.Username;
 }
 
-public sealed class ModeratorUserLookup : IModeratorUserLookup
+// The legacy static lookup only ever found online users (its snapshot cache is never filled), so the online client is the whole lookup.
+public sealed class ModeratorUserLookup(IGameClientManager clients, ICacheManager cache) : IModeratorUserLookup
 {
-    public Users.Habbo? GetById(int userId) => PlusEnvironment.GetHabboById(userId);
+    public Users.Habbo? GetById(int userId) => clients.GetClientByUserId(userId)?.GetHabbo() is { Id: > 0 } habbo ? habbo : null;
 
-    public string? GetUsername(int userId) => PlusEnvironment.GetHabboById(userId)?.Username ?? PlusEnvironment.Game.CacheManager.GenerateUser(userId)?.Username;
+    public string? GetUsername(int userId) => GetById(userId)?.Username ?? cache.GenerateUser(userId)?.Username;
 }
 
 public sealed class ModeratorHistoryService(

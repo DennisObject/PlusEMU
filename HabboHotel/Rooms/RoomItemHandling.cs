@@ -15,7 +15,6 @@ using Plus.HabboHotel.Users.Inventory.Furniture;
 
 namespace Plus.HabboHotel.Rooms;
 
-[Obsolete("Everything in here is bad and whoever wrote this must've been high on some crack or something")]
 public class RoomItemHandling
 {
     private readonly ConcurrentDictionary<uint, Item> _floorItems;
@@ -263,7 +262,8 @@ public class RoomItemHandling
                     var client = _clients.GetClientByUserId(item.UserId);
 
                     if (client != null) {
-                        client.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem());
+                        // The item is already back in storage; an inventory that is not loaded picks it up later.
+                        client.GetHabbo().Inventory?.Furniture.AddItem(item.ToInventoryItem());
                         client.Send(new FurniListUpdateComposer());
                     }
 
@@ -1138,6 +1138,12 @@ public class RoomItemHandling
     public List<Item> RemoveItems(GameClient session)
     {
         var items = new List<Item>();
+
+        // The picked-up furniture is handed into the loaded inventory, so nothing moves without one.
+        if (session.GetHabbo().Inventory is not { } inventory) {
+            return items;
+        }
+
         var owned = GetWallAndFloor.Where(item => item != null && !item.IsTemporary && item.UserId == session.GetHabbo().Id).ToList();
         // All boxes at once, before any item moves: a failure leaves every one placed with its settings.
         _room.GetWired()?.ResetRoomItems(owned);
@@ -1163,13 +1169,13 @@ public class RoomItemHandling
 
                 _room.GetWired()?.DetachRoomItem(item);
                 // TODO @80O: Items refactor
-                session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
+                inventory.Furniture.AddItem(I.ToInventoryItem());
                 _room.SendPacket(new ObjectRemoveComposer(item.Id, item.IsTemporary, item.UserId));
             }
             else if (item.IsWallItem) {
                 _wallItems.TryRemove(item.Id, out var I);
                 // TODO @80O: Items refactor
-                session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
+                inventory.Furniture.AddItem(I.ToInventoryItem());
                 _room.SendPacket(new ItemRemoveComposer(item.Id, item.UserId));
             }
 

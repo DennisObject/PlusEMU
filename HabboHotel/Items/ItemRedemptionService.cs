@@ -131,7 +131,8 @@ public sealed class ItemRedemptionService(IItemRedemptionStore store, ISettingsM
             store.DeleteExchange(item.Id, habbo.Id, room.RoomId);
             habbo.Credits = balance;
             room.GetRoomItemHandler().RemoveFurniture(null, item.Id);
-            habbo.Inventory.Furniture.RemoveItem(item.Id);
+            // The exchange item was placed in the room; this only drops a stale inventory copy, which an unloaded inventory cannot hold.
+            habbo.Inventory?.Furniture.RemoveItem(item.Id);
             session.Send(new CreditBalanceComposer(balance));
             session.Send(new FurniListUpdateComposer());
             session.Send(new FurniListRemoveComposer(item.Id));
@@ -143,7 +144,8 @@ public sealed class ItemRedemptionService(IItemRedemptionStore store, ISettingsM
         var habbo = session.GetHabbo();
         var room = habbo.CurrentRoom;
 
-        if (room == null) {
+        // The wardrobe is loaded at login; without it the redeemed parts would have nowhere to go.
+        if (room == null || habbo.Clothing is not { } wardrobe) {
             return;
         }
 
@@ -171,9 +173,9 @@ public sealed class ItemRedemptionService(IItemRedemptionStore store, ISettingsM
             }
 
             var committed = store.ConsumeClothing(item.Id, habbo.Id, room.RoomId, item.Definition.ItemName, item.Definition.FigureSetIds);
-            habbo.Clothing.PublishCommitted(committed);
+            wardrobe.PublishCommitted(committed);
             room.GetRoomItemHandler().RemoveFurniture(session, item.Id);
-            session.Send(new FigureSetIdsComposer(habbo.Clothing.GetClothingParts.ToArray()));
+            session.Send(new FigureSetIdsComposer(wardrobe.GetClothingParts.ToArray()));
             session.Send(new RoomNotificationComposer("figureset.redeemed.success"));
         }
     }

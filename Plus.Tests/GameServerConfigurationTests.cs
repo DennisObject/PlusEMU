@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Plus.Communication.Flash;
 using Plus.Communication.Nitro;
+using Plus.Communication.RCON;
 using Xunit;
 
 namespace Plus.Tests;
@@ -49,6 +50,39 @@ public class GameServerConfigurationTests
         Assert.Equal(2200, nitro.Port);
         Assert.Equal("192.0.2.11", flash.Hostname);
         Assert.Equal(1200, flash.Port);
+    }
+
+    [Fact]
+    public void RconDefaultsToLoopbackWithNoAllowedAddresses()
+    {
+        var rcon = Rcon(new() { ["Rcon:Port"] = "30001" });
+
+        Assert.Equal("127.0.0.1", rcon.Hostname);
+        Assert.Equal(30001, rcon.Port);
+        Assert.Empty(rcon.AllowedAddresses);
+    }
+
+    [Fact]
+    public void RconBindsConfiguredHostAndAllowedAddresses()
+    {
+        var rcon = Rcon(new()
+        {
+            ["Rcon:Hostname"] = "192.0.2.12",
+            ["Rcon:AllowedAddresses:0"] = "127.0.0.1",
+            ["Rcon:AllowedAddresses:1"] = "localhost"
+        });
+
+        Assert.Equal("192.0.2.12", rcon.Hostname);
+        Assert.Equal(["127.0.0.1", "localhost"], rcon.AllowedAddresses);
+    }
+
+    private static RconConfiguration Rcon(Dictionary<string, string?> values)
+    {
+        var services = new ServiceCollection();
+        Program.AddConfiguration<RconConfiguration>(services, new ConfigurationBuilder().AddInMemoryCollection(values).Build().GetSection("Rcon"));
+        using var provider = services.BuildServiceProvider();
+
+        return provider.GetRequiredService<IOptions<RconConfiguration>>().Value;
     }
 
     private static ServiceProvider Bind(IConfiguration configuration)

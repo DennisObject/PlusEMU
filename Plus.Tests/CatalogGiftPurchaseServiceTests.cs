@@ -59,7 +59,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         var privateRecipient = CreateContext(recipientAllowsGifts: false);
         await privateRecipient.Service.Purchase(privateRecipient.SenderClient, Request());
         Assert.Equal(0, privateRecipient.Rewards.Charges);
-        Assert.Empty(privateRecipient.Recipient.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(privateRecipient.Recipient.Inventory).Furniture.AllItems);
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         Assert.Equal(0, context.Store.Creates);
         Assert.Equal(0, context.Clients.Lookups);
         Assert.Equal(100, context.Sender.Credits);
-        Assert.Empty(context.Recipient.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(context.Recipient.Inventory).Furniture.AllItems);
         Assert.Empty(context.SenderPackets);
         Assert.Empty(context.RecipientPackets);
     }
@@ -102,7 +102,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         Assert.Equal(1, context.Store.Creates);
         Assert.Equal(90, context.Sender.Credits);
         Assert.Equal(context.Clock.Now, context.Sender.LastGiftPurchasedAt);
-        Assert.NotNull(context.Recipient.Inventory.Furniture.GetItem(700));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(context.Recipient.Inventory).Furniture.GetItem(700));
         Assert.Contains(context.RecipientPackets, packet => packet.Header == ServerPacketHeader.FurniListAddComposer);
         Assert.Contains(context.SenderPackets, packet => packet.Header == ServerPacketHeader.PurchaseOKComposer);
     }
@@ -116,7 +116,7 @@ public sealed class CatalogGiftPurchaseServiceTests
 
         Assert.Equal(100, context.Sender.Credits);
         Assert.Null(context.Sender.LastGiftPurchasedAt);
-        Assert.Empty(context.Recipient.Inventory.Furniture.AllItems);
+        Assert.Empty(Assert.IsType<InventoryComponent>(context.Recipient.Inventory).Furniture.AllItems);
         Assert.Empty(context.RecipientPackets);
         Assert.Empty(context.SenderPackets);
     }
@@ -280,7 +280,7 @@ public sealed class CatalogGiftPurchaseServiceTests
         public void SendPacket(Plus.Communication.Packets.IServerPacket packet, Plus.HabboHotel.Permissions.PermissionDefinition? permission = null) { }
         public void LogClonesOut(int userId) { }
         public void RegisterClient(GameClient client, int userId, string username) { }
-        public void UnregisterClient(GameClient client, int userId, string username) { }
+        public void UnregisterClient(GameClient? client, int userId, string username) { }
         public void CloseAll() { }
     }
 

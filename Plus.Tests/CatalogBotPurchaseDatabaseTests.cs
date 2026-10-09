@@ -14,6 +14,32 @@ namespace Plus.Tests;
 
 public sealed class CatalogBotPurchaseDatabaseTests
 {
+    [Theory]
+    [InlineData("name")]
+    [InlineData("motto")]
+    [InlineData("figure")]
+    [InlineData("gender")]
+    public void IncompletePresetIsRejectedBeforeWritingTheBot(string missing)
+    {
+        var calls = new List<string>();
+        var connection = CatalogSnapshotTestSupport.Proxy<IDbConnection>((method, _) => { calls.Add(method); throw new InvalidOperationException(method); });
+        var transaction = CatalogSnapshotTestSupport.Proxy<IDbTransaction>((method, _) => { calls.Add(method); throw new InvalidOperationException(method); });
+        var preset = new CatalogBot
+        {
+            Id = 50,
+            Name = missing == "name" ? null : "Catalog Bot",
+            Motto = missing == "motto" ? null : "A bot motto",
+            Figure = missing == "figure" ? null : "hd-180-1",
+            Gender = missing == "gender" ? null : "M",
+            AiType = "generic"
+        };
+
+        var exception = Assert.Throws<InvalidOperationException>(() => new CatalogBotPurchaseStore().Create(connection, transaction, preset, 7));
+
+        Assert.Equal($"Catalog bot preset 50 has no {missing}.", exception.Message);
+        Assert.Empty(calls);
+    }
+
     [RoomComponentDatabaseFact]
     public void BotDeliveryCommitsAndRollsBackWithTheWalletTransaction()
     {

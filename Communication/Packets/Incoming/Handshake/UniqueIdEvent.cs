@@ -8,8 +8,13 @@ public class UniqueIdEvent(IClientIdentityService identity) : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        packet.ReadString();
         var machineId = packet.ReadString();
+        packet.ReadString();
+
+        if (packet.HasDataRemaining()) {
+            packet.ReadString();
+        }
+
         identity.SetMachineIdentity(session, machineId);
 
         return Task.CompletedTask;

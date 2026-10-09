@@ -323,7 +323,7 @@ public sealed class UserPreferencePersistenceTests
                 connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/59_UserCurrencies.sql")));
             }
 
-            var loader = new UserDataFactory(null!, database, [], null!, null!, null!, null!, TimeProvider.System, TestRoomAchievements.Unused);
+            var loader = new UserDataFactory(null!, database, [], null!, null!, null!, null!, TimeProvider.System, TestRoomAchievements.Unused, TestGameClientManager.Empty, TestRoomManager.Unused);
             var user = Assert.IsType<Habbo>(await loader.GetUserDataByIdAsync(7));
             Assert.Equal(new[] { 20, 50, 80 }, user.ClientVolume);
             Assert.Equal(42u, user.HomeRoom);

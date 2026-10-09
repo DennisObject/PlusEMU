@@ -18,6 +18,26 @@ namespace Plus.Tests;
 public sealed class MessengerCommunicationServiceTests
 {
     [Fact]
+    public async Task FriendRequestFromAUserWithoutALoadedMessengerFailsBeforeAnyWrite()
+    {
+        var loads = new List<string>();
+        var loader = CatalogSnapshotTestSupport.Proxy<IMessengerDataLoader>((method, _) =>
+        {
+            loads.Add(method);
+
+            throw new InvalidOperationException(method);
+        });
+        var service = new MessengerFriendMutationService(loader, new Plus.HabboHotel.Users.Authentication.AccountSessionGate(), TestGameClientManager.Empty);
+        var habbo = new Habbo { Id = 7, Username = "sender" };
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => service.SendRequestAsync(habbo, 8));
+
+        Assert.Equal("The user has no loaded messenger to send a friend request from.", exception.Message);
+        Assert.Empty(loads);
+        Assert.Equal(FriendRequestError.AlreadyOutstandingFriendRequest, (await service.SendRequestAsync(habbo, 7)).Error);
+    }
+
+    [Fact]
     public async Task MissingFriendNotifiesBeforeFilteringAndNeverRaisesAMessengerEvent()
     {
         using var f = new MessengerFixture();
@@ -97,7 +117,7 @@ public sealed class MessengerCommunicationServiceTests
 
         Assert.Empty(f.Rewards.Progressed);
         Assert.Empty(f.Quests.Calls);
-        Assert.False(session.GetHabbo().Messenger.Requests.ContainsKey(5));
+        Assert.False(Assert.IsType<HabboMessenger>(session.GetHabbo().Messenger).Requests.ContainsKey(5));
     }
 
     [Fact]
@@ -352,7 +372,7 @@ public sealed class MessengerCommunicationServiceTests
         {
             public Task<FriendRequestError?> AcceptRequestAsync(Habbo habbo, int fromId)
             {
-                habbo.Messenger.RemoveRequest(fromId);
+                Assert.IsType<HabboMessenger>(habbo.Messenger).RemoveRequest(fromId);
 
                 return Task.FromResult<FriendRequestError?>(null);
             }
@@ -360,7 +380,7 @@ public sealed class MessengerCommunicationServiceTests
             public Task DeclineAllRequestsAsync(Habbo habbo) => throw new NotSupportedException();
             public async Task<FriendRequestOutcome> SendRequestAsync(Habbo habbo, int toId)
             {
-                if (habbo.Messenger.Requests.ContainsKey(toId)) {
+                if (Assert.IsType<HabboMessenger>(habbo.Messenger).Requests.ContainsKey(toId)) {
                     return new(await AcceptRequestAsync(habbo, toId), Accepted: true);
                 }
 
@@ -444,7 +464,7 @@ public sealed class MessengerCommunicationServiceTests
         public Quest? GetQuest(int id) => throw new NotSupportedException();
         public int GetAmountOfQuestsInCategory(string category) => throw new NotSupportedException();
         public Quest? GetNextQuestInSeries(string category, int number) => throw new NotSupportedException();
-        public void GetList(GameClient session, Plus.Communication.Packets.Incoming.ClientPacket message) => throw new NotSupportedException();
+        public void GetList(GameClient session, Plus.Communication.Packets.Incoming.ClientPacket? message) => throw new NotSupportedException();
         public void QuestReminder(GameClient session, int questId) => throw new NotSupportedException();
     }
 

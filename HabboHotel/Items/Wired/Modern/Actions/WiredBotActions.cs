@@ -127,6 +127,11 @@ public static class WiredBotActions
                 }
 
                 foreach (var bot in bots) {
+                    // Every resolved bot passed IsBot, so its bot data is loaded.
+                    if (bot.BotData is not { } botData) {
+                        continue;
+                    }
+
                     var item = items[Random.Shared.Next(items.Length)];
 
                     if (name == "wf_act_bot_teleport") {
@@ -134,9 +139,9 @@ public static class WiredBotActions
                         changed |= movement.MoveAvatar(context, bot, item.GetX, item.GetY, false);
                     }
                     else {
-                        bot.BotData.ForcedUserTargetMovement = 0;
-                        bot.BotData.ForcedMovement = true;
-                        bot.BotData.TargetCoordinate = new(item.GetX, item.GetY);
+                        botData.ForcedUserTargetMovement = 0;
+                        botData.ForcedMovement = true;
+                        botData.TargetCoordinate = new(item.GetX, item.GetY);
                         bot.MoveTo(item.GetX, item.GetY);
                         targets.Walk(bot, item);
                         changed = true;
@@ -159,9 +164,15 @@ public static class WiredBotActions
 
                 for (var index = 0; index < bots.Length; index++) {
                     var bot = bots[index];
+
+                    // Every resolved bot passed IsBot, so its bot data is loaded.
+                    if (bot.BotData is not { } botData) {
+                        continue;
+                    }
+
                     var user = users[index % users.Length];
-                    bot.BotData.ForcedMovement = false;
-                    bot.BotData.ForcedUserTargetMovement = user.HabboId;
+                    botData.ForcedMovement = false;
+                    botData.ForcedUserTargetMovement = user.HabboId;
                     targets.Follow(bot, user);
                 }
 
@@ -183,9 +194,14 @@ public static class WiredBotActions
                 }
 
                 foreach (var bot in bots) {
-                    botStore.SaveAppearance(bot.BotData.Id, context.Room.RoomId, text, bot.BotData.Gender);
-                    bot.BotData.Look = text;
-                    context.Room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(bot.BotData)));
+                    // Every resolved bot passed IsBot, so its bot data is loaded.
+                    if (bot.BotData is not { } botData) {
+                        continue;
+                    }
+
+                    botStore.SaveAppearance(botData.Id, context.Room.RoomId, text, botData.Gender);
+                    botData.Look = text;
+                    context.Room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(botData)));
                 }
 
                 return true;
@@ -200,7 +216,12 @@ public static class WiredBotActions
                 }
 
                 foreach (var bot in bots) {
-                    var formatted = context.Policy.FormatText(context, text.Replace("%name%", bot.BotData.Name, StringComparison.Ordinal));
+                    // Every resolved bot passed IsBot, so its bot data is loaded.
+                    if (bot.BotData is not { } botData) {
+                        continue;
+                    }
+
+                    var formatted = context.Policy.FormatText(context, text.Replace("%name%", botData.Name, StringComparison.Ordinal));
                     var width = p[name == "wf_act_bot_talk" ? 2 : 3];
 
                     if (name == "wf_act_bot_talk_to_avatar" && p[0] == 1) {
@@ -211,12 +232,12 @@ public static class WiredBotActions
                                 continue;
                             }
 
-                            client.Send(new WiredChatComposer(bot.VirtualId, formatted, bot.BotData.ChatBubble, width, true));
+                            client.Send(new WiredChatComposer(bot.VirtualId, formatted, botData.ChatBubble, width, true));
                             changed = true;
                         }
                     }
                     else {
-                        context.Room.SendPacket(new WiredChatComposer(bot.VirtualId, formatted, bot.BotData.ChatBubble, width, false, name == "wf_act_bot_talk" && p[0] == 1));
+                        context.Room.SendPacket(new WiredChatComposer(bot.VirtualId, formatted, botData.ChatBubble, width, false, name == "wf_act_bot_talk" && p[0] == 1));
                         changed = true;
                     }
                 }

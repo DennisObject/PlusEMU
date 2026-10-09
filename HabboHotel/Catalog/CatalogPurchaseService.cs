@@ -142,6 +142,11 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
             return;
         }
 
+        // Bought products are delivered into the loaded inventory; without it nothing is charged.
+        if (session.GetHabbo().Inventory is not { } inventory) {
+            return;
+        }
+
         if (amount < 1 || amount > 100 || !ItemUtility.CanSelectAmount(offer)) {
             amount = 1;
         }
@@ -172,7 +177,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
 
                 break;
             case CatalogProductType.Badge:
-                if (session.GetHabbo().Inventory.Badges.HasBadge(product.BadgeCode)) {
+                if (inventory.Badges.HasBadge(product.BadgeCode)) {
                     session.Send(new PurchaseErrorComposer(PurchaseError.Rejected));
 
                     return;
@@ -245,7 +250,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                         : CreateFurni(session, product.Definition!, extraData, amountPurchase, limitedEditionSells, limitedEditionStack);
 
                     foreach (var purchasedItem in generatedGenericItems) {
-                        if (session.GetHabbo().Inventory.Furniture.AddItem(purchasedItem.ToInventoryItem())) {
+                        if (inventory.Furniture.AddItem(purchasedItem.ToInventoryItem())) {
                             session.Send(new FurniListNotificationComposer(purchasedItem.Id, 1));
                         }
                     }
@@ -257,19 +262,21 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                     break;
                 }
             case CatalogProductType.Effect: {
-                    if (!ChargePurchase()) {
+                    var habbo = session.GetHabbo();
+
+                    // Effects are loaded at login; without them the bought effect could not be delivered, so nothing is charged.
+                    if (habbo.Effects is not { } effects || !ChargePurchase()) {
                         return;
                     }
 
-                    var habbo = session.GetHabbo();
-                    var effect = habbo.Effects.GetEffectNullable(product.EffectId);
+                    var effect = effects.GetEffectNullable(product.EffectId);
 
                     if (effect != null) {
                         effect.AddToQuantity();
                     }
                     else {
                         effect = _avatarEffects.Create(habbo.Id, product.EffectId, 3600);
-                        habbo.Effects.TryAdd(effect);
+                        effects.TryAdd(effect);
                     }
 
                     session.Send(new AvatarEffectAddedComposer(product.EffectId, 3600));
@@ -293,8 +300,8 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                         return;
                     }
 
-                    session.GetHabbo().Inventory.Bots.AddBot(bot!);
-                    session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
+                    inventory.Bots.AddBot(bot!);
+                    session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(inventory.Bots.Bots.Values)));
                     session.Send(new FurniListNotificationComposer((uint)bot!.Id, 5));
                     break;
                 }
@@ -321,17 +328,17 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
                         return;
                     }
 
-                    session.GetHabbo().Inventory.Pets.AddPet(pet!);
+                    inventory.Pets.AddPet(pet!);
                     pet!.RoomId = 0;
                     pet.PlacedInRoom = false;
                     session.Send(new FurniListNotificationComposer((uint)pet.PetId, 3));
-                    session.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(session.GetHabbo().Inventory.Pets.Pets.Values.ToList())));
+                    session.Send(new PetInventoryComposer(PetAppearanceSnapshots.Inventory(inventory.Pets.Pets.Values.ToList())));
 
                     if (_itemManager.Items.TryGetValue(320, out var petFood)) {
                         var food = _itemFactory.CreateSingleItemNullable(petFood, session.GetHabbo(), "", "")?.ToInventoryItem();
 
                         if (food != null) {
-                            session.GetHabbo().Inventory.Furniture.AddItem(food);
+                            inventory.Furniture.AddItem(food);
                             session.Send(new FurniListNotificationComposer(food.Id, 1));
                         }
                     }
@@ -381,7 +388,7 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
             case InteractionType.Mannequin:
                 return $"m{Convert.ToChar(5)}.ch-210-1321.lg-285-92{Convert.ToChar(5)}Default Mannequin";
             case InteractionType.BadgeDisplay:
-                if (!session.GetHabbo().Inventory.Badges.HasBadge(extraData)) {
+                if (session.GetHabbo().Inventory?.Badges.HasBadge(extraData) != true) {
                     session.Send(new BroadcastMessageAlertComposer("Oops, it appears that you do not own this badge."));
 
                     return null;
@@ -450,7 +457,8 @@ public sealed class CatalogPurchaseService : ICatalogPurchaseService
             expiry = _clubMemberships.Purchase(habbo, offer);
         }
 
-        if (expiry == null) {
+        // A purchase only happened for a found offer, so either check alone means nothing was bought.
+        if (expiry == null || offer == null) {
             session.Send(new PurchaseErrorComposer(PurchaseError.Unavailable));
 
             return;

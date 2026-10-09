@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.Moderation;
+using Plus.HabboHotel.GameClients;
 
 namespace Plus.Core;
 
@@ -7,8 +8,14 @@ public static class ConsoleCommands
 {
     private static ILogger? _logger;
     private static ILogger Logger => _logger ?? throw new InvalidOperationException("Configure logging before use.");
+    private static IGameClientManager? _clients;
+    private static IGameClientManager Clients => _clients ?? throw new InvalidOperationException("Configure console commands before use.");
 
-    public static void Configure(ILoggerFactory loggerFactory) => _logger = loggerFactory.CreateLogger(typeof(ConsoleCommands).FullName!);
+    public static void Configure(ILoggerFactory loggerFactory, IGameClientManager clients)
+    {
+        _logger = loggerFactory.CreateLogger(typeof(ConsoleCommands).FullName!);
+        _clients = clients;
+    }
 
     public static void InvokeCommand(string inputData)
     {
@@ -28,8 +35,7 @@ public static class ConsoleCommands
                     }
                 case "alert": {
                         var notice = inputData.Substring(6);
-                        PlusEnvironment.Game.ClientManager
-                            .SendPacket(new BroadcastMessageAlertComposer($"{PlusEnvironment.LanguageManager.TryGetValue("server.console.alert")}\n\n{notice}"));
+                        Clients.SendPacket(new BroadcastMessageAlertComposer($"{PlusEnvironment.LanguageManager.TryGetValue("server.console.alert")}\n\n{notice}"));
                         Logger.LogInformation("Alert successfully sent.");
                         break;
                     }

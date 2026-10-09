@@ -98,7 +98,7 @@ public partial class PlacedFurniRoomTests
             Clear = id =>
             {
                 events.Add($"clear:{id}");
-                Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(id));
+                Assert.Null(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(id));
             }
         };
         var clients = new TestGameClientManager(id =>
@@ -113,14 +113,14 @@ public partial class PlacedFurniRoomTests
         var sent = CaptureTransport(_client, () =>
         {
             Assert.Equal(1, store.ClearCount);
-            Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(90));
+            Assert.NotNull(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(90));
         });
 
         WithUnavailableItemGlobals(() => handler.LoadFurniture([item]));
 
         Assert.Equal(new[] { "clear:90", "lookup:7" }, events);
         Assert.Equal(1, store.ClearCount);
-        var returned = Assert.IsType<InventoryItem>(_client.GetHabbo().Inventory.Furniture.GetItem(90));
+        var returned = Assert.IsType<InventoryItem>(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(90));
         Assert.Equal(item.Id, returned.Id);
         Assert.Equal(ServerPacketHeader.FurniListUpdateComposer, Assert.Single(sent).Header);
     }
@@ -141,7 +141,7 @@ public partial class PlacedFurniRoomTests
         WithUnavailableItemGlobals(() => handler.LoadFurniture([InvalidFloorItem(91)]));
 
         Assert.Equal(1, store.ClearCount);
-        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(91));
+        Assert.Null(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(91));
         Assert.Empty(sent);
     }
 

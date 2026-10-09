@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Plus.Communication.Packets.Outgoing.Catalog;
@@ -61,7 +62,7 @@ public sealed class GroupPurchaseService(
                 return;
             }
 
-            Group group;
+            Group? group;
 
             try {
                 if (!groups.TryCreateGroup(habbo, prepared.Name, prepared.Description, request.RoomId,
@@ -94,10 +95,9 @@ public sealed class GroupPurchaseService(
     }
 
     private bool TryPrepare(GroupPurchaseRequest request, int userId, out PreparedGroup prepared,
-        out RoomData room, out int cost)
+        [NotNullWhen(true)] out RoomData? room, out int cost)
     {
         prepared = default;
-        room = null!;
         cost = 0;
 
         if (!rooms.TryGetData(request.RoomId, out room) || room.OwnerId != userId ||

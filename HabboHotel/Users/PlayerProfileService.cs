@@ -38,12 +38,12 @@ public sealed class PlayerProfileService(IGroupManager groupManager, IMessengerD
         var friendCount = await messengerDataLoader.GetFriendCount(userId);
         var viewer = session.GetHabbo();
         var otherUser = target.Id != viewer.Id;
-        var friendship = otherUser && viewer.Messenger.FriendshipExists(target.Id);
+        var friendship = otherUser && viewer.Messenger?.FriendshipExists(target.Id) == true;
         var now = clock.GetUtcNow();
         var elapsed = (int)Math.Clamp(target.LastOnlineAt is { } lastOnline ? (now - lastOnline).Ticks / TimeSpan.TicksPerSecond : 0, 0, int.MaxValue);
         session.Send(new ProfileInformationComposer(new(target.Id, target.Username, target.Look, target.Motto,
             target.AccountCreatedAt, stats.AchievementPoints, friendCount, friendship,
-            otherUser && !friendship && viewer.Messenger.OutstandingFriendRequests.Contains(target.Id),
+            otherUser && !friendship && viewer.Messenger?.OutstandingFriendRequests.Contains(target.Id) == true,
             clients.GetClientByUserId(target.Id) != null, groups, elapsed)));
     }
 }

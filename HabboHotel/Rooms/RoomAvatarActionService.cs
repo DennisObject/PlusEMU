@@ -119,7 +119,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             user.DanceId = 0;
         }
 
-        if (session.GetHabbo().Effects.CurrentEffect > 0) {
+        if ((session.GetHabbo().Effects?.CurrentEffect ?? 0) > 0) {
             room.SendPacket(new AvatarEffectComposer(user.VirtualId, 0));
         }
 
@@ -171,7 +171,7 @@ public sealed class RoomAvatarActionService(TimeProvider clock, IQuestManager qu
             user.CarryItem(0);
         }
 
-        if (session.GetHabbo().Effects.CurrentEffect > 0) {
+        if ((session.GetHabbo().Effects?.CurrentEffect ?? 0) > 0) {
             room.SendPacket(new AvatarEffectComposer(user.VirtualId, 0));
         }
 

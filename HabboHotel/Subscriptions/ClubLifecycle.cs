@@ -74,16 +74,17 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
     {
         Track(habbo);
         var level = ClubAccess.LevelFor(habbo.Access);
-        var look = figures.ProcessFigure(habbo.Look, habbo.Gender, habbo.Clothing.GetClothingParts, level);
+        // Paid clothing is only checked against a loaded wardrobe, so the look is reconciled only with one; the rest still runs.
+        var look = habbo.Clothing is { } wardrobe ? figures.ProcessFigure(habbo.Look, habbo.Gender, wardrobe.GetClothingParts, level) : habbo.Look;
 
         if (look != habbo.Look) {
             habbo.Look = look;
             using var connection = database.Connection();
             connection.Execute("UPDATE users SET look = @look WHERE id = @id", new { id = habbo.Id, look });
-            habbo.Client.Send(new AvatarAspectUpdateComposer(look, habbo.Gender));
+            habbo.Client?.Send(new AvatarAspectUpdateComposer(look, habbo.Gender));
 
             if (habbo.CurrentRoom?.GetRoomUserManager().GetRoomUserByHabbo(habbo.Id) is { } user) {
-                habbo.Client.Send(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true)));
+                habbo.Client?.Send(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, true)));
                 habbo.CurrentRoom.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(user, false)));
             }
         }
@@ -96,8 +97,8 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
         var access = habbo.Access.Capture(out var statusNow);
         var responseType = access.Membership.ExpiresAt is not null && !access.Membership.Active(statusNow)
             ? ClubStatusSnapshot.ExpiringResponse : ClubStatusSnapshot.InfoResponse;
-        habbo.Client.Send(new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(access.Membership, statusNow, responseType)));
-        habbo.Client.Send(new MessengerInitComposer(ClubLimits.For(habbo.Access, "friends", settings)));
+        habbo.Client?.Send(new ScrSendUserInfoComposer(ClubStatusSnapshot.Capture(access.Membership, statusNow, responseType)));
+        habbo.Client?.Send(new MessengerInitComposer(ClubLimits.For(habbo.Access, "friends", settings)));
         var limit = ClubLimits.For(habbo.Access, "visitors", settings);
 
         using (var connection = database.Connection()) {
@@ -134,7 +135,7 @@ public sealed class ClubLifecycle(IAccessControl permissions, IClubRewards rewar
             _announcedGifts[habbo.Id] = count;
 
             if (count > 0) {
-                habbo.Client.Send(new PickMonthlyClubGiftComposer(count));
+                habbo.Client?.Send(new PickMonthlyClubGiftComposer(count));
             }
         }
     }

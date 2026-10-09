@@ -32,7 +32,7 @@ public sealed class TradeSettingsDependencyTests
                 BehaviourData = 10
             }
         };
-        Assert.True(alice.Habbo.Inventory.Furniture.AddItem(voucher));
+        Assert.True(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(alice.Habbo.Inventory).Furniture.AddItem(voucher));
         alice.Packets.Clear();
         bob.Packets.Clear();
         var trade = fixture.Start(alice, bob);
@@ -53,14 +53,14 @@ public sealed class TradeSettingsDependencyTests
         Assert.Equal(redeem ? 17 : 7, bob.Habbo.Credits);
 
         if (redeem) {
-            Assert.Null(bob.Habbo.Inventory.Furniture.GetItem(voucher.Id));
+            Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(bob.Habbo.Inventory).Furniture.GetItem(voucher.Id));
             Assert.Equal(new uint[] { ServerPacketHeader.CreditBalanceComposer, ServerPacketHeader.TradingFinishComposer }, bob.Sent);
             var packet = new FlashIncomingPacket { Buffer = bob.Packets[0].Payload };
             Assert.Equal("17.0", packet.ReadString());
             Assert.False(packet.HasDataRemaining());
         }
         else {
-            Assert.Same(voucher, bob.Habbo.Inventory.Furniture.GetItem(voucher.Id));
+            Assert.Same(voucher, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(bob.Habbo.Inventory).Furniture.GetItem(voucher.Id));
             Assert.Equal(new uint[] { ServerPacketHeader.FurniListAddComposer, ServerPacketHeader.FurniListNotificationComposer,
                 ServerPacketHeader.TradingFinishComposer }, bob.Sent);
         }

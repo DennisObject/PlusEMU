@@ -12,6 +12,26 @@ namespace Plus.Tests;
 public sealed class ModeratorActionServiceTests
 {
     [Fact]
+    public void UserLookupFindsOnlineUsersAndFallsBackToCachedNames()
+    {
+        var online = new Habbo { Id = 1, Username = "online" };
+        var (client, _) = HabbiconTestSupport.Client(online);
+        var clients = Proxy<IGameClientManager>((method, args) => method == nameof(IGameClientManager.GetClientByUserId)
+            ? Assert.IsType<int>(args[0]) == 1 ? client : null
+            : throw new NotSupportedException(method));
+        var cache = Proxy<Plus.HabboHotel.Cache.ICacheManager>((method, args) => method == nameof(Plus.HabboHotel.Cache.ICacheManager.GenerateUser)
+            ? Assert.IsType<int>(args[0]) == 2 ? new Plus.HabboHotel.Cache.Type.CachedUser { Id = 2, Username = "offline" } : null
+            : throw new NotSupportedException(method));
+        var lookup = new ModeratorUserLookup(clients, cache);
+
+        Assert.Same(online, lookup.GetById(1));
+        Assert.Null(lookup.GetById(2));
+        Assert.Equal("online", lookup.GetUsername(1));
+        Assert.Equal("offline", lookup.GetUsername(2));
+        Assert.Null(lookup.GetUsername(3));
+    }
+
+    [Fact]
     public void MutePublishesOnlyAfterPersistenceAndDoesNotOverflowMinuteConversion()
     {
         var (actor, _) = HabbiconTestSupport.Client(new Habbo { Id = 7, Access = EditorTestSupport.Access([], 90) });

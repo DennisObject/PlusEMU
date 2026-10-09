@@ -28,7 +28,7 @@ public class MarketplacePurchaseTests
         await Buy(store, averages, counts).Parse(client, Packet(5));
 
         Assert.Equal(899, client.GetHabbo().Credits);
-        Assert.Equal(900u, client.GetHabbo().Inventory.Furniture.GetItem(77)!.Definition.Id);
+        Assert.Equal(900u, Assert.IsType<InventoryComponent>(client.GetHabbo().Inventory).Furniture.GetItem(77)!.Definition.Id);
         Assert.Equal(new[]
         {
             ServerPacketHeader.CreditBalanceComposer, ServerPacketHeader.FurniListNotificationComposer, ServerPacketHeader.PurchaseOKComposer,
@@ -37,6 +37,21 @@ public class MarketplacePurchaseTests
         Assert.Equal(101, averages[55]);
         Assert.Equal(1, counts[55]);
         Assert.Equal(5, store.Requests.Single().OfferId);
+    }
+
+    [Fact]
+    public async Task BuyerWithoutALoadedInventoryClaimsNothing()
+    {
+        var store = new ClaimStore(Claim());
+        var buyer = Buyer(credits: 1000);
+        buyer.Inventory = null;
+        var (client, sent) = HabbiconTestSupport.Client(buyer);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Buy(store, new(), new()).Parse(client, Packet(5)));
+
+        Assert.Empty(store.Requests);
+        Assert.Equal(1000, buyer.Credits);
+        Assert.Empty(sent);
     }
 
     [Theory]
@@ -55,7 +70,7 @@ public class MarketplacePurchaseTests
         await Buy(store, new(), new()).Parse(client, Packet(5));
 
         Assert.Equal(1000, client.GetHabbo().Credits);
-        Assert.Null(client.GetHabbo().Inventory.Furniture.GetItem(77));
+        Assert.Null(Assert.IsType<InventoryComponent>(client.GetHabbo().Inventory).Furniture.GetItem(77));
         Assert.DoesNotContain(ServerPacketHeader.CreditBalanceComposer, sent.Select(message => message.Header));
         Assert.Equal(reloads, sent.Any(message => message.Header == ServerPacketHeader.MarketPlaceOffersComposer));
     }

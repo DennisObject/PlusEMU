@@ -29,8 +29,13 @@ public sealed class WiredBotTargets
     public void Stop(RoomUser bot)
     {
         _targets.Remove(bot);
-        bot.BotData.ForcedMovement = false;
-        bot.BotData.ForcedUserTargetMovement = 0;
+
+        // Only bots are ever tracked here; their forced movement is cleared before the walk stops.
+        if (bot.BotData is { } botData) {
+            botData.ForcedMovement = false;
+            botData.ForcedUserTargetMovement = 0;
+        }
+
         bot.ClearMovement(true);
     }
     public IReadOnlyList<WiredRuntimeEvent> Poll(Room room)

@@ -12,6 +12,7 @@ using Plus.Communication.Nitro;
 using Plus.Communication.RCON;
 using Plus.Database;
 using Plus.HabboHotel.Camera;
+using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items.Editor;
 using Plus.Plugins;
 using Plus.Utilities.DependencyInjection;
@@ -72,7 +73,7 @@ public static class Program
         var serviceProvider = services.BuildServiceProvider();
         var loggerFactory = serviceProvider.GetRequiredService<ILoggerFactory>();
         ExceptionLogger.Configure(loggerFactory);
-        ConsoleCommands.Configure(loggerFactory);
+        ConsoleCommands.Configure(loggerFactory, serviceProvider.GetRequiredService<IGameClientManager>());
 
         foreach (var plugin in pluginDefinitions) {
             plugin.OnServiceProviderBuild(serviceProvider);

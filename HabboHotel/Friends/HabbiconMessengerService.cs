@@ -27,7 +27,7 @@ public sealed class HabbiconMessengerService(IHabbiconService habbicons, IGameCl
                 throw new HabbiconRejected(HabbiconActionError.InvalidRequest);
             }
 
-            if (sender.Messenger.GetFriend(recipientId) == null || metadata.Length != 0) {
+            if (sender.Messenger is not { } messenger || messenger.GetFriend(recipientId) == null || metadata.Length != 0) {
                 throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             }
 
@@ -37,14 +37,14 @@ public sealed class HabbiconMessengerService(IHabbiconService habbicons, IGameCl
                 throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             }
 
-            if (sender.TimeMuted > 0 || (sender.FloodUntil is { } floodUntil && capturedAt < floodUntil) || !sender.Messenger.TrySendHabbicon(capturedAt)) {
+            if (sender.TimeMuted > 0 || (sender.FloodUntil is { } floodUntil && capturedAt < floodUntil) || !messenger.TrySendHabbicon(capturedAt)) {
                 throw new HabbiconRejected(HabbiconActionError.MessageRateLimited);
             }
 
             var target = clients.GetClientByUserId(recipientId);
 
             if (target != null && (target.GetHabbo().TimeMuted > 0 || !target.GetHabbo().AllowConsoleMessages ||
-                target.GetHabbo().IgnoresComponent.IsIgnored(sender.Id) || target.GetHabbo().Messenger.GetFriend(sender.Id) == null)) {
+                target.GetHabbo().IgnoresComponent?.IsIgnored(sender.Id) == true || target.GetHabbo().Messenger?.GetFriend(sender.Id) == null)) {
                 throw new HabbiconRejected(HabbiconActionError.MessageForbidden);
             }
 

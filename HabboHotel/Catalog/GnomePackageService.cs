@@ -40,7 +40,8 @@ public sealed class GnomePackageService(
             if (!ReferenceEquals(room.GetRoomItemHandler().GetItem(itemId), item)
                 || item.IsTemporary || item.RoomId != room.RoomId
                 || item.OwnerId != habbo.Id
-                || item.Definition?.InteractionType != InteractionType.GnomeBox) {
+                || item.Definition?.InteractionType != InteractionType.GnomeBox
+                || habbo.Inventory is not { } inventory) {
                 return;
             }
 
@@ -70,7 +71,7 @@ public sealed class GnomePackageService(
 
                 if (foodItem != null) {
                     var food = foodItem.ToInventoryItem();
-                    habbo.Inventory.Furniture.AddItem(food);
+                    inventory.Furniture.AddItem(food);
                     session.Send(new FurniListNotificationComposer(food.Id, 1));
                 }
             }

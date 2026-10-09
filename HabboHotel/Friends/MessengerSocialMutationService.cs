@@ -41,9 +41,10 @@ public sealed class MessengerSocialMutationService(
     public async Task SetRelationship(GameClient session, int friendId, int relationship)
     {
         var habbo = session.GetHabbo();
-        var friend = habbo.Messenger.GetFriend(friendId);
+        var messenger = habbo.Messenger;
+        var friend = messenger?.GetFriend(friendId);
 
-        if (friend == null) {
+        if (messenger == null || friend == null) {
             session.Send(new BroadcastMessageAlertComposer("Oops, you can only set a relationship where a friendship exists."));
 
             return;
@@ -55,11 +56,11 @@ public sealed class MessengerSocialMutationService(
             return;
         }
 
-        var gate = _relationshipGates.GetValue(habbo.Messenger, static _ => new SemaphoreSlim(1, 1));
+        var gate = _relationshipGates.GetValue(messenger, static _ => new SemaphoreSlim(1, 1));
         await gate.WaitAsync();
 
         try {
-            friend = habbo.Messenger.GetFriend(friendId);
+            friend = messenger.GetFriend(friendId);
 
             if (friend == null) {
                 return;
@@ -73,7 +74,7 @@ public sealed class MessengerSocialMutationService(
                 rewards.Progress(session, RewardTrackActions.SetRelationshipStatus);
             }
 
-            habbo.Messenger.UpdateFriend(friend);
+            messenger.UpdateFriend(friend);
         }
         finally {
             gate.Release();
@@ -83,6 +84,11 @@ public sealed class MessengerSocialMutationService(
     public async Task SendRoomInvites(GameClient session, RoomInvitationRequest request)
     {
         var habbo = session.GetHabbo();
+
+        // Invites only go to friends; without a loaded messenger there is no one to invite or log.
+        if (habbo.Messenger is not { } messenger) {
+            return;
+        }
 
         if (habbo.TimeMuted > 0) {
             session.SendNotification("Oops, you're currently muted - you cannot send room invitations.");
@@ -97,7 +103,7 @@ public sealed class MessengerSocialMutationService(
         }
 
         var recipients = request.RecipientIds
-            .Where(habbo.Messenger.FriendshipExists)
+            .Where(messenger.FriendshipExists)
             .Select(clients.GetClientByUserId)
             .Where(client => client?.GetHabbo() is { AllowMessengerInvites: false, AllowConsoleMessages: true })
             .Cast<GameClient>()

@@ -71,7 +71,8 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
         lock (habbo.WalletSync) {
             var room = habbo.CurrentRoom;
 
-            if (habbo.WalletClosed || room == null) {
+            // The gift and its contents move through the loaded inventory, so nothing is opened without one.
+            if (habbo.WalletClosed || room == null || habbo.Inventory is not { } inventory) {
                 return Task.CompletedTask;
             }
 
@@ -88,7 +89,7 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
             if (content == null || !purchaserValid || !items.Items.TryGetValue(content?.BaseId ?? 0, out var definition)) {
                 store.DeleteInvalid(gift.Id, habbo.Id, room.RoomId);
                 room.GetRoomItemHandler().RemoveFurniture(null, gift.Id);
-                habbo.Inventory.Furniture.RemoveItem(gift.Id);
+                inventory.Furniture.RemoveItem(gift.Id);
                 session.Send(new FurniListRemoveComposer(gift.Id));
                 session.SendNotification(content != null && purchaserValid ? "Oops, it appears that the item within the gift is no longer in the hotel!" : "Oops! Appears there was a bug with this gift.\nWe'll just get rid of it for you.");
 
@@ -154,7 +155,7 @@ public sealed class GiftOpeningService(IGiftStore store, IItemDataManager items,
             }
 
             if (!inRoom) {
-                habbo.Inventory.Furniture.AddItem(inventoryFallback);
+                inventory.Furniture.AddItem(inventoryFallback);
 
                 if (definition.Type == ItemType.Floor) {
                     session.SendNotification("The opened gift could not be placed, so it was moved to your inventory.");

@@ -180,7 +180,7 @@ public class Room
     public bool HideWired { get => Data.HideWired; set => Data.HideWired = value; }
     public RoomModel Model { get => Data.Model; set => Data.Model = value; }
     public RoomPromotion Promotion { get => Data.Promotion; set => Data.Promotion = value; }
-    public Plus.HabboHotel.Groups.Group Group { get => Data.Group; set => Data.Group = value; }
+    public Plus.HabboHotel.Groups.Group? Group { get => Data.Group; set => Data.Group = value; }
     public bool HasActivePromotion => Data.HasActivePromotion;
     public void EndPromotion() => Data.EndPromotion();
 
@@ -302,9 +302,9 @@ public class Room
 
     public TradingComponent GetTrading() => _tradingComponent;
 
-    public bool CheckRights(GameClient session) => CheckRights(session, false);
+    public bool CheckRights(GameClient? session) => CheckRights(session, false);
 
-    public bool CheckRights(GameClient session, bool requireOwnership, bool checkForGroups = false)
+    public bool CheckRights(GameClient? session, bool requireOwnership, bool checkForGroups = false)
     {
         try {
             if (session == null || session.GetHabbo() == null) {

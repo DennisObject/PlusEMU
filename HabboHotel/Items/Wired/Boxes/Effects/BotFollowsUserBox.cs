@@ -66,7 +66,7 @@ internal class BotFollowsUserBox : IWiredItem
         var username = stuff[1];
         var user = Instance.GetRoomUserManager().GetBotByName(username);
 
-        if (user == null) {
+        if (user?.BotData is not { } botData) {
             return false;
         }
 
@@ -77,14 +77,14 @@ internal class BotFollowsUserBox : IWiredItem
         }
 
         if (followMode == 0) {
-            user.BotData.ForcedUserTargetMovement = 0;
+            botData.ForcedUserTargetMovement = 0;
 
             if (user.IsWalking) {
                 user.ClearMovement(true);
             }
         }
         else if (followMode == 1) {
-            user.BotData.ForcedUserTargetMovement = player.Id;
+            botData.ForcedUserTargetMovement = player.Id;
 
             if (user.IsWalking) {
                 user.ClearMovement(true);

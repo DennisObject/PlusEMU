@@ -81,6 +81,6 @@ public sealed class RoomCreationService(
             rewards.Progress(session, RewardTrackActions.CreateRoom);
         }
 
-        habbo.Messenger.NotifyChangesToFriends();
+        habbo.Messenger?.NotifyChangesToFriends();
     }
 }

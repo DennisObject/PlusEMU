@@ -18,7 +18,7 @@ public class TcpSessionProxy : TcpSession
             try {
                 return Socket.SendAsync(args);
             }
-            catch (Exception e) // TODO 80O: Maybe handle some potential errors.
+            catch (Exception) // TODO 80O: Maybe handle some potential errors.
             {
             }
 

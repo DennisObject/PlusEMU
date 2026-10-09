@@ -99,11 +99,11 @@ public class QuestManager : IQuestManager, IStartable
 
     public void ProgressUserQuest(GameClient session, QuestType type, int data = 0)
     {
-        if (session == null || session.GetHabbo() == null || session.GetHabbo().HabboStats.QuestId <= 0) {
+        if (session == null || session.GetHabbo() == null || session.GetHabbo().HabboStats is not { QuestId: > 0 } stats) {
             return;
         }
 
-        var quest = GetQuest(session.GetHabbo().HabboStats.QuestId);
+        var quest = GetQuest(stats.QuestId);
 
         if (quest == null || quest.GoalType != type) {
             return;
@@ -157,12 +157,12 @@ public class QuestManager : IQuestManager, IStartable
         }
 
         _progressStore.SaveProgress(session.GetHabbo().Id, quest.Id, totalProgress, completeQuest);
-        session.GetHabbo().Quests[session.GetHabbo().HabboStats.QuestId] = totalProgress;
+        session.GetHabbo().Quests[stats.QuestId] = totalProgress;
         session.Send(new QuestStartedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category))));
 
         if (completeQuest) {
             _messengerDataLoader.BroadcastStatusUpdate(session.GetHabbo(), MessengerEventTypes.QuestCompleted, $"{quest.Category}.{quest.Name}");
-            session.GetHabbo().HabboStats.QuestId = 0;
+            stats.QuestId = 0;
             session.GetHabbo().QuestLastCompleted = quest.Id;
             session.Send(new QuestCompletedComposer(QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(quest.Category), QuestWireKind.Completed)));
 
@@ -188,10 +188,11 @@ public class QuestManager : IQuestManager, IStartable
         return null;
     }
 
-    public void GetList(GameClient session, ClientPacket message)
+    public void GetList(GameClient session, ClientPacket? message)
     {
         var userQuestGoals = new Dictionary<string, int>();
-        var userQuests = new Dictionary<string, Quest>();
+        // A category without a current quest is listed as empty.
+        var userQuests = new Dictionary<string, Quest?>();
 
         foreach (var quest in _quests.Values.ToList()) {
             if (quest.Category.Contains("xmas2012")) {
@@ -206,7 +207,7 @@ public class QuestManager : IQuestManager, IStartable
             if (quest.Number >= userQuestGoals[quest.Category]) {
                 var userProgress = session.GetHabbo().GetQuestProgress(quest.Id);
 
-                if (session.GetHabbo().HabboStats.QuestId != quest.Id && userProgress >= quest.GoalData) {
+                if (session.GetHabbo().HabboStats?.QuestId != quest.Id && userProgress >= quest.GoalData) {
                     userQuestGoals[quest.Category] = quest.Number + 1;
                 }
             }
@@ -225,8 +226,8 @@ public class QuestManager : IQuestManager, IStartable
             }
         }
 
-        var wireQuests = userQuests.Where(entry => entry.Value != null)
-            .Select(entry => QuestWireDataFactory.Create(session, entry.Value, GetAmountOfQuestsInCategory(entry.Key)))
+        var wireQuests = userQuests
+            .SelectMany(entry => entry.Value is { } quest ? [QuestWireDataFactory.Create(session, quest, GetAmountOfQuestsInCategory(entry.Key))] : Array.Empty<QuestWireData>())
             .Concat(userQuests.Where(entry => entry.Value == null).Select(entry => QuestWireDataFactory.Empty(entry.Key)))
             .ToImmutableArray();
         session.Send(new QuestListComposer(new(message != null, wireQuests)));

@@ -55,9 +55,9 @@ public sealed class WiredModernCondition : WiredModernBox
             case "wf_cnd_has_handitem":
                 return Quantify(user => user.CarryItemId == Param(config, 0), 2);
             case "wf_cnd_wearing_effect":
-                return Quantify(user => !user.IsBot && user.GetClient()?.GetHabbo()?.Effects.CurrentEffect == Param(config, 0), 2);
+                return Quantify(user => !user.IsBot && user.GetClient()?.GetHabbo()?.Effects?.CurrentEffect == Param(config, 0), 2);
             case "wf_cnd_wearing_badge":
-                return Quantify(user => user.GetClient()?.GetHabbo()?.Inventory.Badges.EquippedBadges.Any(badge =>
+                return Quantify(user => user.GetClient()?.GetHabbo()?.Inventory?.Badges.EquippedBadges.Any(badge =>
                 string.Equals(badge.Code, config.Text, StringComparison.OrdinalIgnoreCase)) == true, 1);
             case "wf_cnd_actor_in_group":
                 var group = context.Room.Group;

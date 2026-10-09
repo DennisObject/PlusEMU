@@ -38,7 +38,7 @@ public partial class PlacedFurniRoomTests
     {
         LegacyRider();
         var target = RespectTarget();
-        var stats = _client.GetHabbo().HabboStats;
+        var stats = Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats);
         stats.DailyRespectPoints = 2;
         _room.RespectNotificationsEnabled = true;
         var order = new List<string>();
@@ -46,7 +46,7 @@ public partial class PlacedFurniRoomTests
             Proxy<IAchievementManager>((_, args) =>
             {
                 Assert.Equal(2, stats.DailyRespectPoints);
-                Assert.Equal(0, target.HabboStats.Respect);
+                Assert.Equal(0, Assert.IsType<HabboStats>(target.HabboStats).Respect);
                 order.Add((string)args[1]);
 
                 return null;
@@ -70,7 +70,7 @@ public partial class PlacedFurniRoomTests
             }));
         service.Respect(_room, _client, 9);
         Assert.Equal(new[] { "quest", "ACH_RespectGiven", "ACH_RespectEarned", "reward" }, order);
-        Assert.Equal((1, 1, 1), (stats.DailyRespectPoints, stats.RespectGiven, target.HabboStats.Respect));
+        Assert.Equal((1, 1, 1), (stats.DailyRespectPoints, stats.RespectGiven, Assert.IsType<HabboStats>(target.HabboStats).Respect));
         Assert.Equal(new[] { ServerPacketHeader.RespectNotificationComposer, ServerPacketHeader.ActionComposer }, _client.Sent);
     }
 
@@ -81,10 +81,10 @@ public partial class PlacedFurniRoomTests
     {
         LegacyRider();
         var target = RespectTarget();
-        _client.GetHabbo().HabboStats.DailyRespectPoints = available;
+        Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyRespectPoints = available;
         DeniedPlayerRespectService().Respect(_room, _client, 9);
-        Assert.Equal(available, _client.GetHabbo().HabboStats.DailyRespectPoints);
-        Assert.Equal(0, target.HabboStats.Respect);
+        Assert.Equal(available, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyRespectPoints);
+        Assert.Equal(0, Assert.IsType<HabboStats>(target.HabboStats).Respect);
         Assert.Empty(_client.Sent);
     }
 
@@ -92,7 +92,7 @@ public partial class PlacedFurniRoomTests
     public void PlayerRespectDeniesMissingSelfDepartedAndStaleRoomActors()
     {
         var target = RespectTarget();
-        _client.GetHabbo().HabboStats.DailyRespectPoints = 2;
+        Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyRespectPoints = 2;
         var service = DeniedPlayerRespectService();
         service.Respect(_room, _client, 9); // no actor
         LegacyRider();
@@ -103,8 +103,8 @@ public partial class PlacedFurniRoomTests
         target.CurrentRoom = _room;
         _client.GetHabbo().CurrentRoom = null!;
         service.Respect(_room, _client, 9);
-        Assert.Equal(2, _client.GetHabbo().HabboStats.DailyRespectPoints);
-        Assert.Equal(0, target.HabboStats.Respect);
+        Assert.Equal(2, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyRespectPoints);
+        Assert.Equal(0, Assert.IsType<HabboStats>(target.HabboStats).Respect);
         Assert.Empty(_client.Sent);
     }
 
@@ -113,7 +113,7 @@ public partial class PlacedFurniRoomTests
     {
         LegacyRider();
         RespectTarget();
-        _client.GetHabbo().HabboStats.DailyRespectPoints = 1;
+        Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyRespectPoints = 1;
         _room.RespectNotificationsEnabled = false;
         var service = new RoomRespectService(
             Proxy<IAchievementManager>((_, _) => null),

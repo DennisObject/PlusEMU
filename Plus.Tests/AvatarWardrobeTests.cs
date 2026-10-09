@@ -87,6 +87,48 @@ public class AvatarWardrobeTests
     }
 
     [Fact]
+    public void OutfitIsNotSavedWithoutALoadedWardrobe()
+    {
+        var figures = new RecordingFigures();
+        var store = new RecordingStore();
+        var habbo = new Habbo { Id = 7 };
+
+        new AvatarWardrobeService(figures, store, UserDataExists(true)).SaveOutfit(habbo, 3, "raw-look", "m");
+
+        Assert.Empty(figures.Calls);
+        Assert.Empty(store.Saves);
+    }
+
+    [Fact]
+    public void FigureChangesWithoutALoadedWardrobeLeaveTheLookAndStorageUntouched()
+    {
+        var calls = new List<string>();
+        T Untouched<T>() where T : class => CatalogSnapshotTestSupport.Proxy<T>((method, _) =>
+        {
+            calls.Add($"{typeof(T).Name}.{method}");
+
+            throw new InvalidOperationException(method);
+        });
+        var figures = new RecordingFigures();
+        var service = new UserProfileService(figures, Untouched<Plus.HabboHotel.Achievements.IAchievementManager>(),
+            Untouched<Plus.HabboHotel.Quests.IQuestManager>(), Untouched<Plus.HabboHotel.Rooms.Chat.Filter.IWordFilterManager>(),
+            Untouched<Plus.Database.IDatabase>(), TimeProvider.System, Untouched<Plus.HabboHotel.Rooms.Chat.Styles.IChatStyleManager>(),
+            Untouched<Plus.HabboHotel.Quests.IRewardTrackManager>(), Untouched<Plus.HabboHotel.Users.Authentication.IAccountSessionGate>(),
+            Untouched<Plus.Core.Settings.ISettingsManager>());
+        var habbo = new Habbo { Id = 7, Look = "hd-180-1", Gender = "M" };
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+
+        service.UpdateFigure(client, new FigureUpdateRequest("F", "hd-600-1.ch-3001-1"));
+        service.ApplyMannequin(client, new FigureUpdateRequest("F", "hd-600-1.ch-3001-1"));
+
+        Assert.Empty(calls);
+        Assert.Empty(figures.Calls);
+        Assert.Equal("hd-180-1", habbo.Look);
+        Assert.Equal("M", habbo.Gender);
+        Assert.Empty(sent);
+    }
+
+    [Fact]
     public void FigureFailureWritesNothing()
     {
         var store = new RecordingStore();

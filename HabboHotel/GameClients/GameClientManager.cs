@@ -231,7 +231,7 @@ public class GameClientManager : IGameClientManager
         _clients[client.Id] = client;
     }
 
-    public void UnregisterClient(GameClient client, int userId, string username)
+    public void UnregisterClient(GameClient? client, int userId, string username)
     {
         if (client != null) {
             _clients.TryRemove(client.Id, out _);
@@ -248,7 +248,7 @@ public class GameClientManager : IGameClientManager
         }
     }
 
-    private bool CanDropRegistration(GameClient client, GameClient stored)
+    private bool CanDropRegistration(GameClient? client, GameClient stored)
     {
         if (ReferenceEquals(stored, client)) {
             return true;
@@ -349,7 +349,7 @@ public class GameClientManager : IGameClientManager
                     GameClient? client = null;
 
                     if (_timedOutConnections.Count > 0) {
-                        client = (GameClient)_timedOutConnections.Dequeue();
+                        client = (GameClient?)_timedOutConnections.Dequeue();
                     }
 
                     if (client != null) {

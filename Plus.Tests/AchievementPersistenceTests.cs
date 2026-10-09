@@ -55,7 +55,7 @@ public sealed class AchievementPersistenceTests
         Assert.Equal(0, fixture.StoredLevels());
         Assert.Equal((0, 0), fixture.StoredAward());
         Assert.Equal((0, 0, 0), (fixture.Habbo.GetAchievementData(Group)!.Level,
-            fixture.Habbo.Duckets, fixture.Habbo.HabboStats.AchievementPoints));
+            fixture.Habbo.Duckets, Assert.IsType<HabboStats>(fixture.Habbo.HabboStats).AchievementPoints));
         Assert.DoesNotContain(fixture.Sent, packet => packet.Header is
             ServerPacketHeader.HabboActivityPointNotificationComposer or ServerPacketHeader.AchievementScoreComposer);
     }
@@ -92,7 +92,7 @@ public sealed class AchievementPersistenceTests
         Assert.Equal(0, writes);
         Assert.Equal(0, fixture.StoredLevels());
         Assert.Equal((0, 0, 0), (fixture.Habbo.GetAchievementData(Group)!.Level,
-            fixture.Habbo.Duckets, fixture.Habbo.HabboStats.AchievementPoints));
+            fixture.Habbo.Duckets, Assert.IsType<HabboStats>(fixture.Habbo.HabboStats).AchievementPoints));
         Assert.DoesNotContain(fixture.Sent, packet => packet.Header is
             ServerPacketHeader.HabboActivityPointNotificationComposer or ServerPacketHeader.AchievementScoreComposer
             or ServerPacketHeader.AchievementProgressedComposer);
@@ -148,7 +148,7 @@ public sealed class AchievementPersistenceTests
     {
         using var fixture = new Fixture();
         var manager = fixture.Manager();
-        var send = fixture.Client.SendCallback;
+        var send = Assert.IsAssignableFrom<Func<System.Net.Sockets.SocketAsyncEventArgs, bool>>(fixture.Client.SendCallback);
         fixture.Client.SendCallback = args =>
         {
             var result = send(args);
@@ -189,7 +189,7 @@ public sealed class AchievementPersistenceTests
         Assert.Throws<MySqlException>(() => fixture.Manager().ProgressAchievement(fixture.Client, Group, 1));
 
         Assert.Equal((0, 0, 0), (fixture.Habbo.GetAchievementData(Group)!.Level,
-            fixture.Habbo.Duckets, fixture.Habbo.HabboStats.AchievementPoints));
+            fixture.Habbo.Duckets, Assert.IsType<HabboStats>(fixture.Habbo.HabboStats).AchievementPoints));
         Assert.Equal(ServerPacketHeader.AchievementUnlockedComposer, Assert.Single(fixture.Sent).Header);
     }
 
@@ -197,8 +197,6 @@ public sealed class AchievementPersistenceTests
     {
         private readonly MySqlConnection _admin;
         private readonly string _schema = "task_achievement_shutdown_" + Guid.NewGuid().ToString("N");
-        private readonly FieldInfo _game = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
-        private readonly object? _previousGame;
         public HabbiconDatabaseTests.TestDatabase Database { get; }
         public Habbo Habbo { get; }
         public FlashGameClient Client { get; }
@@ -209,7 +207,6 @@ public sealed class AchievementPersistenceTests
             var root = Environment.GetEnvironmentVariable("ROOM_COMPONENT_DATABASE")!;
             _admin = new MySqlConnection(root);
             _admin.Execute($"CREATE DATABASE `{_schema}`");
-            _previousGame = _game.GetValue(null);
 
             try {
                 Database = new(new MySqlConnectionStringBuilder(root)
@@ -245,8 +242,7 @@ public sealed class AchievementPersistenceTests
                 Habbo.Client = Client;
                 var clients = CatalogSnapshotTestSupport.Proxy<IGameClientManager>((method, _) =>
                     method == "UnregisterClient" ? null : throw new InvalidOperationException(method));
-                _game.SetValue(null, CatalogSnapshotTestSupport.Proxy<IGame>((method, _) =>
-                    method == "get_ClientManager" ? clients : throw new InvalidOperationException(method)));
+                Habbo.SetHotelServices(clients, TestRoomManager.Unused);
             }
             catch {
                 Dispose();
@@ -284,8 +280,6 @@ public sealed class AchievementPersistenceTests
 
         public void Dispose()
         {
-            _game.SetValue(null, _previousGame);
-
             try {
                 _admin.Execute($"DROP DATABASE `{_schema}`");
             }

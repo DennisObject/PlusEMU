@@ -88,7 +88,11 @@ public sealed class LandingEffects
 
     private static void ToggleTeam(RoomUser actor, Item item, TeamManager teams, int offset)
     {
-        var effects = actor.GetClient().GetHabbo().Effects;
+        // Team membership is shown through the effect, so a user without loaded effects does not change team.
+        if (actor.GetClient().GetHabbo().Effects is not { } effects) {
+            return;
+        }
+
         var effect = (int)item.Team + offset;
 
         if (actor.Team == Team.None) {

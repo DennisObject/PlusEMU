@@ -23,26 +23,27 @@ public interface IMessengerFriendMutationService
 
 public sealed class MessengerFriendMutationService(IMessengerDataLoader messengerData, IAccountSessionGate sessionGate, IGameClientManager clients) : IMessengerFriendMutationService
 {
+    // Requests live in the loaded messenger; a user without one has none to accept, decline or send through.
     public async Task<FriendRequestError?> AcceptRequestAsync(Habbo habbo, int fromId)
     {
-        if (fromId == habbo.Id || !habbo.Messenger.Requests.ContainsKey(fromId)) {
+        if (habbo.Messenger is not { } messenger || fromId == habbo.Id || !messenger.Requests.ContainsKey(fromId)) {
             return FriendRequestError.NoFriendRequest;
         }
 
         using var accounts = await sessionGate.EnterManyAsync([habbo.Id, fromId]);
 
-        return await AcceptLockedAsync(habbo, fromId);
+        return await AcceptLockedAsync(habbo, messenger, fromId);
     }
 
     public async Task<FriendRequestError?> DeclineRequestAsync(Habbo habbo, int fromId)
     {
-        if (fromId == habbo.Id || !habbo.Messenger.Requests.ContainsKey(fromId)) {
+        if (habbo.Messenger is not { } messenger || fromId == habbo.Id || !messenger.Requests.ContainsKey(fromId)) {
             return FriendRequestError.NoFriendRequest;
         }
 
         using var accounts = await sessionGate.EnterManyAsync([habbo.Id, fromId]);
 
-        if (!habbo.Messenger.Requests.ContainsKey(fromId)) {
+        if (!messenger.Requests.ContainsKey(fromId)) {
             return FriendRequestError.NoFriendRequest;
         }
 
@@ -50,14 +51,18 @@ public sealed class MessengerFriendMutationService(IMessengerDataLoader messenge
             return FriendRequestError.NoFriendRequest;
         }
 
-        habbo.Messenger.RemoveRequest(fromId);
+        messenger.RemoveRequest(fromId);
 
         return null;
     }
 
     public async Task DeclineAllRequestsAsync(Habbo habbo)
     {
-        foreach (var fromId in habbo.Messenger.Requests.Keys.ToArray()) {
+        if (habbo.Messenger is not { } messenger) {
+            return;
+        }
+
+        foreach (var fromId in messenger.Requests.Keys.ToArray()) {
             await DeclineRequestAsync(habbo, fromId);
         }
     }
@@ -68,22 +73,27 @@ public sealed class MessengerFriendMutationService(IMessengerDataLoader messenge
             return new(FriendRequestError.AlreadyOutstandingFriendRequest);
         }
 
-        if (habbo.Messenger.Requests.ContainsKey(toId)) {
+        // A request can only be recorded in a loaded messenger, so nothing is stored without one.
+        if (habbo.Messenger is not { } messenger) {
+            throw new InvalidOperationException("The user has no loaded messenger to send a friend request from.");
+        }
+
+        if (messenger.Requests.ContainsKey(toId)) {
             return new(await AcceptRequestAsync(habbo, toId), Accepted: true);
         }
 
-        if (habbo.Messenger.OutstandingFriendRequests.Contains(toId)) {
+        if (messenger.OutstandingFriendRequests.Contains(toId)) {
             return new(FriendRequestError.AlreadyOutstandingFriendRequest);
         }
 
         using var accounts = await sessionGate.EnterManyAsync([habbo.Id, toId]);
 
         // Revalidate under the hold: an incoming request may have arrived after the checks above.
-        if (habbo.Messenger.Requests.ContainsKey(toId)) {
-            return new(await AcceptLockedAsync(habbo, toId), Accepted: true);
+        if (messenger.Requests.ContainsKey(toId)) {
+            return new(await AcceptLockedAsync(habbo, messenger, toId), Accepted: true);
         }
 
-        if (habbo.Messenger.OutstandingFriendRequests.Contains(toId)) {
+        if (messenger.OutstandingFriendRequests.Contains(toId)) {
             return new(FriendRequestError.AlreadyOutstandingFriendRequest);
         }
 
@@ -91,40 +101,44 @@ public sealed class MessengerFriendMutationService(IMessengerDataLoader messenge
             return new(FriendRequestError.AlreadyOutstandingFriendRequest);
         }
 
-        habbo.Messenger.RecordOutgoingFriendRequest(toId);
+        messenger.RecordOutgoingFriendRequest(toId);
 
         return new(null);
     }
 
     public async Task RemoveFriendsAsync(Habbo habbo, IReadOnlyList<int> friendIds)
     {
+        if (habbo.Messenger is not { } messenger) {
+            return;
+        }
+
         foreach (var friendId in friendIds.Distinct()) {
-            if (friendId == habbo.Id || habbo.Messenger.GetFriend(friendId) == null) {
+            if (friendId == habbo.Id || messenger.GetFriend(friendId) == null) {
                 continue;
             }
 
             using var accounts = await sessionGate.EnterManyAsync([habbo.Id, friendId]);
             // Everything the publication needs is read once, under the hold.
-            var friend = habbo.Messenger.GetFriend(friendId);
+            var friend = messenger.GetFriend(friendId);
             var other = clients.GetClientByUserId(friendId)?.GetHabbo();
 
             if (friend == null || await messengerData.DeleteFriendship(habbo.Id, friendId) == 0) {
                 continue;
             }
 
-            habbo.Messenger.RemoveFriend(friend);
-            var otherBuddy = other?.Messenger.GetFriend(habbo.Id);
+            messenger.RemoveFriend(friend);
 
-            if (other != null && otherBuddy != null) {
-                other.Messenger.RemoveFriend(otherBuddy);
+            // The other side only mirrors the committed removal if their messenger is loaded.
+            if (other?.Messenger is { } otherMessenger && otherMessenger.GetFriend(habbo.Id) is { } otherBuddy) {
+                otherMessenger.RemoveFriend(otherBuddy);
             }
         }
     }
 
     // Caller holds both accounts. Memory is read after the lock and changed only after the store commits.
-    private async Task<FriendRequestError?> AcceptLockedAsync(Habbo habbo, int fromId)
+    private async Task<FriendRequestError?> AcceptLockedAsync(Habbo habbo, HabboMessenger messenger, int fromId)
     {
-        if (!habbo.Messenger.Requests.ContainsKey(fromId)) {
+        if (!messenger.Requests.ContainsKey(fromId)) {
             return FriendRequestError.NoFriendRequest;
         }
 
@@ -136,16 +150,17 @@ public sealed class MessengerFriendMutationService(IMessengerDataLoader messenge
 
         var friend = result.From!;
         var me = result.To!;
-        habbo.Messenger.RemoveRequest(fromId);
+        messenger.RemoveRequest(fromId);
         me.Habbo = habbo;
         var requester = clients.GetClientByUserId(fromId)?.GetHabbo();
 
         if (requester != null) {
             friend.Habbo = requester;
-            requester.Messenger.AddFriend(me);
+            // The requester's side mirrors the committed friendship only if their messenger is loaded.
+            requester.Messenger?.AddFriend(me);
         }
 
-        habbo.Messenger.AddFriend(friend);
+        messenger.AddFriend(friend);
 
         return null;
     }

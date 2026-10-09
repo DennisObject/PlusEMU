@@ -27,7 +27,7 @@ internal static class WeeklyLeaderboardWire
             packet.WriteString(row.Gender); //Gender
         }
 
-        packet.WriteInteger(0); //
-        packet.WriteInteger(gameId); //Game Id?
+        packet.WriteInteger(0); // Total leaderboard size (legacy fixed value).
+        packet.WriteInteger(gameId); // Game type ID.
     }
 }

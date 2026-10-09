@@ -110,7 +110,7 @@ public sealed class GnomePackageServiceTests
         Assert.Null(world.Room.GetRoomItemHandler().GetItem(7));
         Assert.True(world.Room.GetRoomUserManager().TryGetPet(12, out var actor));
         Assert.Equal(("owner", "Pixel", 26, 42u),
-            (actor.PetData.OwnerName, actor.PetData.Name, actor.PetData.Type, actor.PetData.RoomId));
+            (Assert.IsType<Pet>(actor.PetData).OwnerName, Assert.IsType<Pet>(actor.PetData).Name, Assert.IsType<Pet>(actor.PetData).Type, Assert.IsType<Pet>(actor.PetData).RoomId));
         Assert.Equal(1, world.Clock.Reads);
         Assert.NotEmpty(world.Packets);
     }

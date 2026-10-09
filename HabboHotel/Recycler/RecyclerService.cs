@@ -78,13 +78,14 @@ public sealed class RecyclerService(IRecyclerStore store, IItemDataManager defin
 
             if (!Active(session, habbo) || room is null || !Valid(configuration, items) || box is null
                 || !Admitted(session, habbo, room)
-                || itemIds.Count != configuration.Slots || itemIds.Distinct().Count() != itemIds.Count || itemIds.Any(id => id == 0)) {
+                || itemIds.Count != configuration.Slots || itemIds.Distinct().Count() != itemIds.Count || itemIds.Any(id => id == 0)
+                || habbo.Inventory is not { } userInventory) {
                 session.Send(new RecyclerFinishedComposer(2, 0));
 
                 return;
             }
 
-            var selected = itemIds.Select(habbo.Inventory.Furniture.GetItem).ToArray();
+            var selected = itemIds.Select(userInventory.Furniture.GetItem).ToArray();
 
             if (selected.Any(item => item is null || item.OwnerId != (uint)habbo.Id || !item.Definition.AllowEcotronRecycle
                 || item.UniqueNumber != 0 || item.UniqueSeries != 0)) {
@@ -105,7 +106,7 @@ public sealed class RecyclerService(IRecyclerStore store, IItemDataManager defin
 
                     reserved.Add(item);
 
-                    if (!ReferenceEquals(habbo.Inventory.Furniture.GetItem(item.Id), item)) {
+                    if (!ReferenceEquals(userInventory.Furniture.GetItem(item.Id), item)) {
                         session.Send(new RecyclerFinishedComposer(2, 0));
 
                         return;
@@ -141,10 +142,10 @@ public sealed class RecyclerService(IRecyclerStore store, IItemDataManager defin
                 };
 
                 foreach (var item in reserved) {
-                    habbo.Inventory.Furniture.RemoveItem(item.Id);
+                    userInventory.Furniture.RemoveItem(item.Id);
                 }
 
-                if (!habbo.Inventory.Furniture.AddItem(reward)) {
+                if (!userInventory.Furniture.AddItem(reward)) {
                     throw new InvalidOperationException("Committed recycler box was already present in inventory.");
                 }
 
@@ -211,7 +212,8 @@ public sealed class RecyclerService(IRecyclerStore store, IItemDataManager defin
                     || !room.CheckRights(session, false, true) || box is null || item.Definition.Id != box.Id || item.IsTemporary
                     || item.OwnerId != (uint)habbo.Id || item.RoomId != room.Id || item.Placement != placement
                     || !ReferenceEquals(item.GetRoom(), room) || !ReferenceEquals(handler.GetItem(item.Id), item)
-                    || !DateOnly.TryParseExact(item.LegacyDataString, "d-M-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)) {
+                    || !DateOnly.TryParseExact(item.LegacyDataString, "d-M-yyyy", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+                    || habbo.Inventory is not { } userInventory) {
                     return;
                 }
 
@@ -237,7 +239,7 @@ public sealed class RecyclerService(IRecyclerStore store, IItemDataManager defin
 
                     var inventory = new InventoryItem { Id = rewardId.Value, OwnerId = (uint)habbo.Id, Definition = definition, ExtraData = data };
 
-                    if (!habbo.Inventory.Furniture.AddItem(inventory)) {
+                    if (!userInventory.Furniture.AddItem(inventory)) {
                         throw new InvalidOperationException("Committed recycler reward was already present in inventory.");
                     }
 

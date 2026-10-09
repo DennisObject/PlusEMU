@@ -45,7 +45,7 @@ internal class IsNotWearingFxBox : IWiredItem
             return false;
         }
 
-        if (player.Effects.CurrentEffect != int.Parse(StringData)) {
+        if ((player.Effects?.CurrentEffect ?? 0) != int.Parse(StringData)) {
             return true;
         }
 

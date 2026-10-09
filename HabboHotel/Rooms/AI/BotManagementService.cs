@@ -117,11 +117,10 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
         var room = session.GetHabbo().CurrentRoom;
 
         if (room == null || actionId is not (2 or 5) ||
-            !room.GetRoomUserManager().TryGetBot(botId, out var user) || user.BotData.IsTemporary) {
+            !room.GetRoomUserManager().TryGetBot(botId, out var user) || user.BotData is not { IsTemporary: false } bot) {
             return;
         }
 
-        var bot = user.BotData;
         var data = actionId == 5 ? bot.Name :
             string.Concat(bot.RandomSpeech.Select(speech => speech.Message + "\n")) + ";#;" +
             bot.AutomaticChat + ";#;" + bot.SpeakingInterval.ToString(System.Globalization.CultureInfo.InvariantCulture) + ";#;" + bot.MixSentences;
@@ -140,7 +139,7 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
             return;
         }
 
-        if (!session.GetHabbo().Inventory.Bots.Bots.TryGetValue(botId, out var bot)) {
+        if (session.GetHabbo().Inventory is not { } inventory || !inventory.Bots.Bots.TryGetValue(botId, out var bot)) {
             return;
         }
 
@@ -159,8 +158,8 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
         botUser.Chat("Hello!");
         room.GetGameMap().UpdateUserMovement(new(x, y), new(x, y), botUser);
 
-        if (session.GetHabbo().Inventory.Bots.RemoveBot(botId)) {
-            session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(session.GetHabbo().Inventory.Bots.Bots.Values)));
+        if (inventory.Bots.RemoveBot(botId)) {
+            session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(inventory.Bots.Bots.Values)));
         }
     }
 
@@ -168,17 +167,18 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
     {
         var habbo = session.GetHabbo();
 
-        if (!habbo.InRoom || botId == 0 || habbo.CurrentRoom == null) {
+        // A picked-up bot goes into the loaded inventory, so nothing is picked up without one.
+        if (!habbo.InRoom || botId == 0 || habbo.CurrentRoom == null || habbo.Inventory is not { } inventory) {
             return;
         }
 
         var room = habbo.CurrentRoom;
 
-        if (!room.GetRoomUserManager().TryGetBot(botId, out var bot) || bot.BotData.IsTemporary) {
+        if (!room.GetRoomUserManager().TryGetBot(botId, out var bot) || bot.BotData is not { IsTemporary: false } botData) {
             return;
         }
 
-        if (habbo.Id != bot.BotData.OwnerId && !habbo.Access.Can(PermissionKeys.BotPlaceAnyOverride)) {
+        if (habbo.Id != botData.OwnerId && !habbo.Access.Can(PermissionKeys.BotPlaceAnyOverride)) {
             session.SendWhisper("You can only pick up your own bots!");
 
             return;
@@ -186,8 +186,8 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
 
         store.PickUp(botId, room.RoomId);
         room.GetGameMap().RemoveUserFromMap(bot, new(bot.X, bot.Y));
-        habbo.Inventory.Bots.AddBot(new(bot.BotData.Id, bot.BotData.OwnerId, bot.BotData.Name, bot.BotData.Motto, bot.BotData.Look, bot.BotData.Gender));
-        session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(habbo.Inventory.Bots.Bots.Values)));
+        inventory.Bots.AddBot(new(botData.Id, botData.OwnerId, botData.Name, botData.Motto, botData.Look, botData.Gender));
+        session.Send(new BotInventoryComposer(BotInventorySnapshot.Capture(inventory.Bots.Bots.Values)));
         room.GetRoomUserManager().RemoveBot(bot.VirtualId, false);
     }
 
@@ -201,41 +201,46 @@ public sealed class BotManagementService(IBotManagementStore store, IFigureDataM
 
         var room = habbo.CurrentRoom;
 
-        if (!room.GetRoomUserManager().TryGetBot(request.BotId, out var bot) || bot.BotData.IsTemporary) {
+        if (!room.GetRoomUserManager().TryGetBot(request.BotId, out var bot) || bot.BotData is not { IsTemporary: false } botData) {
             return;
         }
 
-        if (bot.BotData.OwnerId != habbo.Id && !habbo.Access.Can(PermissionKeys.BotEditAnyOverride)) {
+        if (botData.OwnerId != habbo.Id && !habbo.Access.Can(PermissionKeys.BotEditAnyOverride)) {
             return;
         }
 
         switch (request.Action) {
             case BotAction.CopyLooks:
-                var look = figures.ProcessFigure(habbo.Look, habbo.Gender, habbo.Clothing.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
-                store.SaveAppearance(bot.BotData.Id, room.RoomId, look, habbo.Gender);
-                bot.BotData.Look = look;
-                bot.BotData.Gender = habbo.Gender;
-                room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(bot.BotData)));
+                // Paid clothing is only checked against a loaded wardrobe; without one the bot keeps its look.
+                if (habbo.Clothing is not { } wardrobe) {
+                    break;
+                }
+
+                var look = figures.ProcessFigure(habbo.Look, habbo.Gender, wardrobe.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
+                store.SaveAppearance(botData.Id, room.RoomId, look, habbo.Gender);
+                botData.Look = look;
+                botData.Gender = habbo.Gender;
+                room.SendPacket(new UserChangeComposer(AvatarChangeSnapshot.Capture(botData)));
                 break;
             case BotAction.Speech:
-                SaveSpeech(bot.BotData, request.Data);
+                SaveSpeech(botData, request.Data);
                 break;
             case BotAction.Relax:
-                var mode = bot.BotData.WalkingMode == "stand" ? "freeroam" : "stand";
-                store.SaveWalkingMode(bot.BotData.Id, room.RoomId, mode);
-                bot.BotData.WalkingMode = mode;
+                var mode = botData.WalkingMode == "stand" ? "freeroam" : "stand";
+                store.SaveWalkingMode(botData.Id, room.RoomId, mode);
+                botData.WalkingMode = mode;
                 break;
             case BotAction.Dance:
-                bot.BotData.DanceId = bot.BotData.DanceId > 0 ? 0 : Random.Shared.Next(1, 4);
-                room.SendPacket(new DanceComposer(bot.VirtualId, bot.BotData.DanceId));
+                botData.DanceId = botData.DanceId > 0 ? 0 : Random.Shared.Next(1, 4);
+                room.SendPacket(new DanceComposer(bot.VirtualId, botData.DanceId));
                 break;
             case BotAction.Rename:
                 if (!ValidName(session, request.Data)) {
                     return;
                 }
 
-                store.SaveName(bot.BotData.Id, room.RoomId, request.Data);
-                bot.BotData.Name = request.Data;
+                store.SaveName(botData.Id, room.RoomId, request.Data);
+                botData.Name = request.Data;
                 room.SendUser(bot);
                 break;
         }

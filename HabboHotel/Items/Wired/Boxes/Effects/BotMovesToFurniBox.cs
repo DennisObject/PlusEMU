@@ -51,7 +51,7 @@ internal class BotMovesToFurniBox : IWiredItem
 
         var user = Instance.GetRoomUserManager().GetBotByName(StringData);
 
-        if (user == null) {
+        if (user?.BotData is not { } botData) {
             return false;
         }
 
@@ -94,8 +94,8 @@ internal class BotMovesToFurniBox : IWiredItem
             user.ClearMovement(true);
         }
 
-        user.BotData.ForcedMovement = true;
-        user.BotData.TargetCoordinate = new(item.GetX, item.GetY);
+        botData.ForcedMovement = true;
+        botData.TargetCoordinate = new(item.GetX, item.GetY);
         user.MoveTo(item.GetX, item.GetY);
 
         return true;

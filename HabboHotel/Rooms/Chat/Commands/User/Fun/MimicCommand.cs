@@ -42,8 +42,13 @@ internal class MimicCommand : ITargetChatCommand
             return Task.CompletedTask;
         }
 
+        // Paid clothing is only checked against a loaded wardrobe, so neither gender nor look changes without one.
+        if (session.GetHabbo().Clothing is not { } wardrobe) {
+            return Task.CompletedTask;
+        }
+
         session.GetHabbo().Gender = targetUser.GetClient().GetHabbo().Gender;
-        session.GetHabbo().Look = _figures.ProcessFigure(target.Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access));
+        session.GetHabbo().Look = _figures.ProcessFigure(target.Look, session.GetHabbo().Gender, wardrobe.GetClothingParts, Plus.HabboHotel.Subscriptions.ClubAccess.LevelFor(session.GetHabbo().Access));
         using var connection = _database.Connection();
         connection.Execute("UPDATE users SET gender=@gender,look=@look WHERE id=@id LIMIT 1",
             new { session.GetHabbo().Gender, session.GetHabbo().Look, session.GetHabbo().Id });

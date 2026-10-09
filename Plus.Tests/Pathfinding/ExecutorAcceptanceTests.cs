@@ -20,7 +20,7 @@ public partial class PlacedFurniRoomTests
         var first = ExecutorActor(0, 1);
         var second = AcceptanceBot(0, 2, 2);
         ExecutorTick();
-        _client.GetHabbo().Effects.Init(_client.GetHabbo());
+        Assert.IsType<EffectsComponent>(_client.GetHabbo().Effects).Init(_client.GetHabbo());
         _room.GetGameMap().EffectMap[2, 1] = 1;
         first.MoveTo(3, 1);
         second.MoveTo(3, 2);
@@ -177,7 +177,7 @@ public partial class PlacedFurniRoomTests
 
         var events = ExecutorWalkEvents();
         var actor = ExecutorActor(0, 1);
-        _client.GetHabbo().Effects.Init(_client.GetHabbo());
+        Assert.IsType<EffectsComponent>(_client.GetHabbo().Effects).Init(_client.GetHabbo());
         actor.SuperFastWalking = true;
         actor.MoveTo(3, 1);
         ExecutorTick();

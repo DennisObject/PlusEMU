@@ -42,8 +42,8 @@ public class CatalogPageComposer : IServerPacket
 
         foreach (var promotion in _page.Promotions) {
             packet.WriteInteger(promotion.Position);
-            packet.WriteString(promotion.Title);
-            packet.WriteString(promotion.Image);
+            packet.WriteString(promotion.Title ?? string.Empty);
+            packet.WriteString(promotion.Image ?? string.Empty);
             packet.WriteInteger(promotion.ItemType);
 
             switch (promotion.ItemType) {
@@ -54,7 +54,7 @@ public class CatalogPageComposer : IServerPacket
                     packet.WriteString(promotion.ProductCode ?? string.Empty);
                     break;
                 default:
-                    packet.WriteString(promotion.PageLink);
+                    packet.WriteString(promotion.PageLink ?? string.Empty);
                     break;
             }
 

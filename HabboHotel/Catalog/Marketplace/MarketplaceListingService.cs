@@ -19,11 +19,11 @@ public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMar
     {
         // One listing at a time per account: the inventory check, the committed offer and the in-memory removal stay together.
         lock (habbo.WalletSync) {
-            if (habbo.WalletClosed) {
+            if (habbo.WalletClosed || habbo.Inventory is not { } inventory) {
                 return false;
             }
 
-            var item = habbo.Inventory.Furniture.GetItem(itemId);
+            var item = inventory.Furniture.GetItem(itemId);
 
             if (item == null || (long)item.OwnerId != habbo.Id || !item.Definition.AllowTrade || !item.Definition.AllowMarketplaceSell) {
                 return false;
@@ -53,7 +53,7 @@ public sealed class MarketplaceListingService(IMarketplaceOfferStore store, IMar
                 return false;
             }
 
-            habbo.Inventory.Furniture.RemoveItem(itemId);
+            inventory.Furniture.RemoveItem(itemId);
 
             return true;
         }

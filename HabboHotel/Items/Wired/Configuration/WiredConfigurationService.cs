@@ -157,7 +157,13 @@ public sealed class WiredConfigurationService(
         }
 
         var habbo = session.GetHabbo();
-        var validated = figures.ProcessFigure(fields[1], habbo.Gender, habbo.Clothing.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
+
+        // Paid clothing is only checked against a loaded wardrobe, so the figure is rejected without one.
+        if (habbo.Clothing is not { } wardrobe) {
+            throw new ArgumentException("Bot figure cannot be validated without a loaded wardrobe.");
+        }
+
+        var validated = figures.ProcessFigure(fields[1], habbo.Gender, wardrobe.GetClothingParts, ClubAccess.LevelFor(habbo.Access));
 
         return fields[0] + "\t" + validated.TrimEnd('.');
     }

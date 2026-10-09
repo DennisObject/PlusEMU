@@ -32,10 +32,10 @@ internal class KickCommand : ITargetChatCommand
         }
 
         if (parameters.Any()) {
-            target.Client.SendNotification($"A moderator has kicked you from the room for the following reason: {CommandManager.MergeParams(parameters)}");
+            target.Client?.SendNotification($"A moderator has kicked you from the room for the following reason: {CommandManager.MergeParams(parameters)}");
         }
         else {
-            target.Client.SendNotification("A moderator has kicked you from the room.");
+            target.Client?.SendNotification("A moderator has kicked you from the room.");
         }
 
         target.CurrentRoom.GetRoomUserManager().RemoveUserFromRoom(target.Client, true);

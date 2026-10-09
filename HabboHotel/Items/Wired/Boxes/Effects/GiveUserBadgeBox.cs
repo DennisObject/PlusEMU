@@ -66,7 +66,7 @@ internal class GiveUserBadgeBox : IWiredItem
             return false;
         }
 
-        if (player.Inventory.Badges.HasBadge(StringData)) {
+        if (player.Inventory?.Badges.HasBadge(StringData) == true) {
             player.Client.Send(new WhisperComposer(user.VirtualId, "Oops, it appears you have already recieved this badge!", 0, user.LastBubble));
         }
         else {

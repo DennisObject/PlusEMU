@@ -20,8 +20,8 @@ public sealed class ClientAccessLists(IAccessControl permissions, IChatStyleMana
 
     public void Send(Habbo habbo)
     {
-        habbo.Client.Send(new AllowedChatStylesComposer(styles.GetAllowedStyleIds(habbo.Access)));
-        habbo.Client.Send(new CreatableRoomModelsComposer(CreatableRoomModelSnapshot.Capture(rooms.GetCreatableModels(habbo.Access))));
+        habbo.Client?.Send(new AllowedChatStylesComposer(styles.GetAllowedStyleIds(habbo.Access)));
+        habbo.Client?.Send(new CreatableRoomModelsComposer(CreatableRoomModelSnapshot.Capture(rooms.GetCreatableModels(habbo.Access))));
     }
 
     public void Dispose() => permissions.AccessChanged -= Send;

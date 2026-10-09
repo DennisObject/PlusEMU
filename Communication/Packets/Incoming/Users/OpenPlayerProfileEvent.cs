@@ -8,7 +8,7 @@ internal class OpenPlayerProfileEvent(IPlayerProfileService profiles) : IPacketE
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
         var userId = packet.ReadInt();
-        packet.ReadBool(); // IsMe?
+        packet.ReadBool(); // Profile request flag (ignored by this handler).
 
         return profiles.Open(session, userId);
     }

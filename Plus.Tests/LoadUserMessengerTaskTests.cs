@@ -21,7 +21,7 @@ public sealed class LoadUserMessengerTaskTests
 
         await new LoadUserMessengerTask(loader, TimeProvider.System, settings).Load(habbo);
 
-        Assert.Equal(2, Assert.Single(habbo.Messenger.Friends).Key);
+        Assert.Equal(2, Assert.Single(Assert.IsType<HabboMessenger>(habbo.Messenger).Friends).Key);
         Assert.Equal(3, Assert.Single(habbo.Messenger.Requests).Key);
         Assert.Equal(4, Assert.Single(habbo.Messenger.OutstandingFriendRequests));
         Assert.Equal(7, habbo.Messenger.FriendLimit());

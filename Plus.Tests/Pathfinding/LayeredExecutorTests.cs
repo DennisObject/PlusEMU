@@ -283,7 +283,7 @@ public partial class PlacedFurniRoomTests
         }
 
         Assert.Equal(under ? 0 : 2, actor.Z);
-        Assert.Equal(expected, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(expected, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
     }
 
     [Theory]
@@ -308,7 +308,7 @@ public partial class PlacedFurniRoomTests
         actor.MoveTo(2, 1);
         ExecutorTick();
         Assert.Contains($"/mv 2,1,{(under ? "0" : "2")}/", ExecutorUpdate(actor).Status);
-        Assert.Equal(expected, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(expected, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
     }
 
     [Theory]

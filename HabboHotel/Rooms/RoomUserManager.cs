@@ -94,7 +94,7 @@ public class RoomUserManager
                 return;
             }
 
-            var temporary = _bots.Values.Where(user => user.BotData.IsTemporary).ToList();
+            var temporary = _bots.Values.Where(user => user.BotData?.IsTemporary == true).ToList();
 
             if (request.Amount == 0) {
                 foreach (var user in temporary) {
@@ -125,7 +125,8 @@ public class RoomUserManager
                 { IsTemporary = true };
                 var user = DeployBot(bot, null);
                 user.AllowOverride = true;
-                user.BotAi.OnSelfEnterRoom();
+                // DeployBot always assigns the AI it just created.
+                user.BotAi?.OnSelfEnterRoom();
             }
 
             request.Reply($"Created {request.Amount} temporary stress bots ({temporary.Count + request.Amount}/{MaxStressBots}). Use :stress bots clear to remove them.");
@@ -209,12 +210,12 @@ public class RoomUserManager
 
         _room.SendUser(user);
 
-        if (user.IsPet) {
-            if (_pets.ContainsKey(user.PetData.PetId)) {
-                _pets[user.PetData.PetId] = user;
+        if (user.IsPet && user.PetData is { } petData) {
+            if (_pets.ContainsKey(petData.PetId)) {
+                _pets[petData.PetId] = user;
             }
             else {
-                _pets.TryAdd(user.PetData.PetId, user);
+                _pets.TryAdd(petData.PetId, user);
             }
 
             PetCount++;
@@ -251,7 +252,7 @@ public class RoomUserManager
             }
 
             if (user.IsPet) {
-                if (_pets.TryRemove(new KeyValuePair<int, RoomUser>(user.PetData.PetId, user))) {
+                if (user.PetData is { } petData && _pets.TryRemove(new KeyValuePair<int, RoomUser>(petData.PetId, user))) {
                     PetCount--;
                 }
             }
@@ -261,7 +262,7 @@ public class RoomUserManager
 
             _room.IceTagLeave(user);
             _room.GetWired()?.BeforeActorLeaves(user);
-            user.BotAi.OnSelfLeaveRoom(kicked);
+            user.BotAi?.OnSelfLeaveRoom(kicked);
             _room.SendPacket(new UserRemoveComposer(user.VirtualId));
             _room.GetWired()?.Dispatch(new WiredRuntimeEvent(WiredEventKind.Leave) { Actor = user });
             OnRemove(user);
@@ -423,12 +424,14 @@ public class RoomUserManager
 
         user.UpdateNeeded = true;
 
-        if (session.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && !session.GetHabbo().DisableForcedEffects) {
-            session.GetHabbo().Effects.ApplyEffect(102);
+        var forcedEffects = session.GetHabbo().Effects;
+
+        if (forcedEffects != null && session.GetHabbo().Access.Can(PermissionKeys.ModerationTool) && !session.GetHabbo().DisableForcedEffects) {
+            forcedEffects.ApplyEffect(102);
         }
 
-        if (session.GetHabbo().IsAmbassador && !session.GetHabbo().DisableForcedEffects && !session.GetHabbo().Access.Can(PermissionKeys.ModerationTool)) {
-            session.GetHabbo().Effects.ApplyEffect(178);
+        if (forcedEffects != null && session.GetHabbo().IsAmbassador && !session.GetHabbo().DisableForcedEffects && !session.GetHabbo().Access.Can(PermissionKeys.ModerationTool)) {
+            forcedEffects.ApplyEffect(178);
         }
 
         foreach (var bot in _bots.Values.ToList()) {
@@ -456,7 +459,7 @@ public class RoomUserManager
         return true;
     }
 
-    public void RemoveUserFromRoom(GameClient session, bool nofityUser, bool notifyKick = false)
+    public void RemoveUserFromRoom(GameClient? session, bool nofityUser, bool notifyKick = false)
     {
         RoomUser? removedUser = null;
 
@@ -520,8 +523,8 @@ public class RoomUserManager
                         team.OnUserLeave(user);
                         user.Team = Team.None;
 
-                        if (session.GetHabbo().Effects.CurrentEffect != 0) {
-                            session.GetHabbo().Effects.ApplyEffect(0);
+                        if (session.GetHabbo().Effects is { CurrentEffect: not 0 } teamEffects) {
+                            teamEffects.ApplyEffect(0);
                         }
                     }
                 }
@@ -530,8 +533,8 @@ public class RoomUserManager
                 RemoveRoomUser(user, actorLeavePrepared: true);
 
                 if (user.CurrentItemEffect != ItemEffectType.None) {
-                    if (session.GetHabbo().Effects != null) {
-                        session.GetHabbo().Effects.CurrentEffect = -1;
+                    if (session.GetHabbo().Effects is { } itemEffects) {
+                        itemEffects.CurrentEffect = -1;
                     }
                 }
 
@@ -591,7 +594,7 @@ public class RoomUserManager
 
                 bot.BotAi.OnUserLeaveRoom(session);
 
-                if (bot.IsPet && bot.PetData.OwnerId == user.UserId && !_room.CheckRights(session, true)) {
+                if (bot.IsPet && bot.PetData?.OwnerId == user.UserId && !_room.CheckRights(session, true)) {
                     if (!petsToRemove.Contains(bot)) {
                         petsToRemove.Add(bot);
                     }
@@ -603,13 +606,13 @@ public class RoomUserManager
                     continue;
                 }
 
-                if (session == null || session.GetHabbo() == null || session.GetHabbo().Inventory == null) {
+                if (session?.GetHabbo()?.Inventory is not { } inventory) {
                     continue;
                 }
 
-                if (session.GetHabbo().Inventory.Pets.AddPet(toRemove.PetData)) {
-                    toRemove.PetData.RoomId = 0;
-                    toRemove.PetData.PlacedInRoom = false;
+                if (toRemove.PetData is { } pet && inventory.Pets.AddPet(pet)) {
+                    pet.RoomId = 0;
+                    pet.PlacedInRoom = false;
                     RemoveBot(toRemove.VirtualId, false);
                 }
             }
@@ -692,15 +695,9 @@ public class RoomUserManager
 
     public RoomUser? GetBotByName(string name)
     {
-        var foundBot = _bots.Count(x => x.Value.BotData != null && x.Value.BotData.Name.ToLower() == name.ToLower()) > 0;
+        var match = _bots.Values.FirstOrDefault(x => x.BotData != null && x.BotData.Name.ToLower() == name.ToLower());
 
-        if (foundBot) {
-            var id = _bots.FirstOrDefault(x => x.Value.BotData != null && x.Value.BotData.Name.ToLower() == name.ToLower()).Value.BotData.Id;
-
-            return _bots[id];
-        }
-
-        return null;
+        return match?.BotData is { } data ? _bots[data.Id] : null;
     }
 
     public void UpdateUserCount(int count)
@@ -815,11 +812,11 @@ public class RoomUserManager
         var pets = new List<Pet>();
 
         foreach (var user in _pets.Values.ToList()) {
-            if (user == null || !user.IsPet) {
+            if (user?.PetData is not { } pet || !user.IsPet) {
                 continue;
             }
 
-            pets.Add(user.PetData);
+            pets.Add(pet);
         }
 
         return pets;
@@ -1627,47 +1624,48 @@ public class RoomUserManager
             var iceEffect = _room.UpdateIceTag(user, newCurrentUserItemEffect == 3
                 ? _room.GetGameMap().GetCoordinatedItems(new(x, y)).OrderByDescending(item => item.TotalHeight).FirstOrDefault(item => item.Definition.InteractionType == InteractionType.IceSkates) : null);
 
-            if (!ReferenceEquals(habbo.CurrentRoom, currentRoom)) {
+            // Tile effects need the loaded effects; the ice tag above does not.
+            if (!ReferenceEquals(habbo.CurrentRoom, currentRoom) || habbo.Effects is not { } effects) {
                 return;
             }
 
             if (newCurrentUserItemEffect > 0) {
-                if (habbo.Effects.CurrentEffect == 0) {
+                if (effects.CurrentEffect == 0) {
                     user.CurrentItemEffect = ItemEffectType.None;
                 }
 
                 var type = ByteToItemEffectEnum.Parse(newCurrentUserItemEffect);
 
-                if (type != user.CurrentItemEffect || type == ItemEffectType.Iceskates && iceEffect >= 0 && habbo.Effects.CurrentEffect != iceEffect) {
+                if (type != user.CurrentItemEffect || type == ItemEffectType.Iceskates && iceEffect >= 0 && effects.CurrentEffect != iceEffect) {
                     switch (type) {
                         case ItemEffectType.Iceskates: {
-                                habbo.Effects.ApplyEffect(iceEffect >= 0 ? iceEffect : habbo.Gender == "M" ? 38 : 39);
+                                effects.ApplyEffect(iceEffect >= 0 ? iceEffect : habbo.Gender == "M" ? 38 : 39);
                                 user.CurrentItemEffect = ItemEffectType.Iceskates;
                                 break;
                             }
                         case ItemEffectType.Normalskates: {
-                                habbo.Effects.ApplyEffect(habbo.Gender == "M" ? 55 : 56);
+                                effects.ApplyEffect(habbo.Gender == "M" ? 55 : 56);
                                 user.CurrentItemEffect = type;
                                 break;
                             }
                         case ItemEffectType.Swim: {
-                                habbo.Effects.ApplyEffect(29);
+                                effects.ApplyEffect(29);
                                 user.CurrentItemEffect = type;
                                 _rewards.Progress(client, RewardTrackActions.Swim);
                                 break;
                             }
                         case ItemEffectType.SwimLow: {
-                                habbo.Effects.ApplyEffect(30);
+                                effects.ApplyEffect(30);
                                 user.CurrentItemEffect = type;
                                 break;
                             }
                         case ItemEffectType.SwimHalloween: {
-                                habbo.Effects.ApplyEffect(37);
+                                effects.ApplyEffect(37);
                                 user.CurrentItemEffect = type;
                                 break;
                             }
                         case ItemEffectType.None: {
-                                habbo.Effects.ApplyEffect(-1);
+                                effects.ApplyEffect(-1);
                                 user.CurrentItemEffect = type;
                                 break;
                             }
@@ -1675,7 +1673,7 @@ public class RoomUserManager
                 }
             }
             else if (user.CurrentItemEffect != ItemEffectType.None && newCurrentUserItemEffect == 0) {
-                habbo.Effects.ApplyEffect(-1);
+                effects.ApplyEffect(-1);
                 user.CurrentItemEffect = ItemEffectType.None;
             }
         }

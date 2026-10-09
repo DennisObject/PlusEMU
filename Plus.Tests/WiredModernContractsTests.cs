@@ -106,7 +106,7 @@ public class WiredModernContractsTests
         Assert.Same(saved, box.Configuration);
         Assert.Equal("saved metadata", box.Configuration.Text);
         Assert.NotEqual(ServerPacketHeader.TradingCompleteComposer, ServerPacketHeader.WiredClickSettingsComposer);
-        Assert.Equal(9477u, ServerPacketHeader.WiredClickSettingsComposer);
+        Assert.Equal(917u, ServerPacketHeader.WiredClickSettingsComposer);
     }
 
     [Fact]

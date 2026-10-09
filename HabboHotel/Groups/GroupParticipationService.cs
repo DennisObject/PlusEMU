@@ -97,11 +97,11 @@ public sealed class GroupParticipationService(IGroupManager groups, IGroupInfoSn
             }
 
             lock (habbo.WalletSync) {
-                if (habbo.WalletClosed || !store.SaveFavourite(habbo.Id, found.Id)) {
+                if (habbo.WalletClosed || habbo.HabboStats is not { } stats || !store.SaveFavourite(habbo.Id, found.Id)) {
                     return Task.CompletedTask;
                 }
 
-                habbo.HabboStats.FavouriteGroupId = found.Id;
+                stats.FavouriteGroupId = found.Id;
             }
 
             if (habbo.InRoom && habbo.CurrentRoom is { } room) {
@@ -127,11 +127,11 @@ public sealed class GroupParticipationService(IGroupManager groups, IGroupInfoSn
         using var account = accounts.Enter(habbo.Id);
 
         lock (habbo.WalletSync) {
-            if (habbo.WalletClosed || !store.SaveFavourite(habbo.Id, 0)) {
+            if (habbo.WalletClosed || habbo.HabboStats is not { } stats || !store.SaveFavourite(habbo.Id, 0)) {
                 return Task.CompletedTask;
             }
 
-            habbo.HabboStats.FavouriteGroupId = 0;
+            stats.FavouriteGroupId = 0;
         }
 
         if (habbo.InRoom && habbo.CurrentRoom is { } room) {

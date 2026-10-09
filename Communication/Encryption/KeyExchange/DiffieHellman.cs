@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Plus.Utilities;
 
 namespace Plus.Communication.Encryption.KeyExchange;
@@ -8,54 +9,40 @@ public class DiffieHellman
 
     private BigInteger _privateKey;
 
-    public DiffieHellman()
-    {
-        Initialize();
-    }
+    public DiffieHellman() : this(32) { }
 
     public DiffieHellman(int b)
     {
         Bitlength = b;
-        Initialize();
+        Prime = BigInteger.genPseudoPrime(Bitlength, 10, Random.Shared);
+        Generator = BigInteger.genPseudoPrime(Bitlength, 10, Random.Shared);
+        GenerateKeys(false);
     }
 
     public DiffieHellman(BigInteger prime, BigInteger generator)
     {
         Prime = prime;
         Generator = generator;
-        Initialize(true);
+        GenerateKeys(true);
     }
 
     public BigInteger Prime { get; private set; }
     public BigInteger Generator { get; private set; }
     public BigInteger PublicKey { get; private set; }
 
-    private void Initialize(bool ignoreBaseKeys = false)
+    [MemberNotNull(nameof(_privateKey), nameof(PublicKey))]
+    private void GenerateKeys(bool requireNonZeroPublicKey)
     {
-        PublicKey = 0;
+        if (Generator > Prime) {
+            (Prime, Generator) = (Generator, Prime);
+        }
 
-        while (PublicKey == 0) {
-            if (!ignoreBaseKeys) {
-                Prime = BigInteger.genPseudoPrime(Bitlength, 10, Random.Shared);
-                Generator = BigInteger.genPseudoPrime(Bitlength, 10, Random.Shared);
-            }
-
+        do {
             var bytes = new byte[Bitlength / 8];
             Randomizer.NextBytes(bytes);
             _privateKey = new(bytes);
-
-            if (Generator > Prime) {
-                var temp = Prime;
-                Prime = Generator;
-                Generator = temp;
-            }
-
             PublicKey = Generator.modPow(_privateKey, Prime);
-
-            if (!ignoreBaseKeys) {
-                break;
-            }
-        }
+        } while (requireNonZeroPublicKey && PublicKey == 0);
     }
 
     public BigInteger CalculateSharedKey(BigInteger m) => m.modPow(_privateKey, Prime);

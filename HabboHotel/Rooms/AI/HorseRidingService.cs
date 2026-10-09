@@ -44,7 +44,7 @@ public sealed class HorseRidingService(IPetLocale petLocale) : IHorseRidingServi
 
     private static bool MayRide(GameClient session, RoomUser user, RoomUser pet)
     {
-        if (pet.PetData.AnyoneCanRide != 0 || pet.PetData.OwnerId == user.UserId) {
+        if (pet.PetData is { } petData && (petData.AnyoneCanRide != 0 || petData.OwnerId == user.UserId)) {
             return true;
         }
 

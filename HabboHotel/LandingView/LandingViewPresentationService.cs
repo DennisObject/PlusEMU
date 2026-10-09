@@ -6,7 +6,7 @@ using Plus.HabboHotel.LandingView.Promotions;
 namespace Plus.HabboHotel.LandingView;
 
 public sealed record LandingPromotionSnapshot(
-    int Id, string Title, string Text, string ButtonText, int ButtonType, string ButtonLink, string ImageLink)
+    int Id, string? Title, string? Text, string? ButtonText, int ButtonType, string? ButtonLink, string? ImageLink)
 {
     public static LandingPromotionSnapshot Capture(Promotion promotion) => new(promotion.Id, promotion.Title,
         promotion.Text, promotion.ButtonText, promotion.ButtonType, promotion.ButtonLink, promotion.ImageLink);

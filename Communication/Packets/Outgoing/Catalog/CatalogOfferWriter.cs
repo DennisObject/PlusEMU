@@ -23,7 +23,7 @@ public static class CatalogOfferWriter
 
         packet.WriteInteger(offer.ClubLevel);
         packet.WriteBoolean(offer.CanSelectAmount);
-        packet.WriteBoolean(false); // TODO: Figure out
+        packet.WriteBoolean(false); // Pet offer flag.
         packet.WriteString(offer.PreviewImage); // e.g. catalogue/pet_lion.png
         packet.WriteString("");
         packet.WriteBoolean(offer.OfferEnabled);

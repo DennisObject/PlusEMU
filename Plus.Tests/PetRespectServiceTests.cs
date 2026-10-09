@@ -38,13 +38,13 @@ public partial class PlacedFurniRoomTests
     public void PetRespectPreservesAchievementPetRewardAndCarryOrder()
     {
         var actor = LegacyRider();
-        var pet = LegacyHorse(2, 1).PetData;
+        var pet = Assert.IsType<Plus.HabboHotel.Rooms.AI.Pet>(LegacyHorse(2, 1).PetData);
         _client.GetHabbo().HabboStats = RespectStats(2);
         var order = new List<string>();
         var service = RespectService((method, args) =>
         {
             Assert.Equal("ACH_PetRespectGiver", args[1]);
-            Assert.Equal(1, _client.GetHabbo().HabboStats.DailyPetRespectPoints);
+            Assert.Equal(1, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyPetRespectPoints);
             Assert.Equal(0, pet.Respect);
             order.Add("achievement");
         }, (_, _) => throw new InvalidOperationException("Pet path must not progress the human quest"), () =>
@@ -68,11 +68,11 @@ public partial class PlacedFurniRoomTests
     public void ExhaustedPetRespectDoesNotMutatePetOrPublish(int available)
     {
         LegacyRider();
-        var pet = LegacyHorse(2, 1).PetData;
+        var pet = Assert.IsType<Plus.HabboHotel.Rooms.AI.Pet>(LegacyHorse(2, 1).PetData);
         _client.GetHabbo().HabboStats = RespectStats(available);
         DeniedRespectService().Respect(_room, _client, 50);
         Assert.Equal(0, pet.Respect);
-        Assert.Equal(available, _client.GetHabbo().HabboStats.DailyPetRespectPoints);
+        Assert.Equal(available, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyPetRespectPoints);
         Assert.Empty(_client.Sent);
     }
 
@@ -83,11 +83,11 @@ public partial class PlacedFurniRoomTests
         DeniedRespectService().Respect(_room, _client, 50);
         LegacyRider();
         DeniedRespectService().Respect(_room, _client, 99);
-        var pet = LegacyHorse(2, 1).PetData;
+        var pet = Assert.IsType<Plus.HabboHotel.Rooms.AI.Pet>(LegacyHorse(2, 1).PetData);
         _client.GetHabbo().CurrentRoom = null!;
         DeniedRespectService().Respect(_room, _client, 50);
         Assert.Equal(0, pet.Respect);
-        Assert.Equal(2, _client.GetHabbo().HabboStats.DailyPetRespectPoints);
+        Assert.Equal(2, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyPetRespectPoints);
         Assert.Empty(_client.Sent);
     }
 
@@ -106,7 +106,7 @@ public partial class PlacedFurniRoomTests
         var order = new List<string>();
         var service = RespectService((_, args) =>
         {
-            Assert.Equal(2, _client.GetHabbo().HabboStats.DailyPetRespectPoints);
+            Assert.Equal(2, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyPetRespectPoints);
             order.Add((string)args[1]);
         }, (_, args) =>
         {
@@ -115,13 +115,13 @@ public partial class PlacedFurniRoomTests
         }, () => throw new InvalidOperationException("Human branch must not reward pet respect"));
         service.Respect(_room, _client, 9);
         Assert.Equal(new[] { "quest", "ACH_RespectGiven", "ACH_RespectEarned" }, order);
-        Assert.Equal(1, _client.GetHabbo().HabboStats.DailyPetRespectPoints);
-        Assert.Equal(1, _client.GetHabbo().HabboStats.RespectGiven);
+        Assert.Equal(1, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyPetRespectPoints);
+        Assert.Equal(1, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).RespectGiven);
         Assert.Equal(1, target.HabboStats.Respect);
         Assert.Equal(new[] { ServerPacketHeader.RespectPetNotificationComposer, ServerPacketHeader.CarryObjectComposer }, _client.Sent);
         target.CurrentRoom = null!;
         DeniedRespectService().Respect(_room, _client, 9);
-        Assert.Equal(1, _client.GetHabbo().HabboStats.DailyPetRespectPoints);
+        Assert.Equal(1, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyPetRespectPoints);
     }
 
     [Fact]
@@ -130,8 +130,8 @@ public partial class PlacedFurniRoomTests
         LegacyRider();
         _client.GetHabbo().HabboStats = RespectStats(2);
         DeniedRespectService().Respect(_room, _client, 7);
-        Assert.Equal(2, _client.GetHabbo().HabboStats.DailyPetRespectPoints);
-        Assert.Equal(0, _client.GetHabbo().HabboStats.RespectGiven);
+        Assert.Equal(2, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).DailyPetRespectPoints);
+        Assert.Equal(0, Assert.IsType<HabboStats>(_client.GetHabbo().HabboStats).RespectGiven);
         Assert.DoesNotContain(ServerPacketHeader.CarryObjectComposer, _client.Sent);
         Assert.DoesNotContain(ServerPacketHeader.RespectPetNotificationComposer, _client.Sent);
     }

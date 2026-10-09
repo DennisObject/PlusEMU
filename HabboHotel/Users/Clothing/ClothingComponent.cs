@@ -10,7 +10,7 @@ public sealed class ClothingComponent
     /// Effects stored by ID > Effect.
     /// </summary>
     private readonly ConcurrentDictionary<int, ClothingParts> _allClothing = new();
-    private Habbo _habbo;
+    private Habbo? _habbo;
     private readonly IClothingStore? _store;
 
     public ClothingComponent() { }
@@ -46,7 +46,7 @@ public sealed class ClothingComponent
     {
         foreach (var partId in partIds.ToList()) {
             if (!_allClothing.ContainsKey(partId)) {
-                var newId = (_store ?? throw new InvalidOperationException("Clothing persistence is not configured.")).Add(_habbo.Id, partId, clothingName);
+                var newId = (_store ?? throw new InvalidOperationException("Clothing persistence is not configured.")).Add((_habbo ?? throw new InvalidOperationException("Clothing has not been initialized for a user.")).Id, partId, clothingName);
                 _allClothing.TryAdd(partId, new(newId, partId, clothingName));
             }
         }

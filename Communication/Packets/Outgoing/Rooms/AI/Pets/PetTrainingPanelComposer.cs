@@ -22,7 +22,7 @@ public class PetTrainingPanelComposer : IServerPacket
         //Commands available to be done.
         packet.WriteInteger(8); //Count
         {
-            packet.WriteInteger(46); //Breed?
+            packet.WriteInteger(46); // Pet command ID.
             packet.WriteInteger(0); //Command Id
             packet.WriteInteger(1);
             packet.WriteInteger(2);
@@ -35,7 +35,7 @@ public class PetTrainingPanelComposer : IServerPacket
         //Commands that can be used NOW. (Level ups give you new commands etc).
         packet.WriteInteger(GetCount(_level)); //Count
         {
-            packet.WriteInteger(46); //Breed?
+            packet.WriteInteger(46); // Pet command ID.
             packet.WriteInteger(0); //Command Id
             packet.WriteInteger(1);
             packet.WriteInteger(2);

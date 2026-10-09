@@ -87,12 +87,17 @@ public class AchievementManager : IAchievementManager, IStartable
         }
 
         if (newProgress >= level.Requirement) {
+            // The reward points land in the loaded statistics and the badge in the loaded inventory, so a user without them is not advanced.
+            if (habbo.HabboStats is not { } stats || habbo.Inventory is not { } inventory) {
+                return false;
+            }
+
             newLevel++;
             newTarget++;
             newProgress = 0;
 
             if (targetLevel != 1) {
-                habbo.Inventory.Badges.RemoveBadge(Convert.ToString(group + (targetLevel - 1)));
+                inventory.Badges.RemoveBadge(Convert.ToString(group + (targetLevel - 1)));
             }
 
             _badgeManager.GiveBadge(habbo, group + targetLevel).Wait();
@@ -118,9 +123,9 @@ public class AchievementManager : IAchievementManager, IStartable
                 userData.Progress = newProgress;
                 // A synchronous disconnect during Send must save both rewards.
                 habbo.Duckets += level.RewardPixels;
-                habbo.HabboStats.AchievementPoints += level.RewardPoints;
+                stats.AchievementPoints += level.RewardPoints;
                 session.Send(new HabboActivityPointNotificationComposer(habbo.Duckets, level.RewardPixels));
-                session.Send(new AchievementScoreComposer(habbo.HabboStats.AchievementPoints));
+                session.Send(new AchievementScoreComposer(stats.AchievementPoints));
                 var newLevelData = data.Levels[newTarget];
                 session.Send(new AchievementProgressedComposer(AchievementNotificationSnapshot.CaptureProgress(data, newTarget, newLevelData, totalLevels, habbo.GetAchievementData(group))));
             }

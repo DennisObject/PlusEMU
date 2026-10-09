@@ -77,7 +77,7 @@ public class RewardTrackLiveTests
         var write = Assert.Single(database.Committed);
         Assert.Contains(write, sql => sql.Contains("INTO users_reward_track_prizes"));
         Assert.Contains(write, sql => sql.Contains("INTO user_badges"));
-        Assert.True(habbo.Inventory.Badges.HasBadge(Badge));
+        Assert.True(Assert.IsType<InventoryComponent>(habbo.Inventory).Badges.HasBadge(Badge));
         Assert.Equal(RewardTrackResults.Ok, client.ClaimResult());
         Assert.True(client.Sent.IndexOf(9451) > client.Sent.IndexOf(ServerHeader(client, ServerPacketHeader.BadgesComposer)));
     }
@@ -93,7 +93,7 @@ public class RewardTrackLiveTests
 
         Assert.Equal(RewardTrackResults.Unknown, client.ClaimResult());
         Assert.Empty(database.Committed);
-        Assert.False(habbo.Inventory.Badges.HasBadge(Badge));
+        Assert.False(Assert.IsType<InventoryComponent>(habbo.Inventory).Badges.HasBadge(Badge));
 
         badges.Add(Badge);
         await manager.Claim(client, "introduction", "track_champ");
@@ -111,7 +111,7 @@ public class RewardTrackLiveTests
 
         Assert.Equal(RewardTrackResults.Unknown, client.ClaimResult());
         Assert.Empty(database.Committed);
-        Assert.False(habbo.Inventory.Badges.HasBadge(Badge));
+        Assert.False(Assert.IsType<InventoryComponent>(habbo.Inventory).Badges.HasBadge(Badge));
     }
 
     [Fact]
@@ -126,7 +126,7 @@ public class RewardTrackLiveTests
         Assert.Equal(RewardTrackResults.Unknown, client.ClaimResult());
         Assert.Empty(database.Committed);
         Assert.Equal(1, database.RolledBack);
-        Assert.False(habbo.Inventory.Badges.HasBadge(Badge));
+        Assert.False(Assert.IsType<InventoryComponent>(habbo.Inventory).Badges.HasBadge(Badge));
         Assert.DoesNotContain(ServerHeader(client, ServerPacketHeader.BadgesComposer), client.Sent);
 
         database.FailOn = null;
@@ -135,7 +135,7 @@ public class RewardTrackLiveTests
         Assert.True(habbo.Inventory.Badges.HasBadge(Badge));
     }
 
-    private static uint ServerHeader(TestClient client, uint internalId) => client.Revision.InternalIdToOutgoingIdMapping[internalId];
+    private static uint ServerHeader(TestClient client, uint internalId) => Assert.IsType<Plus.Communication.Revisions.Revision>(client.Revision).InternalIdToOutgoingIdMapping[internalId];
 
     // RevisionsCache.Start rewrites example.json; a private copy keeps it from racing tests that read the shared one.
     private static async Task<Revision> Profile(string name)

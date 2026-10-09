@@ -75,7 +75,7 @@ public partial class PlacedFurniRoomTests
         service.SendTrainingPanel(_client, 50);
         Assert.Empty(_client.Sent);
         var horse = LegacyHorse(2, 1);
-        horse.PetData.Experience = 300;
+        Assert.IsType<Pet>(horse.PetData).Experience = 300;
         service.SendTrainingPanel(_client, 50);
         Assert.Equal(ServerPacketHeader.PetTrainingPanelComposer, Assert.Single(_client.Sent));
         var packet = new FlashIncomingPacket { Buffer = Assert.Single(_client.Packets).Body };

@@ -6,7 +6,7 @@ internal sealed class RequestFurniInventoryEvent : IPacketEvent
 {
     public Task Parse(GameClient session, IIncomingPacket packet)
     {
-        session.GetHabbo().Inventory.Furniture.SendInventory(session);
+        session.GetHabbo().Inventory?.Furniture.SendInventory(session);
 
         return Task.CompletedTask;
     }

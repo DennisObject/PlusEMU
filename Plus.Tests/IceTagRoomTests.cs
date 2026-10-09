@@ -28,20 +28,20 @@ public partial class PlacedFurniRoomTests
         var actions = new RoomAvatarActionService(_interactionClock, Proxy<Plus.HabboHotel.Quests.IQuestManager>((method, _) => throw new InvalidOperationException(method)), TestNavigationRewards.Instance);
         IceContact(source, v2);
         IceContact(target, v2);
-        Assert.Equal(tagged, _client.GetHabbo().Effects.CurrentEffect);
-        Assert.Equal(skating, targetClient.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(tagged, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
+        Assert.Equal(skating, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(targetClient.GetHabbo().Effects).CurrentEffect);
 
         actions.LookTo(_room, _client, int.MinValue, int.MaxValue);
-        Assert.Equal(tagged, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(tagged, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         actions.LookTo(_room, _client, 3, 3);
-        Assert.Equal(tagged, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(tagged, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         actions.LookTo(_room, _client, 2, 1);
-        Assert.Equal(skating, _client.GetHabbo().Effects.CurrentEffect);
-        Assert.Equal(tagged, targetClient.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(skating, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
+        Assert.Equal(tagged, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(targetClient.GetHabbo().Effects).CurrentEffect);
         Assert.Equal("1", pole.LegacyDataString);
         IceContact(source, v2);
         IceContact(target, v2);
-        Assert.Equal(tagged, targetClient.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(tagged, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(targetClient.GetHabbo().Effects).CurrentEffect);
 
         _interactionClock.Now = _interactionClock.Now.AddMilliseconds(999);
         _room.ProcessWiredOnly();
@@ -70,7 +70,7 @@ public partial class PlacedFurniRoomTests
         }
 
         Assert.Equal((1, 1), (actor.X, actor.Y));
-        Assert.Equal(45, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(45, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         _interactionClock.Now = _interactionClock.Now.AddMinutes(1);
         actions.Move(_client, 0, 1);
 
@@ -79,7 +79,7 @@ public partial class PlacedFurniRoomTests
         }
 
         Assert.Equal((0, 1), (actor.X, actor.Y));
-        Assert.Equal(-1, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(-1, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         Assert.Contains((7, "ACH_TagC", 1), awards);
     }
 
@@ -100,16 +100,16 @@ public partial class PlacedFurniRoomTests
         IceContact(a, v2);
         IceContact(b, v2);
         IceContact(c, v2);
-        Assert.Equal(45, _client.GetHabbo().Effects.CurrentEffect);
-        Assert.Equal(45, bClient.GetHabbo().Effects.CurrentEffect);
-        Assert.Equal(38, cClient.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(45, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
+        Assert.Equal(45, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(bClient.GetHabbo().Effects).CurrentEffect);
+        Assert.Equal(38, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(cClient.GetHabbo().Effects).CurrentEffect);
         _room.GetRoomItemHandler().RemoveFurniture(_client, pole.Id);
-        Assert.Equal(38, _client.GetHabbo().Effects.CurrentEffect);
-        Assert.Equal(45, bClient.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(38, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
+        Assert.Equal(45, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(bClient.GetHabbo().Effects).CurrentEffect);
         Assert.Equal("0", pole.LegacyDataString);
         _room.GetRoomItemHandler().RemoveFurniture(_client, field.Id);
-        Assert.Equal(-1, bClient.GetHabbo().Effects.CurrentEffect);
-        Assert.Equal(-1, cClient.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(-1, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(bClient.GetHabbo().Effects).CurrentEffect);
+        Assert.Equal(-1, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(cClient.GetHabbo().Effects).CurrentEffect);
     }
 
     [Theory]
@@ -127,14 +127,14 @@ public partial class PlacedFurniRoomTests
         actor.SetPos(0, 1, 0);
         IceContact(actor, v2);
         Assert.Contains((7, "ACH_TagC", 1), awards);
-        Assert.Equal(-1, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(-1, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         actor.SetPos(1, 1, 0);
         IceContact(actor, v2);
         _interactionClock.Now = _interactionClock.Now.AddSeconds(60);
         _room.GetRoomUserManager().RemoveUserFromRoom(_client, false);
         Assert.Equal(2, awards.Count(award => award.Item2 == "ACH_TagC"));
         Assert.Null(_client.GetHabbo().CurrentRoom);
-        Assert.Equal(-1, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(-1, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         _room.GetIceTag().Leave(actor);
         Assert.Equal(2, awards.Count(award => award.Item2 == "ACH_TagC"));
     }
@@ -155,15 +155,15 @@ public partial class PlacedFurniRoomTests
         var stale = new RoomUser(7, RoomId, source.VirtualId, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = 1, Y = 1 };
         Assert.Equal(-1, _room.GetIceTag().Update(stale, field));
         _room.GetIceTag().LookTo(stale, 2, 1);
-        Assert.Equal(38, targetClient.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(38, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(targetClient.GetHabbo().Effects).CurrentEffect);
         var foreign = Furni(91, InteractionType.IceSkates, WiredBoxType.None);
         Assert.Equal(-1, _room.GetIceTag().Update(source, foreign));
-        Assert.Equal(45, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(45, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         var nextRoom = new Room(new() { Id = RoomId }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
         _client.GetHabbo().CurrentRoom = nextRoom;
-        _client.GetHabbo().Effects.CurrentEffect = 77;
+        Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect = 77;
         _room.GetIceTag().Leave(source);
-        Assert.Equal(77, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(77, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         Assert.Equal(-1, _room.GetIceTag().Update(source, field));
     }
 
@@ -184,7 +184,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, pool, 3, 1, 0, true, false, false));
         actor.SetPos(3, 1, 0);
         IceContact(actor, v2);
-        Assert.Equal(29, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(29, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         Assert.Equal(ItemEffectType.Swim, actor.CurrentItemEffect);
     }
 
@@ -225,15 +225,15 @@ public partial class PlacedFurniRoomTests
         var actor = IcePlayer(_client, 1, 1, gender);
         IceContact(actor, v2);
         IceContact(actor, v2);
-        Assert.Equal(skating, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(skating, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         var pole = IcePole(92, 0, 3);
         IceContact(actor, v2);
-        Assert.Equal(tagged, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(tagged, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         _room.GetRoomItemHandler().RemoveFurniture(_client, pole.Id);
-        Assert.Equal(skating, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(skating, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         IceContact(actor, v2);
         IceContact(actor, v2);
-        Assert.Equal(skating, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(skating, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
         _interactionClock.Now = _interactionClock.Now.AddMinutes(1);
         actor.SetPos(0, 1, 0);
         IceContact(actor, v2);
@@ -259,7 +259,7 @@ public partial class PlacedFurniRoomTests
             if (!moved && header == Plus.Communication.Packets.Outgoing.ServerPacketHeader.AvatarEffectComposer) {
                 moved = true;
                 targetClient.GetHabbo().CurrentRoom = new Room(new() { Id = 99 }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
-                targetClient.GetHabbo().Effects.CurrentEffect = 77;
+                Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(targetClient.GetHabbo().Effects).CurrentEffect = 77;
                 _room.GetRoomUserManager().RemoveUserFromRoom(_client, false);
             }
         };
@@ -267,7 +267,7 @@ public partial class PlacedFurniRoomTests
         actions.LookTo(_room, _client, 2, 1);
         Assert.True(moved);
         Assert.Null(_client.GetHabbo().CurrentRoom);
-        Assert.Equal(77, targetClient.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(77, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(targetClient.GetHabbo().Effects).CurrentEffect);
     }
 
     [Theory]
@@ -287,7 +287,7 @@ public partial class PlacedFurniRoomTests
             Assert.Equal(1, amount);
             awarded = true;
             client.GetHabbo().CurrentRoom = new Room(new() { Id = 99 }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused);
-            client.GetHabbo().Effects.CurrentEffect = 77;
+            Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(client.GetHabbo().Effects).CurrentEffect = 77;
         }));
         IceField(91, 1, 1);
         var actor = IcePlayer(_client, 1, 1);
@@ -296,7 +296,7 @@ public partial class PlacedFurniRoomTests
         actor.SetPos(0, 1, 0);
         IceContact(actor, v2);
         Assert.True(awarded);
-        Assert.Equal(77, _client.GetHabbo().Effects.CurrentEffect);
+        Assert.Equal(77, Assert.IsType<Plus.HabboHotel.Users.Effects.EffectsComponent>(_client.GetHabbo().Effects).CurrentEffect);
     }
 
     [Fact]

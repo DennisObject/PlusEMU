@@ -59,11 +59,11 @@ internal class BotGivesHandItemBox : IWiredItem
 
         var user = Instance.GetRoomUserManager().GetBotByName(StringData.Split(';')[0]);
 
-        if (user == null) {
+        if (user?.BotData is not { } botData) {
             return false;
         }
 
-        if (user.BotData.TargetUser == 0) {
+        if (botData.TargetUser == 0) {
             if (!Instance.GetGameMap().CanWalk(actor.SquareBehind.X, actor.SquareBehind.Y, false)) {
                 return false;
             }
@@ -75,7 +75,7 @@ internal class BotGivesHandItemBox : IWiredItem
             }
 
             user.CarryItem(drinkId);
-            user.BotData.TargetUser = actor.HabboId;
+            botData.TargetUser = actor.HabboId;
             user.MoveTo(actor.SquareBehind.X, actor.SquareBehind.Y);
         }
 

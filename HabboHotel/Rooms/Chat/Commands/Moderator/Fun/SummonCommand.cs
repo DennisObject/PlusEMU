@@ -32,10 +32,10 @@ internal class SummonCommand : ITargetChatCommand
             return Task.CompletedTask;
         }
 
-        target.Client.SendNotification($"You have been summoned to {session.GetHabbo().Username}!");
+        target.Client?.SendNotification($"You have been summoned to {session.GetHabbo().Username}!");
 
         if (!target.InRoom) {
-            target.Client.Send(new RoomForwardComposer(session.GetHabbo().CurrentRoom!.Id));
+            target.Client?.Send(new RoomForwardComposer(session.GetHabbo().CurrentRoom!.Id));
         }
         else {
             target.PrepareRoom(session.GetHabbo().CurrentRoom.Id, "");

@@ -11,6 +11,7 @@ public class UserPerksComposer(bool cameraAllowed) : IServerPacket
         // TODO @80O: Pass perks via constructor.
         // TODO @80O: Store perks in the database.
         packet.WriteInteger(14); // Count
+        // Each perk contains its code, optional denial-message localization key, and allowed flag.
         packet.WriteString("USE_GUIDE_TOOL");
         packet.WriteString("");
         packet.WriteBoolean(false);
@@ -18,43 +19,43 @@ public class UserPerksComposer(bool cameraAllowed) : IServerPacket
         packet.WriteString("requirement.unfulfilled.helper_le");
         packet.WriteBoolean(false);
         packet.WriteString("JUDGE_CHAT_REVIEWS");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(true);
         packet.WriteString("VOTE_IN_COMPETITIONS");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(true);
         packet.WriteString("CALL_ON_HELPERS");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(false);
         packet.WriteString("CITIZEN");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(true);
         packet.WriteString("TRADE");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(true);
         packet.WriteString("HEIGHTMAP_EDITOR_BETA");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(false);
         packet.WriteString("EXPERIMENTAL_CHAT_BETA");
         packet.WriteString("requirement.unfulfilled.helper_level_2");
         packet.WriteBoolean(true);
         packet.WriteString("EXPERIMENTAL_TOOLBAR");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(true);
         packet.WriteString("NAVIGATOR_PHASE_ONE_2014");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(false);
         packet.WriteString("CAMERA");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(cameraAllowed);
         packet.WriteString("NAVIGATOR_PHASE_TWO_2014");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(true);
         packet.WriteString("MOUSE_ZOOM");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(true);
         packet.WriteString("NAVIGATOR_ROOM_THUMBNAIL_CAMERA");
-        packet.WriteString(""); // ??
+        packet.WriteString("");
         packet.WriteBoolean(false);
 
     }

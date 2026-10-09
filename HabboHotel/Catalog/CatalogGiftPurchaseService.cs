@@ -228,7 +228,7 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                     itemExtraData = $"m{Convert.ToChar(5)}.ch-210-1321.lg-285-92{Convert.ToChar(5)}Default Mannequin";
                     break;
                 case InteractionType.BadgeDisplay:
-                    if (!session.GetHabbo().Inventory.Badges.HasBadge(data)) {
+                    if (session.GetHabbo().Inventory?.Badges.HasBadge(data) != true) {
                         session.Send(new BroadcastMessageAlertComposer("Oops, it appears that you do not own this badge."));
 
                         return Task.CompletedTask;
@@ -270,7 +270,8 @@ public sealed class CatalogGiftPurchaseService : ICatalogGiftPurchaseService
                 var receiver = _gameClientManager.GetClientByUserId(habbo.Id);
 
                 if (receiver != null) {
-                    receiver.GetHabbo().Inventory.Furniture.AddItem(giveItem);
+                    // The gift is already stored; an inventory that is not loaded picks it up from the database later.
+                    receiver.GetHabbo().Inventory?.Furniture.AddItem(giveItem);
                     receiver.Send(new FurniListNotificationComposer(giveItem.Id, 1));
                     receiver.Send(new PurchaseOKComposer());
                     receiver.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(giveItem)));

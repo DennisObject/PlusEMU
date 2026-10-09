@@ -322,6 +322,7 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         var game = DispatchProxy.Create<IGame, Game>();
         ((Game)(object)game).Clients = _clients;
         field.SetValue(null, game);
+        _target.SetHotelServices(_clients, TestRoomManager.Unused);
         // Skip persistence already tested by the wallet suites; exercise the real disconnect/unregister path.
         typeof(Habbo).GetField("_habboSaved", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(_target, true);
 
@@ -388,7 +389,7 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
         field.SetValue(null, game);
 
         try {
-            var ticketService = new ModeratorTicketService(moderation, manager, new ModeratorUserLookup(), new ModeratorTicketStore(_database), _clock, null!);
+            var ticketService = new ModeratorTicketService(moderation, manager, new ModeratorUserLookup(manager, CatalogSnapshotTestSupport.Proxy<Plus.HabboHotel.Cache.ICacheManager>((method, _) => throw new InvalidOperationException(method))), new ModeratorTicketStore(_database), _clock, null!);
             await new SubmitNewTicketEvent(ticketService).Parse(reporter, HabbiconTestSupport.Incoming("help", 1, Peer, 1, 0));
             await new PickTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(0, 1));
             await new ReleaseTicketEvent(ticketService).Parse(moderator, HabbiconTestSupport.Incoming(1, 1));

@@ -61,12 +61,12 @@ internal class KickUserBox : IWiredItem, IWiredCycle, IWiredActionDelay, IWiredF
         }
 
         if (player.Access.Can(PermissionKeys.ModerationTool) || Instance.OwnerId == player.Id) {
-            player.Client.Send(new WhisperComposer(user.VirtualId, "Wired Kick Exception: Unkickable Player", 0, 0));
+            player.Client?.Send(new WhisperComposer(user.VirtualId, "Wired Kick Exception: Unkickable Player", 0, 0));
 
             return false;
         }
 
-        player.Client.Send(new WhisperComposer(user.VirtualId, StringData, 0, 0));
+        player.Client?.Send(new WhisperComposer(user.VirtualId, StringData, 0, 0));
 
         return true;
     }

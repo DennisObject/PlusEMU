@@ -22,9 +22,11 @@ public class MarketplaceItemStatsComposer : IServerPacket
     {
         packet.WriteInteger(_averagePrice); //Avg price in last 7 days.
         packet.WriteInteger(_offerCount);
-        packet.WriteInteger(0); //No idea.
-        packet.WriteInteger(0); //No idea.
+        packet.WriteInteger(0); // History window in days; no daily history is supplied.
+        packet.WriteInteger(0); // Daily history row count (day offset, average price, sold amount).
         packet.WriteInteger(_itemId);
         packet.WriteUInteger(_spriteId);
+        packet.WriteInteger(0); // Lowest current price is unavailable in this snapshot.
+        packet.WriteInteger(0); // Suggested price is unavailable in this snapshot.
     }
 }

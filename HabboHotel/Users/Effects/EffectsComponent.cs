@@ -10,7 +10,7 @@ public sealed class EffectsComponent
     /// </summary>
     private readonly ConcurrentDictionary<int, AvatarEffect> _effects = new();
     private readonly TimeProvider _time;
-    private Habbo _habbo;
+    private Habbo? _habbo;
 
     public EffectsComponent(TimeProvider time)
     {

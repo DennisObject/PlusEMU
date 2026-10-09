@@ -73,7 +73,8 @@ public sealed class HorseCustomizationService(
     {
         var habbo = session.GetHabbo();
 
-        if (!habbo.InRoom || habbo.CurrentRoom == null || !roomManager.TryGetRoom(habbo.CurrentRoom.Id, out var room)) {
+        // The saddle goes back into the loaded inventory, so it is not removed without one.
+        if (!habbo.InRoom || habbo.CurrentRoom == null || habbo.Inventory is not { } inventory || !roomManager.TryGetRoom(habbo.CurrentRoom.Id, out var room)) {
             return;
         }
 
@@ -89,7 +90,7 @@ public sealed class HorseCustomizationService(
             var item = itemFactory.CreateSingleItemNullable(itemData, habbo, "", "")?.ToInventoryItem();
 
             if (item != null) {
-                habbo.Inventory.Furniture.AddItem(item);
+                inventory.Furniture.AddItem(item);
                 session.Send(new FurniListNotificationComposer(item.Id, 1));
                 session.Send(new PurchaseOKComposer());
                 session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));

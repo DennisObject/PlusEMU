@@ -44,8 +44,8 @@ public class CatalogIndexComposer : IServerPacket
         packet.WriteInteger(node.Icon);
         packet.WriteInteger(node.WireId);
         packet.WriteInteger(node.ParentId);
-        packet.WriteString(node.Link);
-        packet.WriteString(node.Caption);
+        packet.WriteString(node.Link ?? string.Empty);
+        packet.WriteString(node.Caption ?? string.Empty);
         packet.WriteInteger(node.OfferIds.Length);
 
         foreach (var offerId in node.OfferIds) {

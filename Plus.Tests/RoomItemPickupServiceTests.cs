@@ -42,7 +42,7 @@ public partial class PlacedFurniRoomTests
         {
             Assert.Equal(new RoomItemPickup(30, RoomId, 7, 7, InteractionType.None, false), request);
             Assert.Same(item, _room.GetRoomItemHandler().GetItem(item.Id));
-            Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+            Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
             Assert.Empty(_client.Sent);
             Assert.False(progressed);
 
@@ -56,7 +56,7 @@ public partial class PlacedFurniRoomTests
 
         Assert.Single(store.Calls);
         Assert.Null(_room.GetRoomItemHandler().GetItem(item.Id));
-        Assert.NotNull(_client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+        Assert.NotNull(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
         Assert.True(progressed);
         Assert.Contains(ServerPacketHeader.FurniListUpdateComposer, _client.Sent);
     }
@@ -74,7 +74,7 @@ public partial class PlacedFurniRoomTests
         await pickup.PickUp(_client, item.Id);
 
         Assert.Same(item, _room.GetRoomItemHandler().GetItem(item.Id));
-        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+        Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
         Assert.Empty(_client.Sent);
     }
 
@@ -95,7 +95,7 @@ public partial class PlacedFurniRoomTests
         await new RoomItemPickupService(Proxy<IGameClientManager>((_, _) => null),
             Proxy<IQuestManager>((_, _) => null), store).PickUp(_client, item.Id);
 
-        Assert.Equal(7u, _client.GetHabbo().Inventory.Furniture.GetItem(item.Id)!.OwnerId);
+        Assert.Equal(7u, Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(item.Id)!.OwnerId);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public partial class PlacedFurniRoomTests
         await new RoomItemPickupService(Proxy<IGameClientManager>((_, _) => null),
             Proxy<IQuestManager>((_, _) => null), store).PickUp(_client, item.Id);
         Assert.Null(_room.GetRoomItemHandler().GetItem(item.Id));
-        Assert.Null(_client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+        Assert.Null(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
     }
 
     [Fact]

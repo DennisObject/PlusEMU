@@ -45,6 +45,6 @@ internal class IsWearingBadgeBox : IWiredItem
             return false;
         }
 
-        return player.Inventory.Badges.EquippedBadges.Any(badge => badge.Code.Equals(StringData));
+        return player.Inventory?.Badges.EquippedBadges.Any(badge => badge.Code.Equals(StringData)) == true;
     }
 }

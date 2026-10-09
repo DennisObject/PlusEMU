@@ -13,15 +13,15 @@ public class AchievementsComposer(ImmutableArray<AchievementProgressSnapshot> ac
         packet.WriteInteger(achievements.Length);
 
         foreach (var achievement in achievements) {
-            packet.WriteInteger(achievement.Id); // Unknown (ID?)
+            packet.WriteInteger(achievement.Id); // Achievement ID
             packet.WriteInteger(achievement.TargetLevel); // Target level
-            packet.WriteString(achievement.Badge); // Target name/desc/badge
+            packet.WriteString(achievement.Badge); // Badge code
             packet.WriteInteger(1);
             packet.WriteInteger(achievement.Requirement); // Progress req/target
             packet.WriteInteger(achievement.RewardPixels);
             packet.WriteInteger(0); // Type of reward
             packet.WriteInteger(achievement.Progress); // Current progress
-            packet.WriteBoolean(achievement.Completed); // Set 100% completed(??)
+            packet.WriteBoolean(achievement.Completed); // Final achievement level completed.
             packet.WriteString(achievement.Category); // Category
             packet.WriteString(string.Empty);
             packet.WriteInteger(achievement.TotalLevels); // Total amount of levels

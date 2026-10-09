@@ -88,7 +88,7 @@ public sealed class WiredGameState
         _types.Remove(user);
         user.UpdateNeeded = true;
 
-        if (user.GetClient()?.GetHabbo()?.Effects.CurrentEffect == effect) {
+        if (user.GetClient()?.GetHabbo()?.Effects?.CurrentEffect == effect) {
             user.ApplyEffect(0);
         }
 

@@ -52,7 +52,7 @@ public sealed class PetPlacementServiceTests
         world.Service.Place(world.Room, world.Client, world.Pet.PetId, 1, 1);
 
         Assert.Empty(world.Store.Moves);
-        Assert.Contains(world.Pet.PetId, world.Client.GetHabbo().Inventory.Pets.Pets.Keys);
+        Assert.Contains(world.Pet.PetId, Assert.IsType<InventoryComponent>(world.Client.GetHabbo().Inventory).Pets.Pets.Keys);
         Assert.False(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out _));
     }
 
@@ -64,14 +64,14 @@ public sealed class PetPlacementServiceTests
         {
             Assert.Equal((world.Pet.PetId, 7, 0u, 42u, 1, 1),
                 (move.PetId, move.OwnerId, move.PreviousRoomId, move.RoomId, move.X, move.Y));
-            Assert.Contains(world.Pet.PetId, world.Client.GetHabbo().Inventory.Pets.Pets.Keys);
+            Assert.Contains(world.Pet.PetId, Assert.IsType<InventoryComponent>(world.Client.GetHabbo().Inventory).Pets.Pets.Keys);
             Assert.False(world.Pet.PlacedInRoom);
             Assert.False(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out _));
         };
 
         world.Service.Place(world.Room, world.Client, world.Pet.PetId, 1, 1);
 
-        Assert.DoesNotContain(world.Pet.PetId, world.Client.GetHabbo().Inventory.Pets.Pets.Keys);
+        Assert.DoesNotContain(world.Pet.PetId, Assert.IsType<InventoryComponent>(world.Client.GetHabbo().Inventory).Pets.Pets.Keys);
         Assert.True(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out var placed));
         Assert.Same(world.Pet, placed.PetData);
         Assert.Equal((42u, 1, 1, true), (world.Pet.RoomId, world.Pet.X, world.Pet.Y, world.Pet.PlacedInRoom));
@@ -86,7 +86,7 @@ public sealed class PetPlacementServiceTests
 
         world.Service.Place(world.Room, world.Client, world.Pet.PetId, 1, 1);
 
-        Assert.Contains(world.Pet.PetId, world.Client.GetHabbo().Inventory.Pets.Pets.Keys);
+        Assert.Contains(world.Pet.PetId, Assert.IsType<InventoryComponent>(world.Client.GetHabbo().Inventory).Pets.Pets.Keys);
         Assert.False(world.Pet.PlacedInRoom);
         Assert.Equal(0u, world.Pet.RoomId);
         Assert.False(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out _));
@@ -104,7 +104,7 @@ public sealed class PetPlacementServiceTests
         world.Service.PickUp(world.Room, world.Client, world.Pet.PetId);
 
         Assert.True(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out _));
-        Assert.DoesNotContain(world.Pet.PetId, world.Client.GetHabbo().Inventory.Pets.Pets.Keys);
+        Assert.DoesNotContain(world.Pet.PetId, Assert.IsType<InventoryComponent>(world.Client.GetHabbo().Inventory).Pets.Pets.Keys);
         Assert.Equal((42u, true), (world.Pet.RoomId, world.Pet.PlacedInRoom));
         Assert.Empty(world.Packets);
     }
@@ -127,7 +127,7 @@ public sealed class PetPlacementServiceTests
 
         Assert.Equal(writesBefore, world.Store.Moves.Count);
         Assert.True(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out _));
-        Assert.DoesNotContain(world.Pet.PetId, intruder.GetHabbo().Inventory.Pets.Pets.Keys);
+        Assert.DoesNotContain(world.Pet.PetId, Assert.IsType<InventoryComponent>(intruder.GetHabbo().Inventory).Pets.Pets.Keys);
     }
 
     [Fact]
@@ -144,13 +144,13 @@ public sealed class PetPlacementServiceTests
 
             Assert.Equal(42u, move.PreviousRoomId);
             Assert.True(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out _));
-            Assert.DoesNotContain(world.Pet.PetId, world.Client.GetHabbo().Inventory.Pets.Pets.Keys);
+            Assert.DoesNotContain(world.Pet.PetId, Assert.IsType<InventoryComponent>(world.Client.GetHabbo().Inventory).Pets.Pets.Keys);
         };
 
         world.Service.PickUp(world.Room, world.Client, world.Pet.PetId);
 
         Assert.False(world.Room.GetRoomUserManager().TryGetPet(world.Pet.PetId, out _));
-        Assert.Contains(world.Pet.PetId, world.Client.GetHabbo().Inventory.Pets.Pets.Keys);
+        Assert.Contains(world.Pet.PetId, Assert.IsType<InventoryComponent>(world.Client.GetHabbo().Inventory).Pets.Pets.Keys);
         Assert.Equal((0u, false), (world.Pet.RoomId, world.Pet.PlacedInRoom));
         Assert.Single(world.Packets);
     }

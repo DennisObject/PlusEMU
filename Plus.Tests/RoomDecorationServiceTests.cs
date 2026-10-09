@@ -49,7 +49,7 @@ public sealed class RoomDecorationServiceTests
         Assert.Throws<InvalidOperationException>(() => Service(store).Apply(room, client, new(item.Id)));
 
         Assert.Equal("old", room.Wallpaper);
-        Assert.NotNull(client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+        Assert.NotNull(Assert.IsType<InventoryComponent>(client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
         Assert.Empty(sent);
     }
 
@@ -62,7 +62,7 @@ public sealed class RoomDecorationServiceTests
         var store = new DecorationStore(() =>
         {
             Assert.Equal("old", room.Wallpaper);
-            Assert.NotNull(client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+            Assert.NotNull(Assert.IsType<InventoryComponent>(client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
             Assert.Empty(sent);
         });
 
@@ -70,7 +70,7 @@ public sealed class RoomDecorationServiceTests
         Service(store).Apply(room, client, new(item.Id));
 
         Assert.Equal("paper", room.Wallpaper);
-        Assert.Null(client.GetHabbo().Inventory.Furniture.GetItem(item.Id));
+        Assert.Null(Assert.IsType<InventoryComponent>(client.GetHabbo().Inventory).Furniture.GetItem(item.Id));
         Assert.Single(sent);
         Assert.Equal(1, store.Writes);
     }

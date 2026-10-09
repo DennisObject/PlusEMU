@@ -85,7 +85,8 @@ public sealed class RoomItemPickupService(
             item.RoomId = 0;
 
             if (receiverHabbo != null) {
-                receiverHabbo.Inventory.Furniture.AddItem(inventoryItem);
+                // The pickup is already stored; an inventory that is not loaded picks the item up later.
+                receiverHabbo.Inventory?.Furniture.AddItem(inventoryItem);
                 receiver!.Send(new FurniListUpdateComposer());
             }
 

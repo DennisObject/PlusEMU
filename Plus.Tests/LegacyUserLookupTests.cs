@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Reflection;
-using Plus.HabboHotel;
 using Plus.HabboHotel.Users;
 using Xunit;
 
@@ -13,20 +12,18 @@ public sealed class LegacyUserLookupTests
     public void AnOnlineUserReplacesTheCachedSnapshotWithoutReturningTheRemovedSnapshot()
     {
         const int userId = 937001;
-        var gameField = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
+        var clientsField = typeof(PlusEnvironment).GetField("_clientManager", BindingFlags.Static | BindingFlags.NonPublic)!;
         var cache = (ConcurrentDictionary<int, Habbo>)typeof(PlusEnvironment).GetField("_usersCached", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
-        var oldGame = gameField.GetValue(null);
+        var oldClients = clientsField.GetValue(null);
         var hadCache = cache.TryGetValue(userId, out var oldCached);
         var snapshot = new Habbo { Id = userId, Username = "old" };
         var online = new Habbo { Id = userId, Username = "live" };
         var clients = new HousekeepingActionTests.FakeClients();
         var (client, _) = HabbiconTestSupport.Client(online);
         clients.Online[userId] = client;
-        var game = DispatchProxy.Create<IGame, ClientManagerProxy>();
-        ((ClientManagerProxy)(object)game).Clients = clients;
 
         try {
-            gameField.SetValue(null, game);
+            clientsField.SetValue(null, clients);
             cache[userId] = snapshot;
             Assert.Same(online, PlusEnvironment.GetHabboById(userId));
             Assert.False(cache.ContainsKey(userId));
@@ -36,19 +33,12 @@ public sealed class LegacyUserLookupTests
             Assert.Same(snapshot, PlusEnvironment.GetHabboById(userId));
         }
         finally {
-            gameField.SetValue(null, oldGame);
+            clientsField.SetValue(null, oldClients);
             cache.TryRemove(userId, out _);
 
             if (hadCache) {
                 cache[userId] = oldCached!;
             }
         }
-    }
-
-    private class ClientManagerProxy : DispatchProxy
-    {
-        public HousekeepingActionTests.FakeClients Clients { get; set; } = null!;
-        protected override object? Invoke(MethodInfo? method, object?[]? args) => method?.Name == "get_ClientManager"
-            ? Clients : throw new NotSupportedException(method?.Name);
     }
 }

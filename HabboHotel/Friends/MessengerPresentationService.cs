@@ -21,7 +21,7 @@ public sealed class MessengerPresentationService(IMessengerDataLoader messengerD
     public async Task ShowFriendList(GameClient session)
     {
         var habbo = session.GetHabbo();
-        var friends = habbo.Messenger.Friends.Values.Select(MessengerBuddySnapshot.Capture).ToImmutableArray();
+        var friends = habbo.Messenger?.Friends.Values.Select(MessengerBuddySnapshot.Capture).ToImmutableArray() ?? [];
         session.Send(new MessengerInitComposer(ClubLimits.For(habbo.Access, "friends", settings)));
 
         if (friends.IsEmpty) {
@@ -47,7 +47,7 @@ public sealed class MessengerPresentationService(IMessengerDataLoader messengerD
 
     public void ShowFriendRequests(GameClient session)
     {
-        var requests = session.GetHabbo().Messenger.Requests.Values
+        var requests = (session.GetHabbo().Messenger?.Requests.Values ?? [])
             .Select(request => new FriendRequestData(request.FromId, request.Username,
                 cacheManager.GenerateUser(request.FromId)?.Look ?? string.Empty))
             .ToList();

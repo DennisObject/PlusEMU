@@ -27,7 +27,7 @@ internal static class TestLogging
         Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true;
         Dapper.SqlMapper.AddTypeHandler(new Plus.Database.UtcDateTimeOffsetHandler());
         Plus.Core.ExceptionLogger.Configure(Factory);
-        Plus.Core.ConsoleCommands.Configure(Factory);
+        Plus.Core.ConsoleCommands.Configure(Factory, TestGameClientManager.Empty);
     }
 
     internal static ILogger Logger => NullLogger.Instance;
@@ -91,6 +91,11 @@ internal sealed class TestRoomFactory : IRoomFactory
     public void Dispose(uint roomId) { }
 }
 
+internal static class TestRoomManager
+{
+    internal static IRoomManager Unused { get; } = CatalogSnapshotTestSupport.Proxy<IRoomManager>((method, _) => throw new NotSupportedException(method));
+}
+
 internal sealed class TestGameClientManager(Func<int, GameClient?> lookup) : IGameClientManager
 {
     internal static TestGameClientManager Empty { get; } = new(_ => null);
@@ -110,7 +115,7 @@ internal sealed class TestGameClientManager(Func<int, GameClient?> lookup) : IGa
     public void SendPacket(IServerPacket packet, PermissionDefinition? permission = null) => throw new NotSupportedException();
     public void LogClonesOut(int userId) => throw new NotSupportedException();
     public void RegisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
-    public void UnregisterClient(GameClient client, int userId, string username) => throw new NotSupportedException();
+    public void UnregisterClient(GameClient? client, int userId, string username) => throw new NotSupportedException();
     public void CloseAll() => throw new NotSupportedException();
 }
 

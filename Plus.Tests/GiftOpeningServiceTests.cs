@@ -35,7 +35,7 @@ public sealed class GiftOpeningServiceTests
         Assert.Equal(1, store.Opens);
         Assert.Equal(100, gift.BaseItem);
         Assert.NotSame(definition, gift.Definition);
-        var delivered = Assert.IsType<InventoryItem>(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
+        var delivered = Assert.IsType<InventoryItem>(Assert.IsType<InventoryComponent>(client.GetHabbo().Inventory).Furniture.GetItem(gift.Id));
         Assert.Same(definition, delivered.Definition);
         Assert.Equal("blue", delivered.ExtraData.Serialize());
         Assert.NotEmpty(sent);
@@ -117,7 +117,7 @@ public sealed class GiftOpeningServiceTests
 
         await Service(store, definition).OpenAsync(client, gift.Id);
 
-        var delivered = Assert.IsType<InventoryItem>(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
+        var delivered = Assert.IsType<InventoryItem>(Assert.IsType<InventoryComponent>(client.GetHabbo().Inventory).Furniture.GetItem(gift.Id));
         Assert.Same(definition, delivered.Definition);
         Assert.Null(room.GetRoomItemHandler().GetItem(gift.Id));
         Assert.NotEmpty(sent);
@@ -139,7 +139,7 @@ public sealed class GiftOpeningServiceTests
 
         Assert.Equal(1, placement.Attempts);
         Assert.Null(room.GetRoomItemHandler().GetItem(gift.Id));
-        var inventory = Assert.IsType<InventoryItem>(client.GetHabbo().Inventory.Furniture.GetItem(gift.Id));
+        var inventory = Assert.IsType<InventoryItem>(Assert.IsType<InventoryComponent>(client.GetHabbo().Inventory).Furniture.GetItem(gift.Id));
         Assert.Same(definition, inventory.Definition);
         Assert.Empty(room.GetGameMap().GetCoordinatedItems(new(1, 1)));
     }

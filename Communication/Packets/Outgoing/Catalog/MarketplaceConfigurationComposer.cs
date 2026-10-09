@@ -9,9 +9,9 @@ public class MarketplaceConfigurationComposer : IServerPacket
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteBoolean(true);
-        packet.WriteInteger(1); //Min price.
-        packet.WriteInteger(0); //1?
-        packet.WriteInteger(0); //5?
+        packet.WriteInteger(1); // Commission percentage.
+        packet.WriteInteger(0); // Credits required to buy listing advertisements.
+        packet.WriteInteger(0); // Listing advertisements granted by that purchase.
         packet.WriteInteger(1);
         packet.WriteInteger(99999999); //Max price.
         packet.WriteInteger(48);

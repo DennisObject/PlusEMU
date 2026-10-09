@@ -161,7 +161,7 @@ public partial class PlacedFurniRoomTests
         EstablishExternalMountedGroup(rider, horse);
         rider.MoveTo(2, 1);
         ExecutorTick();
-        var inventory = _client.GetHabbo().Inventory;
+        var inventory = Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory);
         _client.GetHabbo().Inventory = new InventoryComponent { Furniture = inventory.Furniture, Pets = new([]) };
         var database = Proxy<IDatabase>((method, _) => method == "Connection" ? new PetPickupConnection() : throw new NotSupportedException(method));
         var service = new PetPlacementService(
@@ -169,7 +169,7 @@ public partial class PlacedFurniRoomTests
             Proxy<IGameClientManager>((_, _) => _client),
             Proxy<ISettingsManager>((method, _) => throw new NotSupportedException(method)));
         new PickUpPetEvent(service)
-            .Parse(_room, _client, ClientPacket(horse.PetData.PetId)).GetAwaiter().GetResult();
+            .Parse(_room, _client, ClientPacket(Assert.IsType<Pet>(horse.PetData).PetId)).GetAwaiter().GetResult();
         Assert.Equal(NavState.Removing, horse.Movement.State);
         Assert.True(rider.RidingHorse);
         ExecutorTick();
@@ -180,7 +180,7 @@ public partial class PlacedFurniRoomTests
         Assert.False(horse.HasStatus("mv"));
         Assert.Null(_room.GetRoomUserManager().GetRoomUserByVirtualId(horse.VirtualId));
         Assert.DoesNotContain(horse, _room.GetGameMap().GetRoomUsers(new(0, 1)));
-        Assert.Contains(horse.PetData.PetId, _client.GetHabbo().Inventory.Pets.Pets.Keys);
+        Assert.Contains(horse.PetData.PetId, Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Pets.Pets.Keys);
     }
 
     [Fact]
@@ -264,7 +264,7 @@ public partial class PlacedFurniRoomTests
     private RoomUser ExternalLifecycleHorse(int x, int y)
     {
         var horse = ExecutorAdditionalBot(x, y, 2);
-        horse.BotData.AiType = BotAiType.Pet;
+        Assert.IsType<RoomBot>(horse.BotData).AiType = BotAiType.Pet;
         horse.PetData = (Pet)RuntimeHelpers.GetUninitializedObject(typeof(Pet));
         var pet = horse.PetData;
         pet.PetId = 50;
@@ -304,7 +304,7 @@ public partial class PlacedFurniRoomTests
 
     private void RideExternalHorse(RoomUser horse, bool mount)
         => new RideHorseEvent(new HorseRidingService(Proxy<IPetLocale>((_, _) => new[] { "horse" })))
-            .Parse(_room, _client, ClientPacket(horse.PetData.PetId, mount)).GetAwaiter().GetResult();
+            .Parse(_room, _client, ClientPacket(Assert.IsType<Pet>(horse.PetData).PetId, mount)).GetAwaiter().GetResult();
 
     private static int DrainRemainingSearches(RoomNavigation navigation)
     {

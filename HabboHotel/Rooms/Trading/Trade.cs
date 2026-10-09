@@ -59,11 +59,11 @@ public sealed class Trade
     public void SendPacket(IServerPacket packet)
     {
         foreach (var user in Users) {
-            if (user == null || user.RoomUser == null || user.RoomUser.GetClient() == null) {
+            if (user?.RoomUser?.GetClient() is not { } client) {
                 continue;
             }
 
-            user.RoomUser.GetClient().Send(packet);
+            client.Send(packet);
         }
     }
 
@@ -194,8 +194,11 @@ public sealed class Trade
             }
         }
 
+        // ProcessItems only trades between loaded inventories, so the received item always has somewhere to go.
+        var inventory = habbo.Inventory ?? throw new InvalidOperationException("The trade recipient has no loaded inventory.");
+
         // A wallet saved for shutdown cannot receive credits; transfer the voucher intact.
-        if (habbo.Inventory.Furniture.AddItem(item)) {
+        if (inventory.Furniture.AddItem(item)) {
             recipient.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
             recipient.Send(new FurniListNotificationComposer(item.Id, 1));
             store.TransferItem(item.Id, habbo.Id);

@@ -18,6 +18,33 @@ namespace Plus.Tests;
 
 public class AchievementSnapshotTests
 {
+    [Fact]
+    public void UnlockWithoutLoadedStatisticsGivesNoBadgeAndSendsNothing()
+    {
+        var calls = new List<string>();
+        T Untouched<T>() where T : class => CatalogSnapshotTestSupport.Proxy<T>((method, _) =>
+        {
+            calls.Add($"{typeof(T).Name}.{method}");
+
+            throw new InvalidOperationException(method);
+        });
+        var manager = new AchievementManager(Untouched<IAchievementLevelFactory>(), Untouched<Plus.Database.IDatabase>(),
+            Untouched<Plus.HabboHotel.Badges.IBadgeManager>(), Untouched<Plus.HabboHotel.Talents.ITalentTrackProgressionService>());
+        var achievement = new Achievement { GroupName = "ACH_Probe", Category = "probe" };
+        achievement.AddLevel(new AchievementLevel(1, 20, 7, 1));
+        manager.Achievements.Add("ACH_Probe", achievement);
+        // A loaded inventory isolates the missing statistics as the only reason the unlock is refused.
+        var habbo = new Habbo { Id = 7, Username = "probe", Inventory = new Plus.HabboHotel.Users.Inventory.InventoryComponent() };
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+
+        Assert.False(manager.ProgressAchievement(client, "ACH_Probe", 1));
+
+        Assert.Empty(calls);
+        Assert.Empty(sent);
+        Assert.Null(habbo.HabboStats);
+        Assert.Empty(habbo.Inventory.Badges.Badges);
+    }
+
     // SHA-256 of the pre-migration achievement composer payloads for the scenarios in BaselineLines.
     private const string BaselineSha256 = "24cf9f92a0586099715752238407ed531cf5284e16f69dde0912cc0320e25a4f";
 

@@ -74,7 +74,7 @@ public sealed class WiredAvatarState
         user.CanWalk = state.CanWalk;
         user.UpdateNeeded = true;
 
-        if (!user.IsBot && state.Effect > 0 && user.GetClient()?.GetHabbo()?.Effects.CurrentEffect == state.Effect) {
+        if (!user.IsBot && state.Effect > 0 && user.GetClient()?.GetHabbo()?.Effects?.CurrentEffect == state.Effect) {
             user.ApplyEffect(0);
         }
 

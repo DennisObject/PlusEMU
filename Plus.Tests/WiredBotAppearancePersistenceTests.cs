@@ -175,14 +175,14 @@ public sealed class WiredBotAppearancePersistenceTests
 
         public void AssertUnpublished()
         {
-            Assert.Equal("hd-180-1", Bot.BotData.Look);
+            Assert.Equal("hd-180-1", Assert.IsType<RoomBot>(Bot.BotData).Look);
             Assert.Equal("F", Bot.BotData.Gender);
             Assert.Empty(_sent);
         }
 
         public void AssertPublished(string look, string gender)
         {
-            Assert.Equal(look, Bot.BotData.Look);
+            Assert.Equal(look, Assert.IsType<RoomBot>(Bot.BotData).Look);
             Assert.Equal(gender, Bot.BotData.Gender);
             var packet = Assert.Single(_sent);
             Assert.Equal(ServerPacketHeader.UserChangeComposer, packet.Header);

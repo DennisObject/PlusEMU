@@ -29,7 +29,8 @@ internal class FacelessCommand : IChatCommand
     {
         var user = room.GetRoomUserManager().GetRoomUserByHabbo(session.GetHabbo().Id);
 
-        if (user == null || user.GetClient() == null) {
+        // Paid clothing is only checked against a loaded wardrobe, so the look is not changed without one.
+        if (user == null || user.GetClient() == null || session.GetHabbo().Clothing is not { } wardrobe) {
             return;
         }
 
@@ -52,7 +53,7 @@ internal class FacelessCommand : IChatCommand
             }
         }
 
-        session.GetHabbo().Look = _figureDataManager.ProcessFigure(session.GetHabbo().Look, session.GetHabbo().Gender, session.GetHabbo().Clothing.GetClothingParts, ClubAccess.LevelFor(session.GetHabbo().Access));
+        session.GetHabbo().Look = _figureDataManager.ProcessFigure(session.GetHabbo().Look, session.GetHabbo().Gender, wardrobe.GetClothingParts, ClubAccess.LevelFor(session.GetHabbo().Access));
         using var connection = _database.Connection();
         connection.Execute("UPDATE users SET look=@look WHERE id=@userId LIMIT 1",
             new { look = session.GetHabbo().Look, userId = session.GetHabbo().Id });

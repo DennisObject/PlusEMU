@@ -120,7 +120,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Assert.Equal(2, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE (user_one_id = 9101 AND user_two_id = 9102) OR (user_one_id = 9102 AND user_two_id = 9101)"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9102 AND to_id = 9101"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9101 AND to_id = 9102"));
-        Assert.NotNull(acceptor.Messenger.GetFriend(9102));
+        Assert.NotNull(Assert.IsType<HabboMessenger>(acceptor.Messenger).GetFriend(9102));
         Assert.False(acceptor.Messenger.Requests.ContainsKey(9102));
     }
 
@@ -151,7 +151,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         var missing = await loader.AcceptFriendRequest(9301, 9302);
         Assert.Equal(FriendRequestError.NoFriendRequest, missing.Error);
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = 9301"));
-        Assert.Empty(acceptor.Messenger.Friends);
+        Assert.Empty(Assert.IsType<HabboMessenger>(acceptor.Messenger).Friends);
 
         var unknown = await loader.AcceptFriendRequest(9301, 9399);
         Assert.Equal(FriendRequestError.NoFriendRequest, unknown.Error);
@@ -176,7 +176,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9402 AND to_id = 9401"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id = 9402"));
-        Assert.True(acceptor.Messenger.Requests.ContainsKey(9402));
+        Assert.True(Assert.IsType<HabboMessenger>(acceptor.Messenger).Requests.ContainsKey(9402));
         Assert.Empty(acceptor.Messenger.Friends.Where(pair => pair.Key == 9402));
     }
 
@@ -193,7 +193,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9502 AND to_id = 9501"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9501 AND to_id = 9502"));
-        Assert.False(decliner.Messenger.Requests.ContainsKey(9502));
+        Assert.False(Assert.IsType<HabboMessenger>(decliner.Messenger).Requests.ContainsKey(9502));
     }
 
     [MessengerFriendDatabaseFact]
@@ -209,7 +209,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9892 AND to_id = 9891"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9891 AND to_id = 9892"));
-        Assert.False(decliner.Messenger.Requests.ContainsKey(9892));
+        Assert.False(Assert.IsType<HabboMessenger>(decliner.Messenger).Requests.ContainsKey(9892));
     }
 
     [MessengerFriendDatabaseFact]
@@ -225,7 +225,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         await service.RemoveFriendsAsync(remover, [9602]);
 
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9601, 9602) AND user_two_id IN (9601, 9602)"));
-        Assert.Null(remover.Messenger.GetFriend(9602));
+        Assert.Null(Assert.IsType<HabboMessenger>(remover.Messenger).GetFriend(9602));
     }
 
     [MessengerFriendDatabaseFact]
@@ -256,7 +256,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.AcceptRequestAsync(acceptor, 9802));
 
-        Assert.True(acceptor.Messenger.Requests.ContainsKey(9802));
+        Assert.True(Assert.IsType<HabboMessenger>(acceptor.Messenger).Requests.ContainsKey(9802));
         Assert.Empty(acceptor.Messenger.Friends);
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9802 AND to_id = 9801"));
     }
@@ -323,7 +323,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
             Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9982 AND to_id = 9981"));
             Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9981, 9982)"));
-            Assert.True(acceptor.Messenger.Requests.ContainsKey(9982));
+            Assert.True(Assert.IsType<HabboMessenger>(acceptor.Messenger).Requests.ContainsKey(9982));
             Assert.Empty(acceptor.Messenger.Friends);
         }
         finally {
@@ -398,7 +398,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
             Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9812 AND to_id = 9811"));
             Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9811, 9812)"));
-            Assert.True(acceptor.Messenger.Requests.ContainsKey(9812));
+            Assert.True(Assert.IsType<HabboMessenger>(acceptor.Messenger).Requests.ContainsKey(9812));
             Assert.Empty(acceptor.Messenger.Friends);
         }
         finally {
@@ -426,7 +426,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
             Assert.Equal(2, Scalar("SELECT COUNT(*) FROM users_settings WHERE user_id IN (9851, 9852)"));
             Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9852 AND to_id = 9851"));
             Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9851, 9852) OR user_two_id IN (9851, 9852)"));
-            Assert.True(acceptor.Messenger.Requests.ContainsKey(9852));
+            Assert.True(Assert.IsType<HabboMessenger>(acceptor.Messenger).Requests.ContainsKey(9852));
             Assert.Empty(acceptor.Messenger.Friends);
         }
         finally {
@@ -451,7 +451,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
             send = service.SendRequestAsync(sender, 9822);
             await Task.Delay(200);
             Assert.False(send.IsCompleted);
-            sender.Messenger.AddFriendRequest(new MessengerRequest { FromId = 9822, ToId = 9821 });
+            Assert.IsType<HabboMessenger>(sender.Messenger).AddFriendRequest(new MessengerRequest { FromId = 9822, ToId = 9821 });
         }
         finally {
             // Release the lease even when an assertion fails, then observe the send so its exception is never unobserved.
@@ -499,7 +499,7 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
 
         await Task.WhenAll(service.RemoveFriendsAsync(remover, [9842]), service.RemoveFriendsAsync(remover, [9842]));
 
-        Assert.Null(remover.Messenger.GetFriend(9842));
+        Assert.Null(Assert.IsType<HabboMessenger>(remover.Messenger).GetFriend(9842));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_friendships WHERE user_one_id IN (9841, 9842) AND user_two_id IN (9841, 9842)"));
     }
 

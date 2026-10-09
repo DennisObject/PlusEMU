@@ -32,8 +32,8 @@ public sealed class RoomEntryService(IQuestManager quests, TimeProvider clock, I
         room.SendObjects(session);
         habbo.Messenger?.NotifyChangesToFriends();
 
-        if (habbo.HabboStats.QuestId > 0) {
-            quests.QuestReminder(session, habbo.HabboStats.QuestId);
+        if (habbo.HabboStats is { QuestId: > 0 } stats) {
+            quests.QuestReminder(session, stats.QuestId);
         }
 
         session.Send(new RoomEntryInfoComposer(room.RoomId, room.CheckRights(session, true)));

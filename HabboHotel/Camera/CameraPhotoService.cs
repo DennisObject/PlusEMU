@@ -50,6 +50,14 @@ public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutSer
     {
         try {
             var habbo = session.GetHabbo();
+
+            // The photo is handed into the loaded inventory, so nothing is bought without one.
+            if (habbo.Inventory is not { } inventory) {
+                session.SendNotification("The photograph could not be purchased. No payment was taken.");
+
+                return;
+            }
+
             var result = Execute(session, habbo, mediaId, media => checkout.Purchase(habbo, media));
 
             if (!result.Ok || result.Item == null) {
@@ -58,7 +66,7 @@ public sealed class CameraPhotoService(ICameraService camera, ICameraCheckoutSer
                 return;
             }
 
-            habbo.Inventory.Furniture.AddItem(result.Item);
+            inventory.Furniture.AddItem(result.Item);
             session.Send(new FurniListNotificationComposer(result.Item.Id, 1));
             session.Send(new FurniListUpdateComposer());
             session.Send(new CreditBalanceComposer(habbo.Credits));

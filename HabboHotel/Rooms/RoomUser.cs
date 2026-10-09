@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Plus.HabboHotel.Permissions;
 using System.Drawing;
 using Plus.Communication.Packets;
@@ -32,8 +33,8 @@ public class RoomUser
     public bool AllowOverride;
 
     public FreezePowerUp BanzaiPowerUp;
-    public BotAi BotAi;
-    public RoomBot BotData;
+    public BotAi? BotAi;
+    public RoomBot? BotData;
     public bool CanWalk;
     public int CarryItemId; //byte
     public int CarryTimer; //byte
@@ -65,7 +66,7 @@ public class RoomUser
     public bool IsWalking;
     public int LastBubble = 0;
     public DateTimeOffset? LastInteractionAt;
-    public Item LastItem = null;
+    public Item? LastItem = null;
 
     public int LlPartner = 0;
     public int LockedTilesCount;
@@ -74,7 +75,7 @@ public class RoomUser
     public List<Vector2D> Path = new();
     public bool PathRecalcNeeded;
     public int PathStep = 1;
-    public Pet PetData;
+    public Pet? PetData;
 
     public int PrevTime;
     public bool RidingHorse = false;
@@ -149,7 +150,7 @@ public class RoomUser
 
     public bool IsPet => IsBot && BotData.IsPet;
 
-    public int CurrentEffect => GetClient()?.GetHabbo()?.Effects.CurrentEffect ?? 0;
+    public int CurrentEffect => GetClient()?.GetHabbo()?.Effects?.CurrentEffect ?? 0;
 
 
     public bool IsDancing
@@ -182,11 +183,11 @@ public class RoomUser
                 return false;
             }
 
-            if (GetClient() == null || GetClient().GetHabbo() == null) {
+            if (GetClient()?.GetHabbo() is not { } habbo) {
                 return true;
             }
 
-            if (GetClient().GetHabbo().Access.Can(PermissionKeys.ModerationTool) || GetRoom().OwnerId == HabboId) {
+            if (habbo.Access.Can(PermissionKeys.ModerationTool) || GetRoom().OwnerId == HabboId) {
                 return false;
             }
 
@@ -202,6 +203,7 @@ public class RoomUser
         }
     }
 
+    [MemberNotNullWhen(true, nameof(BotData))]
     public bool IsBot
     {
         get
@@ -476,9 +478,8 @@ public class RoomUser
                     continue;
                 }
 
-                if (user.IsBot) {
-                    user.BotAi.OnUserShout(this, message);
-                }
+                // A placed bot always has its AI; the reaction is skipped only if it does not.
+                user.BotAi?.OnUserShout(this, message);
             }
         }
         else {
@@ -487,9 +488,7 @@ public class RoomUser
                     continue;
                 }
 
-                if (user.IsBot) {
-                    user.BotAi.OnUserSay(this, message);
-                }
+                user.BotAi?.OnUserSay(this, message);
             }
         }
     }

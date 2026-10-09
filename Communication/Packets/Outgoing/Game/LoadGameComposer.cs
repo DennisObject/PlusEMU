@@ -24,7 +24,7 @@ public class LoadGameComposer : IServerPacket
         packet.WriteString(_gameData.SwfUrl);
         packet.WriteString("best");
         packet.WriteString("showAll");
-        packet.WriteInteger(60); //FPS?
+        packet.WriteInteger(60); // Frames per second.
         packet.WriteInteger(10);
         packet.WriteInteger(8);
         packet.WriteInteger(6); //Asset count

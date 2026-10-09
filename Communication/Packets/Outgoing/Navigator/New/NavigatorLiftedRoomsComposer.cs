@@ -12,7 +12,7 @@ public class NavigatorLiftedRoomsComposer : IServerPacket
         packet.WriteInteger(0); //Count
         {
             packet.WriteInteger(1); //Flat Id
-            packet.WriteInteger(0); //Unknown
+            packet.WriteInteger(0); // Area ID (unused while the room count is zero).
             packet.WriteString(string.Empty); //Image
             packet.WriteString("Caption"); //Caption.
         }
