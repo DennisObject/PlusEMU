@@ -67,6 +67,30 @@ public sealed class CraftingPacketTests
         Assert.Equal(new[] { "products:10", "recipe:recipe", "craft:10:recipe", "available:10:20,21", "secret:10:20,21" }, service.Calls);
     }
 
+    [Fact]
+    public async Task AirCraftingIdsDispatchAltarAndRecipePayloadsToTheirOwnOperations()
+    {
+        var service = new Recorder();
+        var (client, _) = HabbiconTestSupport.Client(new Habbo { Id = 7 });
+        using var manager = new Plus.Communication.Packets.PacketManager(
+            [new GetCraftableProductsEvent(service), new GetCraftingRecipeEvent(service)],
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<Plus.Communication.Packets.PacketManager>.Instance);
+        using var altarStream = Plus.Communication.Flash.PlusMemoryStream.GetStream();
+        new Plus.Communication.Flash.FlashOutgoingPacket(altarStream).WriteInt(100_000);
+        var altar = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = altarStream.ToArray()[6..] };
+        using var recipeStream = Plus.Communication.Flash.PlusMemoryStream.GetStream();
+        new Plus.Communication.Flash.FlashOutgoingPacket(recipeStream).WriteString("recipe");
+        var recipe = new Plus.Communication.Flash.FlashIncomingPacket { Buffer = recipeStream.ToArray()[6..] };
+
+        // CraftingWidgetHandler sends class_3258(altar) on 2698 and class_3259(recipe) on 1420.
+        await manager.TryExecutePacket(client, 2698, altar);
+        await manager.TryExecutePacket(client, 1420, recipe);
+
+        Assert.Equal(new[] { "products:100000", "recipe:recipe" }, service.Calls);
+        Assert.False(altar.HasDataRemaining());
+        Assert.False(recipe.HasDataRemaining());
+    }
+
     [Theory]
     [InlineData(-1)]
     [InlineData(51)]
