@@ -190,7 +190,10 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
             var style = new WiredMoveStyleComposer((int)item.Id, options.CurveType,
                 options.CurveType == 7 ? options.CurveStrength : options.CurveIntensity, options.AnimationDistanceOffset);
             var movement = new WiredMovementComposer(1, (int)item.Id, source.X, source.Y, source.Z,
-                item.GetX, item.GetY, item.GetZ, item.Rotation, item.Rotation, options.AnimationTimeMs);
+                item.GetX, item.GetY, item.GetZ, item.Rotation, item.Rotation, options.AnimationTimeMs)
+            {
+                CurveStrength = options.CurveType == 7 ? options.CurveStrength : null
+            };
 
             if (context.Publication?.Append(item, movement, style) != true) {
                 room.SendPacket(style);
@@ -394,6 +397,7 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         int walkMode, bool throughUsers, bool ignoreOccupants, int? animationTimeMs, long? discardThrough, (int X, int Y, double Z)? carrySource)
     {
         var room = context.Room;
+        var curve = context.Policy.Addons.Curve;
 
         if (context.Policy.Addons.Physics is { } physics) {
             if (!ValidAvatarDestination(room, x, y)
@@ -435,12 +439,14 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
         walkTransition(user, oldItems, newItems);
 
         if (animate && !context.Policy.Addons.DisableAnimation) {
-            var curve = context.Policy.Addons.Curve;
             var style = new WiredMoveStyleComposer(user.VirtualId, curve?.Type ?? 0,
                 curve?.Type == 7 ? curve.Strength : curve?.Intensity ?? 100, 0, true);
             var source = carrySource ?? (X: oldX, Y: oldY, Z: oldZ);
             var movement = new WiredMovementComposer(0, user.VirtualId, source.X, source.Y, source.Z, user.X, user.Y, user.Z,
-                user.RotBody, user.RotHead, animationTimeMs ?? context.Policy.Addons.AnimationTimeMs);
+                user.RotBody, user.RotHead, animationTimeMs ?? context.Policy.Addons.AnimationTimeMs)
+            {
+                JumpPower = curve?.Type == 7 ? curve.Strength : null
+            };
 
             if (!carrySource.HasValue || _appendCarryPublication?.Invoke(context, user, movement, style) != true) {
                 room.SendPacket(style);

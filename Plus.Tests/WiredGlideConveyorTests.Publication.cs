@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Collections.Immutable;
 using System.Text.Json;
 using System.Text;
 using System.Reflection;
@@ -10,6 +11,8 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
+using Plus.HabboHotel.Items.Wired.Modern.Addons;
+using Plus.HabboHotel.Items.Wired.Modern.Selectors;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel.Rooms;
 using Xunit;
@@ -18,6 +21,159 @@ namespace Plus.Tests;
 
 public sealed partial class WiredGlideConveyorTests
 {
+    [Theory]
+    [InlineData(-100)]
+    [InlineData(0)]
+    [InlineData(100)]
+    public async Task CanonicalStrengthActualOwnerGuidePublishesSignedFloorAndCarryFields(int strength)
+    {
+        var layout = FastQueueLayout(2).ToList();
+        var config = JsonSerializer.Serialize(new WiredConfiguration { IntParams = [7, 100, strength, 0, 0, 0, 0] });
+        layout.Add((19, 4, 12, 4, 0, "wf_xtra_mov_curve", config));
+        layout.Add((20, 6, 12, 4, 0, "wf_xtra_mov_curve", config));
+        var f = new Fixture(layout.ToArray(), live: true);
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var room = f.MovementContext().Room;
+        room.Type = "private";
+        room.OwnerName = rider.GetUsername();
+        var packets = CapturePublication(rider);
+        await new WiredUserVariablesRequestEvent(new WiredVariableMenuService()).Parse(room, rider.GetClient()!,
+            new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
+        packets.Clear();
+
+        f.Advance(250);
+
+        var moves = ReadTrajectoryPublication(packets);
+        var floor = moves.Where(move => move.Type == 1).ToArray();
+        Assert.Equal(Enumerable.Range(1, 7), floor.Select(move => move.Id));
+        Assert.All(floor, move =>
+        {
+            Assert.Equal(strength, move.Strength);
+            Assert.Null(move.Overshoot);
+            Assert.Equal(move.FromX, move.ToX);
+            Assert.Equal(500, move.Duration);
+        });
+        var carried = Assert.Single(moves.Where(move => move.Type == 0));
+        Assert.Equal(strength, carried.Strength);
+        Assert.Equal((4, 5, "1", "1", 200), (carried.FromX, carried.ToX, carried.FromZ, carried.ToZ, carried.Duration));
+        Assert.Equal((5, 11, 1.0), (rider.X, rider.Y, rider.Z));
+        Assert.Equal(0, f.Engine.ReadStats().Pending);
+    }
+
+    [Theory]
+    [InlineData("literal-positive", 100, 100)]
+    [InlineData("literal-negative", -100, -100)]
+    [InlineData("literal-zero", 0, 0)]
+    [InlineData("variable-positive-clamp", 1000, 1000)]
+    [InlineData("variable-negative-clamp", -1000, -1000)]
+    [InlineData("variable-zero", 0, 0)]
+    [InlineData("missing-variable", null, null)]
+    [InlineData("missing-variable-projectile", 100, null)]
+    [InlineData("projectile-positive", 100, null)]
+    [InlineData("projectile-negative", -100, null)]
+    [InlineData("projectile-zero", null, null)]
+    [InlineData("projectile-unselected", null, null)]
+    [InlineData("addon-zero-projectile", 0, 0)]
+    [InlineData("addon-negative-projectile", -100, -100)]
+    [InlineData("absent", null, null)]
+    public void CanonicalStrengthResolvedAddonAndProjectileScopeReachActualProducers(string scenario, int? floorExpected, int? avatarExpected)
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true);
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var context = f.MovementContext();
+        var packets = CapturePublication(rider);
+        var world = new WiredSelectorWorld(12, 17, [WiredRoomMovement.Furniture(f.Items[1])], []);
+        var reads = 0;
+        long? variable = scenario switch
+        {
+            "variable-positive-clamp" => long.MaxValue,
+            "variable-negative-clamp" => long.MinValue,
+            "variable-zero" => 0,
+            _ => null
+        };
+        var input = new WiredAddonInputs(world, new(new(), new(), new()), 0, request =>
+        {
+            reads++;
+            Assert.Equal("custom:99", request.Token);
+
+            return variable;
+        });
+        var hasProjectile = scenario.Contains("projectile", StringComparison.Ordinal);
+
+        if (hasProjectile) {
+            var ints = new int[24];
+            ints[18] = scenario == "projectile-negative" ? -100 : scenario == "projectile-zero" ? 0 : 100;
+            Assert.True(new WiredAddonModule("wf_xtra_rotate_to_dir", new WiredConfiguration
+            {
+                IntParams = ints.ToImmutableArray(),
+                SelectedItems = scenario == "projectile-unselected" ? [999] : [1]
+            }).Apply(input, context.Policy.Addons));
+        }
+
+        var useVariable = scenario.StartsWith("variable", StringComparison.Ordinal) || scenario.StartsWith("missing", StringComparison.Ordinal);
+        var hasAddon = !scenario.StartsWith("projectile", StringComparison.Ordinal) && scenario != "absent";
+
+        if (hasAddon) {
+            var strength = scenario.Contains("negative", StringComparison.Ordinal) ? -100 : scenario.Contains("zero", StringComparison.Ordinal) ? 0 : 100;
+            Assert.True(new WiredAddonModule("wf_xtra_mov_curve", new WiredConfiguration
+            {
+                IntParams = [7, 100, strength, useVariable ? 1 : 0, 0, 0, 0],
+                Text = "custom:99"
+            }).Apply(input, context.Policy.Addons));
+        }
+
+        var movement = new WiredRoomMovement(context.Room.GetWired().DispatchWalkTransition);
+        f.Owned(() =>
+        {
+            Assert.True(movement.MoveFurniture(context, f.Items[1], 4, 10, 0, null));
+            Assert.True(movement.MoveAvatar(context, rider, 4, 10, true));
+        });
+
+        var moves = ReadTrajectoryPublication(packets);
+        Assert.Equal(floorExpected, Assert.Single(moves.Where(move => move.Type == 1)).Strength);
+        Assert.Equal(avatarExpected, Assert.Single(moves.Where(move => move.Type == 0)).Strength);
+        Assert.All(moves, move => Assert.Null(move.Overshoot));
+        Assert.Equal(useVariable ? 1 : 0, reads);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CanonicalStrengthAvatarRetainsTheSameCurveAcrossWalkAndHintCallbacks(bool changeAtHint)
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true);
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var context = f.MovementContext();
+        context.Policy.Addons.Curve = new(7, 100, 100);
+        var packets = CapturePublication(rider);
+        var changed = false;
+        var capture = rider.GetClient()!.SendCallback;
+        rider.GetClient()!.SendCallback = args =>
+        {
+            var bytes = args.MemoryBuffer.ToArray();
+
+            if (changeAtHint && IsAvatarHint(bytes)) {
+                context.Policy.Addons.Curve = new(7, 100, -100);
+                changed = true;
+            }
+
+            return capture!(args);
+        };
+        var movement = new WiredRoomMovement((_, _, _) =>
+        {
+            if (!changeAtHint) {
+                context.Policy.Addons.Curve = new(7, 100, -100);
+                changed = true;
+            }
+        });
+        f.Owned(() => Assert.True(movement.MoveAvatar(context, rider, 4, 10, true)));
+
+        Assert.True(changed);
+        var hint = Assert.Single(packets.Where(IsAvatarHint));
+        Assert.Equal(100, BinaryPrimitives.ReadInt32BigEndian(hint.AsSpan(18)));
+        Assert.Equal(100, Assert.Single(ReadTrajectoryPublication(packets)).Strength);
+    }
+
     [Fact]
     public async Task OwnerVariableMenuInitializationDoesNotSplitFastQueuePublication()
     {
@@ -719,4 +875,60 @@ public sealed partial class WiredGlideConveyorTests
 
         return moves;
     }
+    private sealed record TrajectoryMove(int Type, int Id, int FromX, int ToX, string FromZ, string ToZ,
+        int Duration, int? Strength, int? Overshoot);
+
+    private static List<TrajectoryMove> ReadTrajectoryPublication(IEnumerable<byte[]> packets)
+    {
+        var result = new List<TrajectoryMove>();
+
+        foreach (var bytes in packets.Where(IsMovementBody)) {
+            using var reader = new BinaryReader(new MemoryStream(bytes));
+            int Int() => BinaryPrimitives.ReadInt32BigEndian(reader.ReadBytes(4));
+            string String() => System.Text.Encoding.UTF8.GetString(reader.ReadBytes(BinaryPrimitives.ReadUInt16BigEndian(reader.ReadBytes(2))));
+            bool Bool()
+            {
+                var value = reader.ReadByte();
+                Assert.InRange(value, (byte)0, (byte)1);
+
+                return value == 1;
+            }
+            int? Optional() => Bool() ? Int() : null;
+            Assert.Equal(ServerPacketHeader.WiredMovementsComposer, BinaryPrimitives.ReadUInt32BigEndian(bytes));
+            reader.BaseStream.Position = 6;
+            var count = Int();
+
+            for (var index = 0; index < count; index++) {
+                var type = Int();
+                Assert.InRange(type, 0, 1);
+                var fromX = Int();
+                _ = Int();
+                var toX = Int();
+                _ = Int();
+                var fromZ = String();
+                var toZ = String();
+                var id = Int();
+
+                if (type == 0) {
+                    Assert.Equal(1, Int());
+                }
+
+                var duration = Int();
+                _ = Int();
+
+                if (type == 0) {
+                    _ = Int();
+                }
+
+                var first = Optional();
+                var strength = type == 0 ? first : Optional();
+                result.Add(new(type, id, fromX, toX, fromZ, toZ, duration, strength, type == 1 ? first : null));
+            }
+
+            Assert.Equal(bytes.Length, reader.BaseStream.Position);
+        }
+
+        return result;
+    }
+
 }

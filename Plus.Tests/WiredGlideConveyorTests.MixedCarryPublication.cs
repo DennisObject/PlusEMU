@@ -600,6 +600,108 @@ public sealed partial class WiredGlideConveyorTests
     }
 
     [Theory]
+    [InlineData(null, "v2")]
+    [InlineData(0, "v2")]
+    [InlineData(-100, "v2")]
+    [InlineData(null, "legacy")]
+    [InlineData(0, "legacy")]
+    [InlineData(-100, "legacy")]
+    public void CanonicalStrengthCoalescedResetKeepsLastMetadataAndFirstSource(int? resetStrength, string movementEngine)
+    {
+        var layout = FastQueueLayout(2).ToList();
+        layout.Add((19, 4, 12, 4, 0, "wf_xtra_mov_curve", JsonSerializer.Serialize(new WiredConfiguration
+        {
+            IntParams = [7, 100, 100, 0, 0, 0, 0]
+        })));
+
+        if (resetStrength.HasValue) {
+            layout.Add((20, 6, 12, 4, 0, "wf_xtra_mov_curve", JsonSerializer.Serialize(new WiredConfiguration
+            {
+                IntParams = [7, 100, resetStrength.Value, 0, 0, 0, 0]
+            })));
+        }
+
+        var f = new Fixture(layout.ToArray(), live: true, movementEngine: movementEngine);
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var packets = CapturePublication(rider);
+
+        for (var pulse = 1; pulse <= 2; pulse++) {
+            packets.Clear();
+            f.Advance(pulse == 1 ? 250 : 200);
+            var bodies = packets.Where(IsMovementBody).ToArray();
+            var moves = ReadTrajectoryPublication(bodies);
+            var floor = moves.Where(move => move.Type == 1).ToArray();
+            Assert.Equal(Enumerable.Range(1, 7).Where(id => pulse == 1 || id != 1), floor.Select(move => move.Id));
+            Assert.All(floor, move =>
+            {
+                Assert.Equal(resetStrength, move.Strength);
+                Assert.Equal(move.FromX, move.ToX);
+                Assert.Equal(500, move.Duration);
+                Assert.Null(move.Overshoot);
+            });
+            Assert.Equal(100, Assert.Single(moves.Where(move => move.Type == 0)).Strength);
+            Assert.Equal(movementEngine == "v2" ? 1 : 2, bodies.Length);
+            Assert.Equal((4 + pulse, 11, 1.0), (rider.X, rider.Y, rider.Z));
+            Assert.Equal(0, f.Engine.ReadStats().Pending);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CanonicalStrengthRetainedCarryHintReentrancyKeepsExactlyOneBodyOrDropsOldLifetime(bool reuseActor)
+    {
+        var layout = FastQueueLayout(2).ToList();
+        layout.Add((19, 4, 12, 4, 0, "wf_xtra_mov_curve", JsonSerializer.Serialize(new WiredConfiguration
+        {
+            IntParams = [7, 100, 100, 0, 0, 0, 0]
+        })));
+        var f = new Fixture(layout.ToArray(), live: true);
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var packets = CapturePublication(rider);
+        var capture = rider.GetClient()!.SendCallback;
+        var reentered = false;
+        rider.GetClient()!.SendCallback = args =>
+        {
+            capture!(args);
+
+            if (!reentered && IsAvatarHint(args.MemoryBuffer.ToArray())) {
+                reentered = true;
+                var context = Assert.IsType<WiredRuntimeContext>(f.EngineField("_runtimeContext"));
+                context.Policy.Addons.Curve = new(7, 100, 0);
+
+                if (reuseActor) {
+                    rider.Movement.State = NavState.Removing;
+                    var replacement = new RoomUser(rider.HabboId, context.Room.Id, rider.VirtualId, context.Room,
+                        null, TestChatEmotions.Unused, TestRewardProgress.Unused);
+                    replacement.SetPos(4, 10, 0);
+                    f.ReplaceUser(replacement);
+                    Assert.NotEqual(rider.Movement.LifetimeId, replacement.Movement.LifetimeId);
+                }
+
+                context.Publication!.Flush();
+            }
+
+            return false;
+        };
+
+        f.Advance(250);
+
+        Assert.True(reentered);
+        Assert.Single(packets.Where(IsAvatarHint));
+        var carried = ReadTrajectoryPublication(packets).Where(move => move.Type == 0).ToArray();
+
+        if (reuseActor) {
+            Assert.Empty(carried);
+        }
+        else {
+            Assert.Equal(100, Assert.Single(carried).Strength);
+        }
+
+        Assert.Equal(0, f.Engine.ReadStats().Pending);
+    }
+
+    [Theory]
     [InlineData(false, "v2")]
     [InlineData(true, "v2")]
     [InlineData(false, "legacy")]
