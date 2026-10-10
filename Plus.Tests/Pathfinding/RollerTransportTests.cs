@@ -30,6 +30,41 @@ public partial class PlacedFurniRoomTests
         Assert.False(actor.HasStatus("mv"));
     }
 
+    // A status in the roll tick snaps the client to the destination; the slide alone must drive the glide.
+    [Fact]
+    public void RollerGlidesTheActorAndSendsItsStatusOnlyAfterTheRoll()
+    {
+        ExecutorRoller(10, 0, 1);
+        var actor = ExecutorRollerActor(0, 1, 0.5);
+        EnableExecutorRollers();
+        ExecutorTick();
+        ExecutorAvatarSlide(actor);
+        Assert.False(ExecutorHasUpdate(actor));
+        ExecutorTick();
+        var update = ExecutorUpdate(actor);
+        Assert.Equal((1, 1, "0"), (update.X, update.Y, update.Z));
+        Assert.DoesNotContain("/mv ", update.Status);
+    }
+
+    [Fact]
+    public void ChainedRollersGlideTheActorWithoutAStatusBetweenPulses()
+    {
+        ExecutorRoller(10, 0, 1);
+        ExecutorRoller(11, 1, 1);
+        var actor = ExecutorRollerActor(0, 1, 0.5);
+        EnableExecutorRollers();
+        ExecutorTick();
+        Assert.False(ExecutorHasUpdate(actor));
+        ExecutorTick();
+        var slide = ExecutorAvatarSlide(actor);
+        Assert.Equal((1, 1, 2, 1), (slide.FromX, slide.FromY, slide.ToX, slide.ToY));
+        Assert.False(ExecutorHasUpdate(actor));
+        ExecutorTick();
+        var update = ExecutorUpdate(actor);
+        Assert.Equal((2, 1, "0"), (update.X, update.Y, update.Z));
+        Assert.DoesNotContain("/mv ", update.Status);
+    }
+
     [Fact]
     public void RollerPublishesMovedCargoBeforeBindingTheCarriedActorToIt()
     {
@@ -243,6 +278,30 @@ public partial class PlacedFurniRoomTests
         }
 
         throw new InvalidOperationException("No roller slide for actor");
+    }
+
+    private bool ExecutorHasUpdate(RoomUser actor)
+    {
+        foreach (var sent in _client.Packets.Where(p => p.Header == ServerPacketHeader.UserUpdateComposer)) {
+            var body = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
+            var count = body.ReadInt();
+
+            for (var i = 0; i < count; i++) {
+                var id = body.ReadInt();
+                body.ReadInt();
+                body.ReadInt();
+                body.ReadString();
+                body.ReadInt();
+                body.ReadInt();
+                body.ReadString();
+
+                if (id == actor.VirtualId) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private void ExecutorObserveRollerClaim(List<TargetOccupancy> observed)

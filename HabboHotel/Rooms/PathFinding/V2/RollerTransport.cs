@@ -124,6 +124,10 @@ internal sealed class RollerTransport(RoomNavigation navigation, MovementContext
             if (Grid.Layered) {
                 RebindRollerClaim(move);
             }
+
+            // The slide carries the new position; a status this tick would snap the client to the
+            // destination. The status follows once rolling ends (ActorTickService), as in legacy.
+            move.Actor!.UpdateNeeded = false;
         }
     }
 
