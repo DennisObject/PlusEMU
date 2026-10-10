@@ -211,6 +211,27 @@ public partial class PlacedFurniRoomTests
             Assert.True(WiredNativeEditorProjection.TryCompile(id, box.Descriptor, native, out proposed));
         }
 
+        if (name == "wf_trg_says_something") {
+            Assert.Equal(3, proposed.IntParams.Length);
+            var native = new WiredNativeEditorConfiguration
+            {
+                Category = box.Descriptor.Category,
+                NativeCode = 0,
+                OwnedIntParams = [proposed.IntParams[2], proposed.IntParams[0], proposed.IntParams[1]],
+                Text = proposed.Text,
+                PrimaryItems = [.. proposed.SelectedItems.Select(pickId =>
+                {
+                    var picked = Assert.IsType<Plus.HabboHotel.Items.Item>(_room.GetRoomItemHandler().GetItem(pickId));
+
+                    return new WiredNativeItemReference(pickId, picked.IsWallItem);
+                })]
+            };
+            Assert.Equal(0, proposed.Delay);
+            Assert.Same(_room, box.Item.GetRoom());
+            Assert.Same(box.Item, _room.GetRoomItemHandler().GetItem(id));
+            Assert.True(WiredNativeEditorProjection.TryCompile(id, box.Descriptor, native, out proposed));
+        }
+
         Assert.True(box.TryValidateConfiguration(proposed, out var configuration, out var error), error);
         box.ApplyConfiguration(configuration);
         Assert.True(_room.GetWired().AddBox(box));
