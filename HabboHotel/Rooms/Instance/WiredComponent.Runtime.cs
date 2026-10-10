@@ -28,6 +28,26 @@ public partial class WiredComponent
     private readonly IWiredRewardService _rewards;
     private Lazy<WiredRoomVariables>? _variables;
     private WiredChestRoom? _chests;
+    private Plus.HabboHotel.Rooms.Games.RoomHighscores? _highscores;
+    internal void InitializeHighscores(Plus.HabboHotel.Rooms.Games.IRoomHighscoreStore? store = null)
+    {
+        var producer = _room.GetGameManager().Highscores;
+        producer.Initialize(store ?? new Plus.HabboHotel.Rooms.Games.RoomHighscoreStore(_database));
+        Volatile.Write(ref _highscores, producer);
+    }
+    private bool WithHighscoreSpeechOwner(bool speech, Func<bool> action)
+    {
+        if (!speech || Volatile.Read(ref _highscores)?.Enrolled != true || !_room.UsesV2Movement
+            || Plus.HabboHotel.Rooms.PathFinding.RoomOwnerScope.IsOwner(_room) || _engine.CurrentThreadOwnsPass) {
+            return action();
+        }
+
+        var completed = false;
+        var result = false;
+        _room.RunFastPass(() => { result = action(); completed = true; });
+
+        return completed && result; // A skipped/failed pass is never retried as a second admission.
+    }
     public WiredChestRoom Chests => _chests ??= new(_room, new DatabaseWiredChestStore(_database, _definitions), _clock, evt => Dispatch(evt));
     public void WithChests(Action<WiredChestRoom> action) => _engine.Mutate(() => { action(Chests); return true; });
     public WiredRoomSettings Settings { get; }
@@ -134,6 +154,8 @@ public partial class WiredComponent
 
     public void AttachRoomItem(Item item) => _engine.Mutate(() =>
     {
+        _highscores?.Invalidate();
+
         if (WiredChestFurniture.IsChest(item.Definition) && !item.IsTemporary) {
             Chests.Refresh(item);
         }
@@ -158,6 +180,7 @@ public partial class WiredComponent
 
     public void DetachRoomItem(Item item) => _engine.Mutate(() =>
     {
+        _highscores?.Invalidate();
         ForgetFxItem(item);
         _counters.Forget(item);
         WiredProjectileFlights.For(_room).Forget(item);

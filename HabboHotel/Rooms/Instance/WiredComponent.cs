@@ -47,7 +47,8 @@ public partial class WiredComponent : IWiredRuntimeOperations
         ICommandManager commands, IAccessControl access, IItemTravelStore travelStore) //, RoomItem Items)
     {
         _room = instance;
-        _counters = new(gameControl: ControlGameTimer);
+        _counters = new(observeTransition: transition => _highscores?.Observe(transition), gameTransition: ControlGameTimer,
+            canBegin: (item, origin, actor) => _highscores?.CanBeginOwned(item, origin, actor) ?? true);
         _logger = logger;
         _clock = clock;
         _configurationStore = configurationStore;
@@ -118,42 +119,55 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _bindMovementPublication = _engine.CreateMovementPublicationFactory(this, DispatchWalkTransition);
     }
 
-    private void ControlGameTimer(Item item, bool start)
+    private int _highscoreClockAdmission;
+
+    private void ControlGameTimer(WiredClockTransition transition)
     {
+        var item = transition.Item;
+        var start = transition.Reason is WiredClockReason.Start or WiredClockReason.Resume;
         var type = item.Definition.InteractionType;
         var banzai = type == InteractionType.Banzaicounter || item.Definition.ItemName == "bb_counter";
         var freeze = type == InteractionType.Freezetimer || item.Definition.ItemName == "es_counter";
 
-        if (start) {
-            _room.GetGameManager().Reset();
+        _highscoreClockAdmission++;
 
-            if (banzai) {
-                _room.GetBanzai().BanzaiStart();
-            }
-            else {
-                if (freeze) {
-                    _room.GetFreeze().StartGame();
+        try {
+            if (start) {
+                _room.GetGameManager().Reset();
+                _highscores?.Start(transition);
+
+                if (banzai) {
+                    _room.GetBanzai().BanzaiStart();
                 }
                 else {
-                    _room.GetSoccer().StartGame();
-                }
+                    if (freeze) {
+                        _room.GetFreeze().StartGame();
+                    }
+                    else {
+                        _room.GetSoccer().StartGame();
+                    }
 
-                TriggerEvent(WiredBoxType.TriggerGameStarts, null);
+                    TriggerEvent(WiredBoxType.TriggerGameStarts, null);
+                }
+            }
+            else if (banzai) {
+                _room.GetBanzai().BanzaiEnd();
+            }
+            else if (freeze) {
+                _room.GetFreeze().StopGame();
+            }
+            else {
+                _room.GetSoccer().StopGame();
             }
         }
-        else if (banzai) {
-            _room.GetBanzai().BanzaiEnd();
-        }
-        else if (freeze) {
-            _room.GetFreeze().StopGame();
-        }
-        else {
-            _room.GetSoccer().StopGame();
+        finally {
+            _highscoreClockAdmission--;
         }
     }
 
     public void OnCycle()
     {
+        _highscores?.OnOwnedPass();
         PublishStateWrites();
         _engine.OnCycle();
         FlushVariableFx();
@@ -161,6 +175,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     internal void OnFastCycle()
     {
+        _highscores?.OnOwnedPass();
         PublishStateWrites();
         _engine.OnFastCycle();
 
@@ -170,8 +185,12 @@ public partial class WiredComponent : IWiredRuntimeOperations
     }
     internal bool NeedsFastCycle => _engine.NeedsFastCycle;
     internal void ObserveFastWork(Action<bool>? observer) => _engine.ObserveFastWork(observer);
-    public bool Dispatch(WiredRuntimeEvent @event) => _engine.Mutate(() =>
+    public bool Dispatch(WiredRuntimeEvent @event) => WithHighscoreSpeechOwner(@event.Kind == WiredEventKind.Speech, () => _engine.Mutate(() =>
     {
+        if (_highscoreClockAdmission == 0 && @event.Kind is WiredEventKind.GameStart or WiredEventKind.GameEnd) {
+            _highscores?.Invalidate();
+        }
+
         if (@event.Kind == WiredEventKind.GameStart) {
             WiredGameState.For(_room).ResetQuotas();
         }
@@ -180,7 +199,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         }
 
         return @event.Kind == WiredEventKind.Speech ? _engine.DispatchSynchronously(@event) : _engine.Enqueue(@event);
-    });
+    }));
     public bool CallStacks(WiredRuntimeContext context, IEnumerable<Item> targets, bool negative = false) =>
         _engine.CallStacks(context, targets, negative);
     public bool SendSignal(WiredRuntimeContext context, IEnumerable<Item> receivers, WiredSelection selection, bool negative = false) =>
@@ -500,7 +519,10 @@ public partial class WiredComponent : IWiredRuntimeOperations
         return false;
     }
 
-    public bool TriggerEvent(WiredBoxType type, params object[] arguments)
+    public bool TriggerEvent(WiredBoxType type, params object[] arguments) =>
+        WithHighscoreSpeechOwner(type == WiredBoxType.TriggerUserSays, () => TriggerEventCore(type, arguments));
+
+    private bool TriggerEventCore(WiredBoxType type, object[] arguments)
     {
         arguments ??= [];
 
@@ -531,6 +553,10 @@ public partial class WiredComponent : IWiredRuntimeOperations
         if (kind is WiredEventKind.GameStart or WiredEventKind.GameEnd) {
             return _engine.Mutate(() =>
             {
+                if (_highscoreClockAdmission == 0) {
+                    _highscores?.Invalidate();
+                }
+
                 if (kind == WiredEventKind.GameStart) {
                     WiredGameState.For(_room).ResetQuotas();
                 }

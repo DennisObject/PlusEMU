@@ -16,7 +16,7 @@ using Plus.HabboHotel.Users.Inventory.Furniture;
 namespace Plus.HabboHotel.Rooms;
 
 [Obsolete("Everything in here is bad and whoever wrote this must've been high on some crack or something")]
-public class RoomItemHandling
+public partial class RoomItemHandling
 {
     private readonly ConcurrentDictionary<uint, Item> _floorItems;
     private readonly Dictionary<uint, Item> _temporaryItems = new();
@@ -397,8 +397,37 @@ public class RoomItemHandling
 
     public bool RemoveFurniture(GameClient session, Item item)
     {
+        if (item.ExtraData is not Plus.HabboHotel.Items.DataFormat.HighscoreDataFormat) {
+            return RemoveFurniture(session, item, null);
+        }
+
+        if (!TryReserveTransfers([item], out var transfer)) {
+            return false;
+        }
+
+        var removed = RemoveFurniture(session, item, transfer);
+
+        if (removed) {
+            CompleteTransfer(transfer!, item);
+        }
+        else {
+            CancelUnstartedTransfer(transfer!);
+        }
+
+        return removed;
+    }
+
+    internal bool RemoveFurniture(GameClient session, Item item, RoomItemTransfer? transfer)
+    {
         if (item.IsTemporary || !ReferenceEquals(GetItem(item.Id), item)) {
             return false;
+        }
+
+        lock (_payloadGate) {
+            if (_pendingHighscores.ContainsKey(item.Id) || _payloadTransfers.ContainsKey(item.Id)
+                && (transfer == null || !TransferIsCurrent(transfer, item))) {
+                return false;
+            }
         }
 
         // Before anything else changes: if the saved wired settings cannot be dropped, the box stays placed.
@@ -634,11 +663,13 @@ public class RoomItemHandling
     private void SaveFurniture()
     {
         try {
-            if (_movedItems.Count > 0) {
-                _store.SaveMoved(_movedItems.Values.Where(item => !item.IsTemporary).Select(item => new RoomItemSave(
-                    item.Id, item.GetX, item.GetY, item.GetZ, item.Rotation, item.ExtraData?.Serialize(), item.WallCoordinates,
-                    item.IsWallItem && (!item.Definition.ItemName.Contains("wallpaper_single") || !item.Definition.ItemName.Contains("floor_single") ||
-                        !item.Definition.ItemName.Contains("landscape_single")))).ToArray());
+            lock (_payloadGate) {
+                if (_movedItems.Count > 0) {
+                    _store.SaveMoved(_movedItems.Values.Where(item => !item.IsTemporary).Select(item => new RoomItemSave(
+                        item.Id, item.GetX, item.GetY, item.GetZ, item.Rotation, SavePayload(item), item.WallCoordinates,
+                        item.IsWallItem && (!item.Definition.ItemName.Contains("wallpaper_single") || !item.Definition.ItemName.Contains("floor_single") ||
+                            !item.Definition.ItemName.Contains("landscape_single")))).ToArray());
+                }
             }
         }
         catch (Exception e) {
@@ -653,14 +684,16 @@ public class RoomItemHandling
     {
         RoomItemSnapshot snapshot;
 
-        lock (item.NavSync) {
-            if (item.IsTemporary || item.RoomId != _room.Id || !ReferenceEquals(GetItem(item.Id), item)) {
-                return false;
-            }
+        lock (_payloadGate) {
+            lock (item.NavSync) {
+                if (PayloadBlocked(item.Id) || item.IsTemporary || item.RoomId != _room.Id || !ReferenceEquals(GetItem(item.Id), item)) {
+                    return false;
+                }
 
-            _metadata.SetBrandingData(item.Id, _room.Id, data.Serialize());
-            item.ExtraData = data;
-            snapshot = RoomItemSnapshot.Capture(item);
+                _metadata.SetBrandingData(item.Id, _room.Id, data.Serialize());
+                item.ExtraData = data;
+                snapshot = RoomItemSnapshot.Capture(item);
+            }
         }
 
         _room.SendPacket(new ObjectUpdateComposer(snapshot));
@@ -669,10 +702,29 @@ public class RoomItemHandling
     }
 
     // Prepared data is persisted inside the placement lock after every denial, then attached and published through the same path.
-    public bool SetFloorItemData(GameClient session, Item item, Plus.HabboHotel.Items.DataFormat.IFurniObjectData data, Action persist) =>
-        PlaceFloor(session, item, item.GetX, item.GetY, item.Rotation, false, false, true, false, -1, null, (data, persist));
+    public bool SetFloorItemData(GameClient session, Item item, Plus.HabboHotel.Items.DataFormat.IFurniObjectData data, Action persist)
+    {
+        if (item.ExtraData is not Plus.HabboHotel.Items.DataFormat.HighscoreDataFormat) {
+            return PlaceFloor(session, item, item.GetX, item.GetY, item.Rotation, false, false, true, false, -1, null, (data, persist, null));
+        }
 
-    private bool PlaceFloor(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses, double height, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision, (Plus.HabboHotel.Items.DataFormat.IFurniObjectData Data, Action Persist)? commit)
+        // Reserve before placement/item locks, and never run the existing persist callback under the payload gate.
+        if (!TryReserveTransfers([item], out var transfer)) {
+            return false;
+        }
+
+        var result = PlaceFloor(session, item, item.GetX, item.GetY, item.Rotation, false, false, true, false, -1, null, (data, persist, transfer));
+
+        if (result) {
+            return CompletePreparedPayload(transfer!, item, data);
+        }
+
+        CancelUnstartedTransfer(transfer!); // Begun/uncertain callbacks deliberately remain quarantined.
+
+        return false;
+    }
+
+    private bool PlaceFloor(GameClient session, Item item, int newX, int newY, int newRot, bool newItem, bool onRoller, bool sendMessage, bool updateRoomUserStatuses, double height, Plus.HabboHotel.Items.Wired.Modern.WiredCollisionPolicy? wiredCollision, (Plus.HabboHotel.Items.DataFormat.IFurniObjectData Data, Action Persist, RoomItemTransfer? Transfer)? commit)
     {
         if (item.IsTemporary && (!OwnsTemporary(item) || session != null
             || !Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.CanPlaceItem(_room, item, newX, newY, newRot,
@@ -781,8 +833,33 @@ public class RoomItemHandling
 
                 // Prepared data is written after every denial above and before any geometry, data, model or packet change below.
                 if (commit is { } prepared && !duplicate) {
-                    prepared.Persist();
-                    item.ExtraData = prepared.Data;
+                    if (prepared.Transfer is { } transfer) {
+                        if (!BeginTransferSql(transfer, [item])) {
+                            return false;
+                        }
+
+                        prepared.Persist();
+
+                        lock (_payloadGate) {
+                            lock (item.NavSync) {
+                                if (!TransferIsCurrent(transfer, item)) {
+                                    return false;
+                                }
+
+                                item.ExtraData = prepared.Data;
+                            }
+                        }
+                    }
+                    else {
+                        lock (_payloadGate) {
+                            if (PayloadBlocked(item.Id)) {
+                                return false;
+                            }
+                        }
+
+                        prepared.Persist();
+                        item.ExtraData = prepared.Data;
+                    }
                 }
 
                 if (!duplicate) {
@@ -1110,7 +1187,10 @@ public class RoomItemHandling
             return;
         }
 
-        _movedItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item));
+        lock (_payloadGate) {
+            _movedItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item));
+        }
+
         _rollers.TryRemove(new KeyValuePair<uint, Item>(item.Id, item));
     }
 
@@ -1201,18 +1281,34 @@ public class RoomItemHandling
 
     public List<Item> RemoveItems(GameClient session)
     {
-        var items = new List<Item>();
-        var owned = GetWallAndFloor.Where(item => item != null && !item.IsTemporary && item.UserId == session.GetHabbo().Id).ToList();
-        // All boxes at once, before any item moves: a failure leaves every one placed with its settings.
-        _room.GetWired()?.ResetRoomItems(owned);
+        var owned = GetWallAndFloor.Where(item => !item.IsTemporary && item.UserId == session.GetHabbo().Id).ToArray();
+
+        if (!TryReserveTransfers(owned, out var transfer)) {
+            return [];
+        }
+
+        try {
+            _room.GetWired()?.ResetRoomItems(owned);
+        }
+        catch {
+            CancelUnstartedTransfer(transfer!);
+            throw;
+        }
+
+        var removed = new List<Item>();
 
         foreach (var item in owned) {
+            if (!TransferIsCurrent(transfer!, item)) {
+                return removed;
+            }
+
             if (item.IsFloorItem) {
-                Item I;
                 var inputs = _room.GetGameMap().Navigation?.Inputs;
 
                 if (inputs == null) {
-                    _floorItems.TryRemove(item.Id, out I);
+                    if (!_floorItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) {
+                        continue;
+                    }
                 }
                 else {
                     lock (item.NavSync) {
@@ -1221,33 +1317,34 @@ public class RoomItemHandling
                         }
 
                         inputs.Remove(item);
-                        I = item;
                     }
                 }
 
                 _room.GetWired()?.DetachRoomItem(item);
-                // TODO @80O: Items refactor
-                session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
+                session.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem());
                 _room.SendPacket(new ObjectRemoveComposer(item.Id, item.IsTemporary, item.UserId));
             }
             else if (item.IsWallItem) {
-                _wallItems.TryRemove(item.Id, out var I);
-                // TODO @80O: Items refactor
-                session.GetHabbo().Inventory.Furniture.AddItem(I.ToInventoryItem());
+                if (!_wallItems.TryRemove(new KeyValuePair<uint, Item>(item.Id, item))) {
+                    continue;
+                }
+
+                session.GetHabbo().Inventory.Furniture.AddItem(item.ToInventoryItem());
                 _room.SendPacket(new ItemRemoveComposer(item.Id, item.UserId));
             }
 
             session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item.ToInventoryItem())));
             item.Detach(_room);
+            CompleteTransfer(transfer!, item);
+            removed.Add(item);
         }
 
         _rollers.Clear();
         _room.GetGameMap().GenerateMaps();
         _room.GetGameMap().FlushPlacementUpdates();
 
-        return items;
+        return removed;
     }
-
 
     public bool CheckPosItem(Item item, int newX, int newY, int newRot)
     {

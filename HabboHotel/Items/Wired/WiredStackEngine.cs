@@ -10,6 +10,7 @@ namespace Plus.HabboHotel.Items.Wired;
 internal sealed partial class WiredStackEngine
 {
     private readonly object _sync = new();
+    internal bool CurrentThreadOwnsPass => Monitor.IsEntered(_sync);
     private readonly Dictionary<uint, IWiredItem> _items = new();
     private readonly Dictionary<(int X, int Y), IWiredItem[]> _stacks = new();
     private (IWiredItem Box, int X, int Y, double Z)[] _stackSnapshot = [];

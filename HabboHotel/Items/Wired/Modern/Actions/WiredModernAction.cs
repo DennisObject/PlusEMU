@@ -420,6 +420,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
         switch (name) {
             case "wf_act_join_team":
             case "wf_act_leave_team":
+                context.Room.GetGameManager().Highscores.Invalidate();
+
                 foreach (var user in Users(context, config, "users")) {
                     changed |= name == "wf_act_join_team"
                         ? WiredGameState.For(context.Room).Join(context.Room, user, Param(config, 0), (Team)Param(config, 1), Param(config, 3), context.Targets.AllUsers())
@@ -581,7 +583,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
                 return changed;
             case "wf_act_control_clock":
                 foreach (var item in items) {
-                    changed |= _clocks.Control(item, Param(config, 0), context.NowMilliseconds);
+                    changed |= _clocks.Control(item, Param(config, 0), context.NowMilliseconds, WiredClockOrigin.ModernWired, context.Event.Actor);
                 }
 
                 return changed;
