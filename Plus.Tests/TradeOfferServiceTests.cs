@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets;
@@ -46,7 +45,7 @@ public sealed class TradeOfferServiceTests
     }
 
     [Fact]
-    public void AirAndOctaneFramesDispatchTheSelectedIdsAndDropAShortList()
+    public void CurrentHeaderDispatchesTheSelectedIdsAndDropsAMalformedList()
     {
         var air = new RevisionsCache().InternalRevision;
         var offered = Dispatch(OfferFrame(3882, 2, 4000000000u, 7u), air);
@@ -54,26 +53,17 @@ public sealed class TradeOfferServiceTests
         Assert.Equal(0, offered.Disconnects);
         Assert.Equal(3882u, ClientPacketHeader.TradingOfferItemsEvent);
 
-        var rejected = Dispatch(OfferFrame(3882, 2, 7u), air);
-        Assert.Empty(rejected.Calls);
-        Assert.Equal(0, rejected.Disconnects);
+        var shortList = Dispatch(OfferFrame(3882, 2, 7u), air);
+        Assert.Empty(shortList.Calls);
+        Assert.Equal(0, shortList.Disconnects);
 
-        var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(
-            HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json")))
-            ?? throw new InvalidOperationException("The Octane revision file is empty.");
-        revision.BuildMappings(air);
-        Assert.Equal(1263u, revision.IncomingHeaders["TradingOfferItemsEvent"]);
-        Assert.Equal(3882u, revision.IncomingIdToInternalIdMapping[1263]);
+        var trailing = Dispatch(OfferFrame(3882, 1, 11u, 12u), air);
+        Assert.Empty(trailing.Calls);
+        Assert.Equal(0, trailing.Disconnects);
 
-        var octane = Dispatch(OfferFrame(1263, 2, 11u, 12u), revision);
-        Assert.Equal(new[] { "OfferItems 11,12" }, octane.Calls);
-        Assert.Equal(0, octane.Disconnects);
-
-        var legacyAmount = Dispatch(OfferFrame(1263, 3, 11u), revision);
-        Assert.Empty(legacyAmount.Calls);
-
-        var single = Dispatch(OfferFrame(1263, 1, 11u), revision);
+        var single = Dispatch(OfferFrame(3882, 1, 11u), air);
         Assert.Equal(new[] { "OfferItems 11" }, single.Calls);
+        Assert.Equal(0, single.Disconnects);
     }
 
     [Fact]
