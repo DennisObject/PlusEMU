@@ -98,25 +98,49 @@ public sealed class TradeSettingsDependencyTests
         trade.Finish();
 
         var store = new SameSessionMarketplaceStore();
-        var manager = CatalogSnapshotTestSupport.Proxy<IMarketplaceManager>((method, args) => method switch
-        {
-            "CalculateComissionPrice" => 1,
-            _ => throw new InvalidOperationException(method)
-        });
-        Assert.True(new MarketplaceListingService(store, manager, TimeProvider.System, TestRoomSettings.Empty).TryList(bob.Habbo, item.Id, 50));
+        Assert.True(new MarketplaceListingService(store, new MarketplaceFeePolicy(TestRoomSettings.Empty), TimeProvider.System, TestRoomSettings.Empty).TryList(bob.Habbo, [item.Id], 1, 50));
         Assert.Equal((uint)bob.Habbo.Id, item.OwnerId);
         Assert.Single(store.Listings);
+    }
+
+    [Fact]
+    public void AnItemOfferedInAnOpenTradeCannotBeListedOnTheMarketplace()
+    {
+        using var fixture = new TradeConfirmationServiceTests.TradeFixture(new TestRoomSettings());
+        var alice = fixture.Join(1, 7);
+        var bob = fixture.Join(2, 8);
+        var item = new InventoryItem
+        {
+            Id = 101,
+            OwnerId = 1,
+            Definition = new ItemDefinition { Id = 900, Type = ItemType.Floor, SpriteId = 11, PublicName = "Chair", AllowTrade = true, AllowMarketplaceSell = true }
+        };
+        Assert.True(alice.Habbo.Inventory.Furniture.AddItem(item));
+        var trade = fixture.Start(alice, bob);
+        trade.Users[0].OfferedItems.Add(item.Id, item);
+        var store = new SameSessionMarketplaceStore();
+        var listing = new MarketplaceListingService(store, new MarketplaceFeePolicy(TestRoomSettings.Empty), TimeProvider.System, TestRoomSettings.Empty);
+
+        Assert.False(listing.TryList(alice.Habbo, [item.Id], 1, 50));
+        Assert.Empty(store.Listings);
+
+        trade.Users[0].OfferedItems.Remove(item.Id);
+
+        Assert.True(listing.TryList(alice.Habbo, [item.Id], 1, 50));
     }
 
     private sealed class SameSessionMarketplaceStore : IMarketplaceOfferStore
     {
         public List<MarketplaceListing> Listings { get; } = [];
-        public bool ListFurni(MarketplaceListing listing)
+        public bool ListFurni(MarketplaceListing listing) => ListFurni([listing]);
+
+        public bool ListFurni(IReadOnlyList<MarketplaceListing> listings)
         {
-            Listings.Add(listing);
+            Listings.AddRange(listings);
 
             return true;
         }
+
         public int? ClaimSold(int userId, Func<int, bool> accepts) => null;
     }
 }

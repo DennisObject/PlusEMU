@@ -12,7 +12,6 @@ public interface IMarketplaceManager
     int OfferCountForSprite(uint spriteId);
     MarketplaceItemStats ItemStats(uint spriteId);
     MarketplaceOwnOffers OwnOffers(int userId);
-    int CalculateComissionPrice(float price);
 
     Task<bool> TryCancelOffer(Habbo habbo, uint offerId);
     Task<MarketOffer?> GetOffer(uint offerId);
