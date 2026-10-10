@@ -134,8 +134,31 @@ public class ModernWiredRuntimeTests
             Assert.True(WiredConditionConfiguration.TryValidate(name, WiredConditionConfiguration.Defaults(name, 2040), out _, out _), name);
         }
 
+        uint mappedItemId = 100;
+
         foreach (var name in WiredMovementActions.Names.Concat(WiredModernAction.OtherNames).Concat(WiredBotActions.Names)) {
-            Assert.True(ActionBox(room, name).TryValidateConfiguration(WiredActionConfiguration.Defaults(name), out _, out _), name);
+            var box = ActionBox(room, name);
+            var proposed = WiredActionConfiguration.Defaults(name);
+
+            if (WiredNativeEditorProjection.Supports(name)) {
+                var metadata = WiredNativeEditorProjection.Metadata(name);
+                box.Item.Id = mappedItemId++;
+                box.Item.RoomId = room.Id;
+                Assert.True(room.GetRoomItemHandler().AdmitFloorItem(box.Item));
+                var native = new WiredNativeEditorConfiguration
+                {
+                    Category = box.Descriptor.Category,
+                    NativeCode = WiredNativeEditorProjection.Code(name),
+                    OwnedIntParams = metadata.OwnedDefaults,
+                    FurniSourceTypes = metadata.FurniDefaults,
+                    UserSourceTypes = metadata.UserDefaults,
+                    Delay = 0
+                };
+                Assert.Same(box.Item, room.GetRoomItemHandler().GetItem(box.Item.Id));
+                Assert.True(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, native, out proposed), name);
+            }
+
+            Assert.True(box.TryValidateConfiguration(proposed, out _, out _), name);
         }
     }
 
@@ -1136,8 +1159,16 @@ public class ModernWiredRuntimeTests
         items[1] = mover;
         map.AddToMap(mover);
         var action = ActionBox(room, name);
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [.. ints], SelectedItems = [1] }, out var config, out var error), error);
-        action.ApplyConfiguration(config);
+        var proposed = new WiredConfiguration { IntParams = [.. ints], SelectedItems = [1] };
+
+        if (name == "wf_act_move_furni_as_group") {
+            LoadStoredDirectionalGroup(action, proposed);
+        }
+        else {
+            Assert.True(action.TryValidateConfiguration(proposed, out var config, out var error), error);
+            action.ApplyConfiguration(config);
+        }
+
         var context = Context(room, new(WiredEventKind.Use), [mover, below, ahead], []);
         context.Policy.Addons.DisableAnimation = true;
 
@@ -1338,7 +1369,14 @@ public class ModernWiredRuntimeTests
             "wf_act_move_to_dir" => [direction, turn, 100, 0],
             _ => [direction, 0, 100, 0]
         };
-        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket(ints, movers.Select(item => item.Id).ToArray(), 0), TestWiredConfigurationStore.Instance, out var error), error);
+        var proposed = SavePacket(ints, movers.Select(item => item.Id).ToArray(), 0);
+
+        if (name == "wf_act_move_furni_as_group") {
+            LoadStoredDirectionalGroup(action, proposed);
+        }
+        else {
+            Assert.True(WiredConfigurationSave.TrySave(action, proposed, TestWiredConfigurationStore.Instance, out var error), error);
+        }
 
         return action;
     }
@@ -1651,12 +1689,132 @@ public class ModernWiredRuntimeTests
             (_, _, _, _, _) => throw new Exception(), (_, _, _, _, _) => throw new Exception(), (_, _) => throw new Exception()));
     }
 
+    [Fact]
+    public void RuntimeSaveSetupRequiresAllCanonicalCountedTailsAndExactEof()
+    {
+        var valid = SavePacket([2, 0, 100, 0], [8], 4);
+        Assert.Equal(new[] { 2, 0, 100, 0 }, valid.IntParams.ToArray());
+        Assert.Equal(new uint[] { 8 }, valid.SelectedItems.ToArray());
+        Assert.Equal(4, valid.Delay);
+        Assert.Null(valid.Origin);
+        object[] complete = [4, 2, 0, 100, 0, "", 1, 8, 4, 0, 0, 0, 0];
+        Assert.False(WiredLegacyProtocol.TryRead(Request(complete[..^3]), WiredBoxCategory.Action, out _));
+        Assert.False(WiredLegacyProtocol.TryRead(Request([.. complete, 1]), WiredBoxCategory.Action, out _));
+        Assert.False(WiredLegacyProtocol.TryRead(Request(0, "", 1, 0, 0, 0, 0, 0, 0), WiredBoxCategory.Action, out _));
+        Assert.False(WiredLegacyProtocol.TryRead(Request(0, "", 1, int.MinValue, 0, 0, 0, 0, 0), WiredBoxCategory.Action, out _));
+    }
+
+    [WiredChestDatabaseFact]
+    public void DirectionalGroupSetupLoadsAnExactStoredV1RowWithoutNativeEditorAuthority()
+    {
+        using var db = new WiredChestDatabaseTests.Fixture();
+        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
+        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
+        var original = new WiredConfiguration { IntParams = [2, 100], SelectedItems = [1] };
+        var json = System.Text.Json.JsonSerializer.Serialize(original);
+        db.Connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES(100,'wf_act_move_furni_as_group',1,@Json)", new { Json = json });
+        var (room, map, items) = World(new RecordingPlacementStore());
+        var mover = StackItem(map, items, 1, "color_tile", 0, 0, 0.5, true);
+        var box = ActionBox(room, "wf_act_move_furni_as_group");
+        Assert.False(box.TryValidateConfiguration(original, out _, out _));
+        var store = new WiredConfigurationStore(db.Database);
+        var loaded = Assert.IsType<WiredConfiguration>(store.Load(box.Item.Id, box.Descriptor));
+        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, box.Configuration.Origin!.Kind);
+        Assert.Null(box.Configuration.Origin.Native);
+        Assert.True(StackPulse(room, box, [mover]));
+        Assert.Equal((1, 1, 0.0), (mover.GetX, mover.GetY, mover.GetZ));
+        var other = ActionBox(room, "wf_act_move_furni_as_group");
+        other.Item.Id = 101;
+        Assert.False(other.TryValidateConfiguration(loaded, out _, out _));
+        Assert.False(box.TryValidateConfiguration(loaded with { IntParams = [6, 100] }, out _, out _));
+        Assert.Equal(json, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
+        Assert.Equal(1, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
+        Assert.Throws<InvalidDataException>(() => WiredEditorSnapshot.Capture(box));
+    }
+
     private static WiredConfiguration SavePacket(int[] ints, uint[] selected, int delay)
     {
-        object[] values = [ints.Length, .. ints.Cast<object>(), "", selected.Length, .. selected.Select(id => (object)(int)id), delay, 0];
+        object[] values = [ints.Length, .. ints.Cast<object>(), "", selected.Length, .. selected.Select(id => (object)(int)id), delay, 0, 0, 0, 0];
         Assert.True(WiredLegacyProtocol.TryRead(Request(values), WiredBoxCategory.Action, out var configuration));
 
         return configuration;
+    }
+
+    private static void LoadStoredDirectionalGroup(WiredModernAction box, WiredConfiguration configuration)
+    {
+        Assert.Equal("wf_act_move_furni_as_group", box.Descriptor.CanonicalName);
+        var json = System.Text.Json.JsonSerializer.Serialize(configuration);
+        var store = new WiredConfigurationStore(new StoredDirectionalGroupDatabase(box.Item.Id, json));
+        var loaded = Assert.IsType<WiredConfiguration>(store.Load(box.Item.Id, box.Descriptor));
+        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, loaded.Origin!.Kind);
+        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+        Assert.Equal(configuration.IntParams.ToArray(), box.Configuration.IntParams.ToArray());
+        Assert.Equal(configuration.SelectedItems.ToArray(), box.Configuration.SelectedItems.ToArray());
+    }
+
+    private sealed class StoredDirectionalGroupDatabase(uint itemId, string json) : IDatabase
+    {
+        public bool IsConnected() => true;
+        public IDbConnection Connection()
+        {
+            var state = ConnectionState.Closed;
+            var connection = DispatchProxy.Create<IDbConnection, RecordingProxy>();
+            ((RecordingProxy)(object)connection).InvokeMethod = (method, _) => method.Name switch
+            {
+                "get_State" => state,
+                "get_ConnectionString" => "stored-v1-group-fixture",
+                "Open" => Change(ConnectionState.Open),
+                "Close" or "Dispose" => Change(ConnectionState.Closed),
+                "CreateCommand" => Command(),
+                _ => throw new NotSupportedException(method.Name)
+            };
+
+            return connection;
+
+            object? Change(ConnectionState next)
+            {
+                state = next;
+
+                return null;
+            }
+        }
+
+        private IDbCommand Command()
+        {
+            var parameters = new MySqlCommand().Parameters;
+            var command = DispatchProxy.Create<IDbCommand, RecordingProxy>();
+            ((RecordingProxy)(object)command).InvokeMethod = (method, args) =>
+            {
+                switch (method.Name) {
+                    case "set_CommandText":
+                        Assert.Contains("FROM wired_item_configurations WHERE item_id=@Id", (string)args![0]!);
+
+                        return null;
+                    case "get_Parameters":
+                        return parameters;
+                    case "CreateParameter":
+                        return new MySqlParameter();
+                    case "Dispose":
+                    case "set_CommandTimeout":
+                    case "set_CommandType":
+                        return null;
+                    case "ExecuteReader":
+                        Assert.Equal(itemId, Convert.ToUInt32(parameters["Id"].Value));
+                        var table = new DataTable();
+                        table.Columns.Add("BoxName", typeof(string));
+                        table.Columns.Add("Version", typeof(int));
+                        table.Columns.Add("Json", typeof(string));
+                        table.Rows.Add("wf_act_move_furni_as_group", 1, json);
+
+                        return table.CreateDataReader();
+                    default:
+                        throw new NotSupportedException(method.Name);
+                }
+            };
+
+            return command;
+        }
     }
 
     private static (int[] Ints, uint[] Selected, int Delay) EditorFields(WiredEditorSnapshot snapshot, int editorCode = 4)

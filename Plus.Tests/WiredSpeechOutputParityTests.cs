@@ -142,6 +142,29 @@ public partial class PlacedFurniRoomTests
         Assert.Empty(SpeechMessages(ServerPacketHeader.WhisperComposer));
     }
 
+    [Fact]
+    public void ClockSpeechSetupCannotInstallUnboundReboundOrInvalidPickedDrafts()
+    {
+        PrepareSpeech(new SpeechClock());
+        var timer = Furni(503, Plus.HabboHotel.Items.InteractionType.None, Plus.HabboHotel.Items.Wired.WiredBoxType.None);
+        timer.Definition.ItemName = "fball_counter";
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, timer, 1, 0, 0, true, false, false));
+        var proposed = new WiredConfiguration { IntParams = [0, 100], SelectedItems = [timer.Id] };
+        var box = AddSpeechBox(301, "wf_act_control_clock", proposed, 0);
+        Assert.False(box.TryValidateConfiguration(proposed, out _, out _));
+        var other = WiredBox(302, "wf_act_control_clock", 2, 1);
+        Assert.False(other.TryValidateConfiguration(box.Configuration, out _, out _));
+        Assert.Equal(new[] { 0 }, box.Configuration.Origin!.Native!.OwnedIntParams.ToArray());
+        Assert.Equal(new[] { 100 }, box.Configuration.Origin.Native.FurniSourceTypes.ToArray());
+        var missing = box.Configuration.Origin.Native with { PrimaryItems = [new(999, false)] };
+        Assert.True(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, missing, out var missingPick));
+        Assert.False(box.TryValidateConfiguration(missingPick, out _, out _));
+        var wrongKind = box.Configuration.Origin.Native with { PrimaryItems = [new(timer.Id, true)] };
+        Assert.False(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, wrongKind, out _));
+        Assert.False(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor,
+            box.Configuration.Origin.Native with { OwnedIntParams = [5] }, out _));
+    }
+
     private (WiredComponent Wired, RoomUser Actor) PrepareSpeech(TimeProvider clock)
     {
         var wired = new WiredComponent(_room, TestLogging.Logger, clock, TestRoomSettings.Empty,
@@ -167,6 +190,27 @@ public partial class PlacedFurniRoomTests
     {
         var box = WiredBox(id, name, x, y);
         box.Item.GetZ = height;
+
+        if (name == "wf_act_control_clock") {
+            var native = new WiredNativeEditorConfiguration
+            {
+                Category = box.Descriptor.Category,
+                NativeCode = WiredNativeEditorProjection.Code(name),
+                OwnedIntParams = [proposed.IntParams[0]],
+                FurniSourceTypes = [proposed.IntParams[1]],
+                PrimaryItems = [.. proposed.SelectedItems.Select(id =>
+                {
+                    var picked = Assert.IsType<Plus.HabboHotel.Items.Item>(_room.GetRoomItemHandler().GetItem(id));
+
+                    return new WiredNativeItemReference(id, picked.IsWallItem);
+                })],
+                Delay = proposed.Delay
+            };
+            Assert.Same(_room, box.Item.GetRoom());
+            Assert.Same(box.Item, _room.GetRoomItemHandler().GetItem(id));
+            Assert.True(WiredNativeEditorProjection.TryCompile(id, box.Descriptor, native, out proposed));
+        }
+
         Assert.True(box.TryValidateConfiguration(proposed, out var configuration, out var error), error);
         box.ApplyConfiguration(configuration);
         Assert.True(_room.GetWired().AddBox(box));

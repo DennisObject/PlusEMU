@@ -255,6 +255,30 @@ public partial class PlacedFurniRoomTests
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var action = Assert.IsType<WiredModernAction>(_room.GetWired().CreateConfiguredBox(
             Furni(400, Plus.HabboHotel.Items.InteractionType.WiredEffect, WiredBoxType.None), descriptor));
+
+        if (name == "wf_act_set_altitude") {
+            var item = action.Item;
+            item.RoomId = _room.Id;
+            Assert.True(_room.GetRoomItemHandler().AdmitFloorItem(item));
+            var native = new WiredNativeEditorConfiguration
+            {
+                Category = descriptor.Category,
+                NativeCode = WiredNativeEditorProjection.Code(name),
+                OwnedIntParams = [decimal.ToInt32(decimal.Parse(configuration.Text, System.Globalization.CultureInfo.InvariantCulture) * 100), configuration.IntParams[0]],
+                FurniSourceTypes = [configuration.IntParams[1]],
+                PrimaryItems = [.. configuration.SelectedItems.Select(id =>
+                {
+                    var picked = Assert.IsType<Plus.HabboHotel.Items.Item>(_room.GetRoomItemHandler().GetItem(id));
+
+                    return new WiredNativeItemReference(id, picked.IsWallItem);
+                })],
+                Delay = configuration.Delay
+            };
+            Assert.Same(_room, item.GetRoom());
+            Assert.Same(item, _room.GetRoomItemHandler().GetItem(item.Id));
+            Assert.True(WiredNativeEditorProjection.TryCompile(item.Id, descriptor, native, out configuration));
+        }
+
         Assert.True(WiredConfigurationSave.TrySave(action, configuration, TestWiredConfigurationStore.Instance,
             out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
 
