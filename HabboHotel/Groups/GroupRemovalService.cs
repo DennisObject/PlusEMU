@@ -170,7 +170,7 @@ public sealed class GroupRemovalService(
                         user.RemoveStatus("flatctrl 1");
                         user.UpdateNeeded = true;
 
-                        user.GetClient()?.Send(new YouAreControllerComposer(0));
+                        user.GetClient()?.Send(new YouAreControllerComposer(adminRoom.Id, 0));
                     }
                 }
 
@@ -186,7 +186,7 @@ public sealed class GroupRemovalService(
                             user.RemoveStatus("flatctrl 1");
                             user.UpdateNeeded = true;
 
-                            user.GetClient()?.Send(new YouAreControllerComposer(0));
+                            user.GetClient()?.Send(new YouAreControllerComposer(room.Id, 0));
                         }
                     }
 
@@ -237,7 +237,7 @@ public sealed class GroupRemovalService(
                         user.RemoveStatus("flatctrl 1");
                         user.RemoveStatus("flatctrl 3");
                         user.UpdateNeeded = true;
-                        user.GetClient()?.Send(new YouAreControllerComposer(0));
+                        user.GetClient()?.Send(new YouAreControllerComposer(room.Id, 0));
                     }
                 }
 

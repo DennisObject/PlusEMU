@@ -2,15 +2,13 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Rooms.Permissions;
 
-public class YouAreControllerComposer : IServerPacket
+public class YouAreControllerComposer(uint roomId, int setting) : IServerPacket
 {
-    private readonly int _setting;
     public uint MessageId => ServerPacketHeader.YouAreControllerComposer;
 
-    public YouAreControllerComposer(int setting)
+    public void Compose(IOutgoingPacket packet)
     {
-        _setting = setting;
+        packet.WriteUInteger(roomId);
+        packet.WriteInteger(setting);
     }
-
-    public void Compose(IOutgoingPacket packet) => packet.WriteInteger(_setting);
 }

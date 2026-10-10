@@ -77,12 +77,12 @@ public sealed class GroupSettingsService(
             if (furniOptions == 1) {
                 user.RemoveStatus("flatctrl 1");
                 user.UpdateNeeded = true;
-                user.GetClient()?.Send(new YouAreControllerComposer(0));
+                user.GetClient()?.Send(new YouAreControllerComposer(room.Id, 0));
             }
             else if (furniOptions == 0 && !user.Statusses.ContainsKey("flatctrl 1")) {
                 user.SetStatus("flatctrl 1");
                 user.UpdateNeeded = true;
-                user.GetClient()?.Send(new YouAreControllerComposer(1));
+                user.GetClient()?.Send(new YouAreControllerComposer(room.Id, 1));
             }
         }
     }
