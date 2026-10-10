@@ -155,6 +155,13 @@ public abstract class GameClient
         await _receiveLock.WaitAsync();
 
         try {
+            if (Closed.IsCancellationRequested) {
+                _incompleteStream?.Dispose();
+                _incompleteStream = null;
+
+                return;
+            }
+
             var decrypted = SupportsLegacyCrypto && Rc4Client != null;
 
             if (decrypted) {
@@ -170,7 +177,7 @@ public abstract class GameClient
                 memory = _incompleteStream.GetBuffer().AsMemory().Slice(0, (int)_incompleteStream.Length);
             }
 
-            while (memory.Length > 0) {
+            while (memory.Length > 0 && !Closed.IsCancellationRequested) {
                 var (complete, malformed, messageId, headerLength, length) = GetMessageIdAndPacketLength(memory);
 
                 if (malformed) {
@@ -206,7 +213,7 @@ public abstract class GameClient
                 }
             }
 
-            if (memory.Length == 0) {
+            if (memory.Length == 0 || Closed.IsCancellationRequested) {
                 _incompleteStream?.Dispose();
                 _incompleteStream = null;
             }

@@ -32,7 +32,7 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
         var products = recipes.Where(recipe => !recipe.Secret || recipe.Discovered).Select(Product).ToImmutableArray();
         var ingredients = recipes.SelectMany(recipe => recipe.Ingredients).Select(ingredient => definitions.Items[ingredient.ItemId].ItemName)
             .Distinct(StringComparer.Ordinal).ToImmutableArray();
-        session.Send(new CraftableProductsComposer(products, ingredients, NativeProducts(session)));
+        session.Send(new CraftableProductsComposer(products, ingredients));
     }
 
     public void GetRecipe(GameClient session, string code)
@@ -164,7 +164,7 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
 
                 session.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(reward)));
                 session.Send(new FurniListNotificationComposer(reward.Id, reward.IsFloorItem ? 1 : 2));
-                session.Send(new CraftingResultComposer(Product(committed.Recipe), NativeProducts(session)));
+                session.Send(new CraftingResultComposer(Product(committed.Recipe)));
                 session.Send(new FurniListUpdateComposer());
                 completed = committed;
             }
@@ -222,8 +222,6 @@ public sealed class CraftingService(ICraftingStore store, IItemDataManager defin
 
     private static bool Active(GameClient session, Plus.HabboHotel.Users.Habbo habbo) =>
         !habbo.WalletClosed && ReferenceEquals(session.GetHabbo(), habbo) && ReferenceEquals(habbo.Client, session);
-    private static bool NativeProducts(GameClient session) => session.Revision?.Name is not
-        ("NITRO-1-6-6" or "NITRO-3-6-0" or "OCTANE-3-6-0-FLOOR-20260909");
 
     private bool Valid(CraftingRecipe recipe) => definitions.Items.TryGetValue(recipe.RewardId, out var reward)
         && reward.ProductType is "s" or "i" && recipe.Ingredients.All(ingredient => definitions.Items.ContainsKey(ingredient.ItemId));

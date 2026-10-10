@@ -24,7 +24,6 @@ public class RevisionsCache : IRevisionsCache, IStartable
     {
         WriteExampleRevision();
         await LoadRevisions();
-        Validate();
     }
 
     private static Revision CreateInternalRevision()
@@ -35,7 +34,6 @@ public class RevisionsCache : IRevisionsCache, IStartable
         return new()
         {
             Name = "WIN63-202609161723-93809945",
-            ZeroHeaderIsValid = true,
             IncomingHeaders = incomingHeaders,
             IncomingIdToInternalIdMapping = incomingHeaders.ToDictionary(kvp => kvp.Value, kvp => kvp.Value),
             OutgoingHeaders = outgoingHeaders,
@@ -68,11 +66,14 @@ public class RevisionsCache : IRevisionsCache, IStartable
                 throw new InvalidOperationException($"{file}: packet revision name is missing.");
             }
 
-            if (revision.Name.Equals(InternalRevision.Name)) {
-                continue;
+            if (!revision.Name.Equals(InternalRevision.Name, StringComparison.Ordinal)) {
+                throw new InvalidOperationException($"{file}: unsupported packet revision '{revision.Name}'. Only '{InternalRevision.Name}' is supported.");
             }
 
-            if (!revisions.TryAdd(revision.Name, revision)) {
+            ValidateCurrentHeaders(file, revision.IncomingHeaders, InternalRevision.IncomingHeaders, "incoming");
+            ValidateCurrentHeaders(file, revision.OutgoingHeaders, InternalRevision.OutgoingHeaders, "outgoing");
+
+            if (!revisions.TryAdd(InternalRevision.Name, InternalRevision)) {
                 throw new InvalidOperationException($"{file}: duplicate packet revision name '{revision.Name}'.");
             }
         }
@@ -81,14 +82,12 @@ public class RevisionsCache : IRevisionsCache, IStartable
         Revisions = revisions;
     }
 
-    private void Validate()
+    private static void ValidateCurrentHeaders(string file, IReadOnlyDictionary<string, uint> supplied,
+        IReadOnlyDictionary<string, uint> current, string direction)
     {
-        foreach (var revision in Revisions.Values) {
-            if (ReferenceEquals(revision, InternalRevision)) {
-                continue;
-            }
-
-            revision.BuildMappings(InternalRevision);
+        if (supplied.Count != current.Count || current.Any(entry =>
+            !supplied.TryGetValue(entry.Key, out var id) || id != entry.Value)) {
+            throw new InvalidOperationException($"{file}: {direction} headers do not match the current packet revision.");
         }
     }
 }

@@ -24,13 +24,14 @@ public class ClientHelloEvent : IPacketEvent
         var clientPlatform = packet.ReadInt();
         var clientDeviceType = packet.ReadInt();
 
-        if (!_revisionsCache.Revisions.TryGetValue(build, out var revision)) {
+        if (!build.Equals(_revisionsCache.InternalRevision.Name, StringComparison.Ordinal)) {
             _logger.LogWarning("Unknown revision connected {revision}.", build);
             session.Disconnect();
 
             return Task.CompletedTask;
         }
 
+        var revision = _revisionsCache.InternalRevision;
         session.Revision = revision;
 
         if (session.TryRecordRevisionSelection()) {

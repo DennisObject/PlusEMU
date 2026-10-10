@@ -645,7 +645,7 @@ public sealed class RewardTrackManager : IRewardTrackManager, IStartable
         }
     }
 
-    // A revision without reward-track headers (NITRO-1-6-6) can't take these packets; sending one would throw
+    // A session without reward-track headers can't take these packets; sending one would throw
     // inside the login handler and drop the client.
     private static void SendTrackPacket(GameClient session, IServerPacket composer)
     {

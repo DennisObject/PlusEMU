@@ -1,6 +1,5 @@
 {
   "Name": "WIN63-202609161723-93809945",
-  "ZeroHeaderIsValid": true,
   "IncomingHeaders": {
     "InitDiffieHandshakeEvent": 3668,
     "CompleteDiffieHandshakeEvent": 2896,
@@ -577,7 +576,7 @@
     "ThreadReplyComposer": 2755,
     "ForumsUnreadCountComposer": 1273,
     "SoundSettingsComposer": 1501,
-    "AvatarAspectUpdateComposer": 65416,
+    "AvatarAspectUpdateComposer": 1822,
     "HelperToolComposer": 3539,
     "RoomErrorNotifComposer": 1111,
     "FollowFriendFailedComposer": 857,

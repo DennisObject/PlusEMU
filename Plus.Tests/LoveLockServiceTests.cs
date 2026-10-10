@@ -161,16 +161,6 @@ public sealed class LoveLockServiceTests
         Assert.Empty(intruderSent);
     }
 
-    [Theory]
-    [InlineData("1.6.6.json")]
-    [InlineData("3.6.0.json")]
-    [InlineData("OCTANE-3-6-0-FLOOR-20260909.json")]
-    public void FinishedPacketIsMappedForEachActiveClientRevision(string revision)
-    {
-        using var json = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/" + revision)));
-        Assert.Equal(770u, json.RootElement.GetProperty("OutgoingHeaders").GetProperty("FriendFurniCancelLockComposer").GetUInt32());
-    }
-
     private static Room TestRoom()
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));

@@ -13,10 +13,8 @@ namespace Plus.Tests;
 
 public class WiredVariableMenuRegistrationTests
 {
-    [Theory]
-    [InlineData("1.6.6.json")]
-    [InlineData("example.json")]
-    public void ConcreteMenuHandlersHaveRealDispatchAndCollisionFreeProfileMappings(string profile)
+    [Fact]
+    public void ConcreteMenuHandlersHaveRealDispatchAndCollisionFreeProfileMappings()
     {
         IPacketEvent[] handlers = [new WiredUserVariablesRequestEvent(new WiredVariableMenuService()), new WiredUserVariableUpdateEvent(new WiredVariableMenuService()), new WiredUserVariableManageEvent(new WiredVariableMenuService()),
             new WiredAllVariablesRequestEvent(new WiredVariableMenuService()), new WiredVariableHashesEvent(new WiredVariableMenuService()),
@@ -24,8 +22,7 @@ public class WiredVariableMenuRegistrationTests
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)typeof(PacketManager).GetField("_incomingPackets", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
         Assert.Equal(7, registered.Count);
-        var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
-        revision.BuildMappings(HabbiconTestSupport.InternalRevision());
+        var revision = new Plus.Communication.Revisions.RevisionsCache().InternalRevision;
 
         foreach (var handler in handlers) {
             var name = handler.GetType().Name;

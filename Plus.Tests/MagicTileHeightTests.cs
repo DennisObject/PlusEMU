@@ -38,15 +38,6 @@ public class MagicTileHeightTests
     [Fact]
     public void WireHeightIsHundredths() => Assert.Equal(235, MagicTileHeight.ToWire(2.35));
 
-    [Fact]
-    public void OctaneRevisionSendsTheHeightEchoOnTheStackHelperHeader()
-    {
-        using var document = JsonDocument.Parse(File.ReadAllText(RevisionPath("OCTANE-3-6-0-FLOOR-20260909.json")));
-        var outgoing = document.RootElement.GetProperty("OutgoingHeaders");
-        Assert.Equal(2816, outgoing.GetProperty("UpdateMagicTileComposer").GetInt32());
-        Assert.Equal(3839, document.RootElement.GetProperty("IncomingHeaders").GetProperty("UpdateMagicTileEvent").GetInt32());
-    }
-
     private static string RevisionPath(string fileName)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

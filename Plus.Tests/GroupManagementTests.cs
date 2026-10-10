@@ -276,20 +276,6 @@ public class GroupManagementTests : IDisposable
     }
 
     [Fact]
-    public void OctaneRevisionSeparatesKickConfirmationFromRemoval()
-    {
-        foreach (var name in new[] { "1.6.6.json", "3.6.0.json", "OCTANE-3-6-0-FLOOR-20260909.json" }) {
-            using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(RepoRevisions(), name)));
-            var incoming = json.RootElement.GetProperty("IncomingHeaders");
-            var outgoing = json.RootElement.GetProperty("OutgoingHeaders");
-            Assert.Equal(593u, incoming.GetProperty("RemoveGroupMemberEvent").GetUInt32());
-            Assert.Equal(3593u, incoming.GetProperty("ConfirmRemoveGroupMemberEvent").GetUInt32());
-            Assert.Equal(1876u, outgoing.GetProperty("GroupConfirmRemoveMemberComposer").GetUInt32());
-            Assert.Equal(3129u, outgoing.GetProperty("GroupDeactivatedComposer").GetUInt32());
-        }
-    }
-
-    [Fact]
     public async Task ConfirmCountsFurnitureWithoutRemovingTheMember()
     {
         var group = NewGroup(hasForum: false);

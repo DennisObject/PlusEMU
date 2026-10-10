@@ -108,28 +108,28 @@ public class HabbiconPacketTests
     {
         var expectedIncoming = new Dictionary<string, uint>
         {
-            [nameof(TriggerHabbiconEvent)] = 9417,
-            [nameof(GetHabbiconShopDataEvent)] = 9460,
-            [nameof(GetHabbiconInfoEvent)] = 9461,
-            [nameof(BuyHabbiconEvent)] = 9462,
-            [nameof(BuyHabbiconCollectionEvent)] = 9463,
-            [nameof(ClaimHabbiconEvent)] = 9464,
-            [nameof(FavoriteHabbiconEvent)] = 9465,
-            [nameof(UnfavoriteHabbiconEvent)] = 9466,
-            [nameof(UnseenResetCategoryEvent)] = 3493,
-            [nameof(UnseenResetItemsEvent)] = 2343,
-            ["SendMessengerMessageEvent"] = 4902
+            [nameof(TriggerHabbiconEvent)] = ClientPacketHeader.TriggerHabbiconEvent,
+            [nameof(GetHabbiconShopDataEvent)] = ClientPacketHeader.GetHabbiconShopDataEvent,
+            [nameof(GetHabbiconInfoEvent)] = ClientPacketHeader.GetHabbiconInfoEvent,
+            [nameof(BuyHabbiconEvent)] = ClientPacketHeader.BuyHabbiconEvent,
+            [nameof(BuyHabbiconCollectionEvent)] = ClientPacketHeader.BuyHabbiconCollectionEvent,
+            [nameof(ClaimHabbiconEvent)] = ClientPacketHeader.ClaimHabbiconEvent,
+            [nameof(FavoriteHabbiconEvent)] = ClientPacketHeader.FavoriteHabbiconEvent,
+            [nameof(UnfavoriteHabbiconEvent)] = ClientPacketHeader.UnfavoriteHabbiconEvent,
+            [nameof(UnseenResetCategoryEvent)] = ClientPacketHeader.UnseenResetCategoryEvent,
+            [nameof(UnseenResetItemsEvent)] = ClientPacketHeader.UnseenResetItemsEvent,
+            ["SendMessengerMessageEvent"] = ClientPacketHeader.SendMessengerMessageEvent
         };
         var expectedOutgoing = new Dictionary<string, uint>
         {
-            [nameof(RoomUseHabbiconComposer)] = 9410,
-            [nameof(UserHabbiconsComposer)] = 9465,
-            [nameof(UserHabbiconStatusChangedComposer)] = 9466,
-            [nameof(HabbiconShopDataComposer)] = 9467,
-            [nameof(HabbiconInfoComposer)] = 9463,
-            [nameof(MessengerMessageAckComposer)] = 4902,
-            [nameof(MessengerMessageFailedComposer)] = 4903,
-            [nameof(MessengerMessageComposer)] = 4904
+            [nameof(RoomUseHabbiconComposer)] = ServerPacketHeader.RoomUseHabbiconComposer,
+            [nameof(UserHabbiconsComposer)] = ServerPacketHeader.UserHabbiconsComposer,
+            [nameof(UserHabbiconStatusChangedComposer)] = ServerPacketHeader.UserHabbiconStatusChangedComposer,
+            [nameof(HabbiconShopDataComposer)] = ServerPacketHeader.HabbiconShopDataComposer,
+            [nameof(HabbiconInfoComposer)] = ServerPacketHeader.HabbiconInfoComposer,
+            [nameof(MessengerMessageAckComposer)] = ServerPacketHeader.MessengerMessageAckComposer,
+            [nameof(MessengerMessageFailedComposer)] = ServerPacketHeader.MessengerMessageFailedComposer,
+            [nameof(MessengerMessageComposer)] = ServerPacketHeader.MessengerMessageComposer
         };
 
         foreach (var (type, expected) in new[] { (typeof(ClientPacketHeader), expectedIncoming), (typeof(ServerPacketHeader), expectedOutgoing) }) {
@@ -143,8 +143,7 @@ public class HabbiconPacketTests
 
         foreach (var file in Directory.GetFiles(Repo("Resources/Revisions"), "*.json")) {
             using var json = JsonDocument.Parse(File.ReadAllText(file));
-            var revision = JsonSerializer.Deserialize<Plus.Communication.Revisions.Revision>(File.ReadAllText(file))!;
-            revision.BuildMappings(HabbiconTestSupport.InternalRevision());
+            var revision = new Plus.Communication.Revisions.RevisionsCache().InternalRevision;
 
             foreach (var (key, expected) in new[] { ("IncomingHeaders", expectedIncoming), ("OutgoingHeaders", expectedOutgoing) }) {
                 foreach (var (name, id) in expected) {
@@ -152,7 +151,7 @@ public class HabbiconPacketTests
 
                     var type = key == "IncomingHeaders" ? typeof(ClientPacketHeader) : typeof(ServerPacketHeader);
                     var constant = (uint)type.GetField(name)!.GetRawConstantValue()!;
-                    Assert.Equal(Path.GetFileName(file) == "example.json" ? constant : id, wire);
+                    Assert.Equal(id, wire);
 
                     if (key == "IncomingHeaders") {
                         Assert.Equal(constant, revision.IncomingIdToInternalIdMapping[wire]);

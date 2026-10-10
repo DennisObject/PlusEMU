@@ -194,16 +194,13 @@ public class WiredClickPacketHookTests
         Assert.Empty(world.Capture.Events);
     }
 
-    [Theory]
-    [InlineData("1.6.6.json")]
-    [InlineData("example.json")]
-    public void ActualClickHandlersAndResponseMappingsAreUnique(string profile)
+    [Fact]
+    public void ActualClickHandlersAndResponseMappingsAreUnique()
     {
         IPacketEvent[] handlers = [new ClickFurniEvent(new FurnitureUseService(null!, null!)), new ClickUserEvent()];
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)Get(manager, "_incomingPackets");
-        var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
-        revision.BuildMappings(HabbiconTestSupport.InternalRevision());
+        var revision = new Plus.Communication.Revisions.RevisionsCache().InternalRevision;
 
         foreach (var handler in handlers) {
             var name = handler.GetType().Name;
