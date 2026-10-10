@@ -123,7 +123,7 @@ public partial class PlacedFurniRoomTests
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, actionItem, x, y, 0, true, false, false));
         Assert.True(WiredBoxRegistry.TryGet(trigger, out var descriptor));
         var box = new WiredModernTrigger(_room, triggerItem, descriptor);
-        Assert.True(box.TryValidateConfiguration(WiredTriggerConfiguration.Defaults(trigger) with { SelectedItems = [picked.Id] },
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, WiredTriggerConfiguration.Defaults(trigger) with { SelectedItems = [picked.Id] },
             out var config, out var error), error);
         box.ApplyConfiguration(config);
         Assert.True(_room.GetWired().AddBox(box));

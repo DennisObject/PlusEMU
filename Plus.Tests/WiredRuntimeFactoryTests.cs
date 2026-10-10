@@ -165,7 +165,7 @@ public sealed class WiredRuntimeFactoryTests
 
     private sealed class SidecarStore(string name, WiredConfiguration config) : IWiredConfigurationStore
     {
-        public ModernWiredRuntimeTests.StoredRuntimeRow Row { get; } = new(10, name, 1, JsonSerializer.Serialize(config));
+        public ModernWiredRuntimeTests.StoredRuntimeRow Row { get; } = WiredNativeTestSupport.NativeRow(10, name, JsonSerializer.Serialize(config));
         public bool WasRead;
         public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
         {

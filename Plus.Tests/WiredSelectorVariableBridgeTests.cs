@@ -20,13 +20,13 @@ public sealed class WiredSelectorVariableBridgeTests
         module.Mutate(new(furniture.Target, "custom:11"), furniture, WiredVariableMutation.Give, 8, frame);
         var queries = WiredSelectorVariableBridge.Create(module, frame);
         var inputs = Inputs() with { FurniVariablePredicate = queries.FurniPredicate, UserVariablePredicate = queries.UserPredicate };
-        var selected = WiredSelectorModule.SelectRaw("wf_slc_users_with_var", Config(text: "custom:10"), World(), inputs);
+        var selected = WiredSelectorModule.SelectRaw("wf_slc_users_with_var", Var("wf_slc_users_with_var", null, "custom:10"), World(), inputs);
         Assert.Equal(new[] { 4 }, selected.Selection.UserIds);
-        Assert.False(queries.UserPredicate("wf_slc_users_with_var", Config([0, 2, 0, 0, 0, 0, 0, 0, 0], text: "custom:10"), 999));
-        Assert.Equal(new uint[] { 3 }, WiredSelectorModule.SelectRaw("wf_slc_furni_with_var", Config(text: "custom:11"), World(), inputs).Selection.FurniIds);
-        Assert.Equal(8, queries.ReadOperand(new(1, "custom:11", 0, 100, Config(picks: [3]))));
+        Assert.False(queries.UserPredicate("wf_slc_users_with_var", Var("wf_slc_users_with_var", [0, 2, 0, 0, 0, 0, 0, 0, 0], "custom:10"), 999));
+        Assert.Equal(new uint[] { 3 }, WiredSelectorModule.SelectRaw("wf_slc_furni_with_var", Var("wf_slc_furni_with_var", null, "custom:11"), World(), inputs).Selection.FurniIds);
+        Assert.Equal(8, queries.ReadOperand(new(1, "furni:11", 0, 100, Config(picks: [3]))));
         queries.Dispose();
-        Assert.Throws<ObjectDisposedException>(() => queries.ReadOperand(new(1, "custom:11", 0, 100, Config(picks: [3]))));
+        Assert.Throws<ObjectDisposedException>(() => queries.ReadOperand(new(1, "furni:11", 0, 100, Config(picks: [3]))));
     }
 
     [Theory]
@@ -44,7 +44,7 @@ public sealed class WiredSelectorVariableBridgeTests
             Assert.True(module.Mutate(new(holder.Target, "custom:12"), holder, WiredVariableMutation.Give, holder.EntityId == 3 ? 99 : 10, frame));
         }
 
-        var compare = Config([1, 2, 1, 0, 1, 0, 200, 0, 0], text: "custom:11\tcustom:12");
+        var compare = Var("wf_slc_furni_with_var", [1, 2, 1, 0, 1, 0, 200, 0, 0], "custom:11\tcustom:12");
         WiredSelectorFurniture Box(uint id, int x, double z) => new(id, 1, "Wired", "0", x, 8, z, 1, [(x, 8)], IsWired: true);
         var world = World() with
         {
@@ -97,7 +97,7 @@ public sealed class WiredSelectorVariableBridgeTests
             {
                 [101] = new("wf_slc_furni_picks", Config(picks: [2])),
                 [102] = new("wf_slc_furni_picks", Config(picks: [1])),
-                [103] = new("wf_slc_furni_with_var", Config([1, 2, 1, 0, 1, 0, 200, 1, 0], text: "custom:11\tcustom:12"))
+                [103] = new("wf_slc_furni_with_var", Var("wf_slc_furni_with_var", [1, 2, 1, 0, 1, 0, 200, 1, 0], "custom:11\tcustom:12"))
             },
             Furni = [.. World().Furni,
                 new(101, 1, "first selector", "", 8, 8, 0, 1, [(8, 8)], IsWired: true),
@@ -113,6 +113,9 @@ public sealed class WiredSelectorVariableBridgeTests
         var selected = WiredSelectorModule.SelectRaw("wf_slc_remote", Config([0, 0, 0, 0, 100], [101]), world, input);
         Assert.Equal(new uint[] { 2 }, selected.Selection.FurniIds);
     }
+
+    private static WiredConfiguration Var(string selector, int[]? fields, string text) =>
+        WiredVariableFixtures.WithVar(selector, Config(fields ?? [0, 0, 0, 0, 0, 0, 0, 0, 0], text: text));
 
     private sealed class Directory : IWiredVariableDirectory
     {

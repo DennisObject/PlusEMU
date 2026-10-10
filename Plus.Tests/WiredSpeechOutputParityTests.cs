@@ -23,8 +23,8 @@ public partial class PlacedFurniRoomTests
         var (wired, actor) = PrepareSpeech(clock);
         void Add(uint id, string name, WiredConfiguration configuration, double height) => AddSpeechBox(id, name, configuration, height);
         Add(301, "wf_trg_says_something", new() { IntParams = [1, hide ? 1 : 0, 0], Text = "pulse" }, 0);
-        Add(302, "wf_act_show_message", new() { IntParams = [0, 1, 0, -1], Text = "A", Delay = lowerDelay }, 1);
-        Add(303, "wf_act_show_message", new() { IntParams = [0, 1, 0, -1], Text = "B" }, 2);
+        Add(302, "wf_act_show_message", new() { IntParams = [0, 1, 34, -1], Text = "A", Delay = lowerDelay }, 1);
+        Add(303, "wf_act_show_message", new() { IntParams = [0, 1, 34, -1], Text = "B" }, 2);
 
         if (ordered) {
             Add(304, "wf_xtra_exec_in_order", new(), 3);
@@ -67,7 +67,7 @@ public partial class PlacedFurniRoomTests
         AddSpeechBox(302, "wf_cnd_user_count_in", new() { IntParams = [10, 20, 0] }, 1);
         AddSpeechBox(303, negativeAction ? "wf_act_neg_log" : "wf_act_show_message",
             negativeAction ? new() { IntParams = [0, 0], Text = "negative" }
-                : new() { IntParams = [0, 1, 0, -1], Text = "A" }, 2);
+                : new() { IntParams = [0, 1, 34, -1], Text = "A" }, 2);
         _client.Packets.Clear();
         actor.OnChat(0, "pulse", false);
         Assert.Equal(new[] { "pulse" }, SpeechMessages(ServerPacketHeader.ChatComposer));
@@ -85,13 +85,13 @@ public partial class PlacedFurniRoomTests
         var (wired, actor) = PrepareSpeech(clock);
         AddSpeechBox(301, "wf_trg_says_something", new() { IntParams = [1, 1, 0], Text = "pulse" }, 0);
         var condition = AddSpeechBox(302, "wf_cnd_user_count_in", new() { IntParams = failedFirst ? [10, 20, 0] : [1, 1, 0] }, 1);
-        AddSpeechBox(303, "wf_act_show_message", new() { IntParams = [0, 1, 0, -1], Text = "A" }, 2);
+        AddSpeechBox(303, "wf_act_show_message", new() { IntParams = [0, 1, 34, -1], Text = "A" }, 2);
         AddSpeechBox(304, "wf_xtra_execution_limit", new() { IntParams = [1, 20] }, 3);
         _client.Packets.Clear();
         actor.OnChat(0, "pulse", false);
         Assert.Equal(new[] { failedFirst ? "pulse" : "A" }, SpeechMessages(ServerPacketHeader.ChatComposer));
         Assert.Equal(failedFirst ? [] : new[] { "pulse" }, SpeechMessages(ServerPacketHeader.WhisperComposer));
-        Assert.True(condition.TryValidateConfiguration(new() { IntParams = [1, 1, 0] }, out var passing, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(condition, new() { IntParams = [1, 1, 0] }, out var passing, out var error), error);
         condition.ApplyConfiguration(passing);
         clock.Now = clock.Now.AddMilliseconds(4400);
         _client.Packets.Clear();
@@ -120,8 +120,8 @@ public partial class PlacedFurniRoomTests
         }
 
         AddSpeechBox(311, "wf_cnd_user_count_in", new() { IntParams = calleePasses ? [1, 1, 0] : [10, 20, 0] }, 0, 2, 2);
-        AddSpeechBox(312, "wf_act_show_message", new() { IntParams = [0, 1, 0, -1], Text = "R" }, 1, 2, 2);
-        AddSpeechBox(313, "wf_act_show_message", new() { IntParams = [0, 1, 0, -1], Text = "SECOND", Delay = secondDelay }, 2, 2, 2);
+        AddSpeechBox(312, "wf_act_show_message", new() { IntParams = [0, 1, 34, -1], Text = "R" }, 1, 2, 2);
+        AddSpeechBox(313, "wf_act_show_message", new() { IntParams = [0, 1, 34, -1], Text = "SECOND", Delay = secondDelay }, 2, 2, 2);
         AddSpeechBox(303, negativeCaller ? "wf_act_neg_call_stacks" : "wf_act_call_stacks",
             new() { IntParams = [100], SelectedItems = [312] }, 2);
         _client.Packets.Clear();
@@ -237,7 +237,7 @@ public partial class PlacedFurniRoomTests
             ModernWiredRuntimeTests.LoadStoredRuntime(Assert.IsType<Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction>(box), name, proposed);
         }
         else {
-            Assert.True(box.TryValidateConfiguration(proposed, out var configuration, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, proposed, out var configuration, out var error), error);
             box.ApplyConfiguration(configuration);
         }
 

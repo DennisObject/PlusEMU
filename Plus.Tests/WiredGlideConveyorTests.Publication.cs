@@ -94,7 +94,7 @@ public sealed partial class WiredGlideConveyorTests
         var input = new WiredAddonInputs(world, new(new(), new(), new()), 0, request =>
         {
             reads++;
-            Assert.Equal("custom:99", request.Token);
+            Assert.Equal("user:99", request.Token);
 
             return variable;
         });
@@ -118,7 +118,7 @@ public sealed partial class WiredGlideConveyorTests
             Assert.True(new WiredAddonModule("wf_xtra_mov_curve", new WiredConfiguration
             {
                 IntParams = [7, 100, strength, useVariable ? 1 : 0, 0, 0, 0],
-                Text = "custom:99"
+                VariableIds = ["user:99"]
             }).Apply(input, context.Policy.Addons));
         }
 
@@ -418,7 +418,7 @@ public sealed partial class WiredGlideConveyorTests
     {
         var layout = FastQueueLayout(2).ToList();
         layout.Add((19, 4, 12, 1.0, 0, "wf_act_show_message", JsonSerializer.Serialize(new WiredConfiguration
-        { IntParams = [200, 0, 100, 0], Text = "later", Delay = 1 })));
+        { IntParams = [200, 0, 34, 0], Text = "later", Delay = 1 })));
         layout.Add((23, 4, 12, 3.5, 0, "wf_slc_users_bytype", JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 0, 0] })));
         var f = new Fixture(layout.ToArray(), live: true);
         var rider = f.Walker(1, 4, 10, 4, 11);
@@ -429,7 +429,7 @@ public sealed partial class WiredGlideConveyorTests
         Assert.Equal(7, ReadPublication(packets).Count(move => move.Type == 1));
         Assert.DoesNotContain(packets, IsChat);
         var timer = (IWiredConfiguredItem)f.Box(11);
-        timer.ApplyConfiguration(timer.Configuration with { IntParams = [100] });
+        WiredNativeTestSupport.InstallRuntime(timer, timer.Configuration with { IntParams = [10] });
         ((IWiredTimedTrigger)timer).Reset(250);
         packets.Clear();
         f.Advance(500);
@@ -537,7 +537,7 @@ public sealed partial class WiredGlideConveyorTests
         layout.Add((20, 4, 12, 2.1, 0, "wf_act_move_to_dir", JsonSerializer.Serialize(new WiredConfiguration
         { IntParams = [2, 0, 100, 0], SelectedItems = [19] })));
         layout.Add((21, 4, 12, 1.9, 0, "wf_act_show_message", JsonSerializer.Serialize(new WiredConfiguration
-        { IntParams = [200, 0, 100, 0], Text = "between" })));
+        { IntParams = [200, 0, 34, 0], Text = "between" })));
         layout.Add((22, 4, 12, 3, 0, "wf_xtra_exec_in_order", JsonSerializer.Serialize(new WiredConfiguration())));
         layout.Add((23, 4, 12, 3.5, 0, "wf_slc_users_bytype", JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 0, 0] })));
         var f = new Fixture(layout.ToArray(), live: true);

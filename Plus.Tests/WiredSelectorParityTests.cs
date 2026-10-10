@@ -119,6 +119,7 @@ public sealed class WiredSelectorParityTests
     [Theory]
     [InlineData(0)]
     [InlineData(100)]
+    [InlineData(200)]
     [InlineData(201)]
     public void RemoteSourceResolvesTilesInsteadOfUsingUnusedSavedPicks(int source)
     {
@@ -133,12 +134,12 @@ public sealed class WiredSelectorParityTests
     }
 
     [Theory]
-    [InlineData(200)]
     [InlineData(900)]
-    public void RemoteRejectsSourcesOutsideItsOfficialNativeAllowedList(int source)
+    public void RemoteRejectsSourcesOutsideItsSupportedNativeAllowedList(int source)
     {
-        Assert.Throws<ArgumentException>(() => WiredSelectorConfiguration.Normalize("wf_slc_remote",
-            new() { IntParams = [0, 0, 0, 0, source] }));
+        Assert.True(WiredBoxRegistry.TryGet("wf_slc_remote", out var descriptor));
+        var native = WiredNativeEditorProjection.DefaultNative(descriptor) with { FurniSourceTypes = [source] };
+        Assert.False(WiredNativeEditorProjection.TryCompile(7, descriptor, native, out _));
     }
 
     [Fact]

@@ -719,14 +719,14 @@ public sealed partial class WiredGlideConveyorTests
         layout.Add((23, 6, 12, 1.95, 0, "wf_xtra_anim_time", JsonSerializer.Serialize(new WiredConfiguration { IntParams = [200] })));
 
         if (differentStyle) {
-            layout.Add((24, 6, 12, 2.6, 0, "wf_xtra_mov_curve", JsonSerializer.Serialize(new WiredConfiguration { IntParams = [2, 50, 80, 0, 0, 0, 0] })));
+            layout.Add((24, 6, 12, 2.6, 0, "wf_xtra_mov_curve", JsonSerializer.Serialize(new WiredConfiguration { IntParams = [7, 100, 80, 0, 0, 0, 0] })));
         }
 
         var f = new Fixture(layout.ToArray(), live: true, movementEngine: movementEngine);
         var rider = f.Walker(1, 4, 10, 4, 11);
         var packets = new List<byte[]>();
         var hints = 0;
-        PublishedMove[] earlier = [];
+        TrajectoryMove[] earlier = [];
         var laterStyle = -1;
         rider.GetClient()!.SendCallback = args =>
         {
@@ -737,7 +737,7 @@ public sealed partial class WiredGlideConveyorTests
                 hints++;
 
                 if (hints == 2) {
-                    earlier = ReadPublication(packets).Where(move => move.Type == 0).ToArray();
+                    earlier = ReadTrajectoryPublication(packets).Where(move => move.Type == 0).ToArray();
                     laterStyle = BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(14));
                 }
             }
@@ -749,8 +749,8 @@ public sealed partial class WiredGlideConveyorTests
 
         Assert.Equal(2, hints);
         Assert.Equal((4, 5), (Assert.Single(earlier).FromX, earlier[0].ToX));
-        Assert.Equal(differentStyle ? 2 : 0, laterStyle);
-        Assert.Equal(new[] { (4, 5), (5, 6) }, ReadPublication(packets).Where(move => move.Type == 0).Select(move => (move.FromX, move.ToX)));
+        Assert.Equal(differentStyle ? 7 : 0, laterStyle);
+        Assert.Equal(new[] { (4, 5), (5, 6) }, ReadTrajectoryPublication(packets).Where(move => move.Type == 0).Select(move => (move.FromX, move.ToX)));
         Assert.Equal(6, rider.X);
         Assert.Equal(0, f.Engine.ReadStats().Pending);
     }

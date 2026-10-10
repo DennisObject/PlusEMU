@@ -163,7 +163,7 @@ public sealed class WiredNativeLifecycleTests
         var triggerItem = f.Item(1);
         triggerItem.Definition.InteractionName = "wf_trg_recv_signal";
         var trigger = f.Wired.CreateConfiguredBox(triggerItem)!;
-        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [antenna.Id] }, out var config, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(trigger, new() { IntParams = [0, 100], SelectedItems = [antenna.Id] }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(f.Wired.AddBox(trigger));
         var effect = f.Effect();
@@ -185,8 +185,11 @@ public sealed class WiredNativeLifecycleTests
         var item = f.Item(1);
         item.Definition.InteractionName = "wf_trg_var_changed";
         var trigger = f.Wired.CreateConfiguredBox(item)!;
-        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 0, 1, 1, 1, 1, 0, -1], Text = "internal:@handitem" }, out var config, out var error), error);
-        trigger.ApplyConfiguration(config);
+        WiredNativeTestSupport.Install(trigger, WiredNativeEditorProjection.DefaultNative(trigger.Descriptor) with
+        {
+            OwnedIntParams = [0, 1, 0, 7, -1],
+            VariableIds = ["user:internal:@handitem"]
+        });
         Assert.True(f.Wired.AddBox(trigger));
         var effect = f.Effect();
         var context = f.Context();
@@ -321,7 +324,7 @@ public sealed class WiredNativeLifecycleTests
         var triggerItem = f.Item(1);
         triggerItem.Definition.InteractionName = "wf_trg_state_changed";
         var trigger = f.Wired.CreateConfiguredBox(triggerItem)!;
-        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [item.Id] }, out var config, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(trigger, new() { IntParams = [0, 100], SelectedItems = [item.Id] }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(f.Wired.AddBox(trigger));
         var effect = f.Effect();
@@ -475,7 +478,7 @@ public sealed class WiredNativeLifecycleTests
         item.Definition.InteractionName = "wf_cnd_match_time";
         var box = f.Wired.CreateConfiguredBox(item)!;
         var hour = f.Wired.CalendarTime.Hour;
-        Assert.True(box.TryValidateConfiguration(new() { IntParams = [1, hour, hour, 0, 0, 0, 0, 0, 0] }, out var config, out error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [1, hour, hour, 0, 0, 0, 0, 0, 0] }, out var config, out error), error);
         box.ApplyConfiguration(config);
         Assert.True(((IWiredContextualItem)box).Execute(f.Context()));
         Assert.True(f.Wired.Settings.TrySave(owner, 0, 0, "", out error), error);
@@ -627,7 +630,7 @@ public sealed class WiredNativeLifecycleTests
             var triggerItem = Item(1);
             triggerItem.Definition.InteractionName = "wf_trg_user_performs_action";
             var trigger = Wired.CreateConfiguredBox(triggerItem)!;
-            Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [(int)kind, 0, 0, 0, 1] }, out var config, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(trigger, new() { IntParams = [(int)kind, 0, 0, 0, 1] }, out var config, out var error), error);
             trigger.ApplyConfiguration(config);
             Assert.True(Wired.AddBox(trigger));
             var item = Item(2);

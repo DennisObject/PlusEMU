@@ -15,15 +15,15 @@ public sealed class WiredBuiltinPresenceParityTests
         var module = new WiredVariableModule(1, new Directory(), new MemoryWiredVariableStore(), TimeProvider.System, flags);
         var executor = new WiredVariableExecutors(module, TimeProvider.System);
         var give = new WiredConfiguration { IntParams = [1, 0, 999, 0, 0], Text = "internal:~area_hide.inverted" };
-        Assert.True(executor.Execute("wf_act_give_var", give, frame));
+        Assert.True(executor.Execute("wf_act_give_var", WiredNativeTestSupport.Scalar("wf_act_give_var", give), frame));
         Assert.NotNull(module.Read(new(holder.Target, give.Text), holder, frame));
-        Assert.False(executor.Execute("wf_act_give_var", give, frame));
-        Assert.False(executor.Execute("wf_act_change_var_val", new() { IntParams = [1, 0, 0, 0, 1, 0, 0, 0, 0], Text = give.Text }, frame));
-        Assert.True(executor.Execute("wf_act_remove_var", new() { IntParams = [1, 0, 0], Text = give.Text }, frame));
+        Assert.False(executor.Execute("wf_act_give_var", WiredNativeTestSupport.Scalar("wf_act_give_var", give), frame));
+        Assert.False(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", new() { IntParams = [1, 0, 0, 0, 1, 0, 0, 0, 0], Text = give.Text }), frame));
+        Assert.True(executor.Execute("wf_act_remove_var", WiredNativeTestSupport.Scalar("wf_act_remove_var", new() { IntParams = [1, 0, 0], Text = give.Text }), frame));
         Assert.Null(module.Read(new(holder.Target, give.Text), holder, frame));
-        Assert.False(executor.Execute("wf_act_remove_var", new() { IntParams = [1, 0, 0], Text = give.Text }, frame));
+        Assert.False(executor.Execute("wf_act_remove_var", WiredNativeTestSupport.Scalar("wf_act_remove_var", new() { IntParams = [1, 0, 0], Text = give.Text }), frame));
         Assert.Empty(module.DrainChanges()); // Native metadata prohibits interception for these presence flags.
-        Assert.False(WiredVariableExecutors.TryValidate("wf_act_give_var", give with { Text = "internal:@is_stackable" }, out _));
+        Assert.False(WiredVariableExecutors.TryValidate("wf_act_give_var", WiredNativeTestSupport.Scalar("wf_act_give_var", give with { Text = "internal:@is_stackable" }), out _));
         Assert.False(module.Mutate(new(holder.Target, give.Text), holder, WiredVariableMutation.Give, 0, new(1, [])));
         Assert.False(module.Mutate(new(holder.Target, give.Text), holder, WiredVariableMutation.Give, 0, new(2, [holder])));
     }

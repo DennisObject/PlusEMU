@@ -247,7 +247,10 @@ public partial class WiredRuntimeEngineTests
         var f = new Fixture();
         var receiverItem = f.Furni(x: 2);
         f.Trigger();
-        ModernTrigger(f, "wf_trg_recv_signal", new() { IntParams = [0, 100], SelectedItems = [receiverItem.Id] }, x: 5);
+        // The editor save refuses an ordinary pick for a signal receiver, so no such box can ever be configured.
+        var refused = new WiredModernTrigger(f.Room, f.Furni("wf_trg_recv_signal", 5), WiredBoxRegistry.All.Single(d => d.CanonicalName == "wf_trg_recv_signal"));
+        Assert.False(WiredNativeTestSupport.TryValidateRuntime(refused, new() { IntParams = [0, 100], SelectedItems = [receiverItem.Id] }, out _, out var error));
+        Assert.Equal("wiredfurni.error.require_antenna_furni", error);
         var receiver = f.Action(x: 5);
         f.Action(ctx => { Assert.False(f.Engine.SendSignal(ctx, [receiverItem], new())); return true; });
         f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.Enter));
@@ -374,11 +377,8 @@ public partial class WiredRuntimeEngineTests
         var f = new Fixture();
         var holder = f.User(2);
         var furni = f.Furni();
-        Assert.True(WiredBoxRegistry.TryGet("wf_trg_var_changed", out var descriptor));
-        var trigger = new WiredVariableChangedTrigger(f.Room, f.Furni("wf_trg_var_changed"), descriptor);
-        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [(int)target, 1, 1, 1, 1, 1, 1, -1], Text = "custom:42" }, out var normalized, out var error), error);
-        trigger.ApplyConfiguration(normalized);
-        f.Engine.Add(trigger);
+        // The typed trigger's own matching is covered by WiredVariableChangedTriggerTests; this checks the engine's holder timing.
+        f.Trigger(WiredEventKind.Variable);
         f.Add(new Selector { SelectBody = ctx => { Assert.Empty(ctx.Triggering.UserIds); Assert.Empty(ctx.Triggering.FurniIds); return new(new(), WiredSelectionKind.Both); } });
         f.Add(new Box(WiredBoxCategory.Condition) { Body = ctx => { Assert.Empty(ctx.Selected.UserIds); Assert.Empty(ctx.Selected.FurniIds); return true; } });
         var action = f.Action(ctx =>
@@ -411,7 +411,7 @@ public partial class WiredRuntimeEngineTests
         bot.BotData.Name = "Bob";
         bot.BotData.AiType = BotAiType.Generic;
         var reached = f.User(2);
-        ModernTrigger(f, "wf_trg_bot_reached_avtr", new() { IntParams = [100], Text = "" });
+        ModernTrigger(f, "wf_trg_bot_reached_avtr", new() { IntParams = [0], Text = "" });
         var action = f.Action();
         Assert.True(f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.BotReachedUser) { Actor = bot, TargetUser = reached }));
         f.Engine.OnFastCycle();
@@ -759,7 +759,7 @@ public partial class WiredRuntimeEngineTests
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var item = f.Furni(name, x);
         var trigger = new WiredModernTrigger(f.Room, item, descriptor);
-        Assert.True(trigger.TryValidateConfiguration(configuration, out var normalized, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(trigger, configuration, out var normalized, out var error), error);
         trigger.ApplyConfiguration(normalized);
         f.Engine.Add(trigger);
 

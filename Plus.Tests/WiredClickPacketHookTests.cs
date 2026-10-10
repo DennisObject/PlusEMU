@@ -72,48 +72,7 @@ public class WiredClickPacketHookTests
     }
 
     [Fact]
-    public async Task CorrelatedClickReturnsItsIdentityAndIndependentFlagsWithoutLegacyLinks()
-    {
-        var world = new World("wf_trg_click_user", [0, 1]);
-        await new ClickUserEvent().Parse(world.Room, world.Client, Packet(world.Target.VirtualId, 1, (int)world.Room.Id, 37));
-        Assert.DoesNotContain(world.Packets, p => p.Id == 2023);
-        var response = Assert.Single(world.Packets, p => p.Id == 9460).Payload;
-        Assert.Equal(world.Target.VirtualId, response.ReadInt());
-        Assert.True(response.ReadBool());
-        Assert.Equal(1, response.ReadInt());
-        Assert.Equal((int)world.Room.Id, response.ReadInt());
-        Assert.Equal(37, response.ReadInt());
-        Assert.True(response.ReadBool());
-        Assert.False(response.HasDataRemaining());
-    }
-
-    [Fact]
-    public async Task CorrelatedRejectedConditionAndMissingTargetStillCompleteTheirRequests()
-    {
-        var world = new World("wf_trg_click_user", [1, 1]);
-        world.AddBox("wf_cnd_user_count_in", [10, 20, 0]);
-        await new ClickUserEvent().Parse(world.Room, world.Client, Packet(world.Target.VirtualId, 1, (int)world.Room.Id, 38));
-        await new ClickUserEvent().Parse(world.Room, world.Client, Packet(999, 1, (int)world.Room.Id, 39));
-        var responses = world.Packets.Where(p => p.Id == 9460).Select(p => p.Payload).ToArray();
-        Assert.Equal(2, responses.Length);
-
-        for (var i = 0; i < responses.Length; i++) {
-            var response = responses[i];
-            Assert.Equal(i == 0 ? world.Target.VirtualId : 999, response.ReadInt());
-            Assert.Equal(i == 0, response.ReadBool());
-            Assert.Equal(1, response.ReadInt());
-            Assert.Equal((int)world.Room.Id, response.ReadInt());
-            Assert.Equal(38 + i, response.ReadInt());
-            Assert.Equal(i == 1, response.ReadBool());
-            Assert.False(response.HasDataRemaining());
-        }
-
-        Assert.Empty(world.Capture.Events);
-        Assert.DoesNotContain(world.Packets, p => p.Id == 2023);
-    }
-
-    [Fact]
-    public async Task MalformedCorrelatedClicksNeverEnterWiredOrProduceAResponse()
+    public async Task TrailingClickFieldsNeverEnterWiredOrProduceAResponse()
     {
         var world = new World("wf_trg_click_user", [1, 1]);
         var id = world.Target.VirtualId;
@@ -291,7 +250,7 @@ public class WiredClickPacketHookTests
     public async Task DelayedClickFiringCannotTransferToReplacementActorWithSameVirtualAndHabboIds()
     {
         var world = new World("wf_trg_click_user", [0, 0]);
-        world.Capture.ApplyConfiguration(new() { Delay = 1 });
+        WiredNativeTestSupport.Install(world.Capture, WiredNativeEditorProjection.DefaultNative(world.Capture.Descriptor) with { Delay = 1 });
         await new ClickUserEvent().Parse(world.Room, world.Client, Packet(world.Target.VirtualId));
         world.FlushWired(responseEvent: true);
         Assert.Empty(world.Capture.Events);
@@ -427,7 +386,7 @@ public class WiredClickPacketHookTests
         public IWiredConfiguredItem AddBox(string name, int[] parameters, uint[]? selected = null)
         {
             var box = _wired.CreateConfiguredBox(Item(name))!;
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [.. parameters], SelectedItems = selected == null ? [] : [.. selected] }, out var config, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [.. parameters], SelectedItems = selected == null ? [] : [.. selected] }, out var config, out var error), error);
             box.ApplyConfiguration(config);
             Assert.True(_wired.AddBox(box));
 
@@ -437,6 +396,8 @@ public class WiredClickPacketHookTests
         {
             var item = new Item { Id = _next++, ExtraData = new LegacyDataFormat { Data = "1" }, Definition = new() { ItemName = name, Type = ItemType.Floor } };
             Items("_floorItems").TryAdd(item.Id, item);
+            // Native pick validation reads the box item's live room.
+            typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, Room);
 
             return item;
         }

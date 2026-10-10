@@ -56,7 +56,7 @@ public sealed class WiredGroupDependencyTests
         Assert.Empty(selector.Select(next).Selection.UserIds);
         Assert.Equal(before, lookups);
 
-        Assert.True(selector.TryValidateConfiguration(new() { IntParams = [1, 404, 0, 0] },
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(selector, new() { IntParams = [1, 404, 0, 0] },
             out var missing, out var error), error);
         selector.ApplyConfiguration(missing);
         Assert.Empty(selector.Select(fixture.Context(selector.Item, addon.Item)).Selection.UserIds);
@@ -161,7 +161,7 @@ public sealed class WiredGroupDependencyTests
         {
             var item = Item(1, "wf_slc_users_group");
             var box = Assert.IsAssignableFrom<IWiredContextualSelector>(_wired.CreateConfiguredBox(item));
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [.. parameters] }, out var valid, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [.. parameters] }, out var valid, out var error), error);
             box.ApplyConfiguration(valid);
             Assert.True(_wired.AddBox(box));
             _items[0] = item;
@@ -173,7 +173,7 @@ public sealed class WiredGroupDependencyTests
         {
             var item = Item(2, "wf_xtra_text_output_username");
             var box = Assert.IsAssignableFrom<IWiredContextualAddon>(_wired.CreateConfiguredBox(item));
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "users\t," },
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [2, 0], Text = "users\t," },
                 out var valid, out var error), error);
             box.ApplyConfiguration(valid);
             Assert.True(_wired.AddBox(box));
@@ -186,7 +186,7 @@ public sealed class WiredGroupDependencyTests
         {
             var item = Item(3, "wf_cnd_actor_in_group");
             var box = Assert.IsType<WiredModernCondition>(_wired.CreateConfiguredBox(item));
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [.. parameters] }, out var valid, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [.. parameters] }, out var valid, out var error), error);
             box.ApplyConfiguration(valid);
 
             return box;

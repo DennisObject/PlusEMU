@@ -24,7 +24,7 @@ public sealed class WiredVariableQueryTests
 
         module.Mutate(reference, first, WiredVariableMutation.Give, 10, frame);
         module.Mutate(reference, second, WiredVariableMutation.Give, 20, frame);
-        var config = new WiredConfiguration { IntParams = [1, 2, 1, 0, 0, 200, 0, 0, 0], Text = "custom:10\tcustom:11" };
+        var config = WiredVariableFixtures.WithVar("wf_slc_users_with_var", new() { IntParams = [1, 2, 1, 0, 0, 200, 0, 0, 0], Text = "custom:10\tcustom:11" });
 
         using (var queries = new WiredVariableQueries(module, frame)) {
             Assert.True(queries.MatchSelector("wf_slc_users_with_var", config, first));
@@ -45,9 +45,9 @@ public sealed class WiredVariableQueryTests
         var frame = new WiredVariableFrame(1, [holder]);
         module.Mutate(new(holder.Target, "custom:12"), holder, WiredVariableMutation.Give, 42, frame);
         using var queries = new WiredVariableQueries(module, frame);
-        Assert.Equal(42L, queries.ReadOperand(holder.Target, "custom:12", 0, 101, new() { SelectedItems = [300] }));
-        Assert.Null(queries.ReadOperand(holder.Target, "custom:12", 0, 101, new() { SelectedItems = [301] }));
-        Assert.Null(queries.ReadOperand(holder.Target, "custom:99", 0, 101, new() { SelectedItems = [300] }));
+        Assert.Equal(42L, queries.ReadOperand(holder.Target, "furni:12", 0, 101, new() { SelectedItems = [300] }));
+        Assert.Null(queries.ReadOperand(holder.Target, "furni:12", 0, 101, new() { SelectedItems = [301] }));
+        Assert.Null(queries.ReadOperand(holder.Target, "furni:99", 0, 101, new() { SelectedItems = [300] }));
     }
 
     private sealed class Directory : IWiredVariableDirectory

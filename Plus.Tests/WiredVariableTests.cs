@@ -296,8 +296,7 @@ public sealed class WiredVariableTests
         Assert.Empty(module.DrainChanges());
         var reloaded = new WiredVariableModule(1, directory, store, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         Assert.True(reloaded.InitializeGlobal(10));
-        Assert.Equal(42, new WiredVariableEditor(reloaded).ForDisplay("wf_var_room", 10, saved).IntParams[1]);
-        Assert.Equal(7, saved.IntParams[1]);
+        Assert.Equal(42, reloaded.Read(new(WiredVariableTarget.Global, "custom:10"), new(WiredVariableTarget.Global, 0, 0), new(1, []))!.Value);
         directory.Owners[1] = 6;
         Assert.False(editor.SaveGlobalValue(10, 99));
         Assert.Equal(42, store.Read(new(10, WiredVariableTarget.Global, 0))!.Value);

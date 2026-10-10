@@ -47,23 +47,17 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public void CanonicalPublicUnchangedSaveNeverPersistsOrPublishes()
+    public void CanonicalPublicExplicitSavePersistsAndPublishes()
     {
         var (box, store) = CanonicalBox("wf_act_control_clock", new() { IntParams = [0, 100] });
         var previous = box.Configuration;
-        CanonicalService(store).Save(_client, new(601, WiredBoxCategory.Action, previous));
-        Assert.Empty(store.Saves);
-        Assert.Same(previous, box.Configuration);
+        CanonicalService(store).Save(_client, new(601, WiredBoxCategory.Action, previous, previous.Origin!.Native));
+        Assert.Equal(previous.IntParams.ToArray(), Assert.Single(store.Saves).IntParams.ToArray());
+        Assert.Same(store.Saves[0], box.Configuration);
     }
 
-
-
-
-
-
-
     [Fact]
-    public async Task CanonicalNativeUnchangedSaveKeepsPendingActionsAndPublicationState()
+    public async Task CanonicalNativeExplicitSavePersistsAndPublishes()
     {
         var (box, store) = CanonicalBox("wf_act_control_clock", new() { IntParams = [0, 100], Delay = 5 });
         var native = new WiredNativeEditorConfiguration
@@ -85,10 +79,9 @@ public partial class PlacedFurniRoomTests
         var published = 0;
         engine.ConfigurationPublished = _ => published++;
         await CanonicalHandler().Parse(_client, ClientPacket(601, 1, 0, "", 0, 5, 1, 100, 0, 0, 0));
-        Assert.Empty(store.Saves);
-        Assert.Same(current, box.Configuration);
-        Assert.Equal(pending, engine.ReadStats().Pending);
-        Assert.Equal(0, published);
+        Assert.Equal(current.IntParams.ToArray(), Assert.Single(store.Saves).IntParams.ToArray());
+        Assert.Same(store.Saves[0], box.Configuration);
+        Assert.Equal(1, published);
         Assert.Contains(_client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
     }
 
@@ -118,7 +111,7 @@ public partial class PlacedFurniRoomTests
             "params" => valid with { IntParams = [1, 100] },
             "sources" => valid with { FurniSources = ImmutableDictionary<string, int>.Empty.Add("items", 201) },
             "quota" => valid with { ScoreQuotaPerGame = 2 },
-            "version" => valid with { Version = 2 },
+            "version" => valid with { Version = 999 },
             "stripped" => new WiredConfiguration { IntParams = valid.IntParams, FurniSources = valid.FurniSources },
             "authority" => valid.Bind(valid.Origin! with { Native = null }),
             "owner" => valid.Bind(valid.Origin! with { ItemId = 602 }),
@@ -136,7 +129,6 @@ public partial class PlacedFurniRoomTests
         Assert.False(((IWiredContextualAction)box).Execute(context));
     }
 
-
     [Theory]
     [InlineData(0)]
     [InlineData(100)]
@@ -144,7 +136,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(201)]
     public void CanonicalGroupEachAdvertisedMoverRoleExecutesAgainstItsActualDomain(int moverSource)
     {
-        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 100] });
+        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 1, 0, 100, 101, 0] });
         var mover = CanonicalPlace(602, 1, 1);
         var target = CanonicalPlace(603, 2, 1);
         var native = CanonicalNativeGroup(moverSource, 101);
@@ -169,7 +161,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(201, 3)]
     public void CanonicalGroupTargetRoleOneHundredUsesPrimaryAndOneOhOneUsesSecondary(int targetSource, int expectedX)
     {
-        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 100] });
+        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 1, 0, 100, 101, 0] });
         var mover = CanonicalPlace(602, 1, 1);
         var target = CanonicalPlace(603, 2, 1);
         Assert.True(WiredNativeEditorProjection.TryCompile(601, box.Descriptor, CanonicalNativeGroup(100, targetSource), out var configuration));
@@ -190,7 +182,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(201)]
     public void CanonicalGroupDynamicTargetNeverMovesTowardAWall(int targetSource)
     {
-        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 100] });
+        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 1, 0, 100, 101, 0] });
         var mover = CanonicalPlace(602, 1, 1);
         var wall = Furni(604, InteractionType.None, WiredBoxType.None, ItemType.Wall);
         wall.WallCoordinates = ":w=2,1 l=12,16 l";
@@ -208,7 +200,6 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(1, mover.GetX);
     }
 
-
     [Theory]
     [InlineData(0)]
     [InlineData(200)]
@@ -216,7 +207,7 @@ public partial class PlacedFurniRoomTests
     public void CanonicalGroupEachAdvertisedUserRoleUsesTheCapturedAvatar(int source)
     {
         var (_, actor) = PrepareSpeech(new SpeechClock());
-        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 100] });
+        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 1, 0, 100, 101, 0] });
         var mover = CanonicalPlace(602, 1, 1);
         var native = CanonicalNativeGroup(100, 101) with { OwnedIntParams = [1, 1, 0], UserSourceTypes = [source], SecondaryItems = [] };
         Assert.True(WiredNativeEditorProjection.TryCompile(601, box.Descriptor, native, out var configuration));
@@ -237,7 +228,7 @@ public partial class PlacedFurniRoomTests
     [InlineData(true)]
     public void CanonicalGroupEmptyOrReplacedCapturedMoversDoNotMove(bool replace)
     {
-        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 100] });
+        var (box, _) = CanonicalBox("wf_act_move_furni_as_group", new() { IntParams = [0, 1, 0, 100, 101, 0] });
         var mover = CanonicalPlace(602, 1, 1);
         CanonicalPlace(603, 2, 1);
         var native = CanonicalNativeGroup(100, 101) with { PrimaryItems = replace ? [new(602, false)] : [] };
@@ -256,7 +247,7 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public async Task CanonicalNativeScoreQuotaIsConsumedAndUnchangedSaveDoesNotResetIt()
+    public async Task CanonicalNativeExplicitSavePersistsWithoutResettingGameQuota()
     {
         var (_, actor) = PrepareSpeech(new SpeechClock());
         actor.Team = Plus.HabboHotel.Rooms.Games.Teams.Team.Red;
@@ -270,7 +261,7 @@ public partial class PlacedFurniRoomTests
         var score = _room.GetGameManager().Points[1];
         Assert.Equal(17, score);
         await CanonicalHandler().Parse(_client, ClientPacket(601, 2, 17, 1, "", 0, 0, 0, 1, 0, 0, 0));
-        Assert.Single(store.Saves);
+        Assert.Equal(2, store.Saves.Count);
         _room.RunFastPass(() => changed = ((IWiredContextualAction)box).Execute(context));
         Assert.False(changed);
         Assert.Equal(score, _room.GetGameManager().Points[1]);
@@ -296,54 +287,6 @@ public partial class PlacedFurniRoomTests
         Assert.True(changed);
         Assert.Equal(2.01, floor.GetZ, 6);
         Assert.Equal(":w=2,1 l=12,16 l", wall.WallCoordinates);
-    }
-
-    [Fact]
-    public void CanonicalNoopAdmissionRefusesAConcurrentConfigurationChangeDuringRightsRecheck()
-    {
-        var (box, _) = CanonicalBox("wf_act_control_clock", new() { IntParams = [0, 100] });
-        var native = new WiredNativeEditorConfiguration
-        {
-            Category = WiredBoxCategory.Action,
-            NativeCode = 28,
-            OwnedIntParams = [0],
-            FurniSourceTypes = [100],
-            Delay = 0
-        };
-        Assert.True(WiredNativeEditorProjection.TryCompile(601, box.Descriptor, native, out var first));
-        Assert.True(WiredNativeEditorProjection.TryCompile(601, box.Descriptor, native with { OwnedIntParams = [1] }, out var second));
-        box.ApplyConfiguration(first);
-        var checks = 0;
-        var admission = _room.GetWired().TryAdmitUnchangedNativeSave(box, native, () =>
-        {
-            if (++checks == 2) {
-                box.ApplyConfiguration(second);
-            }
-
-            return true;
-        });
-        Assert.Equal(WiredNativeSaveAdmission.Refused, admission);
-        Assert.Same(second, box.Configuration);
-    }
-
-    [Fact]
-    public async Task CanonicalUnrepresentableLegacyJoinModeCannotBeEditedButStillExecutes()
-    {
-        var (_, actor) = PrepareSpeech(new SpeechClock());
-        _client.GetHabbo().Effects = new Plus.HabboHotel.Users.Effects.EffectsComponent(new SpeechClock());
-        var (box, store) = CanonicalBox("wf_act_join_team", new() { IntParams = [0, 1, 0, 1] });
-        var previous = box.Configuration;
-        box.Item.Interactor.OnTrigger(_client, box.Item, 0, true);
-        Assert.DoesNotContain(_client.Packets, packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer);
-        await CanonicalHandler().Parse(_client, ClientPacket(601, 2, 1, 0, "", 0, 0, 0, 1, 0, 0, 0));
-        Assert.Empty(store.Saves);
-        Assert.Same(previous, box.Configuration);
-        var context = _room.GetWired().CaptureVariableInspectionFrame().RuntimeContext!;
-        context.Triggering.UserIds.Add(actor.VirtualId);
-        var changed = false;
-        _room.RunFastPass(() => changed = ((IWiredContextualAction)box).Execute(context));
-        Assert.True(changed);
-        Assert.NotEqual(Plus.HabboHotel.Rooms.Games.Teams.Team.None, actor.Team);
     }
 
     [Theory]
@@ -443,7 +386,6 @@ public partial class PlacedFurniRoomTests
         UserSourceTypes = [0]
     };
 
-
     private (IWiredConfiguredItem Box, CanonicalStore Store) CanonicalBox(string name, WiredConfiguration previous)
     {
         var store = new CanonicalStore(previous);
@@ -468,7 +410,9 @@ public partial class PlacedFurniRoomTests
     private sealed class CanonicalStore(WiredConfiguration? previous) : IWiredConfigurationStore
     {
         public List<WiredConfiguration> Saves { get; } = [];
-        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => previous;
+        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => previous is null ? null
+            : WiredNativeEditorProjection.TryCompile(itemId, descriptor, WiredNativeTestSupport.FromRuntime(descriptor, previous), out var compiled)
+                ? compiled : null;
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => Saves.Add(configuration);
         public void Reset(IReadOnlyCollection<uint> itemIds) => throw new InvalidOperationException("Unexpected reset.");
     }

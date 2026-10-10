@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Buffers.Binary;
 using System.Text.Json;
 using Dapper;
@@ -79,7 +80,7 @@ public partial class PlacedFurniRoomTests
         wall.WallCoordinates = moved;
         Assert.True(action.Execute(WallSnapshotContext()));
         Assert.Equal(positionOnly, wall.WallCoordinates);
-        action.ApplyConfiguration(action.Configuration with { IntParams = [0, 0, 0, 1, 100] });
+        WiredNativeTestSupport.InstallRuntime(action, action.Configuration with { IntParams = [0, 0, 0, 1, 100] });
         wall.WallCoordinates = moved;
         Assert.True(action.Execute(WallSnapshotContext()));
         Assert.Equal(altitudeOnly, wall.WallCoordinates);
@@ -254,6 +255,9 @@ public partial class PlacedFurniRoomTests
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var action = Assert.IsType<WiredModernAction>(_room.GetWired().CreateConfiguredBox(
             Furni(400, Plus.HabboHotel.Items.InteractionType.WiredEffect, WiredBoxType.None), descriptor));
+
+        action.Item.RoomId = RoomId;
+        typeof(Plus.HabboHotel.Items.Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(action.Item, _room);
 
         if (name == "wf_act_set_altitude") {
             var item = action.Item;

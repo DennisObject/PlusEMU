@@ -366,7 +366,7 @@ public partial class PlacedFurniRoomTests
         triggerItem.Definition.InteractionName = "wf_trg_user_performs_action";
         var wired = _room.GetWired();
         var trigger = wired.CreateConfiguredBox(triggerItem)!;
-        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [(int)WiredAvatarAction.Lay, 0, 0, 0, 1] }, out var config, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(trigger, new() { IntParams = [(int)WiredAvatarAction.Lay, 0, 0, 0, 1] }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(wired.AddBox(trigger));
         var item = Add(901, 3, 3, type: InteractionType.WiredEffect);

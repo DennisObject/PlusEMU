@@ -61,8 +61,8 @@ public sealed class WiredVariableWidthParityTests
         module.DrainChanges();
         var executor = new WiredVariableExecutors(module, TimeProvider.System);
         WiredConfiguration Config(int operation, int operand) => new() { IntParams = [(int)target, operation, 0, operand, (int)target, 0, 0, 0, 0], Text = "custom:10" };
-        Assert.True(executor.Execute("wf_act_change_var_val", Config(5, 53), frame));
-        Assert.True(executor.Execute("wf_act_change_var_val", Config(1, 1), frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", Config(5, 53)), frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", Config(1, 1)), frame));
 
         if (batched) {
             Assert.True(frame.VariableChanges!.Flush());
@@ -90,7 +90,7 @@ public sealed class WiredVariableWidthParityTests
 
         module.DrainChanges();
         var executor = new WiredVariableExecutors(module, TimeProvider.System);
-        Assert.True(executor.Execute("wf_act_change_var_val", new() { IntParams = [1, 1, 1, 0, 1, 0, 0, 0, 0], Text = "custom:12\tcustom:11" }, frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", new() { IntParams = [1, 1, 1, 0, 1, 0, 0, 0, 0], Text = "custom:12\tcustom:11" }), frame));
 
         if (batched) {
             Assert.True(frame.VariableChanges!.Flush());
@@ -99,7 +99,7 @@ public sealed class WiredVariableWidthParityTests
         Assert.Equal(new[] { long.MaxValue, long.MinValue }, holders.Select(holder => module.Read(new(holder.Target, "custom:10"), holder, frame)!.Value));
         Assert.Equal(new[] { long.MaxValue, long.MinValue }, module.DrainChanges().Select(change => change.After!.Value));
         using var query = new WiredVariableQueries(module, frame);
-        var match = new WiredConfiguration { IntParams = [1, 2, 1, 0, 1, 0, 0, 0, 0], Text = "custom:12\tcustom:11" };
+        var match = WiredVariableFixtures.WithVar("wf_slc_furni_with_var", new() { IntParams = [1, 2, 1, 0, 1, 0, 0, 0, 0], Text = "custom:12\tcustom:11" });
         Assert.True(query.MatchSelector("wf_slc_furni_with_var", match, holders[0]));
         Assert.False(query.MatchSelector("wf_slc_furni_with_var", match, holders[1]));
         Assert.True(WiredVariablePredicates.Compare(0, long.MaxValue, 9007199254740993L));
@@ -109,7 +109,7 @@ public sealed class WiredVariableWidthParityTests
     [InlineData(long.MinValue)]
     [InlineData(long.MaxValue)]
     [InlineData(9007199254740993L)]
-    public void RoomEditorAndMemoryStorageRoundTripExactSignedValues(long number)
+    public void MemoryStorageRoundTripsExactSignedValues(long number)
     {
         var holder = new WiredVariableHolder(WiredVariableTarget.Global, 0, 0);
         var frame = new WiredVariableFrame(1, []);
@@ -117,25 +117,20 @@ public sealed class WiredVariableWidthParityTests
         var key = new WiredVariableKey(10, WiredVariableTarget.Global, 0);
         store.Mutate(key, _ => new(number, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
         Assert.Equal(number, ((IWiredVariableStore)store).ReadMany([key])[key].Value);
-        var proposed = new WiredConfiguration { IntParams = [10, 1, unchecked((int)(number >> 32)), unchecked((int)number)], Text = "wide" };
-        Assert.True(WiredVariableDefinitions.TryDecode("wf_var_room", 10, 1, 5, proposed, out var definition, out _));
-        Assert.Equal(number, definition!.InitialValue);
         var module = new WiredVariableModule(1, new Directory(WiredVariableTarget.Global), store, TimeProvider.System);
         Assert.True(module.Mutate(new(holder.Target, "custom:10"), holder, WiredVariableMutation.Set, number, frame));
-        var editor = new WiredVariableEditor(module);
-        var displayed = editor.ForDisplay("wf_var_room", 10, new() { IntParams = [1, 0], Text = "wide" });
-        Assert.Equal(new[] { 1, 1, unchecked((int)(number >> 32)), unchecked((int)number) }, displayed.IntParams.ToArray());
+        Assert.Equal(number, module.Read(new(WiredVariableTarget.Global, "custom:10"), new(WiredVariableTarget.Global, 0, 0), frame)!.Value);
     }
 
     [Fact]
-    public void LegacyRoomDefinitionRetainsItsAvailabilityAndIntegerInitialValue()
+    public void RoomDefinitionKeepsItsAvailabilityAndAlwaysStartsAtZero()
     {
         Assert.True(WiredVariableDefinitions.TryDecode("wf_var_room", 10, 1, 5,
-            new() { IntParams = [10, -7], Text = "legacy" }, out var definition, out _));
+            new() { IntParams = [10, 0], Text = "native" }, out var definition, out _));
         Assert.Equal(WiredVariableAvailability.Persistent, definition!.Availability);
-        Assert.Equal(-7, definition.InitialValue);
+        Assert.Equal(0, definition.InitialValue);
         Assert.False(WiredVariableDefinitions.TryDecode("wf_var_room", 10, 1, 5,
-            new() { IntParams = [10, 2, 0, 7], Text = "invalid_version" }, out _, out _));
+            new() { IntParams = [10, -7], Text = "initial" }, out _, out _));
     }
 
     [Theory]

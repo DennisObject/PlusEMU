@@ -60,20 +60,22 @@ public sealed class WiredConditionParityTests
 
     private static bool Validates(int minutes, int halves)
     {
-        var (room, _, _) = World();
+        var (room, _, items) = World();
+        items[7] = Floor(7, "wf_upcounter1", 0, 0);
         var box = Box(room, "wf_cnd_counter_time_matches", _ => 0);
 
-        return box.TryValidateConfiguration(Counter(minutes, halves, 7), out _, out _);
+        return WiredNativeTestSupport.TryValidateRuntime(box, Counter(minutes, halves, 7), out _, out _);
     }
 
     private static bool Executes(int minutes, int halves, long actual)
     {
-        var (room, _, _) = World();
+        var (room, _, items) = World();
         var counter = Floor(7, "wf_upcounter1", 0, 0);
+        items[counter.Id] = counter;
         var box = Box(room, "wf_cnd_counter_time_matches", item => item.Id == counter.Id ? actual : null);
         var proposed = Counter(minutes, halves, counter.Id);
 
-        if (box.TryValidateConfiguration(proposed, out var config, out _)) {
+        if (WiredNativeTestSupport.TryValidateRuntime(box, proposed, out var config, out _)) {
             box.ApplyConfiguration(config);
         }
         else {
@@ -89,11 +91,13 @@ public sealed class WiredConditionParityTests
     private static bool Run(string name, int radio, Occupancy scene)
     {
         var box = Box(scene.Room, name, _ => null);
-        var proposed = new WiredConfiguration
+        var native = WiredNativeEditorProjection.DefaultNative(box.Descriptor) with
         {
-            IntParams = [radio, 100],
-            SelectedItems = [scene.First.Id, scene.Second.Id]
+            OwnedIntParams = [radio],
+            FurniSourceTypes = [100],
+            PrimaryItems = [new(scene.First.Id, false), new(scene.Second.Id, false)]
         };
+        Assert.True(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, native, out var proposed));
         Assert.True(box.TryValidateConfiguration(proposed, out var config, out var error), error);
         Assert.Equal(new[] { radio, 100 }, config.IntParams);
         box.ApplyConfiguration(config);
@@ -146,7 +150,11 @@ public sealed class WiredConditionParityTests
     {
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
 
-        return new(room, Floor(50, name, 2, 2), descriptor, TestGroupManager.Empty, counterTime, () => DateTimeOffset.UnixEpoch);
+        // Native pick validation reads the box item's live room.
+        var item = Floor(50, name, 2, 2);
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
+
+        return new(room, item, descriptor, TestGroupManager.Empty, counterTime, () => DateTimeOffset.UnixEpoch);
     }
 
     private static void Place(Gamemap map, ConcurrentDictionary<uint, Item> items, Item item)

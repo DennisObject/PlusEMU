@@ -326,9 +326,8 @@ public sealed class WiredChestProtocolTests
         world.Store.Kind = WiredChestKind.Coins;
         var descriptor = WiredBoxRegistry.All.Single(box => box.CanonicalName == "wf_act_give_currency");
         var effect = (WiredChestAction)WiredChestBox.Create(world.Room, new() { Id = 9 }, descriptor, world.Module);
-        var data = new WiredChestEditorData { Variables = ["internal:@event.transaction_complete.multiplier"], Picks = [[100], []] };
-        Assert.True(effect.TryValidateConfiguration(new() { IntParams = [0, 1, 1, 2, 1, 11], SelectedItems = [100], Text = "@chest:" + JsonSerializer.Serialize(data) }, out var configuration, out _));
-        effect.ApplyConfiguration(configuration);
+        WiredNativeTestSupport.Install(effect, WiredNativeTestSupport.Chest("wf_act_give_currency", [0, 1, 1, 2, 1, 11], [3], [100, 0], [0, 0],
+            ["ctx:internal:@event.transaction_complete.multiplier"], [100], []));
         var context = new WiredRuntimeContext(world.Room, new(WiredEventKind.TransactionComplete) { Actor = world.Actor, Transaction = new(7, 0, 0, 0, 0) }, new(() => [world.Chest], () => [world.Actor]), new Operations());
         context.Triggering.UserIds.Add(world.Actor.VirtualId);
         context.VariableFrame = new(42, []) { RuntimeContext = context };
@@ -346,16 +345,14 @@ public sealed class WiredChestProtocolTests
     public void WideGiveCurrencyOperandCannotWrapOrPayOutsideSupportedDomain()
     {
         using var fixture = new WiredChestDatabaseTests.Fixture();
-        fixture.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(10,1,42,1,''); INSERT INTO wired_item_configurations VALUES(10,'wf_var_context',@config)", new { config = JsonSerializer.Serialize(new WiredConfiguration { Text = "wide_amount", IntParams = [1] }) });
+        fixture.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(10,1,42,1,''); INSERT INTO wired_item_configurations VALUES(10,'wf_var_context',@config)", new { config = JsonSerializer.Serialize(WiredNativeEditorProjection.DefaultNative(WiredBoxRegistry.All.Single(box => box.CanonicalName == "wf_var_context")) with { Text = "wide_amount", OwnedIntParams = [1] }) });
         var world = new World(fixture.Database);
         world.Store.Kind = WiredChestKind.Coins;
         world.Store.Coins = int.MaxValue;
         var second = new Item { Id = 101, OwnerId = 1, RoomId = 42, Definition = world.Chest.Definition };
         ((ConcurrentDictionary<uint, Item>)Get(world.Room.GetRoomItemHandler(), "_floorItems")).TryAdd(101, second);
         var effect = (WiredChestAction)WiredChestBox.Create(world.Room, new() { Id = 9 }, WiredBoxRegistry.All.Single(box => box.CanonicalName == "wf_act_give_currency"), world.Module);
-        var data = new WiredChestEditorData { Variables = ["custom:10"], Picks = [[100, 101], []] };
-        Assert.True(effect.TryValidateConfiguration(new() { IntParams = [0, 1, 1, 2, 1, 11], SelectedItems = [100, 101], Text = "@chest:" + JsonSerializer.Serialize(data) }, out var configuration, out _));
-        effect.ApplyConfiguration(configuration);
+        WiredNativeTestSupport.Install(effect, WiredNativeTestSupport.Chest("wf_act_give_currency", [0, 1, 1, 2, 1, 11], [3], [100, 0], [0, 0], ["ctx:10"], [100, 101], []));
         var context = new WiredRuntimeContext(world.Room, new(WiredEventKind.Use) { Actor = world.Actor }, new(() => [world.Chest, second], () => [world.Actor]), new Operations());
         context.Triggering.UserIds.Add(world.Actor.VirtualId);
         context.VariableFrame = new(42, []) { RuntimeContext = context };
@@ -365,8 +362,7 @@ public sealed class WiredChestProtocolTests
             Assert.False(effect.Execute(context));
         }
 
-        Assert.True(effect.TryValidateConfiguration(configuration with { IntParams = [1, 1, 0, 2, 1, 11] }, out configuration, out _));
-        effect.ApplyConfiguration(configuration);
+        WiredNativeTestSupport.Install(effect, WiredNativeTestSupport.Chest("wf_act_give_currency", [1, 1, 0, 2, 1, 11], [3], [100, 0], [0, 0], ["ctx:10"], [100, 101], []));
         Assert.False(effect.Execute(context)); // Two full coin chests exceed one supported wallet-domain payout.
         Assert.Empty(world.Store.Requests);
         Assert.Equal(100, world.Habbo.Credits);
@@ -377,7 +373,7 @@ public sealed class WiredChestProtocolTests
     public void ScannerCapturesCountThenDynamicCustomContractPaysThatCountAndUsesSourceTriggers()
     {
         using var fixture = new WiredChestDatabaseTests.Fixture();
-        fixture.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(10,1,42,1,''); INSERT INTO wired_item_configurations VALUES(10,'wf_var_context',@config)", new { config = JsonSerializer.Serialize(new WiredConfiguration { Text = "chest_count", IntParams = [1] }) });
+        fixture.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(10,1,42,1,''); INSERT INTO wired_item_configurations VALUES(10,'wf_var_context',@config)", new { config = JsonSerializer.Serialize(WiredNativeEditorProjection.DefaultNative(WiredBoxRegistry.All.Single(box => box.CanonicalName == "wf_var_context")) with { Text = "chest_count", OwnedIntParams = [1] }) });
         var world = new World(fixture.Database);
         world.Store.Stock = [new() { Id = 301, Definition = new() { SpriteId = 44, Type = ItemType.Floor } }, new() { Id = 302, Definition = new() { SpriteId = 44, Type = ItemType.Floor } }];
         var template = new Item { Id = 101, OwnerId = 1, RoomId = 42, Definition = new() { SpriteId = 44, Type = ItemType.Floor } };
@@ -385,29 +381,28 @@ public sealed class WiredChestProtocolTests
         var context = new WiredRuntimeContext(world.Room, new(WiredEventKind.Use) { Actor = world.Actor }, new(() => [world.Chest, template], () => [world.Actor]), new Operations());
         context.Triggering.UserIds.Add(world.Actor.VirtualId);
         context.VariableFrame = new(42, []) { RuntimeContext = context };
-        WiredChestBox Box(string name, uint id, int[] ints, WiredChestEditorData fields, uint[] picks)
+        WiredChestBox Box(string name, uint id, WiredNativeEditorConfiguration native)
         {
             var box = (WiredChestBox)WiredChestBox.Create(world.Room, new() { Id = id }, WiredBoxRegistry.All.Single(entry => entry.CanonicalName == name), world.Module);
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [.. ints], SelectedItems = [.. picks], Text = "@chest:" + JsonSerializer.Serialize(fields) }, out var config, out _));
-            box.ApplyConfiguration(config);
+            WiredNativeTestSupport.Install(box, native);
 
             return box;
         }
-        var scanner = Box("wf_xtra_scan_chest_furni_by_type", 90, [0], new() { Variables = ["custom:10"], Picks = [[101], [100]] }, [100, 101]);
+        var scanner = Box("wf_xtra_scan_chest_furni_by_type", 90, WiredNativeTestSupport.Chest("wf_xtra_scan_chest_furni_by_type", [0], [], [100, 101], [], ["ctx:10"], [101], [100]));
         Assert.True(scanner.Execute(context));
         Assert.Equal(2, world.Room.GetWired().Variables.Module.Read(new(WiredVariableTarget.Context, "custom:10"), new(WiredVariableTarget.Context, 0, 0), context.VariableFrame)!.Value);
-        scanner = Box("wf_xtra_scan_chest_furni_by_type", 90, [1], new() { Variables = ["custom:10"], Picks = [[101], [100]] }, [100, 101]);
+        scanner = Box("wf_xtra_scan_chest_furni_by_type", 90, WiredNativeTestSupport.Chest("wf_xtra_scan_chest_furni_by_type", [1], [], [100, 101], [], ["ctx:10"], [101], [100]));
         Assert.True(scanner.Execute(context));
         Assert.Equal(1, world.Room.GetWired().Variables.Module.Read(new(WiredVariableTarget.Context, "custom:10"), new(WiredVariableTarget.Context, 0, 0), context.VariableFrame)!.Value);
-        var addon = Box("wf_xtra_custom_contract", 91, [0, 0, 0, 1, 0, 1, 0, 1, 1, 2], new() { Variables = ["", "custom:10"], Picks = [[], [], [], []] }, []);
+        var addon = Box("wf_xtra_custom_contract", 91, WiredNativeTestSupport.Chest("wf_xtra_custom_contract", [0, 0, 0, 1, 0, 1, 0, 1, 1, 2], [4, 9], [100, 100, 0, 0], [0, 0], ["n", "ctx:10"], [], []));
         Assert.True(addon.Execute(context));
         world.Store.Kind = WiredChestKind.Coins;
-        var initiate = Box("wf_act_init_transaction", 92, [0, 1, 0, 0, 0, 300], new() { Picks = [[100], [], []] }, [100]);
+        var initiate = Box("wf_act_init_transaction", 92, WiredNativeTestSupport.Chest("wf_act_init_transaction", [0, 1, 0, 0, 0, 300], [3], [100, 0, 0], [0, 0], ["n"], [100], []));
         Assert.True(initiate.Execute(context));
         Assert.Equal(1, Assert.Single(world.Store.Requests).Reward[0].Amount);
         var outcome = Assert.Single(world.Events);
         Assert.Equal(WiredEventKind.TransactionComplete, outcome.Kind);
-        var trigger = (WiredChestTrigger)Box("wf_trg_transaction_complete", 93, [], new(), []);
+        var trigger = (WiredChestTrigger)Box("wf_trg_transaction_complete", 93, WiredNativeTestSupport.Chest("wf_trg_transaction_complete", [], [], [], [], [], [], []));
         var completed = new WiredRuntimeContext(world.Room, outcome, context.Targets, new Operations());
         Assert.True(trigger.CanTrigger(completed));
         Assert.True(trigger.Execute(completed));

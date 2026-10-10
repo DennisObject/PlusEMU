@@ -212,7 +212,11 @@ public partial class PlacedFurniRoomTests
     {
         Assert.True(WiredBoxRegistry.TryGet("wf_act_match_to_sshot", out var descriptor));
 
-        return Assert.IsType<WiredModernAction>(_room.GetWired().CreateConfiguredBox(Furni(400, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition), descriptor));
+        var item = Furni(400, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition);
+        item.RoomId = RoomId;
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, _room);
+
+        return Assert.IsType<WiredModernAction>(_room.GetWired().CreateConfiguredBox(item, descriptor));
     }
 
     private WiredRuntimeContext WallSnapshotContext()

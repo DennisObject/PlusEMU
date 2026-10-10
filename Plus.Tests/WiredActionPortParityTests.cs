@@ -121,7 +121,7 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
         Place(map, items, second);
         Place(map, items, target);
         var user = Avatar(room, 1, 3, 3);
-        var action = Box(room, "wf_act_move_furni_as_group", [targetIsUser, 1, -1, 100, 100, 0], [1, 2], text: "3");
+        var action = Box(room, "wf_act_move_furni_as_group", [targetIsUser, 1, -1, 100, 100, 0], [1, 2], secondary: [3]);
         Assert.True(action.Execute(Context(room, [first, second, target], [user])));
         Assert.Equal((4, 2), (first.GetX, first.GetY));
         Assert.Equal((5, 2), (second.GetX, second.GetY));
@@ -138,7 +138,7 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
         Place(map, items, first);
         Place(map, items, second);
         Place(map, items, target);
-        var action = Box(room, "wf_act_move_furni_as_group", [0, 0, 0, 100, 100, 0], [1, 2], text: "3");
+        var action = Box(room, "wf_act_move_furni_as_group", [0, 0, 0, 100, 100, 0], [1, 2], secondary: [3]);
         Assert.False(action.Execute(Context(room, [first, second, target], [])));
         Assert.Equal((0, 1), (first.GetX, first.GetY));
         Assert.Equal((1, 1), (second.GetX, second.GetY));
@@ -199,24 +199,38 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
         engine.BindRuntime(room, new(() => items.Values, () => []), new UnusedOperations());
         Assert.True(WiredBoxRegistry.TryGet("wf_trg_game_starts", out var triggerDescriptor));
         var trigger = new WiredModernTrigger(room, Floor(50, 5, 5), triggerDescriptor);
-        trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_game_starts"));
+        WiredNativeTestSupport.InstallRuntime(trigger, WiredTriggerConfiguration.Defaults("wf_trg_game_starts"));
         engine.Add(trigger);
         Assert.True(WiredBoxRegistry.TryGet("wf_slc_furni_picks", out var selectorDescriptor));
-        var selector = new WiredSelectorBox(room, Floor(51, 5, 5), selectorDescriptor, new(), TestGroupManager.Empty, readWorld: _ => world);
-        selector.ApplyConfiguration(new() { SelectedItems = [1, 2, 3] });
+        var selectorItem = InRoom(room, Floor(51, 5, 5));
+        var selector = new WiredSelectorBox(room, selectorItem, selectorDescriptor, new(), TestGroupManager.Empty, readWorld: _ => world);
+        WiredNativeTestSupport.Install(selector, WiredNativeEditorProjection.DefaultNative(selectorDescriptor) with
+        {
+            PrimaryItems = [new(1, false), new(2, false), new(3, false)]
+        });
         engine.Add(selector);
         Assert.True(WiredBoxRegistry.TryGet("wf_xtra_filter_furni_by_var", out var sortDescriptor));
         var sort = new WiredVariableAddonBox(room, Floor(sortFirst ? 52u : 53u, 5, 5), sortDescriptor, module, _ => new Dictionary<int, string>());
-        sort.ApplyConfiguration(new() { IntParams = [0, 0, 2, 1, 0, 0], Text = "custom:10\t" });
+        WiredNativeTestSupport.Install(sort, WiredNativeTestSupport.FromLegacyVariableAddon(sortDescriptor,
+            new() { IntParams = [0, 0, 2, 1, 0, 0], Text = "custom:10\t" }));
         engine.Add(sort);
         Assert.True(WiredBoxRegistry.TryGet("wf_xtra_filter_furni", out var quantityDescriptor));
         var quantity = new WiredAddonBox(room, Floor(sortFirst ? 53u : 52u, 5, 5), quantityDescriptor, new(), TestGroupManager.Empty,
             variables: context => WiredSelectorVariableBridge.Create(context, module), readWorld: _ => world);
-        quantity.ApplyConfiguration(variableQuantity ? new() { IntParams = [2, 1, 1], Text = "custom:11" } : new() { IntParams = [1] });
+        var quantityNative = WiredNativeEditorProjection.DefaultNative(quantityDescriptor);
+        WiredNativeTestSupport.Install(quantity, variableQuantity
+            ? quantityNative with { OwnedIntParams = [2, 1, WiredNativeAuxiliaryEditor.AirTarget(1)], VariableIds = ["furni:11"] }
+            : quantityNative with { OwnedIntParams = [1, 0, 0] });
         engine.Add(quantity);
         Assert.True(WiredBoxRegistry.TryGet("wf_act_change_var_val", out var actionDescriptor));
         var action = new WiredVariableConfiguredBox(room, Floor(54, 5, 5), actionDescriptor, new(module, TimeProvider.System));
-        action.ApplyConfiguration(new() { IntParams = [1, 0, 0, 7, 1, 0, 200, 0, 0], Text = "custom:10" });
+        WiredNativeTestSupport.Install(action, WiredNativeEditorProjection.DefaultNative(actionDescriptor) with
+        {
+            OwnedIntParams = [WiredNativeAuxiliaryEditor.AirTarget(1), 0, 0, 0, 7, WiredNativeAuxiliaryEditor.AirTarget(1)],
+            UserSourceTypes = [0, 0],
+            FurniSourceTypes = [200, 0],
+            VariableIds = ["furni:10", "n"]
+        });
         engine.Add(action);
         Assert.True(engine.DispatchSynchronously(new(WiredEventKind.GameStart)));
         engine.OnFastCycle();
@@ -275,27 +289,26 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
     }
 
     [Theory]
-    [InlineData("custom:10", "internal:~area_hide.width", true)]
-    [InlineData("custom:10", "internal:@position.x", true)]
-    [InlineData("custom:10", "custom:11", true)]
-    [InlineData("internal:~area_hide.inverted", "custom:11", false)]
-    public void SnapshotPlacementVariableRolesAcceptNumericSmartSourcesAndOnlyCustomDestinations(string destination, string source, bool expected)
+    [InlineData("furni:10", "user:11", true)]
+    [InlineData("furni:10", "furni:11", false)]
+    [InlineData("user:10", "user:11", false)]
+    [InlineData("n", "n", true)]
+    public void NativePlacementUsesCatalogIdsOfTheDeclaredVariableTargets(string destination, string source, bool expected)
     {
-        var proposed = new WiredConfiguration
+        Assert.True(WiredBoxRegistry.TryGet("wf_act_place_furni", out var descriptor));
+        var native = WiredNativeEditorProjection.DefaultNative(descriptor) with
         {
-            IntParams = [1, 0, 1, 2, 0, 0, 0, 100, 0, 1, 1, 0, 1, 100, 0],
-            Text = "1\t" + destination + "\t" + source,
-            SelectedItems = [2]
+            OwnedIntParams = [0, 0, 0, 0, 0, 0, 1, 1, 0, 1],
+            VariableIds = [destination, source]
         };
-        Assert.Equal(expected, WiredTemporaryFurnitureActions.TryDecodeEditor(proposed, out var decoded));
+        Assert.Equal(expected, WiredNativeEditorProjection.TryCompile(7, descriptor, native, out var runtime));
 
         if (expected) {
-            Assert.Equal(new[] { destination, source }, decoded.VariableIds.ToArray());
-            Assert.Equal(new uint[] { 1 }, decoded.SecondarySelectedItems.ToArray());
-            Assert.Equal(new uint[] { 2 }, decoded.SelectedItems.ToArray());
+            Assert.Equal(new[] { destination, source }, runtime.VariableIds.ToArray());
+            Assert.NotNull(runtime.TemporaryPlacement);
+            Assert.Empty(runtime.IntParams);
         }
     }
-
 
     [Theory]
     [InlineData(false, 0, 0, 23, 23, 1)]
@@ -324,7 +337,7 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
         var triggerItem = Floor(50, 5, 5);
         Assert.True(WiredBoxRegistry.TryGet("wf_trg_game_starts", out var triggerDescriptor));
         var trigger = new WiredModernTrigger(room, triggerItem, triggerDescriptor);
-        trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_game_starts"));
+        WiredNativeTestSupport.InstallRuntime(trigger, WiredTriggerConfiguration.Defaults("wf_trg_game_starts"));
         engine.Add(trigger);
         Add(51, 1, 3, addDelay);
         Add(52, 3, 2, multiplyDelay);
@@ -333,7 +346,7 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
             Assert.True(WiredBoxRegistry.TryGet("wf_xtra_exec_in_order", out var descriptor));
             var addon = new WiredAddonBox(room, Floor(53, 5, 5), descriptor, new(), TestGroupManager.Empty,
                 readWorld: _ => new WiredSelectorWorld(6, 6, [], []));
-            addon.ApplyConfiguration(new());
+            WiredNativeTestSupport.Install(addon, WiredNativeEditorProjection.DefaultNative(descriptor));
             engine.Add(addon);
         }
 
@@ -353,17 +366,19 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
 
         void Add(uint id, int operation, int operand, int actionDelay)
         {
-            var item = Floor(id, 5, 5);
+            var item = InRoom(room, Floor(id, 5, 5));
             Assert.True(WiredBoxRegistry.TryGet("wf_act_change_var_val", out var descriptor));
             var box = new WiredVariableConfiguredBox(room, item, descriptor, new(module, TimeProvider.System));
-            Assert.True(box.TryValidateConfiguration(new()
+            var air = WiredNativeAuxiliaryEditor.AirTarget(1);
+            WiredNativeTestSupport.Install(box, WiredNativeEditorProjection.DefaultNative(descriptor) with
             {
-                IntParams = [1, operation, 0, operand, 1, 0, 100, 0, 100],
-                Text = "custom:10",
-                SelectedItems = [1],
+                OwnedIntParams = [air, operation, 0, 0, operand, air],
+                UserSourceTypes = [0, 0],
+                FurniSourceTypes = [100, 100],
+                VariableIds = ["furni:10", "n"],
+                PrimaryItems = [new(1, false)],
                 Delay = actionDelay
-            }, out var config, out var error), error);
-            box.ApplyConfiguration(config);
+            });
             engine.Add(box);
         }
     }
@@ -413,17 +428,25 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
     }
 
 
-    private static WiredModernAction Box(Room room, string name, int[] parameters, uint[] selected, Action<WiredRuntimeEvent>? publish = null, string text = "", WiredCounterController? clocks = null)
+    // Native pick validation reads the box item's live room.
+    private static Item InRoom(Room room, Item item)
+    {
+        typeof(Item).GetField("_room", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(item, room);
+
+        return item;
+    }
+
+    private static WiredModernAction Box(Room room, string name, int[] parameters, uint[] selected, Action<WiredRuntimeEvent>? publish = null, string text = "", WiredCounterController? clocks = null, uint[]? secondary = null)
     {
         var action = CreateBox(room, name, publish, clocks: clocks);
-        var proposed = new WiredConfiguration { IntParams = [.. parameters], SelectedItems = [.. selected], Text = text };
+        var proposed = new WiredConfiguration { IntParams = [.. parameters], SelectedItems = [.. selected], SecondarySelectedItems = [.. secondary ?? []], Text = text };
 
         if (name is "wf_act_move_to_dir" or "wf_act_set_altitude" or "wf_act_move_furni_as_group"
             or "wf_act_control_clock" or "wf_act_give_score") {
             ModernWiredRuntimeTests.LoadStoredRuntime(action, name, proposed);
         }
         else {
-            Assert.True(action.TryValidateConfiguration(proposed, out var config, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, proposed, out var config, out var error), error);
             action.ApplyConfiguration(config);
         }
 
@@ -435,7 +458,10 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
     {
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
 
-        return new(room, Floor(50, 5, 5), descriptor, clocks ?? new(), publish ?? (_ => { }),
+        var item = Floor(50, 5, 5);
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
+        item.RoomId = room.Id;
+        return new(room, item, descriptor, clocks ?? new(), publish ?? (_ => { }),
             (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance,
             TestBotManagementStore.Instance, TestWiredClients.Empty, definitions ?? TestWiredDefinitions.Unused, TestItemRuntime.Travel);
     }

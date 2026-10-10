@@ -168,14 +168,14 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
         var fixture = new Fixture();
         fixture.AddDefinition(10);
         var connector = fixture.AddMetadata(20, "wf_xtra_var_text_connector", new() { Text = "2=old" });
-        var capturedConfiguration = connector.Configuration with { Text = "1=new" };
+        Assert.True(WiredNativeEditorProjection.TryCompile(20, connector.Descriptor, WiredNativeTestSupport.FromLegacyVariableDraft(connector.Descriptor, new() { Text = "1=new" }), out var capturedConfiguration));
         var field = connector.GetType().BaseType!.GetField("<Configuration>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!;
         field.SetValue(connector, capturedConfiguration);
         Assert.Equal("old", connector.TextConnector[2]);
         Assert.True(fixture.Variables.TryCaptureNativeCatalog(out var catalog));
         var native = Assert.Single(catalog!.Variables);
         Assert.Equal(new KeyValuePair<int, string>(1, "new"), Assert.Single(native.Connector!.Value));
-        connector.ApplyConfiguration(new() { Text = "1=after" });
+        WiredNativeTestSupport.InstallLegacyVariableDraft(connector, new() { Text = "1=after" });
         Assert.Equal("new", Assert.Single(native.Connector.Value).Value);
         Assert.Equal(native.Hash, Assert.Single(catalog.Diff(new Dictionary<string, int>())).Changed[0].Hash);
     }
@@ -196,7 +196,7 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
         var definition = fixture.AddDefinition(10);
         fixture.AddMetadata(20, "wf_xtra_var_text_connector", new() { Text = "1=selected" });
         var unselected = fixture.AddMetadata(21, "wf_xtra_var_text_connector", new() { Text = "1=unselected" });
-        fixture.AddMetadata(22, "wf_var_quest", new() { IntParams = [5] });
+        fixture.AddDefinition(22, "wf_var_quest", new() { Text = "quest22\tchat" });
         fixture.Directory.OnRead = () =>
         {
             fixture.Directory.OnRead = null;
@@ -213,7 +213,7 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
                         fixture.Variables.ItemDetached(definition.Item);
                         break;
                     case "configuration":
-                        definition.ApplyConfiguration(definition.Configuration with { Text = "changed" });
+                        WiredNativeTestSupport.InstallLegacyVariableDraft(definition, new() { IntParams = [1, 10], Text = "changed" });
                         break;
                     case "unselected_pose":
                         unselected.Item.SetState(1, 0, 0, []);
@@ -228,7 +228,7 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
                         fixture.World.Room.OwnerId = 2;
                         break;
                     case "collision":
-                        var id = WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 10, 0, false)!.Value;
+                        var id = WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 22, 0, false)!.Value;
                         fixture.Floor[id] = new() { Id = id, RoomId = 42 };
                         break;
                 }
@@ -243,11 +243,11 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
     {
         var fixture = new Fixture();
         fixture.AddDefinition(10);
-        fixture.AddMetadata(20, "wf_var_quest", new() { IntParams = [5] });
+        fixture.AddDefinition(20, "wf_var_quest", new() { Text = "quest20\tchat" });
         var id = WiredRoomVariables.SyntheticId(WiredVariableTarget.User, 10, 0, false)!.Value;
         fixture.AddDefinition(11, "wf_var_echo", new() { Text = "{\"variableName\":\"unreachable\",\"sourceTargetType\":0,\"sourceVariableToken\":\"custom:" + id + "\"}" });
         Assert.True(fixture.Variables.TryCaptureNativeCatalog(out var catalog));
-        Assert.Equal(6, catalog!.Variables.Length);
+        Assert.Equal(7, catalog!.Variables.Length); // the user definition, the quest definition and its five derived keys
         Assert.DoesNotContain(catalog.Variables, variable => variable.Id == "user:11");
         Assert.All(catalog.Variables.Where(variable => variable.Type == 3), variable =>
         {
@@ -418,7 +418,9 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
         var fixture = new Fixture();
         fixture.AddDefinition(10);
         var metadata = fixture.AddMetadata(20, "wf_xtra_var_time_util", new() { IntParams = [1 << 21, 0] });
-        metadata.ApplyConfiguration(new() { IntParams = [1 << 21, mode] });
+        // A corrupted captured configuration can only appear by bypassing the bound publication path.
+        typeof(Plus.HabboHotel.Items.Wired.Modern.Addons.WiredConfiguredBehaviorBox).GetField("<Configuration>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .SetValue(metadata, new WiredConfiguration { IntParams = [1 << 21, mode] });
         Assert.False(fixture.Variables.TryCaptureNativeCatalog(out var catalog));
         Assert.Null(catalog);
     }
@@ -457,6 +459,8 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
             typeof(Plus.HabboHotel.Rooms.Room).GetProperty("OwnerName")!.SetValue(World.Room, "owner");
             var module = new WiredVariableModule(42, Directory, new MemoryWiredVariableStore(), World.Clock, new RoomWiredBuiltinVariables(World.Room));
             typeof(WiredRoomVariables).GetField("<Module>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Variables, module);
+            typeof(WiredRoomVariables).GetField("_quests", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Variables,
+                new WiredQuestVariableTests.Quests([new Plus.HabboHotel.Quests.Quest(1, "social", 1, Plus.HabboHotel.Quests.QuestType.SocialChat, 5, "chat", 0, "", 0, null, null)]));
         }
 
         public WiredVariableDefinitionBox AddDefinition(uint id, string name = "wf_var_user", WiredConfiguration? proposed = null)
@@ -465,8 +469,8 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
             var item = new Item { Id = id, RoomId = 42, OwnerId = 1, Definition = new() { Id = id, InteractionName = name } };
             Floor[id] = item;
             var box = new WiredVariableDefinitionBox(World.Room, item, descriptor);
-            Assert.True(box.TryValidateConfiguration(proposed ?? new() { IntParams = [1, 10], Text = "score" + id }, out var configuration, out _));
-            box.ApplyConfiguration(configuration);
+            WiredNativeTestSupport.InstallLegacyVariableDraft(box, proposed ?? new() { IntParams = [1, 10], Text = "score" + id });
+            var configuration = box.Configuration;
             Assert.True(WiredVariableDefinitions.TryDecode(name, id, 42, 1, configuration, out var definition, out _));
             Directory.Rows[id] = definition!;
             Variables.ConfigurationLoaded(box);
@@ -480,8 +484,7 @@ public sealed class WiredNativeCatalogTests(Xunit.Abstractions.ITestOutputHelper
             var item = new Item { Id = id, RoomId = 42, OwnerId = 1, Definition = new() { Id = id, InteractionName = name } };
             Floor[id] = item;
             var box = new WiredVariableMetadataBox(World.Room, item, descriptor);
-            Assert.True(box.TryValidateConfiguration(proposed, out var configuration, out _));
-            box.ApplyConfiguration(configuration);
+            WiredNativeTestSupport.InstallLegacyVariableDraft(box, proposed);
             Variables.ConfigurationLoaded(box);
 
             return box;

@@ -79,7 +79,7 @@ public sealed class WiredVariableWidthDatabaseTests
                     saved.Save(20, descriptor, new() { IntParams = [.. fields], Text = "custom:10" });
                     var loaded = new WiredConfigurationStore(new Database(connectionString)).Load(20, descriptor)!;
                     Assert.Equal(fields, loaded.IntParams.ToArray());
-                    Assert.True(WiredVariableExecutors.TryValidate(name, loaded, out _));
+                    Assert.True(WiredVariableExecutors.TryValidate(name, WiredNativeTestSupport.Scalar(name, loaded), out _));
                 }
             }
 

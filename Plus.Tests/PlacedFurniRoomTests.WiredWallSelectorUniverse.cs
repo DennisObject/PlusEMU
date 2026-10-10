@@ -23,6 +23,8 @@ public partial class PlacedFurniRoomTests
         var wall = WallSnapshotItem(303, ":w=1,2 l=11,53 l");
         var items = new List<Item> { picked, other, wall };
         var boxes = new List<IWiredConfiguredItem>();
+        picked.RoomId = other.RoomId = RoomId;
+        _room.GetRoomItemHandler().LoadFurniture(items);
         var wired = _room.GetWired();
 
         IWiredConfiguredItem Box(uint id, string name, WiredConfiguration configuration, int tile)
@@ -32,8 +34,10 @@ public partial class PlacedFurniRoomTests
             item.GetX = tile;
             item.GetY = tile;
             items.Add(item);
+            item.RoomId = RoomId;
+            Assert.True(_room.GetRoomItemHandler().AdmitFloorItem(item));
             var box = wired.CreateConfiguredBox(item, descriptor)!;
-            Assert.True(box.TryValidateConfiguration(configuration, out var validated, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, configuration, out var validated, out var error), error);
             box.ApplyConfiguration(validated);
             boxes.Add(box);
 

@@ -24,10 +24,10 @@ public sealed class WiredScalarLiteralParityTests
         WiredConfiguration Reload(int[] values) => JsonSerializer.Deserialize<WiredConfiguration>(JsonSerializer.Serialize(new WiredConfiguration { IntParams = [.. values], Text = "custom:10" }))!;
         var low = unchecked((int)literal);
         var high = unchecked((int)(literal >> 32));
-        Assert.True(executor.Execute("wf_act_give_var", Reload([1, 0, low, 0, 0, 1, high]), frame));
+        Assert.True(executor.Execute("wf_act_give_var", WiredNativeTestSupport.Scalar("wf_act_give_var", Reload([1, 0, low, 0, 0, 1, high])), frame));
         Assert.Equal(new[] { literal, literal }, holders.Select(holder => module.Read(new(holder.Target, "custom:10"), holder, frame)!.Value));
         var change = Reload([1, 1, 0, low, 1, 0, 0, 0, 0, 1, high]);
-        Assert.True(executor.Execute("wf_act_change_var_val", change, frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", change), frame));
 
         if (batch) {
             Assert.True(frame.VariableChanges!.Flush());
@@ -39,8 +39,8 @@ public sealed class WiredScalarLiteralParityTests
         // High word is not the quantifier. Quantifier remains at original slot nine.
         var all = Reload([1, 2, 0, low, 1, 0, 0, 0, 0, 0, 1, high]);
         var any = all with { IntParams = all.IntParams.SetItem(9, 1) };
-        Assert.Equal(result == literal, executor.Execute("wf_cnd_var_val_match", all, frame));
-        Assert.True(executor.Execute("wf_cnd_var_val_match", any, frame));
+        Assert.Equal(result == literal, executor.Execute("wf_cnd_var_val_match", WiredNativeTestSupport.Scalar("wf_cnd_var_val_match", all), frame));
+        Assert.True(executor.Execute("wf_cnd_var_val_match", WiredNativeTestSupport.Scalar("wf_cnd_var_val_match", any), frame));
     }
 
     [Fact]
@@ -50,10 +50,10 @@ public sealed class WiredScalarLiteralParityTests
         var frame = new WiredVariableFrame(1, []) { Trigger = [holder] };
         var module = new WiredVariableModule(1, new Directory(WiredVariableTarget.Context), new MemoryWiredVariableStore(), TimeProvider.System);
         var executor = new WiredVariableExecutors(module, TimeProvider.System);
-        Assert.True(executor.Execute("wf_act_give_var", new() { IntParams = [2, 0, -7, 0, 0], Text = "custom:10" }, frame));
+        Assert.True(executor.Execute("wf_act_give_var", WiredNativeTestSupport.Scalar("wf_act_give_var", new() { IntParams = [2, 0, -7, 0, 0], Text = "custom:10" }), frame));
         Assert.Equal(-7, module.Read(new(holder.Target, "custom:10"), holder, frame)!.Value);
-        Assert.True(executor.Execute("wf_act_give_var", new() { IntParams = [2, 0, 3, 0, 0], Text = "custom:11" }, frame));
-        Assert.True(executor.Execute("wf_act_change_var_val", new() { IntParams = [2, 1, 1, -1, 2, 0, 0, 0, 0, 1, int.MinValue], Text = "custom:10\tcustom:11" }, frame));
+        Assert.True(executor.Execute("wf_act_give_var", WiredNativeTestSupport.Scalar("wf_act_give_var", new() { IntParams = [2, 0, 3, 0, 0], Text = "custom:11" }), frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", new() { IntParams = [2, 1, 1, -1, 2, 0, 0, 0, 0, 1, int.MinValue], Text = "custom:10\tcustom:11" }), frame));
         Assert.Equal(-4, module.Read(new(holder.Target, "custom:10"), holder, frame)!.Value);
     }
 
@@ -66,7 +66,7 @@ public sealed class WiredScalarLiteralParityTests
     [InlineData("wf_cnd_var_val_match", new[] { 1, 2, 0, 1, 1, 0, 0, 0, 0, 2, 1, 0 })]
     public void MalformedSuffixesAndOriginalQuantifiersAreRejected(string name, int[] fields)
     {
-        Assert.False(WiredVariableExecutors.TryValidate(name, new() { IntParams = [.. fields], Text = "custom:10" }, out _));
+        Assert.False(WiredVariableExecutors.TryValidate(name, WiredNativeTestSupport.Scalar(name, new() { IntParams = [.. fields], Text = "custom:10" }), out _));
     }
 
     private sealed class Directory(WiredVariableTarget target = WiredVariableTarget.Furni) : IWiredVariableDirectory

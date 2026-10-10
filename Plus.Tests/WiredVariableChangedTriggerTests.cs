@@ -21,9 +21,14 @@ public sealed class WiredVariableChangedTriggerTests
         var reference = new WiredVariableReference(WiredVariableTarget.User, "custom:10");
         Assert.True(WiredBoxRegistry.TryGet("wf_trg_var_changed", out var descriptor));
         var trigger = new WiredVariableChangedTrigger(room, new Item { Id = 20 }, descriptor);
-        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 1, 1, 1, 0, 0, 1, 4], Text = "custom:10" }, out var config, out _));
-        trigger.ApplyConfiguration(config);
-        bool Matches(WiredVariableChange change) => trigger.Execute(new WiredRuntimeContext(room, new(WiredEventKind.Variable) { VariableChange = change }, new(() => [], () => []), new Operations()));
+        WiredNativeTestSupport.Install(trigger, WiredNativeEditorProjection.DefaultNative(descriptor) with
+        {
+            OwnedIntParams = [1, 1, 1, 1, 4],
+            VariableIds = ["user:10"]
+        });
+        // The module resolves the picked catalog id at match time, as the trigger does with its room's module.
+        bool Matches(WiredVariableChange change) => module.TryResolveCatalogId(trigger.Configuration.VariableIds[0], WiredVariableTarget.User, out var picked)
+            && WiredVariableChangedTrigger.Matches(trigger.Configuration with { Text = picked.Token }, change);
         Assert.True(module.Mutate(reference, holder, WiredVariableMutation.Give, 10, frame, origin: 2));
         var created = Assert.Single(module.DrainChanges());
         Assert.True(Matches(created));

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -231,9 +232,16 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         public int WorldCaptures, FurnitureConversions, AvatarConversions, GroupMembershipReads, VariableSessions, DisposedSessions;
         private uint _next;
 
+        private readonly ConcurrentDictionary<uint, Item> _placed;
+
         public Fixture()
         {
             Room.Id = 1;
+            // Native pick validation reads the live room, so the fixture room holds a real item handler.
+            const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
+            typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(Room, handler);
+            _placed = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;
             _clock = new(this);
             _variables = new(1, this, new MemoryWiredVariableStore(), _clock);
             Engine = new(() => Now, box => Furniture.Contains(box.Item), _ => true, _ => { }, Errors.Add);
@@ -255,6 +263,8 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
                 Definition = new() { Id = 1, InteractionName = name, ItemName = "test", PublicName = "Furniture", VendingIds = [], AdjustableHeights = [] }
             };
             Furniture.Add(item);
+            _placed[item.Id] = item;
+            typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, Room);
 
             return item;
         }
@@ -291,8 +301,41 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         }
         private static void Configure(IWiredConfiguredItem box, WiredConfiguration c)
         {
-            Assert.True(box.TryValidateConfiguration(c, out var normalized, out var error), error);
+            // Variable-family cards and blank drafts install from native records; the rest map their runtime draft.
+            if (WiredNativeAuxiliaryEditor.Supports(box.Descriptor.CanonicalName)
+                || box.Descriptor.Category is WiredBoxCategory.Selector or WiredBoxCategory.Addon && c.IntParams.IsEmpty && c.Text.Length == 0) {
+                WiredNativeTestSupport.Install(box, AuxNative(box.Descriptor, c));
+
+                return;
+            }
+
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, c, out var normalized, out var error), error);
             box.ApplyConfiguration(normalized);
+        }
+        // The variable-family selectors and addons are installed from their native editor records.
+        private static WiredNativeEditorConfiguration AuxNative(WiredBoxDescriptor descriptor, WiredConfiguration c)
+        {
+            var native = WiredNativeEditorProjection.DefaultNative(descriptor) with
+            {
+                PrimaryItems = [.. c.SelectedItems.Select(id => new WiredNativeItemReference(id, false))]
+            };
+            var air = WiredNativeAuxiliaryEditor.AirTarget(0);
+
+            return descriptor.CanonicalName switch
+            {
+                "wf_slc_users_with_var" => native with { VariableIds = ["user:10", "n"] },
+                "wf_slc_furni_with_var" => native with { VariableIds = ["furni:11", "n"] },
+                "wf_xtra_execution_limit" => native with { OwnedIntParams = [100, 2] },
+                "wf_xtra_text_output_furni_name" => native with { OwnedIntParams = [1], FurniSourceTypes = [200], Text = "f\t," },
+                "wf_xtra_text_output_username" => native with { OwnedIntParams = [1], UserSourceTypes = [200], Text = "u\t," },
+                // Jump strength read from a user variable.
+                "wf_xtra_mov_curve" when c.VariableIds.Length != 0 || c.Text.Length != 0 =>
+                    native with { OwnedIntParams = [1, 80, air], UserSourceTypes = [0], FurniSourceTypes = [0], VariableIds = ["user:10"] },
+                // A distance variable is chosen but the literal distance mode never reads it.
+                "wf_xtra_rotate_to_dir" when c.Text.Length != 0 =>
+                    native with { OwnedIntParams = native.OwnedIntParams.SetItem(15, 1), VariableIds = ["n", "user:10"] },
+                _ => native
+            };
         }
         private void Add(IWiredConfiguredItem box)
         {

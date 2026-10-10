@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
+using System.Reflection;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
@@ -510,7 +511,7 @@ public partial class WiredRuntimeEngineTests
 
         Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
         var timer = new WiredModernTimedTrigger(f.Room, f.Furni(name, x), descriptor);
-        Assert.True(timer.TryValidateConfiguration(new() { IntParams = [units] }, out var config, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(timer, new() { IntParams = [units] }, out var config, out var error), error);
         timer.ApplyConfiguration(config);
         Assert.True(f.Engine.Add(timer));
 
@@ -1073,8 +1074,14 @@ public partial class WiredRuntimeEngineTests
         public long Now;
         public int FurnitureReads, UserReads;
         private uint next;
+        private readonly ConcurrentDictionary<uint, Item> _placed;
         public Fixture(WiredEngineLimits? limits = null, Random? effectOrderRandom = null)
         {
+            // Native pick validation reads the live room's items, so the fixture room holds a real item handler.
+            const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
+            typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(Room, handler);
+            _placed = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;
             Engine = new(() => Now, box => Furniture.Contains(box.Item), _ => true, _ => { }, Errors.Add, limits, effectOrderRandom: effectOrderRandom);
             Engine.BindRuntime(Room, new(() => { FurnitureReads++; return Furniture; }, () => { UserReads++; return Users; },
                 id => Furniture.Concat(Walls).FirstOrDefault(x => x.Id == id), id => Users.FirstOrDefault(x => x.VirtualId == id)), this);
@@ -1083,6 +1090,8 @@ public partial class WiredRuntimeEngineTests
         {
             var item = new Item { Id = ++next, GetX = x, Definition = new() { InteractionName = interaction, ItemName = "test", PublicName = "test", VendingIds = [], AdjustableHeights = [] } };
             Furniture.Add(item);
+            _placed[item.Id] = item;
+            typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, Room);
 
             return item;
         }

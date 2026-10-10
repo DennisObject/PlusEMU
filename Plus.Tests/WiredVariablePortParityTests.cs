@@ -13,10 +13,10 @@ public sealed class WiredVariablePortParityTests
     public void ChangeUsesOneFirstReadableReferenceForEveryDestination(WiredVariableTarget target, WiredVariableTarget source)
     {
         var (module, executor, frame, destinations, operands) = Scene(target, source);
-        Assert.True(executor.Execute("wf_act_change_var_val", Config(target, source, 0), frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", Config(target, source, 0)), frame));
         Assert.Equal(new long[] { 10, 10 }, destinations.Select(holder => module.Read(new(target, "custom:10"), holder, frame)!.Value));
         module.Mutate(new(source, "custom:11"), operands[0], WiredVariableMutation.Remove, 0, frame);
-        Assert.True(executor.Execute("wf_act_change_var_val", Config(target, source, 0), frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", Config(target, source, 0)), frame));
         Assert.Equal(new long[] { 20, 20 }, destinations.Select(holder => module.Read(new(target, "custom:10"), holder, frame)!.Value));
     }
 
@@ -30,7 +30,7 @@ public sealed class WiredVariablePortParityTests
         }
 
         var config = Config(WiredVariableTarget.User, WiredVariableTarget.User, 2);
-        Assert.True(executor.Execute("wf_cnd_var_val_match", config with { IntParams = [.. config.IntParams, 0] }, frame));
+        Assert.True(executor.Execute("wf_cnd_var_val_match", WiredNativeTestSupport.Scalar("wf_cnd_var_val_match", config with { IntParams = [.. config.IntParams, 0] }), frame));
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public sealed class WiredVariablePortParityTests
         {
             IntParams = [0, 0, 0, 0, 0, 200, 200, 201, 201]
         };
-        Assert.True(executor.Execute("wf_act_change_var_val", config, frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", config), frame));
         var changes = module.DrainChanges();
         Assert.Equal(destinations.Length, changes.Count);
         Assert.All(changes, change =>
@@ -64,8 +64,8 @@ public sealed class WiredVariablePortParityTests
         {
             IntParams = [0, 1, 0, 3, 0, 200, 200, 201, 201]
         };
-        Assert.True(executor.Execute("wf_act_change_var_val", config, frame));
-        Assert.True(executor.Execute("wf_act_change_var_val", config with { IntParams = [0, 2, 0, 3, 0, 200, 200, 201, 201] }, frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", config), frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", config with { IntParams = [0, 2, 0, 3, 0, 200, 200, 201, 201] }), frame));
 
         if (batched) {
             Assert.True(frame.VariableChanges!.Flush());

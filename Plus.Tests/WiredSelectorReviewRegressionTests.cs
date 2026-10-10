@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired.Configuration;
@@ -114,11 +116,28 @@ public sealed class WiredSelectorReviewRegressionTests
         public int WorldCaptures;
         public Fixture()
         {
+            // Native pick validation reads the live room, so the fixture room holds a real item handler with its items.
+            const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+            var handler = new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
+            typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(_room, handler);
+            var floor = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_floorItems", Private)!.GetValue(handler)!;
+
+            foreach (var item in Items) {
+                floor[item.Id] = item;
+                typeof(Item).GetField("_room", Private)!.SetValue(item, _room);
+            }
+
             RoomUser[] users = [new(111, 1, 11, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused), new(112, 1, 12, _room, null, TestChatEmotions.Unused, TestRewardProgress.Unused)];
             Context = new(_room, new(WiredEventKind.Enter) { EventItem = Items[0] },
                 new(() => Items, () => users, id => Items.FirstOrDefault(x => x.Id == id),
                     id => users.FirstOrDefault(x => x.VirtualId == id)), new Operations());
             Context.Triggering.FurniIds.Add(1);
+        }
+        private Item InRoom(Item item)
+        {
+            typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, _room);
+
+            return item;
         }
         private static Item Item(uint id, string name) => new() { Id = id, Definition = new() { PublicName = name } };
         private WiredSelectorWorld ReadWorld(WiredRuntimeContext _)
@@ -129,18 +148,18 @@ public sealed class WiredSelectorReviewRegressionTests
         }
         public IWiredContextualSelector Selector(string name, WiredConfiguration configuration)
         {
-            var selector = WiredSelectorFactory.Create(_room, new() { Id = 100, Definition = new() { InteractionName = name } },
+            var selector = WiredSelectorFactory.Create(_room, InRoom(new() { Id = 100, Definition = new() { InteractionName = name } }),
                 _state, TestGroupManager.Empty, readWorld: ReadWorld)!;
-            Assert.True(selector.TryValidateConfiguration(configuration, out var valid, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(selector, configuration, out var valid, out var error), error);
             selector.ApplyConfiguration(valid);
 
             return selector;
         }
         public IWiredContextualAddon Addon(WiredConfiguration configuration)
         {
-            var addon = WiredAddonFactory.Create(_room, new() { Id = 200, Definition = new() { InteractionName = "wf_xtra_text_output_furni_name" } },
+            var addon = WiredAddonFactory.Create(_room, InRoom(new() { Id = 200, Definition = new() { InteractionName = "wf_xtra_text_output_furni_name" } }),
                 _state, TestGroupManager.Empty, readWorld: ReadWorld)!;
-            Assert.True(addon.TryValidateConfiguration(configuration, out var valid, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(addon, configuration, out var valid, out var error), error);
             addon.ApplyConfiguration(valid);
 
             return addon;

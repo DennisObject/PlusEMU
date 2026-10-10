@@ -36,16 +36,23 @@ public sealed class WiredVariableOperandTests
         var box = Assert.IsType<WiredVariableConfiguredBox>(WiredVariableBoxFactory.Create(room,
             new Item { Id = 50, Definition = new() { InteractionName = "wf_act_change_var_val" } }, module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000))));
         var configuration = Config(target, target);
-        Assert.True(box.TryValidateConfiguration(configuration, out var validated, out _));
-        box.ApplyConfiguration(validated);
+        var air = WiredNativeAuxiliaryEditor.AirTarget((int)target);
+        var prefix = target == WiredVariableTarget.User ? "user:" : "furni:";
+        WiredNativeTestSupport.Install(box, WiredNativeEditorProjection.DefaultNative(box.Descriptor) with
+        {
+            OwnedIntParams = [air, 0, 1, 0, 0, air],
+            UserSourceTypes = [200, 200],
+            FurniSourceTypes = [200, 200],
+            VariableIds = [prefix + "10", prefix + "11"]
+        });
         Assert.True(box.Execute(context));
         Assert.Equal(new long[] { 10, 10 }, holders.Select(x => module.Read(new(target, "custom:10"), x, frame)!.Value));
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
-        Assert.True(executor.Execute("wf_cnd_var_val_match", configuration with { IntParams = [(int)target, 2, 1, 0, (int)target, 200, 200, 200, 200, 0] }, frame));
-        Assert.True(executor.Execute("wf_cnd_var_val_match", configuration with { Text = "custom:10\tcustom:10\t", IntParams = [(int)target, 2, 1, 0, (int)target, 200, 200, 200, 200, 0] }, frame));
-        Assert.False(executor.Execute("wf_act_change_var_val", configuration with { Text = "custom:10\tcustom:99\t" }, frame));
+        Assert.True(executor.Execute("wf_cnd_var_val_match", WiredNativeTestSupport.Scalar("wf_cnd_var_val_match", configuration with { IntParams = [(int)target, 2, 1, 0, (int)target, 200, 200, 200, 200, 0] }), frame));
+        Assert.True(executor.Execute("wf_cnd_var_val_match", WiredNativeTestSupport.Scalar("wf_cnd_var_val_match", configuration with { Text = "custom:10\tcustom:10\t", IntParams = [(int)target, 2, 1, 0, (int)target, 200, 200, 200, 200, 0] }), frame));
+        Assert.False(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", configuration with { Text = "custom:10\tcustom:99\t" }), frame));
         module.DrainChanges();
-        Assert.False(executor.Execute("wf_act_change_var_val", configuration with { Text = "custom:12\tcustom:11\t", IntParams = [(int)target, 1, 1, 0, (int)target, 200, 200, 200, 200] }, frame));
+        Assert.False(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", configuration with { Text = "custom:12\tcustom:11\t", IntParams = [(int)target, 1, 1, 0, (int)target, 200, 200, 200, 200] }), frame));
         Assert.Empty(module.DrainChanges());
         var reversed = new WiredVariableFrame(1, frame.Holders) { Signal = holders.Reverse().ToArray() };
         reversed.Selector.AddRange(holders);
@@ -54,7 +61,7 @@ public sealed class WiredVariableOperandTests
             module.Mutate(new(target, "custom:10"), holder, WiredVariableMutation.Set, 0, reversed);
         }
 
-        Assert.True(executor.Execute("wf_act_change_var_val", configuration with { IntParams = [(int)target, 0, 1, 0, (int)target, 200, 200, 201, 201] }, reversed));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", configuration with { IntParams = [(int)target, 0, 1, 0, (int)target, 200, 200, 201, 201] }), reversed));
         Assert.Equal(new long[] { 20, 20 }, holders.Select(x => module.Read(new(target, "custom:10"), x, reversed)!.Value));
     }
 
@@ -76,7 +83,7 @@ public sealed class WiredVariableOperandTests
         }
 
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
-        Assert.True(executor.Execute("wf_act_change_var_val", Config(WiredVariableTarget.User, WiredVariableTarget.Furni), frame));
+        Assert.True(executor.Execute("wf_act_change_var_val", WiredNativeTestSupport.Scalar("wf_act_change_var_val", Config(WiredVariableTarget.User, WiredVariableTarget.Furni)), frame));
         Assert.Equal(new long[] { 10, 10, 10 }, users.Select(x => module.Read(new(x.Target, "custom:10"), x, frame)!.Value));
     }
 
@@ -99,10 +106,10 @@ public sealed class WiredVariableOperandTests
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         var all = new WiredConfiguration { IntParams = [0, 200, 0, 0], Text = "custom:10" };
         var any = all with { IntParams = [0, 200, 0, 1] };
-        Assert.Equal(positiveAll, executor.Execute("wf_cnd_has_var", all, frame));
-        Assert.Equal(positiveAny, executor.Execute("wf_cnd_has_var", any, frame));
-        Assert.Equal(negativeAll, executor.Execute("wf_cnd_neg_has_var", all, frame));
-        Assert.Equal(negativeAny, executor.Execute("wf_cnd_neg_has_var", any, frame));
+        Assert.Equal(positiveAll, executor.Execute("wf_cnd_has_var", WiredNativeTestSupport.Scalar("wf_cnd_has_var", all), frame));
+        Assert.Equal(positiveAny, executor.Execute("wf_cnd_has_var", WiredNativeTestSupport.Scalar("wf_cnd_has_var", any), frame));
+        Assert.Equal(negativeAll, executor.Execute("wf_cnd_neg_has_var", WiredNativeTestSupport.Scalar("wf_cnd_neg_has_var", all), frame));
+        Assert.Equal(negativeAny, executor.Execute("wf_cnd_neg_has_var", WiredNativeTestSupport.Scalar("wf_cnd_neg_has_var", any), frame));
     }
 
     [Fact]
@@ -118,17 +125,17 @@ public sealed class WiredVariableOperandTests
         var clock = new CountingClock(DateTimeOffset.FromUnixTimeMilliseconds(2000));
         var executor = new WiredVariableExecutors(module, clock);
         var lessThan = new WiredConfiguration { IntParams = [0, 0, 0, 1000, 0, 200, 200, 0], Text = "custom:10" };
-        Assert.False(executor.Execute("wf_cnd_var_age_match", lessThan, frame));
+        Assert.False(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", lessThan), frame));
         Assert.Equal(1, clock.Reads);
         store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1,
             DateTimeOffset.FromUnixTimeMilliseconds(1000).AddTicks(1), null));
-        Assert.True(executor.Execute("wf_cnd_var_age_match", lessThan, frame));
+        Assert.True(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", lessThan), frame));
         var greaterThan = lessThan with { IntParams = [0, 0, 2, 999, 0, 200, 200, 0] };
-        Assert.True(executor.Execute("wf_cnd_var_age_match", greaterThan, frame));
+        Assert.True(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", greaterThan), frame));
         store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, clock.Now.AddSeconds(1), null));
-        Assert.True(executor.Execute("wf_cnd_var_age_match", lessThan, frame));
+        Assert.True(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", lessThan), frame));
         store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, null, null));
-        Assert.False(executor.Execute("wf_cnd_var_age_match", lessThan, frame));
+        Assert.False(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", lessThan), frame));
     }
 
     [Fact]
@@ -147,17 +154,17 @@ public sealed class WiredVariableOperandTests
         var greater = less with { IntParams = [0, 0, 2, 100, 7, 200, 200, 0] };
 
         store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, now.AddTicks(-hundredYearsInTicks), null));
-        Assert.False(executor.Execute("wf_cnd_var_age_match", less, frame));
-        Assert.False(executor.Execute("wf_cnd_var_age_match", greater, frame));
+        Assert.False(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", less), frame));
+        Assert.False(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", greater), frame));
         store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, now.AddTicks(-hundredYearsInTicks + 1), null));
-        Assert.True(executor.Execute("wf_cnd_var_age_match", less, frame));
+        Assert.True(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", less), frame));
         store.Mutate(new(10, holder.Target, holder.StableId), _ => new(1, now.AddTicks(-hundredYearsInTicks - 1), null));
-        Assert.True(executor.Execute("wf_cnd_var_age_match", greater, frame));
+        Assert.True(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", greater), frame));
 
         var huge = less with { IntParams = [0, 0, 0, 1000000, 7, 200, 200, 0] };
-        Assert.True(executor.Execute("wf_cnd_var_age_match", huge, frame));
+        Assert.True(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", huge), frame));
         var rejected = less with { IntParams = [0, 0, 0, int.MaxValue, 7, 200, 200, 0] };
-        Assert.False(executor.Execute("wf_cnd_var_age_match", rejected, frame));
+        Assert.False(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", rejected), frame));
         Assert.Equal(5, clock.Reads);
     }
 

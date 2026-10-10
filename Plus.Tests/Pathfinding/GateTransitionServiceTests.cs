@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Drawing;
 using Plus.Communication.Packets.Outgoing;
 using Plus.HabboHotel;
@@ -658,10 +659,12 @@ public partial class PlacedFurniRoomTests
     private Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction ToggleAction(Item gate, out Plus.HabboHotel.Items.Wired.Runtime.WiredRuntimeContext context)
     {
         var box = Furni(40, InteractionType.WiredEffect, WiredBoxType.None);
+        box.RoomId = RoomId;
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(box, _room);
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_toggle_state"),
             new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [gate.Id] }, out var config, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, new() { IntParams = [0, 100], SelectedItems = [gate.Id] }, out var config, out var error), error);
         action.ApplyConfiguration(config);
         var items = _room.GetRoomItemHandler().GetFloor.ToArray();
         var users = _room.GetRoomUserManager().GetUserList().ToArray();
@@ -988,6 +991,8 @@ public partial class PlacedFurniRoomTests
         var gate = ClosableGate();
         ActorOn(new Point(0, 2));
         var box = Furni(41, InteractionType.WiredEffect, WiredBoxType.None);
+        box.RoomId = RoomId;
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(box, _room);
         var action = new Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction(_room, box,
             Plus.HabboHotel.Items.Wired.Configuration.WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_match_to_sshot"),
             new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
@@ -997,7 +1002,7 @@ public partial class PlacedFurniRoomTests
             SelectedItems = [gate.Id],
             Snapshots = [new(gate.Id, 0, gate.GetX, gate.GetY, gate.GetZ, gate.Rotation, "1")]
         };
-        Assert.True(action.TryValidateConfiguration(proposed, out var config, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, proposed, out var config, out var error), error);
         action.ApplyConfiguration(config);
         var items = _room.GetRoomItemHandler().GetFloor.ToArray();
         var users = _room.GetRoomUserManager().GetUserList().ToArray();

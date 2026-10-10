@@ -176,12 +176,13 @@ public partial class PlacedFurniRoomTests
         Assert.True(WiredNativeTestSupport.TrySavePrepared(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
             TestWiredConfigurationStore.Instance, out var error), error);
         Assert.Equal(altitude, Assert.Single(action.Configuration.Snapshots).Wall!.NativeAltitude);
-        var reloaded = JsonSerializer.Deserialize<WiredConfiguration>(JsonSerializer.Serialize(action.Configuration))!;
+        var native = JsonSerializer.Deserialize<WiredNativeEditorConfiguration>(JsonSerializer.Serialize(action.Configuration.Origin!.Native))!;
+        Assert.True(WiredNativeEditorProjection.TryCompile(action.Item.Id, action.Descriptor, native, out var reloaded));
         action.ApplyConfiguration(reloaded);
         Assert.True(WallBuiltinWrite(module, wall, frame, "@altitude", 201));
         Assert.True(action.Execute(WallSnapshotContext()));
         Assert.Equal(baseline, wall.WallCoordinates);
-        action.ApplyConfiguration(reloaded with { IntParams = [0, 0, 0, 1, 100] });
+        WiredNativeTestSupport.InstallRuntime(action, reloaded with { IntParams = [0, 0, 0, 1, 100] });
         wall.WallCoordinates = ":w=4,8 l=19,60 r a=201";
         Assert.True(action.Execute(WallSnapshotContext()));
         Assert.EndsWith($"r a={altitude}", wall.WallCoordinates);

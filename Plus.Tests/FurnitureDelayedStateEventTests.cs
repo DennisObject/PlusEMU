@@ -275,10 +275,10 @@ public partial class PlacedFurniRoomTests
         admitted.Definition.Modes = 7;
         InitializeNativeState(admitted);
         admitted.LegacyDataString = "-1";
-        Stack(130, 1, "wf_trg_state_changed", ChangeLine, admitted);
-        Viewer(0, 3);
+                Viewer(0, 3);
         Assert.True(_room.GetRoomItemHandler().SetFloorItem(_client, admitted, 2, 2, 0, true, false, false));
         Assert.Equal("0", admitted.LegacyDataString);
+        Stack(130, 1, "wf_trg_state_changed", ChangeLine, admitted);
         Cycle();
         Assert.Equal((0, 1), StateLines()); // the admitted dice's reset is its initial state
 
@@ -387,11 +387,11 @@ public partial class PlacedFurniRoomTests
     private void TogglesOnUse(uint id, Item button, Item target)
     {
         var trigger = WiredBox(id, "wf_trg_stuff_state", 0, 1);
-        Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [button.Id] }, out var config, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(trigger, new() { IntParams = [0, 100], SelectedItems = [button.Id] }, out var config, out var error), error);
         trigger.ApplyConfiguration(config);
         Assert.True(_room.GetWired().AddBox(trigger));
         var toggle = WiredBox(id + 1, "wf_act_toggle_state", 0, 1);
-        Assert.True(toggle.TryValidateConfiguration(new() { IntParams = [0, 100], SelectedItems = [target.Id] }, out config, out error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(toggle, new() { IntParams = [0, 100], SelectedItems = [target.Id] }, out config, out error), error);
         toggle.ApplyConfiguration(config);
         Assert.True(_room.GetWired().AddBox(toggle));
     }

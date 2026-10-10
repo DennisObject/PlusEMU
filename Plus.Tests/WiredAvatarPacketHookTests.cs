@@ -362,7 +362,7 @@ public class WiredAvatarPacketHookTests
             var item = Item("wf_trg_user_performs_action");
             var trigger = _wired.CreateConfiguredBox(item)!;
             var parameters = new[] { action, action == 9 ? 1 : 0, action == 9 ? code : 0, action == 10 ? 1 : 0, action == 10 ? code : 1 };
-            Assert.True(trigger.TryValidateConfiguration(new() { IntParams = [.. parameters] }, out var config, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(trigger, new() { IntParams = [.. parameters] }, out var config, out var error), error);
             trigger.ApplyConfiguration(config);
             Assert.True(_wired.AddBox(trigger));
         }

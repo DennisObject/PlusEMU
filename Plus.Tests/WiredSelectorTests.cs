@@ -9,6 +9,23 @@ public sealed class WiredSelectorTests
 {
     internal static WiredConfiguration Config(int[]? fields = null, uint[]? picks = null, string text = "") =>
         new() { IntParams = (fields ?? []).ToImmutableArray(), SelectedItems = (picks ?? []).ToImmutableArray(), Text = text };
+    // The native Neighborhood form: anchor kind, centre offset, then the 441-tile spiral bitmap (tile 0 is the anchor).
+    internal static WiredConfiguration Hood(int anchorKind, int offsetX, int offsetY, int anchor, params int[] tiles)
+    {
+        var words = new int[14];
+
+        foreach (var tile in tiles) {
+            words[tile / 32] |= unchecked((int)(1u << (tile % 32)));
+        }
+
+        return new()
+        {
+            IntParams = [anchorKind, offsetX, offsetY, .. words],
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("anchor", anchor),
+            UserSources = ImmutableDictionary<string, int>.Empty.Add("anchor", anchor)
+        };
+    }
+
     internal static WiredSelectorWorld World() => new(10, 10,
     [
         new(1, 100, "Chair", "0", 1, 1, 0, 1, [(1, 1), (2, 1)]),
@@ -46,13 +63,13 @@ public sealed class WiredSelectorTests
         yield return ["wf_slc_users_team", Config([1]), Array.Empty<uint>(), new[] { 1 }];
         yield return ["wf_slc_furni_onfurni", Config([0, 100], [1]), Array.Empty<uint>(), Array.Empty<int>()];
         yield return ["wf_slc_furni_signal", Config(), new uint[] { 3 }, Array.Empty<int>()];
-        yield return ["wf_slc_furni_neighborhood", Config([0, 0, 0, 0, 0, 1, 0, 0]), new uint[] { 1, 2 }, Array.Empty<int>()];
+        yield return ["wf_slc_furni_neighborhood", Hood(0, 0, 0, WiredSources.Trigger, 0, 1), new uint[] { 1, 2 }, Array.Empty<int>()];
         yield return ["wf_slc_furni_area", Config([1, 1, 2, 1]), new uint[] { 1, 2 }, Array.Empty<int>()];
         yield return ["wf_slc_users_onfurni", Config([100], [1]), Array.Empty<uint>(), new[] { 1 }];
         yield return ["wf_slc_users_byaction", Config([6]), Array.Empty<uint>(), new[] { 1 }];
         yield return ["wf_slc_users_signal", Config(), Array.Empty<uint>(), new[] { 2 }];
         yield return ["wf_slc_users_byname", Config(text: " ADA \nana"), Array.Empty<uint>(), new[] { 1, 4 }];
-        yield return ["wf_slc_users_neighborhood", Config([2, 0, 0, 0, 0, 1, 0, 0]), Array.Empty<uint>(), new[] { 4 }];
+        yield return ["wf_slc_users_neighborhood", Hood(1, 1, -1, WiredSources.Trigger, 0), Array.Empty<uint>(), new[] { 4 }];
         yield return ["wf_slc_users_area", Config([1, 1, 2, 1]), Array.Empty<uint>(), new[] { 1 }];
         yield return ["wf_slc_users_handitem", Config([0]), Array.Empty<uint>(), new[] { 1 }];
         yield return ["wf_slc_users_group", Config([0]), Array.Empty<uint>(), new[] { 1 }];
@@ -99,10 +116,11 @@ public sealed class WiredSelectorTests
             [90] = new("wf_slc_furni_picks", Config(picks: [3])),
             [91] = new("wf_slc_furni_picks", Config([1, 0], [1])),
             [92] = new("wf_slc_furni_picks", Config([1, 0], [1])),
-            [93] = new("wf_slc_remote", Config(picks: [93]))
+            [93] = new("wf_slc_remote", Config([0, 0, 0, 0, 100], [93]))
         };
         var world = World() with { RemoteSelectors = remotes };
-        var result = WiredSelectorModule.SelectRaw("wf_slc_remote", Config(picks: [90, 91, 92, 93]), world, Inputs());
+        // Mode 1 intersects the referenced stacks, so an empty filtered stack keeps the whole result empty.
+        var result = WiredSelectorModule.SelectRaw("wf_slc_remote", Config([0, 0, 1, 0, 100], [90, 91, 92, 93]), world, Inputs());
         Assert.Empty(result.Selection.FurniIds);
     }
 
@@ -119,22 +137,14 @@ public sealed class WiredSelectorTests
     [Fact]
     public void EmptyNeighborhoodSelectsNothingAndTheFullEditorGridIsAccepted()
     {
-        foreach (var name in new[] { "wf_slc_furni_neighborhood", "wf_slc_users_neighborhood" }) {
-            var empty = WiredSelectorConfiguration.Normalize(name, Config([0, 0, 0, 0, 0, 0]));
+        foreach (var (name, kind) in new[] { ("wf_slc_furni_neighborhood", 0), ("wf_slc_users_neighborhood", 1) }) {
+            var empty = WiredSelectorConfiguration.Normalize(name, Hood(kind, 0, 0, WiredSources.Trigger));
             var result = WiredSelectorModule.SelectRaw(name, empty, World(), Inputs());
             Assert.Empty(result.Selection.FurniIds);
             Assert.Empty(result.Selection.UserIds);
 
-            var fields = new List<int> { 0, 0, 0, 0, 0, 81 };
-
-            for (var y = -4; y <= 4; y++) {
-                for (var x = -4; x <= 4; x++) {
-                    fields.Add(x);
-                    fields.Add(y);
-                }
-            }
-
-            var full = WiredSelectorConfiguration.Normalize(name, Config(fields.ToArray()));
+            // All 441 tiles of the 21x21 editor grid.
+            var full = WiredSelectorConfiguration.Normalize(name, Hood(kind, 0, 0, WiredSources.Trigger, Enumerable.Range(0, 441).ToArray()));
             Assert.True(WiredLegacyProtocol.IsWithinLimits(full));
             var selected = WiredSelectorModule.SelectRaw(name, full, World(), Inputs()).Selection;
 
@@ -167,11 +177,13 @@ public sealed class WiredSelectorTests
     }
 
     [Fact]
-    public void NeighborhoodUsesAnchorOffsetsAndRejectsIncompleteClientPairs()
+    public void NeighborhoodUsesAnchorOffsetsAndRejectsAnythingButTheNativeBitmap()
     {
-        var raw = WiredSelectorModule.SelectRaw("wf_slc_users_neighborhood", Config([2, 0, 0, 1, 1, 1, 2, 0]), World(), Inputs());
+        // The trigger user stands on (2,1); centre offset (1,0) with the east tile selects the anchor's own tile.
+        var raw = WiredSelectorModule.SelectRaw("wf_slc_users_neighborhood", Hood(1, 1, 0, WiredSources.Trigger, 1), World(), Inputs());
         Assert.Equal(new[] { 1 }, raw.Selection.UserIds);
-        Assert.Throws<ArgumentException>(() => WiredSelectorModule.SelectRaw("wf_slc_users_neighborhood", Config([2, 0, 0, 0, 0, 2, 0, 0]), World(), Inputs()));
+        Assert.Throws<ArgumentException>(() => WiredSelectorModule.SelectRaw("wf_slc_users_neighborhood",
+            Config([1, 0, 0, 1, 0]), World(), Inputs()));
     }
 
     [Fact]
