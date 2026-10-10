@@ -231,6 +231,12 @@ public partial class WiredComponent : IWiredRuntimeOperations
         WiredConfiguration validated, Func<bool> canModify, Action persist) =>
         _engine.PublishPristineCard(captured, candidate, validated, canModify, persist);
 
+    internal FreshCardSnapshot? CaptureFreshCard(IWiredItem original, WiredNativeEditorConfiguration? request, Func<bool> canRead) =>
+        _engine.CaptureFreshCard(original, request, canRead);
+
+    internal bool PublishFreshCard(FreshCardSnapshot captured, WiredConfiguration validated,
+        Func<bool> canModify, Action persist) => _engine.PublishFreshCard(captured, validated, canModify, persist);
+
     internal FreshDirectionSnapshot? CaptureFreshDirection(IWiredItem original,
         WiredNativeEditorConfiguration? request, Func<bool> canRead) =>
         _engine.CaptureFreshDirection(original, request, canRead);

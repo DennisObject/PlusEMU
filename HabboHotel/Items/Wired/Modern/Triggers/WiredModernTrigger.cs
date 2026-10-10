@@ -127,10 +127,16 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
 public sealed class WiredModernTimedTrigger : WiredModernTrigger, IWiredTimedTrigger
 {
     private readonly WiredTimedTriggers _timers = new();
+    private readonly WiredConfiguration? _initialRepeatConfiguration;
+    internal bool HasInitialRepeatConfiguration => Descriptor.CanonicalName == "wf_trg_periodically"
+        && ReferenceEquals(Configuration, _initialRepeatConfiguration);
+    internal (long Started, long Epoch) InitialCardTiming => (_started, _epoch);
     private long _started;
     private long _epoch;
     public WiredModernTimedTrigger(Room room, Item item, WiredBoxDescriptor descriptor) : base(room, item, descriptor)
     {
+        _initialRepeatConfiguration = descriptor.CanonicalName == "wf_trg_periodically" ? Configuration : null;
+
         if (!WiredTriggerConfiguration.IsTimed(descriptor.CanonicalName)) {
             throw new ArgumentException("Not a timed trigger.", nameof(descriptor));
         }

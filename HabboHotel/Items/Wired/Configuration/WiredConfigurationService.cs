@@ -93,6 +93,18 @@ public sealed class WiredConfigurationService(
                 }
             }
 
+            if (request.Native is { } initialNative && box is IWiredConfiguredItem initialBox) {
+                var proof = room.GetWired().CaptureFreshCard(box,
+                    initialNative with { NativeCode = WiredNativeEditorProjection.Code(initialBox.Descriptor.CanonicalName) },
+                    () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
+
+                if (proof != null) {
+                    SaveFreshCard(session, proof);
+
+                    return;
+                }
+            }
+
             if (request.Native is { } freshNative) {
                 var fresh = room.GetWired().CaptureFreshDirection(box, freshNative with { NativeCode = 13 },
                     () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
@@ -192,6 +204,24 @@ public sealed class WiredConfigurationService(
             logger.LogWarning(error, "Failed to save Wired settings in room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
+    }
+
+    private void SaveFreshCard(GameClient session, FreshCardSnapshot proof)
+    {
+        var error = "Invalid fresh native card settings.";
+
+        if (proof.Request == null || !WiredNativeEditorProjection.TryCompile(proof.Box.Item.Id, proof.Descriptor, proof.Request, out var runtime)
+            || !WiredConfigurationSave.TrySave(proof.Box, runtime, store, out error,
+                id => proof.Room.GetRoomItemHandler().GetItem(id) != null,
+                (original, validated, persist) => proof.Room.GetWired().PublishFreshCard(proof, validated,
+                    () => ReferenceEquals(session.GetHabbo().CurrentRoom, proof.Room) && proof.Room.GetWired().Settings.CanModify(session), persist),
+                isTemporaryInRoom: id => proof.Room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
+            session.Send(new WiredValidationErrorComposer(error));
+
+            return;
+        }
+
+        session.Send(new HideWiredConfigComposer());
     }
 
     private void SavePristineCard(GameClient session, PristineCardSnapshot proof)

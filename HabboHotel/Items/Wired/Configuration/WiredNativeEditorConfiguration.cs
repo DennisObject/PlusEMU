@@ -157,7 +157,23 @@ internal sealed record LegacyRotateSnapshot(
             && ReferenceEquals(value.GetRoom(), Room) && value.RoomId == Room.Id && !value.IsTemporary && value.IsFloorItem);
 }
 
-// Closed three-card proof for one request. No runtime authority is installed by capture/open.
+internal sealed record FreshCardSnapshot(Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernBox Box,
+    WiredConfiguration Configuration, Plus.HabboHotel.Rooms.Room Room, uint RoomId, PristineCardPick Identity,
+    WiredBoxDescriptor Descriptor, WiredBoxDescriptor DefinitionDescriptor,
+    System.Collections.Concurrent.ConcurrentDictionary<uint, Item> Dictionary, (long Started, long Epoch)? Timing,
+    WiredNativeEditorConfiguration Native, WiredNativeEditorConfiguration? Request, ImmutableArray<PristineCardPick> RequestedPicks)
+{
+    internal bool Matches() => WiredNativeEditorProjection.HasInitialCardConfiguration(Box)
+        && ReferenceEquals(Box.Configuration, Configuration) && ReferenceEquals(Box.Item, Identity.Pose.Item)
+        && ReferenceEquals(Box.Instance, Room) && Room.Id == RoomId && Identity.Matches(Room) && Box.Item.IsFloorItem
+        && ReferenceEquals(Box.Descriptor, Descriptor) && ReferenceEquals(Box.Item.Definition.WiredDescriptor, DefinitionDescriptor)
+        && Box.StringData == "" && Box.ItemsData == "" && !Box.BoolData
+        && ReferenceEquals(Box.SetItems, Dictionary) && Dictionary.Count == 0
+        && (Box is not Plus.HabboHotel.Items.Wired.Modern.Triggers.WiredModernTimedTrigger timer || timer.InitialCardTiming == Timing)
+        && RequestedPicks.All(pick => pick.Matches(Room) && pick.Pose.Item.IsFloorItem);
+}
+
+// Closed pristine-card proof for one request. No runtime authority is installed by capture/open.
 internal sealed record PristineCardPick(NativeMovementPick Pose, uint DefinitionId,
     Plus.HabboHotel.Users.Inventory.Furniture.ItemType Kind, InteractionType Interaction, WiredBoxType WiredType,
     int X, int Y, long ZBits)

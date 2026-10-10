@@ -41,6 +41,10 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
     };
     public static bool Supports(string name) => WiredTemporaryFurnitureActions.Supports(name) || WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name) || WiredBotActions.Names.Contains(name);
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
+    private readonly WiredConfiguration? _initialTeleportConfiguration;
+    internal bool HasInitialTeleportConfiguration => Descriptor.CanonicalName == "wf_act_teleport_to"
+        && ReferenceEquals(Configuration, _initialTeleportConfiguration);
+
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
         Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger,
         TimeProvider clock, IWiredRewardService rewards, IBotManagementStore botStore, IGameClientManager clients, IItemDataManager definitions,
@@ -50,6 +54,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
             throw new ArgumentException("Unknown action.", nameof(descriptor));
         }
 
+        _initialTeleportConfiguration = descriptor.CanonicalName == "wf_act_teleport_to" ? Configuration : null;
         _initialDirectionDraft = descriptor.CanonicalName == "wf_act_move_to_dir" ? Configuration : null;
         _clocks = clocks;
         _publish = publish;
@@ -421,7 +426,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
                 || name == "wf_act_move_furni_to" && config.IntParams.Length == 4
                 || name == "wf_act_move_furni_as_group" && config.IntParams.Length == 6) : [];
 
-            if (name == "wf_act_move_furni_as_group" && config.Origin?.Native != null) {
+            if (name is "wf_act_move_furni_as_group" or "wf_act_teleport_to" && config.Origin?.Native != null) {
                 targets = targets.Where(item => item.IsFloorItem).ToArray();
             }
 

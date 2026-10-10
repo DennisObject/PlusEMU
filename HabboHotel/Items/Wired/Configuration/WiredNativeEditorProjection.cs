@@ -13,11 +13,13 @@ public static class WiredNativeEditorProjection
         var type = box.GetType();
         var name = type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Triggers.UserWalksOnBox) ? "wf_trg_walks_on_furni"
             : type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Effects.ShowMessageBox) ? "wf_act_show_message"
-            : type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Conditions.FurniHasUsersBox) ? "wf_cnd_furnis_hv_avtrs" : null;
-        var wiredType = name == "wf_trg_walks_on_furni" ? WiredBoxType.TriggerWalkOnFurni
-            : name == "wf_act_show_message" ? WiredBoxType.EffectShowMessage : WiredBoxType.ConditionFurniHasUsers;
-        var category = name == "wf_trg_walks_on_furni" ? WiredBoxCategory.Trigger
-            : name == "wf_act_show_message" ? WiredBoxCategory.Action : WiredBoxCategory.Condition;
+            : type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Conditions.FurniHasUsersBox) ? "wf_cnd_furnis_hv_avtrs"
+            : type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Triggers.RepeaterBox) ? "wf_trg_periodically"
+            : type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Conditions.UserCountInRoomBox) ? "wf_cnd_user_count_in"
+            : type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Effects.TeleportUserBox) ? "wf_act_teleport_to" : null;
+        var wiredType = CardWiredType(name);
+        var category = name is "wf_trg_walks_on_furni" or "wf_trg_periodically" ? WiredBoxCategory.Trigger
+            : name is "wf_act_show_message" or "wf_act_teleport_to" ? WiredBoxCategory.Action : WiredBoxCategory.Condition;
         var interaction = category == WiredBoxCategory.Trigger ? InteractionType.WiredTrigger
             : category == WiredBoxCategory.Action ? InteractionType.WiredEffect : InteractionType.WiredCondition;
 
@@ -25,7 +27,10 @@ public static class WiredNativeEditorProjection
             && box.Item.Definition.InteractionType == interaction
             && WiredLegacyEditorProjection.TryGetDescriptor(box, out descriptor)
             && descriptor.CanonicalName == name && descriptor.Category == category && descriptor.EditorCode == Code(name)
-            && box.StringData == "" && box.ItemsData == "" && !box.BoolData && box.SetItems is { Count: 0 };
+            && box.StringData == "" && box.ItemsData == "" && !box.BoolData && box.SetItems is { Count: 0 }
+            && (box is not IWiredCycle cycle || cycle.TickCount == 0)
+            && (box is not Plus.HabboHotel.Items.Wired.Boxes.Triggers.RepeaterBox repeat || repeat.Delay == 0)
+            && (box is not Plus.HabboHotel.Items.Wired.Boxes.Effects.TeleportUserBox teleport || teleport.Delay == 0);
     }
 
     internal static bool TryCapturePristineCard(IWiredItem original, WiredNativeEditorConfiguration? request,
@@ -69,6 +74,83 @@ public static class WiredNativeEditorProjection
             PristineCardPick.Capture(original.Item), descriptor, original.SetItems, native, request, picks.ToImmutable());
 
         if (!TryCompile(original.Item.Id, descriptor, native, out _) || !captured.Matches()) {
+            return false;
+        }
+
+        snapshot = captured;
+
+        return true;
+    }
+
+    private static WiredBoxType CardWiredType(string? name) => name switch
+    {
+        "wf_trg_walks_on_furni" => WiredBoxType.TriggerWalkOnFurni,
+        "wf_act_show_message" => WiredBoxType.EffectShowMessage,
+        "wf_cnd_furnis_hv_avtrs" => WiredBoxType.ConditionFurniHasUsers,
+        "wf_trg_periodically" => WiredBoxType.TriggerRepeat,
+        "wf_cnd_user_count_in" => WiredBoxType.ConditionUserCountInRoom,
+        "wf_act_teleport_to" => WiredBoxType.EffectTeleportToFurni,
+        _ => WiredBoxType.None
+    };
+
+    internal static bool HasInitialCardConfiguration(IWiredItem box) => box switch
+    {
+        Plus.HabboHotel.Items.Wired.Modern.Triggers.WiredModernTimedTrigger timer => timer.HasInitialRepeatConfiguration,
+        WiredModernAction action => action.HasInitialTeleportConfiguration,
+        Plus.HabboHotel.Items.Wired.Modern.Conditions.WiredModernCondition condition => condition.HasInitialCountConfiguration,
+        _ => false
+    };
+
+    internal static bool TryCaptureFreshCard(IWiredItem original, WiredNativeEditorConfiguration? request,
+        out FreshCardSnapshot? snapshot)
+    {
+        snapshot = null;
+
+        if (original is not Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernBox box
+            || !HasInitialCardConfiguration(original) || box.StringData != "" || box.ItemsData != ""
+            || box.BoolData || box.SetItems is not { Count: 0 }
+            || box.Item.Definition.WiredType != CardWiredType(box.Descriptor.CanonicalName)
+            || box.Item.Definition.WiredDescriptor is not { } definitionDescriptor
+            || definitionDescriptor.CanonicalName != box.Descriptor.CanonicalName
+            || definitionDescriptor.Category != box.Descriptor.Category || definitionDescriptor.EditorCode != Code(box.Descriptor.CanonicalName)
+            || box.Item.Definition.InteractionType != (box.Descriptor.Category == WiredBoxCategory.Trigger ? InteractionType.WiredTrigger
+                : box.Descriptor.Category == WiredBoxCategory.Action ? InteractionType.WiredEffect : InteractionType.WiredCondition)) {
+            return false;
+        }
+
+        var metadata = Metadata(box.Descriptor.CanonicalName);
+        var native = new WiredNativeEditorConfiguration
+        {
+            Category = box.Descriptor.Category,
+            NativeCode = Code(box.Descriptor.CanonicalName),
+            OwnedIntParams = metadata.OwnedDefaults,
+            FurniSourceTypes = metadata.FurniDefaults,
+            UserSourceTypes = metadata.UserDefaults,
+            Delay = box.Descriptor.Category == WiredBoxCategory.Action ? 0 : null,
+            Quantifier = box.Descriptor.Category == WiredBoxCategory.Condition ? 0 : null
+        };
+        var picks = ImmutableArray.CreateBuilder<PristineCardPick>();
+
+        if (request != null) {
+            if (!TryCompile(box.Item.Id, box.Descriptor, request, out _)) {
+                return false;
+            }
+
+            foreach (var reference in request.PrimaryItems.Concat(request.SecondaryItems)) {
+                if (reference.Wall || box.Instance.GetRoomItemHandler().GetItem(reference.ItemId)
+                    is not { IsTemporary: false, IsFloorItem: true } picked) {
+                    return false;
+                }
+
+                picks.Add(PristineCardPick.Capture(picked));
+            }
+        }
+
+        var timing = box is Plus.HabboHotel.Items.Wired.Modern.Triggers.WiredModernTimedTrigger timed ? timed.InitialCardTiming : ((long, long)?)null;
+        var captured = new FreshCardSnapshot(box, box.Configuration, box.Instance, box.Instance.Id,
+            PristineCardPick.Capture(box.Item), box.Descriptor, definitionDescriptor, box.SetItems, timing, native, request, picks.ToImmutable());
+
+        if (!captured.Matches()) {
             return false;
         }
 
@@ -252,6 +334,9 @@ public static class WiredNativeEditorProjection
     {
         "wf_trg_says_something" => 0,
         "wf_trg_walks_on_furni" => 1,
+        "wf_trg_periodically" => 6,
+        "wf_cnd_user_count_in" => 5,
+        "wf_act_teleport_to" => 8,
         "wf_act_show_message" => 7,
         "wf_cnd_furnis_hv_avtrs" => 1,
         "wf_act_move_rotate" => 4,
@@ -274,6 +359,10 @@ public static class WiredNativeEditorProjection
         "wf_trg_walks_on_furni" => new([[0, 100, 200, 201]], [], [100], [], [], false),
         "wf_act_show_message" => new([], [[0, 11, 200, 201]], [], [0], [0, 34, -1], false),
         "wf_cnd_furnis_hv_avtrs" => new([[0, 100, 200, 201]], [], [100], [], [1], false),
+        // Complete Sept9 server footers are borrowed; no official Sept16/v86 metadata claim.
+        "wf_trg_periodically" => new([], [], [], [], [1], false),
+        "wf_cnd_user_count_in" => new([], [], [], [], [1, 50], false),
+        "wf_act_teleport_to" => new([[0, 100, 200, 201]], [[0, 200, 201]], [100], [0], [0], false),
         // Rotate's two owned fields/defaults and floor-only scope are the explicit local subset.
         // The captured server third field and wall support have no proven executable mapping here.
         "wf_act_move_rotate" => new([[0, 100, 200, 201]], [], [100], [], [0, 0], false),
@@ -325,6 +414,31 @@ public static class WiredNativeEditorProjection
                 }
 
                 parameters = [p[1], p[2], p[0]];
+                break;
+            case "wf_trg_periodically":
+                if (p.Length != 1 || p[0] is < 1 or > 120 || native.Text != "") {
+                    return false;
+                }
+
+                parameters = [p[0]];
+                break;
+            case "wf_cnd_user_count_in":
+                if (p.Length != 2 || p.Any(value => value is < 0 or > 125) || p[0] > p[1]
+                    || native.Text != "" || native.Quantifier != 0) {
+                    return false;
+                }
+
+                parameters = [p[0], p[1], 0];
+                users["users"] = 0;
+                break;
+            case "wf_act_teleport_to":
+                if (p.Length != 1 || p[0] is < 0 or > 1 || native.Text != "") {
+                    return false;
+                }
+
+                parameters = [p[0], native.FurniSourceTypes[0], native.UserSourceTypes[0]];
+                furni["targets"] = native.FurniSourceTypes[0];
+                users["users"] = native.UserSourceTypes[0];
                 break;
             case "wf_trg_walks_on_furni":
                 if (p.Length != 0 || native.Text != "") {
@@ -432,12 +546,14 @@ public static class WiredNativeEditorProjection
                 return false;
         }
 
-        if (name is "wf_act_move_rotate" or "wf_act_move_to_dir" or "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs" && native.DormantLegacy is { } dormant) {
+        if (name is "wf_act_move_rotate" or "wf_act_move_to_dir" or "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs" or "wf_trg_periodically" or "wf_cnd_user_count_in" or "wf_act_teleport_to" && native.DormantLegacy is { } dormant) {
             if (name != "wf_act_show_message") {
                 text = dormant.Text;
             }
 
-            foreach (var pair in dormant.FurniSources.Where(pair => !furni.ContainsKey(pair.Key))) {
+            // Teleport's legacy movers slot stays serialized in DormantLegacy, never executable.
+            foreach (var pair in dormant.FurniSources.Where(pair => !furni.ContainsKey(pair.Key)
+                && !(name == "wf_act_teleport_to" && pair.Key == "movers"))) {
                 furni[pair.Key] = pair.Value;
             }
 
@@ -570,7 +686,7 @@ public static class WiredNativeEditorProjection
 
         var metadata = Metadata(name);
 
-        if (name is not ("wf_act_move_to_dir" or "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs") && runtime.Origin == null && runtime.IntParams.Length == 0) {
+        if (name is not ("wf_act_move_to_dir" or "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs" or "wf_trg_periodically" or "wf_cnd_user_count_in" or "wf_act_teleport_to") && runtime.Origin == null && runtime.IntParams.Length == 0) {
             native = new()
             {
                 Category = descriptor.Category,
@@ -603,6 +719,20 @@ public static class WiredNativeEditorProjection
             case "wf_trg_says_something" when p.Length == 3 && runtime.Delay == 0 && runtime.SelectionCode == 0
                 && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
                 owned = [p[2], p[0], p[1]];
+                break;
+            case "wf_trg_periodically" when p.Length == 1 && runtime.Delay == 0 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                owned = [p[0]];
+                break;
+            case "wf_cnd_user_count_in" when p.Length == 3 && p[2] == 0 && runtime.Delay == 0 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                owned = [p[0], p[1]];
+                break;
+            case "wf_act_teleport_to" when p.Length == 3 && p[1] == 100 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                owned = [p[0]];
+                furni = [p[1]];
+                users = [p[2]];
                 break;
             case "wf_trg_walks_on_furni" when p.Length == 1 && runtime.Delay == 0 && runtime.SelectionCode == 0
                 && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
@@ -682,7 +812,7 @@ public static class WiredNativeEditorProjection
             Category = descriptor.Category,
             NativeCode = Code(name),
             OwnedIntParams = owned,
-            Text = name is "wf_trg_walks_on_furni" or "wf_cnd_furnis_hv_avtrs" or "wf_act_set_altitude" or "wf_act_send_signal" or "wf_act_move_furni_as_group" or "wf_act_move_rotate" or "wf_act_move_to_dir" ? "" : runtime.Text,
+            Text = name is "wf_trg_periodically" or "wf_cnd_user_count_in" or "wf_act_teleport_to" or "wf_trg_walks_on_furni" or "wf_cnd_furnis_hv_avtrs" or "wf_act_set_altitude" or "wf_act_send_signal" or "wf_act_move_furni_as_group" or "wf_act_move_rotate" or "wf_act_move_to_dir" ? "" : runtime.Text,
             PrimaryItems = primary,
             SecondaryItems = secondary,
             FurniSourceTypes = furni,
@@ -705,7 +835,7 @@ public static class WiredNativeEditorProjection
             || !runtime.SelectedItems.SequenceEqual(projected.SelectedItems)
             || !runtime.SecondarySelectedItems.SequenceEqual(projected.SecondarySelectedItems)
             || name is "wf_act_move_rotate" or "wf_act_move_to_dir" && !runtime.IntParams.SequenceEqual(projected.IntParams)
-            || name is "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs"
+            || name is "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs" or "wf_trg_periodically" or "wf_cnd_user_count_in" or "wf_act_teleport_to"
                 && (!runtime.IntParams.SequenceEqual(name == "wf_act_show_message" && p.Length == 3 ? projected.IntParams.Take(3) : projected.IntParams)
                     || name == "wf_act_show_message" && p.Length == 3 && projected.IntParams[3] != -1
                     || runtime.Text != projected.Text || runtime.Delay != projected.Delay

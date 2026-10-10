@@ -10,6 +10,9 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Conditions;
 
 public sealed class WiredModernCondition : WiredModernBox
 {
+    private readonly WiredConfiguration? _initialCountConfiguration;
+    internal bool HasInitialCountConfiguration => Descriptor.CanonicalName == "wf_cnd_user_count_in"
+        && ReferenceEquals(Configuration, _initialCountConfiguration);
     private readonly Func<Item, long?> _counterTime;
     private readonly Func<DateTimeOffset> _clock;
     private readonly IGroupManager _groups;
@@ -20,6 +23,7 @@ public sealed class WiredModernCondition : WiredModernBox
             throw new ArgumentException("Unknown condition.", nameof(descriptor));
         }
 
+        _initialCountConfiguration = descriptor.CanonicalName == "wf_cnd_user_count_in" ? Configuration : null;
         _counterTime = counterTime;
         _clock = clock;
         _groups = groups;

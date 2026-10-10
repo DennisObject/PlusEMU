@@ -389,6 +389,30 @@ internal sealed partial class WiredStackEngine
         }
     }
 
+    internal FreshCardSnapshot? CaptureFreshCard(IWiredItem original, WiredNativeEditorConfiguration? request, Func<bool> canRead)
+    {
+        lock (_sync) {
+            if (!canRead() || !IsAttached(original)
+                || !WiredNativeEditorProjection.TryCaptureFreshCard(original, request, out var captured)
+                || captured == null || !canRead() || !IsAttached(original) || !captured.Matches()) {
+                return null;
+            }
+
+            return captured;
+        }
+    }
+
+    internal bool PublishFreshCard(FreshCardSnapshot captured, WiredConfiguration validated,
+        Func<bool> canModify, Action persist) => PublishConfigured(captured.Box, validated, () =>
+    {
+        if (!canModify() || captured.Request == null || !ReferenceEquals(validated.Origin?.Native, captured.Request)
+            || !IsAttached(captured.Box) || !captured.Matches()) {
+            throw new InvalidOperationException("The fresh native card request is no longer current.");
+        }
+
+        persist();
+    });
+
     internal FreshDirectionSnapshot? CaptureFreshDirection(IWiredItem original,
         WiredNativeEditorConfiguration? request, Func<bool> canRead)
     {
