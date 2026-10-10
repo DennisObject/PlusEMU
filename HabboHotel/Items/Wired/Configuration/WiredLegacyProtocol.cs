@@ -182,7 +182,7 @@ public static class WiredLegacyProtocol
         WriteInts(packet, metadata.FurniDefaults);
         WriteInts(packet, metadata.UserDefaults);
         packet.WriteBoolean(metadata.AllowWall);
-        // These six action cards have no variable/context inputs. Unknown card contexts are not fabricated.
+        // The supported local cards have no variable/context inputs. Unknown card contexts are not fabricated.
         packet.WriteInteger(0);
         WriteInts(packet, metadata.OwnedDefaults);
     }

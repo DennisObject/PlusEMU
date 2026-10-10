@@ -385,6 +385,31 @@ internal sealed partial class WiredStackEngine
         WiredConfiguration validated, Func<bool> canModify, Action persist) =>
         PublishPromotion(captured.Box, candidate, validated, persist, () => canModify() && captured.Matches());
 
+    internal LegacySaysSnapshot? CaptureLegacySays(IWiredItem original, Func<bool> canRead)
+    {
+        lock (_sync) {
+            if (!IsAttached(original) || !canRead()
+                || !WiredNativeEditorProjection.TryCaptureLegacySays(original, out var snapshot)
+                || snapshot == null || !canRead() || !IsAttached(original) || !snapshot.Matches()) {
+                return null;
+            }
+
+            return snapshot;
+        }
+    }
+
+    internal WiredNativeSaveAdmission AdmitLegacySays(LegacySaysSnapshot captured, Func<bool> canModify)
+    {
+        lock (_sync) {
+            return canModify() && IsAttached(captured.Box) && captured.Matches()
+                ? WiredNativeSaveAdmission.Changed : WiredNativeSaveAdmission.Refused;
+        }
+    }
+
+    internal bool PublishLegacySays(LegacySaysSnapshot captured, IWiredConfiguredItem candidate,
+        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
+        PublishPromotion(captured.Box, candidate, validated, persist, () => canModify() && captured.Matches());
+
     public WiredNativeSaveAdmission TryAdmitUnchangedNativeSave(IWiredConfiguredItem original,
         WiredNativeEditorConfiguration proposed, Func<bool> canModify)
     {

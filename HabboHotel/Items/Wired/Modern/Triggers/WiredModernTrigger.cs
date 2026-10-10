@@ -19,6 +19,19 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
     public IReadOnlyCollection<WiredEventKind> Events { get; }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
+        if (Descriptor.CanonicalName == "wf_trg_says_something") {
+            if (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)) {
+                validated = proposed;
+                error = "Invalid native Says authority.";
+
+                return false;
+            }
+
+            if (proposed.Origin!.Native != null) {
+                return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
+            }
+        }
+
         if (!WiredTriggerConfiguration.TryValidate(Descriptor.CanonicalName, proposed, out validated, out error)) {
             return false;
         }
@@ -30,6 +43,10 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
             error = "wiredfurni.error.require_antenna_furni";
 
             return false;
+        }
+
+        if (Descriptor.CanonicalName == "wf_trg_says_something") {
+            validated = WiredNativeEditorProjection.RebindLegacy(Item.Id, Descriptor, proposed, validated);
         }
 
         return true;

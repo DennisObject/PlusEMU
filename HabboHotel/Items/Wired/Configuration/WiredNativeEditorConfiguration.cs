@@ -44,6 +44,8 @@ public sealed record WiredNativeDormantLegacy
     public string? LegacyJoinTeam { get; init; }
     public bool? LegacyJoinBool { get; init; }
     public string? LegacyJoinItemsData { get; init; }
+    public bool? LegacySaysBool { get; init; }
+    public string? LegacySaysItemsData { get; init; }
     public int? GroupDirection { get; init; }
     public ImmutableDictionary<string, int> FurniSources { get; init; } = ImmutableDictionary<string, int>.Empty;
     public ImmutableDictionary<string, int> UserSources { get; init; } = ImmutableDictionary<string, int>.Empty;
@@ -82,6 +84,26 @@ internal sealed record LegacyJoinSnapshot(
         && ReferenceEquals(Room.GetRoomItemHandler().GetItem(Item.Id), Item) && !Item.IsTemporary
         && WiredLegacyEditorProjection.TryGetDescriptor(Box, out var current) && ReferenceEquals(current, Descriptor)
         && Box.StringData == TeamText && Box.BoolData == BoolData && Box.ItemsData == ItemsData
+        && ReferenceEquals(Box.SetItems, Dictionary) && Dictionary.Count == Picks.Length
+        && Picks.All(pick => Dictionary.TryGetValue(pick.Key, out var value) && ReferenceEquals(value, pick.Value)
+            && ReferenceEquals(Room.GetRoomItemHandler().GetItem(pick.Key), pick.Value)
+            && ReferenceEquals(pick.Value.GetRoom(), Room) && pick.Value.RoomId == Room.Id && !pick.Value.IsTemporary && pick.Value.IsFloorItem);
+}
+
+// Exact-empty concrete Says proof; no StoredLegacy authority is minted on editor open.
+internal sealed record LegacySaysSnapshot(
+    Plus.HabboHotel.Items.Wired.Boxes.Triggers.UserSaysBox Box, Item Item,
+    Plus.HabboHotel.Rooms.Room Room, ItemDefinition Definition, WiredBoxDescriptor Descriptor,
+    System.Collections.Concurrent.ConcurrentDictionary<uint, Item> Dictionary,
+    ImmutableArray<KeyValuePair<uint, Item>> Picks, bool BoolData, string ItemsData,
+    WiredNativeEditorConfiguration Native)
+{
+    internal bool Matches() => ReferenceEquals(Box.Item, Item) && ReferenceEquals(Box.Instance, Room)
+        && ReferenceEquals(Item.GetRoom(), Room) && Item.RoomId == Room.Id && ReferenceEquals(Item.Definition, Definition)
+        && ReferenceEquals(Room.GetRoomItemHandler().GetItem(Item.Id), Item) && !Item.IsTemporary
+        && Item.Definition.WiredType != WiredBoxType.TriggerUserSaysCommand
+        && WiredLegacyEditorProjection.TryGetDescriptor(Box, out var current) && ReferenceEquals(current, Descriptor)
+        && Box.StringData == "" && Box.BoolData == BoolData && Box.ItemsData == ItemsData
         && ReferenceEquals(Box.SetItems, Dictionary) && Dictionary.Count == Picks.Length
         && Picks.All(pick => Dictionary.TryGetValue(pick.Key, out var value) && ReferenceEquals(value, pick.Value)
             && ReferenceEquals(Room.GetRoomItemHandler().GetItem(pick.Key), pick.Value)

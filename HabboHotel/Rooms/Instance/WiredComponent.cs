@@ -235,6 +235,16 @@ public partial class WiredComponent : IWiredRuntimeOperations
         WiredConfiguration validated, Func<bool> canModify, Action persist) =>
         _engine.PublishLegacyJoin(captured, candidate, validated, canModify, persist);
 
+    internal LegacySaysSnapshot? CaptureLegacySays(IWiredItem original, Func<bool> canRead) =>
+        _engine.CaptureLegacySays(original, canRead);
+
+    internal WiredNativeSaveAdmission AdmitLegacySays(LegacySaysSnapshot captured, Func<bool> canModify) =>
+        _engine.AdmitLegacySays(captured, canModify);
+
+    internal bool PublishLegacySays(LegacySaysSnapshot captured, IWiredConfiguredItem candidate,
+        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
+        _engine.PublishLegacySays(captured, candidate, validated, canModify, persist);
+
     public WiredNativeSaveAdmission TryAdmitUnchangedNativeSave(IWiredConfiguredItem original,
         WiredNativeEditorConfiguration proposed, Func<bool> canModify) =>
         _engine.TryAdmitUnchangedNativeSave(original, proposed, canModify);

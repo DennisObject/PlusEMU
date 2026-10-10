@@ -66,6 +66,18 @@ public class InteractorWired : IFurniInteractor
             return;
         }
 
+        var legacySays = itemRoom.GetWired().CaptureLegacySays(box,
+            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
+                && itemRoom.GetWired().Settings.CanInspect(session));
+
+        if (legacySays != null) {
+            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
+                legacySays.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
+            { Native = legacySays.Native }));
+
+            return;
+        }
+
         // Unmapped legacy boxes keep executing. Their old editor body is not a canonical fallback.
         session.Send(new WiredValidationErrorComposer("This box has no supported native editor conversion."));
 

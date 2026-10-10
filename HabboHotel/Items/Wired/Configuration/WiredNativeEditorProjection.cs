@@ -58,10 +58,45 @@ public static class WiredNativeEditorProjection
         return true;
     }
 
-    public static bool Supports(string name) => Code(name) != 0;
+    internal static bool TryCaptureLegacySays(IWiredItem original, out LegacySaysSnapshot? snapshot)
+    {
+        snapshot = null;
+
+        if (original.GetType() != typeof(Plus.HabboHotel.Items.Wired.Boxes.Triggers.UserSaysBox)
+            || original is not Plus.HabboHotel.Items.Wired.Boxes.Triggers.UserSaysBox box
+            || !WiredLegacyEditorProjection.TryGetDescriptor(box, out var descriptor)
+            || descriptor.CanonicalName != "wf_trg_says_something" || box.StringData != ""
+            || box.ItemsData == null || box.ItemsData.Length > WiredConfigurationLimits.TextCharacters) {
+            return false;
+        }
+
+        var dictionary = box.SetItems;
+        var picks = dictionary.ToArray().ToImmutableArray();
+        var native = new WiredNativeEditorConfiguration
+        {
+            Category = WiredBoxCategory.Trigger,
+            NativeCode = 0,
+            OwnedIntParams = [box.BoolData ? 1 : 0, 0, 0],
+            PrimaryItems = picks.Select(pick => new WiredNativeItemReference(pick.Key, false)).ToImmutableArray(),
+            DormantLegacy = new() { LegacySaysBool = box.BoolData, LegacySaysItemsData = box.ItemsData }
+        };
+        var captured = new LegacySaysSnapshot(box, box.Item, box.Instance, box.Item.Definition, descriptor,
+            dictionary, picks, box.BoolData, box.ItemsData, native);
+
+        if (!WithinBounds(native) || !TryCompile(box.Item.Id, descriptor, native, out _) || !captured.Matches()) {
+            return false;
+        }
+
+        snapshot = captured;
+
+        return true;
+    }
+
+    public static bool Supports(string name) => name == "wf_trg_says_something" || Code(name) != 0;
 
     public static int Code(string name) => name switch
     {
+        "wf_trg_says_something" => 0,
         "wf_act_control_clock" => 28,
         "wf_act_join_team" => 9,
         "wf_act_give_score" => 6,
@@ -73,6 +108,9 @@ public static class WiredNativeEditorProjection
 
     public static WiredNativeEditorMetadata Metadata(string name) => name switch
     {
+        // Says borrows the Sept9 reset defaults; remaining footer fields advertise local support.
+        // No Sept16 server metadata oracle is claimed.
+        "wf_trg_says_something" => new([], [], [], [], [0, 0, 1], false),
         "wf_act_control_clock" => new([[0, 100, 200, 201]], [], [100], [], [0], false),
         "wf_act_join_team" => new([], [[0, 200, 201]], [], [0], [1, 0], false),
         "wf_act_give_score" => new([], [[0, 200, 201]], [], [0], [5, 0], false),
@@ -113,6 +151,14 @@ public static class WiredNativeEditorProjection
         int? quota = null;
 
         switch (name) {
+            case "wf_trg_says_something":
+                if (p.Length != 3 || p[0] is < 0 or > 1 || p[1] is < 0 or > 2 || p[2] is < 0 or > 1
+                    || native.Text.Length > 1000) {
+                    return false;
+                }
+
+                parameters = [p[1], p[2], p[0]];
+                break;
             case "wf_act_control_clock":
                 if (p.Length != 1 || p[0] is < 0 or > 4) {
                     return false;
@@ -182,7 +228,7 @@ public static class WiredNativeEditorProjection
             VariableIds = native.VariableIds,
             FurniSources = furni.ToImmutable(),
             UserSources = users.ToImmutable(),
-            Delay = native.Delay!.Value,
+            Delay = native.Delay ?? 0,
             ScoreQuotaPerGame = quota,
             Snapshots = native.SavedState.Snapshots
         };
@@ -305,7 +351,7 @@ public static class WiredNativeEditorProjection
                 OwnedIntParams = metadata.OwnedDefaults,
                 FurniSourceTypes = metadata.FurniDefaults,
                 UserSourceTypes = metadata.UserDefaults,
-                Delay = 0
+                Delay = descriptor.Category == WiredBoxCategory.Action ? 0 : null
             };
 
             return true;
@@ -327,6 +373,10 @@ public static class WiredNativeEditorProjection
         ImmutableArray<int> users = [];
 
         switch (name) {
+            case "wf_trg_says_something" when p.Length == 3 && runtime.Delay == 0 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                owned = [p[2], p[0], p[1]];
+                break;
             case "wf_act_control_clock" when p.Length == 2:
                 owned = [p[0]];
                 furni = [p[1]];
@@ -380,7 +430,7 @@ public static class WiredNativeEditorProjection
             FurniSourceTypes = furni,
             UserSourceTypes = users,
             VariableIds = runtime.VariableIds,
-            Delay = runtime.Delay,
+            Delay = descriptor.Category == WiredBoxCategory.Action ? runtime.Delay : null,
             SavedState = new() { Snapshots = runtime.Snapshots },
             DormantLegacy = new()
             {

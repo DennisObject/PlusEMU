@@ -84,6 +84,15 @@ public sealed class WiredConfigurationService(
                 var proof = room.GetWired().CaptureLegacyJoin(box,
                     () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
 
+                var saysProof = room.GetWired().CaptureLegacySays(box,
+                    () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
+
+                if (saysProof != null) {
+                    SaveLegacySays(session, saysProof, legacyNative);
+
+                    return;
+                }
+
                 if (proof != null) {
                     SaveLegacyJoin(session, proof, legacyNative);
 
@@ -150,6 +159,28 @@ public sealed class WiredConfigurationService(
             logger.LogWarning(error, "Failed to save Wired settings in room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
+    }
+
+    private void SaveLegacySays(GameClient session, LegacySaysSnapshot proof, WiredNativeEditorConfiguration request)
+    {
+        var wired = proof.Room.GetWired();
+        bool CanModify() => ReferenceEquals(session.GetHabbo().CurrentRoom, proof.Room) && wired.Settings.CanModify(session);
+        var native = request with { NativeCode = 0, SavedState = proof.Native.SavedState, DormantLegacy = proof.Native.DormantLegacy };
+        var error = "The captured legacy Says settings cannot be saved.";
+        var candidate = wired.CreateConfiguredBox(proof.Item, proof.Descriptor);
+
+        if (wired.AdmitLegacySays(proof, CanModify) == WiredNativeSaveAdmission.Refused || candidate == null
+            || !WiredNativeEditorProjection.TryCompile(proof.Item.Id, proof.Descriptor, native, out var runtime)
+            || !WiredConfigurationSave.TrySave(candidate, runtime, store, out error,
+                id => proof.Room.GetRoomItemHandler().GetItem(id) != null,
+                (detached, validated, persist) => wired.PublishLegacySays(proof, detached, validated, CanModify, persist),
+                isTemporaryInRoom: id => proof.Room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
+            session.Send(new WiredValidationErrorComposer(error));
+
+            return;
+        }
+
+        session.Send(new HideWiredConfigComposer());
     }
 
     private void SaveLegacyJoin(GameClient session, LegacyJoinSnapshot proof, WiredNativeEditorConfiguration request)
