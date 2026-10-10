@@ -6,11 +6,12 @@ using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
+using Plus.HabboHotel.Users;
 using Plus.Utilities;
 
 namespace Plus.HabboHotel.Moderation;
 
-public sealed record SubmitTicketRequest(string Message, int Category, int ReportedUserId, int Type, ImmutableArray<string> Chats);
+public sealed record SubmitTicketRequest(string Message, int Category, int ReportedUserId, int ReportedRoomId, ImmutableArray<string> Chats);
 public sealed record ModeratorTicketSnapshot(int Id, ModerationTicketStatus Status, int Type, int Category, int AgeMilliseconds,
     int Priority, int SenderId, string SenderName, int ReportedId, string ReportedName, int ModeratorId, string ModeratorName,
     string Issue, uint RoomId, DateTimeOffset CreatedAt);
@@ -84,14 +85,36 @@ public sealed class ModeratorTicketService(IModerationManager moderation, IGameC
                 }
             }
 
-            var reported = users.GetById(request.ReportedUserId);
+            Habbo? reported;
+            RoomData? room = null;
+            int type;
 
-            if (reported == null) {
-                return;
+            // Selected sources only: 7 is a room report and 1 is a user report.
+            if (request.ReportedUserId == -1) {
+                if (request.ReportedRoomId <= 0 || !rooms.TryGetData((uint)request.ReportedRoomId, out var loaded)) {
+                    return;
+                }
+
+                reported = null;
+                room = loaded;
+                type = 7;
+            }
+            else {
+                reported = users.GetById(request.ReportedUserId);
+
+                if (reported == null) {
+                    return;
+                }
+
+                type = 1;
+
+                if (request.ReportedRoomId > 0 && rooms.TryGetData((uint)request.ReportedRoomId, out var loaded)) {
+                    room = loaded;
+                }
             }
 
-            var ticket = new ModerationTicket(1, request.Type, request.Category, clock.GetUtcNow(), 1, sender, reported,
-                StringCharFilter.Escape(request.Message.Trim()), sender.CurrentRoom?.Data, request.Chats.ToList());
+            var ticket = new ModerationTicket(1, type, request.Category, clock.GetUtcNow(), 1, sender, reported,
+                StringCharFilter.Escape(request.Message.Trim()), room, request.Chats.ToList());
             store.RecordSubmission(sender.Id);
 
             if (!moderation.TryAddTicket(ticket)) {
