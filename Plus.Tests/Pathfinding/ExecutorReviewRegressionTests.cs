@@ -238,6 +238,7 @@ public partial class PlacedFurniRoomTests
         var sent = _client.Packets.Last(packet => packet.Header == ServerPacketHeader.UserUpdateComposer);
         var packet = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
         var count = packet.ReadInt();
+        (int Head, int Body)? facing = null;
 
         for (var index = 0; index < count; index++) {
             var id = packet.ReadInt();
@@ -246,14 +247,21 @@ public partial class PlacedFurniRoomTests
             packet.ReadString();
             var head = packet.ReadInt();
             var body = packet.ReadInt();
+            Assert.Equal(0, packet.ReadInt());
             packet.ReadString();
 
             if (id == actor.VirtualId) {
-                return (head, body);
+                facing = (head, body);
             }
         }
 
-        throw new InvalidOperationException("actor packet missing");
+        Assert.False(packet.HasDataRemaining());
+
+        if (facing == null) {
+            throw new InvalidOperationException("actor packet missing");
+        }
+
+        return facing.Value;
     }
 
     private void ReviewAssertMapMembership(RoomUser actor, Point? registered)

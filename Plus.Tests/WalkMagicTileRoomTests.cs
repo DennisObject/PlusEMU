@@ -390,7 +390,9 @@ public partial class PlacedFurniRoomTests
         status.ReadString();
         status.ReadInt();
         status.ReadInt();
+        Assert.Equal(0, status.ReadInt());
         Assert.Contains("/mv 1,1,0.75/", status.ReadString());
+        Assert.False(status.HasDataRemaining());
     }
 
     [Fact]
