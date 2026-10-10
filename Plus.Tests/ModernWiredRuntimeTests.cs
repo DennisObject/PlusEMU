@@ -932,59 +932,60 @@ public class ModernWiredRuntimeTests
     [InlineData(3, 0, 0)] // Left 45.
     [InlineData(4, 0, 1)] // Left 90.
     [InlineData(5, 1, 2)] // Turn back.
-    public void MoveToDirectionExecutesCurrentEditorTurnChoices(int choice, int x, int y)
+    public async Task MoveToDirectionExecutesCurrentEditorTurnChoices(int choice, int x, int y)
     {
-        var (room, map, items) = World();
-        var item = MakeItem(8, "test");
-        item.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
-        items[item.Id] = item;
-        map.AddToMap(item);
-        map.Model.SqState[1, 0] = SquareState.Blocked;
-        var action = ActionBox(room, "wf_act_move_to_dir");
-        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket([0, choice, 100, 0], [item.Id], 0), TestWiredConfigurationStore.Instance, out var error), error);
-        var editor = EditorFields(WiredEditorSnapshot.Capture(action), 13);
-        Assert.Equal(new[] { 0, choice, 100, 0 }, editor.Ints);
-        var context = Context(room, new(WiredEventKind.Use), [item], []);
+        var f = new MovementOracleSession("wf_act_move_to_dir");
+        var item = f.Items[8];
+        f.Map.Model.SqState[1, 0] = SquareState.Blocked;
+        await f.Save([0, choice, 0], [8]);
+        var action = f.Action;
+        var editor = f.Open();
+        AssertMovementOracleReply(editor, true, [0, choice, 0], [8], 0);
+        var context = Context(f.Room, new(WiredEventKind.Use), [item], []);
         context.Policy.Addons.DisableAnimation = true;
 
         Assert.Equal(choice != 0, action.Execute(context));
 
         Assert.Equal(new Point(x, y), item.Coordinate);
         Assert.Equal(0, item.Rotation);
-        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out error), error);
-        Assert.Equal(new[] { 0, choice, 100, 0 }, action.Configuration.IntParams);
+        var before = action.Configuration;
+        var writes = f.Store.Saves.Count;
+        var published = f.Published;
+        var pending = f.SeedPending();
+        f.Client.Packets.Clear();
+        await f.Save(editor.Owned, editor.Primary, editor.Delay);
+        f.AssertNoop(before, writes, published, pending);
+        Assert.Equal(new[] { 0, choice, 100, 0 }, action.Configuration.IntParams.ToArray());
     }
 
     [Fact]
-    public void MoveToDirectionRandomRetriesEightBlockedAttempts()
+    public async Task MoveToDirectionRandomRetriesEightBlockedAttempts()
     {
-        var (room, map, items) = World();
-        var item = MakeItem(8, "test");
-        item.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
-        items[item.Id] = item;
-        map.AddToMap(item);
+        var f = new MovementOracleSession("wf_act_move_to_dir");
+        var item = f.Items[8];
         var users = new List<RoomUser>();
 
         for (var direction = 0; direction < 8; direction++) {
             var offset = WiredRoomOperations.Offset(direction);
-            var user = new RoomUser(direction + 1, 0, direction + 20, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
+            var user = new RoomUser(direction + 1, f.Room.Id, direction + 20, f.Room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
             user.SetPos(1 + offset.X, 1 + offset.Y, 0);
-            RoomUsers(room)[user.VirtualId] = user;
-            map.AddUserToMap(user, user.Coordinate);
+            RoomUsers(f.Room)[user.VirtualId] = user;
+            f.Map.AddUserToMap(user, user.Coordinate);
             users.Add(user);
         }
 
+        await f.Save([0, 6, 1], [8]);
+        AssertMovementOracleReply(f.Open(), true, [0, 6, 1], [8], 0);
         var collisions = 0;
-        var action = ActionBox(room, "wf_act_move_to_dir", publish: e =>
-        {
-            if (e.Kind == WiredEventKind.Collision) {
-                collisions++;
-            }
-        });
-        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket([0, 6, 100, 1], [item.Id], 0), TestWiredConfigurationStore.Instance, out var error), error);
-        Assert.Equal(new[] { 0, 6, 100, 1 }, EditorFields(WiredEditorSnapshot.Capture(action), 13).Ints);
+        typeof(WiredModernAction).GetField("_publish", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(f.Action,
+            (Action<WiredRuntimeEvent>)(e =>
+            {
+                if (e.Kind == WiredEventKind.Collision) {
+                    collisions++;
+                }
+            }));
 
-        Assert.False(action.Execute(Context(room, new(WiredEventKind.Use), [item], users.ToArray())));
+        Assert.False(f.Action.Execute(Context(f.Room, new(WiredEventKind.Use), [item], users.ToArray())));
 
         Assert.Equal(8, collisions);
         Assert.Equal(new Point(1, 1), item.Coordinate);
@@ -1526,58 +1527,81 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
-    public void MoveRotateEditorReopensEveryCurrentChoiceAndUnchangedResaveKeepsSettings()
+    public async Task MoveRotateEditorReopensEveryCurrentChoiceAndUnchangedResaveKeepsSettings()
     {
-        // AIR order: 0 none, 1 random, 2 horizontal, 3 vertical, then N E S W NE SE SW NW; turns none, cw, ccw, random.
         int[] storedDirection = [-1, 8, 9, 10, 0, 2, 4, 6, 1, 3, 5, 7];
         int[] storedTurn = [0, 2, 4, 6];
         Point[] compass = [new(0, -1), new(1, 0), new(0, 1), new(-1, 0), new(1, -1), new(1, 1), new(-1, 1), new(-1, -1)];
-        var (room, _, _) = World();
 
         for (var movement = 0; movement <= 11; movement++) {
             for (var rotation = 0; rotation <= 3; rotation++) {
-                var box = ActionBox(room, "wf_act_move_rotate");
-                Assert.True(WiredConfigurationSave.TrySave(box, SavePacket([movement, rotation, 100], [8, 9], 4), TestWiredConfigurationStore.Instance, out var error), error);
-                var saved = box.Configuration;
-                Assert.Equal(new[] { storedDirection[movement], storedTurn[rotation], 100, 0 }, saved.IntParams);
+                var f = new MovementOracleSession("wf_act_move_rotate");
+                await f.Save([movement, rotation], [8, 9], 4);
+                var saved = f.Action.Configuration;
+                Assert.Equal(new[] { storedDirection[movement], storedTurn[rotation], 100, 0 }, saved.IntParams.ToArray());
 
                 if (movement >= 4) {
                     Assert.Equal(compass[movement - 4], WiredRoomOperations.Offset(saved.IntParams[0]));
                 }
 
-                var editor = EditorFields(WiredEditorSnapshot.Capture(box));
-                Assert.Equal(new[] { movement, rotation, 100 }, editor.Ints);
-                Assert.Equal(new uint[] { 8, 9 }, editor.Selected);
-                Assert.Equal(4, editor.Delay);
-                Assert.Same(saved, box.Configuration);
-
-                Assert.True(WiredConfigurationSave.TrySave(box, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out error), error);
-                Assert.Equal(saved.IntParams.AsEnumerable(), box.Configuration.IntParams);
-                Assert.Equal(saved.SelectedItems.AsEnumerable(), box.Configuration.SelectedItems);
-                Assert.Equal(saved.FurniSources, box.Configuration.FurniSources);
-                Assert.Equal(saved.Delay, box.Configuration.Delay);
+                var editor = f.Open();
+                AssertMovementOracleReply(editor, false, [movement, rotation], [8, 9], 4);
+                Assert.Same(saved, f.Action.Configuration);
+                var writes = f.Store.Saves.Count;
+                var published = f.Published;
+                var pending = f.SeedPending();
+                f.Client.Packets.Clear();
+                await f.Save(editor.Owned, editor.Primary, editor.Delay);
+                f.AssertNoop(saved, writes, published, pending);
+                Assert.Equal(saved.IntParams.AsEnumerable(), f.Action.Configuration.IntParams);
+                Assert.Equal(saved.SelectedItems.AsEnumerable(), f.Action.Configuration.SelectedItems);
+                Assert.Equal(saved.FurniSources, f.Action.Configuration.FurniSources);
+                Assert.Equal(saved.Delay, f.Action.Configuration.Delay);
             }
         }
     }
 
     [Fact]
-    public void LegacyMoveRotateBoxReopensInCurrentEditorOrderAndResavesTheSameMove()
+    public async Task LegacyMoveRotateBoxReopensInCurrentEditorOrderAndResavesTheSameMove()
     {
-        var (room, _, _) = World();
-
+        // The historical conversion oracle is superseded: nonempty concrete state refuses native editing.
         for (var movement = 0; movement <= 7; movement++) {
             for (var rotation = 0; rotation <= 3; rotation++) {
-                var legacy = new MoveAndRotateBox(null!, MakeItem(7, "wf_act_move_rotate")) { StringData = $"{movement};{rotation}", Delay = 3 };
-                legacy.SetItems.TryAdd(8, MakeItem(8, "test"));
-                Assert.True(WiredLegacyEditorProjection.TryGetConfiguration(legacy, out var descriptor, out var stored));
-                var editor = EditorFields(WiredEditorSnapshot.Capture(legacy.Item, descriptor, stored));
-                Assert.Equal(3, editor.Ints.Length);
-
-                var box = ActionBox(room, "wf_act_move_rotate");
-                Assert.True(WiredConfigurationSave.TrySave(box, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out var error), error);
-                Assert.Equal(stored.IntParams.AsEnumerable(), box.Configuration.IntParams);
-                Assert.Equal(new uint[] { 8 }, box.Configuration.SelectedItems);
-                Assert.Equal(3, box.Configuration.Delay);
+                var f = new MovementOracleSession("wf_act_move_rotate");
+                var legacy = Assert.IsType<MoveAndRotateBox>(f.Box);
+                legacy.StringData = $"{movement};{rotation}";
+                legacy.BoolData = true;
+                legacy.ItemsData = "original legacy bytes";
+                legacy.Delay = 3;
+                legacy.SetItems[8] = f.Items[8];
+                var picks = legacy.SetItems;
+                legacy.Item.Interactor.OnTrigger(f.Client, legacy.Item, 0, true);
+                Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer);
+                f.Client.Packets.Clear();
+                await f.Save([5, 1], [8], 3);
+                Assert.Empty(f.Store.Saves);
+                Assert.Equal(0, f.Published);
+                Assert.Same(legacy, f.Box);
+                Assert.Equal($"{movement};{rotation}", legacy.StringData);
+                Assert.True(legacy.BoolData);
+                Assert.Equal("original legacy bytes", legacy.ItemsData);
+                Assert.Equal(3, legacy.Delay);
+                Assert.Same(picks, legacy.SetItems);
+                Assert.Same(f.Items[8], Assert.Single(legacy.SetItems).Value);
+                Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
+                Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer);
+                Assert.True(legacy.Execute());
+                var position = f.Items[8].Coordinate;
+                var offsets = movement switch
+                {
+                    0 => new[] { Point.Empty },
+                    1 => new[] { new Point(0, -1), new(1, 0), new(0, 1), new(-1, 0) },
+                    2 => new[] { new Point(-1, 0), new(1, 0) },
+                    3 => new[] { new Point(0, -1), new(0, 1) },
+                    _ => new[] { WiredRoomOperations.Offset(new[] { 0, 2, 4, 6 }[movement - 4]) }
+                };
+                Assert.Contains(new Point(position.X - 1, position.Y - 1), offsets);
+                Assert.Contains(f.Items[8].Rotation, rotation switch { 0 => new[] { 0 }, 1 => [2], 2 => [6], _ => [2, 6] });
             }
         }
     }
@@ -1633,37 +1657,74 @@ public class ModernWiredRuntimeTests
         }
     }
 
-    [Fact]
-    public void FreshMoveRotateOpensAsNoMovementAndKeepsThatOnUnchangedSave()
+    [WiredChestDatabaseFact]
+    public async Task FreshMoveRotateOpensAsNoMovementAndKeepsThatOnUnchangedSave()
     {
-        var (room, _, _) = World();
-        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
-        var box = Assert.IsType<WiredModernAction>(wired.CreateConfiguredBox(MakeItem(100, "wf_act_move_rotate")));
-        Assert.Equal(new[] { -1, 0, 100, 0 }, box.Configuration.IntParams);
-        var editor = EditorFields(WiredEditorSnapshot.Capture(box));
-        Assert.Equal(new[] { 0, 0, 100 }, editor.Ints);
-        Assert.True(WiredConfigurationSave.TrySave(box, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out var error), error);
-        Assert.Equal(new[] { -1, 0, 100, 0 }, box.Configuration.IntParams);
+        using var db = new WiredChestDatabaseTests.Fixture();
+        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
+        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
+        var durable = new WiredConfigurationStore(db.Database);
+        var f = new MovementOracleSession("wf_act_move_rotate", durable);
+        var original = Assert.IsType<MoveAndRotateBox>(f.Box);
+        var editor = f.Open();
+        AssertMovementOracleReply(editor, false, [0, 0], [], 0);
+        Assert.Same(original, f.Box);
+        Assert.Empty(f.Store.Saves);
+        Assert.Equal(0, db.Connection.QuerySingle<int>("SELECT COUNT(*) FROM wired_item_configurations"));
+        f.Store.AfterDurableSave = () =>
+        {
+            Assert.Same(original, f.Box);
+            Assert.Equal(2, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
+        };
+        await f.Save(editor.Owned, editor.Primary, editor.Delay);
+        f.Store.AfterDurableSave = null;
+        Assert.Single(f.Store.Saves);
+        Assert.NotSame(original, f.Box);
+        Assert.Equal(new[] { -1, 0, 100, 0 }, f.Action.Configuration.IntParams.ToArray());
+        Assert.Equal(2, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
+        var raw = db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100");
+        Assert.True(f.Wired.TryRemove(100));
+        Assert.IsType<WiredModernAction>(f.Wired.LoadWiredBox(original.Item));
+        var reloaded = f.Action.Configuration;
+        Assert.Equal(new[] { -1, 0, 100, 0 }, reloaded.IntParams.ToArray());
+        var published = f.Published;
+        var pending = f.SeedPending();
+        f.Client.Packets.Clear();
+        await f.Save([0, 0]);
+        f.AssertNoop(reloaded, 1, published, pending);
+        Assert.Equal(raw, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
+        Assert.False(f.Action.Execute(Context(f.Room, new(WiredEventKind.Use), [], [])));
     }
 
-    [Theory]
+    [WiredChestDatabaseTheory]
     [InlineData(6, -1, 4, 0, 6, 0)]
     [InlineData(-1, -1, -1, 0, 0, 0)]
     [InlineData(0, 2, -1, 4, 0, 2)]
     [InlineData(4, 3, 0, 6, 4, 3)]
-    public void SavedThreeFieldRowsLoadAsTheSameMoveAndReopenInEditorOrder(int movement, int rotation, int direction, int turn, int shownMovement, int shownRotation)
+    public async Task SavedThreeFieldRowsLoadAsTheSameMoveAndReopenInEditorOrder(int movement, int rotation, int direction, int turn, int shownMovement, int shownRotation)
     {
-        var (room, _, _) = World();
-        var box = ActionBox(room, "wf_act_move_rotate");
-        Assert.Same(box, WiredBoxLoading.Select(null, box, new() { IntParams = [movement, rotation, 100], SelectedItems = [8], Delay = 2 }));
-        var loaded = box.Configuration;
-        Assert.Equal(new[] { direction, turn, 100, 0 }, loaded.IntParams);
-        var editor = EditorFields(WiredEditorSnapshot.Capture(box));
-        Assert.Equal(new[] { shownMovement, shownRotation, 100 }, editor.Ints);
-        Assert.True(WiredConfigurationSave.TrySave(box, SavePacket(editor.Ints, editor.Selected, editor.Delay), TestWiredConfigurationStore.Instance, out var error), error);
-        Assert.Equal(loaded.IntParams.AsEnumerable(), box.Configuration.IntParams);
-        Assert.Equal(new uint[] { 8 }, box.Configuration.SelectedItems);
-        Assert.Equal(2, box.Configuration.Delay);
+        using var db = new WiredChestDatabaseTests.Fixture();
+        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
+        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
+        var original = new WiredConfiguration { IntParams = [movement, rotation, 100], SelectedItems = [8], Delay = 2 };
+        var raw = System.Text.Json.JsonSerializer.Serialize(original);
+        db.Connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES(100,'wf_act_move_rotate',1,@Raw)", new { Raw = raw });
+        var f = new MovementOracleSession("wf_act_move_rotate", new WiredConfigurationStore(db.Database));
+        var loaded = f.Action.Configuration;
+        Assert.Equal(new[] { direction, turn, 100, 0 }, loaded.IntParams.ToArray());
+        Assert.Equal(original.IntParams.ToArray(), loaded.Origin!.StoredLegacy!.IntParams.ToArray());
+        var editor = f.Open();
+        AssertMovementOracleReply(editor, false, [shownMovement, shownRotation], [8], 2);
+        var pending = f.SeedPending();
+        var published = f.Published;
+        f.Client.Packets.Clear();
+        await f.Save(editor.Owned, editor.Primary, editor.Delay);
+        f.AssertNoop(loaded, 0, published, pending);
+        Assert.Equal(loaded.IntParams.AsEnumerable(), f.Action.Configuration.IntParams);
+        Assert.Equal(new uint[] { 8 }, f.Action.Configuration.SelectedItems.ToArray());
+        Assert.Equal(2, f.Action.Configuration.Delay);
+        Assert.Equal(raw, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
+        Assert.Equal(1, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
     }
 
     [Theory]
@@ -1677,20 +1738,34 @@ public class ModernWiredRuntimeTests
     [InlineData(new[] { 0, 4, 100 })]
     [InlineData(new[] { 0, -2, 100 })]
     [InlineData(new[] { 0, 0 })]
-    public void MoveRotateRejectsSettingsTheEditorCannotShow(int[] ints)
+    public async Task MoveRotateRejectsSettingsTheEditorCannotShow(int[] ints)
     {
-        var (room, _, _) = World();
-        var box = ActionBox(room, "wf_act_move_rotate");
-        Assert.True(WiredConfigurationSave.TrySave(box, SavePacket([5, 1, 100], [8], 0), TestWiredConfigurationStore.Instance, out var error), error);
-        var saved = box.Configuration;
-        Assert.False(WiredConfigurationSave.TrySave(box, SavePacket(ints, [8], 0), TestWiredConfigurationStore.Instance, out _));
-        Assert.Same(saved, box.Configuration);
-        Assert.Equal(new[] { 5, 1, 100 }, EditorFields(WiredEditorSnapshot.Capture(box)).Ints);
-        // A stored row like this fails to load as any invalid row does, and never runs.
-        var stored = saved with { IntParams = [.. ints] };
-        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, ActionBox(room, "wf_act_move_rotate"), stored));
-        Assert.False(new WiredMovementActions().Execute("wf_act_move_rotate", stored, [MakeItem(1, "test")], [], [],
+        var f = new MovementOracleSession("wf_act_move_rotate");
+        await f.Save([5, 1], [8]);
+        var saved = f.Action.Configuration;
+        var pending = f.SeedPending();
+        var published = f.Published;
+        var rawRow = f.Store.Rows[100];
+        var invalidLegacy = new WiredConfiguration { IntParams = [.. ints], SelectedItems = [8] };
+        var stored = new WiredConfigurationStore(new StoredRuntimeRowsDatabase([new(100, "wf_act_move_rotate", 1,
+            System.Text.Json.JsonSerializer.Serialize(invalidLegacy))])).Load(100, f.Action.Descriptor);
+        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, ActionBox(f.Room, "wf_act_move_rotate"), stored));
+        Assert.False(new WiredMovementActions().Execute("wf_act_move_rotate", invalidLegacy, [f.Items[8]], [], [],
             (_, _, _, _, _) => throw new Exception(), (_, _, _, _, _) => throw new Exception(), (_, _) => throw new Exception()));
+
+        // Old [0,0] remains an invalid V1 row but is VALID native owned data, covered separately.
+        if (ints.Length != 2) {
+            f.Client.Packets.Clear();
+            await f.Save(ints, [8]);
+            Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
+        }
+
+        Assert.Same(saved, f.Action.Configuration);
+        Assert.Equal(1, f.Store.Saves.Count);
+        Assert.Equal(rawRow, f.Store.Rows[100]);
+        Assert.Equal(published, f.Published);
+        Assert.Equal(pending, f.Engine.ReadStats().Pending);
+        AssertMovementOracleReply(f.Open(), false, [5, 1], [8], 0);
     }
 
     [Fact]
@@ -1810,6 +1885,377 @@ public class ModernWiredRuntimeTests
         Assert.Equal(json, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
         Assert.Equal(name, db.Connection.QuerySingle<string>("SELECT box_name FROM wired_item_configurations WHERE item_id=100"));
         Assert.Equal(1, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
+    }
+
+    private sealed record MovementOracleReply(int Limit, int[] Primary, int[] Secondary, int Sprite, uint ItemId,
+        string Text, int[] Owned, string[] Variables, int[] Furni, int[] Users, int Code, int Delay,
+        bool HasMetadata, int[][] FurniAllowed, int[][] UsersAllowed, int[] FurniDefaults, int[] UserDefaults,
+        bool AllowWall, int ContextCount, int[] OwnedDefaults);
+
+    private static MovementOracleReply DecodeMovementOracleReply(byte[] body)
+    {
+        var packet = new FlashIncomingPacket { Buffer = body };
+        var limit = packet.ReadInt();
+        var primary = Ints();
+        var secondary = Ints();
+        var sprite = packet.ReadInt();
+        var id = packet.ReadUInt();
+        var text = packet.ReadString();
+        var owned = Ints();
+        var variables = Enumerable.Range(0, Count()).Select(_ => packet.ReadString()).ToArray();
+        var furni = Ints();
+        var users = Ints();
+        var code = packet.ReadInt();
+        var delay = packet.ReadInt();
+        var metadata = packet.ReadBool();
+        Assert.True(metadata);
+        var furniAllowed = Groups();
+        var usersAllowed = Groups();
+        var furniDefaults = Ints();
+        var userDefaults = Ints();
+        var wall = packet.ReadBool();
+        var contexts = packet.ReadInt();
+        // These two bounded cards expose no context records; unknown contexts are never invented.
+        Assert.Equal(0, contexts);
+        var defaults = Ints();
+        Assert.False(packet.HasDataRemaining());
+
+        return new(limit, primary, secondary, sprite, id, text, owned, variables, furni, users, code, delay,
+            metadata, furniAllowed, usersAllowed, furniDefaults, userDefaults, wall, contexts, defaults);
+
+        int Count()
+        {
+            var count = packet.ReadInt();
+            Assert.InRange(count, 0, 100);
+
+            return count;
+        }
+        int[] Ints() => Enumerable.Range(0, Count()).Select(_ => packet.ReadInt()).ToArray();
+        int[][] Groups() => Enumerable.Range(0, Count()).Select(_ => Ints()).ToArray();
+    }
+
+    private static void AssertMovementOracleReply(MovementOracleReply reply, bool direction, int[] owned, int[] picks, int delay)
+    {
+        Assert.Equal(100, reply.Limit);
+        Assert.Equal(picks, reply.Primary);
+        Assert.Empty(reply.Secondary);
+        Assert.Equal(0, reply.Sprite);
+        Assert.Equal(100u, reply.ItemId);
+        Assert.Equal("", reply.Text);
+        Assert.Equal(owned, reply.Owned);
+        Assert.Empty(reply.Variables);
+        Assert.Equal(new[] { 100 }, reply.Furni);
+        Assert.Empty(reply.Users);
+        Assert.Equal(direction ? 13 : 4, reply.Code);
+        Assert.Equal(delay, reply.Delay);
+        Assert.True(reply.HasMetadata);
+        Assert.Equal(new[] { 0, 100, 200, 201 }, Assert.Single(reply.FurniAllowed));
+        Assert.Empty(reply.UsersAllowed);
+        Assert.Equal(new[] { 100 }, reply.FurniDefaults);
+        Assert.Empty(reply.UserDefaults);
+        Assert.False(reply.AllowWall);
+        Assert.Equal(0, reply.ContextCount);
+        // Rotate's two-field/default/wall footer is the explicitly supported LOCAL subset.
+        Assert.Equal(direction ? new[] { 0, 0, 1 } : new[] { 0, 0 }, reply.OwnedDefaults);
+    }
+
+    private sealed class MovementOracleClient : GameClient
+    {
+        public List<(uint Header, byte[] Body)> Packets { get; } = [];
+        public MovementOracleClient() : base(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient)
+        {
+            Revision = new Revision
+            {
+                InternalIdToOutgoingIdMapping = typeof(ServerPacketHeader).GetFields()
+                    .Where(field => field.IsLiteral && field.FieldType == typeof(uint))
+                    .Select(field => (uint)field.GetRawConstantValue()!).Distinct().ToDictionary(id => id)
+            };
+            SendCallback = _ => false;
+        }
+        internal override (bool Complete, bool Malformed, uint MessageId, int HeaderLength, int Length) GetMessageIdAndPacketLength(ReadOnlyMemory<byte> buffer) =>
+            (true, false, 0, 0, 0);
+        public override void CreateHeader(Memory<byte> memory, uint messageId)
+        {
+            FlashGameClient.EncodeInt32(memory, memory.Length - 4, 0);
+            FlashGameClient.EncodeInt16(memory, (short)messageId, 4);
+            Packets.Add((messageId, memory[6..].ToArray()));
+        }
+    }
+
+    private sealed class MovementOracleStore(IWiredConfigurationStore? durable = null) : IWiredConfigurationStore
+    {
+        public readonly Dictionary<uint, StoredRuntimeRow> Rows = [];
+        public readonly List<WiredConfiguration> Saves = [];
+        public Action? AfterDurableSave;
+        public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor) => durable != null
+            ? durable.Load(id, descriptor) : new WiredConfigurationStore(new StoredRuntimeRowsDatabase(Rows.Values)).Load(id, descriptor);
+        public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration)
+        {
+            durable?.Save(id, descriptor, configuration);
+            AfterDurableSave?.Invoke();
+            Saves.Add(configuration);
+            var native = configuration.Origin!.Native!;
+            Rows[id] = new(id, descriptor.CanonicalName, 2, System.Text.Json.JsonSerializer.Serialize(native));
+        }
+        public void Reset(IReadOnlyCollection<uint> ids) => throw new InvalidOperationException("Unexpected editor reset.");
+    }
+
+    private sealed class MovementOracleLegacyDatabase : IDatabase
+    {
+        public bool IsConnected() => true;
+        public IDbConnection Connection()
+        {
+            var connection = DispatchProxy.Create<IDbConnection, RecordingProxy>();
+            ((RecordingProxy)(object)connection).InvokeMethod = (method, _) => method.Name switch
+            {
+                "get_State" => ConnectionState.Open,
+                "get_ConnectionString" => "empty-persisted-legacy-editor-fixture",
+                "Dispose" or "Close" => null,
+                "CreateCommand" => Command(),
+                _ => throw new NotSupportedException(method.Name)
+            };
+
+            return connection;
+        }
+        private static IDbCommand Command()
+        {
+            var parameters = new MySqlCommand().Parameters;
+            var command = DispatchProxy.Create<IDbCommand, RecordingProxy>();
+            ((RecordingProxy)(object)command).InvokeMethod = (method, args) =>
+            {
+                switch (method.Name) {
+                    case "set_CommandText":
+                        Assert.Equal("SELECT items,delay,`string` AS StringData,`bool` AS BoolData FROM wired_items WHERE id=@id LIMIT 1", args![0]);
+
+                        return null;
+                    case "get_Parameters":
+                        return parameters;
+                    case "CreateParameter":
+                        return new MySqlParameter();
+                    case "Dispose":
+                    case "set_CommandTimeout":
+                    case "set_CommandType":
+                        return null;
+                    case "ExecuteReader":
+                        var table = new DataTable();
+                        table.Columns.Add("Items", typeof(string));
+                        table.Columns.Add("Delay", typeof(int));
+                        table.Columns.Add("StringData", typeof(string));
+                        table.Columns.Add("BoolData", typeof(bool));
+                        Assert.Equal(100u, Convert.ToUInt32(parameters["id"].Value));
+                        table.Rows.Add("", 0, "", false);
+
+                        return table.CreateDataReader();
+                    default:
+                        throw new NotSupportedException(method.Name);
+                }
+            };
+
+            return command;
+        }
+    }
+
+    private sealed class MovementOracleSession
+    {
+        public readonly Room Room;
+        public readonly Gamemap Map;
+        public readonly ConcurrentDictionary<uint, Item> Items;
+        public readonly MovementOracleClient Client = new();
+        public readonly MovementOracleStore Store;
+        public readonly WiredComponent Wired;
+        public readonly WiredStackEngine Engine;
+        public int Published;
+        public IWiredItem Box => Wired.TryGet(100, out var box) ? box : throw new InvalidOperationException("Missing registered box.");
+        public WiredModernAction Action => Assert.IsType<WiredModernAction>(Box);
+        public MovementOracleSession(string name, IWiredConfigurationStore? durable = null, StoredRuntimeRow? row = null)
+        {
+            (Room, Map, Items) = World();
+            Room.Id = 42;
+            Room.OwnerId = 7;
+            Room.OwnerName = "owner";
+            Room.Type = "private";
+            Store = new(durable);
+
+            if (row != null) {
+                Store.Rows[row.ItemId] = row;
+            }
+
+            Wired = new(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
+                Store, new MovementOracleLegacyDatabase(), TestWiredRewardService.Instance, TestBotManagementStore.Instance,
+                TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+            typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Room, Wired);
+            Engine = (WiredStackEngine)typeof(WiredComponent).GetField("_engine", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Wired)!;
+            typeof(WiredStackEngine).GetField("_now", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Engine, (Func<long>)(() => 1000));
+            Engine.ConfigurationPublished = _ => Published++;
+            var item = MakeItem(100, name);
+            item.UserId = 7;
+            item.RoomId = Room.Id;
+            item.Definition.InteractionType = InteractionType.WiredEffect;
+            item.Definition.WiredType = name == "wf_act_move_rotate" ? WiredBoxType.EffectMoveAndRotate : WiredBoxType.None;
+            item.SetState(2, 2, 0, Gamemap.GetAffectedTiles(1, 1, 2, 2, 0));
+            var picks = new[] { MakeItem(8, "test"), MakeItem(9, "test") };
+
+            for (var i = 0; i < picks.Length; i++) {
+                picks[i].UserId = 7;
+                picks[i].RoomId = Room.Id;
+                picks[i].Definition.Stackable = true;
+                picks[i].Definition.Walkable = true;
+                picks[i].SetState(1, 1 + i, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1 + i, 0));
+            }
+
+            Room.GetRoomItemHandler().LoadFurniture([item, .. picks]);
+            Assert.Same(Room, item.GetRoom());
+            Assert.Same(item, Box.Item);
+            Client.SetHabbo(new Habbo { Id = 7, Username = "owner", CurrentRoom = Room, Access = Plus.HabboHotel.Permissions.UserAccess.Empty });
+            Assert.True(Wired.Settings.CanModify(Client));
+            Client.Packets.Clear();
+        }
+        public Task Save(int[] owned, int[]? picks = null, int delay = 0, int source = 100, object[]? suffix = null)
+        {
+            picks ??= [];
+            object[] body = [100, owned.Length, .. owned.Cast<object>(), "", picks.Length, .. picks.Cast<object>(), delay, 1, source, 0, 0, 0, .. suffix ?? []];
+
+            return new SaveWiredEffectConfigEvent(new WiredConfigurationService(Store, null!, TestLogging.For<WiredConfigurationService>())).Parse(Client, Request(body));
+        }
+        public MovementOracleReply Open()
+        {
+            Client.Packets.Clear();
+            Box.Item.Interactor.OnTrigger(Client, Box.Item, 0, true);
+            var packet = Assert.Single(Client.Packets.Where(packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer));
+
+            return DecodeMovementOracleReply(packet.Body);
+        }
+        public int SeedPending()
+        {
+            var item = MakeItem(101, "wf_trg_game_starts");
+            item.RoomId = Room.Id;
+            item.SetState(2, 2, 1, Gamemap.GetAffectedTiles(1, 1, 2, 2, 0));
+            typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, Room);
+            Items[item.Id] = item;
+            var trigger = new WiredModernTrigger(Room, item, Descriptor("wf_trg_game_starts"));
+            trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_game_starts"));
+            Assert.True(Wired.AddBox(trigger));
+            Assert.True(Engine.Enqueue(new(WiredEventKind.GameStart)));
+            var pending = Engine.ReadStats().Pending;
+            Assert.True(pending > 0);
+
+            return pending;
+        }
+        public void AssertNoop(WiredConfiguration before, int writes, int published, int pending)
+        {
+            Assert.Same(before, Action.Configuration);
+            Assert.Equal(writes, Store.Saves.Count);
+            Assert.Equal(published, Published);
+            Assert.Equal(pending, Engine.ReadStats().Pending);
+            Assert.Contains(Client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
+        }
+    }
+
+    [Fact]
+    public async Task MovementOracleActualHandlerRequiresTwoOwnedRotateFieldsRatherThanInlineSource()
+    {
+        var f = new MovementOracleSession("wf_act_move_rotate");
+        var original = f.Box;
+        await f.Save([5, 1, 100], [8]);
+        Assert.Same(original, f.Box);
+        Assert.Empty(f.Store.Saves);
+        Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
+        f.Client.Packets.Clear();
+        await f.Save([5, 1], [8]);
+        Assert.Single(f.Store.Saves);
+        AssertMovementOracleReply(f.Open(), false, [5, 1], [8], 0);
+    }
+
+    [Fact]
+    public void MovementOracleIndependentFooterSeparatesLocalDefaultsFromSourceDefaults()
+    {
+        var f = new MovementOracleSession("wf_act_move_rotate");
+        var reply = f.Open();
+        AssertMovementOracleReply(reply, false, [0, 0], [], 0);
+    }
+
+    [Theory]
+    [InlineData("count")]
+    [InlineData("movement")]
+    [InlineData("negative-movement")]
+    [InlineData("rotation")]
+    [InlineData("source")]
+    [InlineData("truncated")]
+    [InlineData("trailing")]
+    public async Task MovementOracleMalformedNativeRequestsPreserveInstalledConfigurationAndPending(string change)
+    {
+        var f = new MovementOracleSession("wf_act_move_rotate");
+        await f.Save([5, 1], [8]);
+        var saved = f.Action.Configuration;
+        var row = f.Store.Rows[100];
+        var pending = f.SeedPending();
+        var published = f.Published;
+        int[] owned = change switch { "count" => [5], "movement" => [12, 1], "negative-movement" => [-1, 1], "rotation" => [5, 4], _ => [5, 1] };
+        object[] values = [100, owned.Length, .. owned.Cast<object>(), "", 1, 8, 0, 1, change == "source" ? 900 : 100, 0, 0, 0];
+
+        if (change == "truncated") {
+            values = values[..^1];
+        }
+        else if (change == "trailing") {
+            values = [.. values, 999];
+        }
+
+        f.Client.Packets.Clear();
+        await new SaveWiredEffectConfigEvent(new WiredConfigurationService(f.Store, null!, TestLogging.For<WiredConfigurationService>()))
+            .Parse(f.Client, Request(values));
+        Assert.Same(saved, f.Action.Configuration);
+        Assert.Equal(row, f.Store.Rows[100]);
+        Assert.Single(f.Store.Saves);
+        Assert.Equal(published, f.Published);
+        Assert.Equal(pending, f.Engine.ReadStats().Pending);
+        Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
+    }
+
+    [Fact]
+    public async Task MovementOracleNativeZeroZeroIsValidAndKeepsNoMotionSemantics()
+    {
+        var f = new MovementOracleSession("wf_act_move_rotate");
+        await f.Save([0, 0], [8]);
+        Assert.Single(f.Store.Saves);
+        AssertMovementOracleReply(f.Open(), false, [0, 0], [8], 0);
+        Assert.Equal(new[] { -1, 0, 100, 0 }, f.Action.Configuration.IntParams.ToArray());
+        var before = f.Items[8].Coordinate;
+        Assert.False(f.Action.Execute(Context(f.Room, new(WiredEventKind.Use), [f.Items[8]], [])));
+        Assert.Equal(before, f.Items[8].Coordinate);
+        Assert.Equal(0, f.Items[8].Rotation);
+    }
+
+    [WiredChestDatabaseFact]
+    public async Task MovementOracleChangedStoredV1SavePersistsSchemaTwoWithDormantData()
+    {
+        using var db = new WiredChestDatabaseTests.Fixture();
+        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
+        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
+        var original = new WiredConfiguration
+        {
+            IntParams = [6, -1, 100],
+            SelectedItems = [8],
+            Delay = 2,
+            Text = "inactive exact bytes",
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("inactive", 200),
+            UserSources = ImmutableDictionary<string, int>.Empty.Add("unused", 201)
+        };
+        var raw = System.Text.Json.JsonSerializer.Serialize(original);
+        db.Connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES(100,'wf_act_move_rotate',1,@Raw)", new { Raw = raw });
+        var durable = new WiredConfigurationStore(db.Database);
+        var f = new MovementOracleSession("wf_act_move_rotate", durable);
+        await f.Save([5, 1], [8], 2);
+        Assert.Single(f.Store.Saves);
+        Assert.Equal(2, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
+        var reloaded = Assert.IsType<WiredConfiguration>(durable.Load(100, f.Action.Descriptor));
+        Assert.Equal(new[] { 2, 2, 100, 0 }, reloaded.IntParams.ToArray());
+        Assert.Equal(original.Text, reloaded.Text);
+        Assert.Equal(200, reloaded.FurniSources["inactive"]);
+        Assert.Equal(201, reloaded.UserSources["unused"]);
+        Assert.Equal(original.Text, reloaded.Origin!.Native!.DormantLegacy!.Text);
+        Assert.Equal(original.FurniSources, reloaded.Origin.Native.DormantLegacy.FurniSources);
+        Assert.Equal(original.UserSources, reloaded.Origin.Native.DormantLegacy.UserSources);
+        AssertMovementOracleReply(f.Open(), false, [5, 1], [8], 2);
     }
 
     private static WiredConfiguration SavePacket(int[] ints, uint[] selected, int delay)
