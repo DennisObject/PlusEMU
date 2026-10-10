@@ -183,7 +183,7 @@ public sealed class WiredRoomMovement(Action<RoomUser, IEnumerable<Item>, IEnume
 
         if (policy.Projectile?.ItemIds.Contains(item.Id) == true) {
             WiredProjectileFlights.For(room).Begin(item, source.X, source.Y, source.Z,
-                options.Animate ? options.AnimationTimeMs : 0, context.NowMilliseconds);
+                options.Animate ? options.AnimationTimeMs : 0, context.NowMilliseconds, policy.Projectile.VariableMask);
         }
 
         if (options.Animate) {

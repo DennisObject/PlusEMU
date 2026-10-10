@@ -3502,6 +3502,44 @@ public class ModernWiredRuntimeTests
     }
 
     [Fact]
+    public void NativePlaceSkipsWallTemplatesBeforeChoosingTheFloorAnchor()
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Stackable = true;
+        var floor = MakeItem(10, "floor-template");
+        floor.Definition.Id = 5;
+        floor.Definition.Stackable = true;
+        floor.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
+        f.Items[floor.Id] = floor;
+        var wall = MakeItem(20, "wall-template");
+        wall.Definition.Id = 6;
+        wall.Definition.Type = ItemType.Wall;
+        wall.WallCoordinates = ":w=0,0 l=0,0 l";
+        ((ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_wallItems", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(f.Room.GetRoomItemHandler())!)[wall.Id] = wall;
+        var definitions = new TestWiredDefinitions(() => new() { [5] = floor.Definition, [6] = wall.Definition });
+        var action = ActionBox(f.Room, "wf_act_place_furni", definitions: definitions);
+        var native = WiredNativeEditorProjection.DefaultNative(action.Descriptor) with
+        {
+            OwnedIntParams = [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            PrimaryItems = [new(wall.Id, true), new(floor.Id, false)],
+            SecondaryItems = [new(f.Target.Id, false)],
+            FurniSourceTypes = [100, 101, 100]
+        };
+        var snapshots = (ImmutableArray<WiredFurniSnapshot>)typeof(WiredConfigurationService)
+            .GetMethod("CaptureSnapshots", BindingFlags.Static | BindingFlags.NonPublic)!
+            .Invoke(null, [f.Room, "wf_act_place_furni", native])!;
+        Assert.Equal(floor.Id, Assert.Single(snapshots).ItemId);
+        // The runtime also filters admitted native snapshot records before choosing the pivot.
+        native = native with { SavedState = new() { Snapshots = [WiredRoomOperations.Capture(wall), .. snapshots] } };
+        Assert.True(WiredNativeEditorProjection.TryCompile(action.Item.Id, action.Descriptor, native, out var compiled));
+        Assert.True(WiredConfigurationSave.TrySave(action, compiled, TestWiredConfigurationStore.Instance, out var error), error);
+        Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
+        var copy = Assert.Single(f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary));
+        Assert.Equal((f.Target.GetX, f.Target.GetY), (copy.GetX, copy.GetY));
+    }
+
+    [Fact]
     public void RewardValidationRejectsUnsupportedCurrenciesAndKeepsActualIntervals()
     {
         var config = WiredRewards.Defaults() with { Text = "1,furni#5,100;0,ABC,50" };
@@ -3839,6 +3877,49 @@ public class ModernWiredRuntimeTests
         }
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(4)]
+    [InlineData(8)]
+    [InlineData(16)]
+    [InlineData(32)]
+    [InlineData(64)]
+    [InlineData(127)]
+    public void NativeProjectileMaskControlsOnlyRequestedFlightOutputs(int mask)
+    {
+        using var f = new TeleportFixture();
+        f.Target.Definition.Stackable = true;
+        var item = MakeItem(90, "wf_xtra_rotate_to_dir");
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, f.Room);
+        f.Items[item.Id] = item;
+        var addon = Assert.IsType<WiredAddonBox>(f.Room.GetWired().CreateConfiguredBox(item));
+        var native = WiredNativeEditorProjection.DefaultNative(addon.Descriptor) with
+        {
+            OwnedIntParams = WiredNativeEditorProjection.DefaultNative(addon.Descriptor).OwnedIntParams.SetItem(11, mask),
+            PrimaryItems = [new(f.Target.Id, false)]
+        };
+        Assert.True(WiredNativeEditorProjection.TryCompile(item.Id, addon.Descriptor, native, out var compiled));
+        Assert.True(WiredConfigurationSave.TrySave(addon, compiled, TestWiredConfigurationStore.Instance, out var error), error);
+        var context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
+        context.NowMilliseconds = 1000;
+        Assert.True(addon.Apply(context));
+        Assert.True(new WiredRoomMovement(f.Room.GetWired().DispatchWalkTransition).MoveFurniture(context, f.Target, 2, 1, 0, null));
+        string[] keys = ["tiles_traveled", "user_collisions", "furni_collisions", "position.x", "position.y", "position.altitude", "is_traveling"];
+        var flights = WiredProjectileFlights.For(f.Room);
+
+        for (var bit = 0; bit < keys.Length; bit++) {
+            var value = flights.Read(f.Target, "@projectile.animation." + keys[bit], 1000);
+            Assert.Equal((mask & (1 << bit)) != 0, value.HasValue);
+        }
+
+        // A later native configuration with no requested outputs must replace an earlier enabled flight.
+        context.Policy.Addons.Projectile = context.Policy.Addons.Projectile! with { VariableMask = 0 };
+        Assert.True(new WiredRoomMovement(f.Room.GetWired().DispatchWalkTransition).MoveFurniture(context, f.Target, 1, 1, 0, null));
+        Assert.All(keys, key => Assert.Null(flights.Read(f.Target, "@projectile.animation." + key, 1000)));
+    }
+
     [Fact]
     public void ActualProjectileMoveSamplesPacketClockAndLaunchCollisionsWithoutLateArrivals()
     {
@@ -3868,7 +3949,7 @@ public class ModernWiredRuntimeTests
         Assert.Null(flights.Read(mover, "@projectile.animation.position.x", 1000));
         var context = Context(room, new(WiredEventKind.Use), f.Items.Values.ToArray(), RoomUsers(room).Values.ToArray());
         context.NowMilliseconds = 1000;
-        context.Policy.Addons.Projectile = new(new HashSet<uint> { mover.Id }, null, 0, null, Plus.HabboHotel.Items.Wired.Modern.Addons.WiredProjectileDistance.Normal, 0);
+        context.Policy.Addons.Projectile = new(new HashSet<uint> { mover.Id }, null, 0, null, Plus.HabboHotel.Items.Wired.Modern.Addons.WiredProjectileDistance.Normal, 0) { VariableMask = 127 };
         context.Policy.Addons.AnimationTimeMs = 800;
         var movements = new WiredRoomMovement(room.GetWired().DispatchWalkTransition);
         Assert.True(movements.MoveFurniture(context, mover, 2, 1, 0, 2.25));
@@ -3908,7 +3989,7 @@ public class ModernWiredRuntimeTests
         var ctx = Context(room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
         ctx.NowMilliseconds = 1000;
         ctx.Policy.Addons.DisableAnimation = true;
-        ctx.Policy.Addons.Projectile = new(new HashSet<uint> { 999 }, null, 0, null, Plus.HabboHotel.Items.Wired.Modern.Addons.WiredProjectileDistance.Normal, 0);
+        ctx.Policy.Addons.Projectile = new(new HashSet<uint> { 999 }, null, 0, null, Plus.HabboHotel.Items.Wired.Modern.Addons.WiredProjectileDistance.Normal, 0) { VariableMask = 127 };
         Assert.True(movement.MoveFurniture(ctx, mover, 1, 2, 0, null));
         Assert.Null(flights.Read(mover, "@projectile.animation.tiles_traveled", 1000));
         ctx.Policy.Addons.Projectile = ctx.Policy.Addons.Projectile with { ItemIds = new HashSet<uint> { mover.Id } };

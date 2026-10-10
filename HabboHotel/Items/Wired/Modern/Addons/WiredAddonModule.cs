@@ -164,7 +164,8 @@ public sealed class WiredAddonModule
                     }
 
                     policy.Projectile = new(Furni(100), P(0) == 1 ? P(1) : null, P(10),
-                    P(18) == 0 ? null : P(18), distance, (int)Math.Clamp(tiles ?? 0, -64, 64));
+                    P(18) == 0 ? null : P(18), distance, (int)Math.Clamp(tiles ?? 0, -64, 64))
+                    { VariableMask = P(11) };
                     break;
                 }
             default:

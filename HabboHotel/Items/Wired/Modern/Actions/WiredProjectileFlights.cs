@@ -11,7 +11,7 @@ public sealed class WiredProjectileFlights(Room room)
     private readonly Dictionary<uint, Flight> _flights = [];
     public static WiredProjectileFlights For(Room room) => Rooms.GetValue(room, current => new(current));
 
-    public bool Begin(Item item, int sourceX, int sourceY, double sourceZ, int durationMs, long nowMs)
+    public bool Begin(Item item, int sourceX, int sourceY, double sourceZ, int durationMs, long nowMs, int variableMask = 127)
     {
         if (!item.IsFloorItem || !ReferenceEquals(room.GetRoomItemHandler().GetItem(item.Id), item)) {
             return false;
@@ -25,7 +25,7 @@ public sealed class WiredProjectileFlights(Room room)
         }
 
         _flights[item.Id] = new(item, sourceX, sourceY, (int)(sourceZ * 100), item.GetX, item.GetY, (int)(item.GetZ * 100),
-            nowMs, durationMs,
+            nowMs, durationMs, variableMask,
             path.Select(point => map.GetRoomUsers(point).DistinctBy(user => user.VirtualId).Count()).ToArray(),
             path.Select(point => map.GetCoordinatedItems(point).Where(other => !ReferenceEquals(other, item)).DistinctBy(other => other.Id).Count()).ToArray());
 
@@ -45,6 +45,23 @@ public sealed class WiredProjectileFlights(Room room)
         }
 
         if (!ReferenceEquals(flight.Item, item)) {
+            return null;
+        }
+
+        // AIR Projectile SubVariableParam ids: travelled, users, furni, X, Y, altitude, travelling.
+        var bit = key switch
+        {
+            "@projectile.animation.tiles_traveled" => 0,
+            "@projectile.animation.user_collisions" => 1,
+            "@projectile.animation.furni_collisions" => 2,
+            "@projectile.animation.position.x" => 3,
+            "@projectile.animation.position.y" => 4,
+            "@projectile.animation.position.altitude" => 5,
+            "@projectile.animation.is_traveling" => 6,
+            _ => -1
+        };
+
+        if (bit < 0 || (flight.VariableMask & (1 << bit)) == 0) {
             return null;
         }
 
@@ -87,5 +104,5 @@ public sealed class WiredProjectileFlights(Room room)
         return path;
     }
     private sealed record Flight(Item Item, int SourceX, int SourceY, int SourceZ, int TargetX, int TargetY, int TargetZ,
-        long StartedAtMs, int DurationMs, int[] UserCounts, int[] FurniCounts);
+        long StartedAtMs, int DurationMs, int VariableMask, int[] UserCounts, int[] FurniCounts);
 }

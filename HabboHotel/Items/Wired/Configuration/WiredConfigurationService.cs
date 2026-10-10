@@ -139,7 +139,7 @@ public sealed class WiredConfigurationService(
 
         var handler = room.GetRoomItemHandler();
 
-        var allowWall = WiredNativeEditorProjection.Metadata(name).AllowWall;
+        var allowWall = name != "wf_act_place_furni" && WiredNativeEditorProjection.Metadata(name).AllowWall;
 
         // Only cards whose editor admits wall picks capture them, and only with a parseable wall position.
         return native.PrimaryItems.Select(reference => reference.ItemId).Distinct().Select(handler.GetItem)

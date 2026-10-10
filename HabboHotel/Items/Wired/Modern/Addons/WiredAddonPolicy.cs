@@ -24,7 +24,10 @@ public enum WiredProjectileDistance
     Normal, Overshoot, Fixed
 }
 public sealed record WiredProjectilePolicy(IReadOnlySet<uint> ItemIds, int? DirectionSystem,
-    int RotationOffset, int? CurveStrength, WiredProjectileDistance Distance, int DistanceTiles);
+    int RotationOffset, int? CurveStrength, WiredProjectileDistance Distance, int DistanceTiles)
+{
+    public int VariableMask { get; init; }
+}
 
 /// <summary>One firing's typed options. Stateful pickers belong to the placed addon, not this policy.</summary>
 public sealed class WiredAddonPolicy

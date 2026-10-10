@@ -37,7 +37,12 @@ public static class WiredTemporaryFurnitureActions
             ? DynamicTemplates(context, templateSource)
             : config.Snapshots;
 
-        if (templates.Count == 0) {
+        // Wall and unavailable definitions cannot be floor templates or the placement pivot.
+        var eligibleTemplates = templates.Select(snapshot => (Snapshot: snapshot,
+            Definition: definitions.Items.GetValueOrDefault(snapshot.DefinitionId)))
+            .Where(template => template.Definition?.Type == Plus.HabboHotel.Users.Inventory.Furniture.ItemType.Floor).ToArray();
+
+        if (eligibleTemplates.Length == 0) {
             return false;
         }
 
@@ -72,8 +77,8 @@ public static class WiredTemporaryFurnitureActions
         var dy = policy.OffsetY;
 
         if (policy.Location == WiredPlaceLocationType.CustomLocation) {
-            dx += targetX - templates[0].X;
-            dy += targetY - templates[0].Y;
+            dx += targetX - eligibleTemplates[0].Snapshot.X;
+            dy += targetY - eligibleTemplates[0].Snapshot.Y;
         }
 
         long spawnValue = policy.Value;
@@ -90,11 +95,7 @@ public static class WiredTemporaryFurnitureActions
 
         var placedAny = false;
 
-        foreach (var snapshot in templates) {
-            if (!definitions.Items.TryGetValue(snapshot.DefinitionId, out var definition)) {
-                continue;
-            }
-
+        foreach (var (snapshot, definition) in eligibleTemplates) {
             var x = snapshot.X + dx;
             var y = snapshot.Y + dy;
 
@@ -108,7 +109,7 @@ public static class WiredTemporaryFurnitureActions
                 WiredPlaceAltitudeType.CustomAltitude => targetZ,
                 _ => context.Room.GetGameMap().SqAbsoluteHeight(x, y)
             };
-            var item = handler.PlaceTemporaryFloorItem(definition, box.OwnerId, x, y, snapshot.Rotation,
+            var item = handler.PlaceTemporaryFloorItem(definition!, box.OwnerId, x, y, snapshot.Rotation,
                 Math.Clamp(height + policy.OffsetAltitudeHundredths / 100d, 0, 80), snapshot.State);
 
             if (item == null) {
