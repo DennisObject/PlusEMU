@@ -86,7 +86,7 @@ public sealed class RoomRightsService(IRoomRightsStore store, ILanguageManager l
         if (roomUser != null && !roomUser.IsBot) {
             roomUser.SetStatus("flatctrl 1");
             roomUser.UpdateNeeded = true;
-            roomUser.GetClient()?.Send(new YouAreControllerComposer(1));
+            roomUser.GetClient()?.Send(new YouAreControllerComposer(room.Id, 1));
             var target = roomUser.GetClient()?.GetHabbo();
 
             if (target != null) {
@@ -177,10 +177,10 @@ public sealed class RoomRightsService(IRoomRightsStore store, ILanguageManager l
         user.UpdateNeeded = true;
 
         if (own) {
-            user.GetClient()?.Send(new YouAreNotControllerComposer());
+            user.GetClient()?.Send(new YouAreNotControllerComposer(room.Id));
         }
         else {
-            user.GetClient()?.Send(new YouAreControllerComposer(0));
+            user.GetClient()?.Send(new YouAreControllerComposer(room.Id, 0));
         }
     }
 }

@@ -408,18 +408,18 @@ public class RoomUserManager
         if (_room.CheckRights(session, true)) {
             user.SetStatus("flatctrl", "useradmin");
             session.Send(new YouAreOwnerComposer());
-            session.Send(new YouAreControllerComposer(4));
+            session.Send(new YouAreControllerComposer(_room.Id, 4));
         }
         else if (_room.CheckRights(session, false) && _room.Group == null) {
             user.SetStatus("flatctrl", "1");
-            session.Send(new YouAreControllerComposer(1));
+            session.Send(new YouAreControllerComposer(_room.Id, 1));
         }
         else if (_room.Group != null && _room.CheckRights(session, false, true)) {
             user.SetStatus("flatctrl", "3");
-            session.Send(new YouAreControllerComposer(3));
+            session.Send(new YouAreControllerComposer(_room.Id, 3));
         }
         else {
-            session.Send(new YouAreNotControllerComposer());
+            session.Send(new YouAreNotControllerComposer(_room.Id));
         }
 
         user.UpdateNeeded = true;

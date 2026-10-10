@@ -170,7 +170,7 @@ public sealed class GroupMembershipMutationService(
         }
 
         user.UpdateNeeded = true;
-        user.GetClient()?.Send(new YouAreControllerComposer(isAdmin ? 3 : 0));
+        user.GetClient()?.Send(new YouAreControllerComposer(room.Id, isAdmin ? 3 : 0));
     }
 
     private static void SendMemberUpdate(
