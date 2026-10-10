@@ -19,6 +19,7 @@ public sealed class UserUpdateComposer(ImmutableArray<RoomUserStatusSnapshot> us
             packet.WriteString(user.Z);
             packet.WriteInteger(user.HeadRotation);
             packet.WriteInteger(user.BodyRotation);
+            packet.WriteInteger(0);
             packet.WriteString(user.Status);
         }
     }

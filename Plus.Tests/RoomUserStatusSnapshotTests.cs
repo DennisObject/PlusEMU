@@ -1,5 +1,6 @@
 using System.Globalization;
 using Plus.Communication.Flash;
+using Plus.Communication.Packets;
 using Plus.Tests.Performance;
 using Plus.Communication.Packets.Outgoing.Rooms.Engine;
 using Plus.HabboHotel.Rooms;
@@ -23,7 +24,7 @@ public sealed class RoomUserStatusSnapshotTests
             var composer = new UserUpdateComposer(data);
             var first = new HabbiconTestSupport.RecordingPacket();
             composer.Compose(first);
-            Assert.Equal(new object[] { 1, 9, 3, 4, "1.25", 2, 6, "/sit 0.5//" }, first.Writes);
+            Assert.Equal(new object[] { 1, 9, 3, 4, "1.25", 2, 6, 0, "/sit 0.5//" }, first.Writes);
 
             user.X = 99;
             user.Z = 99;
@@ -94,7 +95,69 @@ public sealed class RoomUserStatusSnapshotTests
             Assert.Equal("0", incoming.ReadString());
             Assert.Equal(bot.RotHead, incoming.ReadInt());
             Assert.Equal(bot.RotBody, incoming.ReadInt());
+            Assert.Equal(0, incoming.ReadInt());
             Assert.Equal("/mv 2,1,0//", incoming.ReadString());
         }
+
+        Assert.False(incoming.HasDataRemaining());
+    }
+
+    [Fact]
+    public void FlashCodecConsumesNeutralJumpingPowerForZeroOneAndMultipleRecords()
+    {
+        var previousCulture = CultureInfo.CurrentCulture;
+
+        try {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("de-DE");
+            var standing = StatusUser(9, 3, 4, 0, 2, 6);
+            var sit = StatusUser(10, 3, 4, 1.25, 2, 6, ("sit", "0.5"));
+            var move = StatusUser(11, 1, 1, 0, 0, 3, ("mv", "2,1,0"));
+            AssertFlash(RoomUserStatusSnapshot.Capture([]));
+            AssertFlash(RoomUserStatusSnapshot.Capture([standing]));
+            AssertFlash(RoomUserStatusSnapshot.Capture([sit]));
+            AssertFlash(RoomUserStatusSnapshot.Capture([move]));
+            AssertFlash(RoomUserStatusSnapshot.Capture([standing, sit, move]));
+        }
+        finally {
+            CultureInfo.CurrentCulture = previousCulture;
+        }
+    }
+
+    private static RoomUser StatusUser(int virtualId, int x, int y, double z, int head, int body, params (string Key, string Value)[] statuses)
+    {
+        var user = new RoomUser(7, 42, virtualId, null!, null, TestChatEmotions.Unused, TestRewardProgress.Unused) { X = x, Y = y, Z = z, RotHead = head, RotBody = body };
+
+        foreach (var status in statuses) {
+            user.Statusses.Add(status.Key, status.Value);
+        }
+
+        return user;
+    }
+
+    private static void AssertFlash(IReadOnlyList<RoomUserStatusSnapshot> users)
+    {
+        var incoming = FlashBody(new UserUpdateComposer([.. users]));
+        Assert.Equal(users.Count, incoming.ReadInt());
+
+        foreach (var user in users) {
+            Assert.Equal(user.VirtualId, incoming.ReadInt());
+            Assert.Equal(user.X, incoming.ReadInt());
+            Assert.Equal(user.Y, incoming.ReadInt());
+            Assert.Equal(user.Z, incoming.ReadString());
+            Assert.Equal(user.HeadRotation, incoming.ReadInt());
+            Assert.Equal(user.BodyRotation, incoming.ReadInt());
+            Assert.Equal(0, incoming.ReadInt());
+            Assert.Equal(user.Status, incoming.ReadString());
+        }
+
+        Assert.False(incoming.HasDataRemaining());
+    }
+
+    private static FlashIncomingPacket FlashBody(IServerPacket composer)
+    {
+        using var stream = PlusMemoryStream.GetStream();
+        composer.Compose(new FlashOutgoingPacket(stream));
+
+        return new FlashIncomingPacket { Buffer = stream.ToArray().AsMemory(6) };
     }
 }

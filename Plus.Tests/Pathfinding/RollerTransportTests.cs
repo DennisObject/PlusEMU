@@ -282,6 +282,8 @@ public partial class PlacedFurniRoomTests
 
     private bool ExecutorHasUpdate(RoomUser actor)
     {
+        var found = false;
+
         foreach (var sent in _client.Packets.Where(p => p.Header == ServerPacketHeader.UserUpdateComposer)) {
             var body = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
             var count = body.ReadInt();
@@ -293,15 +295,18 @@ public partial class PlacedFurniRoomTests
                 body.ReadString();
                 body.ReadInt();
                 body.ReadInt();
+                Assert.Equal(0, body.ReadInt());
                 body.ReadString();
 
                 if (id == actor.VirtualId) {
-                    return true;
+                    found = true;
                 }
             }
+
+            Assert.False(body.HasDataRemaining());
         }
 
-        return false;
+        return found;
     }
 
     private void ExecutorObserveRollerClaim(List<TargetOccupancy> observed)
