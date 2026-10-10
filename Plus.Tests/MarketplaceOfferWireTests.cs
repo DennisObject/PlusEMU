@@ -3,6 +3,7 @@ using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.Marketplace;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Catalog;
+using Plus.Communication.Packets.Outgoing.Marketplace;
 using Plus.Core.Settings;
 using Plus.HabboHotel.Catalog.Marketplace;
 using Plus.HabboHotel.Items;
@@ -51,6 +52,18 @@ public class MarketplaceOfferWireTests
         new MarketplaceConfigurationComposer(Policy(new() { ["catalog.marketplace.fee.percentage"] = "3", ["catalog.marketplace.fee.half_tax_limit"] = "50000", ["catalog.marketplace.fee.revenue_limit"] = "20" })).Compose(packet);
 
         Assert.Equal(new object[] { true, 3, 0, 0, 1, 99999999, 48, 7, 3, 20, 50000 }, packet.Writes);
+    }
+
+    [Fact]
+    public void TheBuyResultWritesTheFourIntegersTheClientReads()
+    {
+        var packet = new HabbiconTestSupport.RecordingPacket();
+        var composer = new MarketplaceBuyOfferResultComposer(MarketplaceBuyResult.OfferReplaced, 5, 9, 250);
+
+        composer.Compose(packet);
+
+        Assert.Equal(3183u, composer.MessageId);
+        Assert.Equal(new object[] { 3, 9, 250, 5 }, packet.Writes);
     }
 
     [Fact]

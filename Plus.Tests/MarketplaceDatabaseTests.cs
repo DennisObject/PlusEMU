@@ -355,9 +355,8 @@ public sealed class MarketplaceDatabaseTests
             "get_MarketCounts" => counts,
             _ => throw new InvalidOperationException(method),
         });
-        var search = CatalogSnapshotTestSupport.Proxy<IMarketplaceOfferSearchService>((method, _) => method == "Search" ? new MarketplaceOffersSnapshot([]) : throw new InvalidOperationException(method));
 
-        return new MarketplacePurchaseService(new MarketplacePurchaseStore(new MySqlDatabase(_connectionString)), items, marketplace, search, new FixedClock(Now));
+        return new MarketplacePurchaseService(new MarketplacePurchaseStore(new MySqlDatabase(_connectionString)), items, marketplace, new FixedClock(Now));
     }
 
     private string[] States()

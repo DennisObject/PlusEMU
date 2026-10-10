@@ -700,6 +700,7 @@
     "FriendFurniCancelLockComposer": 65420,
     "BroadcastMessageAlertComposer": 1802,
     "MarketplaceCancelOfferResultComposer": 2695,
+    "MarketplaceBuyOfferResultComposer": 3183,
     "NavigatorSettingsComposer": 3914,
     "MessengerInitComposer": 969,
     "PollContentsComposer": 2663,
