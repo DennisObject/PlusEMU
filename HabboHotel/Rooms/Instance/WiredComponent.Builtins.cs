@@ -1,5 +1,7 @@
+using System.Globalization;
+using Plus.HabboHotel.Rooms.Games.Teams;
 using Plus.HabboHotel.Items;
-using Plus.Communication.Packets.Outgoing.Rooms.Engine;
+using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -8,13 +10,81 @@ namespace Plus.HabboHotel.Rooms.Instance;
 
 public partial class WiredComponent
 {
-    internal int? ReadBuiltin(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
+    internal long? ReadBuiltin(WiredVariableReference reference, WiredVariableHolder holder, WiredVariableFrame frame)
     {
         if (frame.RoomId != _room.Id || !frame.Contains(holder)) {
             return null;
         }
 
         var key = RoomWiredBuiltinVariables.Normalize(reference.Token);
+
+        if (Plus.HabboHotel.Items.Wired.Chests.WiredChestVariables.Supports(holder.Target, key)) {
+            return Plus.HabboHotel.Items.Wired.Chests.WiredChestVariables.Read(Chests, frame.RuntimeContext, holder, key, _room);
+        }
+
+        if (holder.Target == WiredVariableTarget.Context) {
+            var evt = frame.RuntimeContext?.Event;
+
+            if (evt == null) {
+                return null;
+            }
+
+            if (evt.Kind == WiredEventKind.Variable && evt.VariableChange is { } change) {
+                return key switch
+                {
+                    "@event.variable_update.box_id" => change.Key.DefinitionId,
+                    "@event.variable_update.change_type" => (int)change.Kind,
+                    "@event.variable_update.old_value" => change.Before?.Value ?? 0,
+                    "@event.variable_update.new_value" => change.After?.Value ?? 0,
+                    "@event.variable_update.difference" => unchecked((change.After?.Value ?? 0) - (change.Before?.Value ?? 0)),
+                    "@event.variable_update.change_origin" => change.Origin == 1 ? 3 : change.Origin == 2 ? 2 : change.RoomId != _room.Id ? 1 : 0,
+                    _ => null
+                };
+            }
+
+            return key switch
+            {
+                "@event.signal.antenna_id" when evt.Kind == WiredEventKind.Signal => unchecked((uint)evt.Code),
+                "@event.chat.type" when evt.Kind == WiredEventKind.Speech => evt.ChatType,
+                "@event.chat.style" when evt.Kind == WiredEventKind.Speech => evt.ChatStyle,
+                "@event.link.source_room_id" when evt.Kind == WiredEventKind.Enter && evt.Actor != null => evt.Actor.WiredRoomEntry.SourceRoomId,
+                _ => null
+            };
+        }
+
+        if (holder.Target == WiredVariableTarget.Global) {
+            if (TryGlobalTeam(key, out var team, out var score)) {
+                return score ? _room.GetGameManager().Points[(int)team]
+                    : _room.GetRoomUserManager().GetRoomUsers().Count(user => !user.IsBot && user.Team == team);
+            }
+
+            var instant = _clock.GetUtcNow();
+
+            if (key == "@wired_timer") {
+                _room.LastTimerResetAt ??= instant;
+
+                return Math.Max(0, (instant - _room.LastTimerResetAt.Value).Ticks / TimeSpan.TicksPerMillisecond / 500);
+            }
+
+            var local = TimeZoneInfo.ConvertTime(instant, EffectiveTimeZone);
+
+            return key switch
+            {
+                "@group_id" => _room.Group?.Id ?? 0,
+                "@current_time" => instant.ToUnixTimeMilliseconds(),
+                "@current_time.milliseconds_of_seconds" => local.Millisecond,
+                "@current_time.seconds_of_minute" => local.Second,
+                "@current_time.minute_of_hour" => local.Minute,
+                "@current_time.hour_of_day" => local.Hour,
+                "@current_time.day_of_week" => ((int)local.DayOfWeek + 6) % 7 + 1,
+                "@current_time.day_of_month" => local.Day,
+                "@current_time.day_of_year" => local.DayOfYear,
+                "@current_time.week_of_year" => ISOWeek.GetWeekOfYear(local.DateTime),
+                "@current_time.month_of_year" => local.Month,
+                "@current_time.year" => local.Year,
+                _ => null
+            };
+        }
 
         if (holder.Target == WiredVariableTarget.User) {
             var user = _room.GetRoomUserManager().GetRoomUserByVirtualId(holder.EntityId);
@@ -45,16 +115,27 @@ public partial class WiredComponent
             return null;
         }
 
-        if (item.IsWallItem && ReadWall(item, out var position)) {
+        if (key.StartsWith("~clock.", StringComparison.Ordinal)) {
             return key switch
             {
-                "@position.x" => position.X,
-                "@position.y" => position.Y,
-                "@wallitem_offset" => position.Offset,
-                "@altitude" => position.Altitude * 100,
-                "@rotation" => position.Left ? 4 : 6,
+                "~clock.state" => _counters.ReadState(item),
+                "~clock.pulse_count" => _counters.ReadPulseCount(item),
+                "~clock.is_game_aware" => _counters.ReadGameAware(item) == true ? 1 : null,
                 _ => null
             };
+        }
+
+        if (item.IsWallItem && item.RoomId != _room.Id) {
+            return null;
+        }
+
+        if (WiredWallBuiltinValues.TryReadInspection(_room, item, key, holder, frame, out var inspected)) {
+            return inspected;
+        }
+
+        if (item.IsWallItem && WiredWallSnapshot.TryParse(item.WallCoordinates, out var position)) {
+            return WiredWallBuiltinValues.ReadPlacement(position!, key == "@altitude"
+                ? WiredWallGeometry.CaptureAltitudeInputs(_room.GetGameMap().StaticModel, position!) : default, key);
         }
 
         return WiredProjectileFlights.For(_room).Read(item, key,
@@ -78,48 +159,19 @@ public partial class WiredComponent
         return true;
     });
 
-    private bool ReadWall(Item item, out WiredWallPosition position) =>
-        WiredWallPosition.TryParse(_room.GetRoomItemHandler().WallPositionCheck(item.WallCoordinates), out position);
-
-    private bool WriteWall(Item item, string key, int value)
+    private static bool TryGlobalTeam(string key, out Team team, out bool score)
     {
-        if (!ReadWall(item, out var position)) {
-            return false;
-        }
+        team = key switch
+        {
+            "@teams.red.score" or "@teams.red.size" => Team.Red,
+            "@teams.green.score" or "@teams.green.size" => Team.Green,
+            "@teams.blue.score" or "@teams.blue.size" => Team.Blue,
+            "@teams.yellow.score" or "@teams.yellow.size" => Team.Yellow,
+            _ => Team.None
+        };
+        score = key.EndsWith(".score", StringComparison.Ordinal);
 
-        WiredWallPosition next;
-
-        switch (key) {
-            case "@position.x":
-                next = position with { X = value };
-                break;
-            case "@position.y":
-                next = position with { Y = value };
-                break;
-            case "@wallitem_offset":
-                next = position with { Offset = value };
-                break;
-            case "@altitude" when value % 100 == 0:
-                next = position with { Altitude = value / 100 };
-                break;
-            case "@rotation" when value is 4 or 6:
-                next = position with { Left = value == 4 };
-                break;
-            default:
-                return false;
-        }
-
-        var validated = _room.GetRoomItemHandler().WallPositionCheck(next.ToString());
-
-        if (validated == null || next == position) {
-            return false;
-        }
-
-        item.WallCoordinates = validated;
-        _room.GetRoomItemHandler().UpdateItem(item);
-        _room.SendPacket(new ItemUpdateComposer(RoomItemSnapshot.Capture(item)));
-
-        return true;
+        return team != Team.None;
     }
 
     internal bool WriteBuiltin(WiredVariableReference reference, WiredVariableHolder holder, int value, WiredVariableFrame frame)
@@ -131,6 +183,21 @@ public partial class WiredComponent
         }
 
         var key = RoomWiredBuiltinVariables.Normalize(reference.Token);
+
+        if (holder.Target == WiredVariableTarget.Global && frame.Contains(holder)
+            && TryGlobalTeam(key, out var team, out var score) && score && value >= 0) {
+            var game = _room.GetGameManager();
+            var difference = (long)value - game.Points[(int)team];
+
+            if (difference is < int.MinValue or > int.MaxValue) {
+                return false;
+            }
+
+            game.AddPointToTeam(team, (int)difference);
+
+            return true;
+        }
+
         var movement = new WiredRoomMovement(DispatchWalkTransition);
 
         if (holder.Target == WiredVariableTarget.Furni) {
@@ -141,8 +208,18 @@ public partial class WiredComponent
                 return false;
             }
 
+            if (key == "~clock.pulse_count") {
+                return _counters.SetPulseCount(item, value);
+            }
+
             if (item.IsWallItem) {
-                return WriteWall(item, key, value);
+                var changed = movement.WriteWallBuiltin(context, item, key, value);
+
+                if (changed && _variables?.IsValueCreated == true) {
+                    _variables.Value.InvalidateFx();
+                }
+
+                return changed;
             }
 
             if (!item.IsFloorItem) {
@@ -151,6 +228,9 @@ public partial class WiredComponent
 
             return key switch
             {
+                "@position" => movement.MoveFurniture(context, item, (value >> 8) & 255, value & 255, item.Rotation, null),
+                "@occupation" => movement.MoveFurniture(context, item, (value >> 16) & 255, (value >> 8) & 255,
+                    (value & 255) <= 7 ? value & 255 : item.Rotation, null),
                 "@position.x" => movement.MoveFurniture(context, item, value, item.GetY, item.Rotation, null),
                 "@position.y" => movement.MoveFurniture(context, item, item.GetX, value, item.Rotation, null),
                 "@rotation" when value is >= 0 and <= 7 => movement.MoveFurniture(context, item, item.GetX, item.GetY, value, null),
@@ -169,6 +249,7 @@ public partial class WiredComponent
 
             return key switch
             {
+                "@position" => movement.MoveAvatar(context, user, (value >> 8) & 255, value & 255, true),
                 "@position.x" => movement.MoveAvatar(context, user, value, user.Y, true),
                 "@position.y" => movement.MoveAvatar(context, user, user.X, value, true),
                 "@direction" when value is >= 0 and <= 7 => Rotate(user, value),

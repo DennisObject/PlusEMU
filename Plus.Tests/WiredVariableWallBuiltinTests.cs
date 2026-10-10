@@ -19,7 +19,7 @@ public sealed class WiredVariableWallBuiltinTests
     {
         var f = new Fixture();
         var expected = new Dictionary<string, int>
-        { ["@position.x"] = 1, ["@position.y"] = 2, ["@wallitem_offset"] = 10, ["@altitude"] = 2000, ["@rotation"] = 4 };
+        { ["@position.x"] = 3, ["@position.y"] = 7, ["@wallitem_offset"] = 12, ["@altitude"] = 341, ["@rotation"] = 0 };
 
         foreach (var (key, value) in expected) {
             Assert.Equal(value, f.Read(key)!.Value);
@@ -31,25 +31,26 @@ public sealed class WiredVariableWallBuiltinTests
             }
         }
 
-        Assert.True(f.Write("@position.x", 3));
-        Assert.True(f.Write("@position.y", 4));
-        Assert.True(f.Write("@wallitem_offset", 11));
-        Assert.True(f.Write("@altitude", 2100));
-        Assert.True(f.Write("@rotation", 6));
-        Assert.Equal(":w=3,4 l=11,21 r", f.Wall.WallCoordinates);
-        Assert.Equal(3, f.Read("@position.x")!.Value);
-        Assert.Equal(4, f.Read("@position.y")!.Value);
-        Assert.Equal(11, f.Read("@wallitem_offset")!.Value);
-        Assert.Equal(2100, f.Read("@altitude")!.Value);
-        Assert.Equal(6, f.Read("@rotation")!.Value);
-        Assert.Equal(5, f.Module.DrainChanges().Count);
-        Assert.False(f.Write("@altitude", 2150));
+        Assert.True(f.Write("@position.x", 4));
+        Assert.True(f.Write("@position.y", 8));
+        Assert.True(f.Write("@wallitem_offset", 13));
+        Assert.True(f.Write("@altitude", 201));
+        Assert.True(f.Write("@rotation", 1));
+        Assert.Equal(":w=4,8 l=19,60 r a=201", f.Wall.WallCoordinates);
+        Assert.Equal(4, f.Read("@position.x")!.Value);
+        Assert.Equal(8, f.Read("@position.y")!.Value);
+        Assert.Equal(19, f.Read("@wallitem_offset")!.Value);
+        Assert.Equal(201, f.Read("@altitude")!.Value);
+        Assert.Equal(1, f.Read("@rotation")!.Value);
+        Assert.Empty(f.Module.DrainChanges());
+        Assert.Equal(5, f.Store.Writes.Count);
+        Assert.False(f.Write("@wallitem_offset", 33));
         Assert.False(f.Write("@rotation", 2));
         Assert.False(f.Module.Mutate(Reference("@position.x"), f.Holder, WiredVariableMutation.Set, 5, new(1, [f.Holder])));
-        Assert.Equal(":w=3,4 l=11,21 r", f.Wall.WallCoordinates);
+        Assert.Equal(":w=4,8 l=19,60 r a=201", f.Wall.WallCoordinates);
         Assert.Empty(f.Module.DrainChanges());
         var moved = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField("_movedItems", Fixture.Private)!.GetValue(f.Room.GetRoomItemHandler())!;
-        Assert.Same(f.Wall, moved[f.Wall.Id]);
+        Assert.Empty(moved);
     }
 
     [Fact]
@@ -70,7 +71,7 @@ public sealed class WiredVariableWallBuiltinTests
         }
 
         Assert.False(f.Write("@position.x", 3));
-        f.Wall.WallCoordinates = ":w=1,2 l=10,20 l";
+        f.Wall.WallCoordinates = ":w=3,7 l=12,16 l";
         f.Walls.TryRemove(f.Wall.Id, out _);
 
         foreach (var key in keys) {
@@ -115,18 +116,25 @@ public sealed class WiredVariableWallBuiltinTests
     {
         public const BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
         public Room Room { get; } = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
-        public Item Wall { get; } = new() { Id = 2, OwnerId = 5, RoomId = 1, Definition = new() { Type = ItemType.Wall }, ExtraData = new LegacyDataFormat { Data = "0" }, WallCoordinates = ":w=1,2 l=10,20 l" };
+        public Item Wall { get; } = new() { Id = 2, OwnerId = 5, RoomId = 1, Definition = new() { Type = ItemType.Wall }, ExtraData = new LegacyDataFormat { Data = "0" }, WallCoordinates = ":w=3,7 l=12,16 l" };
         public ConcurrentDictionary<uint, Item> Walls { get; }
         public ConcurrentDictionary<uint, Item> Floors { get; }
         public WiredVariableHolder Holder { get; }
         public WiredVariableFrame Frame { get; }
         public WiredVariableModule Module { get; }
+        public WallStore Store { get; } = new();
         public Fixture()
         {
             Room.Id = 1;
             Room.OwnerId = 5;
-            var handler = new RoomItemHandling(Room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
+            var handler = new RoomItemHandling(Room, Store, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
             typeof(Room).GetField("_roomItemHandling", Private)!.SetValue(Room, handler);
+            var model = new RoomModel("wall", 1, 1, 0, 2,
+                "xxxxxxxxxx\rx0xxxxxxxx\rx00000000x\rx00000000x\rx00000000x\rx00000000x\rx00000000x\rxxxxxxxxxx\rxxxxxxxxxx",
+                0, 0, true, presentation: new(false, 0, 0, 0));
+            var map = new Gamemap(Room, model, TestLogging.Navigation, TestRoomSettings.Empty,
+                TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
+            typeof(Room).GetField("_gamemap", Private)!.SetValue(Room, map);
             typeof(Room).GetField("_roomUserManager", Private)!.SetValue(Room, new RoomUserManager(Room, TestRoomUserStore.Instance, TimeProvider.System, new TestRewardProgress(), TestChatEmotions.Unused, TestBotAiFactory.Inert, TestGameClientManager.Empty, TestItemRuntime.Travel));
             var wired = new WiredComponent(Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
             typeof(Room).GetField("_wiredComponent", Private)!.SetValue(Room, wired);
@@ -137,6 +145,7 @@ public sealed class WiredVariableWallBuiltinTests
             var context = new WiredRuntimeContext(Room, new(WiredEventKind.ClickFurni) { EventItem = Wall },
                 new(() => Floors.Values, () => [], handler.GetItem), wired);
             context.Triggering.FurniIds.Add(Wall.Id);
+            context.Policy.Addons.DisableAnimation = true;
             Frame = WiredVariableRuntimeFrames.Create(context);
             Assert.Contains(WiredVariableRuntimeFrames.FurniHolder(Wall), Frame.Holders);
             Holder = WiredVariableRuntimeFrames.FurniHolder(Wall);
@@ -144,6 +153,17 @@ public sealed class WiredVariableWallBuiltinTests
         }
         public WiredVariableValue? Read(string key) => Module.Read(Reference(key), Holder, Frame);
         public bool Write(string key, int value) => Module.Mutate(Reference(key), Holder, WiredVariableMutation.Set, value, Frame);
+    }
+    private sealed class WallStore : IRoomItemStore
+    {
+        public List<string> Writes { get; } = [];
+        public void AssignOwner(uint itemId, int userId) { }
+        public void ClearRoom(uint itemId) { }
+        public void SaveWallPosition(uint itemId, string wallPosition) => Writes.Add(wallPosition);
+        public void MoveWall(uint itemId, uint roomId, string wallPosition) => Writes.Add(wallPosition);
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
     }
     private sealed class Directory : IWiredVariableDirectory
     {

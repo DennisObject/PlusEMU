@@ -25,13 +25,13 @@ public class WiredModernContractsTests
     [Fact]
     public void RegistrySeparatesEngineCategoriesFromOctaneEditorCodesAndCapabilities()
     {
-        Assert.Equal(172, WiredBoxRegistry.All.Count);
+        Assert.Equal(182, WiredBoxRegistry.All.Count);
         var categories = WiredBoxRegistry.All.GroupBy(box => box.Category).ToDictionary(group => group.Key, group => group.Count());
-        Assert.Equal(25, categories[WiredBoxCategory.Trigger]);
-        Assert.Equal(49, categories[WiredBoxCategory.Action]);
-        Assert.Equal(42, categories[WiredBoxCategory.Condition]);
+        Assert.Equal(27, categories[WiredBoxCategory.Trigger]);
+        Assert.Equal(53, categories[WiredBoxCategory.Action]);
+        Assert.Equal(44, categories[WiredBoxCategory.Condition]);
         Assert.Equal(20, categories[WiredBoxCategory.Selector]);
-        Assert.Equal(28, categories[WiredBoxCategory.Addon]);
+        Assert.Equal(30, categories[WiredBoxCategory.Addon]);
         Assert.Equal(8, categories[WiredBoxCategory.Variable]);
         Assert.All(WiredBoxRegistry.All, box => Assert.Equal(WiredBoxSupport.DescriptorOnly, box.Support));
         Assert.True(WiredBoxRegistry.TryGet("wf_act_send_signal", out var signal));
@@ -57,13 +57,32 @@ public class WiredModernContractsTests
         Assert.Equal(6, configuration.Delay);
         Assert.Empty(configuration.FurniSources);
         Assert.False(packet.HasDataRemaining());
-        Assert.False(WiredLegacyProtocol.TryRead(Incoming(101), WiredBoxCategory.Action, out _));
+        Assert.False(WiredLegacyProtocol.TryRead(Incoming(WiredConfigurationLimits.IntParams + 1), WiredBoxCategory.Action, out _));
         Assert.False(WiredLegacyProtocol.TryRead(Incoming(0, "x", 0, -1, 0), WiredBoxCategory.Action, out _));
         Assert.False(WiredLegacyProtocol.TryRead(Incoming(0, "x", 1, 0, 0, 0), WiredBoxCategory.Action, out _));
         Assert.True(WiredLegacyProtocol.TryRead(Incoming(0, "x", 1, -1, 0, 0), WiredBoxCategory.Action, out var highId));
         Assert.Equal(new uint[] { uint.MaxValue }, highId.SelectedItems); // Room identity owns temporary validation.
         Assert.False(WiredLegacyProtocol.TryRead(Incoming(0, "x", 0, 0, 0, 123), WiredBoxCategory.Action, out _));
         Assert.False(WiredLegacyProtocol.TryRead(Incoming(2, 1), WiredBoxCategory.Action, out _));
+    }
+
+    [Fact]
+    public void NeighborhoodSaveAcceptsAllEightyOneEditorTilesThroughThePacketEnvelope()
+    {
+        var fields = new List<int> { 0, 0, 0, 0, 0, 81 };
+
+        for (var y = -4; y <= 4; y++) {
+            for (var x = -4; x <= 4; x++) {
+                fields.Add(x);
+                fields.Add(y);
+            }
+        }
+
+        var payload = new List<object> { fields.Count };
+        payload.AddRange(fields.Cast<object>());
+        payload.AddRange(new object[] { "", 0, 0, 0 });
+        Assert.True(WiredLegacyProtocol.TryRead(Incoming(payload.ToArray()), WiredBoxCategory.Action, out var configuration));
+        Assert.Equal(fields, configuration.IntParams);
     }
 
     [Theory]

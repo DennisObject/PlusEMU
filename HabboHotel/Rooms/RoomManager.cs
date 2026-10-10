@@ -93,7 +93,7 @@ public class RoomManager : IRoomManager, IStartable
     }
 
     private const string SelectModel = "SELECT id, door_x AS DoorX, door_y AS DoorY, door_z AS DoorZ, door_dir AS DoorDir, " +
-        "heightmap, required_club_level AS RequiredClubLevel, required_permission AS RequiredPermission, wall_height AS WallHeight FROM room_models ";
+        "heightmap, required_club_level AS RequiredClubLevel, required_permission AS RequiredPermission, wall_height AS WallHeight, half_scale AS HalfScale, camera_x AS CameraX, camera_y AS CameraY, camera_z AS CameraZ FROM room_models ";
 
     public int StartOrder => 20;
     public Task Start() => LoadModelsAsync();
@@ -129,7 +129,7 @@ public class RoomManager : IRoomManager, IStartable
     }
 
     private static RoomModel CreateModel(ModelRow row, bool custom) => new(row.Id, row.DoorX, row.DoorY, row.DoorZ,
-        row.DoorDir, row.Heightmap, row.RequiredClubLevel, row.WallHeight, custom)
+        row.DoorDir, row.Heightmap, row.RequiredClubLevel, row.WallHeight, custom, new(row.HalfScale, row.CameraX, row.CameraY, row.CameraZ))
     { RequiredPermission = row.RequiredPermission };
 
     private sealed class ModelRow
@@ -143,6 +143,10 @@ public class RoomManager : IRoomManager, IStartable
         public int RequiredClubLevel { get; set; }
         public string? RequiredPermission { get; set; }
         public int WallHeight { get; set; }
+        public bool HalfScale { get; set; } = true;
+        public int CameraX { get; set; }
+        public int CameraY { get; set; }
+        public float CameraZ { get; set; }
     }
 
     public void ReloadModel(string id)

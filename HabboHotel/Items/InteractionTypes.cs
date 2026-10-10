@@ -19,6 +19,18 @@ public static class InteractionTypes
         }
 
         switch (type.ToLower()) {
+            case "area_hide":
+                return InteractionType.AreaHide;
+            case "wired_chest_furni":
+                return InteractionType.WiredChestFurni;
+            case "wired_chest_coins":
+                return InteractionType.WiredChestCoins;
+            case "wired_contract_payment":
+                return InteractionType.WiredContractPayment;
+            case "wired_contract_trade":
+                return InteractionType.WiredContractTrade;
+            case "wired_contract_reward":
+                return InteractionType.WiredContractReward;
             case "":
             case "default":
                 return InteractionType.None;

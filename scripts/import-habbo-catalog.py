@@ -282,6 +282,23 @@ CLASSNAME_RULES = [
     (r'tile_walkmagic[0-9x]*', 'tile_walkmagic'), (r'wf_floor_switch[12]', lambda m: m[0]),
     (r'wf_(?:game_)?upcounter[12]', lambda m: m[0]), (r'bottle', 'bottle'), (r'val_randomizer', 'loveshuffler'),
     (r'gld_gate', 'gld_gate'),
+    (r'conf_area_hide', 'area_hide'),
+    (r'wf_storage_furni[12]', 'wired_chest_furni'),
+    (r'wf_storage_furni_starter', 'wired_chest_furni'),
+    (r'wf_storage_coins[12]', 'wired_chest_coins'),
+    (r'wf_contract_payment', 'wired_contract_payment'),
+    (r'wf_contract_reward', 'wired_contract_reward'),
+    (r'wf_contract_trade', 'wired_contract_trade'),
+    # Persist the concrete Wired behavior in furniture.interaction_type.
+    (r'wf_xtra_varfx_hp', 'wf_xtra_var_fx_health'),
+    (r'wf_xtra_varfx_prog', 'wf_xtra_var_fx_progress'),
+    (r'wf_xtra_varfx_levelling', 'wf_xtra_var_fx_level'),
+    (r'wf_xtra_varfx_status', 'wf_xtra_var_fx_status'),
+    (r'wf_xtra_varfx_boss', 'wf_xtra_var_fx_boss'),
+    (r'wf_xtra_varfx_number', 'wf_xtra_var_fx_number'),
+    (r'wf_proto_trg_at_given_time', 'wf_trg_at_given_time'),
+    (r'wf_proto_cnd_trggrer_on_frn', 'wf_cnd_trggrer_on_frn'),
+    (r'wf_ltdproto_act_toggle_state', 'wf_act_toggle_state'),
 ]
 CLASSNAME_RULES = [(re.compile(pattern), result) for pattern, result in CLASSNAME_RULES]
 # The logic types that must agree before a single reference counts.
@@ -371,7 +388,7 @@ DECORATIVE_CATEGORIES = {None, '', 'other', 'chair', 'table', 'lighting', 'divid
 
 
 def derivable_interactions():
-    """Every fixed interaction name the rules can produce (wired boxes and colour templates aside)."""
+    """Every fixed interaction name the rules can produce (colour templates aside)."""
     names = {*SPECIAL_TYPES.values(), *WALL_SPECIALS.values(), *CATEGORY_INTERACTIONS.values(), *REFERENCE_INTERACTIONS.values(),
              'postit', 'horse_saddle_1', 'horse_saddle_2', 'gld_gate', 'gld_item', 'bed'}
     for choice in LOGIC_INTERACTIONS.values():

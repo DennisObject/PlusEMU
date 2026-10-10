@@ -67,7 +67,7 @@ public static class WiredMovementConfiguration
                 break;
             case "wf_act_set_altitude":
                 if (p.Length != 2 || !Range(0, 0, 2) || !Source(1)
-                    || !WiredRoomOperations.TryAltitude(proposed.Text, out var altitude) || altitude > 40) {
+                    || !WiredRoomOperations.TryAltitude(proposed.Text, out _)) {
                     return false;
                 }
 
@@ -92,11 +92,25 @@ public static class WiredMovementConfiguration
                 furni["movers"] = p[2];
                 break;
             case "wf_act_move_furni_as_group":
-                if (p.Length != 2 || !Range(0, 0, 7) || !Source(1)) {
-                    return false;
+                if (p.Length == 2) {
+                    if (!Range(0, 0, 7) || !Source(1)) {
+                        return false;
+                    }
+
+                    furni["movers"] = p[1];
+                }
+                else {
+                    // Target editor: user/furni toggle, signed offsets, mover and target sources.
+                    if (p.Length != 6 || !Range(0, 0, 1) || !Range(1, -64, 64) || !Range(2, -64, 64)
+                        || !Source(3) || !Source(4) || !Users(5) || !TryItemIds(proposed.Text, out secondary)) {
+                        return false;
+                    }
+
+                    furni["movers"] = p[3];
+                    furni["targets"] = p[4];
+                    users["users"] = p[5];
                 }
 
-                furni["movers"] = p[1];
                 break;
             case "wf_act_furni_to_furni":
                 if (p.Length != 2 || !Source(0) || !Source(1)
@@ -116,14 +130,15 @@ public static class WiredMovementConfiguration
                 users["users"] = p[1];
                 break;
             case "wf_act_move_furni_to":
-                if (p.Length != 3 || p[0] is not (0 or 2 or 4 or 6)
-                    || !Range(1, 1, 5) || !Source(2)) {
+                if (p.Length is not (3 or 4) || p[0] is not (0 or 2 or 4 or 6)
+                    || !Range(1, 1, 5) || !Source(2)
+                    || p.Length == 4 && (!Source(3) || !TryItemIds(proposed.Text, out secondary))) {
                     return false;
                 }
 
                 // This legacy editor moves the event's furni toward resolved target picks.
-                furni["movers"] = 0;
-                furni["targets"] = p[2];
+                furni["movers"] = p.Length == 3 ? 0 : p[2];
+                furni["targets"] = p[p.Length - 1];
                 break;
             case "wf_act_match_to_sshot":
                 if (p.Length != 5 || Enumerable.Range(0, 4).Any(index => !Range(index, 0, 1)) || !Source(4)
@@ -180,7 +195,7 @@ public static class WiredMovementConfiguration
         return true;
     }
 
-    private static bool TryItemIds(string text, out ImmutableArray<uint> ids)
+    internal static bool TryItemIds(string text, out ImmutableArray<uint> ids)
     {
         var builder = ImmutableArray.CreateBuilder<uint>();
 

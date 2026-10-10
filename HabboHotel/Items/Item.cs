@@ -1155,6 +1155,10 @@ public class Item
                             break;
                         }
                     case InteractionType.Banzaicounter: {
+                            if (WiredCounterController.Recognizes(this)) {
+                                break;
+                            }
+
                             if (string.IsNullOrEmpty(LegacyDataString)) {
                                 break;
                             }
@@ -1305,6 +1309,10 @@ public class Item
                             break;
                         }
                     case InteractionType.Freezetimer: {
+                            if (WiredCounterController.Recognizes(this)) {
+                                break;
+                            }
+
                             if (string.IsNullOrEmpty(LegacyDataString)) {
                                 break;
                             }

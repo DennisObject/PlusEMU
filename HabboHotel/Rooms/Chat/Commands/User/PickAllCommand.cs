@@ -1,6 +1,6 @@
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
-using Dapper;
 using Plus.Database;
+using Plus.HabboHotel.Items;
 using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Rooms.Chat.Commands.User;
@@ -23,30 +23,72 @@ internal class PickAllCommand : IChatCommand
 
     public void Execute(GameClient session, Room room, string[] parameters)
     {
-        // Everything picked up lands in the loaded inventory, so neither memory nor storage moves without one.
-        if (!room.CheckRights(session, true) || session.GetHabbo().Inventory == null) {
+        var habbo = session.GetHabbo();
+
+        if (!room.CheckRights(session, true) || habbo.Inventory == null) {
             return;
         }
 
-        foreach (var player in room.GetRoomItemHandler().GetFloor.Where(item => item.UserId == session.GetHabbo().Id
-                     && Music.RoomMusicDefinition.IsPlayer(item.Definition)).ToArray()) {
-            if (!_pickup.TryPickUp(session, player.Id)) {
+        var items = room.GetRoomItemHandler().GetWallAndFloor.Where(item => !item.IsTemporary && item.UserId == habbo.Id).ToArray();
+        var handler = room.GetRoomItemHandler();
+
+        if (!handler.TryReserveTransfers(items, out var transfer)) {
+            return;
+        }
+
+        // Reserve the entire frozen set before the first music, reset, SQL or inventory side effect.
+        try {
+            room.GetWired()?.ResetRoomItems(items);
+        }
+        catch {
+            handler.CancelUnstartedTransfer(transfer!);
+            throw;
+        }
+
+        foreach (var player in items.Where(item => Music.RoomMusicDefinition.IsPlayer(item.Definition))) {
+            if (!_pickup.TryPickUpReserved(session, player.Id, transfer!)) {
                 return;
             }
         }
 
-        if (room.GetRoomItemHandler().GetFloor.Any(item => Music.RoomMusicDefinition.IsPlayer(item.Definition) && item.UserId == session.GetHabbo().Id)) {
+        var ordinary = items.Where(item => !Music.RoomMusicDefinition.IsPlayer(item.Definition)).ToArray();
+
+        if (ordinary.Any(item => !handler.TransferIsCurrent(transfer!, item))) {
             return;
         }
 
-        room.GetRoomItemHandler().RemoveItems(session);
-        room.GetGameMap().GenerateMaps();
-        using var connection = _database.Connection();
-        connection.Execute("UPDATE items SET room_id=0 WHERE room_id=@roomId AND user_id=@userId",
-            new { roomId = room.Id, userId = session.GetHabbo().Id });
-        var items = room.GetRoomItemHandler().GetWallAndFloor.ToList();
+        var requests = transfer!.Entries.Where(entry => ordinary.Contains(entry.Item)).Select(entry =>
+            new RoomItemPickup(entry.ItemId, entry.RoomId, (int)entry.OwnerId, (int)entry.OwnerId,
+                entry.Definition.InteractionType, false, entry.BaseItem)).ToArray();
 
-        if (items.Count > 0) {
+        if (!handler.BeginTransferSql(transfer!, ordinary)) {
+            return;
+        }
+
+        if (!new RoomItemPickupStore(_database).PickUpMany(requests)) {
+            handler.CancelRolledBackTransfer(transfer!, ordinary);
+
+            return;
+        }
+
+        foreach (var item in ordinary) {
+            var receiver = session;
+
+            if (!handler.RemoveFurniture(receiver!, item, transfer)) {
+                return;
+            }
+
+            item.RoomId = 0;
+
+            if (receiver?.GetHabbo()?.Inventory is { } recipientInventory) {
+                recipientInventory.Furniture.AddItem(item.ToInventoryItem());
+                receiver.Send(new FurniListUpdateComposer());
+            }
+
+            handler.CompleteTransfer(transfer!, item);
+        }
+
+        if (handler.GetWallAndFloor.Any()) {
             session.SendWhisper("There are still more items in this room, manually remove them or use :ejectall to eject them!");
         }
 

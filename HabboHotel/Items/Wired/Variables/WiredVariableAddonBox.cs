@@ -94,20 +94,36 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
 
         if (p[1] == 1) {
             using var queries = new WiredVariableQueries(_variables, frame);
-            count = (int)Math.Clamp(queries.ReadOperand((WiredVariableTarget)p[3], tokens[1], p[4], p[5], configuration) ?? 0, 0, 10000);
+            count = (int)Math.Clamp(queries.ReadOperand((WiredVariableTarget)p[3], tokens[1], p[4], p[5], configuration) ?? 1, 0, 10000);
         }
 
-        var candidates = frame.Holders.Where(holder => holder.Target == target && (target == WiredVariableTarget.User
-            ? context.Selected.UserIds.Contains(holder.EntityId) : context.Selected.FurniIds.Contains(unchecked((uint)holder.EntityId))));
+        var holders = frame.Holders.Where(holder => holder.Target == target).ToDictionary(holder => holder.EntityId);
+        var orderedIds = target == WiredVariableTarget.User ? context.SelectorUserOrder
+            : context.SelectorFurniOrder.Select(id => unchecked((int)id));
+        var candidates = orderedIds.Where(holders.ContainsKey).Select(id => holders[id]);
         var kept = WiredVariablePredicates.Filter(_variables, new(target, tokens[0]), candidates, frame, p[0], count);
 
         if (target == WiredVariableTarget.User) {
-            context.Selected.UserIds.Clear();
-            context.Selected.UserIds.UnionWith(kept.Select(x => x.EntityId));
+            context.SelectorUserOrder.Clear();
+            context.SelectorUserOrder.AddRange(kept.Select(x => x.EntityId));
+            context.SelectorPool.UserIds.Clear();
+            context.SelectorPool.UserIds.UnionWith(context.SelectorUserOrder);
+
+            if (context.SelectorKinds.HasFlag(WiredSelectionKind.Users)) {
+                context.Selected.UserIds.Clear();
+                context.Selected.UserIds.UnionWith(context.SelectorUserOrder);
+            }
         }
         else {
-            context.Selected.FurniIds.Clear();
-            context.Selected.FurniIds.UnionWith(kept.Select(x => unchecked((uint)x.EntityId)));
+            context.SelectorFurniOrder.Clear();
+            context.SelectorFurniOrder.AddRange(kept.Select(x => unchecked((uint)x.EntityId)));
+            context.SelectorPool.FurniIds.Clear();
+            context.SelectorPool.FurniIds.UnionWith(context.SelectorFurniOrder);
+
+            if (context.SelectorKinds.HasFlag(WiredSelectionKind.Furni)) {
+                context.Selected.FurniIds.Clear();
+                context.Selected.FurniIds.UnionWith(context.SelectorFurniOrder);
+            }
         }
 
         return true;
@@ -129,11 +145,11 @@ public sealed class WiredVariableAddonBox : IWiredContextualAddon
         var labels = p[1] == 2 && WiredVariableModule.TryDefinitionId(tokens[0], out var id) ? _textConnector(id) : null;
         var values = WiredVariableExecutors.Select(frame, reference.Target, p[3], p[4], configuration.SelectedItems)
             .Select(holder => reads.Read(reference, holder, frame)).OfType<WiredVariableValue>()
-            .Select(value => labels?.GetValueOrDefault(value.Value) ?? value.Value.ToString(CultureInfo.InvariantCulture));
+            .Select(value => value.Value is >= int.MinValue and <= int.MaxValue && labels?.GetValueOrDefault((int)value.Value) is { } label ? label : value.Value.ToString(CultureInfo.InvariantCulture));
         var replacement = p[2] == 2 ? string.Join(tokens[2], values) : values.FirstOrDefault() ?? "";
 
         return text.Replace(placeholder, replacement, StringComparison.Ordinal);
     }
-    private static bool Token(string value) => WiredVariableModule.TryDefinitionId(value, out _) || value.StartsWith("internal:@", StringComparison.Ordinal) && value.Length > 10;
+    private static bool Token(string value) => WiredVariableModule.TryDefinitionId(value, out _) || (value.StartsWith("internal:@", StringComparison.Ordinal) || value.StartsWith("internal:~", StringComparison.Ordinal)) && value.Length > 10;
     private static bool Source(int source) => source is 0 or 11 or 100 or 101 or 200 or 201;
 }

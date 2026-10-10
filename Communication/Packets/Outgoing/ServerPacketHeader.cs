@@ -435,5 +435,21 @@ public static class ServerPacketHeader
     public const uint QuizDataComposer = 3102;
     public const uint QuizResultsComposer = 2499;
     public const uint CampaignCalendarDataComposer = 3304;
+    public const uint WiredVariableInspectionDataComposer = 9483;
+    public const uint WiredEnvironmentComposer = 347;
+    public const uint AreaHideComposer = 6001;
+    public const uint WiredUserVariablesData64Composer = 9480;
+    public const uint WiredVariableHolders64Composer = 9481;
+    public const uint WiredVariableHoldersPage64Composer = 9482;
+    public const uint WiredChestContentsComposer = 9312;
+    public const uint WiredChestFurniChunkComposer = 9322;
+    public const uint WiredChestTradeOpenComposer = 9331;
+    public const uint WiredChestTradeItemsComposer = 9332;
+    public const uint WiredChestTradeCancelledComposer = 9333;
+    public const uint WiredChestTradeCompletedComposer = 9334;
+    public const uint WiredChestRewardComposer = 9346;
+    public const uint WiredChestUpgradeComposer = 9335;
+    public const uint WiredChestSettingsAckComposer = 9347;
+    public const uint WiredChestLockComposer = 9329;
 }
 

@@ -12,6 +12,7 @@ public interface IRoomItemPickupService
 {
     Task PickUp(GameClient session, uint itemId);
     bool TryPickUp(GameClient session, uint itemId);
+    bool TryPickUpReserved(GameClient session, uint itemId, RoomItemTransfer transfer) => false;
 }
 
 public sealed class RoomItemPickupService(
@@ -28,29 +29,41 @@ public sealed class RoomItemPickupService(
 
     public bool TryPickUp(GameClient session, uint itemId)
     {
+        var room = session.GetHabbo()?.CurrentRoom;
+        var item = room?.GetRoomItemHandler().GetItem(itemId);
+
+        if (session.GetHabbo()?.AccessClosed != false || room == null || item == null || !room.GetRoomItemHandler().TryReserveTransfers([item], out var transfer)) {
+            return false;
+        }
+
+        return TryPickUpReserved(session, itemId, transfer!);
+    }
+
+    public bool TryPickUpReserved(GameClient session, uint itemId, RoomItemTransfer transfer)
+    {
         var habbo = session.GetHabbo();
+        var room = habbo?.CurrentRoom;
+        var item = room?.GetRoomItemHandler().GetItem(itemId);
 
-        if (habbo == null || habbo.AccessClosed) {
+        if (habbo == null || habbo.AccessClosed || room == null || item == null) {
+            transfer.Owner.CancelUnstartedTransfer(transfer);
+
             return false;
         }
 
-        var room = habbo.CurrentRoom;
+        var handler = room.GetRoomItemHandler();
 
-        if (room == null) {
-            return false;
-        }
-
-        var item = room.GetRoomItemHandler().GetItem(itemId);
-
-        if (item == null) {
+        if (!handler.TransferIsCurrent(transfer, item)) {
             return false;
         }
 
         lock (item) {
             if (!ReferenceEquals(habbo.CurrentRoom, room) ||
-                !ReferenceEquals(room.GetRoomItemHandler().GetItem(itemId), item) || item.IsTemporary ||
+                !ReferenceEquals(room.GetRoomItemHandler().GetItem(itemId), item) || !handler.TransferIsCurrent(transfer, item) || item.IsTemporary ||
                 item.RoomId != room.Id || item.OwnerId is 0 or > int.MaxValue ||
                 item.Definition.InteractionType == InteractionType.Postit) {
+                handler.CancelUnstartedTransfer(transfer);
+
                 return false;
             }
 
@@ -59,6 +72,8 @@ public sealed class RoomItemPickupService(
 
             if (ownerId != habbo.Id && !mayTake && !room.CheckRights(session, false) &&
                 !(room.Group != null && room.CheckRights(session, false, true))) {
+                handler.CancelUnstartedTransfer(transfer);
+
                 return false;
             }
 
@@ -68,7 +83,13 @@ public sealed class RoomItemPickupService(
             var inventoryItem = item.ToInventoryItem();
             inventoryItem.OwnerId = (uint)recipientId;
 
-            if (!store.PickUp(new(item.Id, room.Id, ownerId, recipientId, item.Definition.InteractionType, Music.RoomMusicDefinition.IsPlayer(item.Definition)))) {
+            if (!handler.BeginTransferSql(transfer, [item])) {
+                return false;
+            }
+
+            if (!store.PickUp(new(item.Id, room.Id, ownerId, recipientId, item.Definition.InteractionType, Music.RoomMusicDefinition.IsPlayer(item.Definition), transfer.Entries.First(entry => ReferenceEquals(entry.Item, item)).BaseItem))) {
+                handler.CancelRolledBackTransfer(transfer, [item]);
+
                 return false;
             }
 
@@ -81,15 +102,19 @@ public sealed class RoomItemPickupService(
                 room.RemoveTent(item.Id);
             }
 
-            room.GetRoomItemHandler().RemoveFurniture(receiverHabbo == null ? null! : receiver!, item.Id);
+            if (!handler.RemoveFurniture(receiverHabbo == null ? null! : receiver!, item, transfer)) {
+                return false;
+            }
+
             item.RoomId = 0;
 
-            if (receiverHabbo != null) {
+            if (receiverHabbo?.Inventory is { } recipientInventory) {
                 // The pickup is already stored; an inventory that is not loaded picks the item up later.
-                receiverHabbo.Inventory?.Furniture.AddItem(inventoryItem);
+                recipientInventory.Furniture.AddItem(inventoryItem);
                 receiver!.Send(new FurniListUpdateComposer());
             }
 
+            handler.CompleteTransfer(transfer, item);
             quests.ProgressUserQuest(session, QuestType.FurniPick);
 
             return true;

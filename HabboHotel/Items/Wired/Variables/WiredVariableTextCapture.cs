@@ -6,14 +6,14 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 
 public sealed record WiredVariableCapturer(uint DefinitionId, string Name, IReadOnlyDictionary<int, string>? Labels)
 {
-    public int? Read(string text)
+    public long? Read(string text)
     {
         if (Labels is { Count: > 0 }) {
             return Labels.Where(pair => string.Equals(pair.Value.Trim(), text.Trim(), StringComparison.OrdinalIgnoreCase))
-                .Select(pair => (int?)pair.Key).FirstOrDefault();
+                .Select(pair => (long?)pair.Key).FirstOrDefault();
         }
 
-        return int.TryParse(text.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value) ? value : null;
+        return long.TryParse(text.Trim(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var value) ? value : null;
     }
 }
 
@@ -22,9 +22,9 @@ public static class WiredVariableTextCapture
 {
     private static readonly Regex Placeholder = new("#([^#]+)#", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
     public static bool TryMatch(string template, string text, int mode, IReadOnlyList<WiredVariableCapturer> capturers,
-        out IReadOnlyDictionary<uint, int> values)
+        out IReadOnlyDictionary<uint, long> values)
     {
-        values = new Dictionary<uint, int>();
+        values = new Dictionary<uint, long>();
 
         if (template.Length > 5000 || text.Length > 1000 || capturers.Count > 100 || mode is < 0 or > 2) {
             return false;
@@ -43,7 +43,7 @@ public static class WiredVariableTextCapture
                 return false;
             }
 
-            values = new Dictionary<uint, int> { [byName.Values.First().DefinitionId] = value };
+            values = new Dictionary<uint, long> { [byName.Values.First().DefinitionId] = value };
 
             return true;
         }
@@ -93,7 +93,7 @@ public static class WiredVariableTextCapture
                 return false;
             }
 
-            var captured = new Dictionary<uint, int>();
+            var captured = new Dictionary<uint, long>();
 
             for (var index = 0; index < names.Length; index++) {
                 if (!byName.TryGetValue(names[index], out var capturer)) {
@@ -117,10 +117,10 @@ public static class WiredVariableTextCapture
     }
     private static bool Literal(string template, string text, int mode) => template.Length > 0 && (mode == 0
         ? text.Trim().Contains(template, StringComparison.OrdinalIgnoreCase) : string.Equals(text.Trim(), template, StringComparison.OrdinalIgnoreCase));
-    private static bool Adjacent(string text, int mode, WiredVariableCapturer[] capturers, out IReadOnlyDictionary<uint, int> values)
+    private static bool Adjacent(string text, int mode, WiredVariableCapturer[] capturers, out IReadOnlyDictionary<uint, long> values)
     {
-        values = new Dictionary<uint, int>();
-        var paths = new Dictionary<int, (int Previous, int Value)>[capturers.Length + 1];
+        values = new Dictionary<uint, long>();
+        var paths = new Dictionary<int, (int Previous, long Value)>[capturers.Length + 1];
         paths[0] = new() { [0] = (0, 0) };
 
         for (var index = 0; index < capturers.Length; index++) {
@@ -141,7 +141,7 @@ public static class WiredVariableTextCapture
             return false;
         }
 
-        var captured = new Dictionary<uint, int>();
+        var captured = new Dictionary<uint, long>();
 
         for (var index = capturers.Length - 1; index >= 0; index--) {
             var step = paths[index + 1][cursor];

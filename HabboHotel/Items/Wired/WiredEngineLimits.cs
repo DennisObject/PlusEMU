@@ -7,13 +7,13 @@ internal enum WiredEngineLimit
 
 internal sealed class WiredEngineLimits
 {
-    public int MaxDepth { get; init; } = 32;
+    public int MaxDepth { get; init; } = 20;
     public int MaxExecutionsPerPass { get; init; } = 10000;
     public int MaxPendingStacks { get; init; } = 10000;
 
     public static WiredEngineLimits FromSettings(Func<string, string> setting) => new()
     {
-        MaxDepth = ReadSetting(setting, "wired.max_depth", 32),
+        MaxDepth = ReadSetting(setting, "wired.max_depth", 20),
         MaxExecutionsPerPass = ReadSetting(setting, "wired.max_executions_per_pass", 10000),
         MaxPendingStacks = ReadSetting(setting, "wired.max_pending_stacks", 10000)
     };

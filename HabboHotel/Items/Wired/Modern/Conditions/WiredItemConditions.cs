@@ -6,14 +6,25 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Conditions;
 /// <summary>Positive item predicates. Negative boxes invert the outcome in their adapter.</summary>
 public static class WiredItemConditions
 {
-    public static bool MatchesSnapshot(WiredConfiguration config, IEnumerable<Item> items) =>
-        WiredRoomOperations.Quantify(items.Select(item =>
+    public static bool MatchesSnapshot(WiredConfiguration config, IEnumerable<Item> items)
+    {
+        var resolved = items.ToArray();
+        var outcomes = resolved.Select(item =>
         {
             var snapshot = config.Snapshots.FirstOrDefault(entry => entry.ItemId == item.Id);
 
             return snapshot != null && WiredRoomOperations.MatchesSnapshot(item, snapshot,
                 Param(config, 0) == 1, Param(config, 1) == 1, Param(config, 2) == 1, Param(config, 3) == 1);
-        }), Param(config, 5));
+        });
+
+        // A picked snapshot remains a subject after pickup; losing it cannot make "all" pass.
+        if (config.FurniSources.GetValueOrDefault("items", Param(config, 4, 100)) == 100) {
+            var liveIds = resolved.Select(item => item.Id).ToHashSet();
+            outcomes = outcomes.Concat(config.SelectedItems.Where(id => !liveIds.Contains(id)).Select(_ => false));
+        }
+
+        return WiredRoomOperations.Quantify(outcomes, Param(config, 5));
+    }
 
     public static bool HasAvatars(WiredConfiguration config, IEnumerable<Item> items,
         IReadOnlyCollection<RoomUser> roomAvatars) =>

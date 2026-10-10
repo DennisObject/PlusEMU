@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -35,6 +36,12 @@ public sealed class WiredModernCondition : WiredModernBox
         }
 
         var negative = WiredConditionConfiguration.NegativeNames.TryGetValue(Descriptor.CanonicalName, out var positive);
+
+        // Negative labels are the empty direction: 0 is at least one empty, 1 is all empty.
+        if (negative && Descriptor.CanonicalName is "wf_cnd_not_furni_on" or "wf_cnd_not_hv_avtrs") {
+            config = config with { IntParams = config.IntParams.SetItem(0, config.IntParams[0] == 0 ? 1 : 0) };
+        }
+
         var result = Evaluate(positive ?? Descriptor.CanonicalName, context, config);
 
         return negative ? !result : result;

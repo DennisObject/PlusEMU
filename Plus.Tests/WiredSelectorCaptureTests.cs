@@ -52,7 +52,8 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
             f.User(i);
         }
 
-        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = f.Users[0], EventItem = f.Furniture[^1] }));
+        Assert.True(f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = f.Users[0], EventItem = f.Furniture[^1] }));
+        f.Engine.OnFastCycle();
         Assert.Equal(1, actions);
         Assert.Empty(f.Errors);
         Assert.Equal(1, f.WorldCaptures);
@@ -86,12 +87,14 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
 
             return true;
         });
-        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = first });
+        f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = first });
+        f.Engine.OnFastCycle();
         Assert.Equal(1, f.WorldCaptures);
         f.Users.Remove(first);
         f.User(1); // Same virtual ID, different object identity, different firing.
         second.X = 100;
-        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = second });
+        f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.Enter) { Actor = second });
+        f.Engine.OnFastCycle();
         Assert.Equal(2, firings);
         Assert.Equal(2, f.WorldCaptures);
         Assert.Empty(f.Errors);
@@ -109,7 +112,8 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         var seen = new List<string>();
         f.Action(ctx => { seen.Add(ctx.Policy.FormatText(ctx, "$(u)")); return true; }, delay: 1);
         // The selected target can depart while this actorless firing remains valid.
-        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
+        f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.Enter));
+        f.Engine.OnFastCycle();
         Assert.Equal(1, f.WorldCaptures);
         f.Users.Remove(first);
         f.User(1);
@@ -135,7 +139,8 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         f.Addon("wf_xtra_rotate_to_dir", new() { IntParams = [.. projectile], Text = "\tcustom:10" });
         f.Action(_ => true);
         f.User(1);
-        f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.Enter));
+        f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.Enter));
+        f.Engine.OnFastCycle();
         Assert.Equal(2, f.VariableSessions); // Remote variable leaf + enabled curve; detached leaf is not fired.
         Assert.Equal(2, f.DisposedSessions);
         Assert.Equal(1, f.WorldCaptures);
@@ -159,15 +164,18 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
             return true;
         });
 
-        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = inside }));
+        Assert.True(f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = inside }));
+        f.Engine.OnFastCycle();
         var (furni, users) = Assert.Single(fired);
         Assert.Equal([inside.Id], furni);
         Assert.Same(user, Assert.Single(users));
 
-        Assert.False(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = outside }));
+        Assert.False(f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = outside }));
+        f.Engine.OnFastCycle();
         Assert.Single(fired);
         // The rejected firing left nothing pending: the next matching walk still fires.
-        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = inside }));
+        Assert.True(f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = inside }));
+        f.Engine.OnFastCycle();
         Assert.Equal(2, fired.Count);
         Assert.Empty(f.Errors);
     }
@@ -184,9 +192,11 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         var fired = 0;
         f.Action(_ => { fired++; return true; });
 
-        Assert.False(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = other }));
+        Assert.False(f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = other }));
+        f.Engine.OnFastCycle();
         Assert.Equal(0, f.WorldCaptures);
-        Assert.True(f.Engine.Dispatch(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = picked }));
+        Assert.True(f.Engine.DispatchSynchronously(new WiredRuntimeEvent(WiredEventKind.WalkOn) { Actor = user, EventItem = picked }));
+        f.Engine.OnFastCycle();
         Assert.Equal(1, fired);
         Assert.Empty(f.Errors);
     }

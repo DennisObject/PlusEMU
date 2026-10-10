@@ -7,6 +7,11 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 /// <summary>Rebuilds live holders through the engine's captured-object identity guards; shares only execution context values.</summary>
 public static class WiredVariableRuntimeFrames
 {
+    internal static WiredVariableFrame CaptureInspection(WiredRuntimeContext context) => new(context.Room.Id,
+        context.UserIdentity.Values.Where(user => !user.IsBot).Select(UserHolder)
+            .Concat(context.FurniIdentity.Values.Select(FurniHolder)).ToArray())
+    { RuntimeContext = context };
+
     public static WiredVariableFrame Create(WiredRuntimeContext context, WiredVariableFrame? parent = null)
     {
         IEnumerable<WiredVariableHolder> Furni(IEnumerable<Item> items) => items.Select(FurniHolder);
@@ -26,7 +31,9 @@ public static class WiredVariableRuntimeFrames
         var frame = new WiredVariableFrame(context.Room.Id, holders)
         {
             RuntimeContext = context,
-            Context = parent?.Context ?? new(),
+            Context = parent == null ? new() : ReferenceEquals(parent.RuntimeContext?.Policy, context.Policy)
+                ? parent.Context : parent.Context.CreateChild(),
+            VariableChanges = context.VariableChanges,
             Trigger = Select(WiredVariableTarget.Furni, WiredSources.Trigger, []).Concat(Select(WiredVariableTarget.User, WiredSources.Trigger, [])).ToArray(),
             Signal = Select(WiredVariableTarget.Furni, WiredSources.Signal, []).Concat(Select(WiredVariableTarget.User, WiredSources.Signal, [])).ToArray(),
             ResolveSource = Select,

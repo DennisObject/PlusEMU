@@ -1,14 +1,28 @@
 namespace Plus.HabboHotel.Items.Wired.Variables;
 
 /// <summary>Active room/execution state. It deliberately has no hydration or database fallback.</summary>
-public sealed class MemoryWiredVariableStore : IWiredVariableStore
+public sealed class MemoryWiredVariableStore(MemoryWiredVariableStore? parent = null) : IWiredVariableStore
 {
-    private readonly object _gate = new();
+    private readonly object _gate = parent?._gate ?? new();
     private readonly Dictionary<WiredVariableKey, WiredVariableValue> _values = [];
+    public MemoryWiredVariableStore? Parent { get; } = parent;
+    public MemoryWiredVariableStore CreateChild() => new(this);
+    internal MemoryWiredVariableStore? Owner(WiredVariableKey key)
+    {
+        lock (_gate) {
+            for (var scope = this; scope != null; scope = scope.Parent) {
+                if (scope._values.ContainsKey(key)) {
+                    return scope;
+                }
+            }
+
+            return null;
+        }
+    }
     public WiredVariableValue? Read(WiredVariableKey key)
     {
         lock (_gate) {
-            return _values.GetValueOrDefault(key);
+            return Owner(key)?._values.GetValueOrDefault(key);
         }
     }
     public WiredVariableWrite Mutate(WiredVariableKey key, Func<WiredVariableValue?, WiredVariableValue?> update, WiredVariableAuthorization? authorization = null)
@@ -30,7 +44,13 @@ public sealed class MemoryWiredVariableStore : IWiredVariableStore
     public IReadOnlyDictionary<WiredVariableKey, WiredVariableValue> GetHolders(uint definitionId)
     {
         lock (_gate) {
-            return _values.Where(x => x.Key.DefinitionId == definitionId).ToDictionary();
+            var visible = Parent?.GetHolders(definitionId).ToDictionary() ?? new Dictionary<WiredVariableKey, WiredVariableValue>();
+
+            foreach (var (key, value) in _values.Where(x => x.Key.DefinitionId == definitionId)) {
+                visible[key] = value;
+            }
+
+            return visible;
         }
     }
     public int DeleteDefinition(uint definitionId)

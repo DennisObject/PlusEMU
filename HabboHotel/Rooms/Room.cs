@@ -673,7 +673,9 @@ public class Room
     public void SendObjects(GameClient session)
     {
         GetGameMap().SendPlacementHeightMap(session);
-        session.Send(new FloorHeightMapComposer(GetGameMap().Model.GetRelativeHeightmap(), GetGameMap().StaticModel.WallHeight));
+        var presentation = GetGameMap().StaticModel.Presentation;
+        session.Send(new FloorHeightMapComposer(GetGameMap().Model.GetRelativeHeightmap(), GetGameMap().StaticModel.WallHeight,
+            presentation.HalfScale, cameraX: presentation.CameraX, cameraY: presentation.CameraY, cameraZ: presentation.CameraZ));
         var snapshotUsers = _roomUserManager.GetUserList().Where(user => user != null).ToArray();
 
         foreach (var user in snapshotUsers) {
@@ -710,6 +712,7 @@ public class Room
         session.Send(new UserUpdateComposer(RoomUserStatusSnapshot.Capture(_roomUserManager.GetUserList())));
         var snapshotFurniture = VisibleFloorItems.ToArray();
         session.Send(new ObjectsComposer(RoomFurnitureSnapshot.Capture(snapshotFurniture, OwnerId, OwnerName)));
+        Plus.HabboHotel.Items.AreaHide.AreaHideState.SendSnapshot(session, snapshotFurniture);
         var snapshotWalls = GetRoomItemHandler().GetWall.ToArray();
         session.Send(new ItemsComposer(RoomFurnitureSnapshot.Capture(snapshotWalls, OwnerId, OwnerName)));
         _wiredComponent?.SnapshotEnqueued(session, snapshotFurniture.Concat(snapshotWalls), snapshotUsers);

@@ -63,30 +63,38 @@ public sealed class WiredAllVariablesDiffComposer(WiredVariableCatalogDiff diff)
 }
 
 public sealed class WiredVariableHoldersComposer(uint roomId, WiredVariableDescription variable,
-    IReadOnlyList<WiredVariableStoredHolder> holders) : IServerPacket
+    IReadOnlyList<WiredVariableStoredHolder> holders, bool exact = false) : IServerPacket
 {
     private readonly WiredVariableDescription _variable = WiredVariableWireCapture.Capture(variable);
     private readonly ImmutableArray<WiredVariableStoredHolder> _holders = holders.ToImmutableArray();
-    public uint MessageId => ServerPacketHeader.WiredVariableHoldersComposer;
+    public uint MessageId => exact ? ServerPacketHeader.WiredVariableHolders64Composer : ServerPacketHeader.WiredVariableHoldersComposer;
     public void Compose(IOutgoingPacket packet)
     {
+        if (exact) {
+            packet.WriteInt(WiredVariableWireProtocol.Version);
+        }
+
         packet.WriteUInteger(roomId);
         WiredAllVariablesDiffComposer.WriteVariable(packet, _variable);
         packet.WriteInteger(_holders.Length);
 
         foreach (var holder in _holders) {
             packet.WriteInteger(checked((int)holder.Key.HolderId));
-            packet.WriteInteger(holder.Value.Value);
+            WiredVariableWireProtocol.WriteValue(packet, holder.Value.Value, exact);
         }
     }
 }
 
-public sealed class WiredVariableHoldersPageComposer(string variableId, WiredVariableHolderPage page, int userFilter, int sort) : IServerPacket
+public sealed class WiredVariableHoldersPageComposer(string variableId, WiredVariableHolderPage page, int userFilter, int sort, bool exact = false) : IServerPacket
 {
     private readonly WiredVariableHolderPage _captured = page with { Holders = page.Holders.ToImmutableArray() };
-    public uint MessageId => ServerPacketHeader.WiredVariableHoldersPageComposer;
+    public uint MessageId => exact ? ServerPacketHeader.WiredVariableHoldersPage64Composer : ServerPacketHeader.WiredVariableHoldersPageComposer;
     public void Compose(IOutgoingPacket packet)
     {
+        if (exact) {
+            packet.WriteInt(WiredVariableWireProtocol.Version);
+        }
+
         packet.WriteString(variableId);
         packet.WriteInteger(_captured.Total);
         packet.WriteInteger(_captured.Page);
@@ -97,7 +105,7 @@ public sealed class WiredVariableHoldersPageComposer(string variableId, WiredVar
             packet.WriteInteger(holder.Key.Target switch { WiredVariableTarget.Global => 0, WiredVariableTarget.User => 1, WiredVariableTarget.Furni => 2, _ => 3 });
             packet.WriteInteger(checked((int)holder.Key.HolderId));
             packet.WriteString(holder.Name);
-            packet.WriteInteger(holder.Value.Value);
+            WiredVariableWireProtocol.WriteValue(packet, holder.Value.Value, exact);
             WriteTimestamp(packet, holder.Value.CreatedAt);
             WriteTimestamp(packet, holder.Value.UpdatedAt);
         }

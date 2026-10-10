@@ -113,6 +113,8 @@ public partial class PlacedFurniRoomTests
         lamp.LegacyDataString = "1"; // a cycle write, queued
         UseItem(button);              // the use stack toggles the lamp back and reports its own write
 
+        _room.GetWired().OnFastCycle(); // Runs the state-change stack emitted by the use effect.
+
         Assert.Equal("0", lamp.LegacyDataString);
         Assert.Equal((0, 2), StateLines());
     }

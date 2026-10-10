@@ -6,16 +6,20 @@ using Plus.HabboHotel.Items.Wired.Variables;
 namespace Plus.Communication.Packets.Outgoing.WiredVariables;
 
 /// <summary>Legacy editor snapshot of live room assignments; offline holders are available through the paged protocol.</summary>
-public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot snapshot) : IServerPacket
+public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot snapshot, bool exact = false) : IServerPacket
 {
     private readonly WiredVariableMenuSnapshot _captured = snapshot with
     {
         Definitions = snapshot.Definitions.Select(WiredVariableWireCapture.Capture).ToImmutableArray(),
         Assignments = snapshot.Assignments.ToImmutableArray()
     };
-    public uint MessageId => ServerPacketHeader.WiredUserVariablesDataComposer;
+    public uint MessageId => exact ? ServerPacketHeader.WiredUserVariablesData64Composer : ServerPacketHeader.WiredUserVariablesDataComposer;
     public void Compose(IOutgoingPacket packet)
     {
+        if (exact) {
+            packet.WriteInt(WiredVariableWireProtocol.Version);
+        }
+
         var definitions = _captured.Definitions.ToDictionary(x => x.Definition.ItemId);
         packet.WriteUInteger(_captured.RoomId);
         WriteDefinitions(WiredVariableTarget.User);
@@ -75,7 +79,7 @@ public sealed class WiredUserVariablesDataComposer(WiredVariableMenuSnapshot sna
             var definition = definitions[value.Key.DefinitionId];
             packet.WriteUInteger(value.Key.DefinitionId);
             packet.WriteBoolean(definition.HasValue);
-            packet.WriteInteger(definition.HasValue ? value.Value.Value : 0);
+            WiredVariableWireProtocol.WriteValue(packet, definition.HasValue ? value.Value.Value : 0, exact);
             packet.WriteInteger(LegacySeconds(value.Value.CreatedAt));
             packet.WriteInteger(LegacySeconds(value.Value.UpdatedAt));
         }

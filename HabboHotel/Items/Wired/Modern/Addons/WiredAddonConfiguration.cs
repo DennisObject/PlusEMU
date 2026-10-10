@@ -35,11 +35,23 @@ public static class WiredAddonConfiguration
                 break;
             case "wf_xtra_filter_furni":
             case "wf_xtra_filter_users":
-                fields = [Math.Clamp(TextFallback(0), 0, 10000)];
+                if (c.IntParams.Length is not (0 or 1 or 3)
+                    || c.IntParams.Length == 3 && (P(1) is not (0 or 1) || P(2) is < 0 or > 3)) {
+                    throw new ArgumentException("Invalid quantity filter operand configuration");
+                }
+
+                fields = c.IntParams.Length == 3
+                    ? [Range(0, 0, 10000), P(1), P(2)]
+                    : [Math.Clamp(TextFallback(0), 0, 10000)];
                 break;
-            case "wf_xtra_execution_limit":
-                fields = [Range(0, 1, 100, 1), (Math.Clamp(P(1, 1000), 1000, 10000) + 250) / 500 * 500];
-                break;
+            case "wf_xtra_execution_limit": {
+                    // Official and Octane sliders save raw pulses 1..20. A larger value is milliseconds,
+                    // snapped to the same half-second grid the editor uses; 1250 becomes 1500 and 5000 stays 5000.
+                    var window = P(1, 1);
+                    window = window is >= 1 and <= 20 ? window * 500 : (Math.Clamp(window, 500, 10000) + 250) / 500 * 500;
+                    fields = [Range(0, 1, 100, 1), window];
+                    break;
+                }
             case "wf_xtra_random":
                 fields = [Range(0, 1, 1000, 1), Range(1, 0, 1000)];
                 break;

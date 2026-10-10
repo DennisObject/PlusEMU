@@ -57,9 +57,8 @@ public sealed class WiredTimedTriggers
             return false;
         }
 
-        // Deadlines stay on the grid set when the box armed: a late poll does not push the next one back, and
-        // deadlines the room slept through are skipped rather than fired in a burst.
-        _nextPeriodicAt[boxId] = next + ((nowMs - next) / intervalMs + 1) * intervalMs;
+        // A late poll fires once, then waits a full period from this firing.
+        _nextPeriodicAt[boxId] = nowMs + intervalMs;
 
         return true;
     }

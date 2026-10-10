@@ -42,8 +42,10 @@ public sealed class WiredNativeLifecycleTests
         actor.IsAsleep = true;
         actor.UnIdle();
         f.Wired.OnFastCycle();
+        f.Wired.OnFastCycle();
         Assert.Equal(1, action.Calls);
         actor.UnIdle();
+        f.Wired.OnFastCycle();
         f.Wired.OnFastCycle();
         Assert.Equal(1, action.Calls);
     }
@@ -62,9 +64,11 @@ public sealed class WiredNativeLifecycleTests
         actor.Y = 1;
         f.Room.GetRoomUserManager().UpdateUserStatus(actor, false);
         f.Wired.OnFastCycle();
+        f.Wired.OnFastCycle();
         Assert.True(actor.Statusses.ContainsKey("lay"));
         Assert.Equal(1, action.Calls);
         f.Room.GetRoomUserManager().UpdateUserStatus(actor, false);
+        f.Wired.OnFastCycle();
         f.Wired.OnFastCycle();
         Assert.Equal(1, action.Calls);
     }
@@ -85,6 +89,7 @@ public sealed class WiredNativeLifecycleTests
         typeof(RoomUserManager).GetMethod("RemoveRoomUser", BindingFlags.Instance | BindingFlags.NonPublic)!
             .Invoke(f.Room.GetRoomUserManager(), [actor, false, false]);
         Assert.Null(f.Room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId));
+        f.Wired.OnFastCycle();
         f.Wired.OnFastCycle();
         Assert.Equal(1, effect.Calls);
     }
@@ -116,6 +121,37 @@ public sealed class WiredNativeLifecycleTests
     }
 
     [Theory]
+    [InlineData("wf_upcounter1", false, false)]
+    [InlineData("wf_game_upcounter1", true, false)]
+    [InlineData("wf_game_upcounter2", true, false)]
+    [InlineData("wf_upcounter1", false, true)]
+    [InlineData("wf_game_upcounter1", true, true)]
+    public void GameEndPausesOnlyGameAwareWiredCounters(string name, bool gameAware, bool legacyEvent)
+    {
+        var f = new World();
+        var item = f.Item(1);
+        item.Definition.InteractionName = name;
+        item.Definition.ItemName = name;
+        item.Definition.InteractionType = InteractionTypes.GetTypeFromString(name);
+        item.LegacyDataString = "3";
+        var interactor = new InteractorCounter();
+        interactor.OnPlace(null!, item);
+        interactor.OnTrigger(null!, item, 0, true);
+        Assert.True(f.Wired.NeedsFastCycle);
+
+        if (legacyEvent) {
+            f.Wired.TriggerEvent(WiredBoxType.TriggerGameEnds, null!);
+        }
+        else {
+            f.Wired.Dispatch(new(WiredEventKind.GameEnd));
+        }
+
+        f.Wired.OnFastCycle();
+        Assert.Equal(!gameAware, f.Wired.NeedsFastCycle);
+        Assert.Equal("3", item.LegacyDataString);
+    }
+
+    [Theory]
     [InlineData("wf_antenna1")]
     [InlineData("wf_antenna2")]
     public void NativeAntennaDeliversConfiguredSignalAndRejectsDetachedReceiver(string name)
@@ -133,6 +169,7 @@ public sealed class WiredNativeLifecycleTests
         var effect = f.Effect();
         var context = f.Context();
         Assert.True(f.Wired.SendSignal(context, [antenna], new()));
+        f.Wired.OnFastCycle();
         f.Wired.OnFastCycle();
         Assert.Equal(1, effect.Calls);
         f.Remove(antenna);
@@ -157,6 +194,7 @@ public sealed class WiredNativeLifecycleTests
         Assert.True(f.Wired.Variables.Module.Mutate(new(WiredVariableTarget.User, "internal:@handitem"),
             WiredVariableRuntimeFrames.UserHolder(actor), WiredVariableMutation.Set, 7, frame));
         f.Wired.OnCycle();
+        f.Wired.OnFastCycle();
         f.Wired.OnFastCycle();
         Assert.Equal(1, effect.Calls);
     }
@@ -291,11 +329,13 @@ public sealed class WiredNativeLifecycleTests
         var reference = new WiredVariableReference(WiredVariableTarget.Furni, "internal:@state");
         Assert.True(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 1, new(1, [holder])));
         f.Wired.OnFastCycle();
+        f.Wired.OnFastCycle();
         Assert.Equal(1, effect.Calls);
         Assert.False(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 1, new(1, [holder])));
         f.Wired.OnCycle();
         Assert.Equal(1, effect.Calls);
         Assert.True(f.Wired.Variables.Module.Mutate(reference, holder, WiredVariableMutation.Set, 0, WiredVariableRuntimeFrames.Create(f.Context())));
+        f.Wired.OnFastCycle();
         f.Wired.OnFastCycle();
         Assert.Equal(2, effect.Calls);
         f.Remove(item);
@@ -377,30 +417,37 @@ public sealed class WiredNativeLifecycleTests
     {
         var f = new World();
         var viewer = f.Human();
+        var store = new NativeWallStore();
+        Set(f.Room.GetRoomItemHandler(), "_store", store);
         var wall = f.Wall(4);
+        wall.WallCoordinates = ":w=1,1 l=10,20 l a=201";
         var context = f.Context(new(WiredEventKind.ClickFurni) { EventItem = wall });
         context.Triggering.FurniIds.Add(wall.Id);
         var frame = WiredVariableRuntimeFrames.Create(context);
         var holder = WiredVariableRuntimeFrames.FurniHolder(wall);
-        int? Read(string key) => f.Wired.ReadBuiltin(new(WiredVariableTarget.Furni, "internal:" + key), holder, frame);
+        long? Read(string key) => f.Wired.ReadBuiltin(new(WiredVariableTarget.Furni, "internal:" + key), holder, frame);
         bool Write(string key, int value) => f.Wired.WriteBuiltin(new(WiredVariableTarget.Furni, "internal:" + key), holder, value, frame);
         Assert.Equal(1, Read("@position.x"));
         Assert.Equal(1, Read("@position.y"));
         Assert.Equal(10, Read("@wallitem_offset"));
-        Assert.Equal(2000, Read("@altitude"));
-        Assert.Equal(4, Read("@rotation"));
+        Assert.Equal(201, Read("@altitude"));
+        Assert.Equal(0, Read("@rotation"));
         var packets = 0;
         ((FlashGameClient)viewer.GetClient()).SendCallback = _ => { packets++; return true; };
         Assert.True(Write("@wallitem_offset", 12));
-        Assert.True(Write("@altitude", 2100));
-        Assert.True(Write("@rotation", 6));
-        Assert.Equal(":w=1,1 l=12,21 r", wall.WallCoordinates);
+        Assert.True(Write("@altitude", 210));
+        Assert.True(Write("@rotation", 1));
+        Assert.Equal(":w=1,1 l=4,-32 r a=210", wall.WallCoordinates);
         Assert.Equal(3, packets);
-        Assert.Same(wall, ((ConcurrentDictionary<uint, Item>)Get(f.Room.GetRoomItemHandler(), "_movedItems"))[wall.Id]);
-        Assert.False(Write("@altitude", 2150));
+        Assert.Equal(3, store.Writes.Count);
+        Assert.Empty((ConcurrentDictionary<uint, Item>)Get(f.Room.GetRoomItemHandler(), "_movedItems"));
+        Assert.True(Write("@altitude", 215));
+        Assert.Equal(215, Read("@altitude"));
+        Assert.Equal(4, store.Writes.Count);
+        Assert.Equal(4, packets);
         Assert.False(Write("@position.x", 701));
         Assert.False(Write("@rotation", 2));
-        Assert.Equal(":w=1,1 l=12,21 r", wall.WallCoordinates);
+        Assert.Equal(":w=1,1 l=4,-32 r a=215", wall.WallCoordinates);
         var replacement = f.Wall(wall.Id);
         Assert.False(Write("@wallitem_offset", 13));
         Assert.Null(Read("@wallitem_offset"));
@@ -410,13 +457,13 @@ public sealed class WiredNativeLifecycleTests
     }
 
     [Fact]
-    public void NativeTimezoneOverrideBindsCalendarAndVariablesWhileDefaultsRemainDistinct()
+    public void NativeTimezoneOverrideAndBlankDefaultsBindCalendarAndVariablesTogether()
     {
         var f = new World();
         var store = new SettingsStore();
         Set(f.Wired, "<Settings>k__BackingField", new WiredRoomSettings(f.Room, store));
         Assert.Equal(DateTimeOffset.Now.Offset, f.Wired.CalendarTime.Offset);
-        Assert.Equal(TimeZoneInfo.Utc, f.Wired.Variables.TimeZone());
+        Assert.Equal(TimeProvider.System.LocalTimeZone, f.Wired.Variables.TimeZone());
         f.Human();
         f.Room.Type = "private";
         f.Room.OwnerName = "viewer";
@@ -433,7 +480,7 @@ public sealed class WiredNativeLifecycleTests
         Assert.True(((IWiredContextualItem)box).Execute(f.Context()));
         Assert.True(f.Wired.Settings.TrySave(owner, 0, 0, "", out error), error);
         Assert.Equal(DateTimeOffset.Now.Offset, f.Wired.CalendarTime.Offset);
-        Assert.Equal(TimeZoneInfo.Utc, f.Wired.Variables.TimeZone());
+        Assert.Equal(TimeProvider.System.LocalTimeZone, f.Wired.Variables.TimeZone());
     }
 
     private sealed class SettingsStore : IWiredRoomSettingsStore
@@ -441,6 +488,18 @@ public sealed class WiredNativeLifecycleTests
         private WiredRoomSettingsSnapshot? _saved;
         public WiredRoomSettingsSnapshot? Load(uint roomId) => _saved;
         public void Save(uint roomId, int actorId, bool staff, WiredRoomSettingsSnapshot? expected, WiredRoomSettingsSnapshot settings) => _saved = settings;
+    }
+
+    private sealed class NativeWallStore : IRoomItemStore
+    {
+        public List<string> Writes { get; } = [];
+        public void MoveWall(uint itemId, uint roomId, string wallPosition) => Writes.Add(wallPosition);
+        public void AssignOwner(uint itemId, int userId) { }
+        public void ClearRoom(uint itemId) { }
+        public void SaveWallPosition(uint itemId, string wallPosition) { }
+        public void SaveMoved(IReadOnlyList<RoomItemSave> items) { }
+        public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) { }
+        public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) { }
     }
 
     private sealed class World

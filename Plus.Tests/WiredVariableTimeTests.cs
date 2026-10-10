@@ -5,6 +5,18 @@ namespace Plus.Tests;
 
 public sealed class WiredVariableTimeTests
 {
+    [Theory]
+    [InlineData(1, 1234)]
+    [InlineData(2, 2678)]
+    public void TimestampModesPreserveMilliseconds(int mode, int expectedMilliseconds)
+    {
+        var time = new WiredVariableTimeUtilities(WiredVariableTimeUtilities.ValidMask, mode);
+        var value = new WiredVariableValue(99, DateTimeOffset.FromUnixTimeMilliseconds(1234), DateTimeOffset.FromUnixTimeMilliseconds(2678));
+        Assert.Equal(expectedMilliseconds % 1000, time.Read(value, 1, TimeZoneInfo.Utc));
+        Assert.Equal(expectedMilliseconds, time.Read(value, 20, TimeZoneInfo.Utc));
+        Assert.Equal(expectedMilliseconds / 1000, time.Read(value, 21, TimeZoneInfo.Utc));
+    }
+
     [Fact]
     public void CalendarUsesExplicitRoomTimezoneAndElapsedUnitsUseUtc()
     {
@@ -17,7 +29,7 @@ public sealed class WiredVariableTimeTests
         Assert.Equal(53, time.Read(value, 8, zone));
         Assert.Equal(612, time.Read(value, 26, zone));
         Assert.Equal(1609459200, time.Read(value, 21, zone));
-        Assert.Equal(int.MaxValue, time.Read(value, 20, zone));
+        Assert.Equal(1609459200000L, time.Read(value, 20, zone));
         Assert.Equal(0, time.Read(value with { Value = -1 }, 21, zone));
     }
     [Fact]

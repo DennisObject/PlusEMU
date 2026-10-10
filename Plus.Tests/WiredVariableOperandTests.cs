@@ -13,7 +13,7 @@ public sealed class WiredVariableOperandTests
     [Theory]
     [InlineData(WiredVariableTarget.User)]
     [InlineData(WiredVariableTarget.Furni)]
-    public void TypedExecutorAssignsAndComparesEachHoldersOwnReference(WiredVariableTarget target)
+    public void TypedExecutorAssignsAndComparesTheFirstReadableReference(WiredVariableTarget target)
     {
         var room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         room.Id = 1;
@@ -39,7 +39,7 @@ public sealed class WiredVariableOperandTests
         Assert.True(box.TryValidateConfiguration(configuration, out var validated, out _));
         box.ApplyConfiguration(validated);
         Assert.True(box.Execute(context));
-        Assert.Equal(new[] { 10, 20 }, holders.Select(x => module.Read(new(target, "custom:10"), x, frame)!.Value));
+        Assert.Equal(new long[] { 10, 10 }, holders.Select(x => module.Read(new(target, "custom:10"), x, frame)!.Value));
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         Assert.True(executor.Execute("wf_cnd_var_val_match", configuration with { IntParams = [(int)target, 2, 1, 0, (int)target, 200, 200, 200, 200, 0] }, frame));
         Assert.True(executor.Execute("wf_cnd_var_val_match", configuration with { Text = "custom:10\tcustom:10\t", IntParams = [(int)target, 2, 1, 0, (int)target, 200, 200, 200, 200, 0] }, frame));
@@ -55,11 +55,11 @@ public sealed class WiredVariableOperandTests
         }
 
         Assert.True(executor.Execute("wf_act_change_var_val", configuration with { IntParams = [(int)target, 0, 1, 0, (int)target, 200, 200, 201, 201] }, reversed));
-        Assert.Equal(new[] { 10, 20 }, holders.Select(x => module.Read(new(target, "custom:10"), x, reversed)!.Value));
+        Assert.Equal(new long[] { 20, 20 }, holders.Select(x => module.Read(new(target, "custom:10"), x, reversed)!.Value));
     }
 
     [Fact]
-    public void DifferentTargetReferencesUsePositionThenFirstWhenDestinationsOutnumberOperands()
+    public void DifferentTargetReferencesUseTheFirstReadableValueForEveryDestination()
     {
         var users = Enumerable.Range(1, 3).Select(i => new WiredVariableHolder(WiredVariableTarget.User, 900 + i, i)).ToArray();
         var furniture = new[] { new WiredVariableHolder(WiredVariableTarget.Furni, 301, 301), new WiredVariableHolder(WiredVariableTarget.Furni, 302, 302) };
@@ -77,7 +77,7 @@ public sealed class WiredVariableOperandTests
 
         var executor = new WiredVariableExecutors(module, new FixedTimeProvider(DateTimeOffset.FromUnixTimeMilliseconds(2000)));
         Assert.True(executor.Execute("wf_act_change_var_val", Config(WiredVariableTarget.User, WiredVariableTarget.Furni), frame));
-        Assert.Equal(new[] { 10, 20, 10 }, users.Select(x => module.Read(new(x.Target, "custom:10"), x, frame)!.Value));
+        Assert.Equal(new long[] { 10, 10, 10 }, users.Select(x => module.Read(new(x.Target, "custom:10"), x, frame)!.Value));
     }
 
     [Theory]
@@ -162,7 +162,7 @@ public sealed class WiredVariableOperandTests
     }
 
     [Fact]
-    public void TimestampSortingKeepsUnknownAtLegacyZeroInBothDirections()
+    public void TimestampSortingExcludesUnknownAndPreservesPoolOrderForTies()
     {
         var holders = Enumerable.Range(1, 4)
             .Select(i => new WiredVariableHolder(WiredVariableTarget.User, i, 900 + i))
@@ -177,9 +177,9 @@ public sealed class WiredVariableOperandTests
         var module = new WiredVariableModule(1, new AgeDirectory(), store,
             new FixedTimeProvider(DateTimeOffset.UnixEpoch));
 
-        Assert.Equal(new long[] { 1, 3, 2, 5, 4 }, WiredVariablePredicates.Filter(module,
+        Assert.Equal(new long[] { 3, 2, 4, 5 }, WiredVariablePredicates.Filter(module,
             new(WiredVariableTarget.User, "custom:10"), holders, frame, 2, 5).Select(x => x.StableId));
-        Assert.Equal(new long[] { 5, 4, 2, 3, 1 }, WiredVariablePredicates.Filter(module,
+        Assert.Equal(new long[] { 4, 5, 2, 3 }, WiredVariablePredicates.Filter(module,
             new(WiredVariableTarget.User, "custom:10"), holders, frame, 3, 5).Select(x => x.StableId));
     }
     private static WiredConfiguration Config(WiredVariableTarget target, WiredVariableTarget reference) => new()

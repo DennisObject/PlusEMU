@@ -36,21 +36,63 @@ public sealed class WiredAddonTests
     }
 
     [Fact]
-    public void ExecutionLimitUsesSlidingMillisecondsAndResetsOnLifecycleChange()
+    public void ExecutionLimitStoresPulsesAsMillisecondsAndKeepsPersistedWindows()
     {
-        var addon = new WiredAddonModule("wf_xtra_execution_limit", Config([2, 1250]));
-        Assert.Equal(1500, addon.Configuration.IntParams[1]);
+        Assert.Equal(new[] { 1, 500 }, new WiredAddonModule("wf_xtra_execution_limit", Config()).Configuration.IntParams);
+        Assert.Equal(new[] { 1, 500 }, new WiredAddonModule("wf_xtra_execution_limit", Config([1, 1])).Configuration.IntParams);
+        Assert.Equal(new[] { 20, 10000 }, new WiredAddonModule("wf_xtra_execution_limit", Config([20, 20])).Configuration.IntParams);
+        Assert.Equal(new[] { 100, 10000 }, new WiredAddonModule("wf_xtra_execution_limit", Config([250, 20])).Configuration.IntParams);
+        Assert.Equal(new[] { 1, 2000 }, new WiredAddonModule("wf_xtra_execution_limit", Config([-4, 4])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 500 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 0])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 500 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 21])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 500 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 499])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 500 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 500])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 1000 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 750])).Configuration.IntParams);
+        Assert.Equal(new[] { 1, 1000 }, new WiredAddonModule("wf_xtra_execution_limit", Config([1, 1000])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 1500 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 1250])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 1500 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 1500])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 5000 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 5000])).Configuration.IntParams);
+        Assert.Equal(new[] { 2, 10000 }, new WiredAddonModule("wf_xtra_execution_limit", Config([2, 20000])).Configuration.IntParams);
+
+        var pulses = WiredAddonConfiguration.Normalize("wf_xtra_execution_limit", Config([2, 3]));
+        Assert.Equal(new[] { 2, 1500 }, pulses.IntParams);
+        Assert.Equal(pulses.IntParams.ToArray(), WiredAddonConfiguration.Normalize("wf_xtra_execution_limit", pulses).IntParams);
+        var persisted = new WiredAddonModule("wf_xtra_execution_limit", Config([2, 5000])).Configuration;
+        Assert.Equal(persisted.IntParams.ToArray(), WiredAddonConfiguration.Normalize("wf_xtra_execution_limit", persisted).IntParams);
+    }
+
+    [Fact]
+    public void ExecutionLimitUsesATumblingWindowAndResetStartsANewOne()
+    {
+        var addon = new WiredAddonModule("wf_xtra_execution_limit", Config([2, 2]));
+        Assert.Equal(1000, addon.Configuration.IntParams[1]);
         Assert.True(addon.Apply(Input(0), new()));
-        Assert.True(addon.Apply(Input(500), new()));
-        Assert.False(addon.Apply(Input(1499), new()));
-        Assert.True(addon.Apply(Input(1500), new()));
+        Assert.True(addon.Apply(Input(900), new()));
+        Assert.False(addon.Apply(Input(999), new()));
+        // The window opened at t=0, so t=1000 starts a new one. A sliding window would still be holding t=900 and refuse t=1100.
+        Assert.True(addon.Apply(Input(1000), new()));
+        Assert.True(addon.Apply(Input(1100), new()));
         Assert.False(addon.Apply(Input(1999), new()));
-        Assert.True(addon.Apply(Input(2000), new()));
         addon.Reset();
-        Assert.True(addon.Apply(Input(2000), new()));
-        addon.Configure(Config([1, 1000]));
-        Assert.True(addon.Apply(Input(2000), new()));
-        Assert.False(addon.Apply(Input(2001), new()));
+        Assert.True(addon.Apply(Input(1999), new()));
+        addon.Configure(Config([1, 5000]));
+        Assert.Equal(5000, addon.Configuration.IntParams[1]);
+        Assert.True(addon.Apply(Input(1999), new()));
+        Assert.False(addon.Apply(Input(2000), new()));
+        Assert.True(addon.Apply(Input(6999), new()));
+    }
+
+    [Fact]
+    public void ExecutionLimitReopensWhenTheClockMovesBeforeTheWindowStart()
+    {
+        var addon = new WiredAddonModule("wf_xtra_execution_limit", Config([1, 2]));
+        Assert.Equal(1000, addon.Configuration.IntParams[1]);
+        Assert.True(addon.Apply(Input(5000), new()));
+        Assert.False(addon.Apply(Input(5500), new()));
+        Assert.False(addon.Apply(Input(5200), new()));
+        Assert.True(addon.Apply(Input(4000), new()));
+        Assert.False(addon.Apply(Input(4999), new()));
+        Assert.True(addon.Apply(Input(5000), new()));
     }
 
     [Fact]
@@ -86,10 +128,10 @@ public sealed class WiredAddonTests
         selection.UserIds.Add(1);
         var policy = new WiredAddonPolicy();
         new WiredAddonModule("wf_xtra_filter_furni", Config([0])).Apply(Input(), policy);
-        Assert.Equal(3, policy.FilterSelection(selection, new Random(2)).FurniIds.Count);
+        Assert.Equal(3, policy.FilterSelection(selection).FurniIds.Count);
         new WiredAddonModule("wf_xtra_filter_furni", Config([2])).Apply(Input(), policy);
         new WiredAddonModule("wf_xtra_filter_furni", Config([1])).Apply(Input(), policy);
-        var filtered = policy.FilterSelection(selection, new Random(2));
+        var filtered = policy.FilterSelection(selection);
         Assert.Single(filtered.FurniIds);
         Assert.Single(filtered.UserIds);
         Assert.Equal(3, selection.FurniIds.Count);

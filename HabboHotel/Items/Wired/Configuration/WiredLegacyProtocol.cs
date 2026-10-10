@@ -70,7 +70,8 @@ public static class WiredLegacyProtocol
         && !configuration.VariableIds.IsDefault && configuration.VariableIds.Length <= WiredConfigurationLimits.IntParams
         && configuration.VariableIds.All(id => id != null && id.Length <= 1024)
         && !configuration.Snapshots.IsDefault && configuration.Snapshots.Length <= WiredConfigurationLimits.SelectedItems
-        && configuration.Snapshots.All(snapshot => snapshot != null && double.IsFinite(snapshot.Z) && snapshot.State != null)
+        && configuration.Snapshots.All(snapshot => snapshot != null && double.IsFinite(snapshot.Z) && snapshot.State != null
+            && (snapshot.Wall?.IsWithinLimits() ?? true))
         && configuration.FurniSources != null && configuration.FurniSources.Count <= WiredConfigurationLimits.IntParams
         && configuration.UserSources != null && configuration.UserSources.Count <= WiredConfigurationLimits.IntParams;
 

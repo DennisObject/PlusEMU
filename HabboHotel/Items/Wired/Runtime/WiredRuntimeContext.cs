@@ -1,4 +1,5 @@
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Modern.Selectors;
@@ -8,23 +9,27 @@ namespace Plus.HabboHotel.Items.Wired.Runtime;
 public sealed class WiredRuntimeContext
 {
     private readonly Dictionary<uint, WiredConfiguration> _configurations = [];
-    internal Dictionary<(int Source, string Saved, int Limit), uint[]> FurniSubsets { get; } = [];
-    internal Dictionary<(int Source, string Saved, string? Name, int Limit, string Triggered), int[]> UserSubsets { get; } = [];
     internal Dictionary<uint, Item> FurniIdentity { get; } = [];
     internal Dictionary<int, RoomUser> UserIdentity { get; } = [];
     public Room Room { get; }
     public WiredRuntimeEvent Event { get; }
     public IWiredItem? Trigger { get; internal set; }
     public int Depth { get; internal set; }
+    internal bool ResumeImmediately { get; set; }
+    internal WiredFurniturePublication? Publication { get; set; }
+    internal WiredFurniturePublication? InheritedPublication { get; set; }
     public long NowMilliseconds { get; internal set; }
     public WiredSelection Triggering { get; internal set; } = new();
     public WiredSelection SelectorPool { get; } = new();
+    internal List<uint> SelectorFurniOrder { get; } = [];
+    internal List<int> SelectorUserOrder { get; } = [];
     public WiredSelection Selected { get; internal set; } = new();
     public WiredSelectionKind SelectorKinds { get; internal set; }
     public WiredSignalPayload? Signal { get; internal set; }
     public Dictionary<string, long> Values { get; } = [];
     public WiredSelectorWorld? SelectorWorldSnapshot { get; set; }
     public WiredVariableFrame? VariableFrame { get; set; }
+    public WiredVariableChangeBatch? VariableChanges { get; set; }
     public WiredExecutionPolicy Policy { get; } = new();
     public WiredTargetResolver Targets { get; }
     public IWiredRuntimeOperations Operations { get; }
@@ -37,7 +42,7 @@ public sealed class WiredRuntimeContext
         Targets = targets;
         Operations = operations;
 
-        foreach (var item in targets.AllFurni()) {
+        foreach (var item in targets.AttachedFurni()) {
             FurniIdentity[item.Id] = item;
         }
 
@@ -71,9 +76,9 @@ public sealed class WiredRuntimeContext
             _configurations = parent._configurations;
             Policy = parent.Policy;
             SelectorPool = parent.SelectorPool;
+            SelectorFurniOrder = parent.SelectorFurniOrder;
+            SelectorUserOrder = parent.SelectorUserOrder;
             Values = parent.Values;
-            FurniSubsets = parent.FurniSubsets;
-            UserSubsets = parent.UserSubsets;
         }
     }
 
@@ -93,6 +98,9 @@ public sealed class WiredRuntimeContext
         var context = new WiredRuntimeContext(this, Event with { Actor = actor }, shareFiring: true)
         {
             Depth = Depth,
+            ResumeImmediately = ResumeImmediately,
+            Publication = Publication,
+            InheritedPublication = InheritedPublication,
             NowMilliseconds = NowMilliseconds,
             Trigger = Trigger,
             Triggering = Triggering.Copy(),
@@ -118,6 +126,7 @@ public sealed class WiredRuntimeContext
         // One identity snapshot per dispatch; children share it and revalidate only targets.
         var child = new WiredRuntimeContext(this, @event) { Depth = depth, NowMilliseconds = NowMilliseconds };
         child.VariableFrame = VariableFrame;
+        child.InheritedPublication = Publication ?? InheritedPublication;
 
         foreach (var pair in Values) {
             child.Values[pair.Key] = pair.Value;

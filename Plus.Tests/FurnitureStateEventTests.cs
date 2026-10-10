@@ -39,6 +39,8 @@ public partial class PlacedFurniRoomTests
 
         UseItem(lamp);
 
+        _room.GetWired().OnFastCycle(); // Runs the state-change stack emitted by the use effect.
+
         Assert.Equal("0", lamp.LegacyDataString);
         Assert.Equal((1, 2), StateLines()); // the user's write and the effect's write back
     }

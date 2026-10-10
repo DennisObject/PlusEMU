@@ -246,6 +246,7 @@ public partial class PlacedFurniRoomTests
 
         new LandingEffects(_room, _database).Apply(actor, wasLaying);
         _room.GetWired().OnFastCycle();
+        _room.GetWired().OnFastCycle();
         Assert.Equal(expected, action.Calls);
     }
 

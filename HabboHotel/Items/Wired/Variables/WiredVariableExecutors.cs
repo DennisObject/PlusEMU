@@ -12,11 +12,13 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
     {
         error = "Invalid scalar variable settings.";
 
-        if (!Supports(name) || configuration.Version != 1 || configuration.Text.Length > 5000) {
-            return false;
-        }
+        return TryDecode(name, configuration, out var core, out _) && ValidateCore(name, configuration, core, out error);
+    }
 
-        var p = configuration.IntParams;
+    private static bool TryDecode(string name, WiredConfiguration configuration, out System.Collections.Immutable.ImmutableArray<int> core, out long literal)
+    {
+        core = configuration.IntParams;
+        literal = 0;
         var count = name switch
         {
             "wf_act_give_var" => 5,
@@ -24,10 +26,35 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             "wf_act_change_var_val" => 9,
             "wf_cnd_has_var" or "wf_cnd_neg_has_var" => 4,
             "wf_cnd_var_val_match" => 10,
-            _ => 8
+            "wf_cnd_var_age_match" => 8,
+            _ => -1
         };
+        var literalIndex = name switch { "wf_act_give_var" => 2, "wf_act_change_var_val" or "wf_cnd_var_val_match" => 3, _ => -1 };
 
-        if (p.Length != count || !Enum.IsDefined((WiredVariableTarget)p[0])) {
+        if (core.Length == count + 2 && literalIndex >= 0 && core[count] == 1) {
+            literal = ((long)core[count + 1] << 32) | (uint)core[literalIndex];
+            core = core[..count];
+
+            return true;
+        }
+
+        if (core.Length != count) {
+            return false;
+        }
+
+        if (literalIndex >= 0) {
+            literal = core[literalIndex];
+        }
+
+        return true;
+    }
+
+    private static bool ValidateCore(string name, WiredConfiguration configuration, System.Collections.Immutable.ImmutableArray<int> p, out string error)
+    {
+        error = "Invalid scalar variable settings.";
+
+        if (!Supports(name) || configuration.Version != 1 || configuration.Text.Length > 5000
+            || !Enum.IsDefined((WiredVariableTarget)p[0])) {
             return false;
         }
 
@@ -38,7 +65,8 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
         }
 
         if (name is "wf_act_give_var" or "wf_act_remove_var") {
-            if (!WiredVariableModule.TryDefinitionId(tokens[0], out _) || p[0] == 3) {
+            if ((!WiredVariableModule.TryDefinitionId(tokens[0], out _)
+                && !RoomWiredBuiltinVariables.SupportsPresenceMutation(new((WiredVariableTarget)p[0], tokens[0]))) || p[0] == 3) {
                 return false;
             }
 
@@ -93,11 +121,10 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
 
     public bool Execute(string name, WiredConfiguration configuration, WiredVariableFrame frame)
     {
-        if (!TryValidate(name, configuration, out _)) {
+        if (!TryDecode(name, configuration, out var p, out var literal) || !ValidateCore(name, configuration, p, out _)) {
             return false;
         }
 
-        var p = configuration.IntParams;
         var tokens = configuration.Text.Split('\t');
         var reference = new WiredVariableReference((WiredVariableTarget)p[0], tokens[0]);
         var sourceStart = name switch
@@ -114,7 +141,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             var changed = false;
 
             foreach (var target in targets) {
-                changed |= variables.Mutate(reference, target, mutation, name == "wf_act_remove_var" ? 0 : p[2], frame);
+                changed |= variables.Mutate(reference, target, mutation, name == "wf_act_remove_var" ? 0 : literal, frame);
             }
 
             return changed;
@@ -158,7 +185,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             }), p[^1]);
         }
 
-        var operands = new List<(WiredVariableHolder Holder, int Value)>();
+        var operands = new List<(WiredVariableHolder Holder, long Value)>();
 
         if (p[2] == 1 && !(name == "wf_act_change_var_val" && WiredVariableArithmetic.IsUnary(p[1]))) {
             var operandReference = new WiredVariableReference((WiredVariableTarget)p[4], tokens[1]);
@@ -176,31 +203,25 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             }
         }
 
-        int Operand(WiredVariableHolder target, int index)
-        {
-            if (operands.Count == 0) {
-                return p[3];
-            }
-
-            foreach (var source in operands) {
-                if (source.Holder == target) {
-                    return source.Value;
-                }
-            }
-
-            return operands[index < operands.Count ? index : 0].Value;
-        }
+        var operand = operands.Count == 0 ? literal : operands[0].Value;
 
         if (name == "wf_cnd_var_val_match") {
-            return Quantify(targets.Select((target, index) => variables.Read(reference, target, frame) is { } value
-                && WiredVariablePredicates.Compare(p[1], value.Value, Operand(target, index))), p[^1]);
+            return Quantify(targets.Select(target => variables.Read(reference, target, frame) is { } value
+                && WiredVariablePredicates.Compare(p[1], value.Value, operand)), p[^1]);
         }
 
         var any = false;
 
         for (var index = 0; index < targets.Length; index++) {
-            var operand = Operand(targets[index], index);
-            any |= variables.Change(reference, targets[index], WiredVariableMutation.Set, current => WiredVariableArithmetic.Apply(p[1], current, operand), frame);
+            if (frame.VariableChanges is { } batch) {
+                if (variables.Read(reference, targets[index], frame) is not null) {
+                    batch.Add(variables, reference, targets[index], p[1], operand, frame);
+                    any = true;
+                }
+            }
+            else {
+                any |= variables.Change(reference, targets[index], WiredVariableMutation.Set, current => WiredVariableArithmetic.Apply(p[1], current, operand), frame, notifyUnchanged: true);
+            }
         }
 
         return any;
@@ -238,5 +259,5 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
         return outcomes.Length > 0 && (quantifier == 1 ? outcomes.Any(x => x) : outcomes.All(x => x));
     }
     private static bool ValidToken(string token) => WiredVariableModule.TryDefinitionId(token, out _)
-        || token.StartsWith("internal:@", StringComparison.Ordinal) && token.Length > 10;
+        || (token.StartsWith("internal:@", StringComparison.Ordinal) || token.StartsWith("internal:~", StringComparison.Ordinal)) && token.Length > 10;
 }

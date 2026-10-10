@@ -43,6 +43,7 @@ public static class WiredSelectorConfiguration
             "wf_slc_furni_with_var" or "wf_slc_users_with_var" =>
                 [P(0) == 1 ? 1 : 0, Enum(1, 0, 5, 2), P(2) == 1 ? 1 : 0, P(3), Enum(4, 0, 3), Source(5, users: true), Source(6, true), P(7), P(8)],
             "wf_slc_furni_neighborhood" or "wf_slc_users_neighborhood" => Neighborhood(c),
+            "wf_slc_remote" => Remote(c),
             _ => [P(0), P(1)]
         };
         var (filter, invert) = WiredSelectorModule.SwitchIndexes(name);
@@ -61,13 +62,29 @@ public static class WiredSelectorConfiguration
         return c with { IntParams = fields.ToImmutableArray(), Text = text };
     }
 
+    private static int[] Remote(WiredConfiguration c)
+    {
+        int P(int index) => WiredSelectorSources.Param(c, index);
+
+        if (c.IntParams.Length <= 2) {
+            return [P(0), P(1)];
+        }
+
+        if (c.IntParams.Length is not (4 or 5) || P(2) is not (0 or 1) || P(3) < 0
+            || c.IntParams.Length == 5 && P(4) is not (0 or 100 or 201)) {
+            throw new ArgumentException("Remote selection requires union/intersection and a nonnegative stack count");
+        }
+
+        return [P(0), P(1), P(2), P(3), c.IntParams.Length == 5 ? P(4) : 100];
+    }
+
     private static int[] Neighborhood(WiredConfiguration c)
     {
         int P(int index) => WiredSelectorSources.Param(c, index);
         var count = P(5);
 
-        if (count < 0 || count > 64 || count > 0 && c.IntParams.Length < 6 + count * 2) {
-            throw new ArgumentException("Neighborhood requires complete offsets, at most 64 tiles");
+        if (count < 0 || count > WiredConfigurationLimits.NeighborhoodTiles || count > 0 && c.IntParams.Length < 6 + count * 2) {
+            throw new ArgumentException("Neighborhood requires complete offsets, at most 81 tiles");
         }
 
         var fields = new int[6 + count * 2];

@@ -95,7 +95,28 @@ public class RoomUser
     public DateTimeOffset? SignExpiresAt;
     public byte SqState;
     public bool SuperFastWalking = false;
-    public Team Team;
+    private sealed record TeamMembership(Team Value, long Revision);
+    private TeamMembership? _teamMembership;
+    public Team Team
+    {
+        get => Volatile.Read(ref _teamMembership)?.Value ?? Team.None;
+        set
+        {
+            TeamMembership? previous;
+            TeamMembership next;
+
+            do {
+                previous = Volatile.Read(ref _teamMembership);
+
+                if ((previous?.Value ?? Team.None) == value) {
+                    return;
+                }
+
+                next = new(value, checked((previous?.Revision ?? 0) + 1));
+            } while (!ReferenceEquals(Interlocked.CompareExchange(ref _teamMembership, next, previous), previous));
+        }
+    }
+    internal long TeamRevision => Volatile.Read(ref _teamMembership)?.Revision ?? 0;
     public int TeleDelay; //byte
     public bool TeleportEnabled;
     public double TimeInRoom;
@@ -423,7 +444,7 @@ public class RoomUser
             return;
         }
 
-        if (room.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, habbo, message)) {
+        if (room.GetWired().TriggerEvent(WiredBoxType.TriggerUserSays, habbo, message, colour, shout)) {
             return;
         }
 

@@ -7,13 +7,13 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
 {
     public WiredVariableCatalog Catalog() => variables.Catalog();
 
-    public bool Write(WiredVariableTarget target, int targetId, uint definitionId, int value, WiredVariableMutation mutation, string token = "")
+    public bool Write(WiredVariableTarget target, int targetId, uint definitionId, long value, WiredVariableMutation mutation, string token = "")
     {
         if (target is not (WiredVariableTarget.User or WiredVariableTarget.Furni or WiredVariableTarget.Global)) {
             return false;
         }
 
-        if (token.Length > 0 && (definitionId != 0 || !token.StartsWith("internal:@", StringComparison.Ordinal) || mutation != WiredVariableMutation.Set)) {
+        if (token.Length > 0 && (definitionId != 0 || !(token.StartsWith("internal:@", StringComparison.Ordinal) || token.StartsWith("internal:~", StringComparison.Ordinal)) || mutation != WiredVariableMutation.Set && !RoomWiredBuiltinVariables.SupportsPresenceMutation(new(target, token)))) {
             return false;
         }
 
@@ -52,7 +52,7 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
             }
         }
 
-        var changed = variables.Module.Mutate(new(target, token.Length > 0 ? token : $"custom:{definitionId}"), holder, mutation, value, frame, origin: 2);
+        var changed = variables.Module.Change(new(target, token.Length > 0 ? token : $"custom:{definitionId}"), holder, mutation, _ => value, frame, origin: 2, notifyUnchanged: true);
 
         if (changed) {
             variables.InvalidateFx();
@@ -158,9 +158,9 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
     }
     private (WiredVariableFrame Frame, IReadOnlyDictionary<long, string> Names) LiveHolders(WiredVariableTarget target)
     {
-        var users = room.GetRoomUserManager().GetRoomUsers().ToArray();
-        var items = room.GetRoomItemHandler().GetWallAndFloor.ToArray();
-        var holders = users.Select(WiredVariableRuntimeFrames.UserHolder).Concat(items.Select(WiredVariableRuntimeFrames.FurniHolder)).ToArray();
+        var frame = room.GetWired().CaptureVariableInspectionFrame();
+        var users = frame.RuntimeContext!.UserIdentity.Values.Where(user => !user.IsBot);
+        var items = frame.RuntimeContext.FurniIdentity.Values;
         var names = new Dictionary<long, string>();
 
         if (target == WiredVariableTarget.User) {
@@ -177,6 +177,6 @@ public sealed class WiredVariableMenu(Room room, WiredRoomVariables variables)
             names[0] = room.Name;
         }
 
-        return (new(room.Id, holders), names);
+        return (frame, names);
     }
 }

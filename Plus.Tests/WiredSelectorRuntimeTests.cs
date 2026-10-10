@@ -12,14 +12,14 @@ namespace Plus.Tests;
 public sealed class WiredSelectorRuntimeTests
 {
     [Fact]
-    public void AddonFactoriesUseInteractionNameAndSeparatePostConditionGatesFromPolicies()
+    public void AddonFactoriesUseInteractionNameAndDoNotDeferAddonsUntilAfterConditions()
     {
         foreach (var name in WiredAddonModule.Names) {
             var item = new Item { Id = 9, Definition = new() { ItemName = "hotel_specific_name", InteractionName = name } };
             var addon = WiredAddonFactory.Create(null!, item, new(), TestGroupManager.Empty);
             Assert.NotNull(addon);
             Assert.Equal(name, addon.Descriptor.CanonicalName);
-            Assert.Equal(name == "wf_xtra_execution_limit", addon.AfterConditions);
+            Assert.False(addon.AfterConditions);
         }
 
         Assert.Null(WiredAddonFactory.Create(null!, new() { Definition = new() { ItemName = "wf_xtra_var_fx_health" } }, new(), TestGroupManager.Empty));

@@ -6,14 +6,14 @@ public sealed record WiredVariableValue
     private DateTimeOffset? _createdAt;
     private DateTimeOffset? _updatedAt;
 
-    public WiredVariableValue(int value, DateTimeOffset? createdAt, DateTimeOffset? updatedAt)
+    public WiredVariableValue(long value, DateTimeOffset? createdAt, DateTimeOffset? updatedAt)
     {
         Value = value;
         CreatedAt = createdAt?.ToUniversalTime();
         UpdatedAt = updatedAt?.ToUniversalTime();
     }
 
-    public int Value { get; init; }
+    public long Value { get; init; }
     public DateTimeOffset? CreatedAt { get => _createdAt; init => _createdAt = value?.ToUniversalTime(); }
     public DateTimeOffset? UpdatedAt { get => _updatedAt; init => _updatedAt = value?.ToUniversalTime(); }
 }

@@ -17,12 +17,15 @@ public class GameManager
     {
         _room = room;
         _clock = clock;
+        Highscores = new(room, clock);
         Points = new int[5];
         _redTeamItems = new();
         _blueTeamItems = new();
         _greenTeamItems = new();
         _yellowTeamItems = new();
     }
+
+    internal RoomHighscores Highscores { get; }
 
     public int[] Points { get; set; }
 
@@ -80,6 +83,7 @@ public class GameManager
 
     public void Reset()
     {
+        Highscores.Invalidate();
         AddPointToTeam(Team.Blue, GetScoreForTeam(Team.Blue) * -1);
         AddPointToTeam(Team.Green, GetScoreForTeam(Team.Green) * -1);
         AddPointToTeam(Team.Red, GetScoreForTeam(Team.Red) * -1);
@@ -222,6 +226,7 @@ public class GameManager
 
     public void Dispose()
     {
+        Highscores.Dispose();
         Array.Clear(Points, 0, Points.Length);
         _redTeamItems.Clear();
         _blueTeamItems.Clear();

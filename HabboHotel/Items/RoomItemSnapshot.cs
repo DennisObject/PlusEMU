@@ -12,7 +12,10 @@ public abstract record FurnitureDataSnapshot(FurniDataStructure Structure)
     public sealed record Strings(ImmutableArray<string> Values) : FurnitureDataSnapshot(FurniDataStructure.StringArray);
     public sealed record Vote(string State, int Result) : FurnitureDataSnapshot(FurniDataStructure.VoteResult);
     public sealed record Integers(ImmutableArray<int> Values) : FurnitureDataSnapshot(FurniDataStructure.IntArray);
-    public sealed record Highscore(string State, uint ScoreType, uint ClearType) : FurnitureDataSnapshot(FurniDataStructure.HighScore);
+    public sealed record Highscore(string State, uint ScoreType, uint ClearType) : FurnitureDataSnapshot(FurniDataStructure.HighScore)
+    {
+        public ImmutableArray<HighscoreEntry> Entries { get; init; } = [];
+    }
     public sealed record Crackable(string State, uint Hits, uint Target) : FurnitureDataSnapshot(FurniDataStructure.Crackable);
 
     public static FurnitureDataSnapshot Capture(IFurniObjectData data) => data switch
@@ -23,7 +26,7 @@ public abstract record FurnitureDataSnapshot(FurniDataStructure Structure)
         StringArrayDataFormat value => new Strings(value.Data.ToImmutableArray()),
         VoteResultDataFormat value => new Vote(value.State, value.Result),
         IntArrayDataFormat value => new Integers(value.Data.ToImmutableArray()),
-        HighscoreDataFormat value => new Highscore(value.State, value.ScoreType, value.ClearType),
+        HighscoreDataFormat value => new Highscore(value.State, value.ScoreType, value.ClearType) { Entries = value.CaptureEntries() },
         CrackableDataFormat value => new Crackable(value.State, value.Hits, value.Target),
         _ => throw new ArgumentOutOfRangeException(nameof(data), data.StructureType, "Unsupported furniture wire data.")
     };

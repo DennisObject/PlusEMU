@@ -64,6 +64,7 @@ public class WiredAvatarPacketHookTests
     {
         var world = new World(editorAction);
         await new ActionEvent(world.Actions).Parse(world.Room, world.Client, Packet(expression));
+        world.FlushWired();
         var observed = Assert.Single(world.Capture.Events);
         Assert.Same(world.Actor, observed.Actor);
         Assert.Equal(editorAction, observed.Action);
@@ -78,6 +79,7 @@ public class WiredAvatarPacketHookTests
         var world = new World(9, sign);
         world.Actor.IdleTime = 10;
         await new ApplySignEvent(world.Actions).Parse(world.Room, world.Client, Packet(sign));
+        world.FlushWired();
         var observed = Assert.Single(world.Capture.Events);
         Assert.Same(world.Actor, observed.Actor);
         Assert.Equal(sign, observed.Code);
@@ -170,6 +172,7 @@ public class WiredAvatarPacketHookTests
         world.Client.GetHabbo().Access = Plus.HabboHotel.Permissions.UserAccess.Create([], [new(Plus.HabboHotel.Permissions.PermissionKeys.ClubAccess, false)]);
         var handler = new DanceEvent(world.Actions);
         await handler.Parse(world.Room, world.Client, Packet(dance));
+        world.FlushWired();
         var observed = Assert.Single(world.Capture.Events);
         Assert.Same(world.Actor, observed.Actor);
         Assert.Equal(dance, observed.Code);
@@ -187,11 +190,13 @@ public class WiredAvatarPacketHookTests
         await handler.Parse(world.Client, Packet(1));
         await handler.Parse(world.Client, Packet(1));
         Assert.True(world.Actor.IsSitting);
+        world.FlushWired();
         Assert.Single(world.Capture.Events);
         await handler.Parse(world.Client, Packet(0));
         await handler.Parse(world.Client, Packet(0));
         Assert.False(world.Actor.IsSitting);
         Assert.Equal(0, world.Actor.Z);
+        world.FlushWired();
         Assert.Equal(new[] { 6, 7 }, world.Capture.Events.Select(evt => evt.Action));
         Assert.All(world.Capture.Events, evt => Assert.Same(world.Actor, evt.Actor));
     }
@@ -302,6 +307,12 @@ public class WiredAvatarPacketHookTests
         private readonly WiredComponent _wired;
         private readonly ConcurrentDictionary<int, RoomUser> _users;
         private uint _next = 10;
+        public void FlushWired()
+        {
+            _wired.OnFastCycle();
+            _wired.OnFastCycle();
+        }
+
         public World(int action, int code = -1, TimeProvider? clock = null)
         {
             Room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));

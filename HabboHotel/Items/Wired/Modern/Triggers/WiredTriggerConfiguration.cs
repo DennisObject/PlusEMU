@@ -139,7 +139,7 @@ public static class WiredTriggerConfiguration
 
                 break;
             case "wf_trg_clock_counter":
-                if (p.Length != 3 || p[0] is < 0 or > 59 || p[1] is < 0 or > 119 || !F(2)) {
+                if (p.Length != 3 || p[0] is < 0 or > 99 || p[1] is < 0 or > 119 || !F(2)) {
                     return false;
                 }
 

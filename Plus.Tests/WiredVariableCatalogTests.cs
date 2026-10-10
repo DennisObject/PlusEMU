@@ -43,7 +43,7 @@ public sealed class WiredVariableCatalogTests
         Assert.True(alias.HasValue);
         var page = module.ReadHolderPage(10, 2, 2, 1);
         Assert.Equal(5, page.Total);
-        Assert.Equal(new[] { 30, 20 }, page.Holders.Select(x => x.Value.Value));
+        Assert.Equal(new long[] { 30, 20 }, page.Holders.Select(x => x.Value.Value));
         Assert.All(page.Holders, x => Assert.Equal(10u, x.Key.DefinitionId));
         Assert.Equal(5, module.GetStoredHolders(10).Count);
         var filtered = module.ReadHolderPage(10, 1, 200, 2, [1, 3], new Dictionary<long, string> { [1] = "z", [3] = "a" });

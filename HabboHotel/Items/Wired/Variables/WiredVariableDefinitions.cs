@@ -23,7 +23,7 @@ public static class WiredVariableDefinitions
         WiredVariableTarget target;
         WiredVariableAvailability availability;
         bool hasValue;
-        var initial = 0;
+        var initial = 0L;
         WiredVariableLink? link = null;
 
         switch (name) {
@@ -44,14 +44,15 @@ public static class WiredVariableDefinitions
                 hasValue = ints[0] == 1;
                 break;
             case "wf_var_room":
-                if (ints.Length != 2 || ints[0] is not (1 or 10 or 11)) {
+                if (ints.Length is not (2 or 4) || ints[0] is not (1 or 10 or 11)
+                    || ints.Length == 4 && ints[1] != 1) {
                     return false;
                 }
 
                 target = WiredVariableTarget.Global;
                 availability = (WiredVariableAvailability)ints[0];
                 hasValue = true;
-                initial = ints[1];
+                initial = ints.Length == 4 ? ((long)ints[2] << 32) | (uint)ints[3] : ints[1];
                 break;
             case "wf_var_context":
                 if (ints.Length != 1 || ints[0] is not (0 or 1)) {

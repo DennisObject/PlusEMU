@@ -119,7 +119,7 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
     }
     private sealed class ValueRow
     {
-        public int Value { get; set; }
+        public long Value { get; set; }
         public DateTimeOffset? CreatedAt { get; set; }
         public DateTimeOffset? UpdatedAt { get; set; }
     }

@@ -228,7 +228,7 @@ public static class WiredConditionConfiguration
                 users["users"] = p[3];
                 break;
             case "wf_cnd_counter_time_matches":
-                if (p.Length != 5 || !Range(0, 0, 2) || !Range(1, 0, 59) || !Range(2, 0, 119) || !F(3) || !Q(4)) {
+                if (p.Length != 5 || !Range(0, 0, 2) || !Range(1, 0, 99) || !Range(2, 0, 119) || !F(3) || !Q(4)) {
                     return false;
                 }
 
