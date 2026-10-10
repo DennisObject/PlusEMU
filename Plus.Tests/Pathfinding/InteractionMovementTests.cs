@@ -160,6 +160,23 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
+    public void PickedUpTeleporterRestartsItsDoorCycleWhenPlacedAgain()
+    {
+        var item = InteractionItem(10, 1, 1, InteractionType.Teleport);
+        _room.GetRoomItemHandler().RemoveFurniture(_client, item.Id);
+        ExecutorTick();
+        Assert.Equal(0, item.UpdateCounter);
+
+        item.RoomId = RoomId;
+        Assert.True(_room.GetRoomItemHandler().SetFloorItem(null!, item, 1, 1, 0, true, false, false));
+        var actor = ExecutorActor(1, 0);
+        item.Interactor.OnTrigger(_client, item, 0, true);
+        ExecutorTick();
+        Assert.Equal("1", item.LegacyDataString);
+        Assert.Contains("/mv 1,1,0/", ExecutorUpdate(actor).Status);
+    }
+
+    [Fact]
     public void TimedTeleporterTransfersToLinkedItemThenUsesItsFrontExit()
     {
         var database = LandingDatabase(11, RoomId);
@@ -271,10 +288,6 @@ public partial class PlacedFurniRoomTests
     {
         var item = Add(id, x, y, type: kind);
         InitializeNativeState(item);
-
-        if (kind is InteractionType.Teleport or InteractionType.Hopper) {
-            item.RequestUpdate(1, true);
-        }
 
         return item;
     }
