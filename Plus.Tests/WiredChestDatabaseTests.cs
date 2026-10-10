@@ -222,7 +222,7 @@ public sealed class WiredChestDatabaseTests
                 CREATE TABLE furniture(id INT PRIMARY KEY,item_name VARCHAR(100),interaction_type VARCHAR(25));
                 CREATE TABLE wired_item_configurations(item_id INT UNSIGNED PRIMARY KEY,box_name VARCHAR(100),configuration LONGTEXT);
                 CREATE TABLE room_music_playlist(disc_id INT UNSIGNED PRIMARY KEY);
-                INSERT INTO users VALUES (1,100),(2,100);
+                INSERT INTO users VALUES (1,100),(2,100),(7,0),(8,0);
                 INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES (201,1,0,1,'kept'),(202,2,0,1,''),(203,1,42,1,'');
                 """);
             var sql = File.ReadAllText(HabbiconPacketTests.Repo("Database/Migrations/65_WiredChests.sql"));
