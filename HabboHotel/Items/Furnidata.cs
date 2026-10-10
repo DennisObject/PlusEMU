@@ -95,38 +95,6 @@ public sealed class FurnidataEntry
         return entry;
     }
 
-    // The definition fields of an entry, for the same row (furniture id and kind stay). Missing fields get the
-    // column defaults; catalog fields and unknown fields are ignored.
-    public FurnidataEntry WithJson(JsonObject entry) => new()
-    {
-        FurnitureId = FurnitureId,
-        IsWall = IsWall,
-        Id = Integer(entry["id"]) ?? 0,
-        Classname = Text(entry["classname"]) ?? string.Empty,
-        Revision = Integer(entry["revision"]) ?? 0,
-        Category = Text(entry["category"]),
-        DefaultDir = Integer(entry["defaultdir"]) ?? 0,
-        XDim = Integer(entry["xdim"]) ?? 1,
-        YDim = Integer(entry["ydim"]) ?? 1,
-        PartColors = entry["partcolors"]?["color"] is JsonArray colors ? string.Join(',', colors.Select(color => Text(color) ?? string.Empty)) : null,
-        Name = Text(entry["name"]),
-        Description = Text(entry["description"]),
-        AdUrl = Text(entry["adurl"]),
-        ExcludedDynamic = Flag(entry["excludeddynamic"]) ?? false,
-        CustomParams = Text(entry["customparams"]),
-        SpecialType = Integer(entry["specialtype"]) ?? 1,
-        CanStandOn = Flag(entry["canstandon"]) ?? false,
-        CanSitOn = Flag(entry["cansiton"]) ?? false,
-        CanLayOn = Flag(entry["canlayon"]) ?? false,
-        CanPutStuffOn = Flag(entry["canputstuffon"]),
-        Height = entry["height"] is JsonValue height && height.TryGetValue<double>(out var number) ? number : null,
-        FurniLine = Text(entry["furniline"]),
-        Environment = Text(entry["environment"]),
-        Rare = Flag(entry["rare"]) ?? false,
-        Tradeable = Flag(entry["tradeable"]),
-        Recyclable = Flag(entry["recyclable"])
-    };
-
     // Whether two entries hold the same definition, ignoring catalog fields and field order.
     public static bool SameDefinition(JsonObject first, JsonObject second) => JsonNode.DeepEquals(Definition(first), Definition(second));
 
@@ -140,11 +108,6 @@ public sealed class FurnidataEntry
         }
     }
 
-    private static string? Text(JsonNode? node) => node is JsonValue value && value.TryGetValue<string>(out var text) ? text : null;
-
-    private static int? Integer(JsonNode? node) => node is JsonValue value && value.TryGetValue<int>(out var number) ? number : null;
-
-    private static bool? Flag(JsonNode? node) => node is JsonValue value && value.TryGetValue<bool>(out var flag) ? flag : null;
 }
 
 // SQL for furniture rows' furnidata. A furnidata row (has_furnidata) is the entry of its kind; rows sharing its
@@ -162,27 +125,4 @@ public sealed class FurnidataRepository(IDbConnection connection, IDbTransaction
     public List<FurnidataEntry> All() =>
         connection.Query<FurnidataEntry>($"SELECT {Columns} FROM furniture WHERE has_furnidata ORDER BY type, sprite_id", transaction: transaction).ToList();
 
-    // The entry of a kind with this classname (compared without case, like the client).
-    public FurnidataEntry? Entry(string classname, bool isWall, bool forUpdate = false) => connection.QuerySingleOrDefault<FurnidataEntry>(
-        $"SELECT {Columns} FROM furniture WHERE furnidata_classname = @classname AND type = @type{(forUpdate ? " FOR UPDATE" : "")}",
-        new { classname, type = isWall ? "i" : "s" }, transaction);
-
-    // The entry with this classname in either section.
-    public FurnidataEntry? Entry(string classname) => connection.QuerySingleOrDefault<FurnidataEntry>(
-        $"SELECT {Columns} FROM furniture WHERE furnidata_classname = @classname", new { classname }, transaction);
-
-    // The entry with this id, a floor entry before a wall entry.
-    public FurnidataEntry? EntryById(int id) => connection.QueryFirstOrDefault<FurnidataEntry>(
-        $"SELECT {Columns} FROM furniture WHERE furnidata_sprite_id = @id ORDER BY type = 'i' LIMIT 1", new { id }, transaction);
-
-    public bool Any() => connection.QuerySingle<bool>("SELECT EXISTS (SELECT 1 FROM furniture WHERE has_furnidata)", transaction: transaction);
-
-    // Writes the definition fields; the classname and id stay the row's.
-    public void Save(FurnidataEntry entry) => connection.Execute("""
-        UPDATE furniture SET revision = @Revision, category = @Category, default_dir = @DefaultDir, xdim = @XDim, ydim = @YDim,
-        part_colors = @PartColors, name = @Name, description = @Description, ad_url = @AdUrl, excluded_dynamic = @ExcludedDynamic,
-        custom_params = @CustomParams, special_type = @SpecialType, can_stand_on = @CanStandOn, can_sit_on = @CanSitOn,
-        can_lay_on = @CanLayOn, can_put_stuff_on = @CanPutStuffOn, height = @Height, furni_line = @FurniLine, environment = @Environment,
-        rare = @Rare, tradeable = @Tradeable, recyclable = @Recyclable WHERE id = @FurnitureId AND has_furnidata
-        """, entry, transaction);
 }

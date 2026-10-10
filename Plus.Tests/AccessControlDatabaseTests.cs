@@ -3,9 +3,6 @@ using System.Data;
 using Plus.Database;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Users.Permissions;
-using Microsoft.Extensions.Options;
-using Plus.Communication.Http;
-using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Chat.Commands.Moderator;
 using Dapper;
@@ -33,6 +30,16 @@ public sealed class AccessControlDatabaseFactAttribute : FactAttribute
     }
 }
 
+public sealed class AccessControlDatabaseTheoryAttribute : TheoryAttribute
+{
+    public AccessControlDatabaseTheoryAttribute()
+    {
+        if (Environment.GetEnvironmentVariable(AccessControlDatabaseFactAttribute.Variable) == null) {
+            Skip = $"Set {AccessControlDatabaseFactAttribute.Variable} to a disposable task_acl_tests_ database with the migrated schema.";
+        }
+    }
+}
+
 [CollectionDefinition("AccessControlDatabase", DisableParallelization = true)]
 public sealed class AccessControlDatabaseCollection;
 
@@ -46,7 +53,6 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     private readonly CountingDatabase _accessDatabase;
     private readonly IGameClientManager _clients;
     private readonly ManualClock _clock = new();
-    private int? _registeredUserId;
     private readonly Habbo _actor;
     private readonly Habbo _target;
     private readonly List<(uint Header, byte[] Body)> _sent;
@@ -86,17 +92,13 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     }
 
     [AccessControlDatabaseFact]
-    public async Task AwaitedStartupAndAdministrativeReloadPublishWithoutHoldingAnAsyncContinuation()
+    public async Task AwaitedStartupAndRoleAssignmentPublishWithoutHoldingAnAsyncContinuation()
     {
         await _access.Start().WaitAsync(TimeSpan.FromSeconds(10));
-        var revision = _access.AdminSnapshot(_actor).Revision;
-        var result = await Task.Run(() => _access.Apply(_actor, revision,
-            new SaveAccessRole(LimitedRole, "acl_limited", "Reloaded role", "", 20, 2, "", false, false)))
+        var assigned = await Task.Run(() => _access.AssignRole(_actor, Target, LimitedRole))
             .WaitAsync(TimeSpan.FromSeconds(10));
 
-        Assert.True(result.Ok);
-        Assert.True(_access.TryGetRole(LimitedRole, out var role));
-        Assert.Equal("Reloaded role", role.Name);
+        Assert.True(assigned);
         Assert.Contains(_sent, packet => packet.Header == ServerPacketHeader.UserRightsComposer);
     }
 
@@ -420,22 +422,6 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
 
 
     [AccessControlDatabaseFact]
-    public async Task RegistrationStartsWithoutClubOrAnAutomaticVipRole()
-    {
-        var accounts = new AccountStore(_database, _clock, Options.Create(new AuthApiConfiguration()));
-        _registeredUserId = await accounts.Create(new("acl_registered", "test-hash", "acl_registered@hotel", "hd-180-1", "M", "127.0.0.1"));
-        Assert.NotNull(_registeredUserId);
-        var access = _access.Resolve(_registeredUserId.Value);
-        Assert.DoesNotContain(access.Roles, role => role.Slug == "vip");
-        Assert.False(access.Can(PermissionKeys.CommandMimic));
-        Assert.Equal(0, ClubAccess.LevelFor(access));
-        using var connection = _database.Connection();
-        Assert.Equal(1, connection.ExecuteScalar<int>("SELECT `rank` FROM users WHERE id = @userId", new { userId = _registeredUserId.Value }));
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_club_memberships WHERE user_id = @userId", new { userId = _registeredUserId.Value }));
-        Assert.Equal(0, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM user_roles WHERE user_id = @userId", new { userId = _registeredUserId.Value }));
-    }
-
-    [AccessControlDatabaseFact]
     public void MigratedCurrencySubcommandGrantsResolveThroughTheCodeRegistry()
     {
         var access = _access.Resolve(Actor);
@@ -481,11 +467,6 @@ public sealed partial class AccessControlDatabaseTests : IDisposable
     {
         _access.Dispose();
         using var connection = _database.Connection();
-
-        if (_registeredUserId is { } registered) {
-            connection.Execute("DELETE FROM user_roles WHERE user_id = @registered; DELETE FROM user_statistics WHERE id = @registered; " +
-                "DELETE FROM acl_audit_log WHERE target_id = @registered; DELETE FROM users WHERE id = @registered", new { registered });
-        }
 
         connection.Execute("DELETE FROM acl_audit_log WHERE actor_id IN @ids OR target_id IN @ids; " +
             "DELETE FROM user_permissions WHERE user_id IN @ids; DELETE FROM user_roles WHERE user_id IN @ids; " +

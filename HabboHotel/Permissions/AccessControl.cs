@@ -12,7 +12,7 @@ using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Permissions;
 
-public sealed partial class AccessControl : IAccessControl, IDisposable, IStartable
+public sealed class AccessControl : IAccessControl, IDisposable, IStartable
 {
     private readonly IDatabase _database;
     private readonly IGameClientManager _clients;

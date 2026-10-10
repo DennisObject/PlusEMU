@@ -259,7 +259,6 @@ public sealed class ClubCatalogServiceTests
             return new DateTimeOffset(2040, 3, 5, 4, 5, 6, TimeSpan.Zero);
         }
 
-        public DateTimeOffset? Grant(Habbo actor, int userId, int days) => throw new NotSupportedException();
     }
 
     public class CatalogProxy : DispatchProxy

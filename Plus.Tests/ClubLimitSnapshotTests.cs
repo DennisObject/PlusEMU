@@ -50,12 +50,12 @@ public class ClubLimitSnapshotTests
     {
         var clock = new ExpiringClock();
         var role = new AccessRole(2, "catalog", "Catalog", 1, 1, "", false,
-            [PermissionKeys.ClubAccess, PermissionKeys.CatalogEdit], new Dictionary<string, int>());
+            [PermissionKeys.ClubAccess, PermissionKeys.CameraUse], new Dictionary<string, int>());
         var access = UserAccess.Create([new(role, clock.Expiry)], clock: clock);
         var model = new RoomModel("model_a", 0, 0, 0, 0, "0", 2, 0, false)
-        { RequiredPermission = PermissionKeys.CatalogEdit };
+        { RequiredPermission = PermissionKeys.CameraUse };
         var page = new CatalogPage
-        { Enabled = true, RequiredClubLevel = 2, RequiredPermission = PermissionKeys.CatalogEdit };
+        { Enabled = true, RequiredClubLevel = 2, RequiredPermission = PermissionKeys.CameraUse };
         var user = new Habbo { Access = access };
         Func<bool> eligible = roomModel ? () => model.CanCreate(access) : () => page.CanOpen(user);
         var before = clock.Reads;

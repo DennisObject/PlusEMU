@@ -12,17 +12,6 @@ internal static class EditorTestSupport
 {
     public const string RestrictedPagePermission = "catalog.pages.owner";
 
-    public static Habbo Owner() => Staff(90, PermissionKeys.CatalogEdit, PermissionKeys.FurniEdit, PermissionKeys.FurniDelete, RestrictedPagePermission);
-
-    public static Habbo Staff(int weight = 90, params string[] rights) => new()
-    {
-        Id = 7001,
-        Username = "editor",
-        Access = Access(rights.Length == 0
-            ? [PermissionKeys.CatalogEdit, PermissionKeys.FurniEdit, PermissionKeys.FurniDelete]
-            : rights, weight)
-    };
-
     public static Habbo Player() => new() { Id = 7002, Username = "player", Access = Access([]) };
 
     public static UserAccess Access(string[] rights, int weight = 0, IEnumerable<UserPermissionOverride>? overrides = null) => UserAccess.Create(

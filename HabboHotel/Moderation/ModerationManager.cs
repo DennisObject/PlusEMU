@@ -15,7 +15,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
 {
     private readonly IDatabase _database;
     private readonly ILogger<ModerationManager> _logger;
-    private readonly ISessionIssuer _sessions;
+    private readonly ISsoTicketStore _tickets;
     private readonly IGameClientManager _clients;
     private readonly IAccountSessionGate _sessionGate;
     private readonly TimeProvider _clock;
@@ -38,11 +38,11 @@ public sealed class ModerationManager : IModerationManager, IStartable
 
     public ICollection<ModerationTicket> GetTickets => _modTickets.Values;
 
-    public ModerationManager(IDatabase database, ILogger<ModerationManager> logger, ISessionIssuer sessions, IGameClientManager clients,
+    public ModerationManager(IDatabase database, ILogger<ModerationManager> logger, ISsoTicketStore tickets, IGameClientManager clients,
         IAccountSessionGate sessionGate, TimeProvider clock)
     {
         _sessionGate = sessionGate;
-        _sessions = sessions;
+        _tickets = tickets;
         _clients = clients;
         _database = database;
         _logger = logger;
@@ -332,7 +332,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
         }
 
         _sessionGate.Revoke(userId);
-        await _sessions.RevokeAll(userId, cancellationToken);
+        await _tickets.Revoke(userId, cancellationToken);
         _clients.GetClientByUserId(userId)?.Disconnect();
     }
 
@@ -414,7 +414,7 @@ public sealed class ModerationManager : IModerationManager, IStartable
     }
 
     /// <summary>
-    /// The address the server knows for an account: users.ip_last, recorded by the auth API through its trusted proxies.
+    /// The address the server knows for an account: users.ip_last.
     /// The game socket's own address is the proxy's, so it is never used.
     /// </summary>
     private async Task<string> AccountAddress(int userId, CancellationToken cancellationToken)
@@ -440,10 +440,8 @@ public sealed class ModerationManager : IModerationManager, IStartable
 
     /// <summary>
     /// Accounts a ban covers. A machine ban reaches the sessions online with that handshake machine id. An IP ban reaches
-    /// the accounts whose users.ip_last is that address: the auth API records it (through its trusted proxies) at login,
-    /// resume and registration, and game sessions carry no client address of their own, so this is best effort and misses
-    /// accounts that have since used the address without an HTTP login. New logins from a banned address are refused by
-    /// BanLookup regardless.
+    /// the accounts whose users.ip_last is that address. Game sessions carry no client address of their own, so an IP ban
+    /// only reaches accounts that already have the address recorded. Username bans are refused at login by BanLoginCheckTask.
     /// </summary>
     internal async Task<IReadOnlyList<int>> BannedAccounts(ModerationBanType type, string banValue, CancellationToken cancellationToken = default)
     {
@@ -456,33 +454,6 @@ public sealed class ModerationManager : IModerationManager, IStartable
         return (await connection.QueryAsync<int>(new CommandDefinition(type == ModerationBanType.Ip
             ? "SELECT `id` FROM `users` WHERE `ip_last` = @banValue"
             : "SELECT `id` FROM `users` WHERE `username` = @banValue", new { banValue }, cancellationToken: cancellationToken))).ToList();
-    }
-
-    public bool UnbanUser(string username)
-    {
-        _banWrites.Wait();
-
-        try {
-            int removed;
-
-            using (var connection = _database.Connection()) {
-                removed = connection.Execute("DELETE FROM `bans` WHERE `bantype` = 'user' AND `value` = @username", new { username });
-            }
-
-            RemoveBan(username);
-
-            // Every part of a ban on this account still running stops; it would re-check its row anyway.
-            foreach (var work in _pendingBans.Keys) {
-                if (string.Equals(work.Account, username, StringComparison.OrdinalIgnoreCase)) {
-                    work.Cancel();
-                }
-            }
-
-            return removed > 0;
-        }
-        finally {
-            _banWrites.Release();
-        }
     }
 
     public bool TryAddTicket(ModerationTicket ticket)

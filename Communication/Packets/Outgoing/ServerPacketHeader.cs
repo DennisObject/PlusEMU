@@ -359,33 +359,9 @@ public static class ServerPacketHeader
     public const uint RewardTrackClaimResultComposer = 3629;
     public const uint RewardTrackProgressComposer = 465;
     public const uint RewardTrackPremiumPurchaseResultComposer = 1374;
-    // Volt catalog editor and furni editor; the same ids on the wire.
-    public const uint FurniEditorSearchResultComposer = 10040;
-    public const uint FurniEditorDetailResultComposer = 10041;
-    public const uint FurniEditorInteractionsResultComposer = 10043;
-    public const uint FurniEditorResultComposer = 10044;
-    public const uint FurnitureDataReloadComposer = 10047;
-    public const uint FurniEditorImportTextResultComposer = 10049;
-    public const uint CatalogAdminResultComposer = 10059;
-    public const uint CatalogAdminOfferDetailsComposer = 10062;
-    public const uint CatalogAdminPageDetailsComposer = 10063;
-    public const uint CatalogStudioSessionComposer = 10067;
-    public const uint CatalogStudioHistoryComposer = 10071;
-    public const uint CatalogStudioOperationComposer = 10072;
-    // Housekeeping (in-client admin panel); internal IDs match Volt's wire IDs.
-    public const uint HousekeepingUserDetailComposer = 9200;
-    public const uint HousekeepingActionResultComposer = 9201;
-    public const uint HousekeepingRoomDetailComposer = 9202;
-    public const uint HousekeepingRoomListComposer = 9203;
-    public const uint HousekeepingDashboardComposer = 9204;
-    public const uint HousekeepingActionLogComposer = 9205;
     public const uint HabboClubExtendOfferComposer = 3651;
     public const uint ClubGiftReceivedComposer = 2583;
     public const uint PickMonthlyClubGiftComposer = 1628;
-    public const uint HousekeepingRolesComposer = 9210;
-    public const uint HousekeepingRoleMembersComposer = 9211;
-    public const uint HousekeepingUserOverridesComposer = 9212;
-    public const uint HousekeepingRolesAuditComposer = 9213;
     // SnowStorm (AIR Game2 payloads); internal IDs match Volt's wire IDs except where noted.
     public const uint Game2GameDirectoryStatusComposer = 2084;
     public const uint Game2GameCreatedComposer = 5000;

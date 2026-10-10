@@ -70,16 +70,13 @@ public sealed class ModerationBanUtcTests
             SqlMapper.AddTypeHandler(new UtcDateTimeOffsetHandler());
             var database = new ProbeDatabase(connectionString);
             var expectedExpiry = DateTimeOffset.FromUnixTimeSeconds(2_200_000_000).AddTicks(1_234_560);
-            var lookup = new BanLookup(database, new FixedClock(Now));
-            Assert.Equal(expectedExpiry, (await lookup.Find("future", "192.0.2.1"))?.ExpiresAt);
-            Assert.Null(await lookup.Find("zero", "192.0.2.1"));
-            Assert.Null(await lookup.Find("unknown", "192.0.2.1"));
-
             var loadClock = new CountingClock(Now, TimeZoneInfo.Utc);
             var loadedManager = Manager(database, loadClock);
             loadedManager.ReCacheBans();
             Assert.True(loadedManager.IsBanned("future", out var loaded));
             Assert.Equal(expectedExpiry, loaded.ExpiresAt);
+            Assert.False(loadedManager.IsBanned("zero", out _));
+            Assert.False(loadedManager.IsBanned("unknown", out _));
             Assert.False(loadedManager.IsBanned("exact", out _));
 
             var clock = new CountingClock(Now, TimeZoneInfo.CreateCustomTimeZone("plus-nine", TimeSpan.FromHours(9), "test", "test"));
@@ -96,8 +93,8 @@ public sealed class ModerationBanUtcTests
     }
 
     private static ModerationManager Manager(IDatabase database, TimeProvider clock) => new(database,
-        NullLogger<ModerationManager>.Instance, DispatchProxy.Create<ISessionIssuer, EmptyProxy>(),
-        new HousekeepingActionTests.FakeClients(), new AccountSessionGate(), clock);
+        NullLogger<ModerationManager>.Instance, DispatchProxy.Create<ISsoTicketStore, EmptyProxy>(),
+        new SharedTestClients(), new AccountSessionGate(), clock);
 
     private static string RepositoryRoot()
     {

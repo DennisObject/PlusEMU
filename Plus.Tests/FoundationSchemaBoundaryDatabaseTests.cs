@@ -28,7 +28,7 @@ public sealed class FoundationSchemaDatabaseFactAttribute : FactAttribute
     }
 }
 
-[Collection("HousekeepingDatabase")]
+[Collection("SharedDatabase")]
 public sealed class FoundationSchemaBoundaryDatabaseTests
 {
     [FoundationSchemaDatabaseFact]

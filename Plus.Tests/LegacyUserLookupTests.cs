@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
-[Collection("HousekeepingDatabase")]
+[Collection("SharedDatabase")]
 public sealed class LegacyUserLookupTests
 {
     [Fact]
@@ -18,7 +18,7 @@ public sealed class LegacyUserLookupTests
         var hadCache = cache.TryGetValue(userId, out var oldCached);
         var snapshot = new Habbo { Id = userId, Username = "old" };
         var online = new Habbo { Id = userId, Username = "live" };
-        var clients = new HousekeepingActionTests.FakeClients();
+        var clients = new SharedTestClients();
         var (client, _) = HabbiconTestSupport.Client(online);
         clients.Online[userId] = client;
 

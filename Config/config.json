@@ -26,36 +26,9 @@
             "localhost"
         ]
     },
-    "AuthApi": {
-        "Enabled": true,
+    "WebServer": {
         "Hostname": "127.0.0.1",
-        "Port": 8080,
-        "TrustedProxies": [
-            "127.0.0.1",
-            "::1"
-        ],
-        "SsoTicketLifetimeSeconds": 300,
-        "AccessTokenLifetimeMinutes": 1440,
-        "RememberTokenLifetimeDays": 30,
-        "RememberReuseGraceSeconds": 30,
-        "RequestsPerMinute": 60,
-        "MaxConcurrentPasswordChecks": 4,
-        "MaxQueuedPasswordChecks": 100,
-        "FailedLoginWindowMinutes": 15,
-        "MaxFailedLoginsPerAccount": 10,
-        "MaxFailedLoginsPerAddress": 30,
-        "MaxTrackedLoginFailures": 100000,
-        "Registration": {
-            "Look": "hd-180-1.hr-100-61.ch-210-66.lg-270-82.sh-290-80",
-            "Motto": "Volt",
-            "Credits": 50000,
-            "ActivityPoints": 5000,
-            "Vip": false,
-            "HomeRoom": 1,
-            "ReservedNames": [
-                "staff"
-            ]
-        }
+        "Port": 8080
     },
     "Camera": {
         "RendererUrl": "http://127.0.0.1:3921/render",
@@ -225,11 +198,5 @@
                 "MinLevel": 10
             }
         ]
-    },
-    "FurniEditor": {
-        "ImportUrl": "",
-        "ImportAllowedHosts": [],
-        "ImportTimeoutSeconds": 10,
-        "ImportMaxBytes": 50331648
     }
 }

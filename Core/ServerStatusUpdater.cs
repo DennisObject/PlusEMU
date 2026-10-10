@@ -1,6 +1,4 @@
-using Dapper;
 using Microsoft.Extensions.Logging;
-using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Rooms;
 
@@ -10,15 +8,13 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
 {
     private const int UpdateInSeconds = 30;
     private readonly ILogger<ServerStatusUpdater> _logger;
-    private readonly IDatabase _database;
     private readonly IGameClientManager _gameClientManager;
     private readonly IRoomManager _roomManager;
     private readonly IServerUptime _uptime;
 
-    public ServerStatusUpdater(ILogger<ServerStatusUpdater> logger, IDatabase database, IGameClientManager gameClientManager, IRoomManager roomManager, IServerUptime uptime)
+    public ServerStatusUpdater(ILogger<ServerStatusUpdater> logger, IGameClientManager gameClientManager, IRoomManager roomManager, IServerUptime uptime)
     {
         _logger = logger;
-        _database = database;
         _gameClientManager = gameClientManager;
         _roomManager = roomManager;
         _uptime = uptime;
@@ -58,9 +54,5 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
         var usersOnline = _gameClientManager.Count;
         var roomCount = _roomManager.Count;
         ConsoleWindow.SetTitle($"Plus Emulator - {usersOnline} users online - {roomCount} rooms loaded - {uptime.Days} day(s) {uptime.Hours} hour(s) uptime");
-        using var connection = _database.Connection();
-        // Daily online peaks feed the housekeeping dashboard.
-        connection.Execute("INSERT INTO housekeeping_online_peaks (`day`,peak) VALUES (UTC_DATE(),@usersOnline) ON DUPLICATE KEY UPDATE peak=GREATEST(peak,@usersOnline)",
-            new { usersOnline });
     }
 }

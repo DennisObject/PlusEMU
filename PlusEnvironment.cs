@@ -52,8 +52,8 @@ public class PlusEnvironment : IPlusEnvironment
     private static IFlashServer? _flashServer;
     private static IFlashServer FlashServer => Constructed(_flashServer);
     private readonly INitroServer _nitroServer;
-    private static IAuthHttpServer? _authHttpServer;
-    private static IAuthHttpServer AuthHttpServer => Constructed(_authHttpServer);
+    private static IWebServer? _webServer;
+    private static IWebServer WebServer => Constructed(_webServer);
     private static IFigureDataManager? _figureManager;
 
     private readonly IServerUptime _uptime;
@@ -77,7 +77,7 @@ public class PlusEnvironment : IPlusEnvironment
         IOptions<RconConfiguration> rconConfiguration,
         IFlashServer flashServer,
         INitroServer nitroServer,
-        IAuthHttpServer authHttpServer,
+        IWebServer webServer,
         ILogger<PlusEnvironment> logger, IServerUptime uptime)
     {
         _database = database;
@@ -91,7 +91,7 @@ public class PlusEnvironment : IPlusEnvironment
         _rcon = rconSocket;
         _flashServer = flashServer;
         _nitroServer = nitroServer;
-        _authHttpServer = authHttpServer;
+        _webServer = webServer;
         _rconConfiguration = rconConfiguration.Value;
         _logger = logger;
         _uptime = uptime;
@@ -141,8 +141,8 @@ public class PlusEnvironment : IPlusEnvironment
             RconSocket.Init(_rconConfiguration.Hostname, _rconConfiguration.Port, _rconConfiguration.AllowedAddresses);
             FlashServer.Start();
             _nitroServer.Start();
-            await AuthHttpServer.Start();
-            Logger.LogInformation("Auth API listening on {Urls}", string.Join(", ", AuthHttpServer.Urls));
+            await WebServer.Start();
+            Logger.LogInformation("Web server listening on {Urls}", string.Join(", ", WebServer.Urls));
             CurrentGame.StartGameLoop();
             var timeUsed = _uptime.Elapsed;
             Console.WriteLine();
@@ -274,8 +274,8 @@ public class PlusEnvironment : IPlusEnvironment
         ConsoleWindow.Clear();
         Logger.LogInformation("Server shutting down...");
         ConsoleWindow.SetTitle("PLUS EMULATOR: SHUTTING DOWN!");
-        // No new logins while the hotel goes down.
-        AuthHttpServer.Stop().Wait(TimeSpan.FromSeconds(5));
+        // Stop the web server with the hotel.
+        WebServer.Stop().Wait(TimeSpan.FromSeconds(5));
         Clients.SendPacket(new BroadcastMessageAlertComposer(LanguageManager.TryGetValue("server.shutdown.message")));
         CurrentGame.StopGameLoop();
         Thread.Sleep(2500);

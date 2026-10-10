@@ -1,6 +1,5 @@
 using System.Collections.Immutable;
 using Plus.Communication.Packets.Outgoing.Catalog;
-using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -28,8 +27,7 @@ public interface ICatalogBrowsingService
 }
 
 public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManager races, IRoomDataLoader rooms,
-    TimeProvider clock, ICatalogManager catalog, ICatalogAdminService catalogAdmin,
-    ICatalogSnapshotService snapshots) : ICatalogBrowsingService
+    TimeProvider clock, ICatalogManager catalog, ICatalogSnapshotService snapshots) : ICatalogBrowsingService
 {
     public void ShowPetPalettes(GameClient session, string type)
     {
@@ -52,7 +50,6 @@ public sealed class CatalogBrowsingService(IItemDataManager items, IPetRaceManag
             return;
         }
 
-        catalogAdmin.RecordViewedPage(session.GetHabbo(), page.Id);
         session.Send(new CatalogPageComposer(snapshots.CapturePage(page,
             page.Offers.ContainsKey(request.OfferId) ? request.OfferId : -1)));
     }

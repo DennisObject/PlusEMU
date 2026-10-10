@@ -15,7 +15,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
-[Collection("HousekeepingDatabase")]
+[Collection("SharedDatabase")]
 public class UserProcessTests
 {
     [Fact]

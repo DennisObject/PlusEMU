@@ -3,7 +3,6 @@ using Plus.Communication.Packets.Incoming.Catalog;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.HabboHotel.Catalog;
-using Plus.HabboHotel.Catalog.Admin;
 using Plus.HabboHotel.Catalog.Pets;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
@@ -45,7 +44,7 @@ public sealed class CatalogBrowsingSnapshotTests
             Data = [new() { Id = 1, Name = "available" }, exact,
                 new() { Id = 3, Name = "active", Promotion = new("p", "d", 0, now, now.AddMinutes(1), new ThrowingClock()) }]
         };
-        var service = new CatalogBrowsingService(null!, null!, loader, clock, null!, null!, null!);
+        var service = new CatalogBrowsingService(null!, null!, loader, clock, null!, null!);
         var composer = new PromotableRoomsComposer(service.CapturePromotableRooms(42));
         var before = new HabbiconTestSupport.RecordingPacket();
         composer.Compose(before);
@@ -96,7 +95,7 @@ public sealed class CatalogBrowsingSnapshotTests
     }
 
     [Fact]
-    public void PageBrowsingValidatesBeforeAdminSnapshotAndPublication()
+    public void PageBrowsingValidatesBeforePublication()
     {
         var page = new CatalogPage
         {
@@ -115,24 +114,12 @@ public sealed class CatalogBrowsingSnapshotTests
             "get_Promotions" => Array.Empty<CatalogPromotion>(),
             _ => throw new InvalidOperationException(method)
         });
-        var viewed = new List<int>();
-        var admin = CatalogSnapshotTestSupport.Proxy<ICatalogAdminService>((method, args) =>
-        {
-            if (method == nameof(ICatalogAdminService.RecordViewedPage)) {
-                viewed.Add((int)args[1]!);
-
-                return null;
-            }
-
-            throw new InvalidOperationException(method);
-        });
         var snapshots = new RecordingSnapshots(new CatalogSnapshotService(catalog, TimeProvider.System));
-        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, admin, snapshots);
+        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, snapshots);
         var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
 
         service.ShowPage(client, new(7, 44, "IGNORED"));
 
-        Assert.Equal([7], viewed);
         Assert.Equal([44], snapshots.PageOffers);
         Assert.Single(sent);
         Assert.Equal(ServerPacketHeader.CatalogPageComposer, sent[0].Header);
@@ -151,7 +138,6 @@ public sealed class CatalogBrowsingSnapshotTests
         found = false;
         service.ShowPage(client, new(7, 44, "NORMAL"));
 
-        Assert.Equal(2, viewed.Count);
         Assert.Equal(2, snapshots.PageOffers.Count);
         Assert.Equal(2, sent.Count);
     }
@@ -166,7 +152,7 @@ public sealed class CatalogBrowsingSnapshotTests
             _ => throw new InvalidOperationException(method)
         });
         var snapshots = new RecordingSnapshots(CatalogSnapshotTestSupport.Snapshots());
-        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, null!, snapshots);
+        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, snapshots);
         var (client, sent) = HabbiconTestSupport.Client(EditorTestSupport.Player());
 
         service.ShowIndex(client, "BUILDERS_CLUB");
@@ -199,7 +185,7 @@ public sealed class CatalogBrowsingSnapshotTests
             return found;
         });
         var snapshots = new RecordingSnapshots(CatalogSnapshotTestSupport.Snapshots());
-        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, null!, snapshots);
+        var service = new CatalogBrowsingService(null!, null!, null!, TimeProvider.System, catalog, snapshots);
 
         service.ShowOffer(client, 44);
 

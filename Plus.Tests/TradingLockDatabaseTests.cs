@@ -4,7 +4,7 @@ using Plus.Database;
 using Plus.HabboHotel.Users;
 using Plus.HabboHotel.Users.Authentication;
 using Plus.HabboHotel.Users.UserData;
-using Plus.HabboHotel.Housekeeping;
+using Plus.HabboHotel.Moderation;
 using Xunit;
 
 namespace Plus.Tests;
@@ -19,12 +19,12 @@ public sealed class TradingLockDatabaseFactAttribute : FactAttribute
     }
 }
 
-[Collection("HousekeepingDatabase")]
+[Collection("SharedDatabase")]
 public sealed class TradingLockDatabaseTests : IDisposable
 {
     private const int UserId = 935001;
     private readonly HabbiconDatabaseTests.TestDatabase _database;
-    private readonly HousekeepingActionTests.FakeClients _clients = new();
+    private readonly SharedTestClients _clients = new();
     private readonly Clock _clock = new();
 
     public TradingLockDatabaseTests()
@@ -61,11 +61,11 @@ public sealed class TradingLockDatabaseTests : IDisposable
         Assert.Equal(TimeSpan.Zero, expiry.Offset);
         Assert.Equal(expiry, habbo.TradingLockExpiresAt);
         Assert.Equal(expiry, (await factory.GetUserDataByIdAsync(UserId))!.TradingLockExpiresAt);
-        Assert.Equal(expiry, new HousekeepingUserStore(_database).Find(UserId)!.TradingLockExpiresAt);
+        Assert.Equal(expiry, new ModerationUserStore(_database).Find(UserId)!.TradingLockExpiresAt);
         Assert.True(locks.IsLocked(habbo));
         locks.Clear(UserId);
         Assert.Null(habbo.TradingLockExpiresAt);
-        Assert.Null(new HousekeepingUserStore(_database).Find(UserId)!.TradingLockExpiresAt);
+        Assert.Null(new ModerationUserStore(_database).Find(UserId)!.TradingLockExpiresAt);
     }
 
     [TradingLockDatabaseFact]
