@@ -7,7 +7,7 @@ using Plus.HabboHotel.GameClients;
 namespace Plus.Communication.Packets.Outgoing.Catalog.Admin;
 
 // success, message, then for the editor's smart saves (createPage/savePage/createOffer/saveOffer) the acknowledgement
-// Octane-Renderer's CatalogAdminResultMessageParser reads: protocol 1, operationId, action, code, draftVersionId,
+// Volt-Renderer's CatalogAdminResultMessageParser reads: protocol 1, operationId, action, code, draftVersionId,
 // revision, entityType, catalogType, entityId, entity JSON, history group JSON, field errors JSON, server duration.
 public sealed class CatalogAdminResultComposer : IServerPacket
 {

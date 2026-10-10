@@ -35,7 +35,7 @@ public static class WiredTriggerConfiguration
     };
     public static bool IsTimed(string name) => name is "wf_trg_at_given_time" or "wf_trg_at_time_long"
         or "wf_trg_periodically" or "wf_trg_period_short" or "wf_trg_period_long";
-    // The most units each timed editor offers (Octane sliders, Turbo d5a54747 param rules); the least is 1.
+    // The most units each timed editor offers (Volt sliders, Turbo d5a54747 param rules); the least is 1.
     public static int MaxTimedUnits(string name) => name switch
     {
         "wf_trg_period_short" => 10,

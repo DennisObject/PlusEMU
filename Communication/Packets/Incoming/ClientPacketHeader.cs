@@ -404,7 +404,7 @@ public static class ClientPacketHeader
     public const uint GetCraftingRecipeEvent = 1420;
     //public const uint GetCraftingRecipesAvailableEvent =;
 
-    // SnowStorm (AIR Game2 payloads); internal IDs match Octane's wire IDs.
+    // SnowStorm (AIR Game2 payloads); internal IDs match Volt's wire IDs.
     public const uint Game2CheckGameDirectoryStatusEvent = 1199;
     public const uint Game2GetAccountGameStatusEvent = 3299;
     public const uint Game2QuickJoinEvent = 6012;
@@ -450,7 +450,7 @@ public static class ClientPacketHeader
     public const uint GetRewardTracksEvent = 9450;
     public const uint ClaimRewardTrackPrizeEvent = 3859;
     public const uint PurchaseRewardTrackPremiumEvent = 1663;
-    // Octane catalog editor and furni editor; the same ids on the wire.
+    // Volt catalog editor and furni editor; the same ids on the wire.
     public const uint FurniEditorSearchEvent = 10040;
     public const uint FurniEditorDetailEvent = 10041;
     public const uint FurniEditorBySpriteEvent = 10042;
@@ -479,7 +479,7 @@ public static class ClientPacketHeader
     public const uint CatalogStudioOpenSessionEvent = 10067;
     public const uint CatalogStudioLoadHistoryEvent = 10071;
     public const uint CatalogStudioUndoEvent = 10072;
-    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
+    // Housekeeping (in-client admin panel); internal IDs match Volt's wire IDs.
     public const uint HousekeepingFindUserByNameEvent = 9100;
     public const uint HousekeepingFindUserByIdEvent = 9101;
     public const uint HousekeepingBanUserEvent = 9102;

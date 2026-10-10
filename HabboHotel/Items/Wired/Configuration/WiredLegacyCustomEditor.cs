@@ -4,7 +4,7 @@ using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
-/// <summary>Active Octane editors for Plus custom boxes, retaining their original five-column save format.</summary>
+/// <summary>Active Volt editors for Plus custom boxes, retaining their original five-column save format.</summary>
 public static class WiredLegacyCustomEditor
 {
     public static bool IsCustom(IWiredItem box) => box.Type is WiredBoxType.EffectGiveUserBadge

@@ -3,7 +3,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog.Admin;
 
-// Field order of Octane-Renderer's CatalogAdminOfferDetailsMessageParser.
+// Field order of Volt-Renderer's CatalogAdminOfferDetailsMessageParser.
 public sealed class CatalogAdminOfferDetailsComposer : IServerPacket
 {
     private readonly CatalogAdminOffer _offer;

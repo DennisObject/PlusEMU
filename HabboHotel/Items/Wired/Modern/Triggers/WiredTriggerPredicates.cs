@@ -2,7 +2,7 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Triggers;
 
-/// <summary>Event matching for Octane's saved trigger fields; hooks supply actual event facts.</summary>
+/// <summary>Event matching for Volt's saved trigger fields; hooks supply actual event facts.</summary>
 public static class WiredTriggerPredicates
 {
     public static bool MatchesName(WiredConfiguration config, string? name) =>

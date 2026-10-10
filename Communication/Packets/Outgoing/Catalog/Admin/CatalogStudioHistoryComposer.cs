@@ -3,7 +3,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog.Admin;
 
-// Octane-Renderer's CatalogStudioHistoryMessageParser: one group per audit row, each with its one entry.
+// Volt-Renderer's CatalogStudioHistoryMessageParser: one group per audit row, each with its one entry.
 public sealed class CatalogStudioHistoryComposer : IServerPacket
 {
     private readonly CatalogAdminHistory _history;

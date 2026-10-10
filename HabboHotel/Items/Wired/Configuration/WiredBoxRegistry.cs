@@ -4,7 +4,7 @@ namespace Plus.HabboHotel.Items.Wired.Configuration;
 
 /// <summary>
 /// Protocol facts audited against Turbo d5a54747 and Polaris 34bc0d49; behavioral registration
-/// remains the concrete factory's responsibility. Octane uses three legacy envelopes for six kinds.
+/// remains the concrete factory's responsibility. Volt uses three legacy envelopes for six kinds.
 /// </summary>
 public static class WiredBoxRegistry
 {

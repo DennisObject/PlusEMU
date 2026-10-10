@@ -49,15 +49,15 @@ public class LoginServiceTests
     [Fact]
     public async Task LegacyPlaintextPasswordIsUpgradedToArgon2idOnLogin()
     {
-        var row = _accounts.Add("Dennis", "OctaneLocal-2026");
+        var row = _accounts.Add("Dennis", "VoltLocal-2026");
 
-        var result = await Service().Login("Dennis", "OctaneLocal-2026", "10.0.0.1");
+        var result = await Service().Login("Dennis", "VoltLocal-2026", "10.0.0.1");
 
         Assert.Equal(LoginStatus.Success, result.Status);
         var stored = _accounts.Rows.Single(r => r.Id == row.Id).Password!;
         Assert.StartsWith("$argon2id$", stored);
-        Assert.Equal(PasswordVerificationResult.Success, Hasher.Verify("OctaneLocal-2026", stored));
-        Assert.Equal(LoginStatus.Success, (await Service().Login("Dennis", "OctaneLocal-2026", "10.0.0.1")).Status);
+        Assert.Equal(PasswordVerificationResult.Success, Hasher.Verify("VoltLocal-2026", stored));
+        Assert.Equal(LoginStatus.Success, (await Service().Login("Dennis", "VoltLocal-2026", "10.0.0.1")).Status);
         Assert.Equal(LoginStatus.InvalidCredentials, (await Service().Login("Dennis", stored, "10.0.0.1")).Status);
     }
 

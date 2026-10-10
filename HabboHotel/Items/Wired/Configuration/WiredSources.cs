@@ -1,6 +1,6 @@
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
-/// <summary>Octane/Polaris protocol values. The named slot determines whether a source targets furni, users or bots.</summary>
+/// <summary>Volt/Polaris protocol values. The named slot determines whether a source targets furni, users or bots.</summary>
 public static class WiredSources
 {
     public const int Trigger = 0;

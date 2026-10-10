@@ -30,7 +30,7 @@ public sealed record WiredRoomSettingsSnapshot(int InspectMask = 2, int ModifyMa
             return false;
         }
 
-        // Current Octane/Polaris settings keep every modifier able to inspect; admins are group members.
+        // Current Volt/Polaris settings keep every modifier able to inspect; admins are group members.
         if ((modify & 4) != 0) {
             modify |= 8;
         }

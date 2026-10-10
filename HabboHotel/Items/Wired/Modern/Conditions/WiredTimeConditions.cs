@@ -14,7 +14,7 @@ public static class WiredTimeConditions
     {
         var weekdayMask = Param(config, 0, 127);
         var monthMask = Param(config, 4, 4095);
-        // Octane weekdays are Monday=0 through Sunday=6.
+        // Volt weekdays are Monday=0 through Sunday=6.
         var weekday = ((int)roomLocalTime.DayOfWeek + 6) % 7;
 
         return (weekdayMask == 0 || (weekdayMask & (1 << weekday)) != 0)

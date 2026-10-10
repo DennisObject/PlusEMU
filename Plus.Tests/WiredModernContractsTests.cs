@@ -23,7 +23,7 @@ namespace Plus.Tests;
 public class WiredModernContractsTests
 {
     [Fact]
-    public void RegistrySeparatesEngineCategoriesFromOctaneEditorCodesAndCapabilities()
+    public void RegistrySeparatesEngineCategoriesFromVoltEditorCodesAndCapabilities()
     {
         Assert.Equal(172, WiredBoxRegistry.All.Count);
         var categories = WiredBoxRegistry.All.GroupBy(box => box.Category).ToDictionary(group => group.Key, group => group.Count());
@@ -47,7 +47,7 @@ public class WiredModernContractsTests
     }
 
     [Fact]
-    public void OctaneSaveReadsPerBoxIntAndTextFieldsWithoutConsumingTurboSourceArrays()
+    public void VoltSaveReadsPerBoxIntAndTextFieldsWithoutConsumingTurboSourceArrays()
     {
         var packet = Incoming(5, 1, 4, 2, 7, WiredSources.Selected, "forward:9", 2, 9, 10, 6, 0);
         Assert.True(WiredLegacyProtocol.TryRead(packet, WiredBoxCategory.Action, out var configuration));

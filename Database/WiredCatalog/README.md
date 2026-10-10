@@ -30,7 +30,7 @@ the pinned converter commit/dependency lock.
 rejects it and requires a unique public revision-history “Furni id”. Native SWF
 SymbolClass/index/logic XML confirms the exact original classname, dimensions,
 height, directions, logic and visualization. Converted bundle models must agree.
-The active Octane-Renderer `OctaneBundle` parser and PNG decoder validate the 22 bundles,
+The active Volt-Renderer `VoltBundle` parser and PNG decoder validate the 22 bundles,
 22 icons and 363 texture frames; browser/GPU placement and editing remain preview
 checks, not a claim made by catalogue data or constructor support.
 
@@ -55,7 +55,7 @@ The private overlay contains only 22 new bundles and icons plus merged FurniData
 All 13,689 base floor entries, their ordering, wall entries and other metadata remain
 unchanged; 22 original classname entries are appended. Only the additions normalize
 HabboFurni’s absent `partcolors.color=null` to `[]`, the iterable empty list required
-by Octane. Raw metadata receipts retain the source values. The actual active
+by Volt. Raw metadata receipts retain the source values. The actual active
 `FurnitureDataLoader` loads all 13,711 floor entries and 704 wall entries, including
 the 22 original sprite/classname/footprint/localization mappings. The importer requires both
 `--assets` (read-only baseline) and `--asset-overlay` (reviewed private originals).
@@ -179,13 +179,13 @@ python3 scripts/build-wired-asset-overlay.py \
   --output /path/to/new-private-overlay/furniture
 
 node scripts/check-wired-nitro.cjs /path/to/nitro-converter \
-  /path/to/octane-renderer /path/to/new-private-overlay/furniture
+  /path/to/volt-renderer /path/to/new-private-overlay/furniture
 ```
 
 Assembly rejects altered source/dependencies, incomplete downloads, extra converted
 bundles, ID/classname collisions, and native-model disagreement. It creates
 `furniture/nitro/`, `furniture/icons/`, `furniture/json/FurnitureData.json` and
-`furniture/original-assets.json`. The renderer checker transpiles the actual Octane
+`furniture/original-assets.json`. The renderer checker transpiles the actual Volt
 parser in memory using the isolated converter's dependencies and injects a PNG pixel
 decoder, and executes the actual furniture-data loader/constructor with configuration
 and localization adapters. It records the renderer commit and source hashes; it does

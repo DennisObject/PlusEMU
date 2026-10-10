@@ -2,7 +2,7 @@ using System.Numerics;
 
 namespace Plus.HabboHotel.Items.Wired.Variables;
 
-/// <summary>Active Octane/Polaris operator codes (Turbo's enum values are different).</summary>
+/// <summary>Active Volt/Polaris operator codes (Turbo's enum values are different).</summary>
 public static class WiredVariableArithmetic
 {
     public static bool IsSupported(int operation) => operation is >= 0 and <= 6 or 40 or 41 or 50 or 60

@@ -63,9 +63,9 @@ public class PasswordHasherTests
     [Fact]
     public void LegacyPlaintextRowMatchesOnceAndAsksForUpgrade()
     {
-        Assert.Equal(PasswordVerificationResult.SuccessRehashNeeded, _hasher.Verify("OctaneLocal-2026", "OctaneLocal-2026"));
-        Assert.Equal(PasswordVerificationResult.Failed, _hasher.Verify("octanelocal-2026", "OctaneLocal-2026"));
-        Assert.Equal(PasswordVerificationResult.Failed, _hasher.Verify("OctaneLocal-2026x", "OctaneLocal-2026"));
+        Assert.Equal(PasswordVerificationResult.SuccessRehashNeeded, _hasher.Verify("VoltLocal-2026", "VoltLocal-2026"));
+        Assert.Equal(PasswordVerificationResult.Failed, _hasher.Verify("voltlocal-2026", "VoltLocal-2026"));
+        Assert.Equal(PasswordVerificationResult.Failed, _hasher.Verify("VoltLocal-2026x", "VoltLocal-2026"));
     }
 
     [Theory]

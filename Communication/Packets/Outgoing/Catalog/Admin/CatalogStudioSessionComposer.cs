@@ -5,7 +5,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog.Admin;
 
-// Octane-Renderer's CatalogStudioSessionMessageParser. PlusEMU edits the live catalog: the active and draft version
+// Volt-Renderer's CatalogStudioSessionMessageParser. PlusEMU edits the live catalog: the active and draft version
 // are the same, nothing is pending and there are no published versions. Pages travel as gzip+base64 JSON chunks.
 public sealed class CatalogStudioSessionComposer : IServerPacket
 {

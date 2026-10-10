@@ -355,11 +355,11 @@ public sealed class WiredVariableTests
     [InlineData(110, -1, 0, 32)]
     [InlineData(112, 16, 0, 4)]
     [InlineData(120, 16, 4, -1)]
-    public void OctaneArithmeticHasSaturatedMathAndBitScans(int operation, int current, int operand, int expected) =>
+    public void VoltArithmeticHasSaturatedMathAndBitScans(int operation, int current, int operand, int expected) =>
         Assert.Equal(expected, WiredVariableArithmetic.Apply(operation, current, operand));
 
     [Fact]
-    public void DefinitionDecoderUsesOctaneUserSlotOrder()
+    public void DefinitionDecoderUsesVoltUserSlotOrder()
     {
         Assert.True(WiredVariableDefinitions.TryDecode("wf_var_user", 10, 1, 5, new() { IntParams = [1, 10], Text = "score" }, out var definition, out _));
         Assert.True(definition!.HasValue);

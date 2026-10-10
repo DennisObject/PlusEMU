@@ -3,7 +3,7 @@ using Plus.HabboHotel.Items.Editor;
 
 namespace Plus.Communication.Packets.Outgoing.FurniEditor;
 
-// Octane-Renderer's FurniEditorDetailResultMessageParser: FurniDetailData, catalog references, furnidata entry, diagnostic.
+// Volt-Renderer's FurniEditorDetailResultMessageParser: FurniDetailData, catalog references, furnidata entry, diagnostic.
 public sealed class FurniEditorDetailResultComposer : IServerPacket
 {
     private readonly FurniEditorDetail _detail;

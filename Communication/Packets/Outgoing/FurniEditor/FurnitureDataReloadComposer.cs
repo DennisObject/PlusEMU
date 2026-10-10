@@ -3,7 +3,7 @@ using Plus.HabboHotel.Items.Editor;
 
 namespace Plus.Communication.Packets.Outgoing.FurniEditor;
 
-// Octane-Renderer's FurnitureDataReloadParser. Delta patches names and descriptions in place; the reload hint makes
+// Volt-Renderer's FurnitureDataReloadParser. Delta patches names and descriptions in place; the reload hint makes
 // clients fetch the furnidata again, needed when other fields of an entry changed.
 public sealed class FurnitureDataReloadComposer : IServerPacket
 {

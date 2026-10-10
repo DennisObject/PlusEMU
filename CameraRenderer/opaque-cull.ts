@@ -1,4 +1,4 @@
-import { OctaneAdjustmentFilter, OctaneContainer, OctaneSprite, OctaneTexture } from '@octane/renderer';
+import { VoltAdjustmentFilter, VoltContainer, VoltSprite, VoltTexture } from '@volt/renderer';
 
 const MAX_FRAME_PIXELS = 2 * 1024 * 1024;
 const MAX_READ_PIXELS = 4 * 1024 * 1024;
@@ -11,10 +11,10 @@ const pixelsByImage = new WeakMap<ImageBitmap, Map<string, Uint8Array>>();
 
 // Only omit pixels hidden by proven opaque texels; Pixi composites every survivor.
 export function cullOpaqueSprites(
-    display: OctaneContainer,
+    display: VoltContainer,
     viewport: { x: number; y: number; cropWidth: number; cropHeight: number }
 ): () => void {
-    const skipped: OctaneSprite[] = [];
+    const skipped: VoltSprite[] = [];
     const restore = () => {
         for (const sprite of skipped) sprite.renderable = true;
     };
@@ -25,7 +25,7 @@ export function cullOpaqueSprites(
         !display.parent ||
         !['normal', 'inherit'].includes(display.parent.blendMode) ||
         display.sortableChildren ||
-        display.parent.filters?.some((filter) => !(filter instanceof OctaneAdjustmentFilter)) ||
+        display.parent.filters?.some((filter) => !(filter instanceof VoltAdjustmentFilter)) ||
         display.filters?.length ||
         display.children.some((s) => s.filters?.length || s.mask || s.children?.length)
     )
@@ -36,15 +36,15 @@ export function cullOpaqueSprites(
     let maskPixels = 0;
     const stride = Math.ceil(viewport.cropWidth / 32);
     const covered = new Uint32Array(stride * viewport.cropHeight);
-    const sources = new Map<OctaneTexture, Uint8Array>();
+    const sources = new Map<VoltTexture, Uint8Array>();
     // Repeated sprites share clipped support/opaque bitsets for this capture only.
     const placements = new Map<string, number[]>();
-    const ids = new Map<OctaneTexture, number>();
+    const ids = new Map<VoltTexture, number>();
     try {
         for (let index = display.children.length - 1; index >= 0; index--) {
             const sprite = display.children[index];
             if (
-                !(sprite instanceof OctaneSprite) ||
+                !(sprite instanceof VoltSprite) ||
                 !sprite.visible ||
                 !sprite.renderable ||
                 !sprite.texture ||

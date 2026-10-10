@@ -2,7 +2,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Outgoing.Catalog.Admin;
 
-// Octane-Renderer's CatalogStudioOperationMessageParser (the answer to undo): operationId, success, code, message,
+// Volt-Renderer's CatalogStudioOperationMessageParser (the answer to undo): operationId, success, code, message,
 // revision and the entities that changed.
 public sealed class CatalogStudioOperationComposer : IServerPacket
 {

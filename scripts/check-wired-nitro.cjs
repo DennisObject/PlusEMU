@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Run the actual Octane bundle parser with a PNG decoder in place of GPU texture loading.
+// Run the actual Volt bundle parser with a PNG decoder in place of GPU texture loading.
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -8,7 +8,7 @@ const { execFileSync } = require('child_process');
 const { Readable } = require('stream');
 
 const [converter, renderer, overlay] = process.argv.slice(2);
-if (!converter || !renderer || !overlay) throw new Error('Usage: node check-wired-nitro.cjs CONVERTER OCTANE_RENDERER PRIVATE_FURNITURE');
+if (!converter || !renderer || !overlay) throw new Error('Usage: node check-wired-nitro.cjs CONVERTER VOLT_RENDERER PRIVATE_FURNITURE');
 const dependency = createRequire(path.resolve(converter, 'package.json'));
 const ts = dependency('typescript');
 const PNGDecoder = dependency('png-stream/decoder');
@@ -25,9 +25,9 @@ function load(file) {
     const exported = { exports: {} };
     new Function('require', 'module', 'exports', compiled)(name => {
         if (name === 'pixi.js') return { Texture: { from: () => { throw new Error('GPU loading is outside this check.'); } } };
-        if (name === '@octane/api') return { FurnitureType: { FLOOR: 's', WALL: 'i' } };
-        if (name === '@octane/localization') return { GetLocalizationManager: () => ({ setValue: (key, value) => localized.set(key, value) }) };
-        if (name === '@octane/configuration' || name === '@octane/utils') return {};
+        if (name === '@volt/api') return { FurnitureType: { FLOOR: 's', WALL: 'i' } };
+        if (name === '@volt/localization') return { GetLocalizationManager: () => ({ setValue: (key, value) => localized.set(key, value) }) };
+        if (name === '@volt/configuration' || name === '@volt/utils') return {};
         if (name.startsWith('./')) return load(path.resolve(path.dirname(file), name + '.ts'));
         return dependency(name);
     }, exported, exported.exports);
@@ -47,8 +47,8 @@ function decode(bytes) {
 }
 
 (async () => {
-    const parserPath = 'packages/utils/src/OctaneBundle.ts';
-    const { OctaneBundle } = load(path.resolve(renderer, parserPath));
+    const parserPath = 'packages/utils/src/VoltBundle.ts';
+    const { VoltBundle } = load(path.resolve(renderer, parserPath));
     const rendererCommit = execFileSync('git', ['-C', renderer, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
     const parserChanges = execFileSync('git', ['-C', renderer, 'status', '--porcelain', '--', parserPath, 'packages/utils/src/BinaryReader.ts', 'packages/session/src/furniture/FurnitureDataLoader.ts', 'packages/session/src/furniture/FurnitureData.ts'], { encoding: 'utf8' }).trim();
     const provenance = JSON.parse(fs.readFileSync(path.join(overlay, 'original-assets.json')));
@@ -65,7 +65,7 @@ function decode(bytes) {
         const bytes = fs.readFileSync(path.join(overlay, entry.nitro_path));
         if (crypto.createHash('sha256').update(bytes).digest('hex') !== entry.nitro_sha256) throw new Error('Nitro hash changed.');
         const exact = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-        const bundle = await OctaneBundle.from(exact, decode);
+        const bundle = await VoltBundle.from(exact, decode);
         if (bundle.jsonFile.name !== entry.asset_classname || JSON.stringify(bundle.jsonFile.logic.model) !== JSON.stringify({ dimensions: entry.model.dimensions, directions: entry.model.directions })) throw new Error('Native renderer identity/model disagrees.');
         const size = bundle.jsonFile.spritesheet.meta.size;
         if (bundle.texture.width !== size.w || bundle.texture.height !== size.h) throw new Error('Decoded texture size disagrees.');

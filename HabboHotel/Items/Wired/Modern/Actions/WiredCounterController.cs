@@ -48,7 +48,7 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, int defau
     }
     private Clock? Find(Item item) => _clocks.TryGetValue(item.Id, out var clock) && ReferenceEquals(clock.Item, item) ? clock : null;
 
-    // Raw Octane clock control: 0 start, 1 stop, 2 reset, 3 restart, 4 toggle.
+    // Raw Volt clock control: 0 start, 1 stop, 2 reset, 3 restart, 4 toggle.
     public bool Control(Item item, int operation, long nowMilliseconds)
     {
         var clock = Find(item);
