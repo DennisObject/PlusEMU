@@ -1123,6 +1123,132 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(1, Assert.Single(((HighscoreDataFormat)game.Wins.ExtraData).Entries).Score);
     }
 
+    [WiredChestDatabaseFact]
+    public void ActualModernResetBeforeEachSingletonRoundKeepsObservedBestAndWins()
+    {
+        using var db = new WiredChestDatabaseTests.Fixture();
+        var game = PrepareHighscoreGame(db);
+        AddResetHighscoreActions();
+        var controller = HighscoreController(game.Wired);
+        var rounds = new[] { (Award: false, Seconds: 2, Wins: 0), (Award: true, Seconds: 3, Wins: 1), (Award: true, Seconds: 6, Wins: 2) };
+
+        foreach (var round in rounds) {
+            var prior = db.Connection.Query<string>("SELECT extra_data FROM items WHERE id IN(501,502) ORDER BY id").ToArray();
+            game.Actor.OnChat(0, "reset-clock", false);
+            Assert.False(controller.IsRunning(game.Timer));
+            Assert.Equal(30000L, controller.ReadMilliseconds(game.Timer));
+            Assert.Equal(prior, db.Connection.Query<string>("SELECT extra_data FROM items WHERE id IN(501,502) ORDER BY id").ToArray());
+            game.Actor.OnChat(0, "begin-round", false);
+            Assert.True(controller.IsRunning(game.Timer));
+            Assert.Equal(0, _room.GetGameManager().Points[1]);
+
+            if (round.Award) {
+                game.Actor.OnChat(0, "award-points", false);
+            }
+
+            Assert.Equal(round.Award ? 17 : 0, _room.GetGameManager().Points[1]);
+            game.Clock.Now += TimeSpan.FromSeconds(round.Seconds);
+            game.Actor.OnChat(0, "stop", false);
+            Assert.False(controller.IsRunning(game.Timer));
+            var fastest = Assert.Single(((HighscoreDataFormat)game.Fastest.ExtraData).Entries);
+            Assert.Equal(2, fastest.Score);
+            Assert.Equal(new[] { game.Actor.GetUsername() }, fastest.Users);
+            var wins = ((HighscoreDataFormat)game.Wins.ExtraData).Entries;
+
+            if (round.Wins == 0) {
+                Assert.Empty(wins);
+            }
+            else {
+                Assert.Equal(round.Wins, Assert.Single(wins).Score);
+            }
+
+            Assert.Equal(new[] { game.Fastest.ExtraData.Serialize(), game.Wins.ExtraData.Serialize() },
+                db.Connection.Query<string>("SELECT extra_data FROM items WHERE id IN(501,502) ORDER BY id").ToArray());
+        }
+    }
+
+    [WiredChestDatabaseTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PriorGuiOrUnknownResetCannotEnrollAModernProducerRound(bool gui)
+    {
+        using var db = new WiredChestDatabaseTests.Fixture();
+        var game = PrepareHighscoreGame(db);
+        var controller = HighscoreController(game.Wired);
+
+        if (gui) {
+            Assert.True(game.Wired.TryUseCounter(game.Timer, 2));
+        }
+        else {
+            _room.RunFastPass(() => Assert.True(controller.Control(game.Timer, 2, game.Clock.Now.ToUnixTimeMilliseconds())));
+        }
+
+        Assert.Equal(30000L, controller.ReadMilliseconds(game.Timer));
+        game.Actor.OnChat(0, "start", false);
+        Assert.True(controller.IsRunning(game.Timer));
+        Assert.Equal(17, _room.GetGameManager().Points[1]);
+        game.Clock.Now += TimeSpan.FromSeconds(2);
+        game.Actor.OnChat(0, "stop", false);
+        Assert.False(controller.IsRunning(game.Timer));
+        Assert.Empty(((HighscoreDataFormat)game.Fastest.ExtraData).Entries);
+        Assert.Empty(((HighscoreDataFormat)game.Wins.ExtraData).Entries);
+    }
+
+    [WiredChestDatabaseTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnknownCompletionThenModernResetKeepsStartGatedAndFrozenBytesSafe(bool committed)
+    {
+        using var db = new WiredChestDatabaseTests.Fixture();
+        var store = new PendingStartStore(new RoomHighscoreStore(db.Database), committed);
+        var game = PrepareHighscoreGame(db, store);
+        AddResetHighscoreActions();
+        var controller = HighscoreController(game.Wired);
+        game.Actor.OnChat(0, "start", false);
+        game.Clock.Now += TimeSpan.FromSeconds(2);
+        game.Actor.OnChat(0, "stop", false);
+        Assert.Equal(1, store.Commits);
+        var rows = db.Connection.Query<string>("SELECT extra_data FROM items WHERE id IN(501,502) ORDER BY id").ToArray();
+        game.Actor.OnChat(0, "reset-clock", false);
+        Assert.False(controller.IsRunning(game.Timer));
+        var resetClock = (controller.ReadMilliseconds(game.Timer), ClockSequence(controller, game.Timer));
+        var points = _room.GetGameManager().Points.ToArray();
+        game.Actor.OnChat(0, "begin-round", false);
+        Assert.False(controller.IsRunning(game.Timer));
+        Assert.Equal(resetClock, (controller.ReadMilliseconds(game.Timer), ClockSequence(controller, game.Timer)));
+        Assert.Equal(points, _room.GetGameManager().Points);
+        Assert.Equal(rows, db.Connection.Query<string>("SELECT extra_data FROM items WHERE id IN(501,502) ORDER BY id").ToArray());
+        Assert.False(_room.GetRoomItemHandler().TryReserveTransfers([game.Wins], out _));
+        store.Available = true;
+        game.Actor.OnChat(0, "begin-round", false);
+        Assert.True(controller.IsRunning(game.Timer));
+        Assert.Equal(0, _room.GetGameManager().Points[1]);
+        Assert.Equal(1, store.Commits); // Reset invalidates all-prior retry eligibility; never recompute or retry that retired candidate.
+        Assert.Equal(rows, db.Connection.Query<string>("SELECT extra_data FROM items WHERE id IN(501,502) ORDER BY id").ToArray());
+
+        if (committed) {
+            Assert.Equal(2, Assert.Single(((HighscoreDataFormat)game.Fastest.ExtraData).Entries).Score);
+            Assert.Equal(1, Assert.Single(((HighscoreDataFormat)game.Wins.ExtraData).Entries).Score);
+        }
+        else {
+            Assert.Empty(((HighscoreDataFormat)game.Fastest.ExtraData).Entries);
+            Assert.Empty(((HighscoreDataFormat)game.Wins.ExtraData).Entries);
+        }
+
+        Assert.True(_room.GetRoomItemHandler().TryReserveTransfers([game.Wins], out var reservation));
+        _room.GetRoomItemHandler().CancelUnstartedTransfer(reservation!);
+    }
+
+    private void AddResetHighscoreActions()
+    {
+        AddSpeechBox(730, "wf_trg_says_something", new() { IntParams = [1, 0, 0], Text = "reset-clock" }, 0, 3, 3);
+        AddSpeechBox(731, "wf_act_control_clock", new() { IntParams = [2, 100], SelectedItems = [503] }, 1, 3, 3);
+        AddSpeechBox(740, "wf_trg_says_something", new() { IntParams = [1, 0, 0], Text = "begin-round" }, 0, 3, 0);
+        AddSpeechBox(741, "wf_act_control_clock", new() { IntParams = [0, 100], SelectedItems = [503] }, 1, 3, 0);
+        AddSpeechBox(750, "wf_trg_says_something", new() { IntParams = [1, 0, 0], Text = "award-points" }, 0, 0, 3);
+        AddSpeechBox(751, "wf_act_give_score_tm", new() { IntParams = [17, 0, 1] }, 1, 0, 3);
+    }
+
     [WiredChestDatabaseTheory]
     [InlineData(false)]
     [InlineData(true)]

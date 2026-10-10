@@ -16,6 +16,7 @@ public sealed record WiredClockTransition(Item Item, object Clock, long Sequence
     WiredClockOrigin Origin, WiredClockReason Reason, bool WasRunning, bool WasStarted, RoomUser? Actor, WiredClockReason? PreviousReason)
 {
     internal bool OtherFootballClockRunning { get; init; }
+    internal WiredClockOrigin? PreviousOrigin { get; init; }
     internal int X { get; } = Item.GetX;
     internal int Y { get; } = Item.GetY;
     internal double Z { get; } = Item.GetZ;
@@ -45,6 +46,7 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, Action<It
         public long NextTick;
         public long Sequence;
         public WiredClockReason? LastReason;
+        public WiredClockOrigin? LastOrigin;
     }
     private readonly Dictionary<uint, Clock> _clocks = [];
     private readonly Queue<WiredCounterChange> _changes = [];
@@ -267,10 +269,12 @@ public sealed class WiredCounterController(int maxHalfSeconds = 11999, Action<It
         var transition = new WiredClockTransition(clock.Item, clock, ++clock.Sequence, clock.Item.Placement, clock.Item.Definition,
             origin, reason, clock.Running, clock.Started, actor, clock.LastReason)
         {
+            PreviousOrigin = clock.LastOrigin,
             OtherFootballClockRunning = _clocks.Values.Any(other => !ReferenceEquals(other, clock) && other.Running
                 && other.Item.Definition.ItemName == "fball_counter")
         };
         clock.LastReason = reason;
+        clock.LastOrigin = origin;
 
         return transition;
     }

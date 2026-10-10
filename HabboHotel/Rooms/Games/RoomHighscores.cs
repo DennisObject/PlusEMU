@@ -126,7 +126,10 @@ internal sealed class RoomHighscores(Room room, TimeProvider time)
         _round = null;
 
         if (!Enrolled || _pending != null || !RoomOwnerScope.IsOwner(room) || transition.Origin != WiredClockOrigin.ModernWired
-            || transition.OtherFootballClockRunning || transition.Reason != WiredClockReason.Start || transition.PreviousReason is not (null or WiredClockReason.Stop) || transition.Item.Definition.ItemName != "fball_counter") {
+            || transition.OtherFootballClockRunning || transition.Reason != WiredClockReason.Start
+            || !(transition.PreviousReason is null or WiredClockReason.Stop
+                || transition.PreviousReason == WiredClockReason.Reset && transition.PreviousOrigin == WiredClockOrigin.ModernWired)
+            || transition.Item.Definition.ItemName != "fball_counter") {
             return;
         }
 
