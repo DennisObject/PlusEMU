@@ -319,7 +319,7 @@ public static class WiredNativeEditorProjection
         && actual.UserSources.Count == expected.UserSources.Count && actual.UserSources.All(pair => expected.UserSources.TryGetValue(pair.Key, out var value) && value == pair.Value);
 
     public static bool IsBound(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration runtime) =>
-        runtime.Origin is { } origin && origin.ItemId == itemId && origin.Name == descriptor.CanonicalName
+        runtime.Origin is { Native: not null } origin && origin.ItemId == itemId && origin.Name == descriptor.CanonicalName
         && Matches(runtime, origin.Derived)
         && TryCompile(itemId, descriptor, origin.Native, out var derived) && Matches(runtime, derived);
 
@@ -335,7 +335,14 @@ public static class WiredNativeEditorProjection
 
         var native = proposed.Origin!.Native;
         var room = item.GetRoom();
-        var references = native.PrimaryItems.Concat(native.SecondaryItems).ToArray();
+        // Static Place templates are frozen snapshots; their original items may be picked up.
+        // Custom-location anchors remain live references.
+        var staticTemplates = descriptor.CanonicalName == "wf_act_place_furni" && native.FurniSourceTypes[0] == 100;
+        var primaryAnchor = proposed.TemporaryPlacement is { TargetIsUser: false } placement
+            && (placement.Location == WiredPlaceLocationType.CustomLocation || placement.Altitude == WiredPlaceAltitudeType.CustomAltitude)
+            && native.FurniSourceTypes[1] == 100;
+        var primary = staticTemplates && !primaryAnchor ? ImmutableArray<WiredNativeItemReference>.Empty : native.PrimaryItems;
+        var references = primary.Concat(native.SecondaryItems).ToArray();
 
         // Picks are only meaningful in the live room that holds them; a pickless box has nothing to check there.
         if (references.Length == 0) {

@@ -54,7 +54,11 @@ public static class WiredTemporaryFurnitureActions
                 (targetX, targetY, targetZ) = (user.X, user.Y, user.Z);
             }
             else {
-                var target = context.Targets.ResolveFurni(context, config.SecondarySelectedItems, config.FurniSources.GetValueOrDefault("target", 100)).FirstOrDefault();
+                var targetSource = config.FurniSources.GetValueOrDefault("target", WiredSources.Selected);
+                var picks = WiredNativeEditorProjection.UsesSecondary(config, "target", false)
+                    ? config.SecondarySelectedItems
+                    : config.SelectedItems;
+                var target = context.Targets.ResolveFurni(context, picks, targetSource).FirstOrDefault();
 
                 if (target == null) {
                     return false;
