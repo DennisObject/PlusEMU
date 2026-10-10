@@ -526,7 +526,6 @@ public sealed class CatalogPurchaseServiceTests
         public DateTimeOffset? GetExpiry(int userId) => null;
         public DateTimeOffset? Purchase(Habbo habbo, ClubOffer offer, int? recipientId = null) =>
             new DateTimeOffset(2040, 3, 5, 4, 5, 6, TimeSpan.Zero);
-        public DateTimeOffset? Grant(Habbo actor, int userId, int days) => throw new NotSupportedException();
     }
 
     public class EmptyProxy : DispatchProxy

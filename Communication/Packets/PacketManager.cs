@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Plus.Communication.Attributes;
-using Plus.Communication.Http;
 using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Incoming.Camera;
 using Plus.HabboHotel.GameClients;
@@ -26,17 +24,12 @@ public sealed class PacketManager : IPacketManager, IDisposable
     private readonly TimeSpan _maximumRunTimeInSec; // 5 minutes in debug. 30 seconds in release.
     private readonly CancellationTokenSource _cancellationTokenSource = new();
 
-    public PacketManager(IEnumerable<IPacketEvent> incomingPackets, ILogger<PacketManager> logger, IOptions<AuthApiConfiguration>? authOptions = null)
+    public PacketManager(IEnumerable<IPacketEvent> incomingPackets, ILogger<PacketManager> logger)
     {
         _maximumRunTimeInSec = Debugger.IsAttached ? TimeSpan.FromMinutes(30) : TimeSpan.FromSeconds(5);
         _logger = logger;
-        var voltAdminEnabled = authOptions?.Value.Enabled ?? true;
 
         foreach (var packet in incomingPackets) {
-            if (!voltAdminEnabled && IsVoltAdminPacket(packet.GetType())) {
-                continue;
-            }
-
             var field = typeof(ClientPacketHeader).GetField(packet.GetType().Name, BindingFlags.Public | BindingFlags.Static | BindingFlags.FlattenHierarchy);
 
             if (field == null) {
@@ -56,14 +49,6 @@ public sealed class PacketManager : IPacketManager, IDisposable
                 _handshakePackets.Add(packet.GetType());
             }
         }
-    }
-
-    internal static bool IsVoltAdminPacket(Type type)
-    {
-        var name = type.Namespace ?? string.Empty;
-
-        return name.StartsWith("Plus.Communication.Packets.Incoming.Housekeeping", StringComparison.Ordinal)
-            || name.StartsWith("Plus.Communication.Packets.Incoming.Catalog.Admin", StringComparison.Ordinal);
     }
 
     internal bool IsRegistered(uint header) => _incomingPackets.ContainsKey(header);

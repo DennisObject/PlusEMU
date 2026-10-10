@@ -145,7 +145,7 @@ public class ClubMembershipTests
         var page = new CatalogPage { Enabled = true, RequiredClubLevel = 1 };
         Assert.False(page.CanOpen(normal));
         Assert.True(page.CanOpen(member));
-        page.RequiredPermission = PermissionKeys.CatalogEdit;
+        page.RequiredPermission = PermissionKeys.CameraUse;
         Assert.False(page.CanOpen(member));
         var settings = DispatchProxy.Create<ISettingsManager, SettingProxy>();
         Assert.Equal(50, ClubLimits.For(normal.Access, "visitors", settings));

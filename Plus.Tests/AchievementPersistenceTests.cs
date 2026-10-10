@@ -16,7 +16,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
-[Collection("HousekeepingDatabase")]
+[Collection("SharedDatabase")]
 public sealed class AchievementPersistenceTests
 {
     private const string Group = "ACH_Test";

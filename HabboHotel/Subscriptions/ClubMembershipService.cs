@@ -93,35 +93,6 @@ public class ClubMembershipService(IDatabase database, IAccessControl permission
         return expiry;
     }
 
-    public DateTimeOffset? Grant(Habbo actor, int userId, int days)
-    {
-        if (days < 0 || days > 36500 || actor.Id == userId || !actor.Access.Can(PermissionKeys.HousekeepingEconomy) || !permissions.Outranks(actor.Id, userId)) {
-            return null;
-        }
-
-        using var connection = database.Connection();
-        connection.Open();
-        using var transaction = connection.BeginTransaction();
-
-        if (connection.ExecuteScalar<int?>("SELECT id FROM users WHERE id = @userId FOR UPDATE", new { userId }, transaction) == null) {
-            return null;
-        }
-
-        var now = clock.GetUtcNow();
-        var expiry = Extend(connection, transaction, userId, now, days);
-
-        if (expiry == null) {
-            return null;
-        }
-
-        connection.Execute("INSERT INTO acl_audit_log (actor_id, action, target_type, target_id, payload) VALUES (@actorId, 'club.grant', 'user', @userId, @payload)",
-            new { actorId = actor.Id, userId, payload = JsonSerializer.Serialize(new { days, expiry = expiry.Value.ToUnixTimeSeconds() }) }, transaction);
-        transaction.Commit();
-        permissions.Refresh(userId);
-
-        return expiry;
-    }
-
     // Returns null before any write when the new expiry cannot be represented.
     internal static DateTimeOffset? Extend(IDbConnection connection, IDbTransaction transaction, int userId, DateTimeOffset now, int days)
     {

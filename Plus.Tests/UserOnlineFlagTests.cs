@@ -18,7 +18,7 @@ public sealed class UserOnlineFlagTests
     [Fact]
     public async Task ASuccessfulLoginMarksItsRegisteredSessionOnline()
     {
-        var clients = new HousekeepingActionTests.FakeClients();
+        var clients = new SharedTestClients();
         var marked = new List<(GameClient, int, bool)>();
         var persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((_, args) =>
         {
@@ -36,7 +36,7 @@ public sealed class UserOnlineFlagTests
     [Fact]
     public async Task ALoginWhoseConnectionClosesBeforeRegisteringNeverMarksOnline()
     {
-        var clients = new HousekeepingActionTests.FakeClients();
+        var clients = new SharedTestClients();
         var persistence = CatalogSnapshotTestSupport.Proxy<IUserPersistenceService>((name, _) => throw new InvalidOperationException(name));
         var (session, _) = HabbiconTestSupport.Client(null!);
 
@@ -50,7 +50,7 @@ public sealed class UserOnlineFlagTests
     {
         InSchema((connection, database) =>
         {
-            var clients = new HousekeepingActionTests.FakeClients();
+            var clients = new SharedTestClients();
             var persistence = new UserPersistenceService(database, TimeProvider.System, clients);
             var (habbo, session) = Session(clients);
 
@@ -67,7 +67,7 @@ public sealed class UserOnlineFlagTests
     {
         InSchema((connection, database) =>
         {
-            var clients = new HousekeepingActionTests.FakeClients();
+            var clients = new SharedTestClients();
             var persistence = new UserPersistenceService(database, TimeProvider.System, clients);
             var (_, closed) = Session(clients);
             closed.Disconnect();
@@ -86,7 +86,7 @@ public sealed class UserOnlineFlagTests
     {
         InSchema((connection, database) =>
         {
-            var clients = new HousekeepingActionTests.FakeClients();
+            var clients = new SharedTestClients();
             var persistence = new UserPersistenceService(database, TimeProvider.System, clients);
             var (first, firstSession) = Session(clients);
             persistence.MarkOnline(firstSession, UserId);
@@ -111,7 +111,7 @@ public sealed class UserOnlineFlagTests
             var persistence = new UserPersistenceService(database, TimeProvider.System, new TestGameClientManager(_ => Volatile.Read(ref registered)));
 
             for (var i = 0; i < 25; i++) {
-                var (old, oldSession) = Session(new HousekeepingActionTests.FakeClients());
+                var (old, oldSession) = Session(new SharedTestClients());
                 Volatile.Write(ref registered, oldSession);
                 persistence.MarkOnline(oldSession, UserId);
                 oldSession.Disconnect();
@@ -149,7 +149,7 @@ public sealed class UserOnlineFlagTests
         return new Authenticator([], clients, users, tickets, new AccountSessionGate(), persistence);
     }
 
-    private static (Habbo Habbo, GameClient Session) Session(HousekeepingActionTests.FakeClients clients)
+    private static (Habbo Habbo, GameClient Session) Session(SharedTestClients clients)
     {
         var habbo = new Habbo
         {

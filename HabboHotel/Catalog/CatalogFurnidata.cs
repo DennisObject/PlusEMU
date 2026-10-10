@@ -14,32 +14,25 @@ public interface ICatalogFurnidata
 {
     // Null while no furniture has furnidata.
     CatalogFurnidataFile? Current();
-
-    // Rebuilds on the next request; called after furnidata changes in the database.
-    void Invalidate();
 }
 
 // FurnitureData.json as clients load it: every furniture definition's entry with its purchase fields taken from the
 // loaded catalog, the way Habbo generates furnidata from its catalog. The infostand buy button and catalog search
-// open the entry's offerid, so it always names an offer the catalog sells. Rebuilt when the catalog reloads or
-// furnidata is invalidated.
+// open the entry's offerid, so it always names an offer the catalog sells. Rebuilt when the catalog reloads.
 public sealed class CatalogFurnidata(IDatabase database, ICatalogManager catalog) : ICatalogFurnidata
 {
     private static readonly JsonSerializerOptions Compact = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     private const int MaximumPageDepth = 20;
 
     private readonly object _sync = new();
-    private int _version;
-    private (int Revision, int Version, CatalogFurnidataFile? File)? _cached;
+    private (int Revision, CatalogFurnidataFile? File)? _cached;
 
     public CatalogFurnidataFile? Current()
     {
         int revision = catalog.Revision;
 
         lock (_sync) {
-            int version = _version;
-
-            if (_cached is { } cached && cached.Revision == revision && cached.Version == version) {
+            if (_cached is { } cached && cached.Revision == revision) {
                 return cached.File;
             }
 
@@ -50,16 +43,9 @@ public sealed class CatalogFurnidata(IDatabase database, ICatalogManager catalog
             }
 
             var file = entries.Count == 0 ? null : Generate(entries, catalog.Pages);
-            _cached = (revision, version, file);
+            _cached = (revision, file);
 
             return file;
-        }
-    }
-
-    public void Invalidate()
-    {
-        lock (_sync) {
-            _version++;
         }
     }
 

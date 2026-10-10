@@ -52,7 +52,7 @@ public sealed class PlayerProfileSnapshotTests
             LastOnlineAt = lastOnline.HasValue ? DateTimeOffset.FromUnixTimeSeconds(lastOnline.Value) : null
         };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
-        var clients = new HousekeepingActionTests.FakeClients();
+        var clients = new SharedTestClients();
         clients.Online[7] = client;
         var groups = DispatchProxy.Create<IGroupManager, EmptyGroups>();
         var messenger = DispatchProxy.Create<IMessengerDataLoader, FriendCount>();
@@ -69,7 +69,7 @@ public sealed class PlayerProfileSnapshotTests
         var now = DateTimeOffset.FromUnixTimeSeconds(1_700_000_100).ToOffset(TimeSpan.FromHours(9));
         var habbo = new Habbo { Id = 7, LastOnlineAt = now.ToOffset(TimeSpan.FromHours(-7)).AddTicks(-1) };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
-        var clients = new HousekeepingActionTests.FakeClients();
+        var clients = new SharedTestClients();
         clients.Online[7] = client;
         var profiles = new PlayerProfileService(DispatchProxy.Create<IGroupManager, EmptyGroups>(),
             DispatchProxy.Create<IMessengerDataLoader, FriendCount>(), clients, null!, new Stats(), new FixedClock());
@@ -84,7 +84,7 @@ public sealed class PlayerProfileSnapshotTests
         var now = DateTimeOffset.FromUnixTimeSeconds(1_700_000_100).ToOffset(TimeSpan.FromHours(9));
         var habbo = new Habbo { Id = 7, LastOnlineAt = now.ToOffset(TimeSpan.FromHours(-7)).AddSeconds(-int.MaxValue).AddTicks(1) };
         var (client, sent) = HabbiconTestSupport.Client(habbo);
-        var clients = new HousekeepingActionTests.FakeClients();
+        var clients = new SharedTestClients();
         clients.Online[7] = client;
         var profiles = new PlayerProfileService(DispatchProxy.Create<IGroupManager, EmptyGroups>(),
             DispatchProxy.Create<IMessengerDataLoader, FriendCount>(), clients, null!, new Stats(), new FixedClock());

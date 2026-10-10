@@ -13,10 +13,10 @@ using Xunit;
 
 namespace Plus.Tests;
 
-[Collection("HousekeepingDatabase")]
+[Collection("SharedDatabase")]
 public sealed class WiredRoomSettingsFactoryDatabaseTests
 {
-    [HousekeepingDatabaseFact]
+    [SharedDatabaseFact]
     public void RuntimeFactoryLoadsAndSavesAgainstProductionConnectionOptions()
     {
         var connectionString = Environment.GetEnvironmentVariable("PLUS_HOUSEKEEPING_TEST_CONNECTION_STRING")!;

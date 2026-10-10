@@ -143,44 +143,6 @@ public sealed class CatalogFurnidataTests
         Assert.Matches("^\"[0-9a-f]{40}\"$", file.ETag);
     }
 
-    [Fact]
-    public void AnEntryReadsBackFromItsJson()
-    {
-        var entry = new FurnidataEntry
-        {
-            FurnitureId = 5,
-            Id = 13,
-            Classname = "chair",
-            Revision = 3,
-            Category = null,
-            DefaultDir = 4,
-            XDim = 2,
-            YDim = 3,
-            PartColors = "",
-            Name = "Chair",
-            Description = null,
-            AdUrl = "",
-            ExcludedDynamic = true,
-            CustomParams = "1,2",
-            SpecialType = 7,
-            CanStandOn = true,
-            CanLayOn = true,
-            CanPutStuffOn = false,
-            Height = 1e-06,
-            FurniLine = "",
-            Environment = "",
-            Rare = true,
-            Recyclable = true
-        };
-        var json = entry.ToJson(catalog: false);
-
-        var copy = new FurnidataEntry { FurnitureId = 5 }.WithJson(json);
-
-        Assert.Equal(json.ToJsonString(), copy.ToJson(catalog: false).ToJsonString());
-        Assert.Equal(5u, copy.FurnitureId);
-        Assert.Equal("", copy.PartColors);
-        Assert.Null(new FurnidataEntry().WithJson(new JsonObject { ["partcolors"] = null }).PartColors);
-    }
 
     [Fact]
     public void DefinitionsCompareWithoutCatalogFieldsOrFieldOrder()

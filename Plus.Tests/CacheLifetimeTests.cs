@@ -11,7 +11,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
-[Collection("HousekeepingDatabase")]
+[Collection("SharedDatabase")]
 public sealed class CacheLifetimeTests
 {
     private static readonly DateTimeOffset Now = new(2040, 4, 5, 6, 7, 8, TimeSpan.Zero);

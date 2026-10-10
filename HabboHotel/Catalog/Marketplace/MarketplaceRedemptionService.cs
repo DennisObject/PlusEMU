@@ -1,6 +1,5 @@
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Housekeeping;
 
 namespace Plus.HabboHotel.Catalog.Marketplace;
 
@@ -22,7 +21,7 @@ public sealed class MarketplaceRedemptionService(IMarketplaceOfferStore store) :
             }
 
             // The store commits the claim only if the wallet can hold the total, so no sale is removed without being paid.
-            var owed = store.ClaimSold(habbo.Id, amount => HousekeepingLimits.AddToBalance(habbo.Credits, amount) != null);
+            var owed = store.ClaimSold(habbo.Id, amount => CreditBalance.AddToBalance(habbo.Credits, amount) != null);
 
             if (owed is not int total || total < 1) {
                 return;

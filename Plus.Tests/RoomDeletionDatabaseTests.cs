@@ -6,7 +6,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
-[Collection("HousekeepingDatabase")]
+[Collection("SharedDatabase")]
 public sealed class RoomDeletionDatabaseTests : IDisposable
 {
     private const int UserId = 936001;
@@ -45,7 +45,7 @@ public sealed class RoomDeletionDatabaseTests : IDisposable
             .SetValue(_room, new RoomItemHandling(_room, new RoomItemStore(_database), TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty, TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards));
         var manager = DispatchProxy.Create<IRoomManager, ManagerProxy>();
         _manager = (ManagerProxy)(object)manager;
-        _service = new(new HousekeepingActionTests.FakeClients(), manager, _database);
+        _service = new(new SharedTestClients(), manager, _database);
     }
 
     [TradingLockDatabaseFact]

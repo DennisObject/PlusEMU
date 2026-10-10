@@ -22,7 +22,6 @@ using Plus.HabboHotel;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.Badges;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Housekeeping;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Moderation;
 using Plus.HabboHotel.Permissions;
@@ -77,13 +76,16 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
             var rooms = services.GetRequiredService<IRoomManager>();
 
             try {
-                var ticket = await services.GetRequiredService<ISsoTicketStore>().Issue(7);
-                output.WriteLine("Calling the public SSO packet handler with a real single-use ticket.");
-                await services.GetRequiredService<SSOTicketEvent>().Parse(client, HabbiconTestSupport.Incoming(ticket.Value));
+                const string ticket = "cms-sso-ticket-0001";
+                connection.Execute(
+                    "UPDATE users SET auth_ticket = @ticket, auth_ticket_expires_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL 300 SECOND), auth_ticket_exchanged = 0, auth_ticket_session = NULL WHERE id = 7",
+                    new { ticket });
+                output.WriteLine("Calling the public SSO packet handler with a CMS-issued single-use ticket.");
+                await services.GetRequiredService<SSOTicketEvent>().Parse(client, HabbiconTestSupport.Incoming(ticket));
                 Assert.True(client.IsAuthenticated);
                 var habbo = Assert.IsType<Habbo>(client.GetHabbo());
                 Assert.Same(client, services.GetRequiredService<IGameClientManager>().GetClientByUserId(7));
-                Assert.Null(await services.GetRequiredService<ISsoTicketStore>().Consume(ticket.Value));
+                Assert.Null(await services.GetRequiredService<ISsoTicketStore>().Consume(ticket));
                 Assert.Contains(sent, packet => packet.Header == ServerPacketHeader.AuthenticationOkComposer);
                 Assert.Equal("smoke_owner", habbo.Username);
                 Assert.Equal(new DateTimeOffset(2020, 1, 2, 3, 4, 5, TimeSpan.Zero), habbo.AccountCreatedAt);
@@ -143,22 +145,18 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
                 Assert.Contains(sent, packet => packet.Header == ServerPacketHeader.RoomEntryInfoComposer);
                 Assert.Equal(1, room.UserCount);
 
-                output.WriteLine("Reading DATETIME boundaries through moderation, housekeeping and live trading locks.");
+                output.WriteLine("Reading DATETIME boundaries through moderation and live trading locks.");
                 var moderation = services.GetRequiredService<IModerationUserStore>();
-                var housekeeping = services.GetRequiredService<IHousekeepingUserStore>();
                 Assert.Equal(habbo.AccountCreatedAt, moderation.Find(7)!.AccountCreatedAt);
                 Assert.Equal(habbo.LastOnlineAt, moderation.Find("smoke_owner")!.LastOnlineAt);
-                Assert.Equal(habbo.LastOnlineAt, housekeeping.Find(7)!.LastOnlineAt);
                 var locks = services.GetRequiredService<ITradingLockService>();
                 var expires = locks.Set(7, TimeSpan.FromMinutes(5));
                 Assert.True(locks.IsLocked(habbo));
                 Assert.Equal(expires, habbo.TradingLockExpiresAt);
                 Assert.Equal(expires, moderation.Find(7)!.TradingLockExpiresAt);
-                Assert.Equal(expires, housekeeping.Find("smoke_owner")!.TradingLockExpiresAt);
                 locks.Clear(7);
                 Assert.False(locks.IsLocked(habbo));
                 Assert.Null(moderation.Find(7)!.TradingLockExpiresAt);
-                Assert.Null(housekeeping.Find(7)!.TradingLockExpiresAt);
             }
             finally {
                 try {

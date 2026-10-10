@@ -4,11 +4,6 @@ namespace Plus.HabboHotel.Permissions;
 
 public interface IAccessControl
 {
-    AccessAdminResult Apply(Habbo actor, int expectedRevision, AccessAdminChange change);
-    AccessAdminSnapshot AdminSnapshot(Habbo actor);
-    AccessMemberPage Members(Habbo actor, int roleId, int offset);
-    AccessOverridePage Overrides(Habbo actor, string username);
-    AccessAuditPage Audit(Habbo actor, int offset);
     event Action<Habbo>? AccessChanged;
     void Init();
     bool Can(int userId, string key);
