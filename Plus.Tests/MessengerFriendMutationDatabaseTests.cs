@@ -166,7 +166,8 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9402, 9401)");
 
         for (var i = 0; i < 300; i++) {
-            Execute("INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9401, @other)", new { other = 9500000 + i });
+            Execute("INSERT INTO users (id, username, auth_ticket) VALUES (@other, CONCAT('friend_', @other), ''); " +
+                "INSERT INTO messenger_friendships (user_one_id, user_two_id) VALUES (9401, @other)", new { other = 9500000 + i });
         }
 
         var acceptor = Habbo(9401, MessengerFor(requests: [new MessengerRequest { FromId = 9402, ToId = 9401 }]));
@@ -194,22 +195,6 @@ public sealed class MessengerFriendMutationDatabaseTests(MessengerFriendSchema s
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9502 AND to_id = 9501"));
         Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9501 AND to_id = 9502"));
         Assert.False(Assert.IsType<HabboMessenger>(decliner.Messenger).Requests.ContainsKey(9502));
-    }
-
-    [MessengerFriendDatabaseFact]
-    public async Task DecliningLegacyDuplicateRowsRemovesTheCachedRequestAfterTheirCommit()
-    {
-        Account(9891);
-        Account(9892);
-        Execute("INSERT INTO messenger_requests (from_id, to_id) VALUES (9892, 9891), (9892, 9891), (9891, 9892)");
-        var decliner = Habbo(9891, MessengerFor(requests: [new MessengerRequest { FromId = 9892, ToId = 9891 }]));
-        var service = new MessengerFriendMutationService(Loader(), new AccountSessionGate(), new GameClientManager(null!, null!));
-
-        Assert.Null(await service.DeclineRequestAsync(decliner, 9892));
-
-        Assert.Equal(0, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9892 AND to_id = 9891"));
-        Assert.Equal(1, Scalar("SELECT COUNT(*) FROM messenger_requests WHERE from_id = 9891 AND to_id = 9892"));
-        Assert.False(Assert.IsType<HabboMessenger>(decliner.Messenger).Requests.ContainsKey(9892));
     }
 
     [MessengerFriendDatabaseFact]

@@ -19,7 +19,7 @@ TABLES = {
                   'interaction_type', 'wired_id', 'public_name', 'can_stack', 'can_sit', 'is_walkable',
                   'allow_recycle', 'allow_trade', 'allow_marketplace_sell', 'allow_gift',
                   'allow_inventory_stack', 'behaviour_data', 'interaction_modes_count', 'vending_ids',
-                  'height_adjustable', 'effect_id', 'is_rare', 'clothing_id', 'extra_rot'],
+                  'height_adjustable', 'effect_id', 'is_rare', 'extra_rot'],
     'catalog_pages': ['id', 'parent_id', 'link', 'caption', 'layout', 'required_permission',
                       'visible', 'enabled', 'icon', 'required_club_level', 'position'],
     'catalog_page_images': ['page_id', 'slot', 'image'],

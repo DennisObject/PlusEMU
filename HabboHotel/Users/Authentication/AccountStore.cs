@@ -93,7 +93,7 @@ public class AccountStore : IAccountStore
                     Now = _time.GetUtcNow().UtcDateTime,
                     Generation = NewAccountGeneration
                 }, transaction);
-            await connection.ExecuteAsync("INSERT INTO `users_settings` (`user_id`, `home_room`) VALUES (@userId, @homeRoom)",
+            await connection.ExecuteAsync("INSERT INTO `users_settings` (`user_id`, `home_room`) SELECT @userId, COALESCE((SELECT `id` FROM `rooms` WHERE `id` = @homeRoom), 0)",
                 new { userId, homeRoom = _defaults.HomeRoom }, transaction);
             await connection.ExecuteAsync("INSERT INTO `user_statistics` (`id`) VALUES (@userId)", new { userId }, transaction);
             UserCurrencyStore.Set(connection, userId, ActivityPointType.Duckets, _defaults.ActivityPoints, transaction);

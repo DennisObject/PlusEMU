@@ -137,7 +137,7 @@ public class CameraCheckoutTests
     {
         Assert.False(_service.Purchase(_habbo, _media with { Id = Guid.NewGuid() }).Ok);
         Assert.False(_service.Purchase(_habbo, _media with { RoomId = 43 }).Ok);
-        Execute("UPDATE camera_media SET user_id=999");
+        Execute("INSERT IGNORE INTO users (id,username,auth_ticket) VALUES (999,'camera_other',''); UPDATE camera_media SET user_id=999");
         Assert.False(_service.Purchase(_habbo, _media).Ok);
         Execute("UPDATE camera_media SET user_id=910001");
         _settings.Values["camera.item_id"] = "0";
@@ -146,7 +146,7 @@ public class CameraCheckoutTests
         _habbo.Credits = 1;
         Assert.False(_service.Purchase(_habbo, _media).Ok);
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items"));
-        Assert.Equal(100, Scalar("SELECT credits FROM users"));
+        Assert.Equal(100, Scalar("SELECT credits FROM users WHERE id=910001"));
     }
 
     [CameraDatabaseFact]
@@ -162,7 +162,7 @@ public class CameraCheckoutTests
         }
 
         Assert.Equal(100, _habbo.Credits);
-        Assert.Equal(100, Scalar("SELECT credits FROM users"));
+        Assert.Equal(100, Scalar("SELECT credits FROM users WHERE id=910001"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM items"));
         Assert.Equal(0, Scalar("SELECT COUNT(*) FROM camera_purchases"));
     }

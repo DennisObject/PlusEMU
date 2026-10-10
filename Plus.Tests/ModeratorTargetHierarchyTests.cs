@@ -158,7 +158,7 @@ public sealed class ModeratorTargetHierarchyTests
     private sealed class ProfilePersistence : IUserPersistenceService
     {
         public (int, string, object?)? Update;
-        public void Save(Habbo habbo, bool reopenModerationTickets = false) => throw new NotSupportedException();
+        public void Save(Habbo habbo) => throw new NotSupportedException();
         public void MarkOnline(GameClient session, int userId) => throw new NotSupportedException();
         public void SetProfileValue(int userId, string column, object? value) => Update = (userId, column, value);
     }

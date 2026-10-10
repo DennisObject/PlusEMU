@@ -146,7 +146,7 @@ def row(id, name, sprite, kind='s', owner=1, interaction='default', **columns):
     base.update(id=id, item_name=name, public_name=name, type=kind, width=1, length=1, stack_height=0.0, can_stack=1, can_sit=0,
                 is_walkable=0, sprite_id=sprite, allow_recycle=1, allow_trade=1, allow_marketplace_sell=1, allow_gift=1,
                 allow_inventory_stack=1, interaction_type=interaction, interaction_modes_count=1, vending_ids='0',
-                height_adjustable='0', is_rare=0, clothing_id=0, has_furnidata=owner)
+                height_adjustable='0', is_rare=0, has_furnidata=owner)
     base.update(columns)
     return base
 
@@ -158,11 +158,8 @@ def apply_furniture(furniture, result):
         by_id[row_id].update(columns)
     next_id = max(by_id) + 1
     for insert in result['inserts']:
-        furniture.append(dict(insert, id=next_id, clothing_id=insert['clothing_id'] if not isinstance(insert['clothing_id'], tuple) else 7))
+        furniture.append(dict(insert, id=next_id))
         next_id += 1
-    for r in furniture:
-        if isinstance(r.get('clothing_id'), tuple):
-            r['clothing_id'] = 7
 
 
 def furniture_case():
@@ -184,14 +181,14 @@ def furniture_case():
 def test_plan_furniture_moves_sprites_resolves_collisions_and_creates_sold_furni():
     habbo, furniture = furniture_case()
     evidence = m.Evidence({'gate_x': {'logicType': 'furniture_multistate', 'visualizationType': 'furniture_animated', 'height': 1, 'states': 2}})
-    result = m.plan_furniture(furniture, habbo, {('s', 'new_sofa')}, evidence, {})
+    result = m.plan_furniture(furniture, habbo, {('s', 'new_sofa')}, evidence)
     updates, report = result['updates'], result['report']
     assert updates[1]['sprite_id'] == 10 and updates[1]['has_furnidata'] == 1
     assert updates[2]['sprite_id'] == 20 and 'interaction_type' not in updates[2]
     assert updates[3]['sprite_id'] == 100 and report['sprite_collisions'][0]['habbo_classname'] == 'new_sofa'
     assert updates[4]['item_name'] == 'Lamp' and updates[5]['sprite_id'] == 10
     assert {k: updates[6][k] for k in ('item_name', 'has_furnidata', 'sprite_id')} == {'item_name': 'pirate_teleport', 'has_furnidata': 1, 'sprite_id': 50}
-    assert updates[7]['interaction_type'] == 'purchasable_clothing' and updates[7]['clothing_id'] == ('clothing', 'clothing_bow')
+    assert updates[7]['interaction_type'] == 'purchasable_clothing'
     assert [(r['item_name'], r['sprite_id'], r['can_sit'], r['stack_height']) for r in result['inserts']] == [('new_sofa', 40, 1, 0.8)]
     assert result['owner_of'][('s', 'new_sofa')] == ('new', 's', 'new_sofa')
     assert {r['reason'] for r in report['renamed']} == {'case', 'whitespace'}
@@ -200,14 +197,14 @@ def test_plan_furniture_moves_sprites_resolves_collisions_and_creates_sold_furni
 def test_plan_furniture_is_a_no_op_after_its_own_changes():
     habbo, furniture = furniture_case()
     evidence = m.Evidence()
-    apply_furniture(furniture, m.plan_furniture(furniture, habbo, {('s', 'new_sofa')}, evidence, {}))
-    again = m.plan_furniture(furniture, habbo, {('s', 'new_sofa')}, evidence, {'clothing_bow': (7, '3141')})
+    apply_furniture(furniture, m.plan_furniture(furniture, habbo, {('s', 'new_sofa')}, evidence))
+    again = m.plan_furniture(furniture, habbo, {('s', 'new_sofa')}, evidence)
     assert again['updates'] == {} and again['inserts'] == []
 
 
 def test_furniture_statements_free_unique_keys_before_ids_move():
     habbo, furniture = furniture_case()
-    result = {'furniture': m.plan_furniture(furniture, habbo, set(), m.Evidence(), {}), 'clothing': [], 'badges': [], 'promotions': None,
+    result = {'furniture': m.plan_furniture(furniture, habbo, set(), m.Evidence()), 'badges': [], 'promotions': None,
               'tables': {table: {'insert': [], 'update': [], 'delete': []} for table in m.CATALOG_TABLES}}
     sql = m.statements(result)
     free = next(i for i, s in enumerate(sql) if s.startswith('UPDATE `furniture` SET `has_furnidata` = FALSE'))
@@ -290,7 +287,7 @@ def test_page_statements_release_links_before_reuse():
     desired = {(1,): dict(current[0], link='b')}
     tables = {table: {'insert': [], 'update': [], 'delete': []} for table in m.CATALOG_TABLES}
     tables['catalog_pages'] = m.diff_table('catalog_pages', current, desired)
-    sql = m.statements({'furniture': {'updates': {}, 'inserts': []}, 'clothing': [], 'badges': [], 'promotions': None, 'tables': tables})
+    sql = m.statements({'furniture': {'updates': {}, 'inserts': []}, 'badges': [], 'promotions': None, 'tables': tables})
     release = sql.index('UPDATE `catalog_pages` SET `link` = NULL WHERE `id` = 2;')
     take = next(i for i, s in enumerate(sql) if s.startswith('UPDATE `catalog_pages` SET `link` = CONVERT'))
     assert release < take < sql.index('DELETE FROM `catalog_pages` WHERE `id` = 2;')
@@ -308,14 +305,14 @@ def test_links_compare_without_case_or_accents():
 
 def test_a_classname_the_other_kind_owns_is_not_created():
     habbo = {('s', 'shared'): entry('shared', id=5)}
-    result = m.plan_furniture([row(1, 'Shared', 7, kind='i')], habbo, {('s', 'shared')}, m.Evidence(), {})
+    result = m.plan_furniture([row(1, 'Shared', 7, kind='i')], habbo, {('s', 'shared')}, m.Evidence())
     assert result['inserts'] == [] and 'shared' in {c['classname'] for c in result['report']['kind_conflicts']}
 
 
 def test_physical_columns_apply_to_owners_whatever_their_interaction():
     habbo = {('s', 'gate_x'): entry('gate_x', id=20, xdim=2, height=0.4, canputstuffon=False)}
     hab_info = {'gate_x': {'logicType': 'furniture_multistate', 'visualizationType': 'furniture_animated', 'height': 0.4, 'states': 3}}
-    result = m.plan_furniture([row(1, 'gate_x', 20, interaction='gate')], habbo, set(), m.Evidence(hab_info), {})
+    result = m.plan_furniture([row(1, 'gate_x', 20, interaction='gate')], habbo, set(), m.Evidence(hab_info))
     assert {k: result['updates'][1][k] for k in ('width', 'stack_height', 'can_stack', 'interaction_modes_count')} == \
         {'width': 2, 'stack_height': 0.4, 'can_stack': 0, 'interaction_modes_count': 3}
     assert 'interaction_type' not in result['updates'][1] and result['report']['stacking_turned_off'] == 1
@@ -504,7 +501,7 @@ def test_precedence_plus_configuration_then_wired_then_habbo_then_references():
     habs = {'lamp': {'logicType': 'furniture_multistate', 'visualizationType': 'furniture_animated', 'height': 1, 'states': 3}}
     lamp_votes = {('s', 'lamp'): vote('dimmer', 2)}
     evidence = refs_evidence(habs, a=lamp_votes, b=lamp_votes, c={('s', 'a0 custom'): vote('default', 5)})
-    result = m.plan_furniture(furniture, habbo, set(), evidence, {})
+    result = m.plan_furniture(furniture, habbo, set(), evidence)
     updates, report = result['updates'], result['report']
     rules = {d['id']: (d['interaction'], d['rule']) for d in report['derived']}
     assert rules[1] == ('gate', 'plus:original')

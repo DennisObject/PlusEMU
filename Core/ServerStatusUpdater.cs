@@ -28,8 +28,6 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
 
     public void Dispose()
     {
-        using var connection = _database.Connection();
-        connection.Execute("UPDATE server_status SET users_online=0,loaded_rooms=0");
         _timer?.Dispose();
         GC.SuppressFinalize(this);
     }
@@ -61,13 +59,8 @@ public class ServerStatusUpdater : IDisposable, IServerStatusUpdater, IStartable
         var roomCount = _roomManager.Count;
         ConsoleWindow.SetTitle($"Plus Emulator - {usersOnline} users online - {roomCount} rooms loaded - {uptime.Days} day(s) {uptime.Hours} hour(s) uptime");
         using var connection = _database.Connection();
-        connection.Open();
-        using var transaction = connection.BeginTransaction();
-        connection.Execute("UPDATE server_status SET users_online=@usersOnline,loaded_rooms=@roomCount LIMIT 1",
-            new { usersOnline, roomCount }, transaction);
         // Daily online peaks feed the housekeeping dashboard.
         connection.Execute("INSERT INTO housekeeping_online_peaks (`day`,peak) VALUES (UTC_DATE(),@usersOnline) ON DUPLICATE KEY UPDATE peak=GREATEST(peak,@usersOnline)",
-            new { usersOnline }, transaction);
-        transaction.Commit();
+            new { usersOnline });
     }
 }

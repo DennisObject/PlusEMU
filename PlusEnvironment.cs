@@ -182,7 +182,6 @@ public class PlusEnvironment : IPlusEnvironment
         await connection.ExecuteAsync("TRUNCATE `catalog_marketplace_data`");
         await connection.ExecuteAsync("UPDATE `rooms` SET `users_now` = '0' WHERE `users_now` > '0';");
         await connection.ExecuteAsync("UPDATE `users` SET `online` = false WHERE `online` = true");
-        await connection.ExecuteAsync("UPDATE `server_status` SET `users_online` = '0', `loaded_rooms` = '0'");
     }
 
     [Obsolete]
@@ -291,7 +290,6 @@ public class PlusEnvironment : IPlusEnvironment
             using var transaction = connection.BeginTransaction();
             connection.Execute("UPDATE users SET online=false,auth_ticket='',auth_ticket_expires_at=NULL", transaction: transaction);
             connection.Execute("UPDATE rooms SET users_now=0 WHERE users_now>0", transaction: transaction);
-            connection.Execute("UPDATE server_status SET users_online=0,loaded_rooms=0", transaction: transaction);
             transaction.Commit();
         }
 

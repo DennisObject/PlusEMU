@@ -6,7 +6,7 @@ namespace Plus.HabboHotel.Users;
 
 public interface IUserPersistenceService
 {
-    void Save(Habbo habbo, bool reopenModerationTickets = false);
+    void Save(Habbo habbo);
 
     /// <summary>Marks the account online for a session that just registered, unless it already closed or was replaced.</summary>
     void MarkOnline(GameClient session, int userId);
@@ -20,10 +20,10 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
     // per account together with the registered-session check, so the older logout never clears the newer login.
     private readonly object[] _presence = Enumerable.Range(0, 64).Select(_ => new object()).ToArray();
 
-    public void Save(Habbo habbo, bool reopenModerationTickets = false)
+    public void Save(Habbo habbo)
     {
         lock (Presence(habbo.Id)) {
-            SaveCore(habbo, reopenModerationTickets);
+            SaveCore(habbo);
         }
     }
 
@@ -41,7 +41,7 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
 
     private object Presence(int userId) => _presence[(uint)userId % (uint)_presence.Length];
 
-    private void SaveCore(Habbo habbo, bool reopenModerationTickets)
+    private void SaveCore(Habbo habbo)
     {
         // A session whose statistics never loaded must not overwrite the saved row with nothing.
         var stats = habbo.HabboStats ?? throw new InvalidOperationException($"User {habbo.Id} has no loaded statistics to save.");
@@ -86,11 +86,6 @@ public sealed class UserPersistenceService(IDatabase database, TimeProvider cloc
             }, transaction);
 
         UserCurrencyStore.SetMany(connection, habbo.Id, habbo.Currencies.Snapshot(), transaction);
-
-        if (reopenModerationTickets) {
-            connection.Execute("UPDATE `moderation_tickets` SET `status` = 'open', `moderator_id` = 0 WHERE `status` = 'picked' AND `moderator_id` = @id",
-                new { id = habbo.Id }, transaction);
-        }
 
         transaction.Commit();
     }

@@ -3,7 +3,7 @@ namespace Plus.HabboHotel.Games;
 public class GameData
 {
     public GameData(int gameId, string name, string colourOne, string colourTwo, string resourcePath, string stringThree, string gameSwf, string gameAssets, string gameServerHost,
-        string gameServerPort, string socketPolicyPort, bool enabled)
+        string gameServerPort, bool enabled)
     {
         Id = gameId;
         Name = name;
@@ -15,7 +15,6 @@ public class GameData
         Assets = gameAssets;
         ServerHost = gameServerHost;
         ServerPort = gameServerPort;
-        SocketPolicyPort = socketPolicyPort;
         Enabled = enabled;
     }
 
@@ -29,6 +28,5 @@ public class GameData
     public string Assets { get; }
     public string ServerHost { get; }
     public string ServerPort { get; }
-    public string SocketPolicyPort { get; }
     public bool Enabled { get; }
 }

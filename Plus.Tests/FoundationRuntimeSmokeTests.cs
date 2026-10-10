@@ -180,8 +180,8 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
 
     private static void Seed(MySqlConnection connection) => connection.Execute("""
         INSERT INTO users (id, username, auth_ticket, look, motto, account_created, last_online) VALUES
-            (7, 'smoke_owner', '', 'hd-180-1.ch-210-66.lg-270-82', 'smoke', '2020-01-02 03:04:05', '2026-01-02 03:04:05');
-        INSERT INTO users_settings (user_id, home_room, allow_mimic, disable_forced_effects) VALUES (7, 42, TRUE, TRUE);
+            (7, 'smoke_owner', '', 'hd-180-1.ch-210-66.lg-270-82', 'smoke', '2020-01-02 03:04:05', '2026-01-02 03:04:05'),
+            (8, 'smoke_other', '', 'hd-180-1', '', '2020-01-02 03:04:05', '2026-01-02 03:04:05');
         INSERT INTO user_statistics (id, AchievementScore) VALUES (7, 123);
         INSERT INTO user_info (user_id) VALUES (7);
         INSERT INTO user_achievements (userid, `group`, level, progress) VALUES
@@ -189,6 +189,7 @@ public sealed class FoundationRuntimeSmokeTests(ITestOutputHelper output)
         INSERT INTO room_models (id, door_x, door_y, door_z, door_dir, heightmap, public_items)
             VALUES ('smoke', 0, 1, 0, 2, '000\r000\r000', '');
         INSERT INTO rooms (id, owner, caption, model_name, allow_pets) VALUES (42, '7', 'Smoke room', 'smoke', TRUE);
+        INSERT INTO users_settings (user_id, home_room, allow_mimic, disable_forced_effects) VALUES (7, 42, TRUE, TRUE);
         INSERT INTO bots (id, user_id, room_id, ai_type, name, motto, look, x, y, z, automatic_chat, mix_sentences) VALUES
             (10, 7, 0, 'generic', 'inventory bot', '', 'hd-180-1', 0, 0, 0, 'false', FALSE),
             (11, 7, 0, 'pet', 'inventory pet', '', '', 0, 0, 0, 'false', FALSE),

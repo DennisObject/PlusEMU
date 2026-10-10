@@ -31,9 +31,9 @@ public sealed class RoomDeletionDatabaseTests : IDisposable
         connection.Execute(RoomMusicDatabaseTests.Fixture.SchemaSql);
         connection.Execute("""
             INSERT INTO users(id,username,auth_ticket) VALUES (@UserId,'room_cleanup_probe','');
+            INSERT INTO rooms(id,model_name,owner) VALUES (@RoomId,'model_a',@UserId);
             INSERT INTO users_settings(user_id,home_room) VALUES (@UserId,@RoomId);
-            INSERT INTO rooms(id,model_name,owner) VALUES (@RoomId,'probe',@UserId);
-            INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES (@ItemId,@UserId,@RoomId,0,'preserved');
+            INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES (@ItemId,@UserId,@RoomId,1,'preserved');
             INSERT INTO room_items_moodlight(item_id,enabled,current_preset,preset_one,preset_two,preset_three)
               VALUES (@ItemId,TRUE,1,'#0053F7,200,1','two','three');
             INSERT INTO room_rights(room_id,user_id) VALUES (@RoomId,@UserId);
@@ -89,8 +89,8 @@ public sealed class RoomDeletionDatabaseTests : IDisposable
             DELETE FROM room_rights WHERE room_id=@RoomId;
             DELETE FROM user_favorites WHERE room_id=@RoomId;
             DELETE FROM user_roomvisits WHERE room_id=@RoomId;
-            DELETE FROM rooms WHERE id=@RoomId;
             DELETE FROM users_settings WHERE user_id=@UserId;
+            DELETE FROM rooms WHERE id=@RoomId;
             DELETE FROM users WHERE id=@UserId;
             """, Values);
     }
