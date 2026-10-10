@@ -4,6 +4,11 @@ using System.Data;
 using System.Reflection;
 using Dapper;
 using MySqlConnector;
+using Microsoft.Extensions.Logging.Abstractions;
+using Plus.Communication.Flash;
+using Plus.Communication.Packets;
+using Plus.Communication.Packets.Incoming;
+using Plus.Communication.Revisions;
 using Plus.Communication.Packets.Incoming.Groups;
 using Plus.Communication.Packets.Outgoing;
 using Plus.Core.Settings;
@@ -31,6 +36,40 @@ public sealed class GroupRemovalServiceTests
         Assert.False(packet.HasDataRemaining());
         await new RemoveGroupMemberEvent(calls).Parse(null!, HabbiconTestSupport.Incoming(9, 8));
         Assert.Equal(new[] { ("delete", 9, 0), ("confirm", 9, 8), ("remove", 9, 8), ("remove", 9, 8) }, calls.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AirRemovalDispatchesSeparatelyFromConfirmationWithoutTheOldAlias(bool block)
+    {
+        var calls = new RecordingService();
+        using var manager = new PacketManager(
+            [new RemoveGroupMemberEvent(calls), new ConfirmRemoveGroupMemberEvent(calls)],
+            NullLogger<PacketManager>.Instance);
+        var server = new GroupDispatchServer(manager);
+        var client = GroupClient(server);
+        var confirmation = GroupFrame(2359);
+        client.OnReceived(confirmation, 0, confirmation.Length);
+        await server.Pending;
+        Assert.Equal(new[] { ("confirm", 9, 8) }, calls.Calls);
+        Assert.True(server.Consumed);
+
+        client = GroupClient(server);
+        var removal = GroupFrame(1397, block);
+        client.OnReceived(removal, 0, removal.Length);
+        await server.Pending;
+        Assert.Equal(new[] { ("confirm", 9, 8), ("remove", 9, 8) }, calls.Calls);
+        Assert.True(server.Consumed);
+        Assert.Equal(1397u, ClientPacketHeader.RemoveGroupMemberEvent);
+        Assert.Equal(2359u, ClientPacketHeader.ConfirmRemoveGroupMemberEvent);
+        Assert.False(manager.IsRegistered(65409));
+
+        client = GroupClient(server);
+        var oldAlias = GroupFrame(65409, block);
+        client.OnReceived(oldAlias, 0, oldAlias.Length);
+        await server.Pending;
+        Assert.Equal(2, calls.Calls.Count);
     }
 
     [Fact]
@@ -406,6 +445,49 @@ public sealed class GroupRemovalServiceTests
 
             return 4;
         }
+    }
+
+    private static FlashGameClient GroupClient(IGameServer server)
+    {
+        var client = new FlashGameClient(server, new FlashPacketFactory(), TestLogging.GameClient)
+        {
+            Revision = new RevisionsCache().InternalRevision
+        };
+        client.SetHabbo(new Habbo { Id = 7, Username = "Owner" });
+
+        return client;
+    }
+
+    private static byte[] GroupFrame(ushort header, bool? block = null)
+    {
+        var frame = new byte[14 + (block.HasValue ? 1 : 0)];
+        BinaryPrimitives.WriteInt32BigEndian(frame, frame.Length - 4);
+        BinaryPrimitives.WriteUInt16BigEndian(frame.AsSpan(4), header);
+        BinaryPrimitives.WriteInt32BigEndian(frame.AsSpan(6), 9);
+        BinaryPrimitives.WriteInt32BigEndian(frame.AsSpan(10), 8);
+
+        if (block.HasValue) {
+            frame[14] = block.Value ? (byte)1 : (byte)0;
+        }
+
+        return frame;
+    }
+
+    private sealed class GroupDispatchServer(PacketManager manager) : IGameServer
+    {
+        public bool Consumed { get; private set; }
+        public Task Pending { get; private set; } = Task.CompletedTask;
+        public bool Start() => true;
+        public bool Stop() => true;
+        public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet) =>
+            Pending = Dispatch(client, messageId, packet);
+        private async Task Dispatch(GameClient client, uint messageId, IIncomingPacket packet)
+        {
+            await manager.TryExecutePacket(client, messageId, packet);
+            Consumed = !packet.HasDataRemaining();
+        }
+        public bool ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet) => true;
+        public bool HasOutgoingPacketInjectors(uint messageId) => false;
     }
 
     private sealed class RecordingService : IGroupRemovalService
