@@ -170,13 +170,16 @@ public class RoomItemPickupStoreTests
                 CREATE TABLE room_items_moodlight(item_id INT PRIMARY KEY);
                 CREATE TABLE room_items_toner(id INT PRIMARY KEY);
                 INSERT INTO items VALUES(30,42,99,'preserved');
+                ALTER TABLE items ADD base_item INT UNSIGNED NOT NULL DEFAULT 0;
                 INSERT INTO room_items_moodlight VALUES(30);
                 CREATE TRIGGER reject_cleanup BEFORE DELETE ON room_items_moodlight
                     FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced pickup rollback';
                 """);
             var store = new RoomItemPickupStore(new PickupDatabase(builder.ConnectionString));
             var request = new RoomItemPickup(30, 42, 99, 7, InteractionType.Moodlight, false);
-            Assert.Throws<MySqlException>(() => store.PickUp(request));
+            var rollback = Assert.Throws<MySqlException>(() => store.PickUp(request));
+            Assert.Equal("45000", rollback.SqlState);
+            Assert.Contains("forced pickup rollback", rollback.Message);
             Assert.Equal((42, 99), connection.QuerySingle<(int, int)>("SELECT room_id,user_id FROM items"));
             Assert.Equal(1, connection.ExecuteScalar<int>("SELECT COUNT(*) FROM room_items_moodlight"));
             connection.Execute("DROP TRIGGER reject_cleanup");
