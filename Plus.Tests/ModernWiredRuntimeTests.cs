@@ -644,9 +644,7 @@ public class ModernWiredRuntimeTests
         }
         else {
             var action = Assert.IsType<WiredModernAction>(fixture.Room.GetWired().CreateConfiguredBox(item));
-            Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 0, 34, -1], Text = text },
-                out var configuration, out var error), error);
-            action.ApplyConfiguration(configuration);
+            LoadStoredRuntime(action, "wf_act_show_message", new() { IntParams = [0, 0, 34, -1], Text = text });
             execute = () =>
             {
                 var context = Context(fixture.Room, new(WiredEventKind.Use) { Actor = fixture.User }, [], [fixture.User]);
@@ -826,9 +824,17 @@ public class ModernWiredRuntimeTests
         Assert.Equal(ServerPacketHeader.WiredRewardResultComposer, new WiredRewardResultComposer(5).MessageId);
         var (room, _, _) = World();
         var box = ActionBox(room, "wf_act_show_message");
-        Assert.True(box.TryValidateConfiguration(new() { IntParams = [0, 0, 252, 2], Text = "Hello" }, out var config, out _));
+        LoadStoredRuntime(box, "wf_act_show_message", new() { IntParams = [0, 0, 252, 2], Text = "Hello" });
+        var installed = box.Configuration;
+        Assert.True(box.TryValidateConfiguration(installed, out var config, out _));
         Assert.Equal(2, config.IntParams[3]);
-        Assert.False(box.TryValidateConfiguration(config with { IntParams = [0, 0, 252, 3] }, out _, out _));
+        var invalidJson = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [0, 0, 252, 3], Text = "Hello" });
+        var invalidStore = new WiredConfigurationStore(new StoredRuntimeRowsDatabase([new(box.Item.Id, "wf_act_show_message", 1, invalidJson)]));
+        var invalid = Assert.IsType<WiredConfiguration>(invalidStore.Load(box.Item.Id, box.Descriptor));
+        Assert.True(WiredNativeEditorProjection.IsBound(box.Item.Id, box.Descriptor, invalid));
+        Assert.Equal(3, invalid.IntParams[3]);
+        Assert.False(box.TryValidateConfiguration(invalid, out _, out _));
+        Assert.Same(installed, box.Configuration);
     }
 
     private sealed class RecordingOperations : IWiredRuntimeOperations
