@@ -128,7 +128,7 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
 
         return configuration;
     }
-    private static IReadOnlyDictionary<int, string> ParseConnector(string text)
+    internal static IReadOnlyDictionary<int, string> ParseConnector(string text)
     {
         if (text.Length > 1000) {
             throw new ArgumentException("Text connector is too long.");

@@ -103,7 +103,7 @@ public static class ServerPacketHeader
     public const uint WiredVariableFxStatusRemovedComposer = 9476;
     public const uint WiredUserVariablesDataComposer = 5103;
     public const uint WiredAllVariablesHashComposer = 3478;
-    public const uint WiredAllVariablesDiffComposer = 65496;
+    public const uint WiredAllVariablesDiffComposer = 3058;
     public const uint WiredVariableHoldersPageComposer = 9461;
     public const uint WiredVariableHoldersComposer = 9462;
     public const uint HideWiredConfigComposer = 996;

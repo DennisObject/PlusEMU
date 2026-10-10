@@ -27,23 +27,39 @@ public sealed class WiredVariableMenuService : IWiredVariableMenuService
 {
     public void ShowCatalogHash(Room room, GameClient session)
     {
-        if (!room.GetWired().Settings.CanInspect(session)) {
-            return;
-        }
+        try {
+            if (!CanSendCatalog(room, session) || !room.GetWired().Variables.TryCaptureNativeCatalog(out var catalog)) {
+                return;
+            }
 
-        session.Send(new WiredAllVariablesHashComposer(room.GetWired().Variables.Catalog().Hash));
+            if (CanSendCatalog(room, session)) {
+                session.Send(new WiredAllVariablesHashComposer(catalog!.Hash));
+            }
+        }
+        catch (Exception) { }
     }
 
     public void ShowCatalogDiff(Room room, GameClient session, IReadOnlyDictionary<string, int> known)
     {
-        if (!room.GetWired().Settings.CanInspect(session)) {
-            return;
-        }
+        try {
+            if (!CanSendCatalog(room, session) || !room.GetWired().Variables.TryCaptureNativeCatalog(out var catalog)) {
+                return;
+            }
 
-        foreach (var diff in room.GetWired().Variables.Catalog().Diff(known)) {
-            session.Send(new WiredAllVariablesDiffComposer(diff));
+            foreach (var diff in catalog!.Diff(known)) {
+                if (!CanSendCatalog(room, session)) {
+                    return;
+                }
+
+                session.Send(new WiredNativeCatalogDiffComposer(diff));
+            }
         }
+        catch (Exception) { }
     }
+
+    // Permission precedes current-room proof on each send; neither is held across transport callbacks.
+    private static bool CanSendCatalog(Room room, GameClient session) => room.GetWired().Settings.CanInspect(session)
+        && ReferenceEquals(session.GetHabbo().CurrentRoom, room);
 
     public void ShowSnapshot(Room room, GameClient session) => ShowSnapshot(room, session, false);
     public void ShowExactSnapshot(Room room, GameClient session) => ShowSnapshot(room, session, true);

@@ -66,13 +66,20 @@ public sealed partial class WiredRoomVariables
     public void ConfigurationLoaded(IWiredConfiguredItem box)
     {
         if (box is WiredVariableTextInputBox textInput) {
-            _textInputs[box.Item.Id] = textInput;
+            lock (_membershipGate) {
+                _textInputs[box.Item.Id] = textInput;
+                _membershipEpoch++;
+            }
 
             return;
         }
 
         if (box is WiredVariableMetadataBox metadata) {
-            _metadata[box.Item.Id] = metadata;
+            lock (_membershipGate) {
+                _metadata[box.Item.Id] = metadata;
+                _membershipEpoch++;
+            }
+
             FxDirty = true;
 
             return;
@@ -82,7 +89,10 @@ public sealed partial class WiredRoomVariables
             return;
         }
 
-        _definitions[box.Item.Id] = definition;
+        lock (_membershipGate) {
+            _definitions[box.Item.Id] = definition;
+            _membershipEpoch++;
+        }
 
         if (definition.Descriptor.CanonicalName == "wf_var_room" && !Module.InitializeGlobal(box.Item.Id)) {
             throw new InvalidOperationException("The room variable could not be initialized from its authoritative definition.");
@@ -93,16 +103,20 @@ public sealed partial class WiredRoomVariables
     /// <summary>Memory-only publication hook, called after atomic persistence and ApplyConfiguration.</summary>
     public void ConfigurationSaved(IWiredConfiguredItem box)
     {
-        if (box is WiredVariableTextInputBox textInput) {
-            _textInputs[box.Item.Id] = textInput;
-        }
+        lock (_membershipGate) {
+            if (box is WiredVariableTextInputBox textInput) {
+                _textInputs[box.Item.Id] = textInput;
+            }
 
-        if (box is WiredVariableMetadataBox metadata) {
-            _metadata[box.Item.Id] = metadata;
-        }
+            if (box is WiredVariableMetadataBox metadata) {
+                _metadata[box.Item.Id] = metadata;
+            }
 
-        if (box is WiredVariableDefinitionBox definition) {
-            _definitions[box.Item.Id] = definition;
+            if (box is WiredVariableDefinitionBox definition) {
+                _definitions[box.Item.Id] = definition;
+            }
+
+            _membershipEpoch++;
         }
 
         FxDirty = true;
@@ -134,9 +148,13 @@ public sealed partial class WiredRoomVariables
     }
     private void ItemDetached(uint itemId, WiredVariableHolder? holder)
     {
-        _textInputs.Remove(itemId);
-        _metadata.Remove(itemId);
-        _definitions.Remove(itemId);
+        lock (_membershipGate) {
+            _textInputs.Remove(itemId);
+            _metadata.Remove(itemId);
+            _definitions.Remove(itemId);
+            _membershipEpoch++;
+        }
+
         Module.DetachDefinition(itemId);
 
         if (holder is { } detached) {

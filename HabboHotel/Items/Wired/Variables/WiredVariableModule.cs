@@ -531,6 +531,51 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         }
     }
 
+    // Native catalog resolution uses one directory for both authorization paths and only frozen derivation inputs.
+    internal IReadOnlyList<WiredNativeEndpoint>? DescribeNativeDefinitions(
+        IReadOnlyList<WiredVariableDefinition> captured, IReadOnlyDictionary<WiredVariableReference, WiredVariableDerivation> derivations,
+        IReadOnlyList<WiredVariableDefinition> derivedDefinitions)
+    {
+        lock (_gate) {
+            var authority = new ReadDirectory(directory);
+            var result = new List<WiredNativeEndpoint>();
+
+            foreach (var local in captured.Take(4096)) {
+                var stored = authority.Find(local.ItemId);
+
+                if (stored is null || stored.RoomId != roomId) {
+                    continue;
+                }
+
+                var reference = new WiredVariableReference(stored.Target, stored.Token);
+                var read = Resolve(reference, false, authority, derivations);
+
+                if (read is null) {
+                    continue;
+                }
+
+                if (stored != local) {
+                    return null;
+                }
+
+                var write = Resolve(reference, true, authority, derivations);
+                var readOnly = read.Authorization?.Lineage.Any(value => value.Link?.ReadOnly == true) == true;
+                result.Add(new(new(local, NativeHasValue(read), readOnly) { IsBuiltin = read.Builtin is not null },
+                    read.Definition, read.Builtin, write is not null, read.Convert is not null));
+            }
+
+            foreach (var local in derivedDefinitions) {
+                var read = Resolve(new(local.Target, local.Token), false, authority, derivations);
+
+                if (read is not null) {
+                    result.Add(new(new(local, true, true) { IsDerived = true }, read.Definition, read.Builtin, false, true));
+                }
+            }
+
+            return result;
+        }
+    }
+
     public WiredVariableHolderPage ReadHolderPage(uint definitionId, int page, int size, int sort,
         IReadOnlyCollection<long>? holderFilter = null, IReadOnlyDictionary<long, string>? names = null)
     {
@@ -561,6 +606,9 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     private bool HasValue(Resolved resolved) => resolved.Definition?.HasValue
         ?? (resolved.Builtin is { } builtin && builtins?.HasValue(builtin) == true);
 
+    private static bool NativeHasValue(Resolved resolved) => resolved.Definition?.HasValue
+        ?? (resolved.Builtin is { } builtin && RoomWiredBuiltinVariables.HasNumericValue(builtin));
+
     internal WiredVariableReference WriteTarget(WiredVariableReference reference)
     {
         lock (_gate) {
@@ -574,18 +622,19 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
             ? resolved.Builtin ?? new(reference.Target, resolved.Definition!.Token)
             : reference;
 
-    private Resolved? Resolve(WiredVariableReference reference, bool writing, IWiredVariableDirectory? readDirectory = null)
+    private Resolved? Resolve(WiredVariableReference reference, bool writing, IWiredVariableDirectory? readDirectory = null,
+        IReadOnlyDictionary<WiredVariableReference, WiredVariableDerivation>? frozenDerivations = null)
     {
         var authority = readDirectory ?? directory;
 
-        if (derive?.Invoke(reference) is { } derived) {
+        if ((frozenDerivations is null ? derive?.Invoke(reference) : frozenDerivations.GetValueOrDefault(reference)) is { } derived) {
             if (writing || derived.Source == reference) {
                 return null;
             }
 
-            var source = Resolve(derived.Source, false, authority);
+            var source = Resolve(derived.Source, false, authority, frozenDerivations);
 
-            return source is null || derived.RequiresValue && !HasValue(source)
+            return source is null || derived.RequiresValue && !(frozenDerivations is null ? HasValue(source) : NativeHasValue(source))
                 || derived.RequiresTimestamps && source.Definition is null ? null : source with { Convert = derived.Convert };
         }
 

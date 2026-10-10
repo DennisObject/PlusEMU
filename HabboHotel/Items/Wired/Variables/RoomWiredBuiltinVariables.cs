@@ -54,6 +54,23 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         };
     }
 
+    /// <summary>Finite implemented numeric-write domains; holder-specific admission still applies.</summary>
+    internal static bool SupportsNumericWrite(WiredVariableReference reference)
+    {
+        var key = Normalize(reference.Token);
+
+        return reference.Target switch
+        {
+            WiredVariableTarget.Furni => key is "@position" or "@occupation" or "@position.x" or "@position.y"
+                or "@altitude" or "@rotation" or "@wallitem_offset" or "@state" or "~clock.pulse_count"
+                or "~area_hide.root_x" or "~area_hide.root_y" or "~area_hide.width" or "~area_hide.length"
+                or "~teleport.target_id" or "~background_color.hue" or "~background_color.saturation" or "~background_color.lightness",
+            WiredVariableTarget.User => key is "@handitem" or "@team.score" or "@position" or "@position.x" or "@position.y" or "@direction",
+            WiredVariableTarget.Global => key is "@teams.red.score" or "@teams.green.score" or "@teams.blue.score" or "@teams.yellow.score",
+            _ => false
+        };
+    }
+
     // v2 only: legacy and shadow rooms write gate states directly and never enter the module's admission.
     public bool SequencesGateWrites => GateTransitionService.For(room) != null;
 

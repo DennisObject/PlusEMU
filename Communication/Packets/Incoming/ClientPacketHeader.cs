@@ -195,8 +195,8 @@ public static class ClientPacketHeader
     public const uint WiredUserVariableManageEvent = 10026;
     public const uint WiredVariableHoldersPageEvent = 65307;
     public const uint WiredVariableHoldersRequestEvent = 65441;
-    public const uint WiredVariableHashesEvent = 65473;
-    public const uint WiredAllVariablesRequestEvent = 65469;
+    public const uint WiredVariableHashesEvent = 3698;
+    public const uint WiredAllVariablesRequestEvent = 1327;
     public const uint SaveWiredEffectConfigEvent = 2554;
     public const uint SaveWiredSelectorConfigEvent = 268;
     public const uint SaveWiredAddonConfigEvent = 1692;
