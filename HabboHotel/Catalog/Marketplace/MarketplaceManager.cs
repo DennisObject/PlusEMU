@@ -144,8 +144,6 @@ public class MarketplaceManager : IMarketplaceManager
         return (int)Math.Clamp(minutes, int.MinValue, int.MaxValue);
     }
 
-    public int CalculateComissionPrice(float price) => Convert.ToInt32(Math.Ceiling(price / 100 * 1));
-
     public async Task<bool> TryCancelOffer(Habbo habbo, uint offerId)
     {
         var offer = await GetOffer(offerId);
