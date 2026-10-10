@@ -129,7 +129,11 @@ public static class WiredVariableFxSettings
             extra["icon_alignment"] = p[21] switch { 1 => "right", 2 => "double", _ => "left" };
         }
 
-        var config = new WiredVariableFxConfig(itemId, user, p[2], p[5], category, p[6], p[7], p[8], p[9], min, max, extra.ToImmutable());
+        var config = new WiredVariableFxConfig(itemId, user, p[2], p[5], category, p[6], p[7], p[8], p[9], min, max, extra.ToImmutable())
+        {
+            UpdateMask = p[3],
+            ShowOnMouseHover = p[4] == 1
+        };
         binding = new(config, shownVariable, visibility, audience, (int)audienceValue, minimum, maximum);
         error = "";
 

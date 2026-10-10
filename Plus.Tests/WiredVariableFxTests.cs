@@ -10,6 +10,26 @@ namespace Plus.Tests;
 
 public sealed class WiredVariableFxTests
 {
+    [Fact]
+    public void NativeFxVisibilityControlsSurviveCompilationAndPacketSerialization()
+    {
+        Assert.True(WiredBoxRegistry.TryGet("wf_xtra_var_fx_progress", out var descriptor));
+        var native = WiredNativeEditorProjection.DefaultNative(descriptor);
+        var owned = native.OwnedIntParams.ToArray();
+        owned[2] = 1;
+        owned[3] = 15;
+        owned[4] = 1;
+        native = native with { OwnedIntParams = [.. owned] };
+        Assert.True(WiredNativeEditorProjection.TryCompile(50, descriptor, native, out var configuration));
+        Assert.True(WiredVariableFxSettings.TryDecode(descriptor.CanonicalName, 50, configuration,
+            new(WiredVariableTarget.User, "custom:10"), null, out var binding, out _));
+        Assert.Equal(15, binding!.Config.UpdateMask);
+        Assert.True(binding.Config.ShowOnMouseHover);
+        var packet = new Packet();
+        WiredVariableFxComposer.ComposeBatch(new(false, [binding.Config], [], [], [])).Single().Compose(packet);
+        Assert.Equal(new object[] { 1, 50, true, 1, 15, true }, packet.Values.Take(6).ToArray());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

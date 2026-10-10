@@ -3,7 +3,11 @@ using System.Collections.Immutable;
 namespace Plus.HabboHotel.Items.Wired.Variables.Fx;
 
 public sealed record WiredVariableFxConfig(int Id, bool UserFx, int ShowMode, int DurationMs, int Category,
-    int StyleId, int ColorId, int WidthId, int RendererId, long Min, long Max, ImmutableSortedDictionary<string, string> Extra);
+    int StyleId, int ColorId, int WidthId, int RendererId, long Min, long Max, ImmutableSortedDictionary<string, string> Extra)
+{
+    public int UpdateMask { get; init; }
+    public bool ShowOnMouseHover { get; init; }
+}
 public sealed record WiredVariableFxBinding(WiredVariableFxConfig Config, WiredVariableReference Variable, int Visibility,
     WiredVariableReference? Audience, int AudienceValue, WiredVariableReference? OverrideMin, WiredVariableReference? OverrideMax,
     Func<long, WiredVariableLevel>? Level = null);

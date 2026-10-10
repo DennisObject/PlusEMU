@@ -5,13 +5,18 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Conditions;
 /// <summary>Calendar predicates over the compiled current editor settings.</summary>
 public static class WiredTimeConditions
 {
-    public static bool MatchesTime(WiredConfiguration config, DateTimeOffset roomLocalTime) =>
-        MatchesPart(roomLocalTime.Hour, Param(config, 0), Param(config, 1), Param(config, 2))
+    public static bool MatchesTime(WiredConfiguration config, DateTimeOffset roomLocalTime)
+    {
+        roomLocalTime = InConfiguredZone(config, roomLocalTime);
+
+        return MatchesPart(roomLocalTime.Hour, Param(config, 0), Param(config, 1), Param(config, 2))
         && MatchesPart(roomLocalTime.Minute, Param(config, 3), Param(config, 4), Param(config, 5))
         && MatchesPart(roomLocalTime.Second, Param(config, 6), Param(config, 7), Param(config, 8));
+    }
 
     public static bool MatchesDate(WiredConfiguration config, DateTimeOffset roomLocalTime)
     {
+        roomLocalTime = InConfiguredZone(config, roomLocalTime);
         var weekdayMask = Param(config, 0, 127);
         var monthMask = Param(config, 4, 4095);
         // Octane weekdays are Monday=0 through Sunday=6.
@@ -55,6 +60,27 @@ public static class WiredTimeConditions
         2 => from <= to ? value >= from && value <= to : value >= from || value <= to,
         _ => false
     };
+
+    internal static bool IsValidZone(string zone)
+    {
+        if (zone.Length == 0)
+            return true;
+
+        try {
+            _ = TimeZoneInfo.FindSystemTimeZoneById(zone);
+
+            return true;
+        }
+        catch (TimeZoneNotFoundException) {
+            return false;
+        }
+        catch (InvalidTimeZoneException) {
+            return false;
+        }
+    }
+
+    private static DateTimeOffset InConfiguredZone(WiredConfiguration config, DateTimeOffset instant) =>
+        config.Text.Length == 0 ? instant : TimeZoneInfo.ConvertTime(instant, TimeZoneInfo.FindSystemTimeZoneById(config.Text));
 
     private static int Param(WiredConfiguration config, int index, int fallback = 0) =>
         index < config.IntParams.Length ? config.IntParams[index] : fallback;

@@ -35,7 +35,7 @@ public sealed class WiredAddonBox : WiredConfiguredBehaviorBox, IWiredContextual
         var configuration = context.ConfigurationOf(this);
         var needsVariables = Descriptor.CanonicalName switch
         {
-            "wf_xtra_filter_furni" or "wf_xtra_filter_users" => configuration.IntParams.Length == 3
+            "wf_xtra_filter_furni" or "wf_xtra_filter_users" => configuration.IntParams.Length == 5
                 && WiredSelectorSources.Param(configuration, 1) == 1,
             "wf_xtra_mov_curve" => WiredSelectorSources.Param(configuration, 3) == 1,
             "wf_xtra_rotate_to_dir" => WiredSelectorSources.Param(configuration, 14) != 0

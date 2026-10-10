@@ -163,9 +163,9 @@ public sealed class WiredVariableOperandTests
 
         var huge = less with { IntParams = [0, 0, 0, 1000000, 7, 200, 200, 0] };
         Assert.True(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", huge), frame));
-        var rejected = less with { IntParams = [0, 0, 0, int.MaxValue, 7, 200, 200, 0] };
-        Assert.False(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", rejected), frame));
-        Assert.Equal(5, clock.Reads);
+        var maximum = less with { IntParams = [0, 0, 0, int.MaxValue, 7, 200, 200, 0] };
+        Assert.True(executor.Execute("wf_cnd_var_age_match", WiredNativeTestSupport.Scalar("wf_cnd_var_age_match", maximum), frame));
+        Assert.Equal(6, clock.Reads);
     }
 
     [Fact]

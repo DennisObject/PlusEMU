@@ -108,8 +108,7 @@ public static class WiredSelectorVariableBridge
         return new(
             (name, configuration, id) => furni.TryGetValue(id, out var holder) && session.MatchSelector(name, configuration, holder),
             (name, configuration, id) => users.TryGetValue(id, out var holder) && session.MatchSelector(name, configuration, holder),
-            request => request.UseSelected ? session.ReadSelectedOperand((WiredVariableTarget)request.Target, request.Token)
-                : session.ReadOperand((WiredVariableTarget)request.Target, request.Token,
+            request => session.ReadOperand((WiredVariableTarget)request.Target, request.Token,
                 request.UserSource, request.FurniSource, request.Configuration),
             Dispose,
             (name, configuration, id, selection) => furni.TryGetValue(id, out var holder)

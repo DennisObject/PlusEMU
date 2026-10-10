@@ -91,7 +91,7 @@ internal static partial class WiredNativeAuxiliaryEditor
             var p = n.OwnedIntParams;
 
             if (!Shape(n, 6, 1, 1, 1) || !TryTarget(p[0], out var target)
-                || p[3] != 0 || p[1] is not (0 or 2) || p[2] is not (0 or 1)) {
+                || ((long)p[3] << 32 | (uint)p[4]) is < int.MinValue or > int.MaxValue || p[1] is not (0 or 2) || p[2] is not (0 or 1)) {
                 return null;
             }
 

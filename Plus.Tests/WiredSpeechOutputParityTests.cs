@@ -158,7 +158,8 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(new[] { 100 }, box.Configuration.Origin.Native.FurniSourceTypes.ToArray());
         var missing = box.Configuration.Origin.Native with { PrimaryItems = [new(999, false)] };
         Assert.True(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, missing, out var missingPick));
-        Assert.False(box.TryValidateConfiguration(missingPick, out _, out _));
+        Assert.True(box.TryValidateConfiguration(missingPick, out _, out _));
+        Assert.False(WiredNativeEditorProjection.TryValidatePicks(box.Item, box.Descriptor, missingPick, out _));
         var wrongKind = box.Configuration.Origin.Native with { PrimaryItems = [new(timer.Id, true)] };
         Assert.False(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, wrongKind, out _));
         Assert.False(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor,

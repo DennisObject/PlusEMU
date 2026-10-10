@@ -127,10 +127,9 @@ public sealed class WiredAddonTests
         selection.FurniIds.UnionWith([1, 2, 3]);
         selection.UserIds.Add(1);
         var policy = new WiredAddonPolicy();
-        new WiredAddonModule("wf_xtra_filter_furni", Config([0])).Apply(Input(), policy);
         Assert.Equal(3, policy.FilterSelection(selection).FurniIds.Count);
-        new WiredAddonModule("wf_xtra_filter_furni", Config([2])).Apply(Input(), policy);
-        new WiredAddonModule("wf_xtra_filter_furni", Config([1])).Apply(Input(), policy);
+        new WiredAddonModule("wf_xtra_filter_furni", Config([2, 0, 1, 0, 0])).Apply(Input(), policy);
+        new WiredAddonModule("wf_xtra_filter_furni", Config([1, 0, 1, 0, 0])).Apply(Input(), policy);
         var filtered = policy.FilterSelection(selection);
         Assert.Single(filtered.FurniIds);
         Assert.Single(filtered.UserIds);

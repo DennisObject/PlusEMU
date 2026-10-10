@@ -27,9 +27,9 @@ public sealed class WiredQuantityFilterParityTests
     [InlineData("wf_xtra_filter_users", 2, 2)]
     [InlineData("wf_xtra_filter_furni", -3, 0)]
     [InlineData("wf_xtra_filter_users", 0, 0)]
-    public void VariableCountKeepsFirstSelectorEntriesAndUsesSelectedHolderOperand(string name, long value, int expected)
+    public void VariableCountKeepsFirstSelectorEntriesAndUsesConfiguredHolderSource(string name, long value, int expected)
     {
-        var configuration = new WiredConfiguration { IntParams = [3, 1, 0], VariableIds = ["variable:7"] };
+        var configuration = new WiredConfiguration { IntParams = [3, 1, 0, 200, 100], VariableIds = ["variable:7"] };
         var addon = new WiredAddonModule(name, configuration);
         var requests = new List<WiredAddonVariableRequest>();
         var input = new WiredAddonInputs(World(), Inputs(), 0, request => { requests.Add(request); return value; });
@@ -38,7 +38,8 @@ public sealed class WiredQuantityFilterParityTests
         var request = Assert.Single(requests);
         Assert.Equal("variable:7", request.Token);
         Assert.Equal(0, request.Target);
-        Assert.True(request.UseSelected);
+        Assert.Equal(200, request.UserSource);
+        Assert.Equal(100, request.FurniSource);
         var pool = new WiredSelectedIds();
         pool.FurniIds.UnionWith(new uint[] { 3, 2, 1 });
         pool.UserIds.UnionWith(new[] { 3, 2, 1 });
@@ -51,17 +52,13 @@ public sealed class WiredQuantityFilterParityTests
     [Theory]
     [InlineData("wf_xtra_filter_furni")]
     [InlineData("wf_xtra_filter_users")]
-    public void MissingVariableFallsBackToLiteralAndLegacyZeroRemainsUnlimited(string name)
+    public void MissingVariableFallsBackToLiteral(string name)
     {
         var input = new WiredAddonInputs(World(), Inputs(), 0, _ => null);
         var policy = new WiredAddonPolicy();
-        var addon = new WiredAddonModule(name, new() { IntParams = [2, 1, 3], VariableIds = ["missing"] });
+        var addon = new WiredAddonModule(name, new() { IntParams = [2, 1, 3, 0, 0], VariableIds = ["missing"] });
         Assert.True(addon.Apply(input, policy));
         Assert.Equal(2, name.EndsWith("furni") ? policy.FurniLimit : policy.UserLimit);
-        var legacy = new WiredAddonModule(name, new() { IntParams = [0] });
-        var unlimited = new WiredAddonPolicy();
-        Assert.True(legacy.Apply(input, unlimited));
-        Assert.Null(name.EndsWith("furni") ? unlimited.FurniLimit : unlimited.UserLimit);
-        Assert.Single(legacy.Configuration.IntParams);
+
     }
 }

@@ -46,7 +46,7 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
 
             if (!_operands.TryGetValue((name, configuration), out var captured)) {
 
-                foreach (var source in WiredVariableExecutors.Select(frame, reference.Target, p[5], p[6], configuration.SelectedItems)) {
+                foreach (var source in WiredVariableExecutors.Select(frame, reference.Target, p[5], p[6], WiredVariableExecutors.Picks(configuration, p[6]))) {
                     if (Read(reference, source) is { } found) {
                         captured = found.Value;
                         break;
@@ -79,34 +79,7 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
             return null;
         }
 
-        foreach (var holder in WiredVariableExecutors.Select(frame, target, userSource, furniSource, configuration.SelectedItems)) {
-            if (Read(reference, holder) is { } value) {
-                return value.Value;
-            }
-        }
-
-        return null;
-    }
-
-    public long? ReadSelectedOperand(WiredVariableTarget target, string variableId)
-    {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (Resolve(target, variableId) is not { } reference) {
-            return null;
-        }
-
-        IEnumerable<WiredVariableHolder> selected = target is WiredVariableTarget.Context or WiredVariableTarget.Global
-            ? [new(target, 0, 0)] : frame.Trigger.Where(holder => holder.Target == target);
-
-        if (frame.RuntimeContext is { } context && target is WiredVariableTarget.User or WiredVariableTarget.Furni) {
-            var holders = frame.Holders.Where(holder => holder.Target == target).ToDictionary(holder => holder.EntityId);
-            var ids = target == WiredVariableTarget.User ? context.Selected.UserIds
-                : context.Selected.FurniIds.Select(id => unchecked((int)id));
-            selected = ids.Where(holders.ContainsKey).Select(id => holders[id]);
-        }
-
-        foreach (var holder in selected) {
+        foreach (var holder in WiredVariableExecutors.Select(frame, target, userSource, furniSource, WiredVariableExecutors.Picks(configuration, furniSource))) {
             if (Read(reference, holder) is { } value) {
                 return value.Value;
             }

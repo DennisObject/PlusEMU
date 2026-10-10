@@ -219,7 +219,7 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
             variables: context => WiredSelectorVariableBridge.Create(context, module), readWorld: _ => world);
         var quantityNative = WiredNativeEditorProjection.DefaultNative(quantityDescriptor);
         WiredNativeTestSupport.Install(quantity, variableQuantity
-            ? quantityNative with { OwnedIntParams = [2, 1, WiredNativeAuxiliaryEditor.AirTarget(1)], VariableIds = ["furni:11"] }
+            ? quantityNative with { OwnedIntParams = [2, 1, WiredNativeAuxiliaryEditor.AirTarget(1)], FurniSourceTypes = [200], VariableIds = ["furni:11"] }
             : quantityNative with { OwnedIntParams = [1, 0, 0] });
         engine.Add(quantity);
         Assert.True(WiredBoxRegistry.TryGet("wf_act_change_var_val", out var actionDescriptor));
@@ -461,6 +461,7 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
         var item = Floor(50, 5, 5);
         typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
         item.RoomId = room.Id;
+
         return new(room, item, descriptor, clocks ?? new(), publish ?? (_ => { }),
             (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance,
             TestBotManagementStore.Instance, TestWiredClients.Empty, definitions ?? TestWiredDefinitions.Unused, TestItemRuntime.Travel);

@@ -49,8 +49,8 @@ public sealed class WiredVariableFxComposer : IServerPacket
                     packet.WriteInteger(config.Id);
                     packet.WriteBoolean(config.UserFx);
                     packet.WriteInteger(config.ShowMode);
-                    packet.WriteInteger(0);
-                    packet.WriteBoolean(false);
+                    packet.WriteInteger(config.UpdateMask);
+                    packet.WriteBoolean(config.ShowOnMouseHover);
                     packet.WriteInteger(config.DurationMs);
                     packet.WriteInteger(config.Category);
                     packet.WriteInteger(config.StyleId);

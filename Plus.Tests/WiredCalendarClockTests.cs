@@ -59,6 +59,31 @@ public class WiredCalendarClockTests
         Assert.Equal(zone, wired.Settings.Snapshot.TimeZoneId);
     }
 
+    [Theory]
+    [InlineData("UTC", 22, 1)]
+    [InlineData("Europe/Berlin", 0, 2)]
+    public void NativeCalendarConditionsEvaluateTheNamedTimezone(string zone, int hour, int day)
+    {
+        var instant = new DateTimeOffset(2040, 7, 1, 22, 0, 0, TimeSpan.Zero);
+        Assert.True(WiredBoxRegistry.TryGet("wf_cnd_match_time", out var time));
+        var timeNative = WiredNativeEditorProjection.DefaultNative(time) with
+        {
+            OwnedIntParams = [0, 0, 1, 0, 59, 0, 59, hour, hour],
+            Text = zone
+        };
+        Assert.True(WiredNativeEditorProjection.TryCompile(1, time, timeNative, out var timeConfig));
+        Assert.True(WiredTimeConditions.MatchesTime(timeConfig, instant));
+        Assert.True(WiredBoxRegistry.TryGet("wf_cnd_match_date", out var date));
+        var dateNative = WiredNativeEditorProjection.DefaultNative(date) with
+        {
+            OwnedIntParams = [1, 0, 127, day, day, 4095, 2040, 2040],
+            Text = zone
+        };
+        Assert.True(WiredNativeEditorProjection.TryCompile(1, date, dateNative, out var dateConfig));
+        Assert.True(WiredTimeConditions.MatchesDate(dateConfig, instant));
+        Assert.False(WiredNativeEditorProjection.TryCompile(1, time, timeNative with { Text = "Not/AZone" }, out _));
+    }
+
     private sealed class CountingClock : TimeProvider
     {
         public DateTimeOffset Now { get; } = new(2040, 12, 31, 23, 30, 0, TimeSpan.Zero);

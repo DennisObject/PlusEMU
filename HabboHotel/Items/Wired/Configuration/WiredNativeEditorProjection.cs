@@ -333,16 +333,18 @@ public static class WiredNativeEditorProjection
             return false;
         }
 
+        error = "";
+
+        return true;
+    }
+
+    internal static bool TryValidatePicks(Item item, WiredBoxDescriptor descriptor, WiredConfiguration proposed, out string error)
+    {
+        error = "Invalid native editor picks.";
         var native = proposed.Origin!.Native;
         var room = item.GetRoom();
-        // Static Place templates are frozen snapshots; their original items may be picked up.
-        // Custom-location anchors remain live references.
-        var staticTemplates = descriptor.CanonicalName == "wf_act_place_furni" && native.FurniSourceTypes[0] == 100;
-        var primaryAnchor = proposed.TemporaryPlacement is { TargetIsUser: false } placement
-            && (placement.Location == WiredPlaceLocationType.CustomLocation || placement.Altitude == WiredPlaceAltitudeType.CustomAltitude)
-            && native.FurniSourceTypes[1] == 100;
-        var primary = staticTemplates && !primaryAnchor ? ImmutableArray<WiredNativeItemReference>.Empty : native.PrimaryItems;
-        var references = primary.Concat(native.SecondaryItems).ToArray();
+        // Save-time picks must be live. Loading and execution resolve the remaining eligible items instead.
+        var references = native.PrimaryItems.Concat(native.SecondaryItems).ToArray();
 
         // Picks are only meaningful in the live room that holds them; a pickless box has nothing to check there.
         if (references.Length == 0) {

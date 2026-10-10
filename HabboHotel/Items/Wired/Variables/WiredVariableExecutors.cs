@@ -134,7 +134,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             }
         }
 
-        if (name == "wf_cnd_var_age_match" && (p[1] is not (0 or 1) || p[2] is not (0 or 2) || p[3] is < 0 or > 1000000 || p[4] is < 0 or > 7)) {
+        if (name == "wf_cnd_var_age_match" && (p[1] is not (0 or 1) || p[2] is not (0 or 2) || p[4] is < 0 or > 7)) {
             return false;
         }
 
@@ -175,7 +175,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
             "wf_act_change_var_val" or "wf_cnd_var_val_match" or "wf_cnd_var_age_match" => 5,
             _ => 1
         };
-        var targets = Select(frame, reference.Target, p[sourceStart], p[sourceStart + 1], configuration.SelectedItems).ToArray();
+        var targets = Select(frame, reference.Target, p[sourceStart], p[sourceStart + 1], Picks(configuration, p[sourceStart + 1])).ToArray();
 
         if (name is "wf_act_give_var" or "wf_act_remove_var") {
             var mutation = name == "wf_act_remove_var" ? WiredVariableMutation.Remove : p[1] == 1 ? WiredVariableMutation.Replace : WiredVariableMutation.Give;
@@ -230,7 +230,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
 
         if (p[2] == 1 && !(name == "wf_act_change_var_val" && WiredVariableArithmetic.IsUnary(p[1]))) {
             var operandReference = new WiredVariableReference((WiredVariableTarget)p[4], tokens[1]);
-            var picked = configuration.SecondarySelectedItems;
+            var picked = Picks(configuration, p[8]);
             using var reads = variables.CaptureReads([operandReference], frame);
 
             foreach (var source in Select(frame, operandReference.Target, p[7], p[8], picked)) {
@@ -267,6 +267,9 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
 
         return any;
     }
+
+    internal static IEnumerable<uint> Picks(WiredConfiguration configuration, int source) =>
+        source == 101 ? configuration.SecondarySelectedItems : configuration.SelectedItems;
 
     public static IEnumerable<WiredVariableHolder> Select(WiredVariableFrame frame, WiredVariableTarget target,
         int userSource, int furniSource, IEnumerable<uint> picked)

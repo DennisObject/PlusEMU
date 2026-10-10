@@ -8,9 +8,9 @@ internal static partial class WiredNativeAuxiliaryEditor
     private static WiredNativeEditorMetadata Sources(ImmutableArray<ImmutableArray<int>> furni, ImmutableArray<ImmutableArray<int>> users,
         ImmutableArray<int> owned, int variables = 0) => new(furni, users, [.. furni.Select(group => group[0])],
         [.. users.Select(group => group[0])], owned, false)
-    {
-        VariableDefaults = [.. Enumerable.Repeat(Plus.HabboHotel.Items.Wired.Variables.WiredVariableAbsent.Id, variables)]
-    };
+        {
+            VariableDefaults = [.. Enumerable.Repeat(Plus.HabboHotel.Items.Wired.Variables.WiredVariableAbsent.Id, variables)]
+        };
 
     // Octane user sources accepted by the addons: trigger, clicked user, selector, signal, all users.
     private static readonly ImmutableArray<int> AddonUsers = [0, 11, 200, 201, 900];
@@ -104,7 +104,7 @@ internal static partial class WiredNativeAuxiliaryEditor
         var p = n.OwnedIntParams;
 
         return Shape(n, 3, 1, 1, 1) && In(p[0], 1, 1000) && p[1] is 0 or 1 && TryTarget(p[2], out var target)
-            ? Norm(name, n, [p[0], p[1], target]) : null;
+            ? Norm(name, n, [p[0], p[1], target, n.UserSourceTypes[0], n.FurniSourceTypes[0]]) : null;
     };
 
     // A placeholder name of 1 to 32 characters (none yet is the inactive default), with an optional separator of at most 16.

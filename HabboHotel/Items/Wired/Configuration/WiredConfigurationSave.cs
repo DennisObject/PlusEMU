@@ -40,6 +40,11 @@ public static class WiredConfigurationSave
             return false;
         }
 
+        if (WiredNativeEditorProjection.Supports(box.Descriptor.CanonicalName)
+            && !WiredNativeEditorProjection.TryValidatePicks(box.Item, box.Descriptor, proposed, out error)) {
+            return false;
+        }
+
         if (!box.TryValidateConfiguration(proposed, out var validated, out error)) {
             return false;
         }

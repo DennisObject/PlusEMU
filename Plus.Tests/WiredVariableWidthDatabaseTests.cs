@@ -30,7 +30,7 @@ public sealed class WiredVariableWidthDatabaseTests
                 INSERT INTO rooms VALUES (1,'5');
                 CREATE TABLE items (id INT UNSIGNED PRIMARY KEY,room_id INT UNSIGNED);
                 INSERT INTO items VALUES (10,1);
-                CREATE TABLE wired_item_configurations (item_id INT UNSIGNED PRIMARY KEY,box_name VARCHAR(64),configuration LONGTEXT,schema_version INT DEFAULT 1);
+                CREATE TABLE wired_item_configurations (item_id INT UNSIGNED PRIMARY KEY,box_name VARCHAR(64),configuration LONGTEXT,schema_version INT DEFAULT 2);
                 CREATE TABLE wired_variable_locks (definition_id INT UNSIGNED PRIMARY KEY,retired TINYINT NOT NULL DEFAULT 0);
                 CREATE TABLE wired_variable_values (
                     definition_id INT UNSIGNED NOT NULL, target_kind TINYINT UNSIGNED NOT NULL,
@@ -48,8 +48,10 @@ public sealed class WiredVariableWidthDatabaseTests
                 connection.Execute("INSERT INTO wired_variable_values VALUES (10,1,@id,@number,NULL,NULL)", new { id, number });
             }
 
-            var configuration = new WiredConfiguration { IntParams = [1, 10], Text = "wide" };
-            connection.Execute("INSERT INTO wired_item_configurations (item_id,box_name,configuration) VALUES (10,'wf_var_furni',@json)", new { json = JsonSerializer.Serialize(configuration) });
+            Assert.True(WiredBoxRegistry.TryGet("wf_var_furni", out var variableDescriptor));
+            var native = WiredNativeEditorProjection.DefaultNative(variableDescriptor) with { OwnedIntParams = [1, 10], Text = "wide" };
+            Assert.True(WiredNativeEditorProjection.TryCompile(10, variableDescriptor, native, out var configuration));
+            connection.Execute("INSERT INTO wired_item_configurations (item_id,box_name,configuration) VALUES (10,'wf_var_furni',@json)", new { json = JsonSerializer.Serialize(native) });
             Assert.True(WiredVariableDefinitions.TryDecode("wf_var_furni", 10, 1, 5, configuration, out var definition, out _));
             var authorization = new WiredVariableAuthorization(1, 5, [definition!]);
             var store = new DatabaseWiredVariableStore(new Database(connectionString));
@@ -73,13 +75,18 @@ public sealed class WiredVariableWidthDatabaseTests
             foreach (var number in new[] { long.MinValue, long.MaxValue, 9007199254740993L }) {
                 foreach (var name in new[] { "wf_act_give_var", "wf_act_change_var_val", "wf_cnd_var_val_match" }) {
                     Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
-                    var fields = name == "wf_act_give_var" ? new[] { 1, 0, unchecked((int)number), 0, 0, 1, unchecked((int)(number >> 32)) }
-                        : name == "wf_act_change_var_val" ? new[] { 1, 0, 0, unchecked((int)number), 1, 0, 0, 0, 0, 1, unchecked((int)(number >> 32)) }
-                        : new[] { 1, 2, 0, unchecked((int)number), 1, 0, 0, 0, 0, 1, 1, unchecked((int)(number >> 32)) };
-                    saved.Save(20, descriptor, new() { IntParams = [.. fields], Text = "custom:10" });
+                    var high = unchecked((int)(number >> 32));
+                    var low = unchecked((int)number);
+                    var scalar = WiredNativeEditorProjection.DefaultNative(descriptor) with {
+                        OwnedIntParams = name == "wf_act_give_var" ? [0, high, low, 0]
+                            : [0, name == "wf_cnd_var_val_match" ? 1 : 0, 0, high, low, 0],
+                        VariableIds = name == "wf_act_give_var" ? ["furni:10"] : ["furni:10", "n"]
+                    };
+                    Assert.True(WiredNativeEditorProjection.TryCompile(20, descriptor, scalar, out var compiled));
+                    saved.Save(20, descriptor, compiled);
                     var loaded = new WiredConfigurationStore(new Database(connectionString)).Load(20, descriptor)!;
-                    Assert.Equal(fields, loaded.IntParams.ToArray());
-                    Assert.True(WiredVariableExecutors.TryValidate(name, WiredNativeTestSupport.Scalar(name, loaded), out _));
+                    Assert.Equal(compiled.IntParams.ToArray(), loaded.IntParams.ToArray());
+                    Assert.True(WiredVariableExecutors.TryValidate(name, loaded, out _));
                 }
             }
 

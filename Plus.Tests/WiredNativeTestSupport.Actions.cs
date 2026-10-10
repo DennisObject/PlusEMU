@@ -76,7 +76,7 @@ internal static partial class WiredNativeTestSupport
             case "wf_act_bot_follow_avatar":
             case "wf_act_bot_give_handitem":
                 owned = [At(0)];
-                users = [At(1, UserRole("users", 0)), At(2, UserRole("bots", 100))];
+                users = [At(2, UserRole("bots", 100)), At(1, UserRole("users", 0))];
                 break;
             case "wf_act_bot_talk":
                 owned = [At(0), At(2, -1)];
@@ -84,7 +84,7 @@ internal static partial class WiredNativeTestSupport
                 break;
             case "wf_act_bot_talk_to_avatar":
                 owned = [At(0), At(3, -1)];
-                users = [At(1, UserRole("users", 0)), At(2, UserRole("bots", 100))];
+                users = [At(2, UserRole("bots", 100)), At(1, UserRole("users", 0))];
                 break;
             case "wf_act_bot_clothes":
                 owned = [];

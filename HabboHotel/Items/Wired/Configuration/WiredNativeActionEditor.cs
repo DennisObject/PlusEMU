@@ -34,10 +34,10 @@ internal static class WiredNativeActionEditor
         ["wf_act_leave_team"] = Meta([], [SignalUsers], [], [0], []),
         ["wf_act_bot_teleport"] = Meta([Furni], [BotCodes], [100], [100], []),
         ["wf_act_bot_move"] = Meta([Furni], [BotCodes], [100], [100], []),
-        ["wf_act_bot_follow_avatar"] = Meta([], [Users, BotCodes], [], [0, 100], [0]),
-        ["wf_act_bot_give_handitem"] = Meta([], [Users, BotCodes], [], [0, 100], [0]),
+        ["wf_act_bot_follow_avatar"] = Meta([], [BotCodes, Users], [], [100, 0], [0]),
+        ["wf_act_bot_give_handitem"] = Meta([], [BotCodes, Users], [], [100, 0], [0]),
         ["wf_act_bot_talk"] = Meta([], [BotCodes], [], [100], [0, -1]),
-        ["wf_act_bot_talk_to_avatar"] = Meta([], [Users, BotCodes], [], [0, 100], [0, -1]),
+        ["wf_act_bot_talk_to_avatar"] = Meta([], [BotCodes, Users], [], [100, 0], [0, -1]),
         ["wf_act_bot_clothes"] = Meta([], [BotCodes], [], [100], []),
         ["wf_act_give_reward"] = Meta([], [Users], [], [0], [0, 0, 0, 1]),
         ["wf_act_give_score_tm"] = Meta([], [Users], [], [0], [5, 0, 1]),
@@ -168,18 +168,18 @@ internal static class WiredNativeActionEditor
                     return false;
                 }
 
-                parameters = [p[0], User(native, 0), User(native, 1)];
-                users["users"] = User(native, 0);
-                users["bots"] = User(native, 1);
+                parameters = [p[0], User(native, 1), User(native, 0)];
+                users["users"] = User(native, 1);
+                users["bots"] = User(native, 0);
                 break;
             case "wf_act_bot_give_handitem":
                 if (p.Length != 1 || p[0] < 0 || !BotName(text)) {
                     return false;
                 }
 
-                parameters = [p[0], User(native, 0), User(native, 1)];
-                users["users"] = User(native, 0);
-                users["bots"] = User(native, 1);
+                parameters = [p[0], User(native, 1), User(native, 0)];
+                users["users"] = User(native, 1);
+                users["bots"] = User(native, 0);
                 break;
             case "wf_act_bot_talk":
                 if (p.Length != 2 || p[0] is < 0 or > 1 || p[1] is < -1 or > 2 || !BotName(text)) {
@@ -194,9 +194,9 @@ internal static class WiredNativeActionEditor
                     return false;
                 }
 
-                parameters = [p[0], User(native, 0), User(native, 1), p[1]];
-                users["users"] = User(native, 0);
-                users["bots"] = User(native, 1);
+                parameters = [p[0], User(native, 1), User(native, 0), p[1]];
+                users["users"] = User(native, 1);
+                users["bots"] = User(native, 0);
                 break;
             case "wf_act_bot_clothes":
                 // The save service already checks the figure. The text is stored unchanged.

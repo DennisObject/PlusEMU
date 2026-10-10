@@ -35,14 +35,12 @@ public static class WiredAddonConfiguration
                 break;
             case "wf_xtra_filter_furni":
             case "wf_xtra_filter_users":
-                if (c.IntParams.Length is not (0 or 1 or 3)
-                    || c.IntParams.Length == 3 && (P(1) is not (0 or 1) || P(2) is < 0 or > 3)) {
+                if (c.IntParams.Length != 5 || P(1) is not (0 or 1) || P(2) is < 0 or > 3
+                    || P(3) is not (0 or 200 or 201) || P(4) is not (0 or 100 or 101 or 200 or 201)) {
                     throw new ArgumentException("Invalid quantity filter operand configuration");
                 }
 
-                fields = c.IntParams.Length == 3
-                    ? [Range(0, 0, 10000), P(1), P(2)]
-                    : [Math.Clamp(TextFallback(0), 0, 10000)];
+                fields = [Range(0, 0, 10000), P(1), P(2), P(3), P(4)];
                 break;
             case "wf_xtra_execution_limit": {
                     // Official and Octane sliders save raw pulses 1..20. A larger value is milliseconds,

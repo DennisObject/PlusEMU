@@ -249,7 +249,8 @@ public partial class WiredRuntimeEngineTests
         f.Trigger();
         // The editor save refuses an ordinary pick for a signal receiver, so no such box can ever be configured.
         var refused = new WiredModernTrigger(f.Room, f.Furni("wf_trg_recv_signal", 5), WiredBoxRegistry.All.Single(d => d.CanonicalName == "wf_trg_recv_signal"));
-        Assert.False(WiredNativeTestSupport.TryValidateRuntime(refused, new() { IntParams = [0, 100], SelectedItems = [receiverItem.Id] }, out _, out var error));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(refused, new() { IntParams = [0, 100], SelectedItems = [receiverItem.Id] }, out var config, out _));
+        Assert.False(WiredNativeEditorProjection.TryValidatePicks(refused.Item, refused.Descriptor, config, out var error));
         Assert.Equal("wiredfurni.error.require_antenna_furni", error);
         var receiver = f.Action(x: 5);
         f.Action(ctx => { Assert.False(f.Engine.SendSignal(ctx, [receiverItem], new())); return true; });

@@ -11,6 +11,7 @@ internal static partial class WiredNativeTestSupport
     {
         if (descriptor.Category == WiredBoxCategory.Action)
             return FromActionRuntime(descriptor, c, isWall);
+
         var n = WiredNativeEditorProjection.DefaultNative(descriptor) with
         {
             Text = c.Text,
@@ -25,6 +26,7 @@ internal static partial class WiredNativeTestSupport
         var u = n.UserSourceTypes;
         var q = 0;
         var name = WiredConditionConfiguration.NegativeNames.GetValueOrDefault(descriptor.CanonicalName, descriptor.CanonicalName);
+
         if (descriptor.Category == WiredBoxCategory.Trigger) {
             switch (name) {
                 case "wf_trg_enter_room" or "wf_trg_leave_room" or "wf_trg_game_starts" or "wf_trg_game_ends" or "wf_trg_collision":
@@ -125,10 +127,12 @@ internal static partial class WiredNativeTestSupport
                     break;
                 case "wf_cnd_slc_quantity":
                     owned = [P(2) == 1 ? 0 : 1, P(1), P(0)];
+
                     if (P(2) == 1)
                         f = [P(3)];
                     else
                         u = [P(3)];
+
                     break;
                 case "wf_cnd_team_has_rank":
                     owned = [P(0), P(1)];
@@ -155,11 +159,13 @@ internal static partial class WiredNativeTestSupport
                     owned = p;
                     break;
             }
+
             n = n with { Quantifier = q };
         }
         else if (descriptor.Category == WiredBoxCategory.Selector) {
             var filter = P(Math.Max(0, p.Length - 2)) != 0;
             var inverse = P(Math.Max(0, p.Length - 1)) != 0;
+
             switch (name) {
                 case "wf_slc_furni_bytype":
                     owned = [P(1)];
@@ -208,6 +214,7 @@ internal static partial class WiredNativeTestSupport
                     owned = [];
                     break;
             }
+
             n = n with { Filter = filter, Inverse = inverse };
         }
         else if (descriptor.Category == WiredBoxCategory.Addon) {
@@ -238,6 +245,8 @@ internal static partial class WiredNativeTestSupport
                     break;
                 case "wf_xtra_filter_furni" or "wf_xtra_filter_users":
                     owned = [P(0, 1), P(1), WiredNativeAuxiliaryEditor.AirTarget(P(2, name == "wf_xtra_filter_users" ? 0 : 1))];
+                    u = [P(3)];
+                    f = [P(4)];
                     break;
                 case "wf_xtra_text_output_furni_name":
                     owned = [P(0) == 2 ? 1 : 0];
@@ -254,6 +263,7 @@ internal static partial class WiredNativeTestSupport
         }
         else
             return null;
+
         return n with { OwnedIntParams = owned, FurniSourceTypes = f, UserSourceTypes = u };
     }
 
@@ -270,13 +280,16 @@ internal static partial class WiredNativeTestSupport
     {
         if (!WiredNativeEditorProjection.Supports(box.Descriptor.CanonicalName) || WiredNativeEditorProjection.IsBound(box.Item.Id, box.Descriptor, draft))
             return box.TryValidateConfiguration(draft, out validated, out error);
+
         validated = draft;
         error = "Invalid native fixture configuration.";
+
         try {
             return TryCompileRuntime(box, draft, out var compiled) && box.TryValidateConfiguration(compiled, out validated, out error);
         }
         catch (Exception exception) when (exception is ArgumentException or IndexOutOfRangeException or InvalidOperationException) {
             error = exception.Message;
+
             return false;
         }
     }

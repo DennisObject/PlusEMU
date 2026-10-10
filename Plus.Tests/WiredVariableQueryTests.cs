@@ -45,9 +45,10 @@ public sealed class WiredVariableQueryTests
         var frame = new WiredVariableFrame(1, [holder]);
         module.Mutate(new(holder.Target, "custom:12"), holder, WiredVariableMutation.Give, 42, frame);
         using var queries = new WiredVariableQueries(module, frame);
-        Assert.Equal(42L, queries.ReadOperand(holder.Target, "furni:12", 0, 101, new() { SelectedItems = [300] }));
-        Assert.Null(queries.ReadOperand(holder.Target, "furni:12", 0, 101, new() { SelectedItems = [301] }));
-        Assert.Null(queries.ReadOperand(holder.Target, "furni:99", 0, 101, new() { SelectedItems = [300] }));
+        Assert.Equal(42L, queries.ReadOperand(holder.Target, "furni:12", 0, 100, new() { SelectedItems = [300], SecondarySelectedItems = [301] }));
+        Assert.Equal(42L, queries.ReadOperand(holder.Target, "furni:12", 0, 101, new() { SelectedItems = [301], SecondarySelectedItems = [300] }));
+        Assert.Null(queries.ReadOperand(holder.Target, "furni:12", 0, 101, new() { SelectedItems = [300], SecondarySelectedItems = [301] }));
+        Assert.Null(queries.ReadOperand(holder.Target, "furni:99", 0, 101, new() { SelectedItems = [301], SecondarySelectedItems = [300] }));
     }
 
     private sealed class Directory : IWiredVariableDirectory

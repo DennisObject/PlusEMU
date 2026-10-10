@@ -4,7 +4,7 @@ using Plus.HabboHotel.Items.Wired.Modern.Selectors;
 namespace Plus.HabboHotel.Items.Wired.Modern.Addons;
 
 public sealed record WiredAddonVariableRequest(int Target, string Token, int UserSource, int FurniSource,
-    WiredConfiguration Configuration, bool UseSelected = false);
+    WiredConfiguration Configuration);
 public sealed record WiredAddonInputs(WiredSelectorWorld World, WiredSelectorInputs Selection, long NowMs,
     Func<WiredAddonVariableRequest, long?>? ReadVariable = null,
     Func<int, WiredConfiguration, IEnumerable<uint>>? ResolveFurni = null,
@@ -89,23 +89,19 @@ public sealed class WiredAddonModule
             case "wf_xtra_filter_furni":
             case "wf_xtra_filter_users": {
                     long count = P(0);
-                    var expanded = c.IntParams.Length == 3;
 
-                    if (expanded && P(1) == 1) {
+                    if (P(1) == 1) {
                         var token = c.VariableIds.FirstOrDefault() ?? "";
-                        count = input.ReadVariable?.Invoke(new(P(2), token, 0, 0, c, UseSelected: true)) ?? count;
+                        count = ReadVariable(input, P(2), token, P(3), P(4), c) ?? count;
                     }
 
-                    // Legacy [0] means unlimited; an expanded operand can deliberately keep zero.
-                    if (expanded || count > 0) {
-                        var keep = (int)Math.Clamp(count, 0, 10000);
+                    var keep = (int)Math.Clamp(count, 0, 10000);
 
-                        if (Name == "wf_xtra_filter_furni") {
-                            policy.FurniLimit = Math.Min(policy.FurniLimit ?? int.MaxValue, keep);
-                        }
-                        else {
-                            policy.UserLimit = Math.Min(policy.UserLimit ?? int.MaxValue, keep);
-                        }
+                    if (Name == "wf_xtra_filter_furni") {
+                        policy.FurniLimit = Math.Min(policy.FurniLimit ?? int.MaxValue, keep);
+                    }
+                    else {
+                        policy.UserLimit = Math.Min(policy.UserLimit ?? int.MaxValue, keep);
                     }
 
                     break;
