@@ -46,6 +46,8 @@ public sealed record WiredNativeDormantLegacy
     public string? LegacyJoinItemsData { get; init; }
     public bool? LegacySaysBool { get; init; }
     public string? LegacySaysItemsData { get; init; }
+    public bool? LegacyRotateBool { get; init; }
+    public string? LegacyRotateItemsData { get; init; }
     public int? GroupDirection { get; init; }
     public ImmutableDictionary<string, int> FurniSources { get; init; } = ImmutableDictionary<string, int>.Empty;
     public ImmutableDictionary<string, int> UserSources { get; init; } = ImmutableDictionary<string, int>.Empty;
@@ -108,4 +110,49 @@ internal sealed record LegacySaysSnapshot(
         && Picks.All(pick => Dictionary.TryGetValue(pick.Key, out var value) && ReferenceEquals(value, pick.Value)
             && ReferenceEquals(Room.GetRoomItemHandler().GetItem(pick.Key), pick.Value)
             && ReferenceEquals(pick.Value.GetRoom(), Room) && pick.Value.RoomId == Room.Id && !pick.Value.IsTemporary && pick.Value.IsFloorItem);
+}
+
+// These proofs exist only for one editor request; opening a card installs no configuration authority.
+internal sealed record NativeMovementPick(WiredNativeItemReference Reference, Item Item, ItemDefinition Definition, long Placement, long Movement, int Rotation)
+{
+    internal bool Matches(Plus.HabboHotel.Rooms.Room room) => Reference.ItemId == Item.Id
+        && Reference.Wall == Item.IsWallItem && !Item.IsTemporary && Item.Placement == Placement
+        && Item.MovementGeneration == Movement && Item.Rotation == Rotation
+        && ReferenceEquals(Item.Definition, Definition) && ReferenceEquals(Item.GetRoom(), room) && Item.RoomId == room.Id
+        && ReferenceEquals(room.GetRoomItemHandler().GetItem(Item.Id), Item);
+}
+
+internal sealed record FreshDirectionSnapshot(
+    Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction Box, WiredConfiguration Configuration,
+    Item Item, Plus.HabboHotel.Rooms.Room Room, uint RoomId, ItemDefinition Definition,
+    WiredBoxDescriptor Descriptor, long Placement, long Movement, int Rotation, WiredNativeEditorConfiguration Native,
+    WiredNativeEditorConfiguration? Request, ImmutableArray<NativeMovementPick> RequestedPicks)
+{
+    internal bool Matches() => Box.HasInitialDirectionDraft && ReferenceEquals(Box.Configuration, Configuration)
+        && ReferenceEquals(Box.Item, Item) && ReferenceEquals(Box.Instance, Room) && Room.Id == RoomId
+        && ReferenceEquals(Item.GetRoom(), Room) && Item.RoomId == RoomId && !Item.IsTemporary && Item.IsFloorItem
+        && Item.Placement == Placement && Item.MovementGeneration == Movement && Item.Rotation == Rotation
+        && ReferenceEquals(Item.Definition, Definition)
+        && ReferenceEquals(Box.Descriptor, Descriptor) && Item.Definition.WiredDescriptor?.CanonicalName == Descriptor.CanonicalName
+        && ReferenceEquals(Room.GetRoomItemHandler().GetItem(Item.Id), Item)
+        && RequestedPicks.All(pick => pick.Matches(Room));
+}
+
+internal sealed record LegacyRotateSnapshot(
+    Plus.HabboHotel.Items.Wired.Boxes.Effects.MoveAndRotateBox Box, Item Item,
+    Plus.HabboHotel.Rooms.Room Room, ItemDefinition Definition, WiredBoxDescriptor Descriptor, long Placement,
+    System.Collections.Concurrent.ConcurrentDictionary<uint, Item> Dictionary,
+    ImmutableArray<KeyValuePair<uint, Item>> Picks, bool BoolData, string ItemsData, int Delay,
+    WiredNativeEditorConfiguration Native)
+{
+    internal bool Matches() => ReferenceEquals(Box.Item, Item) && ReferenceEquals(Box.Instance, Room)
+        && ReferenceEquals(Item.GetRoom(), Room) && Item.RoomId == Room.Id && Item.Placement == Placement
+        && ReferenceEquals(Item.Definition, Definition) && !Item.IsTemporary && Item.IsFloorItem
+        && ReferenceEquals(Room.GetRoomItemHandler().GetItem(Item.Id), Item)
+        && WiredLegacyEditorProjection.TryGetDescriptor(Box, out var current) && ReferenceEquals(current, Descriptor)
+        && Box.StringData == "" && Box.BoolData == BoolData && Box.ItemsData == ItemsData && Box.Delay == Delay
+        && ReferenceEquals(Box.SetItems, Dictionary) && Dictionary.Count == Picks.Length
+        && Picks.All(pick => pick.Key == pick.Value.Id && Dictionary.TryGetValue(pick.Key, out var value)
+            && ReferenceEquals(value, pick.Value) && ReferenceEquals(Room.GetRoomItemHandler().GetItem(pick.Key), value)
+            && ReferenceEquals(value.GetRoom(), Room) && value.RoomId == Room.Id && !value.IsTemporary && value.IsFloorItem);
 }

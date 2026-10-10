@@ -7,6 +7,88 @@ namespace Plus.HabboHotel.Items.Wired.Configuration;
 /// <summary>Native records own editor data; runtime fields are checked immutable projections.</summary>
 public static class WiredNativeEditorProjection
 {
+    internal static bool TryCaptureFreshDirection(IWiredItem original, WiredNativeEditorConfiguration? request,
+        out FreshDirectionSnapshot? snapshot)
+    {
+        snapshot = null;
+
+        if (original is not WiredModernAction { HasInitialDirectionDraft: true } box) {
+            return false;
+        }
+
+        var native = new WiredNativeEditorConfiguration
+        {
+            Category = WiredBoxCategory.Action,
+            NativeCode = 13,
+            OwnedIntParams = [0, 0, 1],
+            FurniSourceTypes = [100],
+            Delay = 0
+        };
+        var picks = ImmutableArray.CreateBuilder<NativeMovementPick>();
+
+        if (request != null) {
+            if (!TryCompile(box.Item.Id, box.Descriptor, request, out _)) {
+                return false;
+            }
+
+            foreach (var reference in request.PrimaryItems.Concat(request.SecondaryItems)) {
+                if (box.Instance.GetRoomItemHandler().GetItem(reference.ItemId) is not { IsTemporary: false } picked
+                    || !picked.IsFloorItem || reference.Wall) {
+                    return false;
+                }
+
+                picks.Add(new(reference, picked, picked.Definition, picked.Placement, picked.MovementGeneration, picked.Rotation));
+            }
+        }
+
+        var captured = new FreshDirectionSnapshot(box, box.Configuration, box.Item, box.Instance, box.Instance.Id,
+            box.Item.Definition, box.Descriptor, box.Item.Placement, box.Item.MovementGeneration, box.Item.Rotation, native, request, picks.ToImmutable());
+
+        if (!captured.Matches()) {
+            return false;
+        }
+
+        snapshot = captured;
+
+        return true;
+    }
+
+    internal static bool TryCaptureLegacyRotate(IWiredItem original, out LegacyRotateSnapshot? snapshot)
+    {
+        snapshot = null;
+
+        if (original.GetType() != typeof(Plus.HabboHotel.Items.Wired.Boxes.Effects.MoveAndRotateBox)
+            || original is not Plus.HabboHotel.Items.Wired.Boxes.Effects.MoveAndRotateBox box
+            || box.StringData != "" || box.ItemsData == null || box.ItemsData.Length > WiredConfigurationLimits.TextCharacters
+            || !WiredLegacyEditorProjection.TryGetDescriptor(box, out var descriptor)
+            || descriptor.CanonicalName != "wf_act_move_rotate") {
+            return false;
+        }
+
+        var dictionary = box.SetItems;
+        var picks = dictionary.ToArray().ToImmutableArray();
+        var native = new WiredNativeEditorConfiguration
+        {
+            Category = WiredBoxCategory.Action,
+            NativeCode = 4,
+            OwnedIntParams = [0, 0],
+            PrimaryItems = picks.Select(pick => new WiredNativeItemReference(pick.Key, false)).ToImmutableArray(),
+            FurniSourceTypes = [100],
+            Delay = box.Delay,
+            DormantLegacy = new() { LegacyRotateBool = box.BoolData, LegacyRotateItemsData = box.ItemsData }
+        };
+        var captured = new LegacyRotateSnapshot(box, box.Item, box.Instance, box.Item.Definition, descriptor,
+            box.Item.Placement, dictionary, picks, box.BoolData, box.ItemsData, box.Delay, native);
+
+        if (!TryCompile(box.Item.Id, descriptor, native, out _) || !captured.Matches()) {
+            return false;
+        }
+
+        snapshot = captured;
+
+        return true;
+    }
+
     internal static bool TryCaptureLegacyJoin(IWiredItem original, out LegacyJoinSnapshot? snapshot)
     {
         snapshot = null;
@@ -97,6 +179,8 @@ public static class WiredNativeEditorProjection
     public static int Code(string name) => name switch
     {
         "wf_trg_says_something" => 0,
+        "wf_act_move_rotate" => 4,
+        "wf_act_move_to_dir" => 13,
         "wf_act_control_clock" => 28,
         "wf_act_join_team" => 9,
         "wf_act_give_score" => 6,
@@ -111,6 +195,10 @@ public static class WiredNativeEditorProjection
         // Says borrows the Sept9 reset defaults; remaining footer fields advertise local support.
         // No Sept16 server metadata oracle is claimed.
         "wf_trg_says_something" => new([], [], [], [], [0, 0, 1], false),
+        // Rotate's two owned fields/defaults and floor-only scope are the explicit local subset.
+        // The captured server third field and wall support have no proven executable mapping here.
+        "wf_act_move_rotate" => new([[0, 100, 200, 201]], [], [100], [], [0, 0], false),
+        "wf_act_move_to_dir" => new([[0, 100, 200, 201]], [], [100], [], [0, 0, 1], false),
         "wf_act_control_clock" => new([[0, 100, 200, 201]], [], [100], [], [0], false),
         "wf_act_join_team" => new([], [[0, 200, 201]], [], [0], [1, 0], false),
         "wf_act_give_score" => new([], [[0, 200, 201]], [], [0], [5, 0], false),
@@ -158,6 +246,27 @@ public static class WiredNativeEditorProjection
                 }
 
                 parameters = [p[1], p[2], p[0]];
+                break;
+            case "wf_act_move_rotate":
+                if (p.Length != 2 || p[0] is < 0 or > 11 || p[1] is < 0 or > 3) {
+                    return false;
+                }
+
+                if (!WiredMovementConfiguration.TryValidate(name,
+                    new() { IntParams = [p[0], p[1], native.FurniSourceTypes[0]] }, out var movement, out _)) {
+                    return false;
+                }
+
+                parameters = movement.IntParams;
+                furni["movers"] = native.FurniSourceTypes[0];
+                break;
+            case "wf_act_move_to_dir":
+                if (p.Length != 3 || p[0] is < 0 or > 7 || p[1] is < 0 or > 6 || p[2] is < 0 or > 1) {
+                    return false;
+                }
+
+                parameters = [p[0], p[1], native.FurniSourceTypes[0], p[2]];
+                furni["items"] = native.FurniSourceTypes[0];
                 break;
             case "wf_act_control_clock":
                 if (p.Length != 1 || p[0] is < 0 or > 4) {
@@ -217,6 +326,18 @@ public static class WiredNativeEditorProjection
                 break;
             default:
                 return false;
+        }
+
+        if (name is "wf_act_move_rotate" or "wf_act_move_to_dir" && native.DormantLegacy is { } dormant) {
+            text = dormant.Text;
+
+            foreach (var pair in dormant.FurniSources.Where(pair => !furni.ContainsKey(pair.Key))) {
+                furni[pair.Key] = pair.Value;
+            }
+
+            foreach (var pair in dormant.UserSources) {
+                users[pair.Key] = pair.Value;
+            }
         }
 
         var derived = new WiredConfiguration
@@ -343,7 +464,7 @@ public static class WiredNativeEditorProjection
 
         var metadata = Metadata(name);
 
-        if (runtime.Origin == null && runtime.IntParams.Length == 0) {
+        if (name != "wf_act_move_to_dir" && runtime.Origin == null && runtime.IntParams.Length == 0) {
             native = new()
             {
                 Category = descriptor.Category,
@@ -376,6 +497,22 @@ public static class WiredNativeEditorProjection
             case "wf_trg_says_something" when p.Length == 3 && runtime.Delay == 0 && runtime.SelectionCode == 0
                 && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
                 owned = [p[2], p[0], p[1]];
+                break;
+            case "wf_act_move_rotate" when p.Length == 4 && p[3] == 0 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                var editor = WiredMovementConfiguration.ForEditor(name, runtime).IntParams;
+
+                if (editor.Length != 3) {
+                    return false;
+                }
+
+                owned = [editor[0], editor[1]];
+                furni = [p[2]];
+                break;
+            case "wf_act_move_to_dir" when p.Length == 4 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                owned = [p[0], p[1], p[3]];
+                furni = [p[2]];
                 break;
             case "wf_act_control_clock" when p.Length == 2:
                 owned = [p[0]];
@@ -424,7 +561,7 @@ public static class WiredNativeEditorProjection
             Category = descriptor.Category,
             NativeCode = Code(name),
             OwnedIntParams = owned,
-            Text = name is "wf_act_set_altitude" or "wf_act_send_signal" or "wf_act_move_furni_as_group" ? "" : runtime.Text,
+            Text = name is "wf_act_set_altitude" or "wf_act_send_signal" or "wf_act_move_furni_as_group" or "wf_act_move_rotate" or "wf_act_move_to_dir" ? "" : runtime.Text,
             PrimaryItems = primary,
             SecondaryItems = secondary,
             FurniSourceTypes = furni,
@@ -445,6 +582,7 @@ public static class WiredNativeEditorProjection
         if (!TryCompile(item.Id, descriptor, native, out var projected)
             || !runtime.SelectedItems.SequenceEqual(projected.SelectedItems)
             || !runtime.SecondarySelectedItems.SequenceEqual(projected.SecondarySelectedItems)
+            || name is "wf_act_move_rotate" or "wf_act_move_to_dir" && !runtime.IntParams.SequenceEqual(projected.IntParams)
             || runtime.FurniSources.Any(pair => !projected.FurniSources.ContainsKey(pair.Key))
             || runtime.UserSources.Any(pair => !projected.UserSources.ContainsKey(pair.Key))) {
             return false;

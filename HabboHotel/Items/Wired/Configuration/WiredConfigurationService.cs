@@ -80,7 +80,27 @@ public sealed class WiredConfigurationService(
                 return;
             }
 
+            if (request.Native is { } freshNative) {
+                var fresh = room.GetWired().CaptureFreshDirection(box, freshNative with { NativeCode = 13 },
+                    () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
+
+                if (fresh != null) {
+                    SaveFreshDirection(session, fresh);
+
+                    return;
+                }
+            }
+
             if (box is not IWiredConfiguredItem && request.Native is { } legacyNative) {
+                var rotateProof = room.GetWired().CaptureLegacyRotate(box,
+                    () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
+
+                if (rotateProof != null) {
+                    SaveLegacyRotate(session, rotateProof, legacyNative);
+
+                    return;
+                }
+
                 var proof = room.GetWired().CaptureLegacyJoin(box,
                     () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
 
@@ -159,6 +179,46 @@ public sealed class WiredConfigurationService(
             logger.LogWarning(error, "Failed to save Wired settings in room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
+    }
+
+    private void SaveFreshDirection(GameClient session, FreshDirectionSnapshot proof)
+    {
+        var wired = proof.Room.GetWired();
+        bool CanModify() => ReferenceEquals(session.GetHabbo().CurrentRoom, proof.Room) && wired.Settings.CanModify(session);
+        var error = "Invalid fresh direction settings.";
+
+        if (proof.Request == null || !WiredNativeEditorProjection.TryCompile(proof.Item.Id, proof.Descriptor, proof.Request, out var runtime)
+            || !WiredConfigurationSave.TrySave(proof.Box, runtime, store, out error,
+                id => proof.Room.GetRoomItemHandler().GetItem(id) != null,
+                (original, validated, persist) => wired.PublishFreshDirection(proof, validated, CanModify, persist),
+                isTemporaryInRoom: id => proof.Room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
+            session.Send(new WiredValidationErrorComposer(error));
+
+            return;
+        }
+
+        session.Send(new HideWiredConfigComposer());
+    }
+
+    private void SaveLegacyRotate(GameClient session, LegacyRotateSnapshot proof, WiredNativeEditorConfiguration request)
+    {
+        var wired = proof.Room.GetWired();
+        bool CanModify() => ReferenceEquals(session.GetHabbo().CurrentRoom, proof.Room) && wired.Settings.CanModify(session);
+        var native = request with { NativeCode = 4, SavedState = proof.Native.SavedState, DormantLegacy = proof.Native.DormantLegacy };
+        var error = "The captured legacy rotate settings cannot be saved.";
+        var candidate = wired.CreateConfiguredBox(proof.Item, proof.Descriptor);
+
+        if (candidate == null || !WiredNativeEditorProjection.TryCompile(proof.Item.Id, proof.Descriptor, native, out var runtime)
+            || !WiredConfigurationSave.TrySave(candidate, runtime, store, out error,
+                id => proof.Room.GetRoomItemHandler().GetItem(id) != null,
+                (detached, validated, persist) => wired.PublishLegacyRotate(proof, detached, validated, CanModify, persist),
+                isTemporaryInRoom: id => proof.Room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
+            session.Send(new WiredValidationErrorComposer(error));
+
+            return;
+        }
+
+        session.Send(new HideWiredConfigComposer());
     }
 
     private void SaveLegacySays(GameClient session, LegacySaysSnapshot proof, WiredNativeEditorConfiguration request)

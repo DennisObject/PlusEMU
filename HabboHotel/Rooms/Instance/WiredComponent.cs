@@ -224,6 +224,20 @@ public partial class WiredComponent : IWiredRuntimeOperations
         }
     }
     public void ResetTimers(IEnumerable<Item> targets) => _engine.ResetTimers(targets);
+    internal FreshDirectionSnapshot? CaptureFreshDirection(IWiredItem original,
+        WiredNativeEditorConfiguration? request, Func<bool> canRead) =>
+        _engine.CaptureFreshDirection(original, request, canRead);
+
+    internal bool PublishFreshDirection(FreshDirectionSnapshot captured, WiredConfiguration validated,
+        Func<bool> canModify, Action persist) => _engine.PublishFreshDirection(captured, validated, canModify, persist);
+
+    internal LegacyRotateSnapshot? CaptureLegacyRotate(IWiredItem original, Func<bool> canRead) =>
+        _engine.CaptureLegacyRotate(original, canRead);
+
+    internal bool PublishLegacyRotate(LegacyRotateSnapshot captured, IWiredConfiguredItem candidate,
+        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
+        _engine.PublishLegacyRotate(captured, candidate, validated, canModify, persist);
+
     internal LegacyJoinSnapshot? CaptureLegacyJoin(IWiredItem original, Func<bool> canRead) =>
         _engine.CaptureLegacyJoin(original, canRead);
 

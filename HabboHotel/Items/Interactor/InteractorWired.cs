@@ -38,6 +38,18 @@ public class InteractorWired : IFurniInteractor
             return;
         }
 
+        var freshDirection = itemRoom.GetWired().CaptureFreshDirection(box, null,
+            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
+                && itemRoom.GetWired().Settings.CanInspect(session));
+
+        if (freshDirection != null) {
+            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
+                freshDirection.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
+            { Native = freshDirection.Native }));
+
+            return;
+        }
+
         if (box is IWiredConfiguredItem configured) {
             if (configured.Descriptor.Support == WiredBoxSupport.Implemented) {
                 try {
@@ -74,6 +86,18 @@ public class InteractorWired : IFurniInteractor
             session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
                 legacySays.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
             { Native = legacySays.Native }));
+
+            return;
+        }
+
+        var legacyRotate = itemRoom.GetWired().CaptureLegacyRotate(box,
+            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
+                && itemRoom.GetWired().Settings.CanInspect(session));
+
+        if (legacyRotate != null) {
+            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
+                legacyRotate.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
+            { Native = legacyRotate.Native }));
 
             return;
         }

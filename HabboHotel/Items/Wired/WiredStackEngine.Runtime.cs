@@ -355,6 +355,77 @@ internal sealed partial class WiredStackEngine
         return true;
     });
 
+    internal FreshDirectionSnapshot? CaptureFreshDirection(IWiredItem original,
+        WiredNativeEditorConfiguration? request, Func<bool> canRead)
+    {
+        lock (_sync) {
+            if (!IsAttached(original) || !canRead()
+                || !WiredNativeEditorProjection.TryCaptureFreshDirection(original, request, out var snapshot)
+                || snapshot == null || !canRead() || !IsAttached(original) || !snapshot.Matches()) {
+                return null;
+            }
+
+            return snapshot;
+        }
+    }
+
+    internal bool PublishFreshDirection(FreshDirectionSnapshot captured, WiredConfiguration validated,
+        Func<bool> canModify, Action persist) => PublishConfigured(captured.Box, validated, () =>
+    {
+        // Rights may invoke replaceable callbacks. The complete request proof follows them, immediately before SQL.
+        if (!canModify() || captured.Request == null || !ReferenceEquals(validated.Origin?.Native, captured.Request)
+            || !IsAttached(captured.Box) || !captured.Matches()) {
+            throw new InvalidOperationException("The fresh direction admission is no longer current.");
+        }
+
+        persist();
+    });
+
+    internal LegacyRotateSnapshot? CaptureLegacyRotate(IWiredItem original, Func<bool> canRead)
+    {
+        lock (_sync) {
+            if (!IsAttached(original) || !canRead()
+                || !WiredNativeEditorProjection.TryCaptureLegacyRotate(original, out var snapshot)
+                || snapshot == null || !canRead() || !IsAttached(original) || !snapshot.Matches()) {
+                return null;
+            }
+
+            return snapshot;
+        }
+    }
+
+    internal bool PublishLegacyRotate(LegacyRotateSnapshot captured, IWiredConfiguredItem candidate,
+        WiredConfiguration validated, Func<bool> canModify, Action persist)
+    {
+        lock (_sync) {
+            if (validated.Origin?.Native is not { NativeCode: 4 } request) {
+                return false;
+            }
+
+            var picks = new List<NativeMovementPick>();
+
+            foreach (var reference in request.PrimaryItems.Concat(request.SecondaryItems)) {
+                if (captured.Room.GetRoomItemHandler().GetItem(reference.ItemId) is not { IsTemporary: false, IsFloorItem: true } picked
+                    || reference.Wall) {
+                    return false;
+                }
+
+                picks.Add(new(reference, picked, picked.Definition, picked.Placement, picked.MovementGeneration, picked.Rotation));
+            }
+
+            bool Current() => IsAttached(captured.Box) && captured.Matches() && picks.All(pick => pick.Matches(captured.Room));
+
+            return PublishPromotion(captured.Box, candidate, validated, () =>
+            {
+                if (!Current()) {
+                    throw new InvalidOperationException("The requested rotate picks are no longer current.");
+                }
+
+                persist();
+            }, () => canModify() && Current());
+        }
+    }
+
     internal LegacyJoinSnapshot? CaptureLegacyJoin(IWiredItem original, Func<bool> canRead)
     {
         lock (_sync) {

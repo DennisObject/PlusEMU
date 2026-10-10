@@ -15,6 +15,9 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
 public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, IWiredEditorConfigurationProvider
 {
+    private readonly WiredConfiguration? _initialDirectionDraft;
+    internal bool HasInitialDirectionDraft => Descriptor.CanonicalName == "wf_act_move_to_dir"
+        && ReferenceEquals(Configuration, _initialDirectionDraft);
     private readonly WiredCounterController _clocks;
     private readonly Action<WiredRuntimeEvent> _publish;
     private Action<WiredRuntimeEvent>? _headingPublisher;
@@ -47,6 +50,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
             throw new ArgumentException("Unknown action.", nameof(descriptor));
         }
 
+        _initialDirectionDraft = descriptor.CanonicalName == "wf_act_move_to_dir" ? Configuration : null;
         _clocks = clocks;
         _publish = publish;
         _movement = new(walkTransition, transparentWalkTransition);
@@ -456,6 +460,12 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 
         // Reset timers always covers the whole room, unlimited, so it resolves its own targets.
         var items = name != "wf_act_reset_timers" && config.FurniSources.ContainsKey("items") ? Furni(context, config, "items") : [];
+
+        if (name == "wf_act_move_to_dir") {
+            // Dynamic sources may contain walls: exclude them before heading, collision or passenger work.
+            items = items.Where(item => item.IsFloorItem).ToArray();
+        }
+
         var carry = name is "wf_act_chase" or "wf_act_flee" or "wf_act_move_to_dir"
             ? WiredRoomMovement.CapturePassengers(context, items) : null;
         var changed = false;
