@@ -612,6 +612,10 @@ public class Item
         var room = GetRoom();
 
         if (room == null) {
+            // Detached items leave the update queue, so a later placement can restart them.
+            UpdateNeeded = false;
+            UpdateCounter = 0;
+
             return;
         }
 
@@ -1566,6 +1570,11 @@ public class Item
         _interactors = interactors;
         _travelStore = travelStore;
         _rewards = rewards;
+
+        // Teleports and hoppers run their door state machine every cycle while placed.
+        if (Definition.InteractionType is InteractionType.Teleport or InteractionType.Hopper && !UpdateNeeded && UpdateCounter <= 0) {
+            RequestUpdate(1, true);
+        }
     }
 
     internal void Detach(Room room)
