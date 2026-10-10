@@ -198,7 +198,8 @@ public sealed class FurnitureInventoryPersistenceTests
             var definitions = new Definitions(
                 new ItemDefinition { Id = 100, Type = ItemType.Floor },
                 new ItemDefinition { Id = 101, Type = ItemType.Wall },
-                new ItemDefinition { Id = 102, Type = ItemType.Wall, InteractionType = InteractionType.CameraPicture });
+                new ItemDefinition { Id = 102, Type = ItemType.Wall, InteractionType = InteractionType.CameraPicture },
+                new ItemDefinition { Id = 103, Type = ItemType.Wall, InteractionType = InteractionType.Floor });
             var database = new TestDatabase(builder.ConnectionString);
 
             var loaded = await new FurnitureInventoryLoader(database, definitions).Load(1);
@@ -243,6 +244,10 @@ public sealed class FurnitureInventoryPersistenceTests
             const string photo = "{\"w\":\"/camera/photo.png\"}";
             await connection.ExecuteAsync("INSERT INTO items VALUES (15,1,0,102,@photo,0,0)", new { photo });
             Assert.Equal(photo, Assert.Single(await new FurnitureInventoryLoader(database, definitions).Load(1)).ExtraData.Serialize());
+
+            // A floor pattern keeps its pattern too, or it can never be applied to a room.
+            await connection.ExecuteAsync("INSERT INTO items VALUES (16,1,0,103,'104',0,0)");
+            Assert.Equal("104", (await new FurnitureInventoryLoader(database, definitions).Load(1)).Single(item => item.Id == 16).ExtraData.Serialize());
         }
         finally {
             await server.ExecuteAsync($"DROP DATABASE IF EXISTS `{schema}`");
