@@ -17,10 +17,11 @@ using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Rooms.Games.Teams;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace Plus.Tests;
 
-public sealed class WiredActionPortParityTests
+public sealed class WiredActionPortParityTests(ITestOutputHelper output)
 {
     [Fact]
     public void NearestPlayerUsesManhattanRangeAndOrdering()
@@ -444,12 +445,58 @@ public sealed class WiredActionPortParityTests
         };
     }
 
+    [Theory]
+    [InlineData("wf_act_set_altitude")]
+    [InlineData("wf_act_move_furni_as_group")]
+    [InlineData("wf_act_control_clock")]
+    [InlineData("wf_act_give_score")]
+    public void MappedRuntimeSetupRetainsOriginalRowAndRejectsAlteredOrReboundCache(string name)
+    {
+        var (room, _, _) = World();
+        int[] parameters = name switch
+        {
+            "wf_act_set_altitude" => [2, 100],
+            "wf_act_move_furni_as_group" => [0, 1, -1, 100, 100, 0],
+            "wf_act_control_clock" => [3, 100],
+            _ => [5, 1, 0, 2]
+        };
+        uint[] selected = name == "wf_act_give_score" ? [] : name == "wf_act_move_furni_as_group" ? [1, 2] : [1];
+        var text = name == "wf_act_set_altitude" ? "50" : name == "wf_act_move_furni_as_group" ? "3" : "";
+        var original = new WiredConfiguration { IntParams = [.. parameters], SelectedItems = [.. selected], Text = text };
+        var draft = CreateBox(room, name);
+        Assert.False(draft.TryValidateConfiguration(original, out _, out _));
+        var action = Box(room, name, parameters, selected, text: text);
+        var installed = action.Configuration;
+        Assert.NotNull(installed.Origin);
+        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, installed.Origin.Kind);
+        Assert.Equal(action.Item.Id, installed.Origin.ItemId);
+        Assert.Equal(name, installed.Origin.Name);
+        Assert.Null(installed.Origin.Native);
+        var stored = Assert.IsType<WiredConfiguration>(installed.Origin.StoredLegacy);
+        Assert.Equal(parameters, stored.IntParams.ToArray());
+        Assert.Equal(selected, stored.SelectedItems.ToArray());
+        Assert.Equal(text, stored.Text);
+        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(original), System.Text.Json.JsonSerializer.Serialize(stored));
+        output.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { Name = name, Original = original, Stored = stored, Runtime = installed }));
+        Assert.True(action.TryValidateConfiguration(installed, out _, out var error), error);
+        var altered = installed with { Text = text + "altered" };
+        Assert.False(action.TryValidateConfiguration(altered, out _, out _));
+        Assert.Throws<InvalidDataException>(() => action.ApplyConfiguration(altered));
+        Assert.Same(installed, action.Configuration);
+        var rebound = CreateBox(room, name);
+        rebound.Item.Id++;
+        Assert.False(rebound.TryValidateConfiguration(installed, out _, out _));
+        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, rebound, installed));
+        Assert.Null(rebound.Configuration.Origin);
+    }
+
     private static WiredModernAction Box(Room room, string name, int[] parameters, uint[] selected, Action<WiredRuntimeEvent>? publish = null, string text = "", WiredCounterController? clocks = null)
     {
         var action = CreateBox(room, name, publish, clocks: clocks);
         var proposed = new WiredConfiguration { IntParams = [.. parameters], SelectedItems = [.. selected], Text = text };
 
-        if (name == "wf_act_move_to_dir") {
+        if (name is "wf_act_move_to_dir" or "wf_act_set_altitude" or "wf_act_move_furni_as_group"
+            or "wf_act_control_clock" or "wf_act_give_score") {
             ModernWiredRuntimeTests.LoadStoredRuntime(action, name, proposed);
         }
         else {
