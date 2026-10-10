@@ -313,9 +313,12 @@ public partial class PlacedFurniRoomTests
             var z = body.ReadString();
             var head = body.ReadInt();
             var rotation = body.ReadInt();
+            Assert.Equal(0, body.ReadInt());
             var status = body.ReadString();
             yield return new(id, x, y, z, head, rotation, status);
         }
+
+        Assert.False(body.HasDataRemaining());
     }
 
     private static List<ReplayDifference> ClassifyReplayDifferences(List<ReplayFrame> legacy, List<ReplayFrame> v2,

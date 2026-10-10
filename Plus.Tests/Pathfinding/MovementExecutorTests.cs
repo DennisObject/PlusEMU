@@ -378,6 +378,7 @@ public partial class PlacedFurniRoomTests
         var sent = _client.Packets.Last(packet => packet.Header == ServerPacketHeader.UserUpdateComposer);
         var body = new FlashIncomingPacket { Buffer = sent.Body.ToArray() };
         var count = body.ReadInt();
+        (int X, int Y, string Z, string Status)? match = null;
 
         for (var i = 0; i < count; i++) {
             var id = body.ReadInt();
@@ -386,14 +387,21 @@ public partial class PlacedFurniRoomTests
             var z = body.ReadString();
             body.ReadInt();
             body.ReadInt();
+            Assert.Equal(0, body.ReadInt());
             var status = body.ReadString();
 
             if (id == actor.VirtualId) {
-                return (x, y, z, status);
+                match = (x, y, z, status);
             }
         }
 
-        throw new InvalidOperationException($"No status for actor {actor.VirtualId}");
+        Assert.False(body.HasDataRemaining());
+
+        if (match == null) {
+            throw new InvalidOperationException($"No status for actor {actor.VirtualId}");
+        }
+
+        return match.Value;
     }
 
     private List<ExecutorWalkEvent> ExecutorWalkEvents()
