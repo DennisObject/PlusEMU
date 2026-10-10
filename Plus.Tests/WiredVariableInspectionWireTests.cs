@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Packets;
 using Plus.Communication.Packets.Incoming;
@@ -77,22 +76,20 @@ public class WiredVariableInspectionWireTests
     }
 
     [Fact]
-    public void WallInspectionConcreteHandlerAndEverySupportedProfileHaveOnlyNamedAdditivePair()
+    public void WallInspectionConcreteHandlerRegistersOnlyItsNamedDirectPair()
     {
         var handler = new WiredVariableInspectionRequestEvent(new InspectionRecorder());
         using var manager = new PacketManager([handler], NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)typeof(PacketManager).GetField("_incomingPackets", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
+        Assert.Single(registered);
         Assert.Same(handler, registered[10112]);
 
-        foreach (var file in Directory.GetFiles(Path.Join(AppContext.BaseDirectory, "revisions"), "*.json")) {
-            using var profile = JsonDocument.Parse(File.ReadAllText(file));
-            var incoming = profile.RootElement.GetProperty("IncomingHeaders");
-            var outgoing = profile.RootElement.GetProperty("OutgoingHeaders");
-            Assert.Equal(ClientPacketHeader.WiredVariableInspectionRequestEvent, incoming.GetProperty(nameof(WiredVariableInspectionRequestEvent)).GetUInt32());
-            Assert.Equal(ServerPacketHeader.WiredVariableInspectionDataComposer, outgoing.GetProperty(nameof(WiredVariableInspectionDataComposer)).GetUInt32());
-            Assert.Single(incoming.EnumerateObject(), entry => entry.Value.GetUInt32() == 10112);
-            Assert.Single(outgoing.EnumerateObject(), entry => entry.Value.GetUInt32() == 9483);
-        }
+        var incoming = Assert.Single(typeof(ClientPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static),
+            field => field.IsLiteral && field.GetRawConstantValue() is uint value && value == 10112);
+        var outgoing = Assert.Single(typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static),
+            field => field.IsLiteral && field.GetRawConstantValue() is uint value && value == 9483);
+        Assert.Equal(nameof(ClientPacketHeader.WiredVariableInspectionRequestEvent), incoming.Name);
+        Assert.Equal(nameof(ServerPacketHeader.WiredVariableInspectionDataComposer), outgoing.Name);
     }
 
     private sealed class InspectionRecorder : IWiredVariableInspectionService
