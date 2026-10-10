@@ -11,6 +11,7 @@ using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.DataFormat;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Items.Wired.Configuration;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Permissions;
@@ -260,6 +261,7 @@ public sealed partial class WiredGlideConveyorTests
 
     private sealed class Fixture
     {
+        private readonly IReadOnlyDictionary<uint, ModernWiredRuntimeTests.StoredRuntimeRow> _savedRows;
         private readonly Room _room = (Room)RuntimeHelpers.GetUninitializedObject(typeof(Room));
         private readonly Gamemap _map;
         private readonly WiredComponent _wired;
@@ -298,7 +300,8 @@ public sealed partial class WiredGlideConveyorTests
             Items = (ConcurrentDictionary<uint, Item>)Get(handler, "_floorItems");
             _users = (ConcurrentDictionary<int, RoomUser>)Get(users, "_users");
             var saved = layout.Where(entry => entry.Json != null)
-                .ToDictionary(entry => entry.Id, entry => JsonSerializer.Deserialize<WiredConfiguration>(entry.Json!)!);
+                .Select(entry => new ModernWiredRuntimeTests.StoredRuntimeRow(entry.Id, entry.Name, 1, entry.Json!)).ToArray();
+            _savedRows = saved.ToImmutableDictionary(row => row.ItemId);
             _wired = new(_room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
                 new SavedConfigurations(saved), TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance,
                 TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
@@ -364,6 +367,22 @@ public sealed partial class WiredGlideConveyorTests
         public object? EngineField(string name) => Get(Engine, name);
         public void SetEngineCallback(string name, object callback) => Set(Engine, name, callback);
         public void ReplaceUser(RoomUser user) => _users[user.VirtualId] = user;
+
+        public void ReplaceLoadedConfigurationText(uint id, string text)
+        {
+            var original = _savedRows[id];
+            var box = Assert.IsType<WiredModernAction>(Box(id));
+            Assert.Equal(original.Name, box.Item.Definition.ItemName);
+            var raw = JsonSerializer.Deserialize<WiredConfiguration>(original.Json)! with { Text = text };
+            var store = new WiredConfigurationStore(new ModernWiredRuntimeTests.StoredRuntimeRowsDatabase(
+                [original with { Json = JsonSerializer.Serialize(raw) }]));
+            var loaded = Assert.IsType<WiredConfiguration>(store.Load(original.ItemId, box.Descriptor));
+            Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+            Assert.Equal(raw.IntParams.ToArray(), box.Configuration.Origin!.StoredLegacy!.IntParams.ToArray());
+            Assert.Equal(raw.SelectedItems.ToArray(), box.Configuration.Origin.StoredLegacy.SelectedItems.ToArray());
+            Assert.Equal(text, box.Configuration.Text);
+        }
+
         public void DrainMovement() => _room.RunFastPass(_map.Navigation!.DrainCommands);
 
         public RoomUser User(int x, int y)
@@ -493,9 +512,10 @@ public sealed partial class WiredGlideConveyorTests
             System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(memory.Span, messageId);
     }
 
-    private sealed class SavedConfigurations(IReadOnlyDictionary<uint, WiredConfiguration> saved) : IWiredConfigurationStore
+    private sealed class SavedConfigurations(IEnumerable<ModernWiredRuntimeTests.StoredRuntimeRow> saved) : IWiredConfigurationStore
     {
-        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => saved.GetValueOrDefault(itemId);
+        private readonly WiredConfigurationStore _store = new(new ModernWiredRuntimeTests.StoredRuntimeRowsDatabase(saved));
+        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => _store.Load(itemId, descriptor);
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) { }
         public void Reset(IReadOnlyCollection<uint> itemIds) { }
     }

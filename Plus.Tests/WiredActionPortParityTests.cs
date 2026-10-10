@@ -447,8 +447,15 @@ public sealed class WiredActionPortParityTests
     private static WiredModernAction Box(Room room, string name, int[] parameters, uint[] selected, Action<WiredRuntimeEvent>? publish = null, string text = "", WiredCounterController? clocks = null)
     {
         var action = CreateBox(room, name, publish, clocks: clocks);
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [.. parameters], SelectedItems = [.. selected], Text = text }, out var config, out var error), error);
-        action.ApplyConfiguration(config);
+        var proposed = new WiredConfiguration { IntParams = [.. parameters], SelectedItems = [.. selected], Text = text };
+
+        if (name == "wf_act_move_to_dir") {
+            ModernWiredRuntimeTests.LoadStoredRuntime(action, name, proposed);
+        }
+        else {
+            Assert.True(action.TryValidateConfiguration(proposed, out var config, out var error), error);
+            action.ApplyConfiguration(config);
+        }
 
         return action;
     }

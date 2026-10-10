@@ -348,7 +348,7 @@ public sealed partial class WiredGlideConveyorTests
                     f.ReplaceUser(replacement);
                 }
                 else {
-                    action.ApplyConfiguration(action.Configuration with { Text = "new configuration, same motion" });
+                    f.ReplaceLoadedConfigurationText(12, "new configuration, same motion");
                 }
 
                 var movement = (WiredRoomMovement)typeof(WiredModernAction).GetField("_movement", BindingFlags.Instance | BindingFlags.NonPublic)!

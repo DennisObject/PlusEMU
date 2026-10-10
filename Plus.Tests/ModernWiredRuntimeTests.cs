@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Data;
 using System.Drawing;
 using System.Globalization;
@@ -1101,8 +1102,7 @@ public class ModernWiredRuntimeTests
         items[2] = obstacle;
         map.AddToMap(obstacle);
         var action = ActionBox(room, "wf_act_move_rotate");
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [2, 0, 100, 0], SelectedItems = [1] }, out var config, out var error), error);
-        action.ApplyConfiguration(config);
+        LoadStoredRuntime(action, "wf_act_move_rotate", new() { IntParams = [2, 0, 100, 0], SelectedItems = [1] });
         var context = Context(room, new(WiredEventKind.Use), [mover, obstacle], []);
         context.Policy.Addons.DisableAnimation = true;
         var throughFurni = through ? new HashSet<uint> { 2 } : new HashSet<uint>();
@@ -1163,6 +1163,9 @@ public class ModernWiredRuntimeTests
 
         if (name == "wf_act_move_furni_as_group") {
             LoadStoredDirectionalGroup(action, proposed);
+        }
+        else if (name is "wf_act_move_rotate" or "wf_act_move_to_dir") {
+            LoadStoredRuntime(action, name, proposed);
         }
         else {
             Assert.True(action.TryValidateConfiguration(proposed, out var config, out var error), error);
@@ -1374,6 +1377,9 @@ public class ModernWiredRuntimeTests
         if (name == "wf_act_move_furni_as_group") {
             LoadStoredDirectionalGroup(action, proposed);
         }
+        else if (name is "wf_act_move_rotate" or "wf_act_move_to_dir") {
+            LoadStoredRuntime(action, name, proposed);
+        }
         else {
             Assert.True(WiredConfigurationSave.TrySave(action, proposed, TestWiredConfigurationStore.Instance, out var error), error);
         }
@@ -1414,7 +1420,7 @@ public class ModernWiredRuntimeTests
     {
         var action = ActionBox(room, name);
         int[] ints = name == "wf_act_move_to_dir" ? [direction, turn, 100, 0] : [direction, 0, 100, 0];
-        Assert.True(WiredConfigurationSave.TrySave(action, SavePacket(ints, line.Select(item => item.Id).ToArray(), 0), TestWiredConfigurationStore.Instance, out var error), error);
+        LoadStoredRuntime(action, name, SavePacket(ints, line.Select(item => item.Id).ToArray(), 0));
 
         return action;
     }
@@ -1613,10 +1619,8 @@ public class ModernWiredRuntimeTests
         map.AddToMap(mover);
         var east = ActionBox(room, "wf_act_move_rotate");
         var west = ActionBox(room, "wf_act_move_rotate");
-        Assert.True(east.TryValidateConfiguration(new() { IntParams = [5, 3, 100], SelectedItems = [1] }, out var config, out var error), error);
-        east.ApplyConfiguration(config);
-        Assert.True(west.TryValidateConfiguration(new() { IntParams = [7, 3, 100], SelectedItems = [1] }, out config, out error), error);
-        west.ApplyConfiguration(config);
+        LoadStoredRuntime(east, "wf_act_move_rotate", new() { IntParams = [5, 3, 100], SelectedItems = [1] });
+        LoadStoredRuntime(west, "wf_act_move_rotate", new() { IntParams = [7, 3, 100], SelectedItems = [1] });
 
         for (var step = 0; step < 16; step++) {
             var before = mover.Rotation;
@@ -1733,6 +1737,81 @@ public class ModernWiredRuntimeTests
         Assert.Throws<InvalidDataException>(() => WiredEditorSnapshot.Capture(box));
     }
 
+    [Theory]
+    [InlineData("wf_act_move_rotate")]
+    [InlineData("wf_act_move_to_dir")]
+    public void StoredRuntimeSetupRequiresExactLoadedRowAndRejectsAlterationOrRebinding(string name)
+    {
+        var (room, _, _) = World();
+        var box = ActionBox(room, name);
+        var raw = new WiredConfiguration { IntParams = name == "wf_act_move_rotate" ? [5, 3, 100] : [2, 0, 100, 0], SelectedItems = [1] };
+        Assert.False(box.TryValidateConfiguration(raw, out _, out _));
+        var json = System.Text.Json.JsonSerializer.Serialize(raw);
+        StoredRuntimeRow[] rows = [new(box.Item.Id, name, 1, json)];
+        var store = new WiredConfigurationStore(new StoredRuntimeRowsDatabase(rows));
+        // The provider retains the original row independently of the caller's mutable collection.
+        rows[0] = new(box.Item.Id, "wrong_name", 3, "{}");
+        Assert.Null(store.Load(101, box.Descriptor));
+        var loaded = Assert.IsType<WiredConfiguration>(store.Load(box.Item.Id, box.Descriptor));
+        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+        var installed = box.Configuration;
+        Assert.Equal(name == "wf_act_move_rotate" ? new[] { 2, 6, 100, 0 } : new[] { 2, 0, 100, 0 }, installed.IntParams.ToArray());
+        Assert.Equal(raw.IntParams.ToArray(), installed.Origin!.StoredLegacy!.IntParams.ToArray());
+        Assert.Equal(raw.SelectedItems.ToArray(), installed.Origin.StoredLegacy.SelectedItems.ToArray());
+        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, installed.Origin.Kind);
+        Assert.Null(installed.Origin.Native);
+        Assert.False(box.TryValidateConfiguration(loaded with { SelectedItems = [2] }, out _, out _));
+        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, box, loaded with { Text = "altered" }));
+        Assert.Same(installed, box.Configuration);
+        var rebound = ActionBox(room, name);
+        rebound.Item.Id = 101;
+        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, rebound, loaded));
+        Assert.Null(rebound.Configuration.Origin);
+        var other = ActionBox(room, name == "wf_act_move_rotate" ? "wf_act_move_to_dir" : "wf_act_move_rotate");
+        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, other, loaded));
+    }
+
+    [Theory]
+    [InlineData("wrong_name", 1, 1)]
+    [InlineData("wf_act_move_rotate", 3, 3)]
+    [InlineData("wf_act_move_rotate", 1, 2)]
+    [InlineData("wf_act_move_rotate", 2, 1)]
+    public void StoredRuntimeSetupRefusesWrongNameAndSchemaBeforeInstallation(string name, int rowVersion, int jsonVersion)
+    {
+        var (room, _, _) = World();
+        var box = ActionBox(room, "wf_act_move_rotate");
+        var original = box.Configuration;
+        var raw = new WiredConfiguration { Version = jsonVersion, IntParams = [5, 3, 100], SelectedItems = [1] };
+        var store = new WiredConfigurationStore(new StoredRuntimeRowsDatabase([new(box.Item.Id, name, rowVersion,
+            System.Text.Json.JsonSerializer.Serialize(raw))]));
+        Assert.Throws<InvalidDataException>(() => store.Load(box.Item.Id, box.Descriptor));
+        Assert.Same(original, box.Configuration);
+        Assert.Null(original.Origin);
+    }
+
+    [WiredChestDatabaseTheory]
+    [InlineData("wf_act_move_rotate")]
+    [InlineData("wf_act_move_to_dir")]
+    public void StoredRuntimeSetupLoadsDurableOriginalBytesWithoutRewritingThem(string name)
+    {
+        using var db = new WiredChestDatabaseTests.Fixture();
+        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
+        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
+        var ints = name == "wf_act_move_rotate" ? "5, 3, 100" : "2, 0, 100, 0";
+        var json = "{ \"SelectedItems\": [1], \"IntParams\": [" + ints + "], \"Version\": 1 }";
+        db.Connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES(100,@Name,1,@Json)", new { Name = name, Json = json });
+        var (room, _, _) = World();
+        var box = ActionBox(room, name);
+        var loaded = Assert.IsType<WiredConfiguration>(new WiredConfigurationStore(db.Database).Load(100, box.Descriptor));
+        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+        Assert.Equal(name == "wf_act_move_rotate" ? new[] { 2, 6, 100, 0 } : new[] { 2, 0, 100, 0 }, box.Configuration.IntParams.ToArray());
+        Assert.Equal(name == "wf_act_move_rotate" ? new[] { 5, 3, 100 } : new[] { 2, 0, 100, 0 }, box.Configuration.Origin!.StoredLegacy!.IntParams.ToArray());
+        Assert.Null(box.Configuration.Origin.Native);
+        Assert.Equal(json, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
+        Assert.Equal(name, db.Connection.QuerySingle<string>("SELECT box_name FROM wired_item_configurations WHERE item_id=100"));
+        Assert.Equal(1, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
+    }
+
     private static WiredConfiguration SavePacket(int[] ints, uint[] selected, int delay)
     {
         object[] values = [ints.Length, .. ints.Cast<object>(), "", selected.Length, .. selected.Select(id => (object)(int)id), delay, 0, 0, 0, 0];
@@ -1744,17 +1823,28 @@ public class ModernWiredRuntimeTests
     private static void LoadStoredDirectionalGroup(WiredModernAction box, WiredConfiguration configuration)
     {
         Assert.Equal("wf_act_move_furni_as_group", box.Descriptor.CanonicalName);
-        var json = System.Text.Json.JsonSerializer.Serialize(configuration);
-        var store = new WiredConfigurationStore(new StoredDirectionalGroupDatabase(box.Item.Id, json));
-        var loaded = Assert.IsType<WiredConfiguration>(store.Load(box.Item.Id, box.Descriptor));
-        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, loaded.Origin!.Kind);
-        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+        LoadStoredRuntime(box, "wf_act_move_furni_as_group", configuration);
         Assert.Equal(configuration.IntParams.ToArray(), box.Configuration.IntParams.ToArray());
         Assert.Equal(configuration.SelectedItems.ToArray(), box.Configuration.SelectedItems.ToArray());
     }
 
-    private sealed class StoredDirectionalGroupDatabase(uint itemId, string json) : IDatabase
+    internal static void LoadStoredRuntime(WiredModernAction box, string storedName, WiredConfiguration configuration)
     {
+        var json = System.Text.Json.JsonSerializer.Serialize(configuration);
+        var store = new WiredConfigurationStore(new StoredRuntimeRowsDatabase([new(box.Item.Id, storedName, 1, json)]));
+        var loaded = Assert.IsType<WiredConfiguration>(store.Load(box.Item.Id, box.Descriptor));
+        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, loaded.Origin!.Kind);
+        Assert.Null(loaded.Origin.Native);
+        Assert.Equal(configuration.IntParams.ToArray(), loaded.Origin.StoredLegacy!.IntParams.ToArray());
+        Assert.Equal(configuration.SelectedItems.ToArray(), loaded.Origin.StoredLegacy.SelectedItems.ToArray());
+        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+    }
+
+    internal sealed record StoredRuntimeRow(uint ItemId, string Name, int Version, string Json);
+
+    internal sealed class StoredRuntimeRowsDatabase(IEnumerable<StoredRuntimeRow> rows) : IDatabase
+    {
+        private readonly ImmutableDictionary<uint, StoredRuntimeRow> _rows = rows.ToImmutableDictionary(row => row.ItemId);
         public bool IsConnected() => true;
         public IDbConnection Connection()
         {
@@ -1763,7 +1853,7 @@ public class ModernWiredRuntimeTests
             ((RecordingProxy)(object)connection).InvokeMethod = (method, _) => method.Name switch
             {
                 "get_State" => state,
-                "get_ConnectionString" => "stored-v1-group-fixture",
+                "get_ConnectionString" => "stored-v1-runtime-fixture",
                 "Open" => Change(ConnectionState.Open),
                 "Close" or "Dispose" => Change(ConnectionState.Closed),
                 "CreateCommand" => Command(),
@@ -1800,12 +1890,15 @@ public class ModernWiredRuntimeTests
                     case "set_CommandType":
                         return null;
                     case "ExecuteReader":
-                        Assert.Equal(itemId, Convert.ToUInt32(parameters["Id"].Value));
+                        var itemId = Convert.ToUInt32(parameters["Id"].Value);
                         var table = new DataTable();
                         table.Columns.Add("BoxName", typeof(string));
                         table.Columns.Add("Version", typeof(int));
                         table.Columns.Add("Json", typeof(string));
-                        table.Rows.Add("wf_act_move_furni_as_group", 1, json);
+
+                        if (_rows.TryGetValue(itemId, out var row)) {
+                            table.Rows.Add(row.Name, row.Version, row.Json);
+                        }
 
                         return table.CreateDataReader();
                     default:
