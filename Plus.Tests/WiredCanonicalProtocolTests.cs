@@ -22,15 +22,7 @@ public sealed class WiredCanonicalProtocolTests
     public async Task ActualNativeHandlersRetainEveryCountedTail(WiredBoxCategory category)
     {
         var service = new Saves();
-        SaveWiredConfigEvent handler = category switch
-        {
-            WiredBoxCategory.Trigger => new SaveWiredTriggerConfigEvent(service),
-            WiredBoxCategory.Action => new SaveWiredEffectConfigEvent(service),
-            WiredBoxCategory.Condition => new SaveWiredConditionConfigEvent(service),
-            WiredBoxCategory.Selector => new SaveWiredSelectorConfigEvent(service),
-            WiredBoxCategory.Addon => new SaveWiredAddonConfigEvent(service),
-            _ => new SaveWiredVariableConfigEvent(service)
-        };
+        var handler = Handler(category, service);
         await handler.Parse(null!, Body(7, category));
         var request = Assert.Single(service.Requests);
         Assert.Equal(category, request.Envelope);
@@ -65,6 +57,116 @@ public sealed class WiredCanonicalProtocolTests
         await handler.Parse(null!, body);
         Assert.Empty(saves.Requests);
     }
+
+    [Theory]
+    [MemberData(nameof(MalformedNativeFrames))]
+    public async Task MalformedNativeHandlersRefuseNormallyWithoutCallingSave(WiredBoxCategory category, string failure, byte[] frame)
+    {
+        var saves = new Saves();
+        var handler = Handler(category, saves);
+        await handler.Parse(null!, new FlashIncomingPacket { Buffer = frame });
+        Assert.Empty(saves.Requests);
+        Assert.False(WiredLegacyProtocol.TryReadNative(new FlashIncomingPacket { Buffer = frame[4..] }, category, out _));
+
+        await handler.Parse(null!, Body(7, category));
+        Assert.Single(saves.Requests);
+    }
+
+    [Theory]
+    [InlineData(WiredBoxCategory.Trigger)]
+    [InlineData(WiredBoxCategory.Action)]
+    [InlineData(WiredBoxCategory.Condition)]
+    [InlineData(WiredBoxCategory.Selector)]
+    [InlineData(WiredBoxCategory.Addon)]
+    [InlineData(WiredBoxCategory.Variable)]
+    public async Task NativeHandlersKeepZeroCountsSignedPicksAndValidBooleans(WiredBoxCategory category)
+    {
+        var fields = new List<object> { 7, 0, "", 2, 8, -9 };
+
+        if (category is WiredBoxCategory.Action or WiredBoxCategory.Condition) {
+            fields.Add(0);
+        }
+        else if (category == WiredBoxCategory.Selector) {
+            fields.Add(false);
+            fields.Add(true);
+        }
+
+        var saves = new Saves();
+        await Handler(category, saves).Parse(null!, Packet([.. fields, 0, 0, 0, 1, -10]));
+        var native = Assert.Single(saves.Requests).Native!;
+        Assert.Empty(native.OwnedIntParams);
+        Assert.Empty(native.FurniSourceTypes);
+        Assert.Empty(native.UserSourceTypes);
+        Assert.Empty(native.VariableIds);
+        Assert.Equal(new[] { new WiredNativeItemReference(8, false), new WiredNativeItemReference(9, true) }, native.PrimaryItems);
+        Assert.Equal(new WiredNativeItemReference(10, true), Assert.Single(native.SecondaryItems));
+
+        if (category == WiredBoxCategory.Selector) {
+            Assert.False(native.Filter);
+            Assert.True(native.Inverse);
+        }
+
+        await Handler(category, saves).Parse(null!, Packet([.. fields.Take(3), 0, .. fields.Skip(6), 0, 0, 0, 0]));
+        var empty = saves.Requests[1].Native!;
+        Assert.Empty(empty.PrimaryItems);
+        Assert.Empty(empty.SecondaryItems);
+    }
+
+    public static IEnumerable<object[]> MalformedNativeFrames()
+    {
+        foreach (var category in Enum.GetValues<WiredBoxCategory>()) {
+            var fields = new List<object> { 7, 0, "", 0 };
+
+            if (category is WiredBoxCategory.Action or WiredBoxCategory.Condition) {
+                fields.Add(0);
+            }
+            else if (category == WiredBoxCategory.Selector) {
+                fields.Add(true);
+                fields.Add(false);
+            }
+
+            var prefix = Packet(fields.ToArray()).Buffer.ToArray();
+            var empty = Packet([.. fields, 0, 0, 0, 0]).Buffer.ToArray();
+            var counts = new[] { (4, WiredConfigurationLimits.IntParams), (10, WiredConfigurationLimits.SelectedItems),
+                (prefix.Length, WiredConfigurationLimits.IntParams), (prefix.Length + 4, WiredConfigurationLimits.IntParams),
+                (prefix.Length + 8, WiredConfigurationLimits.IntParams), (prefix.Length + 12, WiredConfigurationLimits.SelectedItems) };
+
+            foreach (var (offset, maximum) in counts) {
+                foreach (var count in new[] { -1, maximum + 1 }) {
+                    var invalid = empty.ToArray();
+                    BinaryPrimitives.WriteInt32BigEndian(invalid.AsSpan(offset, 4), count);
+                    yield return [category, $"count-{offset}-{count}", invalid];
+                }
+            }
+
+            foreach (var id in new[] { 0, int.MinValue }) {
+                var primary = fields.ToList();
+                primary[3] = 1;
+                primary.Insert(4, id);
+                yield return [category, $"primary-{id}", Packet([.. primary, 0, 0, 0, 0]).Buffer.ToArray()];
+                yield return [category, $"secondary-{id}", Packet([.. fields, 0, 0, 0, 1, id]).Buffer.ToArray()];
+            }
+
+            if (category == WiredBoxCategory.Selector) {
+                foreach (var offset in new[] { 14, 15 }) {
+                    var invalid = empty.ToArray();
+                    invalid[offset] = 2;
+                    yield return [category, $"boolean-{offset}", invalid];
+                    yield return [category, $"truncated-boolean-{offset}", empty[..offset]];
+                }
+            }
+        }
+    }
+
+    private static SaveWiredConfigEvent Handler(WiredBoxCategory category, IWiredConfigurationService service) => category switch
+    {
+        WiredBoxCategory.Trigger => new SaveWiredTriggerConfigEvent(service),
+        WiredBoxCategory.Action => new SaveWiredEffectConfigEvent(service),
+        WiredBoxCategory.Condition => new SaveWiredConditionConfigEvent(service),
+        WiredBoxCategory.Selector => new SaveWiredSelectorConfigEvent(service),
+        WiredBoxCategory.Addon => new SaveWiredAddonConfigEvent(service),
+        _ => new SaveWiredVariableConfigEvent(service)
+    };
 
     [WiredChestDatabaseFact]
     public void NativeVersionTwoRowLoadsAsItsDerivedRuntimeWithoutRewritingStoredAuthority()

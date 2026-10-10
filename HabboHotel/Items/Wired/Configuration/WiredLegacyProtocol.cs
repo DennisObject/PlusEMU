@@ -66,17 +66,24 @@ public static class WiredLegacyProtocol
 
             return !packet.HasDataRemaining() && WiredNativeEditorProjection.WithinBounds(native);
         }
-        catch (Exception error) when (error is ArgumentException or InvalidOperationException or IOException or OverflowException) {
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException or IOException or InvalidDataException or OverflowException) {
             return false;
         }
     }
 
-    private static bool ReadBoolean(IIncomingPacket packet) => packet.ReadByte() switch
+    private static bool ReadBoolean(IIncomingPacket packet)
     {
-        0 => false,
-        1 => true,
-        _ => throw new InvalidDataException("Invalid native Wired boolean.")
-    };
+        if (!packet.HasDataRemaining()) {
+            throw new EndOfStreamException("Missing native Wired boolean.");
+        }
+
+        return packet.ReadByte() switch
+        {
+            0 => false,
+            1 => true,
+            _ => throw new InvalidDataException("Invalid native Wired boolean.")
+        };
+    }
 
     private static int ReadCount(IIncomingPacket packet, int maximum)
     {
