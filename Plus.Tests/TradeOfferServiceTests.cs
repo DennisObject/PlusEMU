@@ -1,9 +1,12 @@
 using System.Buffers.Binary;
-using System.Text;
+using System.Text.Json;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets;
+using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Incoming.Inventory.Trading;
 using Plus.Communication.Packets.Outgoing;
+using Plus.Communication.Revisions;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Rooms.Trading;
@@ -17,23 +20,60 @@ namespace Plus.Tests;
 public sealed class TradeOfferServiceTests
 {
     [Fact]
-    public async Task OfferAndRemoveHandlersDecodeFullPrimitivesAndDelegateOnce()
+    public async Task OfferItemsHandlerReadsTheSelectedIdsAndRejectsAMalformedList()
     {
         var calls = new List<string>();
         var trades = new RecordingOffers(calls);
         var session = new FlashGameClient(TestGameServer.Instance, new FlashPacketFactory(), TestLogging.GameClient);
         session.SetHabbo(new Habbo { Id = 1, Username = "Alice" });
+        var offered = Packet(2, 4000000000u, 7u);
 
         await new TradingOfferItemEvent(trades).Parse(session, Packet(uint.MaxValue));
-        await new TradingOfferItemsEvent(trades).Parse(session, Packet(-3, 4000000000u));
+        await new TradingOfferItemsEvent(trades).Parse(session, offered);
         await new TradingRemoveItemEvent(trades).Parse(session, Packet(0x80000001u));
 
-        Assert.Equal(new[] { "OfferItem 4294967295", "OfferItems -3 4000000000", "RemoveItem 2147483649" }, calls);
+        Assert.False(offered.HasDataRemaining());
+        Assert.Equal(new[] { "OfferItem 4294967295", "OfferItems 4000000000,7", "RemoveItem 2147483649" }, calls);
 
         calls.Clear();
-        await Assert.ThrowsAnyAsync<ArgumentException>(() => new TradingOfferItemsEvent(trades).Parse(session, Packet(1)));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new TradingOfferItemsEvent(trades).Parse(session, Packet()));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new TradingOfferItemsEvent(trades).Parse(session, Packet(0)));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new TradingOfferItemsEvent(trades).Parse(session, Packet(-3, 4000000000u)));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new TradingOfferItemsEvent(trades).Parse(session, Packet(2, 7u)));
+        await Assert.ThrowsAnyAsync<ArgumentException>(() => new TradingOfferItemsEvent(trades).Parse(session, Packet(1, 7u, 8u)));
         await Assert.ThrowsAnyAsync<ArgumentException>(() => new TradingRemoveItemEvent(trades).Parse(session, Packet()));
         Assert.Empty(calls);
+    }
+
+    [Fact]
+    public void AirAndOctaneFramesDispatchTheSelectedIdsAndDropAShortList()
+    {
+        var air = new RevisionsCache().InternalRevision;
+        var offered = Dispatch(OfferFrame(3882, 2, 4000000000u, 7u), air);
+        Assert.Equal(new[] { "OfferItems 4000000000,7" }, offered.Calls);
+        Assert.Equal(0, offered.Disconnects);
+        Assert.Equal(3882u, ClientPacketHeader.TradingOfferItemsEvent);
+
+        var rejected = Dispatch(OfferFrame(3882, 2, 7u), air);
+        Assert.Empty(rejected.Calls);
+        Assert.Equal(0, rejected.Disconnects);
+
+        var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(
+            HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json")))
+            ?? throw new InvalidOperationException("The Octane revision file is empty.");
+        revision.BuildMappings(air);
+        Assert.Equal(1263u, revision.IncomingHeaders["TradingOfferItemsEvent"]);
+        Assert.Equal(3882u, revision.IncomingIdToInternalIdMapping[1263]);
+
+        var octane = Dispatch(OfferFrame(1263, 2, 11u, 12u), revision);
+        Assert.Equal(new[] { "OfferItems 11,12" }, octane.Calls);
+        Assert.Equal(0, octane.Disconnects);
+
+        var legacyAmount = Dispatch(OfferFrame(1263, 3, 11u), revision);
+        Assert.Empty(legacyAmount.Calls);
+
+        var single = Dispatch(OfferFrame(1263, 1, 11u), revision);
+        Assert.Equal(new[] { "OfferItems 11" }, single.Calls);
     }
 
     [Fact]
@@ -100,7 +140,7 @@ public sealed class TradeOfferServiceTests
         bob.Packets.Clear();
         f.Trades.OfferItem(alice.Session, 101);
         f.Trades.RemoveItem(alice.Session, 100);
-        f.Trades.OfferItems(alice.Session, 1, 101);
+        f.Trades.OfferItems(alice.Session, new uint[] { 101 });
         Assert.Equal(new uint[] { 100 }, trade.Users[0].OfferedItems.Keys);
         Assert.Empty(alice.Sent);
         Assert.Empty(bob.Sent);
@@ -117,7 +157,7 @@ public sealed class TradeOfferServiceTests
         alice.RoomUser.TradeId = 999;
 
         f.Trades.OfferItem(alice.Session, 100);
-        f.Trades.OfferItems(alice.Session, 1, 100);
+        f.Trades.OfferItems(alice.Session, new uint[] { 100 });
         f.Trades.RemoveItem(alice.Session, 100);
 
         Assert.Equal(new[] { ServerPacketHeader.TradingClosedComposer, ServerPacketHeader.TradingClosedComposer, ServerPacketHeader.TradingClosedComposer }, alice.Sent);
@@ -153,102 +193,82 @@ public sealed class TradeOfferServiceTests
     }
 
     [Fact]
-    public void BatchOffersOnlyTheMatchingDefinitionUpToTheAmountWithoutLtdLimit()
+    public void ExplicitOfferSelectsThoseIdsAcrossTheSameDefinitionAndLtd()
     {
         using var f = new TradeConfirmationServiceTests.TradeFixture();
         var alice = f.Join(1, 7);
         var bob = f.Join(2, 8);
         var trade = f.Start(alice, bob);
-        Stock(alice, Enumerable.Range(0, 5).Select(i => Floor((uint)(200 + i), 77, ltd: true)).Append(Floor(300, 78)).ToArray());
+        var firstRegular = Floor(200, 77);
+        var ltd = Floor(201, 77, ltd: true);
+        ltd.UniqueNumber = 4;
+        ltd.UniqueSeries = 50;
+        var secondRegular = Floor(202, 77);
+        var otherLtd = Floor(203, 77, ltd: true);
+        otherLtd.UniqueNumber = 9;
+        Stock(alice, firstRegular, ltd, secondRegular, otherLtd, Floor(300, 78));
+        f.Trades.Accept(alice.Session);
+        alice.Packets.Clear();
+        bob.Packets.Clear();
 
-        f.Trades.OfferItems(alice.Session, 3, 200);
+        f.Trades.OfferItems(alice.Session, new uint[] { 202, 201 });
 
-        Assert.Equal(3, trade.Users[0].OfferedItems.Count);
-        Assert.All(trade.Users[0].OfferedItems.Values, item => Assert.Equal(77u, item.Definition.Id));
+        Assert.Equal(new uint[] { 202, 201 }, trade.Users[0].OfferedItems.Keys);
+        Assert.Equal(0u, trade.Users[0].OfferedItems[202].UniqueNumber);
+        Assert.Equal(4u, trade.Users[0].OfferedItems[201].UniqueNumber);
+        Assert.Equal(50u, trade.Users[0].OfferedItems[201].UniqueSeries);
+        Assert.DoesNotContain(200u, trade.Users[0].OfferedItems.Keys);
+        Assert.DoesNotContain(203u, trade.Users[0].OfferedItems.Keys);
+        Assert.DoesNotContain(300u, trade.Users[0].OfferedItems.Keys);
+        Assert.False(trade.Users[0].HasAccepted);
+        Assert.False(trade.Users[1].HasAccepted);
+        Assert.True(trade.CanChange);
         Assert.Equal(new[] { ServerPacketHeader.TradingUpdateComposer }, alice.Sent);
+        Assert.Equal(new[] { ServerPacketHeader.TradingUpdateComposer }, bob.Sent);
     }
 
     [Fact]
-    public void BatchOfferIgnoresTheSingleLtdCapForEveryRequestedItem()
+    public void ExplicitLtdIdsPastTheSingleOfferCapStayTheRequestedItems()
     {
         using var f = new TradeConfirmationServiceTests.TradeFixture();
         var alice = f.Join(1, 7);
         var bob = f.Join(2, 8);
         var trade = f.Start(alice, bob);
-        Stock(alice, Enumerable.Range(0, 10).Select(i => Floor((uint)(600 + i), 90, ltd: true)).ToArray());
-        f.Trades.OfferItems(alice.Session, 10, 600);
-        Assert.Equal(10, trade.Users[0].OfferedItems.Count);
+        Stock(alice, Enumerable.Range(0, 11).Select(i => Floor((uint)(600 + i), 90, ltd: true)).ToArray());
+        var requested = new uint[] { 601, 603, 605, 607, 609, 600, 602, 604, 606, 608 };
+
+        f.Trades.OfferItems(alice.Session, requested);
+
+        Assert.Equal(requested, trade.Users[0].OfferedItems.Keys);
         Assert.All(trade.Users[0].OfferedItems.Values, item => Assert.True(item.UniqueNumber > 0));
-
-        // A second trade with eleven matching LTD items: the batch path has no 9-LTD cap, so all eleven are offered.
-        var carol = f.Join(3, 9);
-        var dave = f.Join(4, 10);
-        var secondTrade = f.Start(carol, dave);
-        Stock(carol, Enumerable.Range(0, 11).Select(i => Floor((uint)(700 + i), 91, ltd: true)).ToArray());
-        f.Trades.OfferItems(carol.Session, 11, 700);
-        Assert.Equal(11, secondTrade.Users[0].OfferedItems.Count);
-        Assert.All(secondTrade.Users[0].OfferedItems.Values, item => Assert.True(item.UniqueNumber > 0));
+        Assert.DoesNotContain(610u, trade.Users[0].OfferedItems.Keys);
     }
 
     [Fact]
-    public void BatchAddsItemsBeforeADuplicateAndStopsSilently()
+    public void InvalidExplicitListsDoNotChangeTheOffer()
     {
         using var f = new TradeConfirmationServiceTests.TradeFixture();
         var alice = f.Join(1, 7);
         var bob = f.Join(2, 8);
         var trade = f.Start(alice, bob);
-        Stock(alice, Floor(200, 77), Floor(201, 77), Floor(202, 77));
-        // The batch enumerates the same order that AllItems reports here.
-        var ordered = Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(alice.Habbo.Inventory).Furniture.AllItems.Where(x => x.Definition.Id == 77).Select(x => x.Id).ToArray();
-        var first = ordered[0];
-        var second = ordered[1];
-        f.Trades.OfferItem(alice.Session, second);
+        Stock(alice, Floor(200, 77), Floor(201, 77), Floor(202, 77, ltd: true));
+        f.Trades.OfferItem(alice.Session, 201);
         f.Trades.Accept(alice.Session);
         Assert.True(trade.Users[0].HasAccepted);
         alice.Packets.Clear();
         bob.Packets.Clear();
 
-        f.Trades.OfferItems(alice.Session, 2, first);
+        f.Trades.OfferItems(alice.Session, new uint[] { 200, 200 });
+        f.Trades.OfferItems(alice.Session, new uint[] { 200, 201 });
+        f.Trades.OfferItems(alice.Session, new uint[] { 200, 999 });
+        f.Trades.OfferItems(alice.Session, new uint[] { 999 });
+        f.Trades.OfferItems(alice.Session, Array.Empty<uint>());
 
-        Assert.True(trade.Users[0].OfferedItems.ContainsKey(first));
-        Assert.True(trade.Users[0].OfferedItems.ContainsKey(second));
-        Assert.Equal(2, trade.Users[0].OfferedItems.Count);
-        Assert.False(trade.Users[0].HasAccepted);
-        Assert.Empty(alice.Sent);
-        Assert.Empty(bob.Sent);
-    }
-
-    [Fact]
-    public void BatchWithNothingToOfferStillAnswersAndAmountZeroAddsNothing()
-    {
-        using var f = new TradeConfirmationServiceTests.TradeFixture();
-        var alice = f.Join(1, 7);
-        var bob = f.Join(2, 8);
-        var trade = f.Start(alice, bob);
-        Stock(alice, Floor(200, 77));
-
-        f.Trades.OfferItems(alice.Session, 0, 200);
-        f.Trades.OfferItems(alice.Session, -4, 200);
-
-        Assert.Empty(trade.Users[0].OfferedItems);
-        Assert.Equal(new[] { ServerPacketHeader.TradingUpdateComposer, ServerPacketHeader.TradingUpdateComposer }, alice.Sent);
-    }
-
-    [Fact]
-    public void BatchDuplicateStopsWithoutAnUpdatePacket()
-    {
-        using var f = new TradeConfirmationServiceTests.TradeFixture();
-        var alice = f.Join(1, 7);
-        var bob = f.Join(2, 8);
-        var trade = f.Start(alice, bob);
-        Stock(alice, Floor(200, 77));
-        f.Trades.OfferItem(alice.Session, 200);
-        alice.Packets.Clear();
-        bob.Packets.Clear();
-
-        f.Trades.OfferItems(alice.Session, 1, 200);
-
-        Assert.Single(trade.Users[0].OfferedItems);
+        Assert.Equal(new uint[] { 201 }, trade.Users[0].OfferedItems.Keys);
+        Assert.Empty(trade.Users[1].OfferedItems);
+        Assert.True(trade.Users[0].HasAccepted);
+        Assert.False(trade.Users[1].HasAccepted);
+        Assert.True(trade.CanChange);
         Assert.Empty(alice.Sent);
         Assert.Empty(bob.Sent);
     }
@@ -275,7 +295,7 @@ public sealed class TradeOfferServiceTests
         stranger.Packets.Clear();
 
         f.Trades.OfferItem(stranger.Session, 400);
-        f.Trades.OfferItems(stranger.Session, 1, 401);
+        f.Trades.OfferItems(stranger.Session, new uint[] { 401 });
         f.Trades.RemoveItem(stranger.Session, 100);
         f.Trades.RemoveItem(stranger.Session, 150);
 
@@ -328,6 +348,47 @@ public sealed class TradeOfferServiceTests
         return new FlashIncomingPacket { Buffer = stream.ToArray() };
     }
 
+    private static byte[] OfferFrame(ushort header, int count, params uint[] itemIds)
+    {
+        var packet = new byte[10 + itemIds.Length * 4];
+        BinaryPrimitives.WriteInt32BigEndian(packet, packet.Length - 4);
+        BinaryPrimitives.WriteUInt16BigEndian(packet.AsSpan(4), header);
+        BinaryPrimitives.WriteInt32BigEndian(packet.AsSpan(6), count);
+
+        for (var index = 0; index < itemIds.Length; index++) {
+            BinaryPrimitives.WriteUInt32BigEndian(packet.AsSpan(10 + index * 4), itemIds[index]);
+        }
+
+        return packet;
+    }
+
+    private static DispatchResult Dispatch(byte[] frame, Revision revision)
+    {
+        var calls = new List<string>();
+        using var manager = new PacketManager([new TradingOfferItemsEvent(new RecordingOffers(calls))], NullLogger<PacketManager>.Instance);
+        var disconnected = 0;
+        var session = new FlashGameClient(new OfferDispatchServer(manager), new FlashPacketFactory(), TestLogging.GameClient)
+        {
+            Revision = revision,
+            DisconnectRequested = () => disconnected++
+        };
+        session.SetHabbo(new Habbo { Id = 1, Username = "Alice" });
+        session.OnReceived(frame, 0, frame.Length);
+
+        return new DispatchResult(calls, disconnected);
+    }
+
+    private sealed record DispatchResult(List<string> Calls, int Disconnects);
+
+    private sealed class OfferDispatchServer(PacketManager manager) : IGameServer
+    {
+        public bool Start() => true;
+        public bool Stop() => true;
+        public Task PacketReceived(GameClient client, uint messageId, IIncomingPacket packet) => manager.TryExecutePacket(client, messageId, packet);
+        public bool ModifyOutgoingPacket(GameClient client, IOutgoingPacket packet) => true;
+        public bool HasOutgoingPacketInjectors(uint messageId) => false;
+    }
+
     private sealed class RecordingOffers(List<string> calls) : ITradeRequestService
     {
         public void Start(GameClient session, int virtualUserId) => calls.Add("Start");
@@ -337,7 +398,7 @@ public sealed class TradeOfferServiceTests
         public void Cancel(GameClient session) => calls.Add("Cancel");
         public void CancelConfirmation(GameClient session) => calls.Add("CancelConfirmation");
         public void OfferItem(GameClient session, uint itemId) => calls.Add($"OfferItem {itemId}");
-        public void OfferItems(GameClient session, int amount, uint itemId) => calls.Add($"OfferItems {amount} {itemId}");
+        public void OfferItems(GameClient session, IReadOnlyList<uint> itemIds) => calls.Add($"OfferItems {string.Join(',', itemIds)}");
         public void RemoveItem(GameClient session, uint itemId) => calls.Add($"RemoveItem {itemId}");
     }
 }
