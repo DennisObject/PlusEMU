@@ -83,6 +83,8 @@ public class QuestManager : IQuestManager, IStartable
         }
     }
 
+    public IReadOnlyList<Quest> GetQuests() => [.. _quests.Values.OrderBy(quest => quest.Id)];
+
     public Quest? GetQuest(int id)
     {
         _quests.TryGetValue(id, out var quest);

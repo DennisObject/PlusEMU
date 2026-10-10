@@ -202,14 +202,7 @@ public sealed class DatabaseWiredVariableStore(IDatabase database) : IWiredVaria
                 return false;
             }
 
-            WiredConfiguration? configuration;
-
-            try {
-                configuration = JsonSerializer.Deserialize<WiredConfiguration>(row.Configuration, DatabaseWiredVariableDirectory.JsonOptions);
-            }
-            catch (JsonException) {
-                return false;
-            }
+            var configuration = WiredConfigurationStore.DecodeRow(expected.ItemId, row.BoxName, row.Configuration);
 
             if (configuration is null || !WiredVariableDefinitions.TryDecode(row.BoxName, expected.ItemId, expected.RoomId, authorization.OwnerId,
                     configuration, out var current, out _) || current != expected) {

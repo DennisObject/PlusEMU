@@ -9,19 +9,6 @@ using Plus.HabboHotel.Rooms;
 
 namespace Plus.HabboHotel.Items.Wired.Chests;
 
-// Text transports Octane's extra source/variable/selection slots, without changing the legacy envelope.
-public sealed record WiredChestEditorData
-{
-    public string Text { get; init; } = "";
-    public string[] Variables { get; init; } = [];
-    public int[] FurniSources { get; init; } = [];
-    public int[] UserSources { get; init; } = [];
-    public uint[][] Picks { get; init; } = [];
-    public static WiredChestEditorData Parse(string text) => text.StartsWith("@chest:", StringComparison.Ordinal)
-        ? JsonSerializer.Deserialize<WiredChestEditorData>(text[7..]) ?? throw new InvalidDataException("Missing chest editor fields.")
-        : new() { Text = text };
-}
-
 public class WiredChestBox : WiredModernBox
 {
     protected readonly WiredChestRoom Chests;
@@ -33,8 +20,8 @@ public class WiredChestBox : WiredModernBox
     public WiredChestBox(Room room, Item item, WiredBoxDescriptor descriptor, WiredChestRoom chests) : base(room, item, descriptor)
     {
         Chests = chests;
-        TryValidateConfiguration(Defaults(descriptor.CanonicalName), out var defaults, out _);
-        ApplyConfiguration(defaults);
+        ApplyConfiguration(WiredNativeEditorProjection.DefaultRuntime(item.Id, descriptor)
+            ?? throw new InvalidDataException("Chest boxes need their native defaults."));
     }
     public static IWiredConfiguredItem Create(Room room, Item item, WiredBoxDescriptor descriptor, WiredChestRoom chests) => descriptor.Category switch
     {
@@ -43,32 +30,22 @@ public class WiredChestBox : WiredModernBox
         WiredBoxCategory.Trigger => new WiredChestTrigger(room, item, descriptor, chests),
         _ => new WiredChestBox(room, item, descriptor, chests)
     };
-    public static WiredConfiguration Defaults(string name) => new()
-    {
-        IntParams = name switch
-        {
-            "wf_act_give_currency" => [0, 1, 0, 0, 1, 11],
-            "wf_act_give_furni" => [0, 1, 0, 0, 0, 0],
-            "wf_act_init_transaction" => [0, 10, 0, 0, 0, 300],
-            "wf_act_cancel_transaction" or "wf_xtra_scan_chest_furni_by_type" => [0],
-            "wf_cnd_chest_has_items" or "wf_cnd_chest_has_item_type" => [0, 0, 1, 2],
-            "wf_xtra_custom_contract" => [0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
-            _ => []
-        }
-    };
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed;
         error = "Invalid chest Wired configuration.";
 
-        if (!WiredLegacyProtocol.IsWithinLimits(proposed)) {
+        if (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)
+            || !WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out _, out error)) {
             return false;
         }
 
+        error = "Invalid chest Wired configuration.";
         var p = proposed.IntParams;
         bool B(int i) => p[i] is 0 or 1;
         bool T(int i) => p[i] is >= 0 and <= 3;
-        var valid = Descriptor.CanonicalName switch
+
+        return Descriptor.CanonicalName switch
         {
             "wf_act_give_currency" or "wf_act_give_furni" => p.Length == 6 && B(0) && p[1] >= 1 && B(2) && T(3) && B(4)
                 && (Descriptor.CanonicalName == "wf_act_give_currency" ? p[5] is 11 or 13 : p[5] is >= 0 and <= 2),
@@ -79,61 +56,39 @@ public class WiredChestBox : WiredModernBox
             "wf_xtra_custom_contract" => p.Length == 10 && B(0) && B(1) && B(2) && p[3] is >= 1 and <= 100000 && T(4)
                 && B(5) && B(6) && B(7) && p[8] is >= 1 and <= 100000 && T(9),
             _ => false
-        };
-
-        if (!valid) {
-            return false;
-        }
-
-        try {
-            var data = WiredChestEditorData.Parse(proposed.Text);
-
-            if (data.Variables.Length > 2 || data.Variables.Any(token => token == null || token.Length > 1024)
-                || data.Text.Length > 200 || data.FurniSources.Length > 4 || data.UserSources.Length > 2 || data.Picks.Length > 4
-                || data.FurniSources.Any(source => source is not (0 or 100 or 200 or 201))
-                || data.UserSources.Any(source => source is not (0 or 11 or 200 or 201))
-                || data.Picks.Any(picks => picks == null || picks.Length > 100 || picks.Any(id => id == 0))
-                || data.Picks.SelectMany(picks => picks).Any(id => !proposed.SelectedItems.Contains(id))) {
-                return false;
-            }
-
-            validated = proposed with { VariableIds = data.Variables.ToImmutableArray() };
-            error = "";
-
-            return true;
-        }
-        catch (Exception ex) when (ex is JsonException or InvalidDataException or NullReferenceException) {
-            return false;
-        }
+        } && proposed.Text.Length <= 200;
     }
+
+    /// <summary>The furniture a furni selection resolves to: the picked group its source names, or the live/selector set.</summary>
     protected Item[] Furni(WiredRuntimeContext context, WiredConfiguration config, int slot)
     {
-        var data = WiredChestEditorData.Parse(config.Text);
-        var ids = slot < data.Picks.Length ? data.Picks[slot] : config.SelectedItems.ToArray();
-        var source = slot < data.FurniSources.Length ? data.FurniSources[slot] : 100;
+        var source = config.FurniSources.GetValueOrDefault("f" + slot, 100);
 
-        return context.Targets.ResolveFurni(context, ids, source);
+        return context.Targets.ResolveFurni(context, source == 101 ? config.SecondarySelectedItems : config.SelectedItems, source);
     }
     protected RoomUser[] Users(WiredRuntimeContext context, WiredConfiguration config, int slot = 0)
     {
-        var data = WiredChestEditorData.Parse(config.Text);
-        var source = slot < data.UserSources.Length ? data.UserSources[slot] : 0;
+        var source = config.UserSources.GetValueOrDefault("u" + slot, 0);
 
         return context.Targets.ResolveUsers(context, [], source).Where(user => !user.IsBot && user.GetClient() != null).ToArray();
     }
+
+    /// <summary>The picked variable's current local reference, resolved through the room's catalog authority at use.</summary>
+    protected WiredVariableReference? Variable(WiredRuntimeContext context, WiredConfiguration config, int slot, WiredVariableTarget target) =>
+        slot < config.VariableIds.Length && !WiredVariableAbsent.Is(config.VariableIds[slot])
+        && context.Room.GetWired().Variables.Module.TryResolveCatalogId(config.VariableIds[slot], target, out var reference) ? reference : null;
     protected long? Operand(WiredRuntimeContext context, WiredConfiguration config, int valueIndex, int variableIndex, int targetIndex, int variableSlot, int furniSlot, int userSlot)
     {
         if (config.IntParams[variableIndex] == 0) {
             return config.IntParams[valueIndex];
         }
 
-        var data = WiredChestEditorData.Parse(config.Text);
+        var target = (WiredVariableTarget)config.IntParams[targetIndex];
 
-        if (context.VariableFrame == null || variableSlot >= data.Variables.Length) {
+        if (context.VariableFrame == null || Variable(context, config, variableSlot, target) is not { } reference) {
             return null;
         }
 
-        var target = (WiredVariableTarget)config.IntParams[targetIndex];
         var holders = target switch
         {
             WiredVariableTarget.Furni => Furni(context, config, furniSlot).Select(WiredVariableRuntimeFrames.FurniHolder),
@@ -142,7 +97,7 @@ public class WiredChestBox : WiredModernBox
         };
 
         foreach (var holder in holders) {
-            var value = context.Room.GetWired().Variables.Module.Read(new(target, data.Variables[variableSlot]), holder, context.VariableFrame);
+            var value = context.Room.GetWired().Variables.Module.Read(reference, holder, context.VariableFrame);
 
             if (value != null) {
                 return value.Value;
@@ -269,7 +224,7 @@ public sealed class WiredChestAction(Room room, Item item, WiredBoxDescriptor de
             });
 
             if (result.Succeeded && !result.Replayed) {
-                actor.GetClient()!.Send(new WiredChestRewardComposer(result, WiredChestEditorData.Parse(c.Text).Text, c.IntParams[4] == 1));
+                actor.GetClient()!.Send(new WiredChestRewardComposer(result, c.Text, c.IntParams[4] == 1));
                 gave = true;
             }
         }
@@ -304,11 +259,10 @@ public sealed class WiredChestAddon(Room room, Item item, WiredBoxDescriptor des
 
         if (Descriptor.CanonicalName == "wf_xtra_scan_chest_furni_by_type") {
             var types = Furni(context, c, 0).Select(WiredChestItemType.Of).ToHashSet();
-            var data = WiredChestEditorData.Parse(c.Text);
             var frame = context.VariableFrame;
 
-            if (frame == null || data.Variables.Length == 0 || !data.Variables[0].StartsWith("custom:", StringComparison.Ordinal)
-                || !uint.TryParse(data.Variables[0][7..], out var id)) {
+            if (frame == null || Variable(context, c, 0, WiredVariableTarget.Context) is not { } captured
+                || !WiredVariableModule.TryDefinitionId(captured.Token, out var id)) {
                 return false;
             }
 

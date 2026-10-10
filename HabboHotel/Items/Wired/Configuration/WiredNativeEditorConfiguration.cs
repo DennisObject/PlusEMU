@@ -40,11 +40,6 @@ public sealed record WiredNativeSavedState
 internal sealed record WiredConfigurationOrigin(uint ItemId, string Name,
     WiredConfiguration Derived, WiredNativeEditorConfiguration Native);
 
-public enum WiredNativeSaveAdmission
-{
-    Unchanged, Changed, Refused
-}
-
 public sealed record WiredNativeEditorMetadata(ImmutableArray<ImmutableArray<int>> FurniAllowed,
     ImmutableArray<ImmutableArray<int>> UsersAllowed, ImmutableArray<int> FurniDefaults,
     ImmutableArray<int> UserDefaults, ImmutableArray<int> OwnedDefaults, bool AllowWall)

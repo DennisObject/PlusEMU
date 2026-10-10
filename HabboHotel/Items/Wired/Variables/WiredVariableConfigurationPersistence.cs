@@ -75,7 +75,8 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
                 before = row is null ? null : new(row.Value, row.CreatedAt, row.UpdatedAt);
             }
 
-            if (before?.Value == definition.InitialValue) {
+            if (before is not null) {
+                // An existing value is the room's live state; saving the definition never resets it.
                 write = new(before, before);
             }
             else {
@@ -88,7 +89,7 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
             INSERT INTO wired_item_configurations (item_id,box_name,schema_version,configuration)
             VALUES (@itemId,@name,@Version,@configuration)
             ON DUPLICATE KEY UPDATE box_name=@name,schema_version=@Version,configuration=@configuration
-            """, new { itemId, name, proposed.Version, configuration = JsonSerializer.Serialize(proposed) }, transaction);
+            """, new { itemId, name, proposed.Origin!.Native.Version, configuration = JsonSerializer.Serialize(proposed.Origin.Native) }, transaction);
 
         if (definition.IsDurable && write is { Changed: true, After: { } after }) {
             connection.Execute("""
@@ -105,9 +106,10 @@ public sealed class WiredVariableConfigurationPersistence(IDatabase database, Wi
     private static bool SameConfiguration(string json, WiredConfiguration expected)
     {
         try {
-            var saved = JsonSerializer.Deserialize<WiredConfiguration>(json, DatabaseWiredVariableDirectory.JsonOptions);
+            var saved = JsonSerializer.Deserialize<WiredNativeEditorConfiguration>(json);
 
-            return saved is not null && JsonNode.DeepEquals(JsonSerializer.SerializeToNode(saved), JsonSerializer.SerializeToNode(expected));
+            return saved is not null && expected.Origin?.Native is { } native
+                && JsonNode.DeepEquals(JsonSerializer.SerializeToNode(saved), JsonSerializer.SerializeToNode(native));
         }
         catch (JsonException) {
             return false;

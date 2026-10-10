@@ -335,16 +335,24 @@ public static class WiredNativeEditorProjection
 
         var native = proposed.Origin!.Native;
         var room = item.GetRoom();
+        var references = native.PrimaryItems.Concat(native.SecondaryItems).ToArray();
 
-        if (room == null || native.PrimaryItems.Concat(native.SecondaryItems).Any(reference =>
+        // Picks are only meaningful in the live room that holds them; a pickless box has nothing to check there.
+        if (references.Length == 0) {
+            error = "";
+
+            return true;
+        }
+
+        if (room == null || references.Any(reference =>
             room.GetRoomItemHandler().GetItem(reference.ItemId) is not { IsTemporary: false } picked || picked.IsWallItem != reference.Wall)) {
             return false;
         }
 
-        bool AllAntennas(IEnumerable<WiredNativeItemReference> references) =>
-            references.All(reference => WiredStackEngine.IsSignalAntenna(room.GetRoomItemHandler().GetItem(reference.ItemId)!));
+        bool AllAntennas(IEnumerable<WiredNativeItemReference> picks) =>
+            picks.All(reference => WiredStackEngine.IsSignalAntenna(room.GetRoomItemHandler().GetItem(reference.ItemId)!));
 
-        if (descriptor.CanonicalName == "wf_act_send_signal" && native.FurniSourceTypes[0] is 100 or 101
+        if (descriptor.CanonicalName is "wf_act_send_signal" or "wf_act_neg_send_signal" && native.FurniSourceTypes[0] is 100 or 101
             && !AllAntennas(native.FurniSourceTypes[0] == 100 ? native.PrimaryItems : native.SecondaryItems)) {
             error = "Signal targets must be antenna furniture.";
 
@@ -407,14 +415,6 @@ public static class WiredNativeEditorProjection
 
         return true;
     }
-
-    public static bool SameBody(WiredNativeEditorConfiguration left, WiredNativeEditorConfiguration right) =>
-        left.Category == right.Category && left.NativeCode == right.NativeCode
-        && left.OwnedIntParams.SequenceEqual(right.OwnedIntParams) && left.Text == right.Text
-        && left.PrimaryItems.SequenceEqual(right.PrimaryItems) && left.SecondaryItems.SequenceEqual(right.SecondaryItems)
-        && left.FurniSourceTypes.SequenceEqual(right.FurniSourceTypes) && left.UserSourceTypes.SequenceEqual(right.UserSourceTypes)
-        && left.VariableIds.SequenceEqual(right.VariableIds) && left.Delay == right.Delay && left.Quantifier == right.Quantifier
-        && left.Filter == right.Filter && left.Inverse == right.Inverse;
 
     public static int SourceForRole(WiredConfiguration runtime, string role) => runtime.FurniSources.GetValueOrDefault(role);
 

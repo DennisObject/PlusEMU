@@ -56,7 +56,7 @@ public partial class WiredComponent
         TimeZoneInfo.ConvertTime(_clock.GetUtcNow(), EffectiveTimeZone);
     private IWiredConfigurationStore ConfigurationStore => _configurationStore;
     public WiredRoomVariables Variables => (_variables ??= new(() => new(_room,
-        _database, _clock, builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged, travelStore: _travelStore)
+        _database, _clock, builtinRead: ReadBuiltin, builtinWrite: WriteBuiltin, stateChanged: PublishBuiltinStateChanged, travelStore: _travelStore, quests: _quests)
     { TimeZone = () => EffectiveTimeZone })).Value;
 
     // Returns a detached concrete candidate. Registration and persistence belong to the loader/publisher.
@@ -75,6 +75,8 @@ public partial class WiredComponent
 
         IWiredConfiguredItem? box = null;
         WiredConfiguration? defaults = null;
+        // The room clock is read once per factory call, and only by the one card whose default depends on it.
+        int? calendarYear = descriptor.CanonicalName == "wf_cnd_match_date" ? CalendarTime.Year : null;
 
         if (WiredChestBox.Names.Contains(descriptor.CanonicalName)) {
             box = WiredChestBox.Create(_room, item, descriptor, Chests);
@@ -98,7 +100,7 @@ public partial class WiredComponent
                 descriptor.CanonicalName is "wf_cnd_match_time" or "wf_cnd_match_date" or "wf_cnd_date_rng_active"
                     ? () => CalendarTime : () => _clock.GetUtcNow());
             defaults = WiredConditionConfiguration.Defaults(descriptor.CanonicalName,
-                descriptor.CanonicalName == "wf_cnd_match_date" ? CalendarTime.Year : 0);
+                calendarYear ?? 0);
         }
         else if (descriptor.Category == WiredBoxCategory.Action && WiredModernAction.Supports(descriptor.CanonicalName)) {
             var action = new WiredModernAction(_room, item, descriptor, _counters, @event => Dispatch(@event),
@@ -113,7 +115,7 @@ public partial class WiredComponent
             box = Variables.CreateBox(item);
         }
 
-        if (box != null && box.Configuration.Origin == null && WiredNativeEditorProjection.DefaultRuntime(item.Id, descriptor, CalendarTime.Year) is { } fresh) {
+        if (box != null && box.Configuration.Origin == null && WiredNativeEditorProjection.DefaultRuntime(item.Id, descriptor, calendarYear) is { } fresh) {
             // Every mapped card opens on its compiled native defaults. They hold no picks, so no live room is needed yet.
             box.ApplyConfiguration(fresh);
         }

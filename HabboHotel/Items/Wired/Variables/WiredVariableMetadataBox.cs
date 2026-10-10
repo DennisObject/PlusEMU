@@ -17,38 +17,16 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
     public WiredVariableTimeUtilities? TimeUtilities { get; private set; }
     public WiredVariableLevelSystem? LevelSystem { get; private set; }
     public IReadOnlyDictionary<int, string> TextConnector { get; private set; } = new Dictionary<int, string>();
-    public static bool Supports(string name) => IsFx(name) || name is "wf_xtra_var_lvlup_system" or "wf_xtra_var_text_connector" or "wf_xtra_var_time_util" or "wf_var_quest" or "wf_var_quest_chain";
-    public bool IsQuest => Descriptor.CanonicalName is "wf_var_quest" or "wf_var_quest_chain";
-    public int QuestTarget => IsQuest ? Configuration.IntParams[0] : 0;
-    public string[] DerivedKeys => Descriptor.CanonicalName switch
-    {
-        "wf_var_quest" => ["progress", "target", "is_complete", "percent", "remaining"],
-        "wf_var_quest_chain" => ["current_step", "total_steps", "is_complete", "percent"],
-        _ => ["current_level", "current_xp", "level_progress", "level_progress_percent", "total_xp_required", "xp_remaining", "is_at_max", "max_level"]
-    };
-    public bool HasDerived(int sub) => sub >= 0 && sub < DerivedKeys.Length && (IsQuest || LevelSystem is { } level && (level.SubvariableMask & (1 << sub)) != 0);
+    public static bool Supports(string name) => IsFx(name) || name is "wf_xtra_var_lvlup_system" or "wf_xtra_var_text_connector" or "wf_xtra_var_time_util";
+    public string[] DerivedKeys => ["current_level", "current_xp", "level_progress", "level_progress_percent", "total_xp_required", "xp_remaining", "is_at_max", "max_level"];
+    public bool HasDerived(int sub) => sub >= 0 && sub < DerivedKeys.Length && LevelSystem is { } level && (level.SubvariableMask & (1 << sub)) != 0;
     public long ReadDerived(long value, int sub)
     {
         if (!HasDerived(sub)) {
             throw new ArgumentOutOfRangeException(nameof(sub));
         }
 
-        if (!IsQuest) {
-            return LevelSystem!.Read(value, sub);
-        }
-
-        var progress = Math.Max(0, value);
-        var target = QuestTarget;
-
-        return sub switch
-        {
-            0 => Descriptor.CanonicalName == "wf_var_quest_chain" && target > 0 ? Math.Min(progress, target) : progress,
-            1 => target,
-            2 => target > 0 && progress >= target ? 1 : 0,
-            3 => target == 0 ? 100 : (long)Math.Min(100m, (decimal)progress * 100 / target),
-            4 => Math.Max(0, target - progress),
-            _ => throw new ArgumentOutOfRangeException(nameof(sub))
-        };
+        return LevelSystem!.Read(value, sub);
     }
     public static bool IsFx(string name) => name is "wf_xtra_var_fx_health" or "wf_xtra_var_fx_progress" or "wf_xtra_var_fx_level"
         or "wf_xtra_var_fx_status" or "wf_xtra_var_fx_boss" or "wf_xtra_var_fx_number";
@@ -67,20 +45,21 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
             TextConnector = ParseConnector(Configuration.Text);
         }
     }
-    private static WiredConfiguration Validate(string name, WiredConfiguration configuration)
+    internal static WiredConfiguration Validate(string name, WiredConfiguration configuration)
     {
         if (configuration.Version != 1 || configuration.Text.Length > 8192) {
             throw new ArgumentException("Invalid variable metadata.");
         }
 
         if (IsFx(name)) {
-            if (configuration.IntParams.Length == 0 && configuration.Text.Length == 0) {
-                configuration = configuration with { IntParams = [0, 2, 0, 3000, 0, -1, 2, 0, 0, 100, 0, 0, 0, 0, 0, 0] };
+            // The unconfigured box before its native defaults are applied has nothing to decode yet.
+            if (configuration.IntParams.IsEmpty && configuration.Text.Length == 0 && configuration.VariableIds.IsEmpty) {
+                return configuration;
             }
 
-            var target = configuration.IntParams.ElementAtOrDefault(0) == 0 ? WiredVariableTarget.User : WiredVariableTarget.Furni;
+            var target = WiredVariableFxSettings.UsesUserSource(configuration) ? WiredVariableTarget.User : WiredVariableTarget.Furni;
 
-            if (!WiredVariableFxSettings.TryDecode(name, 1, configuration, new(target, ""), out _, out var error)) {
+            if (!WiredVariableFxSettings.TryDecode(name, 1, configuration, new(target, ""), null, out _, out var error)) {
                 throw new ArgumentException(error);
             }
         }
@@ -93,17 +72,6 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
                 throw new ArgumentException("Invalid level system.");
             }
         }
-        else if (name is "wf_var_quest" or "wf_var_quest_chain") {
-            if (configuration.IntParams.Length == 0) {
-                configuration = configuration with { IntParams = [0] };
-            }
-
-            if (configuration.IntParams.Length != 1 || configuration.Text.Length != 0) {
-                throw new ArgumentException("Invalid quest metadata.");
-            }
-
-            configuration = configuration with { IntParams = [Math.Max(0, configuration.IntParams[0])] };
-        }
         else if (name == "wf_xtra_var_time_util") {
             if (configuration.IntParams.Length == 0) {
                 configuration = configuration with { IntParams = [0, 0] };
@@ -113,11 +81,10 @@ public sealed class WiredVariableMetadataBox : WiredConfiguredBehaviorBox
                 throw new ArgumentException("Invalid time utility configuration.");
             }
 
-            configuration = configuration with
-            {
-                IntParams = [configuration.IntParams[0] & WiredVariableTimeUtilities.ValidMask,
-                configuration.IntParams[1] is 1 or 2 ? configuration.IntParams[1] : 0]
-            };
+            // The editor only offers the valid subvariables and three clocks; anything else is refused, not trimmed.
+            if ((configuration.IntParams[0] & WiredVariableTimeUtilities.ValidMask) != configuration.IntParams[0] || configuration.IntParams[1] is < 0 or > 2) {
+                throw new ArgumentException("Invalid time utility configuration.");
+            }
         }
         else if (name == "wf_xtra_var_text_connector") {
             ParseConnector(configuration.Text);

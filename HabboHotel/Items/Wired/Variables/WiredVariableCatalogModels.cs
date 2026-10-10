@@ -24,22 +24,39 @@ public sealed record WiredVariableDescription(WiredVariableDefinition Definition
         WiredVariableTarget.Global => "room:",
         _ => "ctx:"
     };
-    /// <summary>The one inverse of <see cref="CatalogId"/>; the module still authorizes the definition it names.</summary>
-    public static bool TryParseCatalogId(string id, out WiredVariableTarget target, out uint itemId)
+    /// <summary>
+    /// The one inverse of <see cref="CatalogId"/>: a definition id ("user:12" is custom:12) or a built-in's own token
+    /// ("ctx:internal:@event.transaction_complete.multiplier"). The module still authorizes what the token names.
+    /// </summary>
+    public static bool TryParseCatalogId(string id, out WiredVariableTarget target, out string token)
     {
-        itemId = 0;
+        token = "";
         target = default;
 
         foreach (var candidate in Enum.GetValues<WiredVariableTarget>()) {
             var prefix = CatalogPrefix(candidate);
 
-            if (id.StartsWith(prefix, StringComparison.Ordinal)
-                && uint.TryParse(id.AsSpan(prefix.Length), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out itemId)
-                && itemId > 0 && CatalogPrefix(candidate) + itemId == id) {
-                target = candidate;
-
-                return true;
+            if (!id.StartsWith(prefix, StringComparison.Ordinal)) {
+                continue;
             }
+
+            var rest = id[prefix.Length..];
+
+            if (uint.TryParse(rest, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var itemId)
+                && itemId > 0 && itemId.ToString(System.Globalization.CultureInfo.InvariantCulture) == rest) {
+                token = "custom:" + itemId;
+            }
+            else if (rest.Length > 10 && (rest.StartsWith("internal:@", StringComparison.Ordinal) || rest.StartsWith("internal:~", StringComparison.Ordinal))
+                && rest.IndexOfAny(['\t', '\r', '\n']) < 0 && !WiredQuestVariables.IsToken(rest)) {
+                token = rest;
+            }
+            else {
+                continue;
+            }
+
+            target = candidate;
+
+            return true;
         }
 
         return false;

@@ -9,5 +9,5 @@ public class WiredEffectConfigComposer(WiredEditorSnapshot snapshot) : IServerPa
 
     public void Compose(IOutgoingPacket packet) =>
         WiredLegacyProtocol.Write(packet, snapshot.ItemId, snapshot.SpriteId, snapshot.Descriptor,
-            snapshot.Configuration, snapshot.FurniLimit, snapshot.BlockedItems);
+            snapshot.Configuration, snapshot.FurniLimit, snapshot.BlockedItems, snapshot.Native, snapshot.CatalogHash, snapshot.SharedVariables);
 }

@@ -78,6 +78,18 @@ public sealed partial class WiredRoomVariables
                     continue;
                 }
 
+                if (owning.Name is "wf_var_quest" or "wf_var_quest_chain" && _quests is not null
+                    && WiredQuestVariables.Binding(owning.Name, owning.Configuration.Text) is { } quest) {
+                    var questKeys = WiredQuestVariables.Keys(quest.Kind);
+
+                    foreach (var sub in Enumerable.Range(0, questKeys.Length)) {
+                        // A chain's current step is read holder-aware through its builtin part, not from the completed count.
+                        AddDerived(sub, false, questKeys[sub], true, false, quest.Kind == WiredQuestKind.Chain && sub == 0 ? value => value
+                            : value => WiredQuestVariables.Derive(_quests, quest, value.Value, sub) is { } derived ? new(derived, null, null) : null,
+                            quest.Kind == WiredQuestKind.Chain && sub == 0 ? new(WiredVariableTarget.User, WiredQuestVariables.Token(definition.ItemId, WiredQuestVariables.CurrentStepPart)) : null);
+                    }
+                }
+
                 var level = associated.FirstOrDefault(box => box.Keys.Length != 0);
 
                 if (level is not null) {
@@ -96,7 +108,7 @@ public sealed partial class WiredRoomVariables
                 }
 
                 void AddDerived(int sub, bool isTime, string key, bool requiresValue, bool requiresTimestamps,
-                    Func<WiredVariableValue, WiredVariableValue?> read)
+                    Func<WiredVariableValue, WiredVariableValue?> read, WiredVariableReference? source = null)
                 {
                     if (SyntheticId(definition.Target, definition.ItemId, sub, isTime) is not { } id) {
                         return;
@@ -110,7 +122,7 @@ public sealed partial class WiredRoomVariables
                     }
 
                     var derived = definition with { ItemId = id, Name = definition.Name + "." + key };
-                    derivations.Add(new(derived.Target, derived.Token), new(new(definition.Target, definition.Token), read, requiresValue, requiresTimestamps));
+                    derivations.Add(new(derived.Target, derived.Token), new(source ?? new(definition.Target, definition.Token), read, requiresValue, requiresTimestamps));
                     derivedDefinitions.Add(derived);
                 }
             }
@@ -181,14 +193,14 @@ public sealed partial class WiredRoomVariables
     }
 
     private sealed record NativeMetadata(NativeBoxInput Input, ImmutableArray<KeyValuePair<int, string>>? Connector,
-        WiredVariableTimeUtilities? Time, WiredVariableLevelSystem? Level, string[] Keys, int[] Subs, int Target)
+        WiredVariableTimeUtilities? Time, WiredVariableLevelSystem? Level, string[] Keys, int[] Subs)
     {
         public static NativeMetadata Decode(NativeBoxInput input)
         {
             var configuration = input.Configuration;
 
             if (input.Name == "wf_xtra_var_text_connector") {
-                return new(input, WiredVariableMetadataBox.ParseConnector(configuration.Text).OrderBy(pair => pair.Key).ToImmutableArray(), null, null, [], [], 0);
+                return new(input, WiredVariableMetadataBox.ParseConnector(configuration.Text).OrderBy(pair => pair.Key).ToImmutableArray(), null, null, [], []);
             }
 
             if (input.Name == "wf_xtra_var_time_util") {
@@ -198,7 +210,7 @@ public sealed partial class WiredRoomVariables
                     throw new ArgumentException("Invalid captured time metadata.");
                 }
 
-                return new(input, null, new(configuration.IntParams[0], configuration.IntParams[1]), null, [], [], 0);
+                return new(input, null, new(configuration.IntParams[0], configuration.IntParams[1]), null, [], []);
             }
 
             if (input.Name == "wf_xtra_var_lvlup_system") {
@@ -208,40 +220,12 @@ public sealed partial class WiredRoomVariables
 
                 var keys = new[] { "current_level", "current_xp", "level_progress", "level_progress_percent", "total_xp_required", "xp_remaining", "is_at_max", "max_level" };
 
-                return new(input, null, null, level, keys, Enumerable.Range(0, 8).Where(sub => (level!.SubvariableMask & (1 << sub)) != 0).ToArray(), 0);
+                return new(input, null, null, level, keys, Enumerable.Range(0, 8).Where(sub => (level!.SubvariableMask & (1 << sub)) != 0).ToArray());
             }
 
-            if (input.Name is "wf_var_quest" or "wf_var_quest_chain") {
-                if (configuration.IntParams.Length != 1 || configuration.Text.Length != 0 || configuration.IntParams[0] < 0) {
-                    throw new ArgumentException("Invalid captured quest metadata.");
-                }
-
-                var keys = input.Name == "wf_var_quest" ? new[] { "progress", "target", "is_complete", "percent", "remaining" }
-                    : ["current_step", "total_steps", "is_complete", "percent"];
-
-                return new(input, null, null, null, keys, Enumerable.Range(0, keys.Length).ToArray(), configuration.IntParams[0]);
-            }
-
-            return new(input, null, null, null, [], [], 0);
+            return new(input, null, null, null, [], []);
         }
 
-        public long Read(long value, int sub)
-        {
-            if (Level is not null) {
-                return Level.Read(value, sub);
-            }
-
-            var progress = Math.Max(0, value);
-
-            return sub switch
-            {
-                0 => Input.Name == "wf_var_quest_chain" && Target > 0 ? Math.Min(progress, Target) : progress,
-                1 => Target,
-                2 => Target > 0 && progress >= Target ? 1 : 0,
-                3 => Target == 0 ? 100 : (long)Math.Min(100m, (decimal)progress * 100 / Target),
-                4 => Math.Max(0, Target - progress),
-                _ => throw new ArgumentOutOfRangeException(nameof(sub))
-            };
-        }
+        public long Read(long value, int sub) => Level!.Read(value, sub);
     }
 }

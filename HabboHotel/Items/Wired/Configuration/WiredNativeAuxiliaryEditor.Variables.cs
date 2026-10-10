@@ -97,6 +97,9 @@ internal static partial class WiredNativeAuxiliaryEditor
 
             return Draft(n, [target, p[2], p[1], p[4], p[5], n.UserSourceTypes[0], n.FurniSourceTypes[0], n.Quantifier ?? 0]);
         }));
+        // Variable (fixed target), comparison, value mode (none, literal, variable), value (high, low), the variable's target.
+        yield return new("wf_slc_furni_with_var", new(Meta(1, 1, [1, 0, 0, 0, 1], 2), WithVariable));
+        yield return new("wf_slc_users_with_var", new(Meta(1, 1, [1, 0, 0, 0, 1], 2), WithVariable));
         // Created, value changed, deleted; increased/decreased/unchanged mask; origin mask. The target comes from the chosen variable.
         yield return new("wf_trg_var_changed", new(Meta(0, 0, [1, 1, 1, 7, -1], 1), n =>
         {
@@ -126,5 +129,19 @@ internal static partial class WiredNativeAuxiliaryEditor
 
         return Shape(n, 1, 1, 1, 1) && TryTarget(p[0], out var target)
             ? Draft(n, [target, n.UserSourceTypes[0], n.FurniSourceTypes[0], n.Quantifier ?? 0]) : null;
+    }
+
+    private static WiredConfiguration? WithVariable(WiredNativeEditorConfiguration n)
+    {
+        var p = n.OwnedIntParams;
+
+        if (!Shape(n, 5, 1, 1, 2) || n.Filter is null || n.Inverse is null || p[0] is < 0 or > 5 || p[1] is < 0 or > 2
+            || !TryTarget(p[4], out var target) || p[3] < 0 != (p[2] == -1) || p[2] is not (0 or -1)) {
+            return null;
+        }
+
+        // The selector executor takes a 32-bit literal; a wider one has no representation here.
+        return Draft(n, [p[1] == 0 ? 0 : 1, ScalarComparison[p[0]], p[1] == 2 ? 1 : 0, p[3], target, n.UserSourceTypes[0],
+            n.FurniSourceTypes[0], n.Filter.Value ? 1 : 0, n.Inverse.Value ? 1 : 0]);
     }
 }

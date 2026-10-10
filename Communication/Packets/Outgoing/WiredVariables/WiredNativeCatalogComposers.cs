@@ -20,30 +20,7 @@ public sealed class WiredNativeCatalogDiffComposer(WiredNativeCatalogDiff diff) 
         packet.WriteInteger(diff.Changed.Length);
 
         foreach (var variable in diff.Changed) {
-            packet.WriteInteger(variable.Hash);
-            packet.WriteString(variable.Id);
-            packet.WriteInteger(variable.Type);
-            packet.WriteString(variable.Name);
-            packet.WriteInteger(variable.Availability);
-            packet.WriteInteger(variable.Target);
-            packet.WriteBoolean(variable.AlwaysAvailable);
-            packet.WriteBoolean(variable.CanCreateAndDelete);
-            packet.WriteBoolean(variable.HasValue);
-            packet.WriteBoolean(variable.CanWriteValue);
-            packet.WriteBoolean(variable.CanInterceptChanges);
-            packet.WriteBoolean(variable.IsInvisible);
-            packet.WriteBoolean(variable.CanReadCreationTime);
-            packet.WriteBoolean(variable.CanReadLastUpdateTime);
-            packet.WriteBoolean(variable.Connector.HasValue);
-
-            if (variable.Connector is { } connector) {
-                packet.WriteInteger(connector.Length);
-
-                foreach (var pair in connector) {
-                    packet.WriteInteger(pair.Key);
-                    packet.WriteString(pair.Value);
-                }
-            }
+            variable.Write(packet, true);
         }
     }
 }

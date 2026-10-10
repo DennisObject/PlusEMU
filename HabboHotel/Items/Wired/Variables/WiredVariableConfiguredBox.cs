@@ -20,7 +20,7 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
         Item = item;
         _executors = executors;
         Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
-        Configuration = WiredNativeEditorProjection.DefaultRuntime(item.Id, descriptor) ?? WiredVariableDefaults.Create(descriptor.CanonicalName);
+        Configuration = WiredNativeEditorProjection.DefaultRuntime(item.Id, descriptor) ?? new();
     }
     public Room Instance { get; set; }
     public Item Item { get; set; }

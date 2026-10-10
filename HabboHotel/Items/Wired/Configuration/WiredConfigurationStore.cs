@@ -33,6 +33,18 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
         return runtime;
     }
 
+    /// <summary>A stored native row as its compiled runtime, for readers that inspect rows outside the room that owns them.</summary>
+    internal static WiredConfiguration? DecodeRow(uint itemId, string boxName, string json)
+    {
+        try {
+            return WiredBoxRegistry.TryGet(boxName, out var descriptor) && JsonSerializer.Deserialize<WiredNativeEditorConfiguration>(json) is { } native
+                && WiredNativeEditorProjection.TryCompile(itemId, descriptor, native, out var runtime) ? runtime : null;
+        }
+        catch (JsonException) {
+            return null;
+        }
+    }
+
     public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration)
     {
         if (itemId == 0 || !WiredNativeEditorProjection.IsBound(itemId, descriptor, configuration)) {

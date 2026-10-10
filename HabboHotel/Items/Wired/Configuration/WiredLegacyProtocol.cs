@@ -145,7 +145,8 @@ public static class WiredLegacyProtocol
 
     public static void Write(IOutgoingPacket packet, uint itemId, int spriteId, WiredBoxDescriptor descriptor,
         WiredConfiguration configuration, int furniLimit, IReadOnlyList<int> blockedItems,
-        WiredNativeEditorConfiguration? editor = null)
+        WiredNativeEditorConfiguration? editor = null, int? catalogHash = null,
+        IReadOnlyList<Plus.HabboHotel.Items.Wired.Variables.WiredNativeSharedVariable>? sharedVariables = null)
     {
         editor ??= configuration.Origin?.Native;
 
@@ -180,6 +181,12 @@ public static class WiredLegacyProtocol
             packet.WriteInteger(editor.Quantifier!.Value);
         }
 
+        // A selector's two flags follow its code, ahead of the advanced footer.
+        if (editor.Category == WiredBoxCategory.Selector) {
+            packet.WriteBoolean(editor.Filter!.Value);
+            packet.WriteBoolean(editor.Inverse!.Value);
+        }
+
         packet.WriteBoolean(true);
         WriteGroups(packet, metadata.FurniAllowed);
         WriteGroups(packet, metadata.UsersAllowed);
@@ -192,8 +199,26 @@ public static class WiredLegacyProtocol
             packet.WriteBoolean(metadata.Invert);
         }
 
-        // The supported local cards have no variable/context inputs. Unknown card contexts are not fabricated.
-        packet.WriteInteger(0);
+        // One context entry (type 0, the room's variable catalog) carries its hash; the client synchronizes the catalog by it.
+        // Zero is the "unknown, request it" hint and is also what a failed capture sends. Cards without pickers carry no context.
+        packet.WriteInteger((catalogHash is null ? 0 : 1) + (sharedVariables is null ? 0 : 1));
+
+        if (catalogHash is { } hash) {
+            packet.WriteInteger(0);
+            packet.WriteInteger(hash);
+        }
+
+        // Context 4: the variables other rooms share, each as its room and the standard variable block.
+        if (sharedVariables is not null) {
+            packet.WriteInteger(4);
+            packet.WriteInteger(sharedVariables.Count);
+
+            foreach (var shared in sharedVariables) {
+                packet.WriteInteger(checked((int)shared.RoomId));
+                packet.WriteString(shared.RoomName);
+                shared.Variable.Write(packet, false);
+            }
+        }
         WriteInts(packet, metadata.OwnedDefaults);
     }
 

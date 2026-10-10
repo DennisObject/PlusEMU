@@ -92,7 +92,7 @@ public sealed class WiredAddonModule
                     var expanded = c.IntParams.Length == 3;
 
                     if (expanded && P(1) == 1) {
-                        var token = c.VariableIds.FirstOrDefault() ?? c.Text;
+                        var token = c.VariableIds.FirstOrDefault() ?? "";
                         count = input.ReadVariable?.Invoke(new(P(2), token, 0, 0, c, UseSelected: true)) ?? count;
                     }
 
@@ -150,7 +150,7 @@ public sealed class WiredAddonModule
                     break;
                 }
             case "wf_xtra_mov_curve": {
-                    long? strength = P(3) == 1 ? ReadVariable(input, P(4), c.Text, P(5), P(6), c) : P(2);
+                    long? strength = P(3) == 1 ? ReadVariable(input, P(4), c.VariableIds.FirstOrDefault() ?? "", P(5), P(6), c) : P(2);
 
                     if (strength is not null) {
                         policy.Curve = new(P(0), P(1), (int)Math.Clamp(strength.Value, -1000, 1000));
@@ -161,7 +161,7 @@ public sealed class WiredAddonModule
             case "wf_xtra_rotate_to_dir": {
                     var distance = (WiredProjectileDistance)P(14);
                     long? tiles = distance != WiredProjectileDistance.Normal && P(15) == 1
-                        ? ReadVariable(input, P(17), c.Text.Split('\t').ElementAtOrDefault(1) ?? "", P(21), P(22), c) : P(16);
+                        ? ReadVariable(input, P(17), c.VariableIds.ElementAtOrDefault(1) ?? "", P(21), P(22), c) : P(16);
 
                     if (tiles is null) {
                         distance = WiredProjectileDistance.Normal;

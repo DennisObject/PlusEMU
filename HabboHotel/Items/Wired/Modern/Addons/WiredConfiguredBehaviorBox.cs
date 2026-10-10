@@ -15,7 +15,8 @@ public abstract class WiredConfiguredBehaviorBox : IWiredConfiguredItem
         Item = item;
         Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
         _normalize = normalize;
-        Configuration = normalize(new());
+        // A mapped box starts on its compiled native defaults, whoever constructs it.
+        Configuration = WiredNativeEditorProjection.DefaultRuntime(item.Id, Descriptor) ?? normalize(new());
     }
 
     private readonly Func<WiredConfiguration, WiredConfiguration> _normalize;

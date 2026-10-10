@@ -12,4 +12,7 @@ public interface IQuestManager
     Quest? GetNextQuestInSeries(string category, int number);
     void GetList(GameClient session, ClientPacket? message);
     void QuestReminder(GameClient session, int questId);
+
+    /// <summary>Every loaded quest, for lookups by name or chain; implementations that cannot enumerate expose none.</summary>
+    IReadOnlyList<Quest> GetQuests() => [];
 }

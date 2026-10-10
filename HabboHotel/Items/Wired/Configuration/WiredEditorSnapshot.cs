@@ -9,6 +9,12 @@ public sealed record WiredEditorSnapshot(
 {
     public WiredNativeEditorConfiguration? Native { get; init; }
 
+    /// <summary>The room variable catalog hash for forms with variable pickers; null for forms without any.</summary>
+    public int? CatalogHash { get; init; }
+
+    /// <summary>The shared variables a reference box may point at; null for every other form.</summary>
+    public ImmutableArray<Plus.HabboHotel.Items.Wired.Variables.WiredNativeSharedVariable>? SharedVariables { get; init; }
+
     public static WiredEditorSnapshot Capture(IWiredConfiguredItem box)
     {
         var configuration = box.Configuration;
@@ -17,14 +23,17 @@ public sealed record WiredEditorSnapshot(
             throw new InvalidDataException("The saved settings have no supported native editor projection.");
         }
 
+        // Pickers need the catalog hash; a failed capture sends the zero request hint, never a successful empty catalog.
+        int? hash = WiredNativeEditorProjection.Metadata(box.Descriptor.CanonicalName).VariableDefaults.Length == 0 ? null
+            : box.Instance.GetWired().Variables.TryCaptureNativeCatalog(out var catalog) && catalog is not null ? catalog.Hash : 0;
+
         return new(box.Item.Id, box.Item.Definition.SpriteId, box.Descriptor, configuration,
             WiredConfigurationLimits.SelectedItems, [])
-        { Native = native };
+        {
+            Native = native,
+            CatalogHash = hash,
+            SharedVariables = box.Descriptor.CanonicalName == "wf_var_reference"
+                ? [.. box.Instance.GetWired().Variables.Module.ListShared().Select(Plus.HabboHotel.Items.Wired.Variables.WiredNativeSharedVariable.Project)] : null
+        };
     }
-
-    public static WiredEditorSnapshot Capture(Item item, WiredBoxDescriptor descriptor, WiredConfiguration configuration,
-        int furniLimit = WiredConfigurationLimits.SelectedItems, IReadOnlyList<int>? blockedItems = null) =>
-        new(item.Id, item.Definition.SpriteId, descriptor,
-            WiredMovementConfiguration.ForEditor(descriptor.CanonicalName, configuration), furniLimit,
-            blockedItems?.ToImmutableArray() ?? []);
 }

@@ -41,11 +41,11 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
                 return true;
             }
 
-            if (!WiredVariableDescription.TryParseCatalogId(id, out var parsed, out var itemId) || (int)parsed != target) {
+            if (!WiredVariableDescription.TryParseCatalogId(id, out var parsed, out var parsedToken) || (int)parsed != target) {
                 return false;
             }
 
-            token = authority is null ? $"custom:{itemId}" : authority.TryResolveCatalogId(id, parsed, out var reference) ? reference.Token : "";
+            token = authority is null ? parsedToken : authority.TryResolveCatalogId(id, parsed, out var reference) ? reference.Token : "";
 
             return true;
         }
@@ -299,5 +299,6 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
 
         return outcomes.Length > 0 && (quantifier == 1 ? outcomes.Any(x => x) : outcomes.All(x => x));
     }
-    private static bool ValidToken(string token) => WiredVariableModule.TryDefinitionId(token, out _);
+    private static bool ValidToken(string token) => WiredVariableModule.TryDefinitionId(token, out _)
+        || (token.StartsWith("internal:@", StringComparison.Ordinal) || token.StartsWith("internal:~", StringComparison.Ordinal)) && token.Length > 10;
 }

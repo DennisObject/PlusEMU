@@ -34,9 +34,11 @@ public sealed partial class WiredRoomVariables
                 continue;
             }
 
-            var parts = config.Text.Split('\t');
-            WiredVariableModule.TryDefinitionId(parts[0], out var id);
-            capturers.Add(new(id, parts[1], config.IntParams[0] == 2 ? MetadataOn(id, "wf_xtra_var_text_connector")?.TextConnector : null));
+            if (!box.TryCapture(config, Module, out var id)) {
+                continue;
+            }
+
+            capturers.Add(new(id, config.Text, config.IntParams[0] == 2 ? MetadataOn(id, "wf_xtra_var_text_connector")?.TextConnector : null));
         }
 
         if (capturers.Count == 0) {

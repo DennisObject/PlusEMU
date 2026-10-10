@@ -14,7 +14,8 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 public sealed class RoomWiredBuiltinVariables(Room room,
     Func<WiredVariableReference, WiredVariableHolder, WiredVariableFrame, long?>? engineRead = null,
     Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? engineWrite = null,
-    Action<Item, WiredVariableFrame>? stateChanged = null, IRoomItemMetadataStore? metadataStore = null, IItemTravelStore? travelStore = null) : IWiredBuiltinVariables
+    Action<Item, WiredVariableFrame>? stateChanged = null, IRoomItemMetadataStore? metadataStore = null, IItemTravelStore? travelStore = null,
+    Plus.HabboHotel.Quests.IQuestManager? quests = null, Func<uint, WiredQuestBinding?>? questBindings = null) : IWiredBuiltinVariables
 {
     /// <summary>Source capabilities, independent of whether a particular holder currently has the variable.</summary>
     public static bool HasNumericValue(WiredVariableReference reference)
@@ -33,7 +34,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
                 or "~area_hide.root_x" or "~area_hide.root_y" or "~area_hide.width" or "~area_hide.length"
                 or "~clock.state" or "~clock.pulse_count" or "~teleport.target_id" or "~background_color.hue" or "~background_color.saturation" or "~background_color.lightness"
                 or "@projectile.animation.position.x" or "@projectile.animation.position.y" or "@projectile.animation.position.altitude",
-            WiredVariableTarget.User => key is "@achievement_score" or "@altitude" or "@bot_id" or "@dance" or "@direction" or "@effect"
+            WiredVariableTarget.User => WiredQuestVariables.TryParseKey(key, out _, out _) || key is "@achievement_score" or "@altitude" or "@bot_id" or "@dance" or "@direction" or "@effect"
                 or "@gender" or "@handitem" or "@index" or "@pet_id" or "@pet_owner_id" or "@favourite_group_id" or "@position" or "@position.x" or "@position.y" or "@room_entry.method"
                 or "@room_entry.teleport_id" or "@sign" or "@team.type" or "@team.color" or "@team.score" or "@type" or "@user_id"
                 or "~horse.controller_user_id" or "~pet.creation_time" or "~pet.energy" or "~pet.experience"
@@ -130,7 +131,7 @@ public sealed class RoomWiredBuiltinVariables(Room room,
         long? value = holder.Target switch
         {
             WiredVariableTarget.Furni => ReadItem(key, holder, frame),
-            WiredVariableTarget.User => ReadAvatar(key, holder),
+            WiredVariableTarget.User => WiredQuestVariables.TryParseKey(key, out var questDefinition, out var questPart) ? ReadQuest(questDefinition, questPart, holder) : ReadAvatar(key, holder),
             WiredVariableTarget.Global => key switch
             {
                 "@furni_count" => room.GetRoomItemHandler().GetWallAndFloor.Count(),
@@ -346,6 +347,25 @@ public sealed class RoomWiredBuiltinVariables(Room room,
             _ => null
         };
     }
+    // A quest definition's own value, only for a definition present in this room and a player (never a bot or an offline holder).
+    private long? ReadQuest(uint definitionId, string? part, WiredVariableHolder holder)
+    {
+        if (quests is null || questBindings?.Invoke(definitionId) is not { } binding) {
+            return null;
+        }
+
+        var avatar = room.GetRoomUserManager().GetRoomUserByVirtualId(holder.EntityId);
+
+        if (avatar is null || avatar.IsBot || !Matches(avatar, holder)) {
+            return null;
+        }
+
+        var habbo = avatar.GetClient()?.GetHabbo();
+
+        return part == WiredQuestVariables.CurrentStepPart ? WiredQuestVariables.CurrentStep(quests, binding, habbo)
+            : WiredQuestVariables.Read(quests, binding, habbo);
+    }
+
     private long? ReadAvatar(string key, WiredVariableHolder holder)
     {
         var avatar = room.GetRoomUserManager().GetRoomUserByVirtualId(holder.EntityId);

@@ -34,4 +34,9 @@ public interface IWiredVariableDirectory
 {
     WiredVariableDefinition? Find(uint itemId);
     uint? GetRoomOwner(uint roomId);
+
+    /// <summary>Variables other rooms of this owner currently share; directories that cannot enumerate share nothing.</summary>
+    IReadOnlyList<WiredSharedVariable> ListShared(uint ownerId, uint exceptRoomId) => [];
 }
+
+public sealed record WiredSharedVariable(uint RoomId, string RoomName, WiredVariableDefinition Definition);

@@ -93,23 +93,6 @@ public sealed class WiredConfigurationService(
 
             var capturesSnapshots = SnapshotNames.Contains(descriptor.CanonicalName);
 
-            // Saving a snapshot box re-captures its picks, so it is never an unchanged save.
-            if (!capturesSnapshots) {
-                var admission = room.GetWired().TryAdmitUnchangedNativeSave(configured, native, CanModify);
-
-                if (admission == WiredNativeSaveAdmission.Unchanged) {
-                    session.Send(new HideWiredConfigComposer());
-
-                    return;
-                }
-
-                if (admission == WiredNativeSaveAdmission.Refused) {
-                    session.Send(new WiredValidationErrorComposer("The saved settings cannot be represented by this native editor."));
-
-                    return;
-                }
-            }
-
             native = native with
             {
                 SavedState = capturesSnapshots
@@ -156,8 +139,13 @@ public sealed class WiredConfigurationService(
 
         var handler = room.GetRoomItemHandler();
 
+        var allowWall = WiredNativeEditorProjection.Metadata(name).AllowWall;
+
+        // Only cards whose editor admits wall picks capture them, and only with a parseable wall position.
         return native.PrimaryItems.Select(reference => reference.ItemId).Distinct().Select(handler.GetItem)
-            .Where(item => item is { IsFloorItem: true }).Select(WiredRoomOperations.Capture!).ToImmutableArray();
+            .Where(item => item is { IsFloorItem: true } || allowWall && item is { IsWallItem: true })
+            .Select(item => (Item: item!, Snapshot: WiredRoomOperations.Capture(item!)))
+            .Where(pair => !pair.Item.IsWallItem || pair.Snapshot.Wall != null).Select(pair => pair.Snapshot).ToImmutableArray();
     }
 
     private string ValidateBotFigure(string data, GameClient session)

@@ -38,7 +38,7 @@ public sealed class WiredVariableChangedTrigger : WiredModernBox, IWiredContextu
         if (proposed.Version != 1 || p.Length != 8 || !Enum.IsDefined((WiredVariableTarget)p[0])
             || p.Skip(1).Take(6).Any(value => value is not (0 or 1)) || proposed.VariableIds.Length != 1
             || WiredVariableAbsent.Is(proposed.VariableIds[0])
-            || !WiredVariableDescription.TryParseCatalogId(proposed.VariableIds[0], out var target, out _) || (int)target != p[0]) {
+            || !WiredVariableDescription.TryParseCatalogId(proposed.VariableIds[0], out var target, out var pickedToken) || (int)target != p[0]) {
             return false;
         }
 
@@ -46,7 +46,8 @@ public sealed class WiredVariableChangedTrigger : WiredModernBox, IWiredContextu
             p = p.SetItem(3, 0).SetItem(4, 0).SetItem(5, 0);
         }
 
-        if (p[0] == (int)WiredVariableTarget.Global) {
+        // Room variables and built-ins are never created or deleted by a box.
+        if (p[0] == (int)WiredVariableTarget.Global || pickedToken.StartsWith("internal:", StringComparison.Ordinal)) {
             p = p.SetItem(1, 0).SetItem(6, 0);
         }
 

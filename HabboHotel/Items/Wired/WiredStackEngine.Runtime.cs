@@ -355,27 +355,6 @@ internal sealed partial class WiredStackEngine
         return true;
     });
 
-    public WiredNativeSaveAdmission TryAdmitUnchangedNativeSave(IWiredConfiguredItem original,
-        WiredNativeEditorConfiguration proposed, Func<bool> canModify)
-    {
-        // No Pass: an unchanged editor save must not seal publication or alter runtime admission state.
-        lock (_sync) {
-            if (!IsAttached(original) || !RuntimeSupported(original) || !canModify()) {
-                return WiredNativeSaveAdmission.Refused;
-            }
-
-            var current = original.Configuration;
-
-            if (!WiredNativeEditorProjection.TryProject(original.Item, original.Descriptor, current, out var editor)
-                || !canModify() || !IsAttached(original) || !ReferenceEquals(current, original.Configuration)) {
-                return WiredNativeSaveAdmission.Refused;
-            }
-
-            return WiredNativeEditorProjection.SameBody(editor, proposed)
-                ? WiredNativeSaveAdmission.Unchanged : WiredNativeSaveAdmission.Changed;
-        }
-    }
-
     public bool PublishConfigured(IWiredConfiguredItem original, WiredConfiguration validated, Action persist) => Pass(() =>
     {
         if (!IsAttached(original) || !RuntimeSupported(original)

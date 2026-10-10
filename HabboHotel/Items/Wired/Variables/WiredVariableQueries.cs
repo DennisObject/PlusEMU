@@ -19,14 +19,15 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
             _ => (WiredVariableTarget)(-1)
         };
         var p = configuration.IntParams;
-        var tokens = configuration.Text.Split('\t');
+        var ids = configuration.VariableIds;
 
         if (holder.Target != target || p.Length != 9 || p[0] is not (0 or 1) || p[1] is < 0 or > 5
-            || p[2] is not (0 or 1) || !Enum.IsDefined((WiredVariableTarget)p[4]) || tokens[0].Length == 0) {
+            || p[2] is not (0 or 1) || !Enum.IsDefined((WiredVariableTarget)p[4]) || ids.Length != 2
+            || Resolve(target, ids[0]) is not { } variable) {
             return false;
         }
 
-        var value = Read(new(target, tokens[0]), holder);
+        var value = Read(variable, holder);
 
         if (value is null) {
             return false;
@@ -39,12 +40,11 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
         long operand = p[3];
 
         if (p[2] == 1) {
-            if (tokens.Length < 2 || tokens[1].Length == 0) {
+            if (Resolve((WiredVariableTarget)p[4], ids[1]) is not { } reference) {
                 return false;
             }
 
             if (!_operands.TryGetValue((name, configuration), out var captured)) {
-                var reference = new WiredVariableReference((WiredVariableTarget)p[4], tokens[1]);
 
                 foreach (var source in WiredVariableExecutors.Select(frame, reference.Target, p[5], p[6], configuration.SelectedItems)) {
                     if (Read(reference, source) is { } found) {
@@ -66,15 +66,18 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
         return WiredVariablePredicates.Compare(p[1], value.Value, operand);
     }
 
-    public long? ReadOperand(WiredVariableTarget target, string token, int userSource, int furniSource, WiredConfiguration configuration)
+    /// <summary>A picked variable is an opaque catalog id; it resolves through the room module's current authority.</summary>
+    private WiredVariableReference? Resolve(WiredVariableTarget target, string variableId) =>
+        Enum.IsDefined(target) && !WiredVariableAbsent.Is(variableId) && variables.TryResolveCatalogId(variableId, target, out var reference)
+            ? reference : null;
+
+    public long? ReadOperand(WiredVariableTarget target, string variableId, int userSource, int furniSource, WiredConfiguration configuration)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (!Enum.IsDefined(target) || string.IsNullOrWhiteSpace(token)) {
+        if (Resolve(target, variableId) is not { } reference) {
             return null;
         }
-
-        var reference = new WiredVariableReference(target, token);
 
         foreach (var holder in WiredVariableExecutors.Select(frame, target, userSource, furniSource, configuration.SelectedItems)) {
             if (Read(reference, holder) is { } value) {
@@ -85,11 +88,11 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
         return null;
     }
 
-    public long? ReadSelectedOperand(WiredVariableTarget target, string token)
+    public long? ReadSelectedOperand(WiredVariableTarget target, string variableId)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (!Enum.IsDefined(target) || string.IsNullOrWhiteSpace(token)) {
+        if (Resolve(target, variableId) is not { } reference) {
             return null;
         }
 
@@ -102,8 +105,6 @@ public sealed class WiredVariableQueries(WiredVariableModule variables, WiredVar
                 : context.Selected.FurniIds.Select(id => unchecked((int)id));
             selected = ids.Where(holders.ContainsKey).Select(id => holders[id]);
         }
-
-        var reference = new WiredVariableReference(target, token);
 
         foreach (var holder in selected) {
             if (Read(reference, holder) is { } value) {

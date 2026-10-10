@@ -16,7 +16,7 @@ internal static partial class WiredNativeAuxiliaryEditor
     private static readonly ImmutableArray<int> FurniSources = [0, 100, 101, 200, 201];
     private static readonly ImmutableArray<int> UserSources = [0, 200, 201];
 
-    private static readonly FrozenDictionary<string, Spec> Specs = Variables().Concat(Addons()).Concat(Chests())
+    private static readonly FrozenDictionary<string, Spec> Specs = Variables().Concat(Addons()).Concat(VariableAddons()).Concat(Definitions()).Concat(Chests())
         .ToFrozenDictionary(pair => pair.Key, pair => pair.Value);
 
     internal static bool Supports(string name) => Specs.ContainsKey(name);

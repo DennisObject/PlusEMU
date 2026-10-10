@@ -12,6 +12,7 @@ public sealed partial class WiredRoomVariables
     private readonly TimeProvider _clock;
     private readonly WiredVariableConfigurationPersistence _persistence;
     private readonly Dictionary<uint, WiredVariableDefinitionBox> _definitions = [];
+    private readonly Plus.HabboHotel.Quests.IQuestManager? _quests;
     public WiredVariableModule Module { get; }
     public WiredVariableEditor Editor { get; }
     public WiredVariableFxTracker Fx { get; }
@@ -28,12 +29,14 @@ public sealed partial class WiredRoomVariables
     public WiredRoomVariables(Room room, IDatabase database, TimeProvider clock,
         Func<WiredVariableReference, WiredVariableHolder, WiredVariableFrame, long?>? builtinRead = null,
         Func<WiredVariableReference, WiredVariableHolder, int, WiredVariableFrame, bool>? builtinWrite = null,
-        Action<Item, WiredVariableFrame>? stateChanged = null, IItemTravelStore? travelStore = null)
+        Action<Item, WiredVariableFrame>? stateChanged = null, IItemTravelStore? travelStore = null,
+        Plus.HabboHotel.Quests.IQuestManager? quests = null)
     {
         _room = room;
         _clock = clock;
+        _quests = quests;
         Module = new(room.Id, new DatabaseWiredVariableDirectory(database), new DatabaseWiredVariableStore(database), clock,
-            new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite, stateChanged, new RoomItemMetadataStore(database), travelStore), ResolveDerived);
+            new RoomWiredBuiltinVariables(room, builtinRead, builtinWrite, stateChanged, new RoomItemMetadataStore(database), travelStore, quests, QuestBinding), ResolveDerived);
         Editor = new(Module);
         Fx = new(Module);
         _persistence = new(database, Module, clock);

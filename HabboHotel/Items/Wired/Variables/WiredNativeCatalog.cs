@@ -8,6 +8,38 @@ public sealed record WiredNativeVariable(string Id, int Type, string Name, int A
     bool CanInterceptChanges, bool IsInvisible, bool CanReadCreationTime, bool CanReadLastUpdateTime,
     ImmutableArray<KeyValuePair<int, string>>? Connector)
 {
+    /// <summary>The AIR variable record: the catalog diff leads it with the row hash, a shared-variable row does not.</summary>
+    public void Write(Plus.HabboHotel.GameClients.IOutgoingPacket packet, bool withHash)
+    {
+        if (withHash) {
+            packet.WriteInteger(Hash);
+        }
+
+        packet.WriteString(Id);
+        packet.WriteInteger(Type);
+        packet.WriteString(Name);
+        packet.WriteInteger(Availability);
+        packet.WriteInteger(Target);
+        packet.WriteBoolean(AlwaysAvailable);
+        packet.WriteBoolean(CanCreateAndDelete);
+        packet.WriteBoolean(HasValue);
+        packet.WriteBoolean(CanWriteValue);
+        packet.WriteBoolean(CanInterceptChanges);
+        packet.WriteBoolean(IsInvisible);
+        packet.WriteBoolean(CanReadCreationTime);
+        packet.WriteBoolean(CanReadLastUpdateTime);
+        packet.WriteBoolean(Connector.HasValue);
+
+        if (Connector is { } connector) {
+            packet.WriteInteger(connector.Length);
+
+            foreach (var pair in connector) {
+                packet.WriteInteger(pair.Key);
+                packet.WriteString(pair.Value);
+            }
+        }
+    }
+
     public int Hash
     {
         get
@@ -63,6 +95,23 @@ public sealed class WiredNativeCatalog(ImmutableArray<WiredNativeVariable> varia
 
         return Enumerable.Range(0, count).Select(index => new WiredNativeCatalogDiff(Hash, index == count - 1,
             index == 0 ? removed : [], changed.Skip(index * 100).Take(100).ToImmutableArray())).ToImmutableArray();
+    }
+}
+
+/// <summary>One shared-variable row of the editor's reference list: the room it lives in and the variable block.</summary>
+public sealed record WiredNativeSharedVariable(uint RoomId, string RoomName, WiredNativeVariable Variable)
+{
+    /// <summary>
+    /// A shared source offered from another room: the capabilities of its own ordinary domain (a user variable can be created and
+    /// deleted, a room variable cannot; writes need a value). Whether this room's reference is read-only is the reference's own choice.
+    /// </summary>
+    public static WiredNativeSharedVariable Project(WiredSharedVariable shared)
+    {
+        var definition = shared.Definition;
+        var endpoint = new WiredNativeEndpoint(new(definition, definition.HasValue, false), definition, null, true, false);
+        var variable = WiredNativeCatalogProjection.Project(endpoint, null) with { Id = WiredVariableDefinitions.SharedId(shared.RoomId, definition.Target, definition.ItemId) };
+
+        return new(shared.RoomId, shared.RoomName, variable);
     }
 }
 

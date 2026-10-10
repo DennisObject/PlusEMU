@@ -35,12 +35,13 @@ public partial class WiredComponent : IWiredRuntimeOperations
     private readonly ICommandManager _commands;
     private readonly IAccessControl _access;
     private readonly IItemTravelStore _travelStore;
+    private readonly Plus.HabboHotel.Quests.IQuestManager? _quests;
     private readonly Action<WiredModernAction> _bindMovementPublication;
 
     public WiredComponent(Room instance, ILogger logger, TimeProvider clock, ISettingsManager settings, IWiredRoomSettingsFactory settingsFactory,
         IWiredConfigurationStore configurationStore, IDatabase database, IWiredRewardService rewardService,
         IBotManagementStore botStore, IGameClientManager clients, IGroupManager groups, IItemDataManager definitions,
-        ICommandManager commands, IAccessControl access, IItemTravelStore travelStore) //, RoomItem Items)
+        ICommandManager commands, IAccessControl access, IItemTravelStore travelStore, Plus.HabboHotel.Quests.IQuestManager? quests = null) //, RoomItem Items)
     {
         _room = instance;
         _counters = new(observeTransition: transition => _highscores?.Observe(transition), gameTransition: ControlGameTimer,
@@ -57,6 +58,7 @@ public partial class WiredComponent : IWiredRuntimeOperations
         _commands = commands;
         _access = access;
         _travelStore = travelStore;
+        _quests = quests;
         Settings = settingsFactory.Create(instance);
         _engine = new(
             () => (long)Stopwatch.GetElapsedTime(0).TotalMilliseconds,
@@ -220,10 +222,6 @@ public partial class WiredComponent : IWiredRuntimeOperations
         }
     }
     public void ResetTimers(IEnumerable<Item> targets) => _engine.ResetTimers(targets);
-    public WiredNativeSaveAdmission TryAdmitUnchangedNativeSave(IWiredConfiguredItem original,
-        WiredNativeEditorConfiguration proposed, Func<bool> canModify) =>
-        _engine.TryAdmitUnchangedNativeSave(original, proposed, canModify);
-
     public bool PublishConfigured(IWiredConfiguredItem original, WiredConfiguration validated, Action persistValidated) =>
         _engine.PublishConfigured(original, validated, persistValidated);
 

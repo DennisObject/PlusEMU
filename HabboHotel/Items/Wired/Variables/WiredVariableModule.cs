@@ -703,11 +703,11 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
     {
         reference = new(expected, "");
 
-        if (!WiredVariableDescription.TryParseCatalogId(catalogId, out var target, out var itemId) || target != expected) {
+        if (!WiredVariableDescription.TryParseCatalogId(catalogId, out var target, out var token) || target != expected) {
             return false;
         }
 
-        var candidate = new WiredVariableReference(target, $"custom:{itemId}");
+        var candidate = new WiredVariableReference(target, token);
 
         lock (_gate) {
             if (Resolve(candidate, false) is null) {
@@ -719,6 +719,9 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
 
         return true;
     }
+
+    /// <summary>The shared variables this room's owner offers from their other rooms, in directory order.</summary>
+    public IReadOnlyList<WiredSharedVariable> ListShared() => directory.GetRoomOwner(roomId) is { } owner ? directory.ListShared(owner, roomId) : [];
 
     public static bool TryDefinitionId(string token, out uint id) =>
         uint.TryParse(token.StartsWith("custom:", StringComparison.Ordinal) ? token[7..] : token,

@@ -34,13 +34,14 @@ public sealed partial class WiredRoomVariables
         var result = new List<WiredVariableFxBinding>();
 
         foreach (var box in _metadata.Values.Where(x => WiredVariableMetadataBox.IsFx(x.Descriptor.CanonicalName) && IsAttached(x.Item)).OrderBy(x => x.Item.Id)) {
-            var target = box.Configuration.IntParams[0] == 0 ? WiredVariableTarget.User : WiredVariableTarget.Furni;
+            var target = WiredVariableFxSettings.UsesUserSource(box.Configuration) ? WiredVariableTarget.User : WiredVariableTarget.Furni;
             var definition = _definitions.Values.Where(x => x.Descriptor.CanonicalName == (target == WiredVariableTarget.User ? "wf_var_user" : "wf_var_furni")
                 && authorized.ContainsKey(x.Item.Id) && IsAttached(x.Item) && x.Item.GetX == box.Item.GetX && x.Item.GetY == box.Item.GetY)
                 .OrderBy(x => x.Item.GetZ).ThenBy(x => x.Item.Id).FirstOrDefault();
             var reference = new WiredVariableReference(target, definition is null ? "" : $"custom:{definition.Item.Id}");
 
-            if (!WiredVariableFxSettings.TryDecode(box.Descriptor.CanonicalName, checked((int)box.Item.Id), box.Configuration, reference, out var binding, out _)) {
+            if (!WiredVariableFxSettings.TryDecode(box.Descriptor.CanonicalName, checked((int)box.Item.Id), box.Configuration, reference,
+                (id, expected) => Module.TryResolveCatalogId(id, expected, out var resolved) ? resolved : null, out var binding, out _)) {
                 continue;
             }
 
