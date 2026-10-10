@@ -165,6 +165,7 @@ public sealed class WiredRuntimeFactoryTests
 
     private sealed class SidecarStore(string name, WiredConfiguration config) : IWiredConfigurationStore
     {
+        public ModernWiredRuntimeTests.StoredRuntimeRow Row { get; } = new(10, name, 1, JsonSerializer.Serialize(config));
         public bool WasRead;
         public WiredConfiguration? Load(uint id, WiredBoxDescriptor descriptor)
         {
@@ -172,10 +173,73 @@ public sealed class WiredRuntimeFactoryTests
             Assert.Equal(name, descriptor.CanonicalName);
             WasRead = true;
 
-            return config;
+            return new WiredConfigurationStore(new ModernWiredRuntimeTests.StoredRuntimeRowsDatabase([Row])).Load(id, descriptor);
         }
         public void Save(uint id, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => throw new NotSupportedException();
         public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
+    }
+
+    [Theory]
+    [InlineData("wf_trg_says_something", "hello", 3)]
+    [InlineData("wf_act_teleport_to", "", 3)]
+    public void SidecarLoadRetainsTheCapturedSchemaOneRow(string name, string text, int count)
+    {
+        Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
+        var original = new WiredConfiguration { Text = text, IntParams = Enumerable.Repeat(0, count).ToImmutableArray() };
+        var json = JsonSerializer.Serialize(original);
+        var store = new SidecarStore(name, original);
+        Assert.Equal(new ModernWiredRuntimeTests.StoredRuntimeRow(10, name, 1, json), store.Row);
+        var loaded = Assert.IsType<WiredConfiguration>(store.Load(10, descriptor));
+        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, loaded.Origin!.Kind);
+        Assert.Null(loaded.Origin.Native);
+        Assert.Equal(json, JsonSerializer.Serialize(loaded.Origin.StoredLegacy));
+        Assert.Equal(json, store.Row.Json);
+        Assert.Equal(original.IntParams.ToArray(), loaded.IntParams.ToArray());
+        Assert.Equal(original.Text, loaded.Text);
+    }
+
+    [Theory]
+    [InlineData("wrong_name")]
+    [InlineData("wrong_schema")]
+    [InlineData("mismatched_json_version")]
+    public void RealSidecarLoaderRefusesIncompatibleCapturedRows(string failure)
+    {
+        Assert.True(WiredBoxRegistry.TryGet("wf_trg_says_something", out var descriptor));
+        var original = new WiredConfiguration { Text = "hello", IntParams = [0, 0, 0] };
+        var row = new ModernWiredRuntimeTests.StoredRuntimeRow(10, descriptor.CanonicalName, 1, JsonSerializer.Serialize(original));
+        row = failure switch
+        {
+            "wrong_name" => row with { Name = "wf_act_teleport_to" },
+            "wrong_schema" => row with { Version = 3 },
+            "mismatched_json_version" => row with { Json = JsonSerializer.Serialize(original with { Version = 2 }) },
+            _ => throw new ArgumentOutOfRangeException(nameof(failure))
+        };
+        var store = new WiredConfigurationStore(new ModernWiredRuntimeTests.StoredRuntimeRowsDatabase([row]));
+        Assert.Throws<InvalidDataException>(() => store.Load(10, descriptor));
+    }
+
+    [Fact]
+    public void CapturedSidecarRowDoesNotAuthorizeAnotherItemOrAlteredRuntime()
+    {
+        var room = Room();
+        var item = new Item { Id = 10, Definition = new() { ItemName = "wf_trg_says_something" } };
+        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+        var box = Assert.IsAssignableFrom<IWiredConfiguredItem>(facade.CreateConfiguredBox(item));
+        var original = new WiredConfiguration { Text = "hello", IntParams = [0, 0, 0] };
+        var fixture = new SidecarStore(box.Descriptor.CanonicalName, original);
+        var store = new WiredConfigurationStore(new ModernWiredRuntimeTests.StoredRuntimeRowsDatabase([fixture.Row]));
+        Assert.Null(store.Load(11, box.Descriptor));
+        var loaded = Assert.IsType<WiredConfiguration>(store.Load(10, box.Descriptor));
+        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+        var installed = box.Configuration;
+        Assert.False(box.TryValidateConfiguration(installed with { Text = "altered" }, out _, out _));
+        Assert.Throws<InvalidDataException>(() => box.ApplyConfiguration(installed with { Text = "altered" }));
+        Assert.Same(installed, box.Configuration);
+        item.Id = 11;
+        Assert.False(box.TryValidateConfiguration(installed, out _, out _));
+        Assert.Throws<InvalidDataException>(() => box.ApplyConfiguration(installed));
+        Assert.Same(installed, box.Configuration);
+        Assert.Equal(JsonSerializer.Serialize(original), fixture.Row.Json);
     }
 
     [Fact]
