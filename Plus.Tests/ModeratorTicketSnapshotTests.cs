@@ -1,10 +1,13 @@
 using System.Collections.Immutable;
 using System.Reflection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Plus.Communication.Packets;
+using Plus.Communication.Packets.Incoming;
 using Plus.Communication.Packets.Incoming.Moderation;
 using Plus.Communication.Packets.Outgoing.Moderation;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Moderation;
+using Plus.HabboHotel.Permissions;
 using Plus.HabboHotel.Rooms;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing;
@@ -127,7 +130,14 @@ public sealed class ModeratorTicketSnapshotTests
     {
         var manager = Proxy<IModerationManager>((method, _) => method == "UserHasTickets" ? false : throw new InvalidOperationException("unexpected publication"));
         var users = Proxy<IModeratorUserLookup>((_, _) => new Habbo { Id = 2 });
-        var service = new ModeratorTicketService(manager, null!, users, new FailingStore(), TimeProvider.System, null!);
+        var rooms = Proxy<IRoomDataLoader>((method, args) =>
+        {
+            Assert.Equal("TryGetData", method);
+            args[1] = null;
+
+            return false;
+        });
+        var service = new ModeratorTicketService(manager, null!, users, new FailingStore(), TimeProvider.System, rooms);
         var (actor, sent) = HabbiconTestSupport.Client(new Habbo { Id = 1 });
         Assert.Throws<InvalidOperationException>(() => service.Submit(actor, new(" help ", 6, 2, 5, ["chat"])));
         Assert.Empty(sent);
@@ -140,13 +150,287 @@ public sealed class ModeratorTicketSnapshotTests
         {
             Assert.Equal("Submit", method);
             var request = Assert.IsType<SubmitTicketRequest>(args[1]);
-            Assert.Equal((" help ", 6, 2, 5), (request.Message, request.Category, request.ReportedUserId, request.Type));
+            Assert.Equal((" help ", 6, 2, 5), (request.Message, request.Category, request.ReportedUserId, request.ReportedRoomId));
             Assert.Equal(new[] { "one", "two" }, request.Chats.ToArray());
 
             return null;
         });
         await new SubmitNewTicketEvent(service).Parse(null!, HabbiconTestSupport.Incoming(" help ", 6, 2, 5, 2, 88, "one", 99, "two"));
     }
+
+    [Fact]
+    public async Task RoomReportDispatchPublishesSourceRoomAndTheLoadedRoom()
+    {
+        var (client, _, disconnected) = Connect(Person(1, "Sender", roomId: 99));
+        var world = new TicketWorld();
+        world.Rooms[42] = new RoomData { Id = 42 };
+        await Dispatch(new SubmitNewTicketEvent(world.Service), client, ClientPacketHeader.SubmitNewTicketEvent, "help", 6, -1, 42, 0);
+        var ticket = Assert.Single(world.Tickets);
+        Assert.Null(ticket.Reported);
+        Assert.Equal(7, ticket.Type);
+        Assert.Equal(6, ticket.Category);
+        Assert.Equal(42u, ticket.Room?.Id);
+        Assert.NotEqual(99u, ticket.Room?.Id);
+        Assert.Equal(1, world.Submissions);
+        Assert.Empty(world.UserLookups);
+        Assert.False(disconnected());
+    }
+
+    [Fact]
+    public async Task RoomReportDispatchRefusesBeforeStoreEffects()
+    {
+        var problems = new List<string>();
+        await Expect("non-positive room", () => RefuseRoomReport(0, assertLookup: false), problems);
+        await Expect("negative room", () => RefuseRoomReport(-5, assertLookup: false), problems);
+        await Expect("unresolved room", () => RefuseRoomReport(42, assertLookup: true), problems);
+        Assert.True(problems.Count == 0, string.Join("\n", problems));
+    }
+
+    [Fact]
+    public async Task UserReportDispatchRejectsAMissingOnlineUser()
+    {
+        var (client, _, disconnected) = Connect(Person(1, "Sender", roomId: 99));
+        var world = new TicketWorld();
+        world.Rooms[42] = new RoomData { Id = 42 };
+        await Dispatch(new SubmitNewTicketEvent(world.Service), client, ClientPacketHeader.SubmitNewTicketEvent, "help", 6, 8, 42, 0);
+        Assert.Equal(new[] { 8 }, world.UserLookups);
+        Assert.Empty(world.RoomLookups);
+        Assert.Empty(world.Tickets);
+        Assert.Equal(0, world.Submissions);
+        Assert.False(disconnected());
+    }
+
+    [Fact]
+    public async Task UserReportDispatchAllowsANullRoomAndDoesNotUseCurrentRoom()
+    {
+        var problems = new List<string>();
+        await Expect("non-positive room", () => SubmitUserReport(0, loaded: false, expectRoom: null), problems);
+        await Expect("unresolved room", () => SubmitUserReport(42, loaded: false, expectRoom: null), problems);
+        await Expect("loaded room", () => SubmitUserReport(42, loaded: true, expectRoom: 42), problems);
+        Assert.True(problems.Count == 0, string.Join("\n", problems));
+    }
+
+    [Fact]
+    public async Task PendingTicketDispatchReturnsBeforeLookup()
+    {
+        var sender = Person(1, "Sender", roomId: 99);
+        var (client, sent, disconnected) = Connect(sender);
+        var pending = OpenTicket(4, sender, null);
+        var world = new TicketWorld { Pending = true, PendingTicket = pending };
+        world.Tickets.Add(pending);
+        world.Rooms[42] = new RoomData { Id = 42 };
+        await Dispatch(new SubmitNewTicketEvent(world.Service), client, ClientPacketHeader.SubmitNewTicketEvent, "help", 6, -1, 42, 0);
+        Assert.Equal(ServerPacketHeader.CallForHelpPendingCallsComposer, Assert.Single(sent).Header);
+        Assert.Empty(world.RoomLookups);
+        Assert.Empty(world.UserLookups);
+        Assert.Equal(0, world.Submissions);
+        Assert.Same(pending, Assert.Single(world.Tickets));
+        Assert.False(pending.Answered);
+        Assert.False(disconnected());
+    }
+
+    [Fact]
+    public async Task CloseDispatchRejectsMalformedFramesWithoutEffects()
+    {
+        var problems = new List<string>();
+        await Expect("resolution 4", () => RejectClose(4, 1, 11), problems);
+        await Expect("resolution 0", () => RejectClose(0, 0), problems);
+        await Expect("negative count", () => RejectClose(3, -1), problems);
+        await Expect("truncated count", () => RejectClose(3, 2, 11), problems);
+        await Expect("huge count", () => RejectClose(3, 2147483647), problems);
+        await Expect("duplicate id", () => RejectClose(3, 2, 11, 11), problems);
+        Assert.True(problems.Count == 0, string.Join("\n", problems));
+    }
+
+    [Fact]
+    public async Task CloseDispatchCountZeroDoesNotCloseOrDisconnect()
+    {
+        var actor = Person(3, "Staff", moderator: true);
+        var reporter = Person(1, "Ada");
+        var (client, _, disconnected) = Connect(actor);
+        var (reporterClient, sent, _) = Connect(reporter);
+        var world = new TicketWorld();
+        world.Reporters[reporter.Id] = reporterClient;
+        var ticket = OpenTicket(11, reporter, actor);
+        world.Tickets.Add(ticket);
+        await Dispatch(new CloseTicketEvent(world.Service), client, ClientPacketHeader.CloseTicketEvent, 3, 0, 11);
+        Assert.False(ticket.Answered);
+        Assert.False(disconnected());
+        Assert.Empty(sent);
+        Assert.Equal(0, world.Abuses);
+        Assert.Equal(0, world.Broadcasts);
+    }
+
+    [Fact]
+    public async Task CloseDispatchStopsForAMissingModerationToolBeforeParse()
+    {
+        var closes = 0;
+        var service = Proxy<IModeratorTicketService>((method, _) =>
+        {
+            closes++;
+            Assert.Equal("Close", method);
+
+            return null;
+        });
+        var (client, _, disconnected) = Connect(Person(3, "Staff"));
+        using var manager = new PacketManager([new CloseTicketEvent(service)], NullLogger<PacketManager>.Instance);
+        await manager.TryExecutePacket(client, ClientPacketHeader.CloseTicketEvent, HabbiconTestSupport.Incoming(3, 2, 11));
+        Assert.False(disconnected());
+        Assert.Equal(0, closes);
+    }
+
+    [Fact]
+    public async Task CloseDispatchClosesEachAssignedIdAndContinuesAfterADenial()
+    {
+        var problems = new List<string>();
+        await Expect("both assigned", CloseBothAssigned, problems);
+        await Expect("denied then allowed", CloseDeniedThenAllowed, problems);
+        await Expect("abusive", CloseAbusive, problems);
+        Assert.True(problems.Count == 0, string.Join("\n", problems));
+    }
+
+    private static async Task RefuseRoomReport(int roomId, bool assertLookup)
+    {
+        var (client, _, disconnected) = Connect(Person(1, "Sender", roomId: 99));
+        var world = new TicketWorld();
+        await Dispatch(new SubmitNewTicketEvent(world.Service), client, ClientPacketHeader.SubmitNewTicketEvent, "help", 6, -1, roomId, 0);
+        Assert.Empty(world.Tickets);
+        Assert.Equal(0, world.Submissions);
+        Assert.Equal(0, world.Alerts);
+        Assert.Equal(0, world.Broadcasts);
+        Assert.False(disconnected());
+        Assert.Equal(assertLookup ? new[] { (uint)roomId } : [], world.RoomLookups);
+    }
+
+    private static async Task SubmitUserReport(int roomId, bool loaded, uint? expectRoom)
+    {
+        var (client, _, disconnected) = Connect(Person(1, "Sender", roomId: 99));
+        var world = new TicketWorld { Reported = Person(2, "Target") };
+
+        if (loaded) {
+            world.Rooms[(uint)roomId] = new RoomData { Id = (uint)roomId };
+        }
+
+        await Dispatch(new SubmitNewTicketEvent(world.Service), client, ClientPacketHeader.SubmitNewTicketEvent, "help", 6, 2, roomId, 0);
+        var ticket = Assert.Single(world.Tickets);
+        Assert.Equal((1, 6, expectRoom), (ticket.Type, ticket.Category, ticket.Room?.Id));
+        Assert.Equal(2, ticket.Reported?.Id);
+        Assert.NotEqual(99u, ticket.Room?.Id ?? 0);
+        Assert.Equal(new[] { 2 }, world.UserLookups);
+        Assert.Equal(roomId > 0 ? new[] { (uint)roomId } : [], world.RoomLookups);
+        Assert.False(disconnected());
+    }
+
+    private static async Task RejectClose(params int[] frame)
+    {
+        var actor = Person(3, "Staff", moderator: true);
+        var reporter = Person(1, "Ada");
+        var (client, _, disconnected) = Connect(actor);
+        var (reporterClient, sent, _) = Connect(reporter);
+        var world = new TicketWorld();
+        world.Reporters[reporter.Id] = reporterClient;
+        world.Tickets.Add(OpenTicket(11, reporter, actor));
+        world.Tickets.Add(OpenTicket(12, reporter, actor));
+        await Dispatch(new CloseTicketEvent(world.Service), client, ClientPacketHeader.CloseTicketEvent, frame.Cast<object>().ToArray());
+        Assert.True(disconnected());
+        Assert.All(world.Tickets, ticket => Assert.False(ticket.Answered));
+        Assert.Equal(0, world.Abuses);
+        Assert.Empty(sent);
+        Assert.Equal(0, world.Broadcasts);
+        Assert.Equal(0, world.Alerts);
+    }
+
+    private static async Task CloseBothAssigned()
+    {
+        var (world, client, adaSent, beaSent, disconnected) = AssignedPair(sameModerator: true);
+        await Dispatch(new CloseTicketEvent(world.Service), client, ClientPacketHeader.CloseTicketEvent, 3, 2, 11, 12);
+        Assert.True(world.Tickets.Single(ticket => ticket.Id == 11).Answered);
+        Assert.True(world.Tickets.Single(ticket => ticket.Id == 12).Answered);
+        Assert.Equal(ServerPacketHeader.ModeratorSupportTicketResponseComposer, Assert.Single(adaSent).Header);
+        Assert.Equal(ServerPacketHeader.ModeratorSupportTicketResponseComposer, Assert.Single(beaSent).Header);
+        Assert.Equal(0, world.Abuses);
+        Assert.False(disconnected());
+    }
+
+    private static async Task CloseDeniedThenAllowed()
+    {
+        var (world, client, adaSent, beaSent, disconnected) = AssignedPair(sameModerator: false);
+        await Dispatch(new CloseTicketEvent(world.Service), client, ClientPacketHeader.CloseTicketEvent, 3, 2, 11, 12);
+        Assert.False(world.Tickets.Single(ticket => ticket.Id == 11).Answered);
+        Assert.True(world.Tickets.Single(ticket => ticket.Id == 12).Answered);
+        Assert.Empty(adaSent);
+        Assert.Equal(ServerPacketHeader.ModeratorSupportTicketResponseComposer, Assert.Single(beaSent).Header);
+        Assert.False(disconnected());
+    }
+
+    private static async Task CloseAbusive()
+    {
+        var actor = Person(3, "Staff", moderator: true);
+        var ada = Person(1, "Ada");
+        var (client, _, disconnected) = Connect(actor);
+        var (adaClient, adaSent, _) = Connect(ada);
+        var world = new TicketWorld();
+        world.Reporters[ada.Id] = adaClient;
+        world.Tickets.Add(OpenTicket(11, ada, actor));
+        await Dispatch(new CloseTicketEvent(world.Service), client, ClientPacketHeader.CloseTicketEvent, 2, 1, 11);
+        Assert.True(world.Tickets.Single().Answered);
+        Assert.Equal(1, world.Abuses);
+        Assert.Equal(ServerPacketHeader.ModeratorSupportTicketResponseComposer, Assert.Single(adaSent).Header);
+        Assert.False(disconnected());
+    }
+
+    private static (TicketWorld World, GameClient Client, List<(uint Header, byte[] Payload)> AdaSent, List<(uint Header, byte[] Payload)> BeaSent, Func<bool> Disconnected) AssignedPair(bool sameModerator)
+    {
+        var actor = Person(3, "Staff", moderator: true);
+        var ada = Person(1, "Ada");
+        var bea = Person(2, "Bea");
+        var (client, _, disconnected) = Connect(actor);
+        var (adaClient, adaSent, _) = Connect(ada);
+        var (beaClient, beaSent, _) = Connect(bea);
+        var world = new TicketWorld();
+        world.Reporters[ada.Id] = adaClient;
+        world.Reporters[bea.Id] = beaClient;
+        world.Tickets.Add(OpenTicket(11, ada, sameModerator ? actor : Person(9, "Other", moderator: true)));
+        world.Tickets.Add(OpenTicket(12, bea, actor));
+
+        return (world, client, adaSent, beaSent, disconnected);
+    }
+
+    private static async Task Dispatch(IPacketEvent packet, GameClient client, uint header, params object[] values)
+    {
+        using var manager = new PacketManager([packet], NullLogger<PacketManager>.Instance);
+        await manager.TryExecutePacket(client, header, HabbiconTestSupport.Incoming(values));
+    }
+
+    private static async Task Expect(string name, Func<Task> check, List<string> problems)
+    {
+        try {
+            await check();
+        }
+        catch (Exception exception) {
+            problems.Add($"{name}: {exception.Message}");
+        }
+    }
+
+    private static (GameClient Client, List<(uint Header, byte[] Payload)> Sent, Func<bool> Disconnected) Connect(Habbo habbo)
+    {
+        var (client, sent) = HabbiconTestSupport.Client(habbo);
+        var disconnected = false;
+        client.DisconnectRequested = () => disconnected = true;
+
+        return (client, sent, () => disconnected);
+    }
+
+    private static Habbo Person(int id, string username, bool moderator = false, uint? roomId = null) => new()
+    {
+        Id = id,
+        Username = username,
+        Access = EditorTestSupport.Access(moderator ? [PermissionKeys.ModerationTool] : []),
+        CurrentRoom = roomId is uint room ? new Room(new RoomData { Id = room }, [], TestLogging.Navigation, TestLogging.Logger, TestRoomAchievements.Unused, TestRoomOwners.Unused) : null
+    };
+
+    private static ModerationTicket OpenTicket(int id, Habbo sender, Habbo? moderator) =>
+        new(id, 1, 6, DateTimeOffset.UnixEpoch, 1, sender, null, "help", null, []) { Moderator = moderator };
 
     private static object[] Compose(IServerPacket composer)
     {
@@ -171,5 +455,100 @@ public sealed class ModeratorTicketSnapshotTests
     {
         public void RecordSubmission(int userId) => throw new InvalidOperationException("forced failure");
         public void RecordAbuse(int userId) => throw new InvalidOperationException("forced failure");
+    }
+
+    private sealed class TicketWorld
+    {
+        public List<ModerationTicket> Tickets { get; } = [];
+        public List<uint> RoomLookups { get; } = [];
+        public List<int> UserLookups { get; } = [];
+        public Dictionary<uint, RoomData> Rooms { get; } = [];
+        public Dictionary<int, GameClient> Reporters { get; } = [];
+        public bool Pending { get; set; }
+        public ModerationTicket? PendingTicket { get; set; }
+        public Habbo? Reported { get; set; }
+        public int Submissions { get; private set; }
+        public int Abuses { get; private set; }
+        public int Alerts { get; private set; }
+        public int Broadcasts { get; private set; }
+        public ModeratorTicketService Service { get; }
+
+        public TicketWorld()
+        {
+            Service = new(Proxy<IModerationManager>(Moderate), Proxy<IGameClientManager>(Clients), Proxy<IModeratorUserLookup>(Users),
+                new RecordingStore(this), TimeProvider.System, Proxy<IRoomDataLoader>(LoadRoom));
+        }
+
+        private object? Moderate(string method, object?[] args)
+        {
+            switch (method) {
+                case "UserHasTickets":
+                    return Pending;
+                case "GetTicketBySenderId":
+                    return PendingTicket;
+                case "TryAddTicket":
+                    Tickets.Add((ModerationTicket)args[0]!);
+
+                    return true;
+                case "TryGetTicket":
+                    var ticket = Tickets.FirstOrDefault(item => item.Id == (int)args[0]!);
+                    args[1] = ticket;
+
+                    return ticket != null;
+                default:
+                    throw new InvalidOperationException(method);
+            }
+        }
+
+        private object? Users(string method, object?[] args)
+        {
+            if (method != "GetById") {
+                throw new InvalidOperationException(method);
+            }
+
+            UserLookups.Add((int)args[0]!);
+
+            return Reported;
+        }
+
+        private object? LoadRoom(string method, object?[] args)
+        {
+            if (method != "TryGetData") {
+                throw new InvalidOperationException(method);
+            }
+
+            var id = (uint)args[0]!;
+            RoomLookups.Add(id);
+            Rooms.TryGetValue(id, out var data);
+            args[1] = data;
+
+            return data != null;
+        }
+
+        private object? Clients(string method, object?[] args)
+        {
+            switch (method) {
+                case "ModAlert":
+                    Alerts++;
+
+                    return null;
+                case "SendPacket":
+                    Broadcasts++;
+
+                    return null;
+                case "GetClientByUserId":
+                    Reporters.TryGetValue((int)args[0]!, out var reporter);
+
+                    return reporter;
+                default:
+                    throw new InvalidOperationException(method);
+            }
+        }
+
+        private sealed class RecordingStore(TicketWorld world) : IModeratorTicketStore
+        {
+            public void RecordSubmission(int userId) => world.Submissions++;
+            public void RecordAbuse(int userId) => world.Abuses++;
+        }
     }
 }

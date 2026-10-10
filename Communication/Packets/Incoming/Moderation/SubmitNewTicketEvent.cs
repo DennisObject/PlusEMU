@@ -11,7 +11,7 @@ internal sealed class SubmitNewTicketEvent(IModeratorTicketService tickets) : IP
         var message = packet.ReadString();
         var category = packet.ReadInt();
         var reportedId = packet.ReadInt();
-        var type = packet.ReadInt();
+        var reportedRoomId = packet.ReadInt();
         var count = packet.ReadInt();
         var chats = ImmutableArray.CreateBuilder<string>();
 
@@ -20,7 +20,7 @@ internal sealed class SubmitNewTicketEvent(IModeratorTicketService tickets) : IP
             chats.Add(packet.ReadString());
         }
 
-        tickets.Submit(session, new(message, category, reportedId, type, chats.ToImmutable()));
+        tickets.Submit(session, new(message, category, reportedId, reportedRoomId, chats.ToImmutable()));
 
         return Task.CompletedTask;
     }
