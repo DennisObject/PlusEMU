@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using Microsoft.IO;
+using Plus.Communication.Flash;
 using Plus.Communication.Packets.Outgoing.Inventory.Pets;
 using Plus.Communication.Packets.Outgoing.Rooms.AI.Pets;
 using Plus.HabboHotel.GameClients;
@@ -30,7 +32,7 @@ public class PetWireTests
         var composer = new PetInventoryComposer(PetAppearanceSnapshots.Inventory(pets));
         composer.Compose(packet);
 
-        Assert.Equal(new object[] { 1, 0, 1, 42, "LifePet", 12, 2, "FFFFFF", 0, 2, 2, -1, 0, 3, -1, 0, 3 }, packet.Writes);
+        Assert.Equal(new object[] { 1, 0, 1, 42, "LifePet", 12, 2, "FFFFFF", 0, 2, 2, -1, 0, 3, -1, 0, 3, -1 }, packet.Writes);
         pets.Clear();
         pet.Name = "Changed";
         pet.Race = "invalid";
@@ -61,8 +63,47 @@ public class PetWireTests
         new PetInventoryComposer(PetAppearanceSnapshots.Inventory([pet])).Compose(packet);
 
         Assert.Equal(expectedFigure, pet.Look);
-        Assert.Equal(expectedFigure.Split(' ').Skip(3).Select(int.Parse).Cast<object>(), packet.Writes.Skip(9).SkipLast(1));
-        Assert.Equal(1, packet.Writes.Last());
+        Assert.Equal(expectedFigure.Split(' ').Skip(3).Select(int.Parse).Cast<object>(), packet.Writes.Skip(9).SkipLast(2));
+        Assert.Equal(1, packet.Writes[^2]);
+        Assert.Equal(-1, packet.Writes.Last());
+    }
+
+    [Fact]
+    public void InventoryRarityTailKeepsTwoNativePetRecordsAligned()
+    {
+        var pets = new PetInventorySnapshot([
+            new(42, "Horse", 12, 2, "FFFFFF", [2, 2, -1, 0, 3, -1, 0], 3),
+            new(77, "Gnome", 26, 1, "ABCDEF", [1, 3, 302, 4], 7)
+        ]);
+        using var stream = (RecyclableMemoryStream)new RecyclableMemoryStreamManager().GetStream();
+        new PetInventoryComposer(pets).Compose(new FlashOutgoingPacket(stream));
+        stream.Position = 6;
+        var packet = new FlashIncomingPacket(stream);
+
+        Assert.Equal(1, packet.ReadInt());
+        Assert.Equal(0, packet.ReadInt());
+        Assert.Equal(2, packet.ReadInt());
+
+        foreach (var pet in pets.Pets) {
+            Assert.Equal(pet.Id, packet.ReadInt());
+            Assert.Equal(pet.Name, packet.ReadString());
+            Assert.Equal(pet.Type, packet.ReadInt());
+            Assert.Equal(pet.Race, packet.ReadInt());
+            Assert.Equal(pet.Color, packet.ReadString());
+            Assert.Equal(0, packet.ReadInt());
+            var partCount = packet.ReadInt();
+            Assert.Equal(pet.CustomParts[0], partCount);
+            Assert.Equal(pet.CustomParts.Length - 1, partCount * 3);
+
+            foreach (var part in pet.CustomParts.Skip(1)) {
+                Assert.Equal(part, packet.ReadInt());
+            }
+
+            Assert.Equal(pet.Level, packet.ReadInt());
+            Assert.Equal(-1, packet.ReadInt());
+        }
+
+        Assert.False(packet.HasDataRemaining());
     }
 
     [Fact]
