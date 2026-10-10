@@ -280,7 +280,7 @@ public sealed class TradeConfirmationServiceTests
         public void Cancel(GameClient session) => calls.Add("Cancel");
         public void CancelConfirmation(GameClient session) => calls.Add("CancelConfirmation");
         public void OfferItem(GameClient session, uint itemId) => calls.Add("OfferItem");
-        public void OfferItems(GameClient session, int amount, uint itemId) => calls.Add("OfferItems");
+        public void OfferItems(GameClient session, IReadOnlyList<uint> itemIds) => calls.Add("OfferItems");
         public void RemoveItem(GameClient session, uint itemId) => calls.Add("RemoveItem");
     }
 
