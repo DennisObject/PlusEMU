@@ -126,49 +126,7 @@ public partial class PlacedFurniRoomTests
         Assert.All(new uint[] { 48, 49, 50 }, id => Assert.Null(Assert.IsType<InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(id)));
     }
 
-    [Fact]
-    public async Task ASaveBeforePickupIsForgottenAndASaveAfterIsRefused()
-    {
-        var store = ResettableStore();
-        var (item, box) = PlaceBox(store, 51, 1);
-        store.Saved.Clear();
-        Assert.True(_room.GetWired().PublishLegacy(box, _room.GetWired().GenerateNewBox(item)!, () => store.Saved.Add(51)));
 
-        await Pickup(51);
-
-        Assert.Empty(store.Saved);
-        Assert.False(_room.GetWired().PublishLegacy(box, _room.GetWired().GenerateNewBox(item)!, () => store.Saved.Add(51)));
-        Assert.Empty(store.Saved);
-    }
-
-    [Fact]
-    public async Task ASaveRacingThePickupWaitsAndIsRefused()
-    {
-        var store = ResettableStore();
-        var (item, box) = PlaceBox(store, 52, 1);
-        Task<bool>? save = null;
-        var waitedForPickup = false;
-        store.DuringReset = () =>
-        {
-            var candidate = _room.GetWired().GenerateNewBox(item)!;
-            using var started = new ManualResetEventSlim();
-            save = Task.Run(() =>
-            {
-                started.Set();
-
-                return _room.GetWired().PublishLegacy(box, candidate, () => store.Saved.Add(52));
-            });
-            Assert.True(started.Wait(TimeSpan.FromSeconds(10)));
-            // The save is held off until the box has left the wired engine.
-            waitedForPickup = !save.Wait(TimeSpan.FromMilliseconds(300));
-        };
-
-        await Pickup(52);
-
-        Assert.True(waitedForPickup);
-        Assert.False(await save!);
-        Assert.Empty(store.Saved);
-    }
 
     private ResettableConfigurationStore ResettableStore()
     {

@@ -27,9 +27,7 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
                 return false;
             }
 
-            if (proposed.Origin!.Native != null) {
-                return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
-            }
+            return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
         }
 
         if (!WiredTriggerConfiguration.TryValidate(Descriptor.CanonicalName, proposed, out validated, out error)) {
@@ -43,10 +41,6 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
             error = "wiredfurni.error.require_antenna_furni";
 
             return false;
-        }
-
-        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)) {
-            validated = WiredNativeEditorProjection.RebindLegacy(Item.Id, Descriptor, proposed, validated);
         }
 
         return true;
@@ -93,6 +87,7 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
         bool ItemMatches(bool state = false) => evt.EventItem is { } item
             && (deferItems || WiredTriggerPredicates.MatchesItem(config, item, Items(), state));
         bool BotMatches() => evt.Actor?.IsBot == true && !evt.Actor.IsPet
+            && WiredTriggerPredicates.MatchesName(config, WiredModernCondition.Name(evt.Actor))
             && (deferBots || (config.UserSources["bots"] == 0
                 ? context.Targets.AllUsers().Any(user => ReferenceEquals(user, evt.Actor))
                 : Users(context, config, "bots", config.Text).Contains(evt.Actor)));
@@ -127,16 +122,10 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
 public sealed class WiredModernTimedTrigger : WiredModernTrigger, IWiredTimedTrigger
 {
     private readonly WiredTimedTriggers _timers = new();
-    private readonly WiredConfiguration? _initialRepeatConfiguration;
-    internal bool HasInitialRepeatConfiguration => Descriptor.CanonicalName == "wf_trg_periodically"
-        && ReferenceEquals(Configuration, _initialRepeatConfiguration);
-    internal (long Started, long Epoch) InitialCardTiming => (_started, _epoch);
     private long _started;
     private long _epoch;
     public WiredModernTimedTrigger(Room room, Item item, WiredBoxDescriptor descriptor) : base(room, item, descriptor)
     {
-        _initialRepeatConfiguration = descriptor.CanonicalName == "wf_trg_periodically" ? Configuration : null;
-
         if (!WiredTriggerConfiguration.IsTimed(descriptor.CanonicalName)) {
             throw new ArgumentException("Not a timed trigger.", nameof(descriptor));
         }

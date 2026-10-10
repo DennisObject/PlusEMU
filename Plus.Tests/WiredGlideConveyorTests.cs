@@ -300,7 +300,7 @@ public sealed partial class WiredGlideConveyorTests
             Items = (ConcurrentDictionary<uint, Item>)Get(handler, "_floorItems");
             _users = (ConcurrentDictionary<int, RoomUser>)Get(users, "_users");
             var saved = layout.Where(entry => entry.Json != null)
-                .Select(entry => new ModernWiredRuntimeTests.StoredRuntimeRow(entry.Id, entry.Name, 1, entry.Json!)).ToArray();
+                .Select(entry => WiredNativeTestSupport.NativeRow(entry.Id, entry.Name, entry.Json!)).ToArray();
             _savedRows = saved.ToImmutableDictionary(row => row.ItemId);
             _wired = new(_room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
                 new SavedConfigurations(saved), TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance,
@@ -367,21 +367,6 @@ public sealed partial class WiredGlideConveyorTests
         public object? EngineField(string name) => Get(Engine, name);
         public void SetEngineCallback(string name, object callback) => Set(Engine, name, callback);
         public void ReplaceUser(RoomUser user) => _users[user.VirtualId] = user;
-
-        public void ReplaceLoadedConfigurationText(uint id, string text)
-        {
-            var original = _savedRows[id];
-            var box = Assert.IsType<WiredModernAction>(Box(id));
-            Assert.Equal(original.Name, box.Item.Definition.ItemName);
-            var raw = JsonSerializer.Deserialize<WiredConfiguration>(original.Json)! with { Text = text };
-            var store = new WiredConfigurationStore(new ModernWiredRuntimeTests.StoredRuntimeRowsDatabase(
-                [original with { Json = JsonSerializer.Serialize(raw) }]));
-            var loaded = Assert.IsType<WiredConfiguration>(store.Load(original.ItemId, box.Descriptor));
-            Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
-            Assert.Equal(raw.IntParams.ToArray(), box.Configuration.Origin!.StoredLegacy!.IntParams.ToArray());
-            Assert.Equal(raw.SelectedItems.ToArray(), box.Configuration.Origin.StoredLegacy.SelectedItems.ToArray());
-            Assert.Equal(text, box.Configuration.Text);
-        }
 
         public void DrainMovement() => _room.RunFastPass(_map.Navigation!.DrainCommands);
 

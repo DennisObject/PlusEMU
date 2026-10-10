@@ -32,6 +32,23 @@ public abstract class WiredConfiguredBehaviorBox : IWiredConfiguredItem
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         try {
+            // A mapped box has one model: its bound native record. The compiled runtime is already normalized, so the
+            // normalizer here only validates it and the bound record itself stays the published configuration.
+            if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)) {
+                validated = proposed;
+                error = "Invalid native editor authority.";
+
+                if (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)
+                    || !WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out _, out error)) {
+                    return false;
+                }
+
+                _normalize(proposed);
+                error = "";
+
+                return true;
+            }
+
             validated = _normalize(proposed);
             error = "";
 
@@ -47,6 +64,11 @@ public abstract class WiredConfiguredBehaviorBox : IWiredConfiguredItem
 
     public void ApplyConfiguration(WiredConfiguration validated)
     {
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)
+            && !WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, validated)) {
+            throw new InvalidDataException("Unbound or altered native Wired runtime projection.");
+        }
+
         Configuration = validated;
         StringData = validated.Text;
         ItemsData = string.Join(';', validated.SelectedItems);

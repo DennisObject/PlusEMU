@@ -2,7 +2,7 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Conditions;
 
-/// <summary>The legacy calendar editor stores skip/exact/range modes, not Turbo use flags.</summary>
+/// <summary>Calendar predicates over the compiled current editor settings.</summary>
 public static class WiredTimeConditions
 {
     public static bool MatchesTime(WiredConfiguration config, DateTimeOffset roomLocalTime) =>

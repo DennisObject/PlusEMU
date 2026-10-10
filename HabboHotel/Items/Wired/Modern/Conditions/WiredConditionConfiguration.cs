@@ -120,7 +120,7 @@ public static class WiredConditionConfiguration
                 users["users"] = p[0];
                 break;
             case "wf_cnd_user_performs_action":
-                if (p.Length != 7 || !Range(0, 1, 11) || !Q(1) || !Range(2, 0, 17)
+                if (p.Length != 7 || !Range(0, 1, 12) || !Q(1) || !Range(2, 0, 17)
                     || !Q(3) || !Range(4, 0, 4) || !U(5) || !Q(6)) {
                     return false;
                 }

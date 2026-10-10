@@ -435,24 +435,6 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("200;1", _room.GetRoomItemHandler().GetItem(10).LegacyDataString);
     }
 
-    [Fact]
-    public void LegacyWiredRotationUpdatesOldAndNewRectangleProjection()
-    {
-        Viewer();
-        var table = Add(10, 1, 1, height: 2, length: 2);
-        var box = new Plus.HabboHotel.Items.Wired.Boxes.Effects.MatchPositionBox(_room, Furni(12, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-        {
-            StringData = "0;1;0",
-            ItemsData = "10:1,1,0,2,0"
-        };
-        box.SetItems.TryAdd(10, table);
-        Assert.True(box.Execute());
-        Assert.Equal(2, table.Rotation);
-        Assert.Equal((short)0, DeltaAt(1, 2));
-        Assert.Equal((short)512, DeltaAt(2, 1));
-        Assert.Contains(table, _room.GetGameMap().GetCoordinatedItems(new(2, 1)));
-        Assert.DoesNotContain(table, _room.GetGameMap().GetCoordinatedItems(new(1, 2)));
-    }
 
     [Fact]
     public void MovementKeepsLegacyEffectHookWhileHeightRebindingIsCallbackFree()

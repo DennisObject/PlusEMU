@@ -6,23 +6,21 @@ public static class WiredConfigurationSave
     public static bool TrySave(IWiredConfiguredItem box, WiredConfiguration proposed, IWiredConfigurationStore store,
         out string error, Func<uint, bool>? existsInRoom = null,
         Func<IWiredConfiguredItem, WiredConfiguration, Action, bool>? publish = null,
-        Func<IWiredConfiguredItem, WiredConfiguration, WiredConfiguration>? prepare = null,
         Func<uint, bool>? isTemporaryInRoom = null)
     {
         // A room publisher owns the engine lock; never acquire it while holding the per-box edit lock.
         if (publish != null) {
-            return TrySaveCore(box, proposed, store, out error, existsInRoom, publish, prepare, isTemporaryInRoom);
+            return TrySaveCore(box, proposed, store, out error, existsInRoom, publish, isTemporaryInRoom);
         }
 
         lock (box) {
-            return TrySaveCore(box, proposed, store, out error, existsInRoom, null, prepare, isTemporaryInRoom);
+            return TrySaveCore(box, proposed, store, out error, existsInRoom, null, isTemporaryInRoom);
         }
     }
 
     private static bool TrySaveCore(IWiredConfiguredItem box, WiredConfiguration proposed, IWiredConfigurationStore store,
         out string error, Func<uint, bool>? existsInRoom,
         Func<IWiredConfiguredItem, WiredConfiguration, Action, bool>? publish,
-        Func<IWiredConfiguredItem, WiredConfiguration, WiredConfiguration>? prepare,
         Func<uint, bool>? isTemporaryInRoom)
     {
         error = "Invalid Wired configuration.";
@@ -33,33 +31,16 @@ public static class WiredConfigurationSave
             return false;
         }
 
-        if (box.Descriptor.CanonicalName == "wf_act_place_furni"
-            && !Plus.HabboHotel.Items.Wired.Modern.Actions.WiredTemporaryFurnitureActions.TryDecodeEditor(proposed, out proposed)) {
-            return false;
-        }
-
         if (existsInRoom != null && (!proposed.SelectedItems.All(existsInRoom)
             || !proposed.SecondarySelectedItems.All(existsInRoom))) {
             return false;
         }
 
-        var capturesTemplates = !box.Item.IsTemporary && box.Descriptor.CanonicalName == "wf_act_place_furni"
-            && proposed.TemporaryPlacement != null && prepare != null;
-
-        if (!capturesTemplates && HasTemporaryPicks(proposed, isTemporaryInRoom)) {
+        if (HasTemporaryPicks(proposed, isTemporaryInRoom)) {
             return false;
         }
 
-        // Save-only read preparation captures snapshots without changing the live box. Hydration never calls this.
-        var prepared = prepare != null ? prepare(box, proposed) : proposed;
-
-        if (!WiredLegacyProtocol.IsWithinLimits(prepared) || HasTemporaryPicks(prepared, isTemporaryInRoom)
-            || existsInRoom != null && (!prepared.SelectedItems.All(existsInRoom)
-                || !prepared.SecondarySelectedItems.All(existsInRoom))) {
-            return false;
-        }
-
-        if (!box.TryValidateConfiguration(prepared, out var validated, out error)) {
+        if (!box.TryValidateConfiguration(proposed, out var validated, out error)) {
             return false;
         }
 

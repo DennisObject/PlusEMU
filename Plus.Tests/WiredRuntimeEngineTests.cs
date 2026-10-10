@@ -544,32 +544,6 @@ public partial class WiredRuntimeEngineTests
         Assert.False(f.Engine.NeedsFastCycle);
     }
 
-    [Fact]
-    public void PromotionPersistsBeforeReplacingLegacyReferenceAndCancelsCapturedWork()
-    {
-        var f = new Fixture();
-        f.Trigger();
-        var original = f.Action(delay: 1);
-        var candidate = new Box(WiredBoxCategory.Action) { Item = original.Item, Instance = f.Room };
-        f.DispatchAndResume(new WiredRuntimeEvent(WiredEventKind.Enter));
-        Assert.Throws<InvalidOperationException>(() => f.Engine.PublishPromotion(original, candidate, new(),
-            () => throw new InvalidOperationException("database")));
-        Assert.True(f.Engine.TryGet(original.Item.Id, out var stillOriginal));
-        Assert.Same(original, stillOriginal);
-        Assert.True(f.Engine.PublishPromotion(original, candidate, new() { Text = "saved" }, () =>
-        {
-            Assert.True(f.Engine.TryGet(original.Item.Id, out var persisted));
-            Assert.Same(original, persisted);
-        }));
-        Assert.True(f.Engine.TryGet(original.Item.Id, out var promoted));
-        Assert.Same(candidate, promoted);
-        f.Advance(500);
-        Assert.Equal(0, original.Calls);
-        Assert.Equal("saved", candidate.Configuration.Text);
-        f.DispatchAndResume(new WiredRuntimeEvent(WiredEventKind.Enter));
-        Assert.Equal(1, candidate.Calls);
-        Assert.Equal(0, original.Calls);
-    }
 
     [Fact]
     public void AuxiliaryAnimationWorkSharesBudgetDelayAndConfigurationCancellation()
@@ -718,24 +692,6 @@ public partial class WiredRuntimeEngineTests
         Assert.Empty(f.Errors);
     }
 
-    [Fact]
-    public void LoaderRetainsLegacyPayloadWithoutSidecarAndRejectsInvalidSidecar()
-    {
-        var legacy = new LegacyRepeater { StringData = "old;payload", ItemsData = "7:1:2:3:0.5", BoolData = true, Delay = 4 };
-        var configured = new Box(WiredBoxCategory.Trigger) { Configuration = new() { Text = "modern" } };
-        Assert.Same(legacy, WiredBoxLoading.Select(legacy, configured, null));
-        Assert.Equal("old;payload", legacy.StringData);
-        Assert.Equal("7:1:2:3:0.5", legacy.ItemsData);
-        Assert.Equal(4, legacy.Delay);
-        Assert.True(legacy.BoolData);
-        Assert.Same(configured, WiredBoxLoading.Select(legacy, configured, new() { Text = "saved" }));
-        Assert.Equal("saved", configured.Configuration.Text);
-        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(legacy, null, new()));
-        var invalid = new InvalidConfigured();
-        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(legacy, invalid, new() { Text = "invalid bytes" }));
-        Assert.Equal("old;payload", legacy.StringData);
-        Assert.Equal("", invalid.Configuration.Text);
-    }
     private sealed class InvalidConfigured() : Box(WiredBoxCategory.Action)
     {
         public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
@@ -1176,7 +1132,7 @@ public partial class WiredRuntimeEngineTests
         public string StringData { get; set; } = "";
         public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
-        public WiredBoxDescriptor Descriptor { get; } = new("test", category, 0, 0, "test") { Support = WiredBoxSupport.Implemented };
+        public WiredBoxDescriptor Descriptor { get; } = new("test", category, 0, "test") { Support = WiredBoxSupport.Implemented };
         public WiredConfiguration Configuration { get; set; } = new();
         public Func<WiredRuntimeContext, bool> Body { get; set; } = _ => true;
         public bool IsNegative { get; set; }

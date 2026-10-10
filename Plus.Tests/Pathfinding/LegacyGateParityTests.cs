@@ -4,7 +4,6 @@ using Plus.Communication.Packets.Incoming.Rooms.Furni;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
@@ -75,17 +74,6 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(0, gate.UpdateCounter);
     }
 
-    [Fact]
-    public void LegacyMatchPositionBoxWritesAClosingStateDirectly()
-    {
-        var gate = LegacyGate();
-        var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-        { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,0" };
-        box.SetItems.TryAdd(gate.Id, gate);
-        Assert.True(box.Execute());
-        Assert.Equal("0", gate.LegacyDataString);
-        Assert.Equal(0, Gates.PendingCount);
-    }
 
     [Fact]
     public void LegacyModernToggleWritesAClosingStateDirectly()

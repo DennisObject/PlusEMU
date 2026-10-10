@@ -348,7 +348,7 @@ public sealed class WiredSelectorCaptureTests(ITestOutputHelper output)
         public string StringData { get; set; } = "";
         public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
-        public WiredBoxDescriptor Descriptor { get; } = new("test", category, 0, 0, "test") { Support = WiredBoxSupport.Implemented };
+        public WiredBoxDescriptor Descriptor { get; } = new("test", category, 0, "test") { Support = WiredBoxSupport.Implemented };
         public WiredConfiguration Configuration { get; set; } = new();
         public Func<WiredRuntimeContext, bool> Body { get; set; } = _ => true;
         public bool IsNegative => false;

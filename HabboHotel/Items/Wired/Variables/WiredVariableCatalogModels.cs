@@ -16,13 +16,34 @@ public sealed record WiredVariableDescription(WiredVariableDefinition Definition
         WiredVariableTarget.Furni => 2,
         _ => 3
     };
-    public string CatalogId => (Definition.Target switch
+    public string CatalogId => CatalogPrefix(Definition.Target) + Definition.ItemId;
+    private static string CatalogPrefix(WiredVariableTarget target) => target switch
     {
         WiredVariableTarget.User => "user:",
         WiredVariableTarget.Furni => "furni:",
         WiredVariableTarget.Global => "room:",
         _ => "ctx:"
-    }) + Definition.ItemId;
+    };
+    /// <summary>The one inverse of <see cref="CatalogId"/>; the module still authorizes the definition it names.</summary>
+    public static bool TryParseCatalogId(string id, out WiredVariableTarget target, out uint itemId)
+    {
+        itemId = 0;
+        target = default;
+
+        foreach (var candidate in Enum.GetValues<WiredVariableTarget>()) {
+            var prefix = CatalogPrefix(candidate);
+
+            if (id.StartsWith(prefix, StringComparison.Ordinal)
+                && uint.TryParse(id.AsSpan(prefix.Length), System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out itemId)
+                && itemId > 0 && CatalogPrefix(candidate) + itemId == id) {
+                target = candidate;
+
+                return true;
+            }
+        }
+
+        return false;
+    }
     public int Hash
     {
         get
@@ -96,4 +117,11 @@ internal static class WiredVariablePaging
 
         return new(all.Length, page, size, all.Skip(offset).Take(size).ToArray());
     }
+}
+
+/// <summary>The AIR picker's "no variable" sentinel (WiredVariable "n"); an empty id means the same.</summary>
+public static class WiredVariableAbsent
+{
+    public const string Id = "n";
+    public static bool Is(string? id) => string.IsNullOrEmpty(id) || id == Id;
 }

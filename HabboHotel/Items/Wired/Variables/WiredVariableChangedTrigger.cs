@@ -8,20 +8,37 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 public sealed class WiredVariableChangedTrigger : WiredModernBox, IWiredContextualTrigger
 {
     public WiredVariableChangedTrigger(Room room, Item item, WiredBoxDescriptor descriptor) : base(room, item, descriptor) =>
-        ApplyConfiguration(new() { IntParams = [0, 1, 1, 1, 1, 1, 1, -1] });
+        ApplyConfiguration(WiredNativeEditorProjection.DefaultRuntime(item.Id, descriptor) ?? new() { IntParams = [0, 1, 1, 1, 1, 1, 1, -1] });
     public IReadOnlyCollection<WiredEventKind> Events { get; } = [WiredEventKind.Variable];
     public bool HidesChat(WiredRuntimeContext context) => false;
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)
+            && (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)
+                || !WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error))) {
+            validated = proposed;
+            error = "Invalid native variable authority.";
+
+            return false;
+        }
+
+        // The native compile already stores the normalized form, so a valid draft is kept as the very record it was bound to.
+        validated = proposed;
+
+        return TryNormalize(proposed, out _, out error);
+    }
+
+    /// <summary>The integer shape only; the picked variable is an opaque catalog id resolved by the module at match time.</summary>
+    internal static bool TryNormalize(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
+    {
         validated = proposed;
         error = "Choose a scalar variable and change types.";
         var p = proposed.IntParams;
-        var internalToken = proposed.Text.StartsWith("internal:@", StringComparison.Ordinal) && proposed.Text.Length > 10;
 
         if (proposed.Version != 1 || p.Length != 8 || !Enum.IsDefined((WiredVariableTarget)p[0])
-            || p.Skip(1).Take(6).Any(value => value is not (0 or 1)) || proposed.Text.Length > 64
-            || !internalToken && !WiredVariableModule.TryDefinitionId(proposed.Text, out _)
-            || proposed.Text.IndexOfAny(['\t', '\r', '\n']) >= 0) {
+            || p.Skip(1).Take(6).Any(value => value is not (0 or 1)) || proposed.VariableIds.Length != 1
+            || WiredVariableAbsent.Is(proposed.VariableIds[0])
+            || !WiredVariableDescription.TryParseCatalogId(proposed.VariableIds[0], out var target, out _) || (int)target != p[0]) {
             return false;
         }
 
@@ -29,7 +46,7 @@ public sealed class WiredVariableChangedTrigger : WiredModernBox, IWiredContextu
             p = p.SetItem(3, 0).SetItem(4, 0).SetItem(5, 0);
         }
 
-        if (p[0] == (int)WiredVariableTarget.Global || internalToken) {
+        if (p[0] == (int)WiredVariableTarget.Global) {
             p = p.SetItem(1, 0).SetItem(6, 0);
         }
 
@@ -48,11 +65,12 @@ public sealed class WiredVariableChangedTrigger : WiredModernBox, IWiredContextu
     {
         if (!ReferenceEquals(context.Room, Instance) || context.Event.Kind != WiredEventKind.Variable
             || context.Event.VariableChange is not { } change || change.RoomId != context.Room.Id
-            || !TryValidateConfiguration(context.ConfigurationOf(this), out var config, out _)) {
+            || !TryValidateConfiguration(context.ConfigurationOf(this), out var config, out _)
+            || !Instance.GetWired().Variables.Module.TryResolveCatalogId(config.VariableIds[0], (WiredVariableTarget)config.IntParams[0], out var reference)) {
             return false;
         }
 
-        return Matches(config, change);
+        return Matches(config with { Text = reference.Token }, change);
     }
     public static bool Matches(WiredConfiguration config, WiredVariableChange change)
     {

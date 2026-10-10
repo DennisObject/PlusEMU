@@ -5,7 +5,6 @@ using Plus.Communication.Packets.Incoming.Rooms.Action;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -84,38 +83,6 @@ public sealed class RoomMuteServiceTests
         Assert.Equal(1, clock.Calls);
     }
 
-    [Fact]
-    public void LegacyAndModernWiredMutesRefreshFromOneCapturedUtcInstant()
-    {
-        var clock = new CountingClock(Now, TimeZoneInfo.CreateCustomTimeZone("mute-plus-nine", TimeSpan.FromHours(9), "test", "test"));
-        var world = new World(clock);
-        var item = new Item { Id = 1, Definition = new() };
-        var legacy = new MuteTriggererBox(world.Room, item, clock);
-        legacy.HandleSave(HabbiconTestSupport.Incoming(0, 2, "legacy"));
-
-        Assert.True(legacy.Execute(world.Target));
-        Assert.Equal(Now.AddMinutes(2), world.Room.MutedUsers[world.Target.Id]);
-        Assert.Equal(1, clock.Calls);
-        clock.Now = Now.AddMinutes(1);
-        Assert.True(legacy.Execute(world.Target));
-        Assert.Equal(clock.Now.AddMinutes(2), world.Room.MutedUsers[world.Target.Id]);
-        Assert.Equal(2, clock.Calls);
-
-        clock.Now = Now.AddMinutes(5);
-        var descriptor = WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_mute_triggerer");
-        var modern = new WiredModernAction(world.Room, item, descriptor, new(), _ => { }, (_, _, _) => { }, new(), TestLogging.Logger, clock, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
-        Assert.True(modern.TryValidateConfiguration(new() { IntParams = [3, 0] }, out var config, out var error), error);
-        modern.ApplyConfiguration(config);
-        var context = new WiredRuntimeContext(world.Room, new(WiredEventKind.Use) { Actor = world.TargetUser },
-            new(() => Array.Empty<Item>(), () => new[] { world.TargetUser }), new NoWiredOperations());
-        context.Triggering.UserIds.Add(world.TargetUser.VirtualId);
-
-        Assert.True(modern.Execute(context));
-        Assert.Equal(clock.Now.AddMinutes(3), world.Room.MutedUsers[world.Target.Id]);
-        Assert.Equal(3, clock.Calls);
-        Assert.True(world.Room.CheckMute(world.TargetClient, clock.Now.AddMinutes(3).AddTicks(-1)));
-        Assert.False(world.Room.CheckMute(world.TargetClient, clock.Now.AddMinutes(3)));
-    }
 
     private sealed class World
     {

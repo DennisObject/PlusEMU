@@ -188,8 +188,8 @@ public static class WiredLegacyProtocol
         packet.WriteBoolean(metadata.AllowWall);
 
         if (editor.Category == WiredBoxCategory.Condition) {
-            packet.WriteByte(0); // The admitted Condition1 subset has ordinary quantification, no inverse.
-            packet.WriteBoolean(false);
+            packet.WriteByte((byte)metadata.QuantifierType);
+            packet.WriteBoolean(metadata.Invert);
         }
 
         // The supported local cards have no variable/context inputs. Unknown card contexts are not fabricated.

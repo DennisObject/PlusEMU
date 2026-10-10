@@ -173,8 +173,8 @@ public partial class PlacedFurniRoomTests
         Assert.True(WallBuiltinWrite(module, wall, frame, "@rotation", 1));
         var baseline = wall.WallCoordinates;
         var action = WallSnapshotAction();
-        Assert.True(WiredConfigurationSave.TrySave(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
-            TestWiredConfigurationStore.Instance, out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
+        Assert.True(WiredNativeTestSupport.TrySavePrepared(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
+            TestWiredConfigurationStore.Instance, out var error), error);
         Assert.Equal(altitude, Assert.Single(action.Configuration.Snapshots).Wall!.NativeAltitude);
         var reloaded = JsonSerializer.Deserialize<WiredConfiguration>(JsonSerializer.Serialize(action.Configuration))!;
         action.ApplyConfiguration(reloaded);

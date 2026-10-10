@@ -146,27 +146,6 @@ public sealed partial class WiredGlideConveyorTests
         Assert.Equal(0, f.Engine.ReadStats().Pending);
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void CollisionRealModernOrLegacyRegistrationIsAlwaysABarrier(bool legacy)
-    {
-        var layout = FastQueueLayout(2).Append((19u, 8, 12, 0.0, 0, "wf_trg_collision", JsonSerializer.Serialize(new WiredConfiguration()))).ToArray();
-        var f = new Fixture(layout, live: true);
-        var rider = f.Walker(1, 7, 10, 7, 11);
-        var packets = CapturePublication(rider);
-
-        if (legacy) {
-            Assert.True(f.Engine.Remove(19));
-            Assert.True(f.Engine.Add(new Plus.HabboHotel.Items.Wired.Boxes.Triggers.UserFurniCollision(f.MovementContext().Room, f.Items[19])));
-        }
-
-        f.Advance(250);
-
-        Assert.Equal(12, ReadPublication(packets).Count(move => move.Type == 1));
-        Assert.Equal(8, rider.X);
-        Assert.Equal(0, f.Engine.ReadStats().Pending);
-    }
 
     [Fact]
     public void CollisionOpaqueEventsGetterIsInvokedOnlyAfterSealing()

@@ -10,6 +10,7 @@ public static class WiredSelectorSources
         {
             0 => input.Triggering.FurniIds,
             100 => configuration.SelectedItems,
+            101 => configuration.SecondarySelectedItems,
             200 => input.SelectorPool.FurniIds,
             201 => input.Signal.FurniIds,
             900 => world.Furni.Select(x => x.Id),
@@ -22,6 +23,7 @@ public static class WiredSelectorSources
         200 => input.SelectorPool.UserIds,
         201 => input.Signal.UserIds,
         11 => input.ClickedUserId is int id ? [id] : [],
+        10 => input.ReachedUserId is int reachedId ? [reachedId] : [],
         900 => world.Users.Select(x => x.Id),
         _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown avatar source")
     };

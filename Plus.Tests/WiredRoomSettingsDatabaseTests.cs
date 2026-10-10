@@ -143,7 +143,7 @@ public class WiredRoomSettingsDatabaseTests(ITestOutputHelper output)
             room.UsersWithRights.Add((int)guestId);
             Assert.True(room.CheckRights(guest.Client, false, true));
             var configurationService = new WiredConfigurationService(new WiredConfigurationStore(database),
-                DispatchProxy.Create<IFigureDataManager, WiredEditorPromotionTests.UnusedFigure>(), TestLogging.For<WiredConfigurationService>());
+                DispatchProxy.Create<IFigureDataManager, WiredTestProxy.UnusedFigure>(), TestLogging.For<WiredConfigurationService>());
             guest.Packets.Clear();
             await new SaveWiredEffectConfigEvent(configurationService).Parse(guest.Client, ItemPacket(itemId, true));
             Assert.Empty(guest.Packets);

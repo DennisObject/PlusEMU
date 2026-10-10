@@ -10,9 +10,6 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Conditions;
 
 public sealed class WiredModernCondition : WiredModernBox
 {
-    private readonly WiredConfiguration? _initialCountConfiguration;
-    internal bool HasInitialCountConfiguration => Descriptor.CanonicalName == "wf_cnd_user_count_in"
-        && ReferenceEquals(Configuration, _initialCountConfiguration);
     private readonly Func<Item, long?> _counterTime;
     private readonly Func<DateTimeOffset> _clock;
     private readonly IGroupManager _groups;
@@ -23,7 +20,6 @@ public sealed class WiredModernCondition : WiredModernBox
             throw new ArgumentException("Unknown condition.", nameof(descriptor));
         }
 
-        _initialCountConfiguration = descriptor.CanonicalName == "wf_cnd_user_count_in" ? Configuration : null;
         _counterTime = counterTime;
         _clock = clock;
         _groups = groups;
@@ -38,20 +34,10 @@ public sealed class WiredModernCondition : WiredModernBox
                 return false;
             }
 
-            if (proposed.Origin!.Native != null) {
-                return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
-            }
+            return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
         }
 
-        if (!WiredConditionConfiguration.TryValidate(Descriptor.CanonicalName, proposed, out validated, out error)) {
-            return false;
-        }
-
-        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)) {
-            validated = WiredNativeEditorProjection.RebindLegacy(Item.Id, Descriptor, proposed, validated);
-        }
-
-        return true;
+        return WiredConditionConfiguration.TryValidate(Descriptor.CanonicalName, proposed, out validated, out error);
     }
 
     public override bool Execute(WiredRuntimeContext context)
@@ -133,10 +119,10 @@ public sealed class WiredModernCondition : WiredModernBox
 
                 return count >= Param(config, 0) && count <= Param(config, 1);
             case "wf_cnd_counter_time_matches":
-                var times = Items().Select(_counterTime).ToArray();
+                var targetMs = Param(config, 1) * 60_000L + Param(config, 2) * 500L;
 
-                return times.Length != 0 && times.All(time => time.HasValue)
-                    && WiredTimeConditions.MatchesCounter(config, times.Select(time => time!.Value));
+                return WiredRoomOperations.Quantify(Items().Select(item => _counterTime(item) is { } time
+                    && WiredRoomOperations.Compare(time, targetMs, Param(config, 0))), Param(config, 4));
             case "wf_cnd_match_time":
                 return WiredTimeConditions.MatchesTime(config, now);
             case "wf_cnd_match_date":

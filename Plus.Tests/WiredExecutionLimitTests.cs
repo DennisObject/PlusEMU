@@ -101,7 +101,7 @@ public sealed class WiredExecutionLimitTests
         public string StringData { get; set; } = "";
         public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
-        public WiredBoxDescriptor Descriptor { get; } = new("test", category, 0, 0, "test") { Support = WiredBoxSupport.Implemented };
+        public WiredBoxDescriptor Descriptor { get; } = new("test", category, 0, "test") { Support = WiredBoxSupport.Implemented };
         public WiredConfiguration Configuration { get; private set; } = new();
         public int Calls;
         public virtual bool Execute(WiredRuntimeContext context)

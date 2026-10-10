@@ -20,7 +20,7 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
         Item = item;
         _executors = executors;
         Descriptor = descriptor with { Support = WiredBoxSupport.Implemented };
-        Configuration = WiredVariableDefaults.Create(descriptor.CanonicalName);
+        Configuration = WiredNativeEditorProjection.DefaultRuntime(item.Id, descriptor) ?? WiredVariableDefaults.Create(descriptor.CanonicalName);
     }
     public Room Instance { get; set; }
     public Item Item { get; set; }
@@ -35,6 +35,14 @@ public sealed class WiredVariableConfiguredBox : IWiredContextualItem
     public bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         validated = proposed;
+
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)
+            && (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)
+                || !WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error))) {
+            error = "Invalid native variable authority.";
+
+            return false;
+        }
 
         return WiredVariableExecutors.TryValidate(Descriptor.CanonicalName, proposed, out error);
     }

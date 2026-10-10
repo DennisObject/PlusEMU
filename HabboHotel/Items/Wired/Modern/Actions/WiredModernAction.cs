@@ -15,9 +15,6 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
 public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, IWiredEditorConfigurationProvider
 {
-    private readonly WiredConfiguration? _initialDirectionDraft;
-    internal bool HasInitialDirectionDraft => Descriptor.CanonicalName == "wf_act_move_to_dir"
-        && ReferenceEquals(Configuration, _initialDirectionDraft);
     private readonly WiredCounterController _clocks;
     private readonly Action<WiredRuntimeEvent> _publish;
     private Action<WiredRuntimeEvent>? _headingPublisher;
@@ -41,9 +38,6 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
     };
     public static bool Supports(string name) => WiredTemporaryFurnitureActions.Supports(name) || WiredMovementActions.Names.Contains(name) || OtherNames.Contains(name) || WiredBotActions.Names.Contains(name);
     public bool IsNegative => Descriptor.CanonicalName is "wf_act_neg_call_stacks" or "wf_act_neg_send_signal" or "wf_act_neg_log";
-    private readonly WiredConfiguration? _initialTeleportConfiguration;
-    internal bool HasInitialTeleportConfiguration => Descriptor.CanonicalName == "wf_act_teleport_to"
-        && ReferenceEquals(Configuration, _initialTeleportConfiguration);
 
     public WiredModernAction(Room room, Item item, WiredBoxDescriptor descriptor, WiredCounterController clocks,
         Action<WiredRuntimeEvent> publish, Action<RoomUser, IEnumerable<Item>, IEnumerable<Item>> walkTransition, WiredRoomLog roomLog, ILogger logger,
@@ -54,8 +48,6 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
             throw new ArgumentException("Unknown action.", nameof(descriptor));
         }
 
-        _initialTeleportConfiguration = descriptor.CanonicalName == "wf_act_teleport_to" ? Configuration : null;
-        _initialDirectionDraft = descriptor.CanonicalName == "wf_act_move_to_dir" ? Configuration : null;
         _clocks = clocks;
         _publish = publish;
         _movement = new(walkTransition, transparentWalkTransition);
@@ -142,14 +134,8 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
-        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName) && proposed.Origin == null) {
-            validated = proposed;
-            error = "Untrusted runtime drafts cannot configure a native mapped action.";
-
-            return false;
-        }
-
-        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName) && proposed.Origin != null) {
+        // A mapped action has exactly one model: its bound native record. Unmapped names keep their runtime validator.
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)) {
             if (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)) {
                 validated = proposed;
                 error = "Invalid native editor authority.";
@@ -157,17 +143,7 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
                 return false;
             }
 
-            if (proposed.Origin.Native != null) {
-                return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
-            }
-
-            if (!TryValidateLegacyConfiguration(proposed, out validated, out error)) {
-                return false;
-            }
-
-            validated = WiredNativeEditorProjection.RebindLegacy(Item.Id, Descriptor, proposed, validated);
-
-            return true;
+            return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
         }
 
         return TryValidateLegacyConfiguration(proposed, out validated, out error);

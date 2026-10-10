@@ -12,65 +12,9 @@ namespace Plus.Tests;
 
 public sealed class WiredEditorSnapshotTests
 {
-    [Theory]
-    [InlineData(WiredBoxType.EffectMatchPosition, "1;0;1", "1;0;1", 3, 1, 0, 1, 3)]
-    [InlineData(WiredBoxType.EffectMoveAndRotate, "2;1", "2;1", 2, 2, 1, 0, 4)]
-    [InlineData(WiredBoxType.EffectMuteTriggerer, "5;quiet", "5;quiet", 1, 5, 0, 0, 20)]
-    [InlineData(WiredBoxType.EffectBotFollowsUserBox, "1;Bot", "Bot", 1, 1, 0, 0, 25)]
-    [InlineData(WiredBoxType.EffectBotGivesHanditemBox, "Bot;12", "Bot", 1, 12, 0, 0, 24)]
-    public void EffectShapesCaptureExactFieldsAndFreezeItemsDelayAndBlockedList(
-        WiredBoxType type, string text, string wireText, int count, int first, int second, int third, int code)
-    {
-        var box = Box(type, text);
-        var blocked = new List<int> { 33 };
-        var composer = new WiredEffectConfigComposer(WiredEditorSnapshot.Effect(box, blocked));
-        Mutate(box, blocked);
-        var expected = new List<object> { false, 15, 1, 8u, 91, 7u, wireText, count };
-        expected.AddRange(new[] { first, second, third }.Take(count).Select(value => (object)value));
-        expected.AddRange([0, code, 9, 1, 33]);
-        Recompose(composer, expected);
-    }
 
-    [Fact]
-    public void EmptyConditionDefaultsAreCapturedWithoutMutatingTheLiveBox()
-    {
-        var box = Box(WiredBoxType.ConditionMatchStateAndPosition, "");
-        var composer = new WiredConditionConfigComposer(WiredEditorSnapshot.Condition(box));
-        Assert.Equal("", box.StringData);
-        Mutate(box, []);
-        Recompose(composer, [false, 5, 1, 8u, 91, 7u, "", 3, 0, 0, 0, 0, 0]);
-    }
 
-    [Theory]
-    [InlineData(WiredBoxType.ConditionUserCountInRoom, "2;50", 5, 2, 2, 50)]
-    [InlineData(WiredBoxType.ConditionUserCountDoesntInRoom, "2;50", 16, 2, 2, 50)]
-    [InlineData(WiredBoxType.ConditionFurniHasNoFurni, "1", 18, 1, 1, 0)]
-    public void ConditionShapesPreserveExactParameterCounts(WiredBoxType type, string text, int code, int count, int first, int second)
-    {
-        var composer = new WiredConditionConfigComposer(WiredEditorSnapshot.Condition(Box(type, text)));
-        var expected = new List<object> { false, 5, 1, 8u, 91, 7u, text, count, first };
 
-        if (count == 2) {
-            expected.Add(second);
-        }
-
-        expected.AddRange([0, code]);
-        Recompose(composer, expected);
-    }
-
-    [Fact]
-    public void TriggerAndConfiguredViewsCopyAllConstructorData()
-    {
-        var box = Box(WiredBoxType.TriggerRepeat, "trigger");
-        var blocked = new List<int> { 33 };
-        var trigger = new WiredTriggeRconfigComposer(WiredEditorSnapshot.Trigger(box, blocked));
-        var configured = new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(box.Item,
-            new("test", WiredBoxCategory.Action, 123, 0, "test"),
-            new() { Text = "configured", IntParams = [4, 5], SelectedItems = [8], Delay = 3, SelectionCode = 2 }, 20, blocked));
-        Mutate(box, blocked);
-        Recompose(trigger, [false, 5, 1, 8u, 91, 7u, "trigger", 1, 9, 0, 6, 1, 33]);
-        Recompose(configured, [false, 20, 1, 8u, 91, 7u, "configured", 2, 4, 5, 2, 123, 3, 1, 33]);
-    }
 
     private static CycleBox Box(WiredBoxType type, string text) => new(type)
     {

@@ -30,8 +30,8 @@ public partial class PlacedFurniRoomTests
         _room.GetRoomItemHandler().LoadFurniture([wall, floor]);
         Assert.Equal(baseline, wall.WallCoordinates);
         var action = WallSnapshotAction();
-        Assert.True(WiredConfigurationSave.TrySave(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
-            TestWiredConfigurationStore.Instance, out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
+        Assert.True(WiredNativeTestSupport.TrySavePrepared(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
+            TestWiredConfigurationStore.Instance, out var error), error);
         var snapshot = Assert.Single(action.Configuration.Snapshots);
         Assert.Equal(wall.Id, snapshot.ItemId);
         Assert.Contains("\"Wall\":", JsonSerializer.Serialize(snapshot));
@@ -77,8 +77,8 @@ public partial class PlacedFurniRoomTests
         var wall = WallSnapshotItem(301, ":w=1,2 l=11,53 l");
         _room.GetRoomItemHandler().LoadFurniture([wall]);
         var action = WallSnapshotAction();
-        Assert.True(WiredConfigurationSave.TrySave(action, new() { IntParams = [state, rotation, position, altitude, 100], SelectedItems = [wall.Id] },
-            TestWiredConfigurationStore.Instance, out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
+        Assert.True(WiredNativeTestSupport.TrySavePrepared(action, new() { IntParams = [state, rotation, position, altitude, 100], SelectedItems = [wall.Id] },
+            TestWiredConfigurationStore.Instance, out var error), error);
         wall.WallCoordinates = ":w=2,1 l=20,80 r";
         Assert.False(action.Execute(WallSnapshotContext()));
         Assert.Equal(":w=2,1 l=20,80 r", wall.WallCoordinates);
@@ -93,8 +93,8 @@ public partial class PlacedFurniRoomTests
         var wall = WallSnapshotItem(301, ":w=1,2 l=11,53 l");
         _room.GetRoomItemHandler().LoadFurniture([wall]);
         var action = WallSnapshotAction();
-        Assert.True(WiredConfigurationSave.TrySave(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
-            TestWiredConfigurationStore.Instance, out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
+        Assert.True(WiredNativeTestSupport.TrySavePrepared(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
+            TestWiredConfigurationStore.Instance, out var error), error);
         var actor = new RoomUser(7, RoomId, 1, _room, _client, TestChatEmotions.Unused, TestRewardProgress.Unused);
         BuiltinUsers()[actor.VirtualId] = actor;
         wall.WallCoordinates = ":w=2,1 l=20,80 l";
@@ -152,8 +152,8 @@ public partial class PlacedFurniRoomTests
         var wall = WallSnapshotItem(301, ":w=3,7 l=12,61 l a=200");
         _room.GetRoomItemHandler().LoadFurniture([wall]);
         var action = WallSnapshotAction();
-        Assert.True(WiredConfigurationSave.TrySave(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
-            TestWiredConfigurationStore.Instance, out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
+        Assert.True(WiredNativeTestSupport.TrySavePrepared(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
+            TestWiredConfigurationStore.Instance, out var error), error);
         wall.WallCoordinates = ":w=3,7 l=12,61 l a=201";
         Assert.True(action.Execute(WallSnapshotContext()));
         Assert.Equal(":w=3,7 l=12,61 l a=200", wall.WallCoordinates);
@@ -175,8 +175,8 @@ public partial class PlacedFurniRoomTests
         _room.GetRoomItemHandler().LoadFurniture([wall]);
         var action = WallSnapshotAction();
         var configurations = new WiredConfigurationStore(fixture.Database);
-        Assert.True(WiredConfigurationSave.TrySave(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
-            configurations, out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
+        Assert.True(WiredNativeTestSupport.TrySavePrepared(action, new() { IntParams = [0, 0, 1, 1, 100], SelectedItems = [wall.Id] },
+            configurations, out var error), error);
         var stored = configurations.Load(action.Item.Id, action.Descriptor)!;
         Assert.Equal(Assert.Single(action.Configuration.Snapshots), Assert.Single(stored.Snapshots));
         var reloadedAction = WallSnapshotAction();

@@ -695,6 +695,31 @@ public sealed class WiredVariableModule(uint roomId, IWiredVariableDirectory dir
         }
     }
 
+    /// <summary>
+    /// Resolves a native catalog id to the current local reference. The id must parse to this target and name a definition
+    /// the room's authority resolves now; anything else (foreign, deleted, retargeted) resolves to nothing.
+    /// </summary>
+    public bool TryResolveCatalogId(string catalogId, WiredVariableTarget expected, out WiredVariableReference reference)
+    {
+        reference = new(expected, "");
+
+        if (!WiredVariableDescription.TryParseCatalogId(catalogId, out var target, out var itemId) || target != expected) {
+            return false;
+        }
+
+        var candidate = new WiredVariableReference(target, $"custom:{itemId}");
+
+        lock (_gate) {
+            if (Resolve(candidate, false) is null) {
+                return false;
+            }
+        }
+
+        reference = candidate;
+
+        return true;
+    }
+
     public static bool TryDefinitionId(string token, out uint id) =>
         uint.TryParse(token.StartsWith("custom:", StringComparison.Ordinal) ? token[7..] : token,
             NumberStyles.None, CultureInfo.InvariantCulture, out id) && id > 0;

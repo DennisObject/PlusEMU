@@ -2,6 +2,7 @@ using Plus.Communication.Packets.Outgoing.Rooms.Avatar;
 using Plus.Communication.Packets.Outgoing.Users;
 using Plus.HabboHotel.Achievements;
 using Plus.HabboHotel.GameClients;
+using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Quests;
 
 namespace Plus.HabboHotel.Rooms;
@@ -57,5 +58,6 @@ public sealed class RoomRespectService(IAchievementManager achievements, IQuestM
         }
 
         room.SendPacket(new ActionComposer(actor.VirtualId, 7));
+        room.GetWired().Dispatch(new(WiredEventKind.AvatarAction) { Actor = actor, Action = (int)WiredAvatarAction.Respect });
     }
 }

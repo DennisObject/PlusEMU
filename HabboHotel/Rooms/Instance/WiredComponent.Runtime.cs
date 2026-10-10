@@ -67,7 +67,7 @@ public partial class WiredComponent
             return null;
         }
 
-        descriptor ??= item.Definition.WiredDescriptor;
+        descriptor ??= DescriptorOf(item);
 
         if (descriptor == null) {
             return null;
@@ -113,7 +113,11 @@ public partial class WiredComponent
             box = Variables.CreateBox(item);
         }
 
-        if (box != null && defaults != null && !WiredNativeEditorProjection.Supports(descriptor.CanonicalName)) {
+        if (box != null && box.Configuration.Origin == null && WiredNativeEditorProjection.DefaultRuntime(item.Id, descriptor, CalendarTime.Year) is { } fresh) {
+            // Every mapped card opens on its compiled native defaults. They hold no picks, so no live room is needed yet.
+            box.ApplyConfiguration(fresh);
+        }
+        else if (box != null && defaults != null) {
             if (!box.TryValidateConfiguration(defaults, out var validated, out var error)) {
                 throw new InvalidDataException(error);
             }
@@ -168,7 +172,7 @@ public partial class WiredComponent
 
         if (item.IsTemporary && ReferenceEquals(_room.GetRoomItemHandler().GetItem(item.Id), item)
             && !_engine.TryGet(item.Id, out _)) {
-            var box = CreateConfiguredBox(item) ?? GenerateNewBox(item);
+            var box = CreateConfiguredBox(item);
 
             if (box != null) {
                 AddBox(box);

@@ -186,48 +186,6 @@ public partial class PlacedFurniRoomTests
         return (wired, Assert.IsType<RoomUser>(users.GetRoomUserByHabbo(7)));
     }
 
-    [Fact]
-    public void StoredShowSpeechSetupKeepsOriginalDormantRowAndRejectsUnboundAlteredOrReboundDrafts()
-    {
-        var picked = WiredBox(301, "wf_act_show_message", 2, 1);
-        WiredBox(302, "wf_act_show_message", 2, 2);
-        var proposed = new WiredConfiguration
-        {
-            IntParams = [0, 1, 0, -1],
-            Text = "  preserved\r\nspaces  ",
-            SelectedItems = [302, 301],
-            SecondarySelectedItems = [301],
-            Delay = 4,
-            FurniSources = System.Collections.Immutable.ImmutableDictionary<string, int>.Empty.Add("dormant-furni", 900),
-            UserSources = System.Collections.Immutable.ImmutableDictionary<string, int>.Empty.Add("dormant-user", 200),
-            VariableIds = ["dormant.variable"],
-            Snapshots = [new(301, picked.Item.Definition.Id, 2, 1, 4.25, 2, "raw,0")]
-        };
-        var originalJson = System.Text.Json.JsonSerializer.Serialize(proposed);
-        var action = Assert.IsType<Plus.HabboHotel.Items.Wired.Modern.Actions.WiredModernAction>(
-            AddSpeechBox(303, "wf_act_show_message", proposed, 3.5));
-        var installed = action.Configuration;
-        var origin = Assert.IsType<WiredConfigurationOrigin>(installed.Origin);
-        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, origin.Kind);
-        Assert.Equal(action.Item.Id, origin.ItemId);
-        Assert.Equal("wf_act_show_message", origin.Name);
-        Assert.Null(origin.Native);
-        var original = Assert.IsType<WiredConfiguration>(origin.StoredLegacy);
-        Assert.Equal(originalJson, System.Text.Json.JsonSerializer.Serialize(original));
-        Assert.Equal(proposed.IntParams.ToArray(), installed.IntParams.ToArray());
-        Assert.Equal(proposed.SelectedItems.ToArray(), installed.SelectedItems.ToArray());
-        Assert.Equal(proposed.SecondarySelectedItems.ToArray(), installed.SecondarySelectedItems.ToArray());
-        Assert.Equal(proposed.Text, installed.Text);
-        Assert.Equal(4, installed.Delay);
-        Assert.Equal(3.5, action.Item.GetZ);
-        Assert.Same(action.Item, _room.GetRoomItemHandler().GetItem(action.Item.Id));
-        Assert.False(WiredNativeEditorProjection.TryProject(action.Item, action.Descriptor, installed, out _));
-        Assert.False(action.TryValidateConfiguration(proposed, out _, out _));
-        Assert.False(action.TryValidateConfiguration(installed with { Text = "altered" }, out _, out _));
-        var other = WiredBox(304, "wf_act_show_message", 0, 1);
-        Assert.False(other.TryValidateConfiguration(installed, out _, out _));
-        Assert.Same(installed, action.Configuration);
-    }
 
     private IWiredConfiguredItem AddSpeechBox(uint id, string name, WiredConfiguration proposed, double height, int x = 1, int y = 1)
     {

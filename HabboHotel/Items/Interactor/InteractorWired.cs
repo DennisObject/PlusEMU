@@ -38,98 +38,18 @@ public class InteractorWired : IFurniInteractor
             return;
         }
 
-        var pristine = itemRoom.GetWired().CapturePristineCard(box, null,
-            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
-                && itemRoom.GetWired().Settings.CanInspect(session));
-
-        if (pristine != null) {
-            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
-                pristine.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
-            { Native = pristine.Native }));
+        if (box is not IWiredConfiguredItem configured) {
+            session.Send(new WiredValidationErrorComposer("This box has no supported native editor conversion."));
 
             return;
         }
 
-        var freshCard = itemRoom.GetWired().CaptureFreshCard(box, null,
-            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom) && itemRoom.GetWired().Settings.CanInspect(session));
-
-        if (freshCard != null) {
-            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
-                freshCard.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
-            { Native = freshCard.Native }));
-
-            return;
+        try {
+            session.Send(new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(configured)));
         }
-
-        var freshDirection = itemRoom.GetWired().CaptureFreshDirection(box, null,
-            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
-                && itemRoom.GetWired().Settings.CanInspect(session));
-
-        if (freshDirection != null) {
-            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
-                freshDirection.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
-            { Native = freshDirection.Native }));
-
-            return;
+        catch (InvalidDataException) {
+            session.Send(new WiredValidationErrorComposer("The saved settings cannot be represented by this native editor."));
         }
-
-        if (box is IWiredConfiguredItem configured) {
-            if (configured.Descriptor.Support == WiredBoxSupport.Implemented) {
-                try {
-                    session.Send(new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(configured)));
-                }
-                catch (InvalidDataException) {
-                    session.Send(new WiredValidationErrorComposer("The saved settings cannot be represented by this native editor."));
-                }
-            }
-            else {
-                session.Send(new WiredValidationErrorComposer("This Wired box is not implemented."));
-            }
-
-            return;
-        }
-
-        var legacyJoin = itemRoom.GetWired().CaptureLegacyJoin(box,
-            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
-                && itemRoom.GetWired().Settings.CanInspect(session));
-
-        if (legacyJoin != null) {
-            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
-                legacyJoin.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
-            { Native = legacyJoin.Native }));
-
-            return;
-        }
-
-        var legacySays = itemRoom.GetWired().CaptureLegacySays(box,
-            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
-                && itemRoom.GetWired().Settings.CanInspect(session));
-
-        if (legacySays != null) {
-            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
-                legacySays.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
-            { Native = legacySays.Native }));
-
-            return;
-        }
-
-        var legacyRotate = itemRoom.GetWired().CaptureLegacyRotate(box,
-            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
-                && itemRoom.GetWired().Settings.CanInspect(session));
-
-        if (legacyRotate != null) {
-            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
-                legacyRotate.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
-            { Native = legacyRotate.Native }));
-
-            return;
-        }
-
-        // Unmapped legacy boxes keep executing. Their old editor body is not a canonical fallback.
-        session.Send(new WiredValidationErrorComposer("This box has no supported native editor conversion."));
-
-        return;
-
     }
 
     public void OnWiredTrigger(Item item) { }

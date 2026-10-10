@@ -39,7 +39,7 @@ public static class WiredTriggerConfiguration
     public static int MaxTimedUnits(string name) => name switch
     {
         "wf_trg_period_short" => 10,
-        "wf_trg_at_given_time" => 1200,
+        "wf_trg_at_given_time" or "wf_trg_at_time_long" => 1200,
         _ => 120
     };
 
@@ -159,7 +159,7 @@ public static class WiredTriggerConfiguration
 
                 break;
             case "wf_trg_user_performs_action":
-                if (p.Length != 5 || p[0] is < 1 or > 11 || !Bit(1) || p[2] is < 0 or > 17 || !Bit(3) || p[4] is < 0 or > 4) {
+                if (p.Length != 5 || p[0] is < 1 or > 12 || !Bit(1) || p[2] is < 0 or > 17 || !Bit(3) || p[4] is < 0 or > 4) {
                     return false;
                 }
 

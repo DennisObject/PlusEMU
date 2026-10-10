@@ -8,7 +8,6 @@ using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;
@@ -245,23 +244,6 @@ public partial class PlacedFurniRoomTests
         Assert.Equal("0", lamp.LegacyDataString);
     }
 
-    [Theory]
-    [InlineData(true, "1")]
-    [InlineData(false, "0")]
-    public void GateWiredMatchPositionBoxCannotCloseThroughAnOccupant(bool occupied, string expected)
-    {
-        var gate = ClosableGate(width: 2);
-        ActorOn(occupied ? NonAnchor(gate) : new Point(0, 2));
-        var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-        { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,0" };
-        box.SetItems.TryAdd(gate.Id, gate);
-
-        using (RoomOwnerScope.Enter(_room)) {
-            Assert.True(box.Execute());
-        }
-
-        Assert.Equal(expected, gate.LegacyDataString);
-    }
 
     [Theory]
     [InlineData(InteractionType.GuildGate, 2)]
@@ -998,58 +980,7 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(2, Gates.PendingCount);
     }
 
-    [Fact]
-    public void GateLaneLegacySnapshotRestoreBehindAQueuedCloseIsEvaluatedAtExecution()
-    {
-        var gate = ClosableGate();
-        ActorOn(new Point(0, 2));
-        ClickFromPacketThread(gate);
-        var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-        { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,1" };
-        box.SetItems.TryAdd(gate.Id, gate);
 
-        using (RoomOwnerScope.Enter(_room)) {
-            Assert.True(box.Execute());
-        }
-
-        Assert.Equal("1", gate.LegacyDataString);
-        Assert.Equal(2, Gates.PendingCount);
-        DrainOnOwner();
-        Assert.Equal("1", gate.LegacyDataString);
-        Assert.Equal(0, Gates.PendingCount);
-    }
-
-    [Fact]
-    public void GateLaneLegacySnapshotRestoreOnAnIdleGateStillSkipsEqualAndAppliesDifferent()
-    {
-        var gate = ClosableGate(state: "0");
-        ActorOn(new Point(0, 2));
-        var updates = 0;
-        _client.BeforeCapture = header =>
-        {
-            if (header == ServerPacketHeader.ObjectUpdateComposer) {
-                updates++;
-            }
-        };
-
-        foreach (var restored in new[] { "0", "1" }) {
-            var box = new MatchPositionBox(_room, Furni(22, InteractionType.WiredEffect, WiredBoxType.EffectMatchPosition))
-            { StringData = "1;0;0", ItemsData = $"{gate.Id}:1,1,0,0,{restored}" };
-            box.SetItems.TryAdd(gate.Id, gate);
-
-            using (RoomOwnerScope.Enter(_room)) {
-                box.Execute();
-            }
-
-            Assert.Equal(restored, gate.LegacyDataString);
-
-            if (restored == "0") {
-                Assert.Equal(0, updates);
-            }
-        }
-
-        Assert.Equal(1, updates);
-    }
 
     [Fact]
     public void GateLaneModernSnapshotRestoreBehindAQueuedCloseIsEvaluatedAtExecution()

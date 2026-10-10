@@ -45,7 +45,8 @@ public sealed record WiredSelectorInputs(WiredSelectedIds Triggering, WiredSelec
     Func<string, WiredConfiguration, int, bool>? UserVariablePredicate = null,
     bool FurniModified = false, bool UsersModified = false, bool IncludeWired = false,
     Func<string, WiredConfiguration, uint, WiredSelectorInputs, bool>? ScopedFurniVariablePredicate = null,
-    Func<string, WiredConfiguration, int, WiredSelectorInputs, bool>? ScopedUserVariablePredicate = null);
+    Func<string, WiredConfiguration, int, WiredSelectorInputs, bool>? ScopedUserVariablePredicate = null,
+    int? ReachedUserId = null);
 
 public enum WiredSelectorTarget
 {

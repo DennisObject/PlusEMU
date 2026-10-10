@@ -8,7 +8,6 @@ using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Interactor;
 using Plus.HabboHotel.Items.Wired;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Quests;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.PathFinding;

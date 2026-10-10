@@ -179,24 +179,6 @@ public sealed class WiredRuntimeFactoryTests
         public void Reset(IReadOnlyCollection<uint> itemIds) => throw new NotSupportedException();
     }
 
-    [Theory]
-    [InlineData("wf_trg_says_something", "hello", 3)]
-    [InlineData("wf_act_teleport_to", "", 3)]
-    public void SidecarLoadRetainsTheCapturedSchemaOneRow(string name, string text, int count)
-    {
-        Assert.True(WiredBoxRegistry.TryGet(name, out var descriptor));
-        var original = new WiredConfiguration { Text = text, IntParams = Enumerable.Repeat(0, count).ToImmutableArray() };
-        var json = JsonSerializer.Serialize(original);
-        var store = new SidecarStore(name, original);
-        Assert.Equal(new ModernWiredRuntimeTests.StoredRuntimeRow(10, name, 1, json), store.Row);
-        var loaded = Assert.IsType<WiredConfiguration>(store.Load(10, descriptor));
-        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, loaded.Origin!.Kind);
-        Assert.Null(loaded.Origin.Native);
-        Assert.Equal(json, JsonSerializer.Serialize(loaded.Origin.StoredLegacy));
-        Assert.Equal(json, store.Row.Json);
-        Assert.Equal(original.IntParams.ToArray(), loaded.IntParams.ToArray());
-        Assert.Equal(original.Text, loaded.Text);
-    }
 
     [Theory]
     [InlineData("wrong_name")]
@@ -218,71 +200,6 @@ public sealed class WiredRuntimeFactoryTests
         Assert.Throws<InvalidDataException>(() => store.Load(10, descriptor));
     }
 
-    [Fact]
-    public void CapturedSidecarRowDoesNotAuthorizeAnotherItemOrAlteredRuntime()
-    {
-        var room = Room();
-        var item = new Item { Id = 10, Definition = new() { ItemName = "wf_trg_says_something" } };
-        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
-        var box = Assert.IsAssignableFrom<IWiredConfiguredItem>(facade.CreateConfiguredBox(item));
-        var original = new WiredConfiguration { Text = "hello", IntParams = [0, 0, 0] };
-        var fixture = new SidecarStore(box.Descriptor.CanonicalName, original);
-        var store = new WiredConfigurationStore(new ModernWiredRuntimeTests.StoredRuntimeRowsDatabase([fixture.Row]));
-        Assert.Null(store.Load(11, box.Descriptor));
-        var loaded = Assert.IsType<WiredConfiguration>(store.Load(10, box.Descriptor));
-        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
-        var installed = box.Configuration;
-        Assert.False(box.TryValidateConfiguration(installed with { Text = "altered" }, out _, out _));
-        Assert.Throws<InvalidDataException>(() => box.ApplyConfiguration(installed with { Text = "altered" }));
-        Assert.Same(installed, box.Configuration);
-        item.Id = 11;
-        Assert.False(box.TryValidateConfiguration(installed, out _, out _));
-        Assert.Throws<InvalidDataException>(() => box.ApplyConfiguration(installed));
-        Assert.Same(installed, box.Configuration);
-        Assert.Equal(JsonSerializer.Serialize(original), fixture.Row.Json);
-    }
 
-    [Fact]
-    public void CustomCommandCannotBePromotedToGenericSpeech()
-    {
-        var facade = new WiredComponent(Room(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
-        Assert.True(WiredBoxRegistry.TryGet("wf_trg_says_something", out var descriptor));
-        var item = new Item { Id = 1, Definition = new() { WiredType = WiredBoxType.TriggerUserSaysCommand } };
-        var legacy = facade.GenerateNewBox(item);
-        Assert.NotNull(legacy);
-        Assert.Null(facade.CreateConfiguredBox(item, descriptor));
-        Assert.Same(legacy, WiredBoxLoading.Select(legacy, null, null));
-    }
 
-    [Theory]
-    [InlineData("wf_var_room", "score", 10, 7)]
-    [InlineData("wf_var_user", "score", 1, 10)]
-    [InlineData("wf_var_reference", "{\"variableName\":\"alias\",\"sourceTargetType\":0,\"sourceRoomId\":2,\"sourceVariableItemId\":20,\"readOnly\":true}", -1, -1)]
-    public void UnsavedLoadedDefinitionFirstPublishesOnlyAfterDurability(string name, string text, int first, int second)
-    {
-        var room = Room();
-        var facade = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
-        var item = new Item { Id = 10, Definition = new() { InteractionName = name } };
-        var box = Assert.IsType<WiredVariableDefinitionBox>(WiredBoxLoading.Select(null, facade.CreateConfiguredBox(item), null));
-        Assert.False(box.HasPersistedConfiguration);
-        facade.Variables.ConfigurationLoaded(box);
-        Assert.Empty(facade.Variables.Definitions);
-        var saved = new WiredConfiguration { Text = text, IntParams = first < 0 ? [] : [first, second] };
-        Assert.True(box.TryValidateConfiguration(saved, out var validated, out var error), error);
-        var engine = new WiredStackEngine(() => 0, current => ReferenceEquals(box, current), _ => true, _ => { }, error => throw error);
-        engine.Add(box);
-        WiredConfiguration? durable = null;
-        Assert.Throws<IOException>(() => engine.PublishConfigured(box, validated, () => throw new IOException("storage unavailable")));
-        Assert.False(box.HasPersistedConfiguration);
-        Assert.True(engine.PublishConfigured(box, validated, () =>
-        {
-            Assert.False(box.HasPersistedConfiguration); // A real provider uses this to expect a missing sidecar on first save.
-            durable = validated;
-        }));
-        Assert.True(box.HasPersistedConfiguration);
-        Assert.Equal(validated, box.Configuration);
-        var reloaded = Assert.IsType<WiredVariableDefinitionBox>(WiredBoxLoading.Select(null, facade.CreateConfiguredBox(item), durable));
-        Assert.True(reloaded.HasPersistedConfiguration);
-        Assert.Equal(validated, reloaded.Configuration);
-    }
 }

@@ -8,7 +8,6 @@ using System.Runtime.CompilerServices;
 using Plus.Database;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.GameClients;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel;
 using Plus.HabboHotel.Rooms.Instance;
@@ -563,136 +562,9 @@ public class ModernWiredRuntimeTests
             throw new NotSupportedException();
     }
 
-    [Theory]
-    [InlineData(1, new[] { 1, 2, 3, 4, 5, 6 })]
-    [InlineData(2, new[] { 2, 4, 6 })]
-    [InlineData(3, new[] { 3, 6 })]
-    public void LegacyRepeaterFiresEveryDelayRoomTicks(int delay, int[] firingTicks)
-    {
-        using var f = new TeleportFixture();
-        var item = MakeItem(300, "wf_trg_periodically");
-        item.Definition.InteractionType = InteractionType.WiredTrigger;
-        item.SetState(2, 2, 0, Gamemap.GetAffectedTiles(1, 1, 2, 2, 0));
-        f.Items[item.Id] = item;
-        var repeater = new Plus.HabboHotel.Items.Wired.Boxes.Triggers.RepeaterBox(f.Room, item) { Delay = delay };
-        Assert.True(f.Engine.Add(repeater));
 
-        // The full room pass ticks every half second and runs the repeater on the tick that finds it at zero:
-        // a delay of N half-seconds fires every N ticks, as the editor's N x 0.5s says.
-        var fired = new List<int>();
 
-        for (var tick = 1; tick <= 6; tick++) {
-            if (repeater.TickCount == 0) {
-                fired.Add(tick);
-            }
 
-            f.Engine.OnCycle();
-        }
-
-        Assert.Equal(firingTicks, fired);
-        Assert.Empty(f.Errors);
-    }
-
-    [Fact]
-    public void LegacyRepeaterConvertsWithinTheEditorRange()
-    {
-        var (room, _, _) = World();
-        var repeater = new Plus.HabboHotel.Items.Wired.Boxes.Triggers.RepeaterBox(room, MakeItem(100, "wf_trg_periodically")) { Delay = 300 };
-        Assert.True(WiredLegacyConfigurationAdapter.TryConvert(repeater, Descriptor("wf_trg_periodically"), out var config));
-        Assert.Equal(new[] { 120 }, config.IntParams);
-    }
-
-    [Fact]
-    public void LegacyEditorConversionPreservesSavedSnapshotAndPlaceholderText()
-    {
-        var (room, _, _) = World();
-        var picked = MakeItem(1, "test");
-        var old = new MatchPositionBox(room, MakeItem(100, "wf_act_match_to_sshot"))
-        { StringData = "1;1;1", ItemsData = "1:2,1,3.25,4,old,raw,state" };
-        old.SetItems[1] = picked;
-        picked.LegacyDataString = "changed";
-        Assert.True(WiredLegacyConfigurationAdapter.TryConvert(old, Descriptor("wf_act_match_to_sshot"), out var config));
-        Assert.Equal("old,raw,state", Assert.Single(config.Snapshots).State);
-        Assert.Equal(3.25, config.Snapshots[0].Z);
-        var chat = new ShowMessageBox(room, MakeItem(101, "wf_act_show_message"), TestWiredClients.Empty) { StringData = "Hello %USERNAME%" };
-        Assert.True(WiredLegacyConfigurationAdapter.TryConvert(chat, Descriptor("wf_act_show_message"), out var converted));
-        Assert.Equal(new[] { 0, 0, 34, -1 }, converted.IntParams);
-        Assert.Equal(chat.StringData, converted.Text);
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void WiredChatReadsTheInjectedLiveClientCountWithoutTheGlobalManager(bool legacy)
-    {
-        var online = 17;
-        var reads = 0;
-        var clients = TestWiredClients.Create(() => { reads++; return online; });
-        using var fixture = new TeleportFixture(clientsForText: clients);
-        fixture.Room.Name = "Lounge";
-        Assert.Same(fixture.Habbo.Client, fixture.User.GetClient());
-        var replies = Capture(fixture.Client);
-        const string text = "%USERNAME%|%ROOMNAME%|%USERCOUNT%|%USERSONLINE%";
-        var item = MakeItem(102, "wf_act_show_message");
-        item.Definition.WiredType = WiredBoxType.EffectShowMessage;
-        Func<bool> execute;
-
-        if (legacy) {
-            var action = Assert.IsType<ShowMessageBox>(fixture.Room.GetWired().GenerateNewBox(item));
-            action.StringData = text;
-            execute = () => action.Execute(fixture.Habbo);
-        }
-        else {
-            var action = Assert.IsType<WiredModernAction>(fixture.Room.GetWired().CreateConfiguredBox(item));
-            LoadStoredRuntime(action, "wf_act_show_message", new() { IntParams = [0, 0, 34, -1], Text = text });
-            execute = () =>
-            {
-                var context = Context(fixture.Room, new(WiredEventKind.Use) { Actor = fixture.User }, [], [fixture.User]);
-                context.Triggering.UserIds.Add(fixture.User.VirtualId);
-
-                return action.Execute(context);
-            };
-        }
-
-        var field = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
-        var original = (IGame)field.GetValue(null)!;
-        var game = DispatchProxy.Create<IGame, RecordingProxy>();
-        ((RecordingProxy)(object)game).InvokeMethod = (method, arguments) => method.Name == "get_ClientManager"
-            ? throw new InvalidOperationException("Text formatting used the global client manager.")
-            : method.Invoke(original, arguments);
-
-        try {
-            field.SetValue(null, game);
-            Assert.True(execute());
-            AssertChat(17);
-            online = 23;
-            Assert.True(execute());
-            AssertChat(23);
-            Assert.Equal(2, reads);
-            Assert.Empty(replies);
-        }
-        finally {
-            field.SetValue(null, original);
-        }
-
-        void AssertChat(int expectedOnline)
-        {
-            var packet = Reply(replies, ServerPacketHeader.WhisperComposer);
-            Assert.Equal(fixture.User.VirtualId, packet.Int());
-            var expectedText = $"Alice|Lounge|{fixture.Room.UserCount}|{expectedOnline}";
-            Assert.Equal(expectedText, packet.String());
-            Assert.Equal(0, packet.Int());
-            Assert.Equal(34, packet.Int());
-            Assert.Equal(0, packet.Int());
-            Assert.Equal(expectedText.Length, packet.Int());
-
-            if (!legacy) {
-                Assert.Equal(-1, packet.Int());
-            }
-
-            packet.End();
-        }
-    }
 
     [Theory]
     [InlineData(0)]
@@ -1567,50 +1439,6 @@ public class ModernWiredRuntimeTests
         }
     }
 
-    [Fact]
-    public async Task LegacyMoveRotateBoxReopensInCurrentEditorOrderAndResavesTheSameMove()
-    {
-        // The historical conversion oracle is superseded: nonempty concrete state refuses native editing.
-        for (var movement = 0; movement <= 7; movement++) {
-            for (var rotation = 0; rotation <= 3; rotation++) {
-                var f = new MovementOracleSession("wf_act_move_rotate");
-                var legacy = Assert.IsType<MoveAndRotateBox>(f.Box);
-                legacy.StringData = $"{movement};{rotation}";
-                legacy.BoolData = true;
-                legacy.ItemsData = "original legacy bytes";
-                legacy.Delay = 3;
-                legacy.SetItems[8] = f.Items[8];
-                var picks = legacy.SetItems;
-                legacy.Item.Interactor.OnTrigger(f.Client, legacy.Item, 0, true);
-                Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer);
-                f.Client.Packets.Clear();
-                await f.Save([5, 1], [8], 3);
-                Assert.Empty(f.Store.Saves);
-                Assert.Equal(0, f.Published);
-                Assert.Same(legacy, f.Box);
-                Assert.Equal($"{movement};{rotation}", legacy.StringData);
-                Assert.True(legacy.BoolData);
-                Assert.Equal("original legacy bytes", legacy.ItemsData);
-                Assert.Equal(3, legacy.Delay);
-                Assert.Same(picks, legacy.SetItems);
-                Assert.Same(f.Items[8], Assert.Single(legacy.SetItems).Value);
-                Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
-                Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer);
-                Assert.True(legacy.Execute());
-                var position = f.Items[8].Coordinate;
-                var offsets = movement switch
-                {
-                    0 => new[] { Point.Empty },
-                    1 => new[] { new Point(0, -1), new(1, 0), new(0, 1), new(-1, 0) },
-                    2 => new[] { new Point(-1, 0), new(1, 0) },
-                    3 => new[] { new Point(0, -1), new(0, 1) },
-                    _ => new[] { WiredRoomOperations.Offset(new[] { 0, 2, 4, 6 }[movement - 4]) }
-                };
-                Assert.Contains(new Point(position.X - 1, position.Y - 1), offsets);
-                Assert.Contains(f.Items[8].Rotation, rotation switch { 0 => new[] { 0 }, 1 => [2], 2 => [6], _ => [2, 6] });
-            }
-        }
-    }
 
     [Theory]
     [InlineData(0)]
@@ -1663,116 +1491,8 @@ public class ModernWiredRuntimeTests
         }
     }
 
-    [WiredChestDatabaseFact]
-    public async Task FreshMoveRotateOpensAsNoMovementAndKeepsThatOnUnchangedSave()
-    {
-        using var db = new WiredChestDatabaseTests.Fixture();
-        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
-        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
-        var durable = new WiredConfigurationStore(db.Database);
-        var f = new MovementOracleSession("wf_act_move_rotate", durable);
-        var original = Assert.IsType<MoveAndRotateBox>(f.Box);
-        var editor = f.Open();
-        AssertMovementOracleReply(editor, false, [0, 0], [], 0);
-        Assert.Same(original, f.Box);
-        Assert.Empty(f.Store.Saves);
-        Assert.Equal(0, db.Connection.QuerySingle<int>("SELECT COUNT(*) FROM wired_item_configurations"));
-        f.Store.AfterDurableSave = () =>
-        {
-            Assert.Same(original, f.Box);
-            Assert.Equal(2, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
-        };
-        await f.Save(editor.Owned, editor.Primary, editor.Delay);
-        f.Store.AfterDurableSave = null;
-        Assert.Single(f.Store.Saves);
-        Assert.NotSame(original, f.Box);
-        Assert.Equal(new[] { -1, 0, 100, 0 }, f.Action.Configuration.IntParams.ToArray());
-        Assert.Equal(2, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
-        var raw = db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100");
-        Assert.True(f.Wired.TryRemove(100));
-        Assert.IsType<WiredModernAction>(f.Wired.LoadWiredBox(original.Item));
-        var reloaded = f.Action.Configuration;
-        Assert.Equal(new[] { -1, 0, 100, 0 }, reloaded.IntParams.ToArray());
-        var published = f.Published;
-        var pending = f.SeedPending();
-        f.Client.Packets.Clear();
-        await f.Save([0, 0]);
-        f.AssertNoop(reloaded, 1, published, pending);
-        Assert.Equal(raw, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
-        Assert.False(f.Action.Execute(Context(f.Room, new(WiredEventKind.Use), [], [])));
-    }
 
-    [WiredChestDatabaseTheory]
-    [InlineData(6, -1, 4, 0, 6, 0)]
-    [InlineData(-1, -1, -1, 0, 0, 0)]
-    [InlineData(0, 2, -1, 4, 0, 2)]
-    [InlineData(4, 3, 0, 6, 4, 3)]
-    public async Task SavedThreeFieldRowsLoadAsTheSameMoveAndReopenInEditorOrder(int movement, int rotation, int direction, int turn, int shownMovement, int shownRotation)
-    {
-        using var db = new WiredChestDatabaseTests.Fixture();
-        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
-        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
-        var original = new WiredConfiguration { IntParams = [movement, rotation, 100], SelectedItems = [8], Delay = 2 };
-        var raw = System.Text.Json.JsonSerializer.Serialize(original);
-        db.Connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES(100,'wf_act_move_rotate',1,@Raw)", new { Raw = raw });
-        var f = new MovementOracleSession("wf_act_move_rotate", new WiredConfigurationStore(db.Database));
-        var loaded = f.Action.Configuration;
-        Assert.Equal(new[] { direction, turn, 100, 0 }, loaded.IntParams.ToArray());
-        Assert.Equal(original.IntParams.ToArray(), loaded.Origin!.StoredLegacy!.IntParams.ToArray());
-        var editor = f.Open();
-        AssertMovementOracleReply(editor, false, [shownMovement, shownRotation], [8], 2);
-        var pending = f.SeedPending();
-        var published = f.Published;
-        f.Client.Packets.Clear();
-        await f.Save(editor.Owned, editor.Primary, editor.Delay);
-        f.AssertNoop(loaded, 0, published, pending);
-        Assert.Equal(loaded.IntParams.AsEnumerable(), f.Action.Configuration.IntParams);
-        Assert.Equal(new uint[] { 8 }, f.Action.Configuration.SelectedItems.ToArray());
-        Assert.Equal(2, f.Action.Configuration.Delay);
-        Assert.Equal(raw, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
-        Assert.Equal(1, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
-    }
 
-    [Theory]
-    [InlineData(new[] { 0, 1, 100, 0 })]
-    [InlineData(new[] { 0, 3, 100, 0 })]
-    [InlineData(new[] { 0, 5, 100, 0 })]
-    [InlineData(new[] { 0, 0, 100, 1 })]
-    [InlineData(new[] { 11, 0, 100, 0 })]
-    [InlineData(new[] { 0, 7, 100, 0 })]
-    [InlineData(new[] { 12, 0, 100 })]
-    [InlineData(new[] { 0, 4, 100 })]
-    [InlineData(new[] { 0, -2, 100 })]
-    [InlineData(new[] { 0, 0 })]
-    public async Task MoveRotateRejectsSettingsTheEditorCannotShow(int[] ints)
-    {
-        var f = new MovementOracleSession("wf_act_move_rotate");
-        await f.Save([5, 1], [8]);
-        var saved = f.Action.Configuration;
-        var pending = f.SeedPending();
-        var published = f.Published;
-        var rawRow = f.Store.Rows[100];
-        var invalidLegacy = new WiredConfiguration { IntParams = [.. ints], SelectedItems = [8] };
-        var stored = new WiredConfigurationStore(new StoredRuntimeRowsDatabase([new(100, "wf_act_move_rotate", 1,
-            System.Text.Json.JsonSerializer.Serialize(invalidLegacy))])).Load(100, f.Action.Descriptor);
-        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, ActionBox(f.Room, "wf_act_move_rotate"), stored));
-        Assert.False(new WiredMovementActions().Execute("wf_act_move_rotate", invalidLegacy, [f.Items[8]], [], [],
-            (_, _, _, _, _) => throw new Exception(), (_, _, _, _, _) => throw new Exception(), (_, _) => throw new Exception()));
-
-        // Old [0,0] remains an invalid V1 row but is VALID native owned data, covered separately.
-        if (ints.Length != 2) {
-            f.Client.Packets.Clear();
-            await f.Save(ints, [8]);
-            Assert.DoesNotContain(f.Client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
-        }
-
-        Assert.Same(saved, f.Action.Configuration);
-        Assert.Equal(1, f.Store.Saves.Count);
-        Assert.Equal(rawRow, f.Store.Rows[100]);
-        Assert.Equal(published, f.Published);
-        Assert.Equal(pending, f.Engine.ReadStats().Pending);
-        AssertMovementOracleReply(f.Open(), false, [5, 1], [8], 0);
-    }
 
     [Fact]
     public void RuntimeSaveSetupRequiresAllCanonicalCountedTailsAndExactEof()
@@ -1789,68 +1509,7 @@ public class ModernWiredRuntimeTests
         Assert.False(WiredLegacyProtocol.TryRead(Request(0, "", 1, int.MinValue, 0, 0, 0, 0, 0), WiredBoxCategory.Action, out _));
     }
 
-    [WiredChestDatabaseFact]
-    public void DirectionalGroupSetupLoadsAnExactStoredV1RowWithoutNativeEditorAuthority()
-    {
-        using var db = new WiredChestDatabaseTests.Fixture();
-        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
-        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
-        var original = new WiredConfiguration { IntParams = [2, 100], SelectedItems = [1] };
-        var json = System.Text.Json.JsonSerializer.Serialize(original);
-        db.Connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES(100,'wf_act_move_furni_as_group',1,@Json)", new { Json = json });
-        var (room, map, items) = World(new RecordingPlacementStore());
-        var mover = StackItem(map, items, 1, "color_tile", 0, 0, 0.5, true);
-        var box = ActionBox(room, "wf_act_move_furni_as_group");
-        Assert.False(box.TryValidateConfiguration(original, out _, out _));
-        var store = new WiredConfigurationStore(db.Database);
-        var loaded = Assert.IsType<WiredConfiguration>(store.Load(box.Item.Id, box.Descriptor));
-        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
-        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, box.Configuration.Origin!.Kind);
-        Assert.Null(box.Configuration.Origin.Native);
-        Assert.True(StackPulse(room, box, [mover]));
-        Assert.Equal((1, 1, 0.0), (mover.GetX, mover.GetY, mover.GetZ));
-        var other = ActionBox(room, "wf_act_move_furni_as_group");
-        other.Item.Id = 101;
-        Assert.False(other.TryValidateConfiguration(loaded, out _, out _));
-        Assert.False(box.TryValidateConfiguration(loaded with { IntParams = [6, 100] }, out _, out _));
-        Assert.Equal(json, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
-        Assert.Equal(1, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
-        Assert.Throws<InvalidDataException>(() => WiredEditorSnapshot.Capture(box));
-    }
 
-    [Theory]
-    [InlineData("wf_act_move_rotate")]
-    [InlineData("wf_act_move_to_dir")]
-    public void StoredRuntimeSetupRequiresExactLoadedRowAndRejectsAlterationOrRebinding(string name)
-    {
-        var (room, _, _) = World();
-        var box = ActionBox(room, name);
-        var raw = new WiredConfiguration { IntParams = name == "wf_act_move_rotate" ? [5, 3, 100] : [2, 0, 100, 0], SelectedItems = [1] };
-        Assert.False(box.TryValidateConfiguration(raw, out _, out _));
-        var json = System.Text.Json.JsonSerializer.Serialize(raw);
-        StoredRuntimeRow[] rows = [new(box.Item.Id, name, 1, json)];
-        var store = new WiredConfigurationStore(new StoredRuntimeRowsDatabase(rows));
-        // The provider retains the original row independently of the caller's mutable collection.
-        rows[0] = new(box.Item.Id, "wrong_name", 3, "{}");
-        Assert.Null(store.Load(101, box.Descriptor));
-        var loaded = Assert.IsType<WiredConfiguration>(store.Load(box.Item.Id, box.Descriptor));
-        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
-        var installed = box.Configuration;
-        Assert.Equal(name == "wf_act_move_rotate" ? new[] { 2, 6, 100, 0 } : new[] { 2, 0, 100, 0 }, installed.IntParams.ToArray());
-        Assert.Equal(raw.IntParams.ToArray(), installed.Origin!.StoredLegacy!.IntParams.ToArray());
-        Assert.Equal(raw.SelectedItems.ToArray(), installed.Origin.StoredLegacy.SelectedItems.ToArray());
-        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, installed.Origin.Kind);
-        Assert.Null(installed.Origin.Native);
-        Assert.False(box.TryValidateConfiguration(loaded with { SelectedItems = [2] }, out _, out _));
-        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, box, loaded with { Text = "altered" }));
-        Assert.Same(installed, box.Configuration);
-        var rebound = ActionBox(room, name);
-        rebound.Item.Id = 101;
-        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, rebound, loaded));
-        Assert.Null(rebound.Configuration.Origin);
-        var other = ActionBox(room, name == "wf_act_move_rotate" ? "wf_act_move_to_dir" : "wf_act_move_rotate");
-        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, other, loaded));
-    }
 
     [Theory]
     [InlineData("wrong_name", 1, 1)]
@@ -1870,28 +1529,6 @@ public class ModernWiredRuntimeTests
         Assert.Null(original.Origin);
     }
 
-    [WiredChestDatabaseTheory]
-    [InlineData("wf_act_move_rotate")]
-    [InlineData("wf_act_move_to_dir")]
-    public void StoredRuntimeSetupLoadsDurableOriginalBytesWithoutRewritingThem(string name)
-    {
-        using var db = new WiredChestDatabaseTests.Fixture();
-        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
-        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
-        var ints = name == "wf_act_move_rotate" ? "5, 3, 100" : "2, 0, 100, 0";
-        var json = "{ \"SelectedItems\": [1], \"IntParams\": [" + ints + "], \"Version\": 1 }";
-        db.Connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES(100,@Name,1,@Json)", new { Name = name, Json = json });
-        var (room, _, _) = World();
-        var box = ActionBox(room, name);
-        var loaded = Assert.IsType<WiredConfiguration>(new WiredConfigurationStore(db.Database).Load(100, box.Descriptor));
-        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
-        Assert.Equal(name == "wf_act_move_rotate" ? new[] { 2, 6, 100, 0 } : new[] { 2, 0, 100, 0 }, box.Configuration.IntParams.ToArray());
-        Assert.Equal(name == "wf_act_move_rotate" ? new[] { 5, 3, 100 } : new[] { 2, 0, 100, 0 }, box.Configuration.Origin!.StoredLegacy!.IntParams.ToArray());
-        Assert.Null(box.Configuration.Origin.Native);
-        Assert.Equal(json, db.Connection.QuerySingle<string>("SELECT configuration FROM wired_item_configurations WHERE item_id=100"));
-        Assert.Equal(name, db.Connection.QuerySingle<string>("SELECT box_name FROM wired_item_configurations WHERE item_id=100"));
-        Assert.Equal(1, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
-    }
 
     private sealed record MovementOracleReply(int Limit, int[] Primary, int[] Secondary, int Sprite, uint ItemId,
         string Text, int[] Owned, string[] Variables, int[] Furni, int[] Users, int Code, int Delay,
@@ -2231,38 +1868,6 @@ public class ModernWiredRuntimeTests
         Assert.Equal(0, f.Items[8].Rotation);
     }
 
-    [WiredChestDatabaseFact]
-    public async Task MovementOracleChangedStoredV1SavePersistsSchemaTwoWithDormantData()
-    {
-        using var db = new WiredChestDatabaseTests.Fixture();
-        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
-        db.Connection.Execute("INSERT INTO items(id,user_id,room_id,base_item,extra_data) VALUES(100,7,42,0,'')");
-        var original = new WiredConfiguration
-        {
-            IntParams = [6, -1, 100],
-            SelectedItems = [8],
-            Delay = 2,
-            Text = "inactive exact bytes",
-            FurniSources = ImmutableDictionary<string, int>.Empty.Add("inactive", 200),
-            UserSources = ImmutableDictionary<string, int>.Empty.Add("unused", 201)
-        };
-        var raw = System.Text.Json.JsonSerializer.Serialize(original);
-        db.Connection.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES(100,'wf_act_move_rotate',1,@Raw)", new { Raw = raw });
-        var durable = new WiredConfigurationStore(db.Database);
-        var f = new MovementOracleSession("wf_act_move_rotate", durable);
-        await f.Save([5, 1], [8], 2);
-        Assert.Single(f.Store.Saves);
-        Assert.Equal(2, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=100"));
-        var reloaded = Assert.IsType<WiredConfiguration>(durable.Load(100, f.Action.Descriptor));
-        Assert.Equal(new[] { 2, 2, 100, 0 }, reloaded.IntParams.ToArray());
-        Assert.Equal(original.Text, reloaded.Text);
-        Assert.Equal(200, reloaded.FurniSources["inactive"]);
-        Assert.Equal(201, reloaded.UserSources["unused"]);
-        Assert.Equal(original.Text, reloaded.Origin!.Native!.DormantLegacy!.Text);
-        Assert.Equal(original.FurniSources, reloaded.Origin.Native.DormantLegacy.FurniSources);
-        Assert.Equal(original.UserSources, reloaded.Origin.Native.DormantLegacy.UserSources);
-        AssertMovementOracleReply(f.Open(), false, [5, 1], [8], 2);
-    }
 
     private static WiredConfiguration SavePacket(int[] ints, uint[] selected, int delay)
     {
@@ -2280,16 +1885,16 @@ public class ModernWiredRuntimeTests
         Assert.Equal(configuration.SelectedItems.ToArray(), box.Configuration.SelectedItems.ToArray());
     }
 
+
+    /// <summary>Test support: installs a runtime-shaped draft for a mapped action by deriving its native record.</summary>
     internal static void LoadStoredRuntime(WiredModernAction box, string storedName, WiredConfiguration configuration)
     {
-        var json = System.Text.Json.JsonSerializer.Serialize(configuration);
-        var store = new WiredConfigurationStore(new StoredRuntimeRowsDatabase([new(box.Item.Id, storedName, 1, json)]));
-        var loaded = Assert.IsType<WiredConfiguration>(store.Load(box.Item.Id, box.Descriptor));
-        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, loaded.Origin!.Kind);
-        Assert.Null(loaded.Origin.Native);
-        Assert.Equal(configuration.IntParams.ToArray(), loaded.Origin.StoredLegacy!.IntParams.ToArray());
-        Assert.Equal(configuration.SelectedItems.ToArray(), loaded.Origin.StoredLegacy.SelectedItems.ToArray());
-        Assert.Same(box, WiredBoxLoading.Select(null, box, loaded));
+        Assert.Equal(storedName, box.Descriptor.CanonicalName);
+        var handler = box.Instance.GetRoomItemHandler();
+        var native = WiredNativeTestSupport.FromRuntime(box.Descriptor, configuration, id => handler.GetItem(id)?.IsWallItem ?? false);
+        Assert.True(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, native, out var runtime));
+        Assert.True(box.TryValidateConfiguration(runtime, out var validated, out var error), error);
+        box.ApplyConfiguration(validated);
     }
 
     internal sealed record StoredRuntimeRow(uint ItemId, string Name, int Version, string Json);
@@ -3312,52 +2917,6 @@ public class ModernWiredRuntimeTests
         Assert.NotNull(box.Poll(16000));
     }
 
-    [Fact]
-    public void RoomTimerResetRearmsAtTimeButKeepsRepeatersOnTheirSchedule()
-    {
-        var (room, _, items) = World();
-        long now = 0;
-        var engine = new WiredStackEngine(() => now, box => items.TryGetValue(box.Item.Id, out var item) && ReferenceEquals(item, box.Item), _ => true, _ => { }, _ => { });
-        Item Place(uint id, string name, int x)
-        {
-            var item = MakeItem(id, name);
-            item.SetState(x, 0, 0, Gamemap.GetAffectedTiles(1, 1, x, 0, 0));
-            items[id] = item;
-
-            return item;
-        }
-        WiredModernTimedTrigger Timer(uint id, string name, int units, int x)
-        {
-            var box = new WiredModernTimedTrigger(room, Place(id, name, x), Descriptor(name));
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [units] }, out var config, out _));
-            box.ApplyConfiguration(config);
-            Assert.True(engine.Add(box));
-
-            return box;
-        }
-        var repeater = Timer(1, "wf_trg_periodically", 2, 0);
-        var atTime = Timer(2, "wf_trg_at_given_time", 1, 1);
-        var legacyItem = Place(3, "wf_trg_periodically", 2);
-        legacyItem.Definition.InteractionType = InteractionType.WiredTrigger;
-        var legacy = new Plus.HabboHotel.Items.Wired.Boxes.Triggers.RepeaterBox(room, legacyItem) { Delay = 3 };
-        Assert.True(engine.Add(legacy));
-        legacy.TickCount = 1;
-
-        Assert.Null(repeater.Poll(0));
-        Assert.NotNull(atTime.Poll(500));
-        now = 600;
-        engine.ResetTimers(items.Values.ToArray());
-
-        // Reset timers restarts the room timer only: a repeater keeps its period, even when reset more often than it fires.
-        Assert.NotNull(repeater.Poll(1000));
-        Assert.Equal(1, legacy.TickCount);
-        Assert.Null(atTime.Poll(1099));
-        Assert.NotNull(atTime.Poll(1100));
-
-        // Placing, saving or moving the box still starts it over.
-        repeater.Reset(1000);
-        Assert.Null(repeater.Poll(2000));
-    }
 
     [Fact]
     public void RoomTimerResetStartsEveryTimerAtTheSameInstant()

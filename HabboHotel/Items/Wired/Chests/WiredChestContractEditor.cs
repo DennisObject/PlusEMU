@@ -45,7 +45,7 @@ public static class WiredChestContractEditor
 
         var descriptor = new WiredBoxDescriptor(item.Definition.ItemName, WiredBoxCategory.Action,
             contract.Kind == WiredContractKind.Payment ? 110 : contract.Kind == WiredContractKind.Reward ? 111 : 112,
-            (int)contract.Kind, "Turbo f702041c/WiredTrading")
+            "Turbo f702041c/WiredTrading")
         { Support = WiredBoxSupport.Implemented };
         client.Send(new WiredEffectConfigComposer(new(item.Id, item.Definition.SpriteId, descriptor,
             new() { IntParams = fields.ToImmutableArray(), Text = "@contract:" + JsonSerializer.Serialize(new ContractFields { Posters = string.Join(',', posters), PaymentMode = contract.PaymentMode, ReceiveText = contract.ReceiveText, Layout = contract.Layout, RewardCategory = contract.RewardCategory, ShowDialog = contract.ShowDialog, RewardText = contract.RewardText }) }, 0, [])));

@@ -11,10 +11,6 @@ using Plus.HabboHotel.Items.Wired.Runtime;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Variables;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
-using Plus.HabboHotel.Items.Wired.Boxes;
-using Plus.HabboHotel.Items.Wired.Boxes.Conditions;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
-using Plus.HabboHotel.Items.Wired.Boxes.Triggers;
 using Plus.HabboHotel.Items.Wired.Settings;
 using Plus.Database;
 using Plus.HabboHotel.Rooms.AI;
@@ -224,64 +220,12 @@ public partial class WiredComponent : IWiredRuntimeOperations
         }
     }
     public void ResetTimers(IEnumerable<Item> targets) => _engine.ResetTimers(targets);
-    internal PristineCardSnapshot? CapturePristineCard(IWiredItem original, WiredNativeEditorConfiguration? request, Func<bool> canRead) =>
-        _engine.CapturePristineCard(original, request, canRead);
-
-    internal bool PublishPristineCard(PristineCardSnapshot captured, IWiredConfiguredItem candidate,
-        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
-        _engine.PublishPristineCard(captured, candidate, validated, canModify, persist);
-
-    internal FreshCardSnapshot? CaptureFreshCard(IWiredItem original, WiredNativeEditorConfiguration? request, Func<bool> canRead) =>
-        _engine.CaptureFreshCard(original, request, canRead);
-
-    internal bool PublishFreshCard(FreshCardSnapshot captured, WiredConfiguration validated,
-        Func<bool> canModify, Action persist) => _engine.PublishFreshCard(captured, validated, canModify, persist);
-
-    internal FreshDirectionSnapshot? CaptureFreshDirection(IWiredItem original,
-        WiredNativeEditorConfiguration? request, Func<bool> canRead) =>
-        _engine.CaptureFreshDirection(original, request, canRead);
-
-    internal bool PublishFreshDirection(FreshDirectionSnapshot captured, WiredConfiguration validated,
-        Func<bool> canModify, Action persist) => _engine.PublishFreshDirection(captured, validated, canModify, persist);
-
-    internal LegacyRotateSnapshot? CaptureLegacyRotate(IWiredItem original, Func<bool> canRead) =>
-        _engine.CaptureLegacyRotate(original, canRead);
-
-    internal bool PublishLegacyRotate(LegacyRotateSnapshot captured, IWiredConfiguredItem candidate,
-        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
-        _engine.PublishLegacyRotate(captured, candidate, validated, canModify, persist);
-
-    internal LegacyJoinSnapshot? CaptureLegacyJoin(IWiredItem original, Func<bool> canRead) =>
-        _engine.CaptureLegacyJoin(original, canRead);
-
-    internal WiredNativeSaveAdmission AdmitLegacyJoin(LegacyJoinSnapshot captured,
-        WiredNativeEditorConfiguration proposed, Func<bool> canModify) =>
-        _engine.AdmitLegacyJoin(captured, proposed, canModify);
-
-    internal bool PublishLegacyJoin(LegacyJoinSnapshot captured, IWiredConfiguredItem candidate,
-        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
-        _engine.PublishLegacyJoin(captured, candidate, validated, canModify, persist);
-
-    internal LegacySaysSnapshot? CaptureLegacySays(IWiredItem original, Func<bool> canRead) =>
-        _engine.CaptureLegacySays(original, canRead);
-
-    internal WiredNativeSaveAdmission AdmitLegacySays(LegacySaysSnapshot captured, Func<bool> canModify) =>
-        _engine.AdmitLegacySays(captured, canModify);
-
-    internal bool PublishLegacySays(LegacySaysSnapshot captured, IWiredConfiguredItem candidate,
-        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
-        _engine.PublishLegacySays(captured, candidate, validated, canModify, persist);
-
     public WiredNativeSaveAdmission TryAdmitUnchangedNativeSave(IWiredConfiguredItem original,
         WiredNativeEditorConfiguration proposed, Func<bool> canModify) =>
         _engine.TryAdmitUnchangedNativeSave(original, proposed, canModify);
 
     public bool PublishConfigured(IWiredConfiguredItem original, WiredConfiguration validated, Action persistValidated) =>
         _engine.PublishConfigured(original, validated, persistValidated);
-    public bool PublishPromotion(IWiredItem original, IWiredConfiguredItem candidate, WiredConfiguration validated, Action persistValidated) =>
-        _engine.PublishPromotion(original, candidate, validated, persistValidated);
-    public bool PublishLegacy(IWiredItem original, IWiredItem candidate, Action persistCandidate) =>
-        _engine.PublishLegacy(original, candidate, persistCandidate);
 
     internal bool IsActorPresent(object[] arguments) => arguments.Length == 0 || arguments[0] is not Habbo player
         || player.InRoom && ReferenceEquals(player.CurrentRoom, _room);
@@ -300,243 +244,46 @@ public partial class WiredComponent : IWiredRuntimeOperations
 
     public IWiredItem? LoadWiredBox(Item item)
     {
-        var newBox = GenerateNewBox(item);
-        var descriptor = item.Definition.WiredDescriptor;
-
-        if (descriptor == null && newBox != null && WiredLegacyEditorProjection.TryGetDescriptor(newBox, out var projected)) {
-            descriptor = projected;
-        }
-
-        if (descriptor != null) {
-            try {
-                var saved = ConfigurationStore.Load(item.Id, descriptor);
-
-                if (saved != null && saved.SelectedItems.Concat(saved.SecondarySelectedItems)
-                    .Any(id => _room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
-                    throw new InvalidDataException("Saved static selections cannot reference temporary room furniture.");
-                }
-
-                var selected = WiredBoxLoading.Select(newBox, CreateConfiguredBox(item, descriptor), saved);
-
-                if (selected is IWiredConfiguredItem configured) {
-                    if (_variables?.IsValueCreated == true) {
-                        _variables.Value.ConfigurationLoaded(configured);
-                    }
-
-                    if (!AddBox(configured)) {
-                        return null;
-                    }
-
-                    return configured;
-                }
-
-                newBox = selected;
-            }
-            catch (Exception error) {
-                _logger.LogError(error, "Cannot load Wired configuration for item {ItemId} in room {RoomId}; saved bytes retained", item.Id, _room.Id);
-
-                return null;
-            }
-        }
-
-        if (newBox == null) {
+        if (DescriptorOf(item) is not { } descriptor || CreateConfiguredBox(item, descriptor) is not { } configured) {
             _logger.LogWarning("Unsupported wired type {WiredType} on item {ItemId} in room {RoomId}",
                 item.Definition.WiredType, item.Id, _room.Id);
 
             return null;
         }
 
-        using (var connection = _database.Connection()) {
-            var row = connection.QuerySingleOrDefault<WiredItemRow>(
-                "SELECT items,delay,`string` AS StringData,`bool` AS BoolData FROM wired_items WHERE id=@id LIMIT 1", new { item.Id });
+        try {
+            var saved = ConfigurationStore.Load(item.Id, descriptor);
 
-            if (row != null) {
-                if (string.IsNullOrEmpty(row.StringData)) {
-                    if (newBox.Type == WiredBoxType.ConditionMatchStateAndPosition || newBox.Type == WiredBoxType.ConditionDontMatchStateAndPosition) {
-                        newBox.StringData = "0;0;0";
-                    }
-                    else if (newBox.Type == WiredBoxType.ConditionUserCountInRoom || newBox.Type == WiredBoxType.ConditionUserCountDoesntInRoom) {
-                        newBox.StringData = "0;0";
-                    }
-                    else if (newBox.Type == WiredBoxType.ConditionFurniHasNoFurni) {
-                        newBox.StringData = "0";
-                    }
-                    else if (newBox.Type == WiredBoxType.EffectMatchPosition) {
-                        newBox.StringData = "0;0;0";
-                    }
-                    else if (newBox.Type == WiredBoxType.EffectMoveAndRotate) {
-                        newBox.StringData = "0;0";
-                    }
+            // A card without a saved row keeps its compiled defaults and gains persistence only on a successful save.
+            if (saved != null) {
+                if (saved.SelectedItems.Concat(saved.SecondarySelectedItems)
+                    .Any(id => _room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
+                    throw new InvalidDataException("Saved static selections cannot reference temporary room furniture.");
                 }
 
-                newBox.StringData = row.StringData;
-                newBox.BoolData = row.BoolData;
-                newBox.ItemsData = row.Items;
-
-                if (newBox is IWiredCycle) {
-                    var box = (IWiredCycle)newBox;
-                    box.Delay = row.Delay;
+                if (!configured.TryValidateConfiguration(saved, out var validated, out var error)) {
+                    throw new InvalidDataException(error);
                 }
 
-                foreach (var str in row.Items.Split(';')) {
-                    var id = 0;
-                    var sId = "0";
-
-                    if (str.Contains(':')) {
-                        sId = str.Split(':')[0];
-                    }
-
-                    if (int.TryParse(str, out id) || int.TryParse(sId, out id)) {
-                        var selectedItem = _room.GetRoomItemHandler().GetItem(Convert.ToUInt32(id));
-
-                        if (selectedItem == null) {
-                            continue;
-                        }
-
-                        newBox.SetItems.TryAdd(selectedItem.Id, selectedItem);
-                    }
-                }
+                configured.ApplyConfiguration(validated);
             }
-            else {
-                newBox.ItemsData = "";
-                newBox.StringData = "";
-                newBox.BoolData = false;
-                SaveBox(newBox);
+
+            if (_variables?.IsValueCreated == true) {
+                _variables.Value.ConfigurationLoaded(configured);
             }
-        }
 
-        if (!AddBox(newBox)) {
-            // ummm
+            return AddBox(configured) ? configured : null;
         }
+        catch (Exception error) {
+            _logger.LogError(error, "Cannot load Wired configuration for item {ItemId} in room {RoomId}; saved bytes retained", item.Id, _room.Id);
 
-        return newBox;
+            return null;
+        }
     }
 
-    public IWiredItem? GenerateNewBox(Item item)
-    {
-        switch (item.Definition.WiredType) {
-            case WiredBoxType.TriggerRoomEnter:
-                return new RoomEnterBox(_room, item);
-            case WiredBoxType.TriggerRepeat:
-                return new RepeaterBox(_room, item);
-            case WiredBoxType.TriggerStateChanges:
-                return new StateChangesBox(_room, item);
-            case WiredBoxType.TriggerUserSays:
-                return new UserSaysBox(_room, item);
-            case WiredBoxType.TriggerWalkOffFurni:
-                return new UserWalksOffBox(_room, item);
-            case WiredBoxType.TriggerWalkOnFurni:
-                return new UserWalksOnBox(_room, item);
-            case WiredBoxType.TriggerGameStarts:
-                return new GameStartsBox(_room, item);
-            case WiredBoxType.TriggerGameEnds:
-                return new GameEndsBox(_room, item);
-            case WiredBoxType.TriggerUserFurniCollision:
-                return new UserFurniCollision(_room, item);
-            case WiredBoxType.TriggerUserSaysCommand:
-                return new UserSaysCommandBox(_room, item, _commands);
-            case WiredBoxType.EffectShowMessage:
-                return new ShowMessageBox(_room, item, _clients);
-            case WiredBoxType.EffectTeleportToFurni:
-                return new TeleportUserBox(_room, item);
-            case WiredBoxType.EffectToggleFurniState:
-                return new ToggleFurniBox(_room, item);
-            case WiredBoxType.EffectMoveAndRotate:
-                return new MoveAndRotateBox(_room, item);
-            case WiredBoxType.EffectKickUser:
-                return new KickUserBox(_room, item);
-            case WiredBoxType.EffectMuteTriggerer:
-                return new MuteTriggererBox(_room, item, _clock);
-            case WiredBoxType.EffectGiveReward:
-                return new GiveRewardBox(_room, item);
-            case WiredBoxType.EffectMatchPosition:
-                return new MatchPositionBox(_room, item);
-            case WiredBoxType.EffectAddActorToTeam:
-                return new AddActorToTeamBox(_room, item);
-            case WiredBoxType.EffectRemoveActorFromTeam:
-                return new RemoveActorFromTeamBox(_room, item);
-            /*
-
-            case WiredBoxType.EffectMoveFurniToNearestUser:
-                return new MoveFurniToNearestUserBox(_room, Item);
-            case WiredBoxType.EffectMoveFurniFromNearestUser:
-                return new MoveFurniFromNearestUserBox(_room, Item);
-
-               */
-            case WiredBoxType.ConditionFurniHasUsers:
-                return new FurniHasUsersBox(_room, item);
-            case WiredBoxType.ConditionTriggererOnFurni:
-                return new TriggererOnFurniBox(_room, item);
-            case WiredBoxType.ConditionTriggererNotOnFurni:
-                return new TriggererNotOnFurniBox(_room, item);
-            case WiredBoxType.ConditionFurniHasNoUsers:
-                return new FurniHasNoUsersBox(_room, item);
-            case WiredBoxType.ConditionFurniHasFurni:
-                return new FurniHasFurniBox(_room, item);
-            case WiredBoxType.ConditionIsGroupMember:
-                return new IsGroupMemberBox(_room, item);
-            case WiredBoxType.ConditionIsNotGroupMember:
-                return new IsNotGroupMemberBox(_room, item);
-            case WiredBoxType.ConditionUserCountInRoom:
-                return new UserCountInRoomBox(_room, item);
-            case WiredBoxType.ConditionUserCountDoesntInRoom:
-                return new UserCountDoesntInRoomBox(_room, item);
-            case WiredBoxType.ConditionIsWearingFx:
-                return new IsWearingFxBox(_room, item);
-            case WiredBoxType.ConditionIsNotWearingFx:
-                return new IsNotWearingFxBox(_room, item);
-            case WiredBoxType.ConditionIsWearingBadge:
-                return new IsWearingBadgeBox(_room, item);
-            case WiredBoxType.ConditionIsNotWearingBadge:
-                return new IsNotWearingBadgeBox(_room, item);
-            case WiredBoxType.ConditionMatchStateAndPosition:
-                return new FurniMatchStateAndPositionBox(_room, item);
-            case WiredBoxType.ConditionDontMatchStateAndPosition:
-                return new FurniDoesntMatchStateAndPositionBox(_room, item);
-            case WiredBoxType.ConditionFurniHasNoFurni:
-                return new FurniHasNoFurniBox(_room, item);
-            case WiredBoxType.ConditionActorHasHandItemBox:
-                return new ActorHasHandItemBox(_room, item);
-            case WiredBoxType.ConditionActorIsInTeamBox:
-                return new ActorIsInTeamBox(_room, item);
-            /*
-            case WiredBoxType.ConditionMatchStateAndPosition:
-                return new FurniMatchStateAndPositionBox(_room, Item);
-
-            case WiredBoxType.ConditionFurniTypeMatches:
-                return new FurniTypeMatchesBox(_room, Item);
-            case WiredBoxType.ConditionFurniTypeDoesntMatch:
-                return new FurniTypeDoesntMatchBox(_room, Item);
-            case WiredBoxType.ConditionFurniHasNoFurni:
-                return new FurniHasNoFurniBox(_room, Item);*/
-            case WiredBoxType.AddonRandomEffect:
-                return new AddonRandomEffectBox(_room, item);
-            case WiredBoxType.EffectMoveFurniToNearestUser:
-                return new MoveFurniToUserBox(_room, item);
-            case WiredBoxType.EffectExecuteWiredStacks:
-                return new ExecuteWiredStacksBox(_room, item);
-            case WiredBoxType.EffectTeleportBotToFurniBox:
-                return new TeleportBotToFurniBox(_room, item);
-            case WiredBoxType.EffectBotChangesClothesBox:
-                return new BotChangesClothesBox(_room, item, _botStore);
-            case WiredBoxType.EffectBotMovesToFurniBox:
-                return new BotMovesToFurniBox(_room, item);
-            case WiredBoxType.EffectBotCommunicatesToAllBox:
-                return new BotCommunicatesToAllBox(_room, item);
-            case WiredBoxType.EffectBotGivesHanditemBox:
-                return new BotGivesHandItemBox(_room, item);
-            case WiredBoxType.EffectBotFollowsUserBox:
-                return new BotFollowsUserBox(_room, item);
-            case WiredBoxType.EffectSetRollerSpeed:
-                return new SetRollerSpeedBox(_room, item);
-            case WiredBoxType.EffectRegenerateMaps:
-                return new RegenerateMapsBox(_room, item);
-            case WiredBoxType.EffectGiveUserBadge:
-                return new GiveUserBadgeBox(_room, item, _access);
-        }
-
-        return null;
-    }
+    /// <summary>The registry descriptor of placed furniture: named by its definition, or by its legacy wired type.</summary>
+    internal static WiredBoxDescriptor? DescriptorOf(Item item) => item.Definition.WiredDescriptor
+        ?? (WiredBoxRegistry.TryGetByLegacyType(item.Definition.WiredType, out var descriptor) ? descriptor : null);
 
     public bool IsTrigger(Item item) => item.Definition.InteractionType == InteractionType.WiredTrigger;
 
@@ -682,40 +429,6 @@ public partial class WiredComponent : IWiredRuntimeOperations
         item.RequestUpdate(2, true);
     }
 
-    public void SaveBox(IWiredItem item)
-    {
-        var items = "";
-        IWiredCycle? cycle = null;
-
-        if (item is IWiredCycle) {
-            cycle = (IWiredCycle)item;
-        }
-
-        foreach (var I in item.SetItems.Values) {
-            var selectedItem = _room.GetRoomItemHandler().GetItem(Convert.ToUInt32(I.Id));
-
-            if (selectedItem == null) {
-                continue;
-            }
-
-            if (item.Type == WiredBoxType.EffectMatchPosition || item.Type == WiredBoxType.ConditionMatchStateAndPosition || item.Type == WiredBoxType.ConditionDontMatchStateAndPosition) {
-                items += $"{I.Id}:{I.GetX},{I.GetY},{I.GetZ},{I.Rotation},{I.LegacyDataString};";
-            }
-            else {
-                items += $"{I.Id};";
-            }
-        }
-
-        if (item.Type == WiredBoxType.EffectMatchPosition || item.Type == WiredBoxType.ConditionMatchStateAndPosition || item.Type == WiredBoxType.ConditionDontMatchStateAndPosition) {
-            item.ItemsData = items;
-        }
-
-        using var connection = _database.Connection();
-        connection.Execute("REPLACE INTO wired_items (id,items,delay,`string`,`bool`) VALUES (@id,@items,@delay,@stringData,@boolData)",
-            new { id = item.Item.Id, items, delay = item is IWiredCycle ? cycle.Delay : 0, stringData = item.StringData, boolData = item.BoolData });
-        _engine.CancelPending(item);
-    }
-
     public bool AddBox(IWiredItem item) => _engine.Mutate(() =>
     {
         if (!_engine.Add(item)) {
@@ -739,14 +452,6 @@ public partial class WiredComponent : IWiredRuntimeOperations
     });
 
     public bool TryGet(uint id, [NotNullWhen(true)] out IWiredItem? item) => _engine.TryGet(id, out item);
-
-    private sealed class WiredItemRow
-    {
-        public string Items { get; init; } = "";
-        public int Delay { get; init; }
-        public string StringData { get; init; } = "";
-        public bool BoolData { get; init; }
-    }
 
     public void Cleanup()
     {

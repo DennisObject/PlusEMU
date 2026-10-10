@@ -43,7 +43,8 @@ public sealed record WiredSelectorRuntimeInput(WiredSelectorWorld World, WiredSe
             context.NowMilliseconds, context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Actor?.VirtualId : null,
             context.Event.Kind == WiredEventKind.AvatarAction ? context.Event.Action : null, context.Event.Code,
             variables?.FurniPredicate, variables?.UserPredicate,
-            (context.SelectorKinds & WiredSelectionKind.Furni) != 0, (context.SelectorKinds & WiredSelectionKind.Users) != 0, world.IncludeWired, variables?.ScopedFurniPredicate, variables?.ScopedUserPredicate);
+            (context.SelectorKinds & WiredSelectionKind.Furni) != 0, (context.SelectorKinds & WiredSelectionKind.Users) != 0, world.IncludeWired, variables?.ScopedFurniPredicate, variables?.ScopedUserPredicate,
+            context.Event.Kind == WiredEventKind.BotReachedUser ? context.Event.TargetUser?.VirtualId : null);
 
         return new(world, input, variables?.ReadOperand,
             (source, configuration) => context.Targets.ResolveFurni(context, configuration.SelectedItems, source).Select(x => x.Id),

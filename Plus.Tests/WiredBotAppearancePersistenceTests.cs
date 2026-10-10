@@ -10,7 +10,6 @@ using Plus.Database;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired.Configuration;
 using Plus.HabboHotel.Items.Wired.Modern.Actions;
 using Plus.HabboHotel.Items.Wired.Runtime;
@@ -47,36 +46,7 @@ public sealed class WiredBotAppearancePersistenceTests
         fixture.AssertUnpublished();
     }
 
-    [Fact]
-    public void LegacyActionPersistsBeforePublishingNewAppearance()
-    {
-        using var fixture = new Fixture();
-        var store = new RecordingStore(() => fixture.AssertUnpublished());
-        var box = new BotChangesClothesBox(fixture.Room, new Item(), store)
-        {
-            StringData = "Alice\thd-300-2"
-        };
 
-        Assert.True(box.Execute(new object()));
-
-        Assert.Equal((31, 42u, "hd-300-2", "M"), Assert.Single(store.Writes));
-        fixture.AssertPublished("hd-300-2", "M");
-    }
-
-    [Fact]
-    public void LegacyStoreFailureLeavesStateAndPacketsUnchanged()
-    {
-        using var fixture = new Fixture();
-        var store = new RecordingStore(() => fixture.AssertUnpublished()) { Fail = true };
-        var box = new BotChangesClothesBox(fixture.Room, new Item(), store)
-        {
-            StringData = "Alice\thd-300-2"
-        };
-
-        Assert.Throws<InvalidOperationException>(() => box.Execute(new object()));
-
-        fixture.AssertUnpublished();
-    }
 
     [RoomComponentDatabaseFact]
     public void CanonicalStoreRequiresExactCurrentRoomBeforeUpdatingAppearance()

@@ -8,7 +8,6 @@ using System.Runtime.CompilerServices;
 using Plus.HabboHotel.GameClients;
 using Plus.HabboHotel.Items;
 using Plus.HabboHotel.Items.Wired;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Instance;
 using Plus.HabboHotel.Users;
@@ -630,90 +629,8 @@ public class WiredStackEngineTests
         Assert.Equal(200, captured.MaxPendingStacks);
     }
 
-    [Fact]
-    public void EveryPreviouslyConstructibleBoxRetainsItsTypeAndConfigurationShape()
-    {
-        var wired = new WiredComponent(EmptyRoom(), TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
-        WiredBoxType[] unsupported = [WiredBoxType.None, WiredBoxType.EffectMoveFurniFromNearestUser,
-            WiredBoxType.EffectBotCommunicatesToUserBox, WiredBoxType.ConditionFurniTypeMatches,
-            WiredBoxType.ConditionFurniTypeDoesntMatch];
-        var supported = Enum.GetValues<WiredBoxType>().Except(unsupported).ToArray();
-        Assert.Equal(50, supported.Length);
 
-        foreach (var type in supported) {
-            var item = new Item { Definition = Definition(InteractionType.None, type) };
-            var box = Assert.IsAssignableFrom<IWiredItem>(wired.GenerateNewBox(item));
-            Assert.Equal(type, box.Type);
-            Assert.Same(item, box.Item);
-            Assert.Empty(box.SetItems);
-            box.StringData = "configuration";
-            box.ItemsData = "42:1,2,3,4,state;";
-            box.BoolData = true;
-            Assert.Equal("configuration", box.StringData);
-            Assert.Equal("42:1,2,3,4,state;", box.ItemsData);
-            Assert.True(box.BoolData);
 
-            if (box is IWiredCycle cycle) {
-                cycle.Delay = 7;
-                Assert.Equal(7, cycle.Delay);
-
-                if (type != WiredBoxType.TriggerRepeat) {
-                    Assert.False(cycle.OnCycle());
-                }
-            }
-        }
-
-        foreach (var type in unsupported) {
-            Assert.Null(wired.LoadWiredBox(new Item { Definition = Definition(InteractionType.None, type) }));
-        }
-    }
-
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void KickWarningPrecedesGraceAndProtectedActorsAreNeverScheduled(bool protectedActor)
-    {
-        var actor = ActorRoom(protectedActor);
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
-        var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
-        var trigger = fixture.Trigger();
-        var kick = fixture.Add(new KickUserBox(actor.Room,
-            new Item { Definition = Definition(InteractionType.WiredEffect, WiredBoxType.EffectKickUser) })
-        { StringData = "You will be removed" });
-
-        Assert.True(fixture.Engine.RunStack(trigger, [actor.Player]));
-        Assert.Equal(new[] { ServerPacketHeader.WhisperComposer }, actor.Packets);
-        Assert.Same(actor.Room, actor.Player.CurrentRoom);
-        fixture.Advance(1499);
-        Assert.Single(actor.Packets);
-        fixture.Advance(1);
-        Assert.Equal(1, actor.Packets.Count(id => id == ServerPacketHeader.WhisperComposer));
-        Assert.Equal(protectedActor ? 0 : 1, actor.Packets.Count(id => id == ServerPacketHeader.CloseConnectionComposer));
-        Assert.Empty(fixture.Errors);
-    }
-
-    [Fact]
-    public void TeleportGlowBeginsWhenFiringIsAcceptedBeforeItsDelay()
-    {
-        var actor = ActorRoom();
-        var wired = new WiredComponent(actor.Room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance, TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
-        var fixture = new Fixture(actorPresent: wired.IsActorPresent, actorVisit: wired.CaptureActorVisit);
-        var trigger = fixture.Trigger();
-        var teleport = fixture.Add(new TeleportUserBox(actor.Room,
-            new Item { Definition = Definition(InteractionType.WiredEffect, WiredBoxType.EffectTeleportToFurni) })
-        { Delay = 2 });
-        var target = new Item { Id = 100 };
-        teleport.SetItems.TryAdd(target.Id, target);
-
-        Assert.True(fixture.Engine.RunStack(trigger, [actor.Player]));
-        Assert.Equal(4, Assert.IsType<EffectsComponent>(actor.Player.Effects).CurrentEffect);
-        Assert.Equal(new[] { ServerPacketHeader.AvatarEffectComposer }, actor.Packets);
-        Assert.DoesNotContain(teleport.Item.Id, fixture.Flashes);
-        fixture.Advance(999);
-        Assert.DoesNotContain(teleport.Item.Id, fixture.Flashes);
-        Assert.Equal(4, actor.Player.Effects.CurrentEffect);
-        Assert.Empty(fixture.Errors);
-    }
 
     [Fact]
     public void PreparationRunsOncePerAcceptedActorAndRejectionHasNoFeedback()

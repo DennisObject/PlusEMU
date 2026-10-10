@@ -21,8 +21,8 @@ public sealed class WiredTimedTriggers
         }
 
         if (name is "wf_trg_at_given_time" or "wf_trg_at_time_long") {
-            // Approved legacy contract: at-time-long is one-shot in five-second units.
-            var targetMs = units * (name == "wf_trg_at_time_long" ? 5000L : 500L);
+            // Both asset variants use the current one-shot editor in half-second units.
+            var targetMs = units * 500L;
 
             if (elapsedMs < targetMs || _firedEpoch.TryGetValue(boxId, out var fired) && fired == resetEpoch) {
                 return false;

@@ -296,39 +296,6 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
         }
     }
 
-    [Fact]
-    public void SnapshotPlacementEditorCapturesTemplatesBeforeSaveAndCopiesThemAfterRemoval()
-    {
-        var (room, map, items) = World();
-        var template = Floor(1, 1, 1);
-        template.Definition.Id = 77;
-        template.Definition.Stackable = true;
-        template.LegacyDataString = "1";
-        var target = Floor(3, 3, 3);
-        target.Definition.Stackable = true;
-        Place(map, items, template);
-        Place(map, items, target);
-        var definitions = new ItemDefinitions(template.Definition);
-        var action = CreateBox(room, "wf_act_place_furni", definitions: definitions);
-        var proposed = new WiredConfiguration
-        {
-            IntParams = [1, 0, 1, 2, 0, 0, 125, 100, 0, 0, 0, 0, 0, 0, 0],
-            Text = "3\t\t",
-            SelectedItems = [1]
-        };
-        Assert.True(WiredConfigurationSave.TrySave(action, proposed, TestWiredConfigurationStore.Instance, out var error,
-            existsInRoom: items.ContainsKey, prepare: Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.PrepareSnapshots), error);
-        var saved = action.Configuration;
-        Assert.NotNull(saved.TemporaryPlacement);
-        Assert.Equal(77u, Assert.Single(saved.Snapshots).DefinitionId);
-        Assert.Equal(proposed.IntParams.ToArray(), WiredEditorSnapshot.Capture(action).Configuration.IntParams.ToArray());
-        Assert.Equal("3\t\t", WiredEditorSnapshot.Capture(action).Configuration.Text);
-        map.RemoveFromMap(template);
-        items.TryRemove(template.Id, out _);
-        Assert.True(action.Execute(Context(room, [target], [])));
-        var copy = Assert.Single(items.Values.Where(item => item.IsTemporary));
-        Assert.Equal((3, 3, 1.25, "1"), (copy.GetX, copy.GetY, copy.GetZ, copy.LegacyDataString));
-    }
 
     [Theory]
     [InlineData(false, 0, 0, 23, 23, 1)]
@@ -445,50 +412,6 @@ public sealed class WiredActionPortParityTests(ITestOutputHelper output)
         };
     }
 
-    [Theory]
-    [InlineData("wf_act_set_altitude")]
-    [InlineData("wf_act_move_furni_as_group")]
-    [InlineData("wf_act_control_clock")]
-    [InlineData("wf_act_give_score")]
-    public void MappedRuntimeSetupRetainsOriginalRowAndRejectsAlteredOrReboundCache(string name)
-    {
-        var (room, _, _) = World();
-        int[] parameters = name switch
-        {
-            "wf_act_set_altitude" => [2, 100],
-            "wf_act_move_furni_as_group" => [0, 1, -1, 100, 100, 0],
-            "wf_act_control_clock" => [3, 100],
-            _ => [5, 1, 0, 2]
-        };
-        uint[] selected = name == "wf_act_give_score" ? [] : name == "wf_act_move_furni_as_group" ? [1, 2] : [1];
-        var text = name == "wf_act_set_altitude" ? "50" : name == "wf_act_move_furni_as_group" ? "3" : "";
-        var original = new WiredConfiguration { IntParams = [.. parameters], SelectedItems = [.. selected], Text = text };
-        var draft = CreateBox(room, name);
-        Assert.False(draft.TryValidateConfiguration(original, out _, out _));
-        var action = Box(room, name, parameters, selected, text: text);
-        var installed = action.Configuration;
-        Assert.NotNull(installed.Origin);
-        Assert.Equal(WiredConfigurationOriginKind.StoredLegacy, installed.Origin.Kind);
-        Assert.Equal(action.Item.Id, installed.Origin.ItemId);
-        Assert.Equal(name, installed.Origin.Name);
-        Assert.Null(installed.Origin.Native);
-        var stored = Assert.IsType<WiredConfiguration>(installed.Origin.StoredLegacy);
-        Assert.Equal(parameters, stored.IntParams.ToArray());
-        Assert.Equal(selected, stored.SelectedItems.ToArray());
-        Assert.Equal(text, stored.Text);
-        Assert.Equal(System.Text.Json.JsonSerializer.Serialize(original), System.Text.Json.JsonSerializer.Serialize(stored));
-        output.WriteLine(System.Text.Json.JsonSerializer.Serialize(new { Name = name, Original = original, Stored = stored, Runtime = installed }));
-        Assert.True(action.TryValidateConfiguration(installed, out _, out var error), error);
-        var altered = installed with { Text = text + "altered" };
-        Assert.False(action.TryValidateConfiguration(altered, out _, out _));
-        Assert.Throws<InvalidDataException>(() => action.ApplyConfiguration(altered));
-        Assert.Same(installed, action.Configuration);
-        var rebound = CreateBox(room, name);
-        rebound.Item.Id++;
-        Assert.False(rebound.TryValidateConfiguration(installed, out _, out _));
-        Assert.Throws<InvalidDataException>(() => WiredBoxLoading.Select(null, rebound, installed));
-        Assert.Null(rebound.Configuration.Origin);
-    }
 
     private static WiredModernAction Box(Room room, string name, int[] parameters, uint[] selected, Action<WiredRuntimeEvent>? publish = null, string text = "", WiredCounterController? clocks = null)
     {

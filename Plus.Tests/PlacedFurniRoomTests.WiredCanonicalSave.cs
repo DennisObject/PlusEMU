@@ -56,141 +56,11 @@ public partial class PlacedFurniRoomTests
         Assert.Same(previous, box.Configuration);
     }
 
-    [Fact]
-    public void CanonicalFreshLegacyJoinReopensWithoutInstallingADraft()
-    {
-        var (legacy, store) = CanonicalLegacyJoin("");
-        Assert.Same(_room, legacy.Item.GetRoom());
-        Assert.Same(legacy.Item, _room.GetRoomItemHandler().GetItem(legacy.Item.Id));
-        Assert.True(WiredNativeEditorProjection.TryCaptureLegacyJoin(legacy, out var proof));
-        Assert.True(proof!.Matches());
-        Assert.NotNull(_room.GetWired().CaptureLegacyJoin(legacy, () => true));
-        legacy.Item.Interactor.OnTrigger(_client, legacy.Item, 0, true);
-        Assert.Contains(_client.Packets, packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer);
-        Assert.True(_room.GetWired().TryGet(legacy.Item.Id, out var current));
-        Assert.Same(legacy, current);
-        Assert.Empty(store.Saves);
-    }
 
-    [Fact]
-    public async Task CanonicalFreshLegacyJoinFirstNativeSavePromotesAndReopens()
-    {
-        var (legacy, store) = CanonicalLegacyJoin("");
-        await CanonicalHandler().Parse(_client, ClientPacket(601, 2, 1, 0, "", 0, 0, 0, 1, 0, 0, 0));
-        Assert.Single(store.Saves);
-        Assert.True(_room.GetWired().TryGet(601, out var current));
-        var configured = Assert.IsAssignableFrom<IWiredConfiguredItem>(current);
-        Assert.NotSame(legacy, current);
-        Assert.NotNull(configured.Configuration.Origin?.Native);
-        Assert.Equal(new[] { 0, 1, 0, 0 }, configured.Configuration.IntParams);
-        _client.Packets.Clear();
-        configured.Item.Interactor.OnTrigger(_client, configured.Item, 0, true);
-        Assert.Contains(_client.Packets, packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer);
-    }
 
-    [Fact]
-    public async Task CanonicalConfiguredLegacyJoinNoopRetainsConcreteBoxAndRawInactiveState()
-    {
-        var (legacy, store) = CanonicalLegacyJoin("02");
-        legacy.BoolData = true;
-        legacy.ItemsData = "retained inactive bytes";
-        await CanonicalHandler().Parse(_client, ClientPacket(601, 2, 2, 2, "", 0, 0, 0, 1, 0, 0, 0));
-        Assert.Contains(_client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
-        Assert.Empty(store.Saves);
-        Assert.True(_room.GetWired().TryGet(601, out var current));
-        Assert.Same(legacy, current);
-        Assert.Equal("02", legacy.StringData);
-        Assert.True(legacy.BoolData);
-        Assert.Equal("retained inactive bytes", legacy.ItemsData);
-    }
 
-    [Fact]
-    public async Task CanonicalConfiguredLegacyJoinChangedSavePromotesWithoutLosingInactiveState()
-    {
-        var (legacy, store) = CanonicalLegacyJoin("02");
-        legacy.BoolData = true;
-        legacy.ItemsData = "retained inactive bytes";
-        await CanonicalHandler().Parse(_client, ClientPacket(601, 2, 3, 2, "", 0, 0, 0, 1, 0, 0, 0));
-        var saved = Assert.Single(store.Saves);
-        Assert.Equal(new[] { 2, 3, 0, 0 }, saved.IntParams);
-        Assert.NotNull(saved.Origin?.Native?.DormantLegacy);
-        Assert.True(_room.GetWired().TryGet(601, out var current));
-        Assert.NotSame(legacy, current);
-    }
 
-    [Theory]
-    [InlineData("1junk")]
-    [InlineData("1;2")]
-    [InlineData("0")]
-    [InlineData("5")]
-    [InlineData("-1")]
-    public async Task CanonicalMalformedLegacyJoinRefusesSaveAndReopenWithoutDefaulting(string text)
-    {
-        var (legacy, store) = CanonicalLegacyJoin(text);
-        legacy.Item.Interactor.OnTrigger(_client, legacy.Item, 0, true);
-        Assert.DoesNotContain(_client.Packets, packet => packet.Header == ServerPacketHeader.WiredEffectConfigComposer);
-        await CanonicalHandler().Parse(_client, ClientPacket(601, 2, 1, 2, "", 0, 0, 0, 1, 0, 0, 0));
-        Assert.Empty(store.Saves);
-        Assert.True(_room.GetWired().TryGet(601, out var current));
-        Assert.Same(legacy, current);
-        Assert.Equal(text, legacy.StringData);
-    }
 
-    [Theory]
-    [InlineData("definition")]
-    [InlineData("dictionary")]
-    [InlineData("pick")]
-    [InlineData("text")]
-    [InlineData("inactive-bool")]
-    [InlineData("inactive-data")]
-    [InlineData("rights")]
-    [InlineData("room")]
-    public void CanonicalLegacyJoinCapturedNoopAndPromotionRefuseChangedProof(string change)
-    {
-        var (legacy, store) = CanonicalLegacyJoin("2");
-        var pick = Furni(602, InteractionType.None, WiredBoxType.None);
-        pick.RoomId = RoomId;
-        Assert.True(_room.GetRoomItemHandler().SetFloorItem(null, pick, 2, 2, 0, true, false, false));
-        legacy.SetItems[602] = pick;
-        var proof = Assert.IsType<LegacyJoinSnapshot>(_room.GetWired().CaptureLegacyJoin(legacy, () => true));
-        var allowed = true;
-
-        switch (change) {
-            case "definition":
-                legacy.Item.Definition = new() { ItemName = "wf_act_join_team", InteractionName = "wf_act_join_team" };
-                break;
-            case "dictionary":
-                legacy.SetItems = new(legacy.SetItems);
-                break;
-            case "pick":
-                legacy.SetItems[602] = Furni(602, InteractionType.None, WiredBoxType.None);
-                break;
-            case "text":
-                legacy.StringData = "3";
-                break;
-            case "inactive-bool":
-                legacy.BoolData = true;
-                break;
-            case "inactive-data":
-                legacy.ItemsData = "changed";
-                break;
-            case "rights":
-                allowed = false;
-                break;
-            case "room":
-                legacy.Item.RoomId = RoomId + 1;
-                break;
-        }
-
-        Assert.Equal(WiredNativeSaveAdmission.Refused, _room.GetWired().AdmitLegacyJoin(proof, proof.Native, () => allowed));
-        Assert.True(WiredNativeEditorProjection.TryCompile(601, proof.Descriptor, proof.Native, out var runtime));
-        var candidate = _room.GetWired().CreateConfiguredBox(proof.Item, proof.Descriptor)!;
-        Assert.False(WiredConfigurationSave.TrySave(candidate, runtime, store, out _,
-            publish: (box, configuration, persist) => _room.GetWired().PublishLegacyJoin(proof, box, configuration, () => allowed, persist)));
-        Assert.Empty(store.Saves);
-        Assert.True(_room.GetWired().TryGet(601, out var current));
-        Assert.Same(legacy, current);
-    }
 
     [Fact]
     public async Task CanonicalNativeUnchangedSaveKeepsPendingActionsAndPublicationState()
@@ -266,30 +136,6 @@ public partial class PlacedFurniRoomTests
         Assert.False(((IWiredContextualAction)box).Execute(context));
     }
 
-    [WiredChestDatabaseFact]
-    public async Task CanonicalLegacyJoinSqlFailureKeepsOriginalThenDurablePromotionReloadsNative()
-    {
-        using var db = new WiredChestDatabaseTests.Fixture();
-        db.Connection.Execute("ALTER TABLE wired_item_configurations ADD schema_version INT NOT NULL DEFAULT 1");
-        var (legacy, _) = CanonicalLegacyJoin("2");
-        var store = new WiredConfigurationStore(db.Database);
-        var handler = new SaveWiredEffectConfigEvent(new WiredConfigurationService(store, null!, TestLogging.For<WiredConfigurationService>()));
-        db.Connection.Execute("CREATE TRIGGER reject_native_join BEFORE INSERT ON wired_item_configurations FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='forced native join failure'");
-        await handler.Parse(_client, ClientPacket(601, 2, 3, 0, "", 0, 0, 0, 1, 0, 0, 0));
-        Assert.True(_room.GetWired().TryGet(601, out var current));
-        Assert.Same(legacy, current);
-        Assert.Equal("2", legacy.StringData);
-        Assert.Equal(0, db.Connection.QuerySingle<int>("SELECT COUNT(*) FROM wired_item_configurations"));
-        db.Connection.Execute("DROP TRIGGER reject_native_join");
-        await handler.Parse(_client, ClientPacket(601, 2, 3, 0, "", 0, 0, 0, 1, 0, 0, 0));
-        Assert.True(_room.GetWired().TryGet(601, out current));
-        var configured = Assert.IsAssignableFrom<IWiredConfiguredItem>(current);
-        var loaded = store.Load(601, configured.Descriptor)!;
-        Assert.Equal(2, db.Connection.QuerySingle<int>("SELECT schema_version FROM wired_item_configurations WHERE item_id=601"));
-        Assert.Equal(new[] { 0, 3, 0, 0 }, loaded.IntParams);
-        Assert.Equal("2", loaded.Origin!.Native!.DormantLegacy!.LegacyJoinTeam);
-        Assert.Equal(configured.Configuration.IntParams.ToArray(), loaded.IntParams.ToArray());
-    }
 
     [Theory]
     [InlineData(0)]
@@ -362,22 +208,6 @@ public partial class PlacedFurniRoomTests
         Assert.Equal(1, mover.GetX);
     }
 
-    [Fact]
-    public async Task CanonicalFreshLegacyJoinFirstSavedConfigurationExecutesForItsActualActor()
-    {
-        var clock = new SpeechClock();
-        var (_, actor) = PrepareSpeech(clock);
-        _client.GetHabbo().Effects = new Plus.HabboHotel.Users.Effects.EffectsComponent(clock);
-        var (_, _) = CanonicalLegacyJoin("");
-        await CanonicalHandler().Parse(_client, ClientPacket(601, 2, 1, 0, "", 0, 0, 0, 1, 0, 0, 0));
-        Assert.True(_room.GetWired().TryGet(601, out var current));
-        var context = _room.GetWired().CaptureVariableInspectionFrame().RuntimeContext!;
-        context.Triggering.UserIds.Add(actor.VirtualId);
-        var changed = false;
-        _room.RunFastPass(() => changed = ((IWiredContextualAction)current!).Execute(context));
-        Assert.True(changed);
-        Assert.Equal(Plus.HabboHotel.Rooms.Games.Teams.Team.Red, actor.Team);
-    }
 
     [Theory]
     [InlineData(0)]
@@ -613,23 +443,6 @@ public partial class PlacedFurniRoomTests
         UserSourceTypes = [0]
     };
 
-    private (IWiredItem Box, CanonicalStore Store) CanonicalLegacyJoin(string team)
-    {
-        var store = new CanonicalStore(null);
-        typeof(Plus.HabboHotel.Rooms.Instance.WiredComponent).GetField("_configurationStore", BindingFlags.Instance | BindingFlags.NonPublic)!
-            .SetValue(_room.GetWired(), store);
-        var item = Furni(601, InteractionType.WiredEffect, WiredBoxType.EffectAddActorToTeam);
-        item.RoomId = RoomId;
-        item.Definition.InteractionName = "wf_act_join_team";
-        item.Definition.ItemName = "wf_act_join_team";
-        _room.GetRoomItemHandler().LoadFurniture([item]);
-        Assert.True(_room.GetWired().TryGet(item.Id, out var loaded));
-        Assert.IsType<Plus.HabboHotel.Items.Wired.Boxes.Effects.AddActorToTeamBox>(loaded);
-        loaded.StringData = team;
-        _client.Packets.Clear();
-
-        return (loaded, store);
-    }
 
     private (IWiredConfiguredItem Box, CanonicalStore Store) CanonicalBox(string name, WiredConfiguration previous)
     {
@@ -655,7 +468,7 @@ public partial class PlacedFurniRoomTests
     private sealed class CanonicalStore(WiredConfiguration? previous) : IWiredConfigurationStore
     {
         public List<WiredConfiguration> Saves { get; } = [];
-        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => previous == null ? null : WiredNativeEditorProjection.TrustLegacy(itemId, descriptor, previous);
+        public WiredConfiguration? Load(uint itemId, WiredBoxDescriptor descriptor) => previous;
         public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration) => Saves.Add(configuration);
         public void Reset(IReadOnlyCollection<uint> itemIds) => throw new InvalidOperationException("Unexpected reset.");
     }

@@ -386,7 +386,7 @@ public partial class PlacedFurniRoomTests
         public bool BoolData { get; set; }
         public string ItemsData { get; set; } = "";
         public int Calls;
-        public WiredBoxDescriptor Descriptor { get; } = new("test", WiredBoxCategory.Action, 0, 0, "test") { Support = WiredBoxSupport.Implemented };
+        public WiredBoxDescriptor Descriptor { get; } = new("test", WiredBoxCategory.Action, 0, "test") { Support = WiredBoxSupport.Implemented };
         public WiredConfiguration Configuration { get; private set; } = new();
         public bool IsNegative => false;
         public bool Execute(params object[] arguments) => throw new NotSupportedException();

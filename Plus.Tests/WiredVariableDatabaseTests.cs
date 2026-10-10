@@ -337,7 +337,6 @@ public sealed class WiredVariableDatabaseTests(ITestOutputHelper output)
             output.WriteLine($"Actual SQL + native Room.SendObjects/OnCycle FX: initial {nativeReadCommands} SQL commands; unchanged0; no pre-snapshot FX; failed snapshot/send retry; owner recheck; same-ID viewer replacement; detach-placement removal passed.");
             var global = Assert.IsType<WiredVariableDefinitionBox>(roomVariables.CreateBox(new Item
             { Id = globalItem, Definition = new() { InteractionName = "wf_var_room" } }));
-            Assert.Same(global, WiredBoxLoading.Select(null, global, null));
             Assert.False(global.HasPersistedConfiguration);
             var engine = new WiredStackEngine(() => 5000, box => ReferenceEquals(box, global), _ => true, _ => { }, _ => { });
             engine.Add(global);

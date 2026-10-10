@@ -176,8 +176,7 @@ public partial class PlacedFurniRoomTests
         _room.GetRoomItemHandler().LoadFurniture([wall]);
         var action = WallGeometryAction("wf_act_match_to_sshot", new() { IntParams = [0, 0, 0, 1, 100], SelectedItems = [wall.Id] });
         var configurations = new WiredConfigurationStore(fixture.Database);
-        Assert.True(WiredConfigurationSave.TrySave(action, action.Configuration, configurations,
-            out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
+        Assert.True(WiredNativeTestSupport.TrySavePrepared(action, action.Configuration, configurations, out var error), error);
         var saved = configurations.Load(action.Item.Id, action.Descriptor)!;
         Assert.Equal(341, Assert.Single(saved.Snapshots).Wall!.CapturedAltitudeHundredths);
         action.ApplyConfiguration(saved);
@@ -279,8 +278,7 @@ public partial class PlacedFurniRoomTests
             Assert.True(WiredNativeEditorProjection.TryCompile(item.Id, descriptor, native, out configuration));
         }
 
-        Assert.True(WiredConfigurationSave.TrySave(action, configuration, TestWiredConfigurationStore.Instance,
-            out var error, prepare: WiredRoomOperations.PrepareSnapshots), error);
+        Assert.True(WiredNativeTestSupport.TrySavePrepared(action, configuration, TestWiredConfigurationStore.Instance, out var error), error);
 
         return action;
     }

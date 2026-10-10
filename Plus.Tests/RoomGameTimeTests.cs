@@ -1,7 +1,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using Plus.HabboHotel.Items;
-using Plus.HabboHotel.Items.Wired.Boxes.Effects;
 using Plus.HabboHotel.Items.Wired;
 using Plus.HabboHotel.Rooms;
 using Plus.HabboHotel.Rooms.Games;
@@ -17,25 +16,6 @@ public sealed class RoomGameTimeTests
     private static readonly TimeZoneInfo NonUtcZone =
         TimeZoneInfo.CreateCustomTimeZone("game-minus-seven", TimeSpan.FromHours(-7), "test", "test");
 
-    [Theory]
-    [InlineData(-1, false)]
-    [InlineData(0, false)]
-    [InlineData(1, true)]
-    public void RegenerateMapsUsesStrictUtcMinuteBoundaryWithOneClockRead(int deltaMilliseconds, bool expected)
-    {
-        var now = new DateTimeOffset(2040, 4, 5, 6, 7, 8, TimeSpan.Zero);
-        var clock = new CountingClock(now, NonUtcZone);
-        var room = World(clock);
-        var previous = now - TimeSpan.FromMinutes(1) - TimeSpan.FromMilliseconds(deltaMilliseconds);
-        room.LastRegenerationAt = previous;
-        clock.ResetReads();
-
-        var result = new RegenerateMapsBox(room, Furni()).Execute(Array.Empty<object>());
-
-        Assert.Equal(expected, result);
-        Assert.Equal(1, clock.Reads);
-        Assert.Equal(expected ? now : previous, room.LastRegenerationAt);
-    }
 
     [Fact]
     public void GameManagerStopCapturesUtcResetInstantOnce()
