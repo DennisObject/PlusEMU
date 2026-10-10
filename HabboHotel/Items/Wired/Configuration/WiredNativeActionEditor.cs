@@ -17,7 +17,6 @@ internal static class WiredNativeActionEditor
     private static readonly int[] MoveUsers = [0, 11, 200, 201];
     private static readonly int[] SignalUsers = [0, 200, 201];
     private static readonly int[] BotCodes = [0, 100, 200, 201];
-    private static readonly int[] VariableSources = [0, 11, 100, 101, 200, 201];
     // freeze.effect.0..4 localize to fx_218, fx_12, fx_11, fx_53, fx_163. The dropdown stores the index.
     private static readonly int[] FreezeEffects = [218, 12, 11, 53, 163];
 
@@ -51,17 +50,17 @@ internal static class WiredNativeActionEditor
         ["wf_act_move_furni_to"] = Meta([Furni, FurniAndSnapshot], [], [100, 101], [], [0, 1]),
         ["wf_act_match_to_sshot"] = Meta([FurniAndSnapshot], [], [100], [], [0, 0, 0, 0], true),
         ["wf_act_user_to_furni"] = Meta([Furni], [MoveUsers], [100], [0], [0]),
-        ["wf_act_place_furni"] = Meta([Furni, FurniAndSnapshot, FurniAndSnapshot], [Users, Users], [100, 100, 100], [0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], true),
+        ["wf_act_place_furni"] = Meta([Furni, FurniAndSnapshot, FurniAndSnapshot], [Users, Users], [100, 100, 100], [0, 0], [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], true) with
+        {
+            VariableDefaults = [WiredVariableAbsent.Id, WiredVariableAbsent.Id]
+        },
         ["wf_act_remove_furni"] = Meta([Furni], [], [100], [], []),
         ["wf_act_adjust_clock"] = Meta([Furni], [], [100], [], [0, 0, 0, 0]),
         ["wf_act_neg_send_signal"] = Meta([SignalFurni, SignalFurni], [SignalUsers], [100, 200], [200], [0, 0]),
         ["wf_act_log"] = Meta([], [], [], [], [0]),
         ["wf_act_neg_log"] = Meta([], [], [], [], [0]),
         ["wf_act_click_conf"] = Meta([], [Users], [], [0], [0, 0]),
-        ["wf_act_teleport_to_room"] = Meta([Furni], [Users], [100], [0], []),
-        ["wf_act_give_var"] = Meta([VariableSources], [VariableSources], [100], [0], [0, 0, 0, 0]),
-        ["wf_act_remove_var"] = Meta([VariableSources], [VariableSources], [100], [0], [0]),
-        ["wf_act_change_var_val"] = Meta([VariableSources, VariableSources], [VariableSources, VariableSources], [100, 100], [0, 0], [0, 0, 0, 0, 0, 0])
+        ["wf_act_teleport_to_room"] = Meta([Furni], [Users], [100], [0], [])
     };
 
     internal static bool Supports(string name) => Known.ContainsKey(name);
@@ -74,7 +73,12 @@ internal static class WiredNativeActionEditor
     {
         runtime = new();
 
-        if (!Supports(name)) {
+        if (!Supports(name) || native.Delay is not int delay || delay is < 0 or > WiredConfigurationLimits.DelayPulses) {
+            return false;
+        }
+
+        // Place is the only action here that carries variable ids. Give, remove and change belong to the auxiliary editor.
+        if (name != "wf_act_place_furni" && !native.VariableIds.IsEmpty) {
             return false;
         }
 
@@ -151,7 +155,7 @@ internal static class WiredNativeActionEditor
                 break;
             case "wf_act_bot_teleport":
             case "wf_act_bot_move":
-                if (p.Length != 0 || !BotName(text, false)) {
+                if (p.Length != 0 || !BotName(text)) {
                     return false;
                 }
 
@@ -160,7 +164,7 @@ internal static class WiredNativeActionEditor
                 users["bots"] = User(native, 0);
                 break;
             case "wf_act_bot_follow_avatar":
-                if (p.Length != 1 || p[0] is < 0 or > 1 || !BotName(text, false)) {
+                if (p.Length != 1 || p[0] is < 0 or > 1 || !BotName(text)) {
                     return false;
                 }
 
@@ -169,7 +173,7 @@ internal static class WiredNativeActionEditor
                 users["bots"] = User(native, 1);
                 break;
             case "wf_act_bot_give_handitem":
-                if (p.Length != 1 || p[0] < 0 || !BotName(text, false)) {
+                if (p.Length != 1 || p[0] < 0 || !BotName(text)) {
                     return false;
                 }
 
@@ -178,7 +182,7 @@ internal static class WiredNativeActionEditor
                 users["bots"] = User(native, 1);
                 break;
             case "wf_act_bot_talk":
-                if (p.Length != 2 || p[0] is < 0 or > 1 || p[1] is < -1 or > 2 || !BotName(text, false)) {
+                if (p.Length != 2 || p[0] is < 0 or > 1 || p[1] is < -1 or > 2 || !BotName(text)) {
                     return false;
                 }
 
@@ -186,7 +190,7 @@ internal static class WiredNativeActionEditor
                 users["bots"] = User(native, 0);
                 break;
             case "wf_act_bot_talk_to_avatar":
-                if (p.Length != 2 || p[0] is < 0 or > 1 || p[1] is < -1 or > 2 || !BotName(text, false)) {
+                if (p.Length != 2 || p[0] is < 0 or > 1 || p[1] is < -1 or > 2 || !BotName(text)) {
                     return false;
                 }
 
@@ -195,7 +199,8 @@ internal static class WiredNativeActionEditor
                 users["bots"] = User(native, 1);
                 break;
             case "wf_act_bot_clothes":
-                if (p.Length != 0 || !BotName(text, true)) {
+                // The save service already checks the figure. The text is stored unchanged.
+                if (p.Length != 0 || !BotName(text)) {
                     return false;
                 }
 
@@ -286,14 +291,15 @@ internal static class WiredNativeActionEditor
             case "wf_act_place_furni":
                 if (p.Length != 10 || text != "" || p[0] is < 0 or > 1 || p[1] is < 0 or > 1 || p[2] is < 0 or > 2
                     || p[3] is < -64 or > 64 || p[4] is < -64 or > 64 || p[5] is < -8000 or > 8000
-                    || p[6] is < 0 or > 1 || p[7] is < 0 or > 1 || native.VariableIds.Length > 2
-                    || native.VariableIds.Any(token => !PlaceToken(token)) || !TryDomainTarget(p[9], out var valueTarget)) {
+                    || p[6] is < 0 or > 1 || p[7] is < 0 or > 1 || !TryDomainTarget(p[9], out var valueTarget)
+                    || !PlaceVariables(native.VariableIds, (WiredVariableTarget)valueTarget)) {
                     return false;
                 }
 
                 placement = new(p[0] == 1, (WiredPlaceLocationType)p[1], (WiredPlaceAltitudeType)p[2], p[3], p[4], p[5],
                     p[6] == 1, p[7] == 1, p[8], valueTarget);
-                parameters = [0, 1, 0, 0, 0, 0];
+                parameters = [];
+                furni["templates"] = Source(native, 0);
                 furni["target"] = Source(native, 1);
                 furni["value"] = Source(native, 2);
                 users["target"] = User(native, 0);
@@ -353,32 +359,15 @@ internal static class WiredNativeActionEditor
                     return false;
                 }
 
-                if (text.Length > 0 && (!uint.TryParse(text, out var roomId) || roomId is 0 or > int.MaxValue)) {
-                    return false;
+                if (text.Length > 0) {
+                    if (!uint.TryParse(text, out var roomId) || roomId is 0 or > int.MaxValue) {
+                        return false;
+                    }
                 }
 
                 parameters = [User(native, 0), Source(native, 0)];
                 users["users"] = User(native, 0);
                 furni["links"] = Source(native, 0);
-                break;
-            case "wf_act_give_var":
-            case "wf_act_remove_var":
-                if (!TryVariableAction(name, native, out parameters, out text, out var variableUsers, out var variableFurni)) {
-                    return false;
-                }
-
-                users["users"] = variableUsers;
-                furni["items"] = variableFurni;
-                break;
-            case "wf_act_change_var_val":
-                if (!TryChangeVariable(native, out parameters, out text)) {
-                    return false;
-                }
-
-                users["users"] = parameters[5];
-                furni["items"] = parameters[6];
-                users["reference"] = parameters[7];
-                furni["reference"] = parameters[8];
                 break;
             default:
                 return false;
@@ -393,90 +382,13 @@ internal static class WiredNativeActionEditor
             VariableIds = native.VariableIds,
             FurniSources = furni.ToImmutable(),
             UserSources = users.ToImmutable(),
-            Delay = native.Delay ?? 0,
+            Delay = delay,
             ScoreQuotaPerGame = quota,
             Snapshots = native.SavedState.Snapshots,
             TemporaryPlacement = placement
         };
 
         return true;
-    }
-
-    private static bool TryVariableAction(string name, WiredNativeEditorConfiguration native, out ImmutableArray<int> parameters,
-        out string text, out int userSource, out int furniSource)
-    {
-        parameters = [];
-        text = "";
-        userSource = User(native, 0);
-        furniSource = Source(native, 0);
-        var give = name == "wf_act_give_var";
-        var p = native.OwnedIntParams;
-        var literal = 0;
-        if (give) {
-            if (p.Length != 4 || p[3] is < 0 or > 1 || !TryPacked(p[1], p[2], out literal)) {
-                return false;
-            }
-        }
-        else if (p.Length != 1) {
-            return false;
-        }
-
-        if (!TryDomainTarget(p[0], out var target) || target == (int)WiredVariableTarget.Global || !TryActionToken(native, 1, false, out text)) {
-            return false;
-        }
-
-        parameters = give ? [target, p[3], literal, userSource, furniSource] : [target, userSource, furniSource];
-
-        return true;
-    }
-
-    private static bool TryChangeVariable(WiredNativeEditorConfiguration native, out ImmutableArray<int> parameters, out string text)
-    {
-        parameters = [];
-        text = "";
-        var p = native.OwnedIntParams;
-
-        if (p.Length != 6 || !TryDomainTarget(p[0], out var target) || !WiredVariableArithmetic.IsSupported(p[1]) || p[2] is < 0 or > 1
-            || !TryPacked(p[3], p[4], out var literal) || !TryDomainTarget(p[5], out var operandTarget)
-            || !TryActionToken(native, 2, p[2] == 1, out text)) {
-            return false;
-        }
-
-        parameters = [target, p[1], p[2], literal, operandTarget, User(native, 0), Source(native, 0), User(native, 1), Source(native, 1)];
-
-        return true;
-    }
-
-    // A fresh card has no variable ids. A save must carry a real id; the client sentinel "n" is not one.
-    private static bool TryActionToken(WiredNativeEditorConfiguration native, int maxIds, bool operandRequired, out string text)
-    {
-        text = native.Text;
-
-        if (native.VariableIds.Length > maxIds) {
-            return false;
-        }
-
-        if (native.VariableIds.Length == 0) {
-            return text.Length == 0 || LiveToken(text.Split('\t')[0]);
-        }
-
-        var destination = native.VariableIds[0];
-        var operand = native.VariableIds.Length > 1 ? native.VariableIds[1] : "";
-
-        if (!LiveToken(destination) || operandRequired && !LiveToken(operand)) {
-            return false;
-        }
-
-        text = operandRequired ? destination + "\t" + operand : destination;
-
-        return native.Text.Length == 0 || native.Text == text;
-    }
-
-    private static bool TryPacked(int signFlag, int value, out int literal)
-    {
-        literal = value;
-
-        return signFlag == (value < 0 ? -1 : 0);
     }
 
     // Client merged types: 0 furni, 1 user, -20 context, -10 global. Domain order is user, furni, context, global.
@@ -501,21 +413,14 @@ internal static class WiredNativeActionEditor
         return raw is -1 or >= 0 and <= 7 or 9 or 10;
     }
 
-    private static bool BotName(string text, bool clothes)
-    {
-        var parts = text.Split('\t', 2);
+    private static bool BotName(string text) => text.Split('\t', 2)[0].Length <= 64;
 
-        if (parts[0].Length > 64) {
-            return false;
-        }
+    // Spawn is always a furni variable. The operand uses the owned domain target. Ids stay opaque catalog strings.
+    private static bool PlaceVariables(ImmutableArray<string> ids, WiredVariableTarget operand) => ids.IsEmpty
+        || ids.Length == 2 && PlaceCatalog(ids[0], WiredVariableTarget.Furni) && PlaceCatalog(ids[1], operand);
 
-        return !clothes || parts.Length < 2 || parts[1].Length == 0 || WiredBotActions.FigureWellFormed(parts[1]);
-    }
-
-    private static bool PlaceToken(string token) => token is "" or "n" || LiveToken(token);
-
-    private static bool LiveToken(string token) => WiredVariableModule.TryDefinitionId(token, out _)
-        || (token.StartsWith("internal:@", StringComparison.Ordinal) || token.StartsWith("internal:~", StringComparison.Ordinal)) && token.Length > 10;
+    private static bool PlaceCatalog(string token, WiredVariableTarget target) => WiredVariableAbsent.Is(token)
+        || WiredVariableDescription.TryParseCatalogId(token, out var parsed, out _) && parsed == target;
 
     private static int Source(WiredNativeEditorConfiguration native, int index) => native.FurniSourceTypes[index];
 

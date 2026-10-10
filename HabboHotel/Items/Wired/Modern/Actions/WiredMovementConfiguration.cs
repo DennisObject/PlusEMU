@@ -7,30 +7,10 @@ namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 /// <summary>Validates the current Octane editors and decodes named source roles without changing wire fields.</summary>
 public static class WiredMovementConfiguration
 {
-    // wf_act_move_rotate: index = current Octane editor option, value = stored direction/turn.
+    // wf_act_move_rotate: index = editor option, value = stored direction/turn.
     // AIR's move/rotate radios: 4 ↗ 8 → 5 ↘ 9 ↓ 6 ↙ 10 ← 7 ↖ 11 ↑ (icons move_0..move_7).
     private static readonly int[] EditorMovement = [-1, 8, 9, 10, 0, 2, 4, 6, 1, 3, 5, 7];
     private static readonly int[] EditorRotation = [0, 2, 4, 6];
-
-    /// <summary>Shows stored four-field move/rotate settings in the three-field editor order they were saved from.</summary>
-    public static WiredConfiguration ForEditor(string name, WiredConfiguration stored)
-    {
-        if (!name.Equals("wf_act_move_rotate", StringComparison.OrdinalIgnoreCase)
-            || stored.IntParams.IsDefault || stored.IntParams.Length != 4) {
-            return stored;
-        }
-
-        var p = stored.IntParams;
-        var movement = Array.IndexOf(EditorMovement, p[0]);
-        var rotation = Array.IndexOf(EditorRotation, p[1]);
-
-        // Validation admits only values the editor can show; anything else is sent as stored.
-        if (movement < 0 || rotation < 0 || p[3] != 0) {
-            return stored;
-        }
-
-        return stored with { IntParams = [movement, rotation, p[2]] };
-    }
 
     public static bool TryValidate(string name, WiredConfiguration proposed,
         out WiredConfiguration validated, out string error)

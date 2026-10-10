@@ -67,6 +67,7 @@ internal static class WiredNativeConditionEditor
         var u = native.UserSourceTypes;
         var q = native.Quantifier.Value;
         var positive = Positive(name);
+        if (Metadata(name).QuantifierType == 0 && q != 0) return false;
         var text = native.Text;
         ImmutableArray<int> parameters;
         switch (positive) {

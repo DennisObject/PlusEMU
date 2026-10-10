@@ -13,7 +13,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
-public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, IWiredEditorConfigurationProvider
+public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction
 {
     private readonly WiredCounterController _clocks;
     private readonly Action<WiredRuntimeEvent> _publish;
@@ -112,26 +112,6 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
         return Furni(context, config, slot).All(WiredRoomMovement.PlainPublicationItem);
     }
 
-    public WiredConfiguration GetEditorConfiguration()
-    {
-        if (Descriptor.CanonicalName == "wf_act_place_furni") {
-            return WiredTemporaryFurnitureActions.ForEditor(Configuration);
-        }
-
-        var p = Configuration.IntParams;
-
-        if (Descriptor.CanonicalName is "wf_act_give_score" or "wf_act_give_score_tm"
-            && p.Length == 3 && Configuration.ScoreQuotaPerGame is { } quota) {
-            return Configuration with
-            {
-                IntParams = Descriptor.CanonicalName == "wf_act_give_score"
-                ? [.. p, quota] : [.. p, 0, quota]
-            };
-        }
-
-        return Configuration;
-    }
-
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
         // A mapped action has exactly one model: its bound native record. Unmapped names keep their runtime validator.
@@ -155,10 +135,6 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 
         if (name == "wf_act_give_reward") {
             return WiredRewards.TryValidate(proposed, out validated, out error);
-        }
-
-        if (WiredTemporaryFurnitureActions.Supports(name)) {
-            return WiredTemporaryFurnitureActions.TryValidate(name, proposed, out validated, out error);
         }
 
         if (name == "wf_act_teleport_to_room") {
