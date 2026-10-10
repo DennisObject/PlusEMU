@@ -32,8 +32,8 @@ public sealed partial class WiredGlideConveyorTests
         var rotation = (rider.RotBody, rider.RotHead);
 
         for (var pulse = 1; pulse <= 3; pulse++) {
-            await request.Parse(room, rider.GetClient()!, new FlashIncomingPacket { Buffer = new byte[] { 0, 0, 0, 1 } });
-            Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesData64Composer);
+            await request.Parse(room, rider.GetClient()!, new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
+            Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesDataComposer);
             packets.Clear();
 
             f.Advance(pulse == 1 ? 250 : 200);
@@ -69,7 +69,7 @@ public sealed partial class WiredGlideConveyorTests
         Assert.All(observed, groups => Assert.Equal(0, groups[0][^1].Type));
 
         foreach (var (body, pulse) in rawBodies.Select((body, index) => (body, index + 1))) {
-            AssertOctaneMixedFields(body, 3 + pulse, rider.VirtualId, rotation.RotBody, rotation.RotHead);
+            AssertCanonicalMixedFields(body, 3 + pulse, rider.VirtualId, rotation.RotBody, rotation.RotHead);
         }
     }
 
@@ -91,8 +91,8 @@ public sealed partial class WiredGlideConveyorTests
         var observations = new List<List<PublishedMove[]>>();
 
         for (var pulse = 1; pulse <= 3; pulse++) {
-            await request.Parse(room, rider.GetClient()!, new FlashIncomingPacket { Buffer = new byte[] { 0, 0, 0, 1 } });
-            Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesData64Composer);
+            await request.Parse(room, rider.GetClient()!, new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
+            Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesDataComposer);
             packets.Clear();
             f.AdvanceWiredPass(pulse == 1 ? 250 : 200, full);
             var groups = packets.Where(IsMovementBody).Select(bytes => ReadPublication([bytes]).ToArray()).ToList();
@@ -833,7 +833,7 @@ public sealed partial class WiredGlideConveyorTests
         Assert.Equal(0, f.Engine.ReadStats().Pending);
     }
 
-    private static void AssertOctaneMixedFields(byte[] bytes, int fromX, int actorId, int bodyRotation, int headRotation)
+    private static void AssertCanonicalMixedFields(byte[] bytes, int fromX, int actorId, int bodyRotation, int headRotation)
     {
         var packet = new FlashIncomingPacket { Buffer = bytes.AsMemory(6) };
         var count = packet.ReadInt();
@@ -852,18 +852,18 @@ public sealed partial class WiredGlideConveyorTests
             if (avatar) {
                 Assert.Equal(actorId, id);
                 Assert.Equal(fromX, sourceX);
-                Assert.Equal(1, packet.ReadInt()); // Existing active Octane slide mode.
+                Assert.Equal(1, packet.ReadInt());
+                Assert.Equal(200, packet.ReadInt());
                 Assert.Equal(bodyRotation, packet.ReadInt());
                 Assert.Equal(headRotation, packet.ReadInt());
-                Assert.Equal(200, packet.ReadInt());
+                Assert.False(packet.ReadBool());
             }
             else {
                 Assert.Equal(id + 3, sourceX);
-                Assert.Equal(0, packet.ReadInt());
                 Assert.Equal(500, packet.ReadInt());
                 Assert.Equal(0, packet.ReadInt());
-                Assert.Equal(0, packet.ReadInt());
-                Assert.Equal(0, packet.ReadInt());
+                Assert.False(packet.ReadBool());
+                Assert.False(packet.ReadBool());
             }
         }
 

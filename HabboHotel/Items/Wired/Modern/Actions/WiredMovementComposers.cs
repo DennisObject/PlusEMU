@@ -7,10 +7,15 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
-/// <summary>Active Octane ABI: WiredMovementsParser, furniture type 1 / avatar type 0.</summary>
+/// <summary>Canonical Wired movement body, furniture type 1 / avatar type 0.</summary>
 public sealed record WiredMovementComposer(int Type, int Id, int FromX, int FromY, double FromZ,
     int ToX, int ToY, double ToZ, int BodyRotation, int HeadRotation, int DurationMs) : IServerPacket
 {
+    public int AnimationType { get; init; } = 1;
+    public int? JumpPower { get; init; }
+    public int? OvershootTimeMs { get; init; }
+    public int? CurveStrength { get; init; }
+
     public uint MessageId => ServerPacketHeader.WiredMovementsComposer;
     public void Compose(IOutgoingPacket packet)
     {
@@ -30,17 +35,30 @@ public sealed record WiredMovementComposer(int Type, int Id, int FromX, int From
         packet.WriteInteger(Id);
 
         if (Type == 1) {
-            packet.WriteInteger(BodyRotation);
             packet.WriteInteger(DurationMs);
-            packet.WriteInteger(0);
-            packet.WriteInteger(0);
-            packet.WriteInteger(0);
+            packet.WriteInteger(BodyRotation);
+            packet.WriteBoolean(OvershootTimeMs.HasValue);
+
+            if (OvershootTimeMs is { } overshoot) {
+                packet.WriteInteger(overshoot);
+            }
+
+            packet.WriteBoolean(CurveStrength.HasValue);
+
+            if (CurveStrength is { } curve) {
+                packet.WriteInteger(curve);
+            }
         }
         else {
-            packet.WriteInteger(1);
+            packet.WriteInteger(AnimationType);
+            packet.WriteInteger(DurationMs);
             packet.WriteInteger(BodyRotation);
             packet.WriteInteger(HeadRotation);
-            packet.WriteInteger(DurationMs);
+            packet.WriteBoolean(JumpPower.HasValue);
+
+            if (JumpPower is { } jump) {
+                packet.WriteInteger(jump);
+            }
         }
     }
 }

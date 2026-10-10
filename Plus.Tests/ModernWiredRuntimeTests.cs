@@ -672,6 +672,119 @@ public class ModernWiredRuntimeTests
         }
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void CanonicalMovementUnequalFieldsFollowNativeGrammar(int type)
+    {
+        var bytes = TypedFurnitureStateTests.Payload(new WiredMovementComposer(type, 19, 0, 1, 1.25, 2, 3, 3.5,
+            type == 0 ? 2 : 4, 6, 750));
+        using var reader = new BinaryReader(new MemoryStream(bytes));
+        int Int() => TypedFurnitureStateTests.ReadInt(reader);
+        Assert.Equal(1, Int());
+        Assert.Equal(type, Int());
+        Assert.Equal(0, Int());
+        Assert.Equal(1, Int());
+        Assert.Equal(2, Int());
+        Assert.Equal(3, Int());
+        Assert.Equal("1.25", TypedFurnitureStateTests.ReadString(reader));
+        Assert.Equal("3.5", TypedFurnitureStateTests.ReadString(reader));
+        Assert.Equal(19, Int());
+
+        if (type == 0) {
+            Assert.Equal(1, Int());
+            Assert.Equal(750, Int());
+            Assert.Equal(2, Int());
+            Assert.Equal(6, Int());
+            Assert.False(reader.ReadBoolean());
+        }
+        else {
+            Assert.Equal(750, Int());
+            Assert.Equal(4, Int());
+            Assert.False(reader.ReadBoolean());
+            Assert.False(reader.ReadBoolean());
+        }
+
+        Assert.Equal(bytes.Length, reader.BaseStream.Position);
+    }
+
+    [Theory]
+    [InlineData(0, null)]
+    [InlineData(0, 0)]
+    [InlineData(0, 100)]
+    [InlineData(0, -100)]
+    [InlineData(1, null)]
+    [InlineData(1, 0)]
+    [InlineData(1, 100)]
+    [InlineData(1, -100)]
+    public void CanonicalMovementOptionalFieldsPreservePresenceSignedValuesAndBatchBody(int type, int? option)
+    {
+        var movement = new WiredMovementComposer(type, 19, 0, 1, 1.25, 2, 3, 3.5, 2, 6, 750)
+        {
+            AnimationType = 0,
+            JumpPower = option,
+            OvershootTimeMs = option,
+            CurveStrength = option
+        };
+        var single = TypedFurnitureStateTests.Payload(movement);
+        var batch = TypedFurnitureStateTests.Payload(new WiredMovementBatchComposer([movement]));
+        Assert.Equal(single, batch);
+        var reader = new WireReader(single);
+        Assert.Equal(1, reader.Int());
+        Assert.Equal(type, reader.Int());
+        reader.Skip(4);
+        Assert.Equal("1.25", reader.String());
+        Assert.Equal("3.5", reader.String());
+        Assert.Equal(19, reader.Int());
+
+        if (type == 0) {
+            Assert.Equal(0, reader.Int());
+        }
+
+        Assert.Equal(750, reader.Int());
+        Assert.Equal(2, reader.Int());
+
+        if (type == 0) {
+            Assert.Equal(6, reader.Int());
+        }
+
+        Assert.Equal(option.HasValue, reader.Bool());
+
+        if (option is { } value) {
+            Assert.Equal(value, reader.Int());
+        }
+
+        if (type == 1) {
+            Assert.Equal(option.HasValue, reader.Bool());
+
+            if (option is { } curve) {
+                Assert.Equal(curve, reader.Int());
+            }
+        }
+
+        reader.End();
+    }
+
+    [Fact]
+    public void CanonicalMovementHeterogeneousBatchContainsExactlyTheSingleEntryBodies()
+    {
+        WiredMovementComposer[] entries = [
+            new(1, 11, 0, 1, 1, 2, 3, 2, 4, 6, 750) { OvershootTimeMs = 0, CurveStrength = -100 },
+            new(0, 19, 2, 3, 2, 4, 5, 3, 2, 6, 200) { JumpPower = 100 },
+            new(1, 12, 4, 5, 3, 6, 7, 4, 1, 7, 500)
+        ];
+        var batch = TypedFurnitureStateTests.Payload(new WiredMovementBatchComposer(entries));
+        using var reader = new BinaryReader(new MemoryStream(batch));
+        Assert.Equal(entries.Length, TypedFurnitureStateTests.ReadInt(reader));
+
+        foreach (var entry in entries) {
+            var expected = TypedFurnitureStateTests.Payload(entry)[4..];
+            Assert.Equal(expected, reader.ReadBytes(expected.Length));
+        }
+
+        Assert.Equal(batch.Length, reader.BaseStream.Position);
+    }
+
     [Fact]
     public void ActiveChatAndMovementComposersPreserveParserFields()
     {
@@ -682,7 +795,7 @@ public class ModernWiredRuntimeTests
         Assert.Equal(new object[] { 7, "Hello", 0, 252, 0, 5, 2 }, fields);
         fields.Clear();
         new WiredMovementComposer(1, 10, 0, 1, 1.25, 2, 2, 3.5, 4, 4, 750).Compose(packet);
-        Assert.Equal(new object[] { 1, 1, 0, 1, 2, 2, "1.25", "3.5", 10, 4, 750, 0, 0, 0 }, fields);
+        Assert.Equal(new object[] { 1, 1, 0, 1, 2, 2, "1.25", "3.5", 10, 750, 4, false, false }, fields);
         fields.Clear();
         new WiredRewardResultComposer(5).Compose(packet);
         Assert.Equal(new object[] { 5 }, fields);
@@ -2044,8 +2157,9 @@ public class ModernWiredRuntimeTests
             packet.String();
             packet.Int();
             Assert.Equal(1, packet.Int());
-            packet.Skip(2);
             durations.Add(packet.Int());
+            packet.Skip(2);
+            Assert.False(packet.Bool());
             packet.End();
         }
 
@@ -2072,8 +2186,10 @@ public class ModernWiredRuntimeTests
             packet.String();
             packet.Int();
             Assert.Equal(1, packet.Int());
+            var duration = packet.Int();
             packet.Skip(2);
-            endpoints.Add((fromX, fromY, toX, toY, packet.Int()));
+            Assert.False(packet.Bool());
+            endpoints.Add((fromX, fromY, toX, toY, duration));
             packet.End();
         }
 

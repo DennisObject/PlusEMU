@@ -33,8 +33,8 @@ public sealed partial class WiredGlideConveyorTests
         var request = new WiredUserVariablesRequestEvent(new WiredVariableMenuService());
 
         for (var pulse = 1; pulse <= 3; pulse++) {
-            await request.Parse(room, rider.GetClient()!, new FlashIncomingPacket { Buffer = new byte[] { 0, 0, 0, 1 } });
-            Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesData64Composer);
+            await request.Parse(room, rider.GetClient()!, new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
+            Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesDataComposer);
             packets.Clear();
             f.Advance(pulse == 1 ? 250 : 200);
 

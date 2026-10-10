@@ -29,9 +29,9 @@ public sealed partial class WiredGlideConveyorTests
         var packets = CapturePublication(rider);
 
         await new WiredUserVariablesRequestEvent(new WiredVariableMenuService()).Parse(room, rider.GetClient()!,
-            new FlashIncomingPacket { Buffer = new byte[] { 0, 0, 0, 1 } });
+            new FlashIncomingPacket { Buffer = Array.Empty<byte>() });
 
-        Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesData64Composer);
+        Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesDataComposer);
         packets.Clear();
         f.Advance(250);
 
@@ -693,17 +693,22 @@ public sealed partial class WiredGlideConveyorTests
                 var fromZ = String();
                 var toZ = String();
                 var id = Int();
-                _ = Int();
-                var duration = Int();
 
-                if (type == 1) {
-                    _ = Int();
-                    _ = Int();
+                if (type == 0) {
+                    Assert.Equal(1, Int());
+                }
+
+                var duration = Int();
+                _ = Int();
+
+                if (type == 0) {
                     _ = Int();
                 }
-                else {
-                    _ = Int();
-                    duration = Int();
+
+                Assert.Equal(0, bytes[position++]);
+
+                if (type == 1) {
+                    Assert.Equal(0, bytes[position++]);
                 }
 
                 moves.Add(new(type, id, fromX, toX, toY, duration, fromZ, toZ));
