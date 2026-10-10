@@ -80,6 +80,19 @@ public sealed class WiredConfigurationService(
                 return;
             }
 
+            if (box is not IWiredConfiguredItem && request.Native is { } pristineNative
+                && WiredLegacyEditorProjection.TryGetDescriptor(box, out var pristineDescriptor)) {
+                var proof = room.GetWired().CapturePristineCard(box,
+                    pristineNative with { NativeCode = WiredNativeEditorProjection.Code(pristineDescriptor.CanonicalName) },
+                    () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
+
+                if (proof != null) {
+                    SavePristineCard(session, proof);
+
+                    return;
+                }
+            }
+
             if (request.Native is { } freshNative) {
                 var fresh = room.GetWired().CaptureFreshDirection(box, freshNative with { NativeCode = 13 },
                     () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
@@ -179,6 +192,27 @@ public sealed class WiredConfigurationService(
             logger.LogWarning(error, "Failed to save Wired settings in room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
+    }
+
+    private void SavePristineCard(GameClient session, PristineCardSnapshot proof)
+    {
+        var wired = proof.Room.GetWired();
+        bool CanModify() => ReferenceEquals(session.GetHabbo().CurrentRoom, proof.Room) && wired.Settings.CanModify(session);
+        var error = "Invalid pristine native card settings.";
+        var candidate = wired.CreateConfiguredBox(proof.Item, proof.Descriptor);
+
+        if (proof.Request == null || candidate == null
+            || !WiredNativeEditorProjection.TryCompile(proof.Item.Id, proof.Descriptor, proof.Request, out var runtime)
+            || !WiredConfigurationSave.TrySave(candidate, runtime, store, out error,
+                id => proof.Room.GetRoomItemHandler().GetItem(id) != null,
+                (detached, validated, persist) => wired.PublishPristineCard(proof, detached, validated, CanModify, persist),
+                isTemporaryInRoom: id => proof.Room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
+            session.Send(new WiredValidationErrorComposer(error));
+
+            return;
+        }
+
+        session.Send(new HideWiredConfigComposer());
     }
 
     private void SaveFreshDirection(GameClient session, FreshDirectionSnapshot proof)

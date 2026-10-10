@@ -7,6 +7,76 @@ namespace Plus.HabboHotel.Items.Wired.Configuration;
 /// <summary>Native records own editor data; runtime fields are checked immutable projections.</summary>
 public static class WiredNativeEditorProjection
 {
+    internal static bool IsPristineCard(IWiredItem box, out WiredBoxDescriptor descriptor)
+    {
+        descriptor = null!;
+        var type = box.GetType();
+        var name = type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Triggers.UserWalksOnBox) ? "wf_trg_walks_on_furni"
+            : type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Effects.ShowMessageBox) ? "wf_act_show_message"
+            : type == typeof(Plus.HabboHotel.Items.Wired.Boxes.Conditions.FurniHasUsersBox) ? "wf_cnd_furnis_hv_avtrs" : null;
+        var wiredType = name == "wf_trg_walks_on_furni" ? WiredBoxType.TriggerWalkOnFurni
+            : name == "wf_act_show_message" ? WiredBoxType.EffectShowMessage : WiredBoxType.ConditionFurniHasUsers;
+        var category = name == "wf_trg_walks_on_furni" ? WiredBoxCategory.Trigger
+            : name == "wf_act_show_message" ? WiredBoxCategory.Action : WiredBoxCategory.Condition;
+        var interaction = category == WiredBoxCategory.Trigger ? InteractionType.WiredTrigger
+            : category == WiredBoxCategory.Action ? InteractionType.WiredEffect : InteractionType.WiredCondition;
+
+        return name != null && box.Type == wiredType && box.Item.Definition.WiredType == wiredType
+            && box.Item.Definition.InteractionType == interaction
+            && WiredLegacyEditorProjection.TryGetDescriptor(box, out descriptor)
+            && descriptor.CanonicalName == name && descriptor.Category == category && descriptor.EditorCode == Code(name)
+            && box.StringData == "" && box.ItemsData == "" && !box.BoolData && box.SetItems is { Count: 0 };
+    }
+
+    internal static bool TryCapturePristineCard(IWiredItem original, WiredNativeEditorConfiguration? request,
+        out PristineCardSnapshot? snapshot)
+    {
+        snapshot = null;
+
+        if (!IsPristineCard(original, out var descriptor)) {
+            return false;
+        }
+
+        var metadata = Metadata(descriptor.CanonicalName);
+        var native = new WiredNativeEditorConfiguration
+        {
+            Category = descriptor.Category,
+            NativeCode = Code(descriptor.CanonicalName),
+            OwnedIntParams = metadata.OwnedDefaults,
+            FurniSourceTypes = metadata.FurniDefaults,
+            UserSourceTypes = metadata.UserDefaults,
+            Delay = descriptor.Category == WiredBoxCategory.Action ? 0 : null,
+            Quantifier = descriptor.Category == WiredBoxCategory.Condition ? 0 : null
+        };
+        var picks = ImmutableArray.CreateBuilder<PristineCardPick>();
+
+        if (request != null) {
+            if (!TryCompile(original.Item.Id, descriptor, request, out _)) {
+                return false;
+            }
+
+            foreach (var reference in request.PrimaryItems.Concat(request.SecondaryItems)) {
+                if (reference.Wall || original.Instance.GetRoomItemHandler().GetItem(reference.ItemId)
+                    is not { IsTemporary: false, IsFloorItem: true } picked) {
+                    return false;
+                }
+
+                picks.Add(PristineCardPick.Capture(picked));
+            }
+        }
+
+        var captured = new PristineCardSnapshot(original, original.Item, original.Instance, original.Instance.Id,
+            PristineCardPick.Capture(original.Item), descriptor, original.SetItems, native, request, picks.ToImmutable());
+
+        if (!TryCompile(original.Item.Id, descriptor, native, out _) || !captured.Matches()) {
+            return false;
+        }
+
+        snapshot = captured;
+
+        return true;
+    }
+
     internal static bool TryCaptureFreshDirection(IWiredItem original, WiredNativeEditorConfiguration? request,
         out FreshDirectionSnapshot? snapshot)
     {
@@ -174,11 +244,16 @@ public static class WiredNativeEditorProjection
         return true;
     }
 
+    private static readonly int[] ShowStyles = [34, 200, 201, 202, 210, 211, 212, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 250, 251, 252];
+
     public static bool Supports(string name) => name == "wf_trg_says_something" || Code(name) != 0;
 
     public static int Code(string name) => name switch
     {
         "wf_trg_says_something" => 0,
+        "wf_trg_walks_on_furni" => 1,
+        "wf_act_show_message" => 7,
+        "wf_cnd_furnis_hv_avtrs" => 1,
         "wf_act_move_rotate" => 4,
         "wf_act_move_to_dir" => 13,
         "wf_act_control_clock" => 28,
@@ -195,6 +270,10 @@ public static class WiredNativeEditorProjection
         // Says borrows the Sept9 reset defaults; remaining footer fields advertise local support.
         // No Sept16 server metadata oracle is claimed.
         "wf_trg_says_something" => new([], [], [], [], [0, 0, 1], false),
+        // Walk/Show footer defaults are local support; Condition borrows Sept9, not Sept16 metadata.
+        "wf_trg_walks_on_furni" => new([[0, 100, 200, 201]], [], [100], [], [], false),
+        "wf_act_show_message" => new([], [[0, 11, 200, 201]], [], [0], [0, 34, -1], false),
+        "wf_cnd_furnis_hv_avtrs" => new([[0, 100, 200, 201]], [], [100], [], [1], false),
         // Rotate's two owned fields/defaults and floor-only scope are the explicit local subset.
         // The captured server third field and wall support have no proven executable mapping here.
         "wf_act_move_rotate" => new([[0, 100, 200, 201]], [], [100], [], [0, 0], false),
@@ -246,6 +325,31 @@ public static class WiredNativeEditorProjection
                 }
 
                 parameters = [p[1], p[2], p[0]];
+                break;
+            case "wf_trg_walks_on_furni":
+                if (p.Length != 0 || native.Text != "") {
+                    return false;
+                }
+
+                parameters = [native.FurniSourceTypes[0]];
+                furni["items"] = native.FurniSourceTypes[0];
+                break;
+            case "wf_act_show_message":
+                if (p.Length != 3 || p[0] is < 0 or > 1 || !ShowStyles.Contains(p[1]) || p[2] is < -1 or > 2
+                    || native.Text.Length > 200 || native.Text.Replace("\r\n", "\n").Replace('\r', '\n').Count(c => c == '\n') >= 8) {
+                    return false;
+                }
+
+                parameters = [native.UserSourceTypes[0], p[0], p[1], p[2]];
+                users["users"] = native.UserSourceTypes[0];
+                break;
+            case "wf_cnd_furnis_hv_avtrs":
+                if (p.Length != 1 || p[0] is < 0 or > 1 || native.Quantifier != 0 || native.Text != "") {
+                    return false;
+                }
+
+                parameters = [p[0], native.FurniSourceTypes[0]];
+                furni["items"] = native.FurniSourceTypes[0];
                 break;
             case "wf_act_move_rotate":
                 if (p.Length != 2 || p[0] is < 0 or > 11 || p[1] is < 0 or > 3) {
@@ -328,14 +432,16 @@ public static class WiredNativeEditorProjection
                 return false;
         }
 
-        if (name is "wf_act_move_rotate" or "wf_act_move_to_dir" && native.DormantLegacy is { } dormant) {
-            text = dormant.Text;
+        if (name is "wf_act_move_rotate" or "wf_act_move_to_dir" or "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs" && native.DormantLegacy is { } dormant) {
+            if (name != "wf_act_show_message") {
+                text = dormant.Text;
+            }
 
             foreach (var pair in dormant.FurniSources.Where(pair => !furni.ContainsKey(pair.Key))) {
                 furni[pair.Key] = pair.Value;
             }
 
-            foreach (var pair in dormant.UserSources) {
+            foreach (var pair in dormant.UserSources.Where(pair => !users.ContainsKey(pair.Key))) {
                 users[pair.Key] = pair.Value;
             }
         }
@@ -464,7 +570,7 @@ public static class WiredNativeEditorProjection
 
         var metadata = Metadata(name);
 
-        if (name != "wf_act_move_to_dir" && runtime.Origin == null && runtime.IntParams.Length == 0) {
+        if (name is not ("wf_act_move_to_dir" or "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs") && runtime.Origin == null && runtime.IntParams.Length == 0) {
             native = new()
             {
                 Category = descriptor.Category,
@@ -497,6 +603,21 @@ public static class WiredNativeEditorProjection
             case "wf_trg_says_something" when p.Length == 3 && runtime.Delay == 0 && runtime.SelectionCode == 0
                 && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
                 owned = [p[2], p[0], p[1]];
+                break;
+            case "wf_trg_walks_on_furni" when p.Length == 1 && runtime.Delay == 0 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                owned = [];
+                furni = [p[0]];
+                break;
+            case "wf_act_show_message" when p.Length is 3 or 4 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                owned = [p[1], p[2], p.Length == 4 ? p[3] : -1];
+                users = [p[0]];
+                break;
+            case "wf_cnd_furnis_hv_avtrs" when p.Length == 2 && runtime.Delay == 0 && runtime.SelectionCode == 0
+                && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
+                owned = [p[0]];
+                furni = [p[1]];
                 break;
             case "wf_act_move_rotate" when p.Length == 4 && p[3] == 0 && runtime.SelectionCode == 0
                 && runtime.ScoreQuotaPerGame == null && runtime.TemporaryPlacement == null:
@@ -561,13 +682,14 @@ public static class WiredNativeEditorProjection
             Category = descriptor.Category,
             NativeCode = Code(name),
             OwnedIntParams = owned,
-            Text = name is "wf_act_set_altitude" or "wf_act_send_signal" or "wf_act_move_furni_as_group" or "wf_act_move_rotate" or "wf_act_move_to_dir" ? "" : runtime.Text,
+            Text = name is "wf_trg_walks_on_furni" or "wf_cnd_furnis_hv_avtrs" or "wf_act_set_altitude" or "wf_act_send_signal" or "wf_act_move_furni_as_group" or "wf_act_move_rotate" or "wf_act_move_to_dir" ? "" : runtime.Text,
             PrimaryItems = primary,
             SecondaryItems = secondary,
             FurniSourceTypes = furni,
             UserSourceTypes = users,
             VariableIds = runtime.VariableIds,
             Delay = descriptor.Category == WiredBoxCategory.Action ? runtime.Delay : null,
+            Quantifier = descriptor.Category == WiredBoxCategory.Condition ? 0 : null,
             SavedState = new() { Snapshots = runtime.Snapshots },
             DormantLegacy = new()
             {
@@ -583,6 +705,13 @@ public static class WiredNativeEditorProjection
             || !runtime.SelectedItems.SequenceEqual(projected.SelectedItems)
             || !runtime.SecondarySelectedItems.SequenceEqual(projected.SecondarySelectedItems)
             || name is "wf_act_move_rotate" or "wf_act_move_to_dir" && !runtime.IntParams.SequenceEqual(projected.IntParams)
+            || name is "wf_trg_walks_on_furni" or "wf_act_show_message" or "wf_cnd_furnis_hv_avtrs"
+                && (!runtime.IntParams.SequenceEqual(name == "wf_act_show_message" && p.Length == 3 ? projected.IntParams.Take(3) : projected.IntParams)
+                    || name == "wf_act_show_message" && p.Length == 3 && projected.IntParams[3] != -1
+                    || runtime.Text != projected.Text || runtime.Delay != projected.Delay
+                    || !runtime.Snapshots.SequenceEqual(projected.Snapshots)
+                    || runtime.FurniSources.Any(pair => projected.FurniSources.GetValueOrDefault(pair.Key, int.MinValue) != pair.Value)
+                    || runtime.UserSources.Any(pair => projected.UserSources.GetValueOrDefault(pair.Key, int.MinValue) != pair.Value))
             || runtime.FurniSources.Any(pair => !projected.FurniSources.ContainsKey(pair.Key))
             || runtime.UserSources.Any(pair => !projected.UserSources.ContainsKey(pair.Key))) {
             return false;

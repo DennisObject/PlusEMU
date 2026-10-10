@@ -224,6 +224,13 @@ public partial class WiredComponent : IWiredRuntimeOperations
         }
     }
     public void ResetTimers(IEnumerable<Item> targets) => _engine.ResetTimers(targets);
+    internal PristineCardSnapshot? CapturePristineCard(IWiredItem original, WiredNativeEditorConfiguration? request, Func<bool> canRead) =>
+        _engine.CapturePristineCard(original, request, canRead);
+
+    internal bool PublishPristineCard(PristineCardSnapshot captured, IWiredConfiguredItem candidate,
+        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
+        _engine.PublishPristineCard(captured, candidate, validated, canModify, persist);
+
     internal FreshDirectionSnapshot? CaptureFreshDirection(IWiredItem original,
         WiredNativeEditorConfiguration? request, Func<bool> canRead) =>
         _engine.CaptureFreshDirection(original, request, canRead);

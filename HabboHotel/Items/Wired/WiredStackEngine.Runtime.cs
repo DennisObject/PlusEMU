@@ -355,6 +355,40 @@ internal sealed partial class WiredStackEngine
         return true;
     });
 
+    internal PristineCardSnapshot? CapturePristineCard(IWiredItem original, WiredNativeEditorConfiguration? request, Func<bool> canRead)
+    {
+        lock (_sync) {
+            if (!canRead() || !IsAttached(original)
+                || !WiredNativeEditorProjection.TryCapturePristineCard(original, request, out var captured)
+                || captured == null || !canRead() || !IsAttached(original) || !captured.Matches()) {
+                return null;
+            }
+
+            return captured;
+        }
+    }
+
+    internal bool PublishPristineCard(PristineCardSnapshot captured, IWiredConfiguredItem candidate,
+        WiredConfiguration validated, Func<bool> canModify, Action persist)
+    {
+        lock (_sync) {
+            if (captured.Request == null || !ReferenceEquals(validated.Origin?.Native, captured.Request)) {
+                return false;
+            }
+
+            bool Current() => IsAttached(captured.Box) && captured.Matches();
+
+            return PublishPromotion(captured.Box, candidate, validated, () =>
+            {
+                if (!Current()) {
+                    throw new InvalidOperationException("The pristine card request is no longer current.");
+                }
+
+                persist();
+            }, () => canModify() && Current());
+        }
+    }
+
     internal FreshDirectionSnapshot? CaptureFreshDirection(IWiredItem original,
         WiredNativeEditorConfiguration? request, Func<bool> canRead)
     {

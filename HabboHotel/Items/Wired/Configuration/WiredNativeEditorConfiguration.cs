@@ -156,3 +156,32 @@ internal sealed record LegacyRotateSnapshot(
             && ReferenceEquals(value, pick.Value) && ReferenceEquals(Room.GetRoomItemHandler().GetItem(pick.Key), value)
             && ReferenceEquals(value.GetRoom(), Room) && value.RoomId == Room.Id && !value.IsTemporary && value.IsFloorItem);
 }
+
+// Closed three-card proof for one request. No runtime authority is installed by capture/open.
+internal sealed record PristineCardPick(NativeMovementPick Pose, uint DefinitionId,
+    Plus.HabboHotel.Users.Inventory.Furniture.ItemType Kind, InteractionType Interaction, WiredBoxType WiredType,
+    int X, int Y, long ZBits)
+{
+    internal static PristineCardPick Capture(Item item) => new(
+        new(new(item.Id, item.IsWallItem), item, item.Definition, item.Placement, item.MovementGeneration, item.Rotation),
+        item.Definition.Id, item.Definition.Type, item.Definition.InteractionType, item.Definition.WiredType,
+        item.GetX, item.GetY, BitConverter.DoubleToInt64Bits(item.GetZ));
+
+    internal bool Matches(Plus.HabboHotel.Rooms.Room room) => Pose.Matches(room)
+        && Pose.Item.Definition.Id == DefinitionId && Pose.Item.Definition.Type == Kind
+        && Pose.Item.Definition.InteractionType == Interaction && Pose.Item.Definition.WiredType == WiredType
+        && Pose.Item.GetX == X && Pose.Item.GetY == Y && BitConverter.DoubleToInt64Bits(Pose.Item.GetZ) == ZBits;
+}
+
+internal sealed record PristineCardSnapshot(IWiredItem Box, Item Item, Plus.HabboHotel.Rooms.Room Room,
+    uint RoomId, PristineCardPick Identity, WiredBoxDescriptor Descriptor,
+    System.Collections.Concurrent.ConcurrentDictionary<uint, Item> Dictionary,
+    WiredNativeEditorConfiguration Native, WiredNativeEditorConfiguration? Request,
+    ImmutableArray<PristineCardPick> RequestedPicks)
+{
+    internal bool Matches() => ReferenceEquals(Box.Item, Item) && ReferenceEquals(Box.Instance, Room)
+        && Room.Id == RoomId && Identity.Matches(Room) && Item.IsFloorItem
+        && WiredNativeEditorProjection.IsPristineCard(Box, out var current) && ReferenceEquals(current, Descriptor)
+        && ReferenceEquals(Box.SetItems, Dictionary) && Dictionary.Count == 0
+        && RequestedPicks.All(pick => pick.Matches(Room) && pick.Pose.Item.IsFloorItem);
+}

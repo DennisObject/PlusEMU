@@ -176,12 +176,22 @@ public static class WiredLegacyProtocol
             packet.WriteInteger(editor.Delay!.Value);
         }
 
+        if (editor.Category == WiredBoxCategory.Condition) {
+            packet.WriteInteger(editor.Quantifier!.Value);
+        }
+
         packet.WriteBoolean(true);
         WriteGroups(packet, metadata.FurniAllowed);
         WriteGroups(packet, metadata.UsersAllowed);
         WriteInts(packet, metadata.FurniDefaults);
         WriteInts(packet, metadata.UserDefaults);
         packet.WriteBoolean(metadata.AllowWall);
+
+        if (editor.Category == WiredBoxCategory.Condition) {
+            packet.WriteByte(0); // The admitted Condition1 subset has ordinary quantification, no inverse.
+            packet.WriteBoolean(false);
+        }
+
         // The supported local cards have no variable/context inputs. Unknown card contexts are not fabricated.
         packet.WriteInteger(0);
         WriteInts(packet, metadata.OwnedDefaults);

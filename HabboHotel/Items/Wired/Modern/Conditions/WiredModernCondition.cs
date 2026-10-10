@@ -24,8 +24,31 @@ public sealed class WiredModernCondition : WiredModernBox
         _clock = clock;
         _groups = groups;
     }
-    public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error) =>
-        WiredConditionConfiguration.TryValidate(Descriptor.CanonicalName, proposed, out validated, out error);
+    public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
+    {
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)) {
+            if (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)) {
+                validated = proposed;
+                error = "Invalid native condition authority.";
+
+                return false;
+            }
+
+            if (proposed.Origin!.Native != null) {
+                return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
+            }
+        }
+
+        if (!WiredConditionConfiguration.TryValidate(Descriptor.CanonicalName, proposed, out validated, out error)) {
+            return false;
+        }
+
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)) {
+            validated = WiredNativeEditorProjection.RebindLegacy(Item.Id, Descriptor, proposed, validated);
+        }
+
+        return true;
+    }
 
     public override bool Execute(WiredRuntimeContext context)
     {

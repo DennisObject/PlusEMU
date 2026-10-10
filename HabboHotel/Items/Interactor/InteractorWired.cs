@@ -38,6 +38,18 @@ public class InteractorWired : IFurniInteractor
             return;
         }
 
+        var pristine = itemRoom.GetWired().CapturePristineCard(box, null,
+            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
+                && itemRoom.GetWired().Settings.CanInspect(session));
+
+        if (pristine != null) {
+            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
+                pristine.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
+            { Native = pristine.Native }));
+
+            return;
+        }
+
         var freshDirection = itemRoom.GetWired().CaptureFreshDirection(box, null,
             () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
                 && itemRoom.GetWired().Settings.CanInspect(session));

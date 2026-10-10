@@ -19,10 +19,10 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
     public IReadOnlyCollection<WiredEventKind> Events { get; }
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
-        if (Descriptor.CanonicalName == "wf_trg_says_something") {
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)) {
             if (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)) {
                 validated = proposed;
-                error = "Invalid native Says authority.";
+                error = "Invalid native trigger authority.";
 
                 return false;
             }
@@ -45,7 +45,7 @@ public class WiredModernTrigger : WiredModernBox, IWiredClickTrigger
             return false;
         }
 
-        if (Descriptor.CanonicalName == "wf_trg_says_something") {
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)) {
             validated = WiredNativeEditorProjection.RebindLegacy(Item.Id, Descriptor, proposed, validated);
         }
 
