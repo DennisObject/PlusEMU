@@ -108,6 +108,9 @@ public static class ServerPacketHeader
     public const uint WiredVariableHoldersComposer = 9462;
     public const uint HideWiredConfigComposer = 996;
     public const uint WiredEffectConfigComposer = 902;
+    public const uint WiredSelectorConfigComposer = 1443;
+    public const uint WiredAddonConfigComposer = 685;
+    public const uint WiredVariableConfigComposer = 804;
     public const uint WiredConditionConfigComposer = 1773;
     public const uint WiredTriggeRconfigComposer = 868;
     public const uint MoodlightConfigComposer = 3790;

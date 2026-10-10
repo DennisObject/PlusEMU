@@ -1,0 +1,437 @@
+using System.Collections.Immutable;
+using System.Globalization;
+using Plus.HabboHotel.Items.Wired.Modern.Actions;
+
+namespace Plus.HabboHotel.Items.Wired.Configuration;
+
+/// <summary>Native records own editor data; runtime fields are checked immutable projections.</summary>
+public static class WiredNativeEditorProjection
+{
+    internal static bool TryCaptureLegacyJoin(IWiredItem original, out LegacyJoinSnapshot? snapshot)
+    {
+        snapshot = null;
+
+        if (original.GetType() != typeof(Plus.HabboHotel.Items.Wired.Boxes.Effects.AddActorToTeamBox)
+            || original is not Plus.HabboHotel.Items.Wired.Boxes.Effects.AddActorToTeamBox box
+            || !WiredLegacyEditorProjection.TryGetDescriptor(box, out var descriptor)
+            || descriptor.CanonicalName != "wf_act_join_team"
+            || box.StringData == null || box.ItemsData == null
+            || box.StringData.Length > WiredConfigurationLimits.TextCharacters
+            || box.ItemsData.Length > WiredConfigurationLimits.TextCharacters) {
+            return false;
+        }
+
+        var fresh = box.StringData.Length == 0;
+        var team = 1;
+
+        if (!fresh && (!int.TryParse(box.StringData, NumberStyles.None, CultureInfo.InvariantCulture, out team)
+            || team is < 1 or > 4)) {
+            return false;
+        }
+
+        var dictionary = box.SetItems;
+        var picks = dictionary.ToArray().ToImmutableArray();
+        var native = new WiredNativeEditorConfiguration
+        {
+            Category = WiredBoxCategory.Action,
+            NativeCode = Code(descriptor.CanonicalName),
+            OwnedIntParams = [team, fresh ? 0 : 2],
+            Delay = 0,
+            UserSourceTypes = [0],
+            PrimaryItems = picks.Select(pick => new WiredNativeItemReference(pick.Key, false)).ToImmutableArray(),
+            DormantLegacy = new()
+            {
+                LegacyJoinTeam = box.StringData,
+                LegacyJoinBool = box.BoolData,
+                LegacyJoinItemsData = box.ItemsData
+            }
+        };
+        var captured = new LegacyJoinSnapshot(box, box.Item, box.Instance, box.Item.Definition, descriptor,
+            dictionary, picks, box.StringData, box.BoolData, box.ItemsData, native);
+
+        if (!WithinBounds(native) || !TryCompile(box.Item.Id, descriptor, native, out _) || !captured.Matches()) {
+            return false;
+        }
+
+        snapshot = captured;
+
+        return true;
+    }
+
+    public static bool Supports(string name) => Code(name) != 0;
+
+    public static int Code(string name) => name switch
+    {
+        "wf_act_control_clock" => 28,
+        "wf_act_join_team" => 9,
+        "wf_act_give_score" => 6,
+        "wf_act_set_altitude" => 29,
+        "wf_act_send_signal" => 30,
+        "wf_act_move_furni_as_group" => 57,
+        _ => 0
+    };
+
+    public static WiredNativeEditorMetadata Metadata(string name) => name switch
+    {
+        "wf_act_control_clock" => new([[0, 100, 200, 201]], [], [100], [], [0], false),
+        "wf_act_join_team" => new([], [[0, 200, 201]], [], [0], [1, 0], false),
+        "wf_act_give_score" => new([], [[0, 200, 201]], [], [0], [5, 0], false),
+        "wf_act_set_altitude" => new([[0, 100, 200, 201]], [], [100], [], [0, 0], true),
+        "wf_act_send_signal" => new([[0, 100, 101, 200, 201], [0, 100, 101, 200, 201]], [[0, 200, 201]], [100, 200], [200], [0, 0], false),
+        // This is the reviewed executable local subset, not an official Group metadata oracle.
+        "wf_act_move_furni_as_group" => new([[0, 100, 200, 201], [0, 100, 101, 200, 201]], [[0, 200, 201]], [100, 101], [0], [0, 0, 0], false),
+        _ => throw new InvalidDataException("This native editor projection is unavailable.")
+    };
+
+    public static bool TryCompile(uint itemId, WiredBoxDescriptor descriptor, WiredNativeEditorConfiguration native,
+        out WiredConfiguration runtime)
+    {
+        runtime = new();
+        var name = descriptor.CanonicalName;
+
+        if (itemId == 0 || !Supports(name) || native.Version != 2 || native.Category != descriptor.Category
+            || native.NativeCode != Code(name) || !WithinBounds(native)) {
+            return false;
+        }
+
+        var metadata = Metadata(name);
+
+        if (native.FurniSourceTypes.Length != metadata.FurniAllowed.Length
+            || native.UserSourceTypes.Length != metadata.UsersAllowed.Length
+            || native.FurniSourceTypes.Where((source, index) => !metadata.FurniAllowed[index].Contains(source)).Any()
+            || native.UserSourceTypes.Where((source, index) => !metadata.UsersAllowed[index].Contains(source)).Any()
+            || !metadata.AllowWall && native.PrimaryItems.Concat(native.SecondaryItems).Any(item => item.Wall)
+            || native.VariableIds.Length != 0) {
+            return false;
+        }
+
+        var p = native.OwnedIntParams;
+        var furni = ImmutableDictionary.CreateBuilder<string, int>();
+        var users = ImmutableDictionary.CreateBuilder<string, int>();
+        ImmutableArray<int> parameters;
+        var text = native.Text;
+        int? quota = null;
+
+        switch (name) {
+            case "wf_act_control_clock":
+                if (p.Length != 1 || p[0] is < 0 or > 4) {
+                    return false;
+                }
+
+                parameters = [p[0], native.FurniSourceTypes[0]];
+                furni["items"] = native.FurniSourceTypes[0];
+                break;
+            case "wf_act_join_team":
+                if (p.Length != 2 || p[0] is < 1 or > 4 || p[1] is < 0 or > 2) {
+                    return false;
+                }
+
+                parameters = [p[1], p[0], native.UserSourceTypes[0], 0];
+                users["users"] = native.UserSourceTypes[0];
+                break;
+            case "wf_act_give_score":
+                if (p.Length != 2 || p[0] is < -1000 or > 1000 || p[1] is < 0 or > 10) {
+                    return false;
+                }
+
+                parameters = [Math.Abs(p[0]), p[0] < 0 ? 1 : 0, native.UserSourceTypes[0], p[1]];
+                users["users"] = native.UserSourceTypes[0];
+                quota = p[1] == 0 ? null : p[1];
+                break;
+            case "wf_act_set_altitude":
+                if (p.Length != 2 || p[0] is < 0 or > 8000 || p[1] is < 0 or > 2) {
+                    return false;
+                }
+
+                parameters = [p[1], native.FurniSourceTypes[0]];
+                text = (p[0] / 100m).ToString(CultureInfo.InvariantCulture);
+                furni["movers"] = native.FurniSourceTypes[0];
+                break;
+            case "wf_act_send_signal":
+                if (p.Length != 2 || p[0] is < 0 or > 1 || p[1] is < 0 or > 1) {
+                    return false;
+                }
+
+                parameters = [0, native.FurniSourceTypes[1], native.UserSourceTypes[0], p[0], p[1], 0];
+                furni["items"] = native.FurniSourceTypes[0];
+                furni["forwarded"] = native.FurniSourceTypes[1];
+                users["users"] = native.UserSourceTypes[0];
+                text = string.Join(';', native.SecondaryItems.Select(item => item.ItemId));
+                break;
+            case "wf_act_move_furni_as_group":
+                if (p.Length != 3 || p[0] is < 0 or > 1 || p[1] is < -64 or > 64 || p[2] is < -64 or > 64) {
+                    return false;
+                }
+
+                parameters = [p[0], p[1], p[2], native.FurniSourceTypes[0], native.FurniSourceTypes[1], native.UserSourceTypes[0]];
+                furni["movers"] = native.FurniSourceTypes[0];
+                furni["targets"] = native.FurniSourceTypes[1];
+                users["users"] = native.UserSourceTypes[0];
+                text = string.Join(';', native.SecondaryItems.Select(item => item.ItemId));
+                break;
+            default:
+                return false;
+        }
+
+        var derived = new WiredConfiguration
+        {
+            IntParams = parameters,
+            Text = text,
+            SelectedItems = native.PrimaryItems.Select(item => item.ItemId).ToImmutableArray(),
+            SecondarySelectedItems = native.SecondaryItems.Select(item => item.ItemId).ToImmutableArray(),
+            VariableIds = native.VariableIds,
+            FurniSources = furni.ToImmutable(),
+            UserSources = users.ToImmutable(),
+            Delay = native.Delay!.Value,
+            ScoreQuotaPerGame = quota,
+            Snapshots = native.SavedState.Snapshots
+        };
+
+        if (!WiredLegacyProtocol.IsWithinLimits(derived)) {
+            return false;
+        }
+
+        runtime = derived.Bind(new(WiredConfigurationOriginKind.Native, itemId, name, derived, native));
+
+        return true;
+    }
+
+    public static bool WithinBounds(WiredNativeEditorConfiguration native) => native.Version == 2
+        && !native.OwnedIntParams.IsDefault && native.OwnedIntParams.Length <= WiredConfigurationLimits.IntParams
+        && native.Text != null && native.Text.Length <= WiredConfigurationLimits.TextCharacters
+        && System.Text.Encoding.UTF8.GetByteCount(native.Text) <= ushort.MaxValue
+        && !native.PrimaryItems.IsDefault && !native.SecondaryItems.IsDefault
+        && native.PrimaryItems.Length <= WiredConfigurationLimits.SelectedItems && native.SecondaryItems.Length <= WiredConfigurationLimits.SelectedItems
+        && native.PrimaryItems.Concat(native.SecondaryItems).All(item => item != null && item.ItemId is > 0 and <= int.MaxValue)
+        && native.PrimaryItems.Distinct().Count() == native.PrimaryItems.Length
+        && native.SecondaryItems.Distinct().Count() == native.SecondaryItems.Length
+        && !native.FurniSourceTypes.IsDefault && native.FurniSourceTypes.Length <= WiredConfigurationLimits.IntParams
+        && !native.UserSourceTypes.IsDefault && native.UserSourceTypes.Length <= WiredConfigurationLimits.IntParams
+        && !native.VariableIds.IsDefault && native.VariableIds.Length <= WiredConfigurationLimits.IntParams
+        && native.VariableIds.All(token => token != null && token.Length <= 1024)
+        && native.SavedState != null && !native.SavedState.Snapshots.IsDefault
+        && (native.Category == WiredBoxCategory.Action ? native.Delay is >= 0 and <= WiredConfigurationLimits.DelayPulses : native.Delay == null)
+        && (native.Category == WiredBoxCategory.Condition ? native.Quantifier is 0 or 1 : native.Quantifier == null)
+        && (native.Category == WiredBoxCategory.Selector ? native.Filter != null && native.Inverse != null : native.Filter == null && native.Inverse == null);
+
+    internal static bool Matches(WiredConfiguration actual, WiredConfiguration expected) => actual.Version == expected.Version
+        && actual.IntParams.SequenceEqual(expected.IntParams) && actual.Text == expected.Text
+        && actual.SelectedItems.SequenceEqual(expected.SelectedItems) && actual.SecondarySelectedItems.SequenceEqual(expected.SecondarySelectedItems)
+        && actual.VariableIds.SequenceEqual(expected.VariableIds) && actual.Snapshots.SequenceEqual(expected.Snapshots)
+        && actual.Delay == expected.Delay && actual.SelectionCode == expected.SelectionCode
+        && actual.ScoreQuotaPerGame == expected.ScoreQuotaPerGame && actual.TemporaryPlacement == expected.TemporaryPlacement
+        && actual.FurniSources.Count == expected.FurniSources.Count && actual.FurniSources.All(pair => expected.FurniSources.TryGetValue(pair.Key, out var value) && value == pair.Value)
+        && actual.UserSources.Count == expected.UserSources.Count && actual.UserSources.All(pair => expected.UserSources.TryGetValue(pair.Key, out var value) && value == pair.Value);
+
+    public static bool IsBound(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration runtime) =>
+        runtime.Origin is { } origin && origin.ItemId == itemId && origin.Name == descriptor.CanonicalName
+        && Matches(runtime, origin.Derived)
+        && (origin.Kind == WiredConfigurationOriginKind.StoredLegacy
+            ? origin.Native == null && origin.StoredLegacy != null
+            : origin.Kind == WiredConfigurationOriginKind.Native && origin.Native != null
+                && TryCompile(itemId, descriptor, origin.Native, out var derived) && Matches(runtime, derived));
+
+    public static bool TryValidateRuntime(Item item, WiredBoxDescriptor descriptor, WiredConfiguration proposed,
+        out WiredConfiguration validated, out string error)
+    {
+        validated = proposed;
+        error = "Invalid native editor authority.";
+
+        if (!IsBound(item.Id, descriptor, proposed)) {
+            return false;
+        }
+
+        if (proposed.Origin!.Native is { } native) {
+            var room = item.GetRoom();
+
+            if (room == null || native.PrimaryItems.Concat(native.SecondaryItems).Any(reference =>
+                room.GetRoomItemHandler().GetItem(reference.ItemId) is not { IsTemporary: false } picked || picked.IsWallItem != reference.Wall)) {
+                return false;
+            }
+
+            if (descriptor.CanonicalName == "wf_act_send_signal" && native.FurniSourceTypes[0] is 100 or 101) {
+                var antennaIds = native.FurniSourceTypes[0] == 100 ? native.PrimaryItems : native.SecondaryItems;
+
+                if (antennaIds.Any(reference => !WiredStackEngine.IsSignalAntenna(room.GetRoomItemHandler().GetItem(reference.ItemId)!))) {
+                    error = "Signal targets must be antenna furniture.";
+
+                    return false;
+                }
+            }
+        }
+
+        error = "";
+
+        return true;
+    }
+
+    internal static WiredConfiguration TrustLegacy(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration stored)
+    {
+        if (!WiredLegacyProtocol.IsWithinLimits(stored)) {
+            throw new InvalidDataException("Invalid legacy Wired configuration.");
+        }
+
+        // The owning box validates and normalizes a legacy row before its trusted installation.
+        return stored.Bind(new(WiredConfigurationOriginKind.StoredLegacy, itemId, descriptor.CanonicalName, stored, null, stored));
+    }
+
+    internal static WiredConfiguration RebindLegacy(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration previous, WiredConfiguration normalized)
+    {
+        if (previous.Origin is not { Kind: WiredConfigurationOriginKind.StoredLegacy, Native: null, StoredLegacy: not null } origin || origin.ItemId != itemId || origin.Name != descriptor.CanonicalName
+            || !Matches(previous, origin.Derived)) {
+            throw new InvalidDataException("Legacy origin cannot be inferred from an unbound runtime draft.");
+        }
+
+        return normalized.Bind(new(WiredConfigurationOriginKind.StoredLegacy, itemId, descriptor.CanonicalName, normalized, null, origin.StoredLegacy));
+    }
+
+    public static bool TryProject(Item item, WiredBoxDescriptor descriptor, WiredConfiguration runtime,
+        out WiredNativeEditorConfiguration native)
+    {
+        native = new();
+        var name = descriptor.CanonicalName;
+
+        if (!Supports(name)) {
+            return false;
+        }
+
+        var metadata = Metadata(name);
+
+        if (runtime.Origin == null && runtime.IntParams.Length == 0) {
+            native = new()
+            {
+                Category = descriptor.Category,
+                NativeCode = Code(name),
+                OwnedIntParams = metadata.OwnedDefaults,
+                FurniSourceTypes = metadata.FurniDefaults,
+                UserSourceTypes = metadata.UserDefaults,
+                Delay = 0
+            };
+
+            return true;
+        }
+
+        if (!IsBound(item.Id, descriptor, runtime)) {
+            return false;
+        }
+
+        if (runtime.Origin!.Native is { } existing) {
+            native = existing;
+
+            return true;
+        }
+
+        var p = runtime.IntParams;
+        ImmutableArray<int> owned;
+        ImmutableArray<int> furni = [];
+        ImmutableArray<int> users = [];
+
+        switch (name) {
+            case "wf_act_control_clock" when p.Length == 2:
+                owned = [p[0]];
+                furni = [p[1]];
+                break;
+            case "wf_act_join_team" when p.Length == 4 && p[3] == 0:
+                owned = [p[1], p[0]];
+                users = [p[2]];
+                break;
+            case "wf_act_give_score" when p.Length is 3 or 4:
+                owned = [p[1] == 1 ? -p[0] : p[0], runtime.ScoreQuotaPerGame ?? 0];
+                users = [p[2]];
+                break;
+            case "wf_act_set_altitude" when p.Length == 2:
+                if (!decimal.TryParse(runtime.Text, NumberStyles.Number, CultureInfo.InvariantCulture, out var altitude)
+                    || altitude * 100m != decimal.Truncate(altitude * 100m) || altitude is < 0 or > 80) {
+                    return false;
+                }
+
+                owned = [(int)(altitude * 100m), p[0]];
+                furni = [p[1]];
+                break;
+            case "wf_act_send_signal" when p.Length == 6 && p[0] == 0:
+                owned = [p[3], p[4]];
+                furni = [100, runtime.FurniSources.GetValueOrDefault("forwarded", p[1]) == 100 ? 101 : p[1]];
+                users = [p[2]];
+                break;
+            case "wf_act_move_furni_as_group" when p.Length == 6:
+                owned = [p[0], p[1], p[2]];
+                furni = [p[3], p[4] == 100 ? 101 : p[4]];
+                users = [p[5]];
+                break;
+            default:
+                return false;
+        }
+
+        var room = item.GetRoom();
+
+        if (room == null || !TryReferences(runtime.SelectedItems, out var primary)
+            || !TryReferences(runtime.SecondarySelectedItems, out var secondary)) {
+            return false;
+        }
+
+        native = new()
+        {
+            Category = descriptor.Category,
+            NativeCode = Code(name),
+            OwnedIntParams = owned,
+            Text = name is "wf_act_set_altitude" or "wf_act_send_signal" or "wf_act_move_furni_as_group" ? "" : runtime.Text,
+            PrimaryItems = primary,
+            SecondaryItems = secondary,
+            FurniSourceTypes = furni,
+            UserSourceTypes = users,
+            VariableIds = runtime.VariableIds,
+            Delay = runtime.Delay,
+            SavedState = new() { Snapshots = runtime.Snapshots },
+            DormantLegacy = new()
+            {
+                JoinMode = name == "wf_act_join_team" ? p[3] : null,
+                FurniSources = runtime.Origin.StoredLegacy?.FurniSources ?? runtime.FurniSources,
+                UserSources = runtime.Origin.StoredLegacy?.UserSources ?? runtime.UserSources,
+                Text = runtime.Origin.StoredLegacy?.Text ?? runtime.Text
+            }
+        };
+
+        // The inverse is admitted only if its executable native fields represent the old active fields exactly.
+        if (!TryCompile(item.Id, descriptor, native, out var projected)
+            || !runtime.SelectedItems.SequenceEqual(projected.SelectedItems)
+            || !runtime.SecondarySelectedItems.SequenceEqual(projected.SecondarySelectedItems)
+            || runtime.FurniSources.Any(pair => !projected.FurniSources.ContainsKey(pair.Key))
+            || runtime.UserSources.Any(pair => !projected.UserSources.ContainsKey(pair.Key))) {
+            return false;
+        }
+
+        return true;
+
+        bool TryReferences(ImmutableArray<uint> ids, out ImmutableArray<WiredNativeItemReference> references)
+        {
+            var builder = ImmutableArray.CreateBuilder<WiredNativeItemReference>(ids.Length);
+
+            foreach (var id in ids) {
+                if (room.GetRoomItemHandler().GetItem(id) is not { IsTemporary: false } selected) {
+                    references = [];
+
+                    return false;
+                }
+
+                builder.Add(new(id, selected.IsWallItem));
+            }
+
+            references = builder.MoveToImmutable();
+
+            return true;
+        }
+    }
+
+    public static bool SameBody(WiredNativeEditorConfiguration left, WiredNativeEditorConfiguration right) =>
+        left.Category == right.Category && left.NativeCode == right.NativeCode
+        && left.OwnedIntParams.SequenceEqual(right.OwnedIntParams) && left.Text == right.Text
+        && left.PrimaryItems.SequenceEqual(right.PrimaryItems) && left.SecondaryItems.SequenceEqual(right.SecondaryItems)
+        && left.FurniSourceTypes.SequenceEqual(right.FurniSourceTypes) && left.UserSourceTypes.SequenceEqual(right.UserSourceTypes)
+        && left.VariableIds.SequenceEqual(right.VariableIds) && left.Delay == right.Delay && left.Quantifier == right.Quantifier
+        && left.Filter == right.Filter && left.Inverse == right.Inverse;
+
+    public static int SourceForRole(WiredConfiguration runtime, string role) => runtime.FurniSources.GetValueOrDefault(role);
+
+    public static bool UsesSecondary(WiredConfiguration runtime, string role, bool legacySecondary) => runtime.Origin?.Native != null
+        ? SourceForRole(runtime, role) == 101 : legacySecondary;
+}

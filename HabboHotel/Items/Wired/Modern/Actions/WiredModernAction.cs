@@ -133,6 +133,39 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 
     public override bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
     {
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName) && proposed.Origin == null) {
+            validated = proposed;
+            error = "Untrusted runtime drafts cannot configure a native mapped action.";
+
+            return false;
+        }
+
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName) && proposed.Origin != null) {
+            if (!WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, proposed)) {
+                validated = proposed;
+                error = "Invalid native editor authority.";
+
+                return false;
+            }
+
+            if (proposed.Origin.Native != null) {
+                return WiredNativeEditorProjection.TryValidateRuntime(Item, Descriptor, proposed, out validated, out error);
+            }
+
+            if (!TryValidateLegacyConfiguration(proposed, out validated, out error)) {
+                return false;
+            }
+
+            validated = WiredNativeEditorProjection.RebindLegacy(Item.Id, Descriptor, proposed, validated);
+
+            return true;
+        }
+
+        return TryValidateLegacyConfiguration(proposed, out validated, out error);
+    }
+
+    private bool TryValidateLegacyConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error)
+    {
         var name = Descriptor.CanonicalName;
 
         if (name == "wf_act_give_reward") {
@@ -343,6 +376,11 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
     {
         var config = context.ConfigurationOf(this);
 
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)
+            && !WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, config)) {
+            return false;
+        }
+
         if (!TryValidateConfiguration(config, out config, out _)) {
             return false;
         }
@@ -375,10 +413,15 @@ public sealed class WiredModernAction : WiredModernBox, IWiredContextualAction, 
 
             var passengers = WiredRoomMovement.CapturePassengers(context, movers);
 
-            return new WiredMovementActions().Execute(name, config, movers,
-                config.FurniSources.ContainsKey("targets") ? Furni(context, config, "targets", name == "wf_act_furni_to_furni"
-                    || name == "wf_act_move_furni_to" && config.IntParams.Length == 4
-                    || name == "wf_act_move_furni_as_group" && config.IntParams.Length == 6) : [],
+            var targets = config.FurniSources.ContainsKey("targets") ? Furni(context, config, "targets", name == "wf_act_furni_to_furni"
+                || name == "wf_act_move_furni_to" && config.IntParams.Length == 4
+                || name == "wf_act_move_furni_as_group" && config.IntParams.Length == 6) : [];
+
+            if (name == "wf_act_move_furni_as_group" && config.Origin?.Native != null) {
+                targets = targets.Where(item => item.IsFloorItem).ToArray();
+            }
+
+            return new WiredMovementActions().Execute(name, config, movers, targets,
                 config.UserSources.ContainsKey("users") ? Users(context, config, "users") : [],
                 (item, x, y, rotation, height) => _movement.MoveFurniture(context, item, x, y, rotation, height,
                     WiredMovementActions.Steps.Contains(name)

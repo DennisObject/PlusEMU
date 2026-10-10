@@ -11,7 +11,8 @@ using Plus.HabboHotel.Subscriptions;
 
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
-public sealed record WiredConfigurationSaveRequest(uint ItemId, WiredBoxCategory Envelope, WiredConfiguration Configuration);
+public sealed record WiredConfigurationSaveRequest(uint ItemId, WiredBoxCategory Envelope, WiredConfiguration Configuration,
+    WiredNativeEditorConfiguration? Native = null);
 
 public interface IWiredConfigurationService
 {
@@ -35,6 +36,12 @@ public sealed class WiredConfigurationService(
             var selectedItem = room.GetRoomItemHandler().GetItem(request.ItemId);
 
             if (selectedItem is { IsTemporary: false } && Plus.HabboHotel.Items.Wired.Chests.WiredChestFurniture.IsContract(selectedItem.Definition)) {
+                if (request.Native != null) {
+                    session.Send(new WiredValidationErrorComposer("This contract has no supported native editor conversion."));
+
+                    return;
+                }
+
                 var saved = false;
                 room.GetWired().WithChests(module => saved = request.Envelope == WiredBoxCategory.Action
                     && Plus.HabboHotel.Items.Wired.Chests.WiredChestContractEditor.TrySave(module, selectedItem, request.Configuration));
@@ -73,7 +80,64 @@ public sealed class WiredConfigurationService(
                 return;
             }
 
-            if (!TrySave(room.GetWired(), selectedItem, box, session, request.Envelope, request.Configuration, out var error)) {
+            if (box is not IWiredConfiguredItem && request.Native is { } legacyNative) {
+                var proof = room.GetWired().CaptureLegacyJoin(box,
+                    () => ReferenceEquals(habbo.CurrentRoom, room) && room.GetWired().Settings.CanModify(session));
+
+                if (proof != null) {
+                    SaveLegacyJoin(session, proof, legacyNative);
+
+                    return;
+                }
+            }
+
+            if (request.Native is not { } native || box is not IWiredConfiguredItem nativeBox
+                || !WiredNativeEditorProjection.Supports(nativeBox.Descriptor.CanonicalName)) {
+                session.Send(new WiredValidationErrorComposer("This box has no supported native editor conversion."));
+
+                return;
+            }
+
+            native = native with { NativeCode = WiredNativeEditorProjection.Code(nativeBox.Descriptor.CanonicalName) };
+            var admission = room.GetWired().TryAdmitUnchangedNativeSave(nativeBox, native,
+                () => habbo.CurrentRoom == room && room.GetWired().Settings.CanModify(session));
+
+            if (admission == WiredNativeSaveAdmission.Unchanged) {
+                session.Send(new HideWiredConfigComposer());
+
+                return;
+            }
+
+            if (admission == WiredNativeSaveAdmission.Refused) {
+                session.Send(new WiredValidationErrorComposer("The saved settings cannot be represented by this native editor."));
+
+                return;
+            }
+
+            var current = nativeBox.Configuration;
+
+            if (!WiredNativeEditorProjection.TryProject(selectedItem, nativeBox.Descriptor, current, out var projected)) {
+                session.Send(new WiredValidationErrorComposer("Unable to project the saved settings."));
+
+                return;
+            }
+
+            native = native with { SavedState = projected.SavedState, DormantLegacy = projected.DormantLegacy };
+
+            var error = "Invalid native Wired settings.";
+
+            if (!WiredNativeEditorProjection.TryCompile(selectedItem.Id, nativeBox.Descriptor, native, out var runtime)
+                || !WiredConfigurationSave.TrySave(nativeBox, runtime, store, out error,
+                    id => room.GetRoomItemHandler().GetItem(id) != null,
+                    (original, validated, persist) => room.GetWired().PublishConfigured(original, validated, () =>
+                    {
+                        if (habbo.CurrentRoom != room || !room.GetWired().Settings.CanModify(session)
+                            || !ReferenceEquals(current, original.Configuration)) {
+                            throw new InvalidOperationException("The editor admission is no longer current.");
+                        }
+
+                        persist();
+                    }), isTemporaryInRoom: id => room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
                 session.Send(new WiredValidationErrorComposer(error));
 
                 return;
@@ -86,6 +150,37 @@ public sealed class WiredConfigurationService(
             logger.LogWarning(error, "Failed to save Wired settings in room {RoomId}", room.Id);
             session.Send(new WiredValidationErrorComposer("Unable to save these Wired settings."));
         }
+    }
+
+    private void SaveLegacyJoin(GameClient session, LegacyJoinSnapshot proof, WiredNativeEditorConfiguration request)
+    {
+        var wired = proof.Room.GetWired();
+        bool CanModify() => ReferenceEquals(session.GetHabbo().CurrentRoom, proof.Room) && wired.Settings.CanModify(session);
+        var native = request with { NativeCode = WiredNativeEditorProjection.Code(proof.Descriptor.CanonicalName) };
+        var admission = wired.AdmitLegacyJoin(proof, native, CanModify);
+
+        if (admission == WiredNativeSaveAdmission.Unchanged) {
+            session.Send(new HideWiredConfigComposer());
+
+            return;
+        }
+
+        var error = "The captured legacy Join settings cannot be saved.";
+        var candidate = wired.CreateConfiguredBox(proof.Item, proof.Descriptor);
+        native = native with { SavedState = proof.Native.SavedState, DormantLegacy = proof.Native.DormantLegacy };
+
+        if (admission == WiredNativeSaveAdmission.Refused || candidate == null
+            || !WiredNativeEditorProjection.TryCompile(proof.Item.Id, proof.Descriptor, native, out var runtime)
+            || !WiredConfigurationSave.TrySave(candidate, runtime, store, out error,
+                id => proof.Room.GetRoomItemHandler().GetItem(id) != null,
+                (detached, validated, persist) => wired.PublishLegacyJoin(proof, detached, validated, CanModify, persist),
+                isTemporaryInRoom: id => proof.Room.GetRoomItemHandler().GetItem(id)?.IsTemporary == true)) {
+            session.Send(new WiredValidationErrorComposer(error));
+
+            return;
+        }
+
+        session.Send(new HideWiredConfigComposer());
     }
 
     private bool TrySave(Rooms.Instance.WiredComponent wired, Item selectedItem, IWiredItem box, GameClient session,

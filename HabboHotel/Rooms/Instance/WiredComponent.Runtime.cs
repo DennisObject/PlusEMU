@@ -113,7 +113,7 @@ public partial class WiredComponent
             box = Variables.CreateBox(item);
         }
 
-        if (box != null && defaults != null) {
+        if (box != null && defaults != null && !WiredNativeEditorProjection.Supports(descriptor.CanonicalName)) {
             if (!box.TryValidateConfiguration(defaults, out var validated, out var error)) {
                 throw new InvalidDataException(error);
             }

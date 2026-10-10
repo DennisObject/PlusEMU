@@ -40,7 +40,12 @@ public class InteractorWired : IFurniInteractor
 
         if (box is IWiredConfiguredItem configured) {
             if (configured.Descriptor.Support == WiredBoxSupport.Implemented) {
-                session.Send(new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(configured)));
+                try {
+                    session.Send(new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(configured)));
+                }
+                catch (InvalidDataException) {
+                    session.Send(new WiredValidationErrorComposer("The saved settings cannot be represented by this native editor."));
+                }
             }
             else {
                 session.Send(new WiredValidationErrorComposer("This Wired box is not implemented."));
@@ -49,43 +54,24 @@ public class InteractorWired : IFurniInteractor
             return;
         }
 
-        if (WiredLegacyCustomEditor.IsCustom(box) || WiredLegacyEditorProjection.TryGetDescriptor(box, out _)) {
-            if (WiredLegacyEditorProjection.TryGetConfiguration(box, out var descriptor, out var configuration)) {
-                var blockedItems = descriptor.Envelope == WiredBoxCategory.Trigger
-                    ? WiredBoxTypeUtility.ContainsBlockedEffect(box, itemRoom.GetWired().GetEffects(box))
-                    : descriptor.Envelope == WiredBoxCategory.Action
-                        ? WiredBoxTypeUtility.ContainsBlockedTrigger(box, itemRoom.GetWired().GetTriggers(box)) : [];
-                session.Send(new WiredConfiguredConfigComposer(WiredEditorSnapshot.Capture(item, descriptor, configuration,
-                    WiredLegacyCustomEditor.IsCustom(box) ? 0 : WiredConfigurationLimits.SelectedItems, blockedItems)));
-            }
-            else {
-                session.Send(new WiredValidationErrorComposer("Unable to read the saved settings for this Wired editor."));
-            }
+        var legacyJoin = itemRoom.GetWired().CaptureLegacyJoin(box,
+            () => ReferenceEquals(session.GetHabbo().CurrentRoom, itemRoom)
+                && itemRoom.GetWired().Settings.CanInspect(session));
+
+        if (legacyJoin != null) {
+            session.Send(new WiredConfiguredConfigComposer(new(item.Id, item.Definition.SpriteId,
+                legacyJoin.Descriptor, new(), WiredConfigurationLimits.SelectedItems, [])
+            { Native = legacyJoin.Native }));
 
             return;
         }
 
-        item.LegacyDataString = "1";
-        item.UpdateState(false, true);
-        item.RequestUpdate(2, true);
+        // Unmapped legacy boxes keep executing. Their old editor body is not a canonical fallback.
+        session.Send(new WiredValidationErrorComposer("This box has no supported native editor conversion."));
 
-        if (item.Definition.WiredType == WiredBoxType.AddonRandomEffect) {
-            return;
-        }
+        return;
 
-        if (itemRoom.GetWired().IsTrigger(item)) {
-            var blockedItems = WiredBoxTypeUtility.ContainsBlockedEffect(box, itemRoom.GetWired().GetEffects(box));
-            session.Send(new WiredTriggeRconfigComposer(WiredEditorSnapshot.Trigger(box, blockedItems)));
-        }
-        else if (itemRoom.GetWired().IsEffect(item)) {
-            var blockedItems = WiredBoxTypeUtility.ContainsBlockedTrigger(box, itemRoom.GetWired().GetTriggers(box));
-            session.Send(new WiredEffectConfigComposer(WiredEditorSnapshot.Effect(box, blockedItems)));
-        }
-        else if (itemRoom.GetWired().IsCondition(item)) {
-            session.Send(new WiredConditionConfigComposer(WiredEditorSnapshot.Condition(box)));
-        }
     }
-
 
     public void OnWiredTrigger(Item item) { }
 }

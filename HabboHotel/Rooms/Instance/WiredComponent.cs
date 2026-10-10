@@ -224,6 +224,21 @@ public partial class WiredComponent : IWiredRuntimeOperations
         }
     }
     public void ResetTimers(IEnumerable<Item> targets) => _engine.ResetTimers(targets);
+    internal LegacyJoinSnapshot? CaptureLegacyJoin(IWiredItem original, Func<bool> canRead) =>
+        _engine.CaptureLegacyJoin(original, canRead);
+
+    internal WiredNativeSaveAdmission AdmitLegacyJoin(LegacyJoinSnapshot captured,
+        WiredNativeEditorConfiguration proposed, Func<bool> canModify) =>
+        _engine.AdmitLegacyJoin(captured, proposed, canModify);
+
+    internal bool PublishLegacyJoin(LegacyJoinSnapshot captured, IWiredConfiguredItem candidate,
+        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
+        _engine.PublishLegacyJoin(captured, candidate, validated, canModify, persist);
+
+    public WiredNativeSaveAdmission TryAdmitUnchangedNativeSave(IWiredConfiguredItem original,
+        WiredNativeEditorConfiguration proposed, Func<bool> canModify) =>
+        _engine.TryAdmitUnchangedNativeSave(original, proposed, canModify);
+
     public bool PublishConfigured(IWiredConfiguredItem original, WiredConfiguration validated, Action persistValidated) =>
         _engine.PublishConfigured(original, validated, persistValidated);
     public bool PublishPromotion(IWiredItem original, IWiredConfiguredItem candidate, WiredConfiguration validated, Action persistValidated) =>

@@ -48,6 +48,17 @@ public static class WiredMovementConfiguration
             return false;
         }
 
+        if (proposed.Origin?.Native is { } native) {
+            if (!WiredBoxRegistry.TryGet(name, out var descriptor)
+                || !WiredNativeEditorProjection.IsBound(proposed.Origin.ItemId, descriptor, proposed)) {
+                return false;
+            }
+
+            error = "";
+
+            return true;
+        }
+
         var p = proposed.IntParams;
         bool Range(int index, int min, int max) => p[index] >= min && p[index] <= max;
         bool Source(int index) => p[index] is 0 or 100 or 200 or 201;

@@ -27,7 +27,9 @@ public static class WiredConfigurationSave
     {
         error = "Invalid Wired configuration.";
 
-        if (box.Descriptor.Support != WiredBoxSupport.Implemented || !WiredLegacyProtocol.IsWithinLimits(proposed)) {
+        if (box.Descriptor.Support != WiredBoxSupport.Implemented || !WiredLegacyProtocol.IsWithinLimits(proposed)
+            || WiredNativeEditorProjection.Supports(box.Descriptor.CanonicalName)
+                && !WiredNativeEditorProjection.IsBound(box.Item.Id, box.Descriptor, proposed)) {
             return false;
         }
 

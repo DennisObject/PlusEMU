@@ -18,10 +18,25 @@ internal abstract class SaveWiredConfigEvent(IWiredConfigurationService service)
             return Task.CompletedTask;
         }
 
-        if (WiredLegacyProtocol.TryRead(packet, Envelope, out var configuration)) {
-            service.Save(session, new(itemId, Envelope, configuration));
+        if (itemId is > 0 and <= int.MaxValue && WiredLegacyProtocol.TryReadNative(packet, Envelope, out var native)) {
+            service.Save(session, new(itemId, Envelope, WiredLegacyProtocol.WireDraft(native), native));
         }
 
         return Task.CompletedTask;
     }
+}
+
+internal sealed class SaveWiredSelectorConfigEvent(IWiredConfigurationService service) : SaveWiredConfigEvent(service)
+{
+    protected override WiredBoxCategory Envelope => WiredBoxCategory.Selector;
+}
+
+internal sealed class SaveWiredAddonConfigEvent(IWiredConfigurationService service) : SaveWiredConfigEvent(service)
+{
+    protected override WiredBoxCategory Envelope => WiredBoxCategory.Addon;
+}
+
+internal sealed class SaveWiredVariableConfigEvent(IWiredConfigurationService service) : SaveWiredConfigEvent(service)
+{
+    protected override WiredBoxCategory Envelope => WiredBoxCategory.Variable;
 }

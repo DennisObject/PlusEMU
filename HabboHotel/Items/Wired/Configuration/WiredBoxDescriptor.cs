@@ -5,6 +5,5 @@ public sealed record WiredBoxDescriptor(string CanonicalName, WiredBoxCategory C
     string ConfigurationReference)
 {
     public WiredBoxSupport Support { get; init; } = WiredBoxSupport.DescriptorOnly;
-    public WiredBoxCategory Envelope => Category is WiredBoxCategory.Trigger or WiredBoxCategory.Condition
-        ? Category : WiredBoxCategory.Action;
+    public WiredBoxCategory Envelope => Category;
 }

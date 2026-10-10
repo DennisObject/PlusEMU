@@ -198,6 +198,9 @@ public static class ClientPacketHeader
     public const uint WiredVariableHashesEvent = 65473;
     public const uint WiredAllVariablesRequestEvent = 65469;
     public const uint SaveWiredEffectConfigEvent = 2554;
+    public const uint SaveWiredSelectorConfigEvent = 268;
+    public const uint SaveWiredAddonConfigEvent = 1692;
+    public const uint SaveWiredVariableConfigEvent = 2836;
     public const uint GetRoomEntryDataEvent = 65460;
     public const uint JoinQueueEvent = 65471;
     public const uint CanCreateRoomEvent = 1817;

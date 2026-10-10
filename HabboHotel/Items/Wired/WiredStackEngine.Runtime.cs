@@ -355,9 +355,62 @@ internal sealed partial class WiredStackEngine
         return true;
     });
 
+    internal LegacyJoinSnapshot? CaptureLegacyJoin(IWiredItem original, Func<bool> canRead)
+    {
+        lock (_sync) {
+            if (!IsAttached(original) || !canRead()
+                || !WiredNativeEditorProjection.TryCaptureLegacyJoin(original, out var snapshot)
+                || snapshot == null || !canRead() || !IsAttached(original) || !snapshot.Matches()) {
+                return null;
+            }
+
+            return snapshot;
+        }
+    }
+
+    internal WiredNativeSaveAdmission AdmitLegacyJoin(LegacyJoinSnapshot captured,
+        WiredNativeEditorConfiguration proposed, Func<bool> canModify)
+    {
+        lock (_sync) {
+            if (!canModify() || !IsAttached(captured.Box) || !captured.Matches()) {
+                return WiredNativeSaveAdmission.Refused;
+            }
+
+            return !captured.Fresh && WiredNativeEditorProjection.SameBody(captured.Native, proposed)
+                ? WiredNativeSaveAdmission.Unchanged : WiredNativeSaveAdmission.Changed;
+        }
+    }
+
+    internal bool PublishLegacyJoin(LegacyJoinSnapshot captured, IWiredConfiguredItem candidate,
+        WiredConfiguration validated, Func<bool> canModify, Action persist) =>
+        PublishPromotion(captured.Box, candidate, validated, persist, () => canModify() && captured.Matches());
+
+    public WiredNativeSaveAdmission TryAdmitUnchangedNativeSave(IWiredConfiguredItem original,
+        WiredNativeEditorConfiguration proposed, Func<bool> canModify)
+    {
+        // No Pass: an unchanged editor save must not seal publication or alter runtime admission state.
+        lock (_sync) {
+            if (!IsAttached(original) || !RuntimeSupported(original) || !canModify()) {
+                return WiredNativeSaveAdmission.Refused;
+            }
+
+            var current = original.Configuration;
+
+            if (!WiredNativeEditorProjection.TryProject(original.Item, original.Descriptor, current, out var editor)
+                || !canModify() || !IsAttached(original) || !ReferenceEquals(current, original.Configuration)) {
+                return WiredNativeSaveAdmission.Refused;
+            }
+
+            return current.Origin != null && WiredNativeEditorProjection.SameBody(editor, proposed)
+                ? WiredNativeSaveAdmission.Unchanged : WiredNativeSaveAdmission.Changed;
+        }
+    }
+
     public bool PublishConfigured(IWiredConfiguredItem original, WiredConfiguration validated, Action persist) => Pass(() =>
     {
-        if (!IsAttached(original) || !RuntimeSupported(original)) {
+        if (!IsAttached(original) || !RuntimeSupported(original)
+            || WiredNativeEditorProjection.Supports(original.Descriptor.CanonicalName)
+                && !WiredNativeEditorProjection.IsBound(original.Item.Id, original.Descriptor, validated)) {
             return false;
         }
 
@@ -372,9 +425,12 @@ internal sealed partial class WiredStackEngine
     });
 
     public bool PublishPromotion(IWiredItem original, IWiredConfiguredItem candidate,
-        WiredConfiguration validated, Action persist) => Pass(() =>
+        WiredConfiguration validated, Action persist, Func<bool>? currentCapture = null) => Pass(() =>
     {
-        if (!IsAttached(original) || !ReferenceEquals(original.Item, candidate.Item) || !RuntimeSupported(candidate)) {
+        if (!IsAttached(original) || currentCapture != null && !currentCapture()
+            || !ReferenceEquals(original.Item, candidate.Item) || !RuntimeSupported(candidate)
+            || WiredNativeEditorProjection.Supports(candidate.Descriptor.CanonicalName)
+                && !WiredNativeEditorProjection.IsBound(candidate.Item.Id, candidate.Descriptor, validated)) {
             return false;
         }
 

@@ -26,12 +26,20 @@ public abstract class WiredModernBox : IWiredContextualItem
     public WiredBoxDescriptor Descriptor { get; }
     public WiredConfiguration Configuration => Volatile.Read(ref _configuration);
     public abstract bool TryValidateConfiguration(WiredConfiguration proposed, out WiredConfiguration validated, out string error);
-    public void ApplyConfiguration(WiredConfiguration validated) => Interlocked.Exchange(ref _configuration, validated);
+    public void ApplyConfiguration(WiredConfiguration validated)
+    {
+        if (WiredNativeEditorProjection.Supports(Descriptor.CanonicalName)
+            && !WiredNativeEditorProjection.IsBound(Item.Id, Descriptor, validated)) {
+            throw new InvalidDataException("Unbound or altered native Wired runtime projection.");
+        }
+
+        Interlocked.Exchange(ref _configuration, validated);
+    }
     public void HandleSave(IIncomingPacket packet) => throw new InvalidOperationException("Configured Wired uses WiredConfigurationSave.");
     public bool Execute(params object[] arguments) => arguments is [WiredRuntimeContext context] && Execute(context);
     public abstract bool Execute(WiredRuntimeContext context);
     protected Item[] Furni(WiredRuntimeContext context, WiredConfiguration config, string slot, bool secondary = false) =>
-        context.Targets.ResolveFurni(context, secondary ? config.SecondarySelectedItems : config.SelectedItems,
+        context.Targets.ResolveFurni(context, WiredNativeEditorProjection.UsesSecondary(config, slot, secondary) ? config.SecondarySelectedItems : config.SelectedItems,
             config.FurniSources.GetValueOrDefault(slot));
     protected RoomUser[] Users(WiredRuntimeContext context, WiredConfiguration config, string slot, string? name = null) =>
         context.Targets.ResolveUsers(context, [], config.UserSources.GetValueOrDefault(slot), name);

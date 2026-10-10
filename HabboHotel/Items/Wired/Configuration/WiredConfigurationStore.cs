@@ -20,8 +20,24 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
         }
 
         if (!string.Equals(row.BoxName, descriptor.CanonicalName, StringComparison.Ordinal)
-            || row.Version != WiredConfiguration.CurrentVersion) {
+            || row.Version is not (1 or 2)) {
             throw new InvalidDataException($"Unsupported Wired configuration for item {itemId}.");
+        }
+
+        using var document = JsonDocument.Parse(row.Json);
+
+        if (!document.RootElement.TryGetProperty("Version", out var storedVersion) || storedVersion.GetInt32() != row.Version) {
+            throw new InvalidDataException($"Mismatched Wired configuration version for item {itemId}.");
+        }
+
+        if (row.Version == 2) {
+            var native = JsonSerializer.Deserialize<WiredNativeEditorConfiguration>(row.Json);
+
+            if (native == null || !WiredNativeEditorProjection.TryCompile(itemId, descriptor, native, out var projected)) {
+                throw new InvalidDataException($"Invalid native Wired configuration for item {itemId}.");
+            }
+
+            return projected;
         }
 
         var configuration = JsonSerializer.Deserialize<WiredConfiguration>(row.Json);
@@ -30,7 +46,7 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
             throw new InvalidDataException($"Invalid Wired configuration for item {itemId}.");
         }
 
-        return configuration;
+        return WiredNativeEditorProjection.TrustLegacy(itemId, descriptor, configuration);
     }
 
     public void Save(uint itemId, WiredBoxDescriptor descriptor, WiredConfiguration configuration)
@@ -39,6 +55,12 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
             throw new ArgumentException("Invalid Wired configuration.", nameof(configuration));
         }
 
+        if (WiredNativeEditorProjection.Supports(descriptor.CanonicalName)
+            && !WiredNativeEditorProjection.IsBound(itemId, descriptor, configuration)) {
+            throw new ArgumentException("Unbound or altered Wired runtime projection.", nameof(configuration));
+        }
+
+        var native = configuration.Origin?.Native;
         using var connection = database.Connection();
         connection.Execute("INSERT INTO wired_item_configurations (item_id, box_name, schema_version, configuration) "
             + "VALUES (@Id, @Name, @Version, @Configuration) ON DUPLICATE KEY UPDATE "
@@ -46,8 +68,8 @@ public sealed class WiredConfigurationStore(IDatabase database) : IWiredConfigur
             {
                 Id = itemId,
                 Name = descriptor.CanonicalName,
-                configuration.Version,
-                Configuration = JsonSerializer.Serialize(configuration)
+                Version = native?.Version ?? configuration.Version,
+                Configuration = native == null ? JsonSerializer.Serialize(configuration) : JsonSerializer.Serialize(native)
             });
     }
 
