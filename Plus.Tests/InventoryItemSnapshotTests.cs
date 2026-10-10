@@ -24,7 +24,7 @@ public sealed class InventoryItemSnapshotTests
         var snapshot = InventoryItemSnapshot.Capture(Item(17, data));
         var fields = new object[] { 17u, "S", 17u, 31, 1 }.Concat(dataFields)
             .Concat(new object[] { true, true, true, true, -1, false, -1, "", 0 }).ToArray();
-        Assert.Equal(Encode(fields), Encode(new FurniListAddComposer(snapshot)));
+        Assert.Equal(Encode(new object[] { 1 }.Concat(fields)), Encode(new FurniListAddComposer(snapshot)));
         Assert.Equal(Encode(new object[] { 1, 0, 1 }.Concat(fields)), Encode(new FurniListComposer([snapshot], 1, 0)));
     }
 
@@ -42,7 +42,7 @@ public sealed class InventoryItemSnapshotTests
         var fields = new object[] { 17u, "I", 17u, 31, 1, 0xFF01, 1, "state", "before", 4u, 20u,
             true, true, false, true, -1, false, -1 };
         var expectedList = Encode(new object[] { 2, 0, 1 }.Concat(fields));
-        var expectedAdd = Encode(fields);
+        var expectedAdd = Encode(new object[] { 1 }.Concat(fields));
         data.Data["state"] = "after";
         data.Data["extra"] = "changed";
         item.Definition.SpriteId = 99;

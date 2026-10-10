@@ -1,3 +1,4 @@
+using Plus.Communication.Packets.Outgoing;
 using Plus.Communication.Packets.Outgoing.Catalog;
 using Plus.Communication.Packets.Outgoing.Inventory.Furni;
 using Plus.Communication.Packets.Outgoing.Inventory.Purse;
@@ -20,7 +21,7 @@ public interface IMarketplacePurchaseService
 }
 
 public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, IItemDataManager items, IMarketplaceManager marketplace,
-    IMarketplaceOfferSearchService offers, TimeProvider time) : IMarketplacePurchaseService
+    TimeProvider time) : IMarketplacePurchaseService
 {
     private const double OfferLifetimeSeconds = 172800;
 
@@ -58,7 +59,7 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
 
             if (result.Refusal is { } refusal) {
                 outcome = Outcome(refusal);
-                Publish(session, outcome);
+                Publish(session, outcome, offerId);
 
                 return outcome;
             }
@@ -76,7 +77,7 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
             outcome = MarketplacePurchaseOutcome.Bought;
         }
 
-        Publish(session, outcome);
+        Publish(session, outcome, offerId);
 
         return outcome;
     }
@@ -119,32 +120,31 @@ public sealed class MarketplacePurchaseService(IMarketplacePurchaseStore store, 
         }
     }
 
-    // Notices and the refreshed list the buyer sees, per outcome.
-    private void Publish(GameClient session, MarketplacePurchaseOutcome outcome)
+    // The AIR client answers every buy with one typed result and raises its own alerts and list refresh from it.
+    private static void Publish(GameClient session, MarketplacePurchaseOutcome outcome, int offerId)
     {
         switch (outcome) {
             case MarketplacePurchaseOutcome.WalletClosed:
                 return;
             case MarketplacePurchaseOutcome.OwnOffer:
                 session.SendNotification("To prevent average boosting you cannot purchase your own marketplace offers.");
+                // The AIR result set has no own-offer code; a refresh releases the buy the client is waiting on without removing the offer.
+                session.Send(new MarketplaceBuyOfferResultComposer(MarketplaceBuyResult.RefreshOffers, offerId));
+
+                return;
+            case MarketplacePurchaseOutcome.Bought:
+                session.Send(new MarketplaceBuyOfferResultComposer(MarketplaceBuyResult.RefreshOffers, offerId));
 
                 return;
             case MarketplacePurchaseOutcome.InsufficientCredits:
-                session.SendNotification("Oops, you do not have enough credits for this.");
+                session.Send(new MarketplaceBuyOfferResultComposer(MarketplaceBuyResult.NotEnoughCredits, offerId));
 
                 return;
-            case MarketplacePurchaseOutcome.Sold:
-                session.SendNotification("Oops, this offer is no longer available.");
-                break;
-            case MarketplacePurchaseOutcome.Expired:
-                session.SendNotification("Oops, this offer has expired..");
-                break;
-            case MarketplacePurchaseOutcome.UnknownItem:
-                session.SendNotification("Item isn't in the hotel anymore.");
-                break;
-        }
+            default:
+                session.Send(new MarketplaceBuyOfferResultComposer(MarketplaceBuyResult.OfferGone, offerId));
 
-        session.Send(new MarketPlaceOffersComposer(offers.Search(-1, -1, "", 1)));
+                return;
+        }
     }
 
     private static MarketplacePurchaseOutcome Outcome(MarketplacePurchaseRefusal refusal) => refusal switch

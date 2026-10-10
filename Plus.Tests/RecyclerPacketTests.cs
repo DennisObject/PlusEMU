@@ -78,7 +78,7 @@ public sealed class RecyclerPacketTests
             Assert.Equal(Plus.HabboHotel.Users.Inventory.Furniture.FurniCategory.EcotronBox, snapshot.Category);
             var packet = new HabbiconTestSupport.RecordingPacket();
             new Plus.Communication.Packets.Outgoing.Inventory.Furni.FurniListAddComposer(snapshot).Compose(packet);
-            Assert.Equal(10, packet.Writes[4]);
+            Assert.Equal(10, packet.Writes[5]);
         }
 
         Assert.Equal(Plus.HabboHotel.Users.Inventory.Furniture.FurniCategory.Default, definition.Category);
