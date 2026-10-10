@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Text.Json;
+using System.Reflection;
 using Plus.Communication.Flash;
 using Plus.Communication.Packets.Incoming.WiredVariables;
 using Plus.Communication.Packets.Outgoing;
@@ -70,6 +71,396 @@ public sealed partial class WiredGlideConveyorTests
         foreach (var (body, pulse) in rawBodies.Select((body, index) => (body, index + 1))) {
             AssertOctaneMixedFields(body, 3 + pulse, rider.VirtualId, rotation.RotBody, rotation.RotHead);
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LegacyOwnerVariablePollingKeepsImmediateCarryAndBaselineFurniture(bool full)
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var room = f.MovementContext().Room;
+        Assert.False(room.UsesV2Movement);
+        Assert.Null(room.GetGameMap().Navigation);
+        Assert.False(RoomOwnerScope.IsOwner(room));
+        room.Type = "private";
+        room.OwnerName = rider.GetUsername();
+        var packets = CapturePublication(rider);
+        var request = new WiredUserVariablesRequestEvent(new WiredVariableMenuService());
+        var observations = new List<List<PublishedMove[]>>();
+
+        for (var pulse = 1; pulse <= 3; pulse++) {
+            await request.Parse(room, rider.GetClient()!, new FlashIncomingPacket { Buffer = new byte[] { 0, 0, 0, 1 } });
+            Assert.Contains(packets, bytes => BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.WiredUserVariablesData64Composer);
+            packets.Clear();
+            f.AdvanceWiredPass(pulse == 1 ? 250 : 200, full);
+            var groups = packets.Where(IsMovementBody).Select(bytes => ReadPublication([bytes]).ToArray()).ToList();
+            observations.Add(groups);
+            var furniture = groups.SelectMany(group => group).Where(move => move.Type == 1).ToArray();
+            Assert.Equal(pulse == 1 ? 7 : 6, furniture.Length);
+            Assert.Equal(Enumerable.Range(1, 7).Where(id => pulse == 1 || id != pulse - 1), furniture.Select(move => move.Id));
+            Assert.All(furniture, move =>
+            {
+                Assert.Equal(move.FromX, move.ToX);
+                Assert.Equal(11, move.ToY);
+                Assert.Equal("0", move.FromZ);
+                Assert.Equal("0", move.ToZ);
+                Assert.Equal(500, move.Duration);
+            });
+            var carry = Assert.Single(groups.SelectMany(group => group).Where(move => move.Type == 0));
+            Assert.Equal((3 + pulse, 4 + pulse, 11, 200, "1", "1"),
+                (carry.FromX, carry.ToX, carry.ToY, carry.Duration, carry.FromZ, carry.ToZ));
+            Assert.Equal((4 + pulse, 11, 1.0), (rider.X, rider.Y, rider.Z));
+            Assert.Equal(0, f.Engine.ReadStats().Pending);
+        }
+
+        Assert.All(observations, groups =>
+        {
+            Assert.Equal(2, groups.Count);
+            Assert.Equal(0, Assert.Single(groups[0]).Type); // Prior Legacy avatar body remains immediate.
+            Assert.All(groups[1], move => Assert.Equal(1, move.Type));
+        });
+    }
+
+    [Fact]
+    public void LegacyFallbackRejectsShadowDespiteItsImmediateAvatarPath()
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "shadow");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var room = f.MovementContext().Room;
+        Assert.False(room.UsesV2Movement);
+        Assert.NotNull(room.GetGameMap().Navigation);
+        var packets = CapturePublication(rider);
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.Equal(14, ReadPublication(packets).Count(move => move.Type == 1));
+        Assert.Single(ReadPublication(packets), move => move.Type == 0);
+        Assert.All(packets.Where(IsMovementBody), bytes =>
+            Assert.True(ReadPublication([bytes]).All(move => move.Type == 1) || ReadPublication([bytes]).Count == 1));
+        Assert.Equal((5, 11, 1.0), (rider.X, rider.Y, rider.Z));
+    }
+
+    [Fact]
+    public void LegacyFallbackRejectsReplacedClassifierDuringCarryEligibility()
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var packets = CapturePublication(rider);
+        var carryReads = 0;
+        var ordinaryReads = 0;
+        f.Engine.PublicationObserverIsSilent = _ =>
+        {
+            if (f.EngineField("_executingAction") is { } action
+                && ((IWiredItem)action.GetType().GetProperty("Box")!.GetValue(action)!).Item.Id == 12) {
+                carryReads++;
+            }
+            else {
+                ordinaryReads++;
+                Assert.NotEmpty(ReadPublication(packets));
+            }
+
+            return true;
+        };
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.Equal(0, carryReads);
+        Assert.True(ordinaryReads > 0); // Existing normal queued dispatch still invokes its classifier.
+        Assert.Equal(14, ReadPublication(packets).Count(move => move.Type == 1));
+        Assert.Single(ReadPublication(packets), move => move.Type == 0);
+        Assert.Equal(0, f.Engine.ReadStats().Pending);
+    }
+
+    [Theory]
+    [InlineData("wf_trg_walks_on_furni")]
+    [InlineData("wf_trg_collision")]
+    public void LegacyFallbackRejectsKnownWalkOrCollisionRegistryWork(string trigger)
+    {
+        var layout = FastQueueLayout(2).Append((20u, 7, 12, 0.0, 0, trigger,
+            JsonSerializer.Serialize(new WiredConfiguration { IntParams = trigger == "wf_trg_collision" ? [] : [100], SelectedItems = [1, 2, 3, 4, 5, 6, 7] }))).ToArray();
+        var f = new Fixture(layout, live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var packets = CapturePublication(rider);
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.Equal(14, ReadPublication(packets).Count(move => move.Type == 1));
+        Assert.Single(ReadPublication(packets), move => move.Type == 0);
+        Assert.Equal(5, rider.X);
+        f.AdvanceWiredPass(100, false);
+        Assert.Equal(0, f.Engine.ReadStats().Pending);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LegacyImmediateHintRetainsExactlyOneBodyAcrossLoggedFailure(bool throws)
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var packets = new List<byte[]>();
+        var hints = 0;
+        var movementsAtHint = -1;
+        rider.GetClient()!.SendCallback = args =>
+        {
+            var bytes = args.MemoryBuffer.ToArray();
+            packets.Add(bytes);
+
+            if (IsAvatarHint(bytes)) {
+                hints++;
+                movementsAtHint = ReadPublication(packets).Count;
+
+                if (throws) {
+                    throw new InvalidOperationException("logged legacy hint failure");
+                }
+            }
+
+            return false;
+        };
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.Equal(1, hints);
+        Assert.Equal(0, movementsAtHint);
+        Assert.Equal(7, ReadPublication(packets).Count(move => move.Type == 1));
+        Assert.Single(ReadPublication(packets), move => move.Type == 0);
+        Assert.Equal(0, ReadPublication([packets.First(IsMovementBody)])[0].Type);
+    }
+
+    [Fact]
+    public void LegacyImmediateHintReentrantMutationSealsBeforeObserverOutput()
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var packets = new List<byte[]>();
+        var hints = 0;
+        rider.GetClient()!.SendCallback = args =>
+        {
+            var bytes = args.MemoryBuffer.ToArray();
+            packets.Add(bytes);
+
+            if (IsAvatarHint(bytes)) {
+                hints++;
+                Assert.Empty(ReadPublication(packets));
+                Assert.True(f.Engine.Mutate(() =>
+                {
+                    Assert.Single(ReadPublication(packets), move => move.Type == 1);
+                    rider.GetClient()!.Send(new WiredChatComposer(rider.VirtualId, "legacy observer", 0, -1, true));
+
+                    return true;
+                }));
+            }
+
+            return false;
+        };
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.Equal(1, hints);
+        Assert.Equal(14, ReadPublication(packets).Count(move => move.Type == 1));
+        Assert.Single(ReadPublication(packets), move => move.Type == 0);
+        Assert.True(packets.FindIndex(IsChat) > packets.FindIndex(IsMovementBody));
+        Assert.Equal(0, f.Engine.ReadStats().Pending);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LegacyPreparedActorCannotSurviveASecondFailedPreparation(bool staleActor)
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var packets = new List<byte[]>();
+        var reset = false;
+        rider.GetClient()!.SendCallback = args =>
+        {
+            var bytes = args.MemoryBuffer.ToArray();
+            packets.Add(bytes);
+
+            if (!reset && BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.HeightMapUpdateComposer
+                && f.EngineField("_runtimeContext") is WiredRuntimeContext context) {
+                reset = true;
+                var movement = (WiredRoomMovement)typeof(WiredModernAction).GetField("_movement", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .GetValue(f.Box(12))!;
+                var prepare = (Action<WiredRuntimeContext, IReadOnlyList<RoomUser>>)typeof(WiredRoomMovement)
+                    .GetField("_prepareCarryPublication", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(movement)!;
+                var unknown = new RoomUser(99, context.Room.Id, 99, context.Room, rider.GetClient(), TestChatEmotions.Unused, TestRewardProgress.Unused);
+                prepare(context, staleActor ? [unknown] : []);
+            }
+
+            return false;
+        };
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.True(reset);
+        Assert.Equal(14, ReadPublication(packets).Count(move => move.Type == 1));
+        Assert.Single(ReadPublication(packets), move => move.Type == 0);
+        Assert.Equal(5, rider.X);
+    }
+
+    [Fact]
+    public void LegacyDifferentPassengersKeepTheirImmediateBodiesSeparate()
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "legacy");
+        var first = f.Walker(1, 4, 10, 4, 11);
+        var second = f.Walker(2, 7, 10, 7, 11);
+        var packets = CapturePublication(first);
+
+        f.AdvanceWiredPass(250, false);
+
+        var groups = packets.Where(IsMovementBody).Select(bytes => ReadPublication([bytes]).ToArray()).ToArray();
+        Assert.Equal(3, groups.Length);
+        Assert.Equal((0, 1), (Assert.Single(groups[0]).Type, groups[0][0].Id));
+        Assert.Equal((0, 2), (Assert.Single(groups[1]).Type, groups[1][0].Id));
+        Assert.Equal(new[] { 1, 2, 4, 5, 6, 7 }, groups[2].Select(move => move.Id));
+        Assert.All(groups[2], move => Assert.Equal((1, move.FromX, 500), (move.Type, move.ToX, move.Duration)));
+        Assert.Equal((5, 8), (first.X, second.X));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void LegacyPreparedAppendRejectsChangedActorOrCapturedConfiguration(bool actorReuse)
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var packets = new List<byte[]>();
+        var changed = false;
+        var handled = true;
+        rider.GetClient()!.SendCallback = args =>
+        {
+            var bytes = args.MemoryBuffer.ToArray();
+            packets.Add(bytes);
+
+            if (!changed && BinaryPrimitives.ReadUInt32BigEndian(bytes) == ServerPacketHeader.HeightMapUpdateComposer
+                && f.EngineField("_runtimeContext") is WiredRuntimeContext context) {
+                changed = true;
+                var action = (WiredModernAction)f.Box(12);
+
+                if (actorReuse) {
+                    var replacement = new RoomUser(99, context.Room.Id, rider.VirtualId, context.Room, rider.GetClient(),
+                        TestChatEmotions.Unused, TestRewardProgress.Unused)
+                    { X = rider.X, Y = rider.Y, Z = rider.Z };
+                    Assert.NotEqual(rider.Movement.LifetimeId, replacement.Movement.LifetimeId);
+                    f.ReplaceUser(replacement);
+                }
+                else {
+                    action.ApplyConfiguration(action.Configuration with { Text = "new configuration, same motion" });
+                }
+
+                var movement = (WiredRoomMovement)typeof(WiredModernAction).GetField("_movement", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .GetValue(action)!;
+                var append = (Func<WiredRuntimeContext, RoomUser, WiredMovementComposer, WiredMoveStyleComposer, bool>)typeof(WiredRoomMovement)
+                    .GetField("_appendCarryPublication", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(movement)!;
+                // Probe the actual prepared adapter while its original action still runs, before returning to placement.
+                handled = append(context, rider, new(0, rider.VirtualId, 4, 11, 1, 5, 11, 1, 0, 0, 200), new(rider.VirtualId, 0, 100, 0, true));
+                Assert.False(context.Publication!.Open);
+            }
+
+            return false;
+        };
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.True(changed);
+        Assert.False(handled);
+        var floors = ReadPublication(packets).Where(move => move.Type == 1).ToArray();
+        Assert.Equal(Enumerable.Range(1, 7), floors.Where(move => move.ToX > move.FromX).Select(move => move.Id));
+        Assert.Equal(Enumerable.Range(actorReuse ? 2 : 1, actorReuse ? 6 : 7),
+            floors.Where(move => move.ToX < move.FromX).Select(move => move.Id));
+        // The replacement stays at X4: existing occupancy prevents tile1 resetting to that tile.
+        Assert.Equal(actorReuse ? 5 : 4, f.Items[1].GetX);
+        Assert.Equal(actorReuse ? 13 : 14, floors.Length);
+        Assert.Equal(actorReuse ? 0 : 1, ReadPublication(packets).Count(move => move.Type == 0));
+        Assert.Equal(actorReuse ? 4 : 5, rider.X);
+        Assert.Equal(0, f.Engine.ReadStats().Pending);
+    }
+
+    [Fact]
+    public void LegacyNonemptyProductionVariableDrainSealsTheRetainedFloorSegment()
+    {
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var room = f.MovementContext().Room;
+        var variables = room.GetWired().Variables;
+        var definition = new WiredVariableDefinition(700, room.Id, 1, "legacy pending", WiredVariableTarget.Global,
+            WiredVariableAvailability.RoomActive, true);
+        var packets = new List<byte[]>();
+        var injected = false;
+        var persisted = false;
+        var movementsAtHint = -1;
+        rider.GetClient()!.SendCallback = args =>
+        {
+            var bytes = args.MemoryBuffer.ToArray();
+            packets.Add(bytes);
+
+            if (!injected && IsAvatarHint(bytes)) {
+                injected = true;
+                movementsAtHint = ReadPublication(packets).Count;
+                variables.Module.PersistDefinitionConfiguration(definition.ItemId,
+                    before => new(definition, new(before, new WiredVariableValue(1, null, null))));
+                persisted = true;
+            }
+
+            return false;
+        };
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.True(injected);
+        Assert.True(persisted);
+        Assert.Equal(0, movementsAtHint);
+        Assert.Equal(14, ReadPublication(packets).Count(move => move.Type == 1));
+        Assert.Single(ReadPublication(packets), move => move.Type == 0);
+        Assert.Empty(variables.DrainChanges());
+        Assert.Equal(0, f.Engine.ReadStats().Pending);
+    }
+
+    [Fact]
+    public void LegacyNonemptyProductionCounterDrainSealsBeforeItsDisplay()
+    {
+        var layout = FastQueueLayout(2).Append((20u, 8, 12, 0.0, 0, "wf_upcounter1", (string?)null)).ToArray();
+        var f = new Fixture(layout, live: true, movementEngine: "legacy");
+        var rider = f.Walker(1, 4, 10, 4, 11);
+        var wired = f.MovementContext().Room.GetWired();
+        wired.AttachRoomItem(f.Items[20]);
+        var counters = (WiredCounterController)typeof(Plus.HabboHotel.Rooms.Instance.WiredComponent)
+            .GetField("_counters", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(wired)!;
+        var packets = new List<byte[]>();
+        var injected = false;
+        var displayed = 0;
+        var movementsAtHint = -1;
+        var movementsAtDisplay = -1;
+        rider.GetClient()!.SendCallback = args =>
+        {
+            var bytes = args.MemoryBuffer.ToArray();
+            packets.Add(bytes);
+            var header = BinaryPrimitives.ReadUInt32BigEndian(bytes);
+
+            if (!injected && IsAvatarHint(bytes)) {
+                injected = true;
+                movementsAtHint = ReadPublication(packets).Count;
+                Assert.True(counters.Adjust(f.Items[20], 2, 0, 2));
+            }
+            else if (header == ServerPacketHeader.ObjectUpdateComposer && BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(6)) == 20) {
+                displayed++;
+                movementsAtDisplay = ReadPublication(packets).Count(move => move.Type == 1);
+            }
+
+            return false;
+        };
+
+        f.AdvanceWiredPass(250, false);
+
+        Assert.True(injected);
+        Assert.Equal(1, displayed);
+        Assert.Equal(0, movementsAtHint);
+        Assert.Equal(7, movementsAtDisplay);
+        Assert.False(counters.HasPendingChanges);
+        Assert.Equal(14, ReadPublication(packets).Count(move => move.Type == 1));
     }
 
     [Theory]
@@ -209,9 +600,11 @@ public sealed partial class WiredGlideConveyorTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void RepeatedActorSealsBeforeItsLaterCommitAndHintEvenForEqualStyles(bool differentStyle)
+    [InlineData(false, "v2")]
+    [InlineData(true, "v2")]
+    [InlineData(false, "legacy")]
+    [InlineData(true, "legacy")]
+    public void RepeatedActorPublishesEarlierBodyBeforeItsLaterCommitAndHintEvenForEqualStyles(bool differentStyle, string movementEngine)
     {
         var layout = FastQueueLayout(2).Where(item => item.Id != 10 && item.Id != 14 && item.Id != 15).ToList();
         var heading = layout.Single(item => item.Id == 12);
@@ -227,7 +620,7 @@ public sealed partial class WiredGlideConveyorTests
             layout.Add((24, 6, 12, 2.6, 0, "wf_xtra_mov_curve", JsonSerializer.Serialize(new WiredConfiguration { IntParams = [2, 50, 80, 0, 0, 0, 0] })));
         }
 
-        var f = new Fixture(layout.ToArray(), live: true);
+        var f = new Fixture(layout.ToArray(), live: true, movementEngine: movementEngine);
         var rider = f.Walker(1, 4, 10, 4, 11);
         var packets = new List<byte[]>();
         var hints = 0;
@@ -281,11 +674,13 @@ public sealed partial class WiredGlideConveyorTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void OrdinaryAvatarMovementDoesNotJoinAnOpenFurnitureToken(bool factory)
+    [InlineData(false, "v2")]
+    [InlineData(true, "v2")]
+    [InlineData(false, "legacy")]
+    [InlineData(true, "legacy")]
+    public void OrdinaryAvatarMovementDoesNotJoinAnOpenFurnitureToken(bool factory, string movementEngine)
     {
-        var f = new Fixture(FastQueueLayout(2), live: true);
+        var f = new Fixture(FastQueueLayout(2), live: true, movementEngine: movementEngine);
         var rider = f.Walker(1, 4, 10, 4, 11);
         var context = f.MovementContext();
         var publication = new WiredFurniturePublication(context.Room, new object(), 0, 0);

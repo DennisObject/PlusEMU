@@ -270,14 +270,15 @@ public sealed partial class WiredGlideConveyorTests
         public WiredStackEngine Engine => (WiredStackEngine)Get(_wired, "_engine");
         public IWiredItem Box(uint id) => ((Dictionary<uint, IWiredItem>)Get(Engine, "_items"))[id];
 
-        public Fixture((uint Id, int X, int Y, double Z, int Rot, string Name, string? Json)[] layout, bool live = false)
+        public Fixture((uint Id, int X, int Y, double Z, int Rot, string Name, string? Json)[] layout, bool live = false, string movementEngine = "v2")
         {
             _room.Id = 14;
             _room.WordFilterList = [];
             Set(_room, "_interactionClock", TimeProvider.System);
             _map = new(_room, live ? new RoomModel("model_bc_14", 3, 5, 0, 2, Model14, 0, 0, true)
                     : new RoomModel("model_bc_14", 0, 0, 0, 0, string.Join('\r', Enumerable.Repeat(new string('0', 16), 18)), 0, 0, true),
-                TestLogging.Navigation, live ? new TestRoomSettings(new() { ["pathfinding.engine"] = "v2", ["pathfinding.layering_enabled"] = "1" }) : TestRoomSettings.Empty,
+                TestLogging.Navigation, live && movementEngine != "legacy"
+                    ? new TestRoomSettings(new() { ["pathfinding.engine"] = movementEngine, ["pathfinding.layering_enabled"] = "1" }) : TestRoomSettings.Empty,
                 TestGroupManager.Empty, TestNavigationDatabase.Instance, TestNavigationRewards.Instance);
             var handler = new RoomItemHandling(_room, TestRoomItemStore.Instance, TestRoomItemMetadataStore.Instance, TestGameClientManager.Empty,
                 TestLanguageManager.RoomItems, TestItemRuntime.Interactors, TestItemRuntime.Travel, TestItemRuntime.Rewards);
@@ -339,9 +340,9 @@ public sealed partial class WiredGlideConveyorTests
                 Items[item.Id] = item;
                 _map.AddToMap(item);
 
-                if (live) {
+                if (live && _map.Navigation != null) {
                     item.EnableNavigationSynchronization();
-                    _map.Navigation!.Inputs.Attach(item);
+                    _map.Navigation.Inputs.Attach(item);
                 }
             }
 
@@ -401,6 +402,16 @@ public sealed partial class WiredGlideConveyorTests
                 Z = _map.SqAbsoluteHeight(fromX, fromY)
             };
             _users[user.VirtualId] = user;
+
+            if (!_room.UsesV2Movement) {
+                _map.AddUserToMap(user, new(fromX, fromY));
+                _map.GameMap[fromX, fromY] = 1;
+                Assert.True(Plus.HabboHotel.Items.Wired.Modern.WiredRoomOperations.RelocateAvatar(_room, user, x, y, false));
+                Full();
+
+                return user;
+            }
+
             _room.RunFastPass(() => _map.Navigation!.Admit(user));
             user.MoveTo(x, y);
 
@@ -413,13 +424,31 @@ public sealed partial class WiredGlideConveyorTests
 
         private void Full() => _room.RunFastPass(() =>
         {
-            _map.Navigation!.ApplyDirty();
-            _map.Navigation.DrainCommands();
+            _map.Navigation?.ApplyDirty();
+
+            if (_room.UsesV2Movement) {
+                _map.Navigation!.DrainCommands();
+            }
+
             _map.Gates.Drain();
             _room.GetRoomUserManager().OnCycle();
             _wired.OnCycle();
             _map.FlushPlacementUpdates();
         });
+
+        public void AdvanceWiredPass(int milliseconds, bool full)
+        {
+            for (var end = _now + milliseconds; _now < end;) {
+                _now += 50;
+
+                if (full) {
+                    _room.RunFastPass(_wired.OnCycle);
+                }
+                else {
+                    _room.ProcessWiredOnly();
+                }
+            }
+        }
 
         // In 50 ms room passes.
         public void Advance(int milliseconds)

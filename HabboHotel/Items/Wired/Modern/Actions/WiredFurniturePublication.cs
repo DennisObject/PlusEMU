@@ -44,6 +44,7 @@ internal sealed class WiredFurniturePublication(Room room, object root, long dea
         return true;
     }
 
+    internal bool HasAvatarEntries => _avatars.Count != 0;
     internal bool ContainsActor(RoomUser actor) => _avatars.Any(entry => ReferenceEquals(entry.Actor, actor));
 
     internal bool AppendAvatar(RoomUser actor, WiredMovementComposer movement, WiredMoveStyleComposer style)

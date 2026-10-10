@@ -140,9 +140,79 @@ internal sealed partial class WiredStackEngine
             SealPublication();
         }
 
+        LegacyCarryProof? legacy = null;
+        bool LegacyCurrent(WiredRuntimeContext context, WiredFurniturePublication publication)
+        {
+            // Bindings must be authoritative before any replaceable accessor or classifier runs.
+            if (!bindingsCurrent() || !ReferenceEquals(now, _now) || !Monitor.IsEntered(_sync) || _passDepth == 0
+                || !ReferenceEquals(context.Room, _runtimeRoom) || !ReferenceEquals(context, _runtimeContext)
+                || !ReferenceEquals(context.Operations, operations) || !ReferenceEquals(_executingAction?.Box, action)
+                || !_items.TryGetValue(action.Item.Id, out var registered) || !ReferenceEquals(action, registered)
+                || !action.WalkBindingIsCurrent(walk)) {
+                return false;
+            }
+
+            var map = context.Room.GetGameMap();
+
+            if (context.Room.UsesV2Movement || map == null || map.Navigation != null
+                || map.Model.MapSizeX is <= 0 or > 256 || map.Model.MapSizeY is <= 0 or > 256
+                || !publication.Open || publication.HasAvatarEntries || !ReferenceEquals(publication, _activePublication)
+                || publication.Epoch != _publicationEpoch || !CollisionRegistryUnchanged()
+                || _items.Values.OfType<WiredModernTrigger>().Any(trigger => trigger.Events.Contains(WiredEventKind.WalkOn)
+                    || trigger.Events.Contains(WiredEventKind.WalkOff))) {
+                return false;
+            }
+
+            return action.SupportsPublication(context);
+        }
+        bool LiveActor(WiredRuntimeContext context, RoomUser actor, long lifetime) =>
+            actor.Movement.LifetimeId == lifetime && actor.Movement.State != NavState.Removing
+            && context.UserIdentity.TryGetValue(actor.VirtualId, out var captured) && ReferenceEquals(actor, captured)
+            && ReferenceEquals(context.Room.GetRoomUserManager().GetRoomUserByVirtualId(actor.VirtualId), actor);
+        bool PreparedLegacy(WiredRuntimeContext context, RoomUser actor)
+        {
+            var proof = legacy;
+
+            if (proof == null || !bindingsCurrent() || !ReferenceEquals(now, _now)
+                || !ReferenceEquals(proof.Context, context) || !ReferenceEquals(proof.Execution, _executingAction)
+                || !ReferenceEquals(context.Publication, proof.Publication)
+                || !ReferenceEquals(proof.Root, proof.Publication.Root) || proof.Deadline != proof.Publication.Deadline
+                || proof.Epoch != proof.Publication.Epoch || !ReferenceEquals(proof.Registry, _stackSnapshot)
+                || proof.Boxes.Length != _items.Count || proof.Boxes.Any(entry =>
+                    !_items.TryGetValue(entry.Box.Item.Id, out var box) || !ReferenceEquals(entry.Box, box)
+                    || !ReferenceEquals(entry.Configuration, entry.Box.Configuration))
+                || action.Item.Placement != proof.Placement || !ReferenceEquals(action.Item.Definition, proof.Definition)
+                || !proof.Actors.TryGetValue(actor, out var lifetime) || !LegacyCurrent(context, proof.Publication)
+                || !LiveActor(context, actor, lifetime)) {
+                legacy = null;
+
+                return false;
+            }
+
+            proof.Actors.Remove(actor);
+
+            if (proof.Actors.Count == 0) {
+                legacy = null;
+            }
+
+            return true;
+        }
+
         action.BindCarryPublication((context, actors) =>
         {
+            // Every attempt replaces the stamp, including failed and reentrant moves.
+            legacy = null;
             var token = Token(context);
+
+            if (token == null && context.Publication is { } original && LegacyCurrent(context, original)
+                && actors.All(actor => LiveActor(context, actor, actor.Movement.LifetimeId))) {
+                legacy = new(context, _executingAction!, original, original.Root, original.Deadline, original.Epoch,
+                    _stackSnapshot, _items.Values.Cast<IWiredConfiguredItem>().Select(box => (box, box.Configuration)).ToArray(),
+                    action.Item.Placement, action.Item.Definition,
+                    actors.ToDictionary(actor => actor, actor => actor.Movement.LifetimeId));
+
+                return;
+            }
 
             if (token == null || actors.Any(token.ContainsActor)) {
                 // Split before any later furniture commit or actor style, even for equal styles.
@@ -158,8 +228,11 @@ internal sealed partial class WiredStackEngine
                 return true;
             }
 
-            Seal(context);
+            if (!PreparedLegacy(context, actor)) {
+                Seal(context);
+            }
 
+            // Legacy keeps its original immediate hint/body; only furniture remains collected.
             return false;
         });
     }
@@ -248,6 +321,11 @@ internal sealed partial class WiredStackEngine
         && ReferenceEquals(_runtimeRoom!.GetRoomItemHandler().GetItem(proof.Source.Id), proof.Source)
         && proof.Actor.Movement.LifetimeId == proof.ActorLifetime
         && ReferenceEquals(_runtimeRoom.GetRoomUserManager().GetRoomUserByVirtualId(proof.Actor.VirtualId), proof.Actor);
+
+    private sealed record LegacyCarryProof(WiredRuntimeContext Context, ScheduledAction Execution,
+        WiredFurniturePublication Publication, object Root, long Deadline, long Epoch, object Registry,
+        (IWiredConfiguredItem Box, WiredConfiguration Configuration)[] Boxes, long Placement, ItemDefinition Definition,
+        Dictionary<RoomUser, long> Actors);
 
     private sealed record HeadingCollisionProof(WiredFurniturePublication Publication, Func<bool> BindingsCurrent,
         Item Source, long Placement, ItemDefinition Definition, RoomUser Actor, long ActorLifetime, object RegistrySnapshot,
