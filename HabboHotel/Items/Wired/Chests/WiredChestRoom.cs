@@ -29,6 +29,19 @@ public sealed class WiredChestRoom(Room room, IWiredChestStore store, TimeProvid
             return false;
         }
 
+        var inventory = habbo.Inventory;
+
+        if (inventory == null) {
+            if (_sessions.TryGetValue(habbo.Id, out var invalid)) {
+                End(invalid, WiredChestFailure.Invalid);
+            }
+            else {
+                Fail(actor, sourceId, WiredChestFailure.Invalid);
+            }
+
+            return false;
+        }
+
         if (_sessions.TryGetValue(habbo.Id, out var previous)) {
             if (previous.CancelAt == null) {
                 Fail(actor, sourceId, WiredChestFailure.AlreadyTrading);
@@ -93,7 +106,10 @@ public sealed class WiredChestRoom(Room room, IWiredChestStore store, TimeProvid
             return null;
         }
 
-        var offered = Offered(session);
+        if (!TryOffered(session, out var offered)) {
+            return null;
+        }
+
         var times = session.Contract == null ? offered.Length > 0 ? 1 : 0
             : WiredChestContracts.Times(session.Contract, offered, session.Mode, session.Multiplier);
         var canAccept = times > 0 && !session.Accepted && session.CancelAt == null && !(session.Deadline <= clock.GetUtcNow());
@@ -115,13 +131,16 @@ public sealed class WiredChestRoom(Room room, IWiredChestStore store, TimeProvid
             return;
         }
 
+        if (!TryInventory(session, out var inventory)) {
+            return;
+        }
+
         if (!add) {
             foreach (var id in ids) {
                 session.Offer.Remove(id);
             }
         }
         else {
-            var inventory = client.GetHabbo().Inventory.Furniture;
             var wanted = ids.Distinct().Where(id => !session.Offer.Contains(id)).ToArray();
 
             if (wanted.Length + session.Offer.Count > 500 || wanted.Any(id => inventory.GetItem(id) is not { } item
@@ -144,7 +163,10 @@ public sealed class WiredChestRoom(Room room, IWiredChestStore store, TimeProvid
             return;
         }
 
-        var offered = Offered(session);
+        if (!TryOffered(session, out var offered)) {
+            return;
+        }
+
         var times = session.Contract == null ? offered.Length > 0 ? 1 : 0
             : WiredChestContracts.Times(session.Contract, offered, session.Mode, session.Multiplier);
 
@@ -217,6 +239,10 @@ public sealed class WiredChestRoom(Room room, IWiredChestStore store, TimeProvid
         var now = clock.GetUtcNow();
 
         foreach (var session in _sessions.Values.ToArray()) {
+            if (!TryInventory(session, out _)) {
+                continue;
+            }
+
             if (session.Deadline <= now || session.CancelAt <= now || !ReferenceEquals(session.Client.GetHabbo()?.CurrentRoom, room)) {
                 End(session, session.Deadline <= now ? WiredChestFailure.Timeout : WiredChestFailure.TradeCancelled);
             }
@@ -250,52 +276,52 @@ public sealed class WiredChestRoom(Room room, IWiredChestStore store, TimeProvid
         WiredChestTransferResult result;
 
         lock (habbo.InventoryMutationSync)
-        lock (habbo.WalletSync) {
-            if (habbo.Inventory is not { } inventory || habbo.WalletClosed || request.UserId != habbo.Id || request.RoomId != room.Id
-                || !ReferenceEquals(habbo.Client, client) || !ReferenceEquals(habbo.CurrentRoom, room)) {
-                return WiredChestTransferResult.Refused(WiredChestFailure.Invalid);
-            }
+            lock (habbo.WalletSync) {
+                if (habbo.Inventory is not { } inventory || habbo.WalletClosed || request.UserId != habbo.Id || request.RoomId != room.Id
+                    || !ReferenceEquals(habbo.Client, client) || !ReferenceEquals(habbo.CurrentRoom, room)) {
+                    return WiredChestTransferResult.Refused(WiredChestFailure.Invalid);
+                }
 
-            try {
-                foreach (var id in request.PaymentIds) {
-                    var item = inventory.Furniture.GetItem(id);
+                try {
+                    foreach (var id in request.PaymentIds) {
+                        var item = inventory.Furniture.GetItem(id);
 
-                    if (item == null || item.OwnerId != habbo.Id || !item.TryReserve()) {
-                        return WiredChestTransferResult.Refused(WiredChestFailure.Invalid);
+                        if (item == null || item.OwnerId != habbo.Id || !item.TryReserve()) {
+                            return WiredChestTransferResult.Refused(WiredChestFailure.Invalid);
+                        }
+
+                        reserved.Add(item);
                     }
 
-                    reserved.Add(item);
+                    result = store.Transfer(request with { LiveCredits = habbo.Credits });
+
+                    if (!result.Succeeded || result.Replayed) {
+                        return result;
+                    }
+
+                    habbo.Credits = result.Credits;
+
+                    foreach (var id in result.Removed) {
+                        inventory.Furniture.RemoveItem(id);
+                        client.Send(new FurniListRemoveComposer(id));
+                    }
+
+                    foreach (var item in result.Received) {
+                        inventory.Furniture.AddItem(item);
+                        client.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
+                    }
+
+                    client.Send(new CreditBalanceComposer(habbo.Credits));
                 }
-
-                result = store.Transfer(request with { LiveCredits = habbo.Credits });
-
-                if (!result.Succeeded || result.Replayed) {
-                    return result;
+                catch (Exception error) when (error is System.Data.Common.DbException or System.Data.DBConcurrencyException) {
+                    result = WiredChestTransferResult.Refused(WiredChestFailure.DatabaseError);
                 }
-
-                habbo.Credits = result.Credits;
-
-                foreach (var id in result.Removed) {
-                    inventory.Furniture.RemoveItem(id);
-                    client.Send(new FurniListRemoveComposer(id));
-                }
-
-                foreach (var item in result.Received) {
-                    inventory.Furniture.AddItem(item);
-                    client.Send(new FurniListAddComposer(InventoryItemSnapshot.Capture(item)));
-                }
-
-                client.Send(new CreditBalanceComposer(habbo.Credits));
-            }
-            catch (Exception error) when (error is System.Data.Common.DbException or System.Data.DBConcurrencyException) {
-                result = WiredChestTransferResult.Refused(WiredChestFailure.DatabaseError);
-            }
-            finally {
-                foreach (var item in reserved) {
-                    item.ReleaseReservation();
+                finally {
+                    foreach (var item in reserved) {
+                        item.ReleaseReservation();
+                    }
                 }
             }
-        }
 
         RefreshChests(request.ChestIds);
 
@@ -431,10 +457,43 @@ public sealed class WiredChestRoom(Room room, IWiredChestStore store, TimeProvid
             }
         }
     }
-    private InventoryItem[] Offered(Session session) => session.Offer.Select(id => session.Client.GetHabbo().Inventory.Furniture.GetItem(id)).OfType<InventoryItem>().ToArray();
-    private void SendOffer(Session session) => session.Client.Send(new WiredChestTradeItemsComposer(session.Client.GetHabbo().Id, Offered(session),
-        session.Contract, session.Mode, session.Multiplier, session.Accepted,
-        session.Deadline is { } end ? Math.Max(0, (int)Math.Ceiling((end - clock.GetUtcNow()).TotalSeconds)) : 0));
+    private bool TryInventory(Session session, out FurnitureInventoryComponent inventory)
+    {
+        var loaded = session.Client.GetHabbo().Inventory;
+
+        if (loaded == null) {
+            inventory = null!;
+            End(session, WiredChestFailure.Invalid);
+
+            return false;
+        }
+
+        inventory = loaded.Furniture;
+
+        return true;
+    }
+    private bool TryOffered(Session session, out InventoryItem[] offered)
+    {
+        if (!TryInventory(session, out var inventory)) {
+            offered = [];
+
+            return false;
+        }
+
+        offered = session.Offer.Select(inventory.GetItem).OfType<InventoryItem>().ToArray();
+
+        return true;
+    }
+    private void SendOffer(Session session)
+    {
+        if (!TryOffered(session, out var offered)) {
+            return;
+        }
+
+        session.Client.Send(new WiredChestTradeItemsComposer(session.Client.GetHabbo().Id, offered,
+            session.Contract, session.Mode, session.Multiplier, session.Accepted,
+            session.Deadline is { } end ? Math.Max(0, (int)Math.Ceiling((end - clock.GetUtcNow()).TotalSeconds)) : 0));
+    }
     private void End(Session session, WiredChestFailure reason, bool notify = true)
     {
         _sessions.Remove(session.Client.GetHabbo().Id);

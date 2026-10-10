@@ -24,6 +24,135 @@ namespace Plus.Tests;
 public sealed class WiredChestProtocolTests
 {
     [Fact]
+    public void MissingLoadedInventoryRefusesMoveBeforeStoreOrPublication()
+    {
+        var world = new World();
+        var inventory = world.Habbo.Inventory!;
+        world.Habbo.Inventory = null;
+        var result = world.Module.Move(world.Client, new() { UserId = 1, RoomId = 42, ChestIds = [100], PaymentIds = [201] });
+        Assert.Equal(WiredChestFailure.Invalid, result.Failure);
+        Assert.Empty(world.Store.Requests);
+        Assert.Empty(world.Packets);
+        Assert.Equal(100, world.Habbo.Credits);
+        Assert.NotNull(inventory.Furniture.GetItem(201));
+        Assert.False(world.Module.HasPending);
+        Assert.False(world.Actor.IsTrading);
+    }
+
+    [Fact]
+    public void MissingLoadedInventoryCannotOpenOrOwnAChestSession()
+    {
+        var world = new World();
+        world.Habbo.Inventory = null;
+        var started = world.Module.Start(world.Client, 80, [world.Chest], world.Contract);
+        Assert.False(started);
+        Assert.Empty(world.Store.Reads);
+        Assert.False(world.Module.HasPending);
+        Assert.False(world.Actor.IsTrading);
+        Assert.Empty(world.Store.Requests);
+        Assert.DoesNotContain(world.Packets, packet => packet.Header == ServerPacketHeader.WiredChestTradeOpenComposer);
+    }
+
+    [Theory]
+    [InlineData("offer")]
+    [InlineData("accept")]
+    [InlineData("confirm")]
+    public void LostLoadedInventoryClosesTheExistingSessionWithoutTransfer(string operation)
+    {
+        var world = new World();
+        var inventory = world.Habbo.Inventory!;
+        Assert.True(world.Module.Start(world.Client, 80, [world.Chest], world.Contract));
+        world.Module.Offer(world.Client, [201], true);
+        world.Module.Confirm(world.Client, false);
+        world.Packets.Clear();
+        world.Habbo.Inventory = null;
+        var error = Record.Exception(() =>
+        {
+            if (operation == "offer") {
+                world.Module.Offer(world.Client, [201], true);
+            }
+            else {
+                world.Module.Confirm(world.Client, operation == "confirm");
+            }
+        });
+        Assert.Null(error);
+        Assert.False(world.Module.HasPending);
+        Assert.False(world.Actor.IsTrading);
+        Assert.Empty(world.Store.Requests);
+        Assert.Equal(100, world.Habbo.Credits);
+        Assert.NotNull(inventory.Furniture.GetItem(201));
+        Assert.Single(world.Packets, packet => packet.Header == ServerPacketHeader.WiredChestTradeCancelledComposer);
+        Assert.Equal(WiredEventKind.TransactionFail, Assert.Single(world.Events).Kind);
+    }
+
+    [Theory]
+    [InlineData("start")]
+    [InlineData("read")]
+    [InlineData("poll")]
+    public void InventoryLossDuringExistingSessionClosesOnceAcrossRepeatedEntryPoints(string operation)
+    {
+        var world = new World();
+        var inventory = world.Habbo.Inventory!;
+        Assert.True(world.Module.Start(world.Client, 80, [world.Chest], world.Contract));
+        world.Module.Offer(world.Client, [201], true);
+        var reads = world.Store.Reads.Count;
+        world.Packets.Clear();
+        world.Habbo.Inventory = null;
+
+        if (operation == "start") {
+            Assert.False(world.Module.Start(world.Client, 81, [world.Chest], world.Contract));
+        }
+        else if (operation == "read") {
+            Assert.Null(world.Module.ReadTransaction(world.Actor, "@transaction.in_trade"));
+        }
+        else {
+            world.Module.Poll();
+        }
+
+        Assert.False(world.Module.HasPending);
+        Assert.False(world.Actor.IsTrading);
+        world.Module.Offer(world.Client, [201], true);
+        world.Module.Offer(world.Client, [201], false);
+        world.Module.Confirm(world.Client, false);
+        world.Module.Confirm(world.Client, true);
+        Assert.Null(world.Module.ReadTransaction(world.Actor, "@transaction.state"));
+        world.Module.Poll();
+        world.Module.Cancel(world.Client);
+        Assert.Empty(world.Store.Requests);
+        Assert.Equal(100, world.Habbo.Credits);
+        Assert.NotNull(inventory.Furniture.GetItem(201));
+        Assert.Equal(reads, world.Store.Reads.Count);
+        Assert.Equal(ServerPacketHeader.WiredChestTradeCancelledComposer, Assert.Single(world.Packets).Header);
+        var failure = Assert.Single(world.Events);
+        Assert.Equal(WiredEventKind.TransactionFail, failure.Kind);
+        Assert.Equal((int)WiredChestFailure.Invalid, failure.Code);
+    }
+
+    [Fact]
+    public void ValidEmptyLoadedInventoryRemainsAUsableUnacceptedSession()
+    {
+        var world = new World();
+        world.Habbo.Inventory = new();
+        Assert.True(world.Module.Start(world.Client, 80, [world.Chest], world.Contract));
+        world.Module.Offer(world.Client, [], true);
+        world.Module.Offer(world.Client, [], false);
+        world.Module.Confirm(world.Client, false);
+        world.Module.Confirm(world.Client, true);
+        world.Module.Poll();
+        Assert.True(world.Module.HasPending);
+        Assert.True(world.Actor.IsTrading);
+        Assert.Equal(1, world.Module.ReadTransaction(world.Actor, "@transaction.in_trade"));
+        Assert.Equal(0, world.Module.ReadTransaction(world.Actor, "@transaction.current_multiplier"));
+        Assert.Null(world.Module.ReadTransaction(world.Actor, "@transaction.can_accept"));
+        Assert.Empty(world.Events);
+        Assert.Empty(world.Store.Requests);
+        Assert.DoesNotContain(world.Packets, packet => packet.Header == ServerPacketHeader.WiredChestTradeCancelledComposer);
+        world.Module.Cancel(world.Client);
+        Assert.False(world.Module.HasPending);
+        Assert.False(world.Actor.IsTrading);
+    }
+
+    [Fact]
     public void CustomOctanePacketsMatchTheRendererFieldOrderAndBothDirectionsAreRegistered()
     {
         var contract = new WiredChestContract { Kind = WiredContractKind.Trade, ReceiveText = "Pay", Payment = [[new(5)]], Reward = [new(2, new(false, 44))] };
@@ -341,12 +470,18 @@ public sealed class WiredChestProtocolTests
     internal sealed class Store : IWiredChestStore
     {
         public List<WiredChestTransfer> Requests = [];
+        public List<uint> Reads = [];
         public WiredChestFailure? Failure;
         public WiredChestKind Kind = WiredChestKind.Furni;
         public int Coins = 20;
         public InventoryItem[] Stock = [];
         public WiredChestSettings Settings = new() { Capacity = 1000, Locked = false, WiredEnabled = true, PreviewMode = 5, PreviewAmount = 1 };
-        public WiredChestSnapshot? Load(Item item) => WiredChestFurniture.IsChest(item.Definition) ? new(item.Id, 1, 42, Kind, Kind == WiredChestKind.Coins ? Coins : 0, 0, Settings, Stock) : null;
+        public WiredChestSnapshot? Load(Item item)
+        {
+            Reads.Add(item.Id);
+
+            return WiredChestFurniture.IsChest(item.Definition) ? new(item.Id, 1, 42, Kind, Kind == WiredChestKind.Coins ? Coins : 0, 0, Settings, Stock) : null;
+        }
         public bool SaveSettings(Item item, int user, bool modify, bool owner, Func<WiredChestSettings, WiredChestSettings> change) => true;
         public WiredChestContract? LoadContract(Item item) => null;
         public bool SaveContract(Item item, WiredChestContract contract) => true;

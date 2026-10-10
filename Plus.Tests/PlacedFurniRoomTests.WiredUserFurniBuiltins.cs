@@ -15,6 +15,69 @@ namespace Plus.Tests;
 
 public partial class PlacedFurniRoomTests
 {
+    [Fact]
+    public void MissingStatsAndNullBotDataPreserveAbsenceAndOrdinaryHumanIdentity()
+    {
+        var avatar = Viewer();
+        avatar.BotData = null;
+        var habbo = _client.GetHabbo();
+        habbo.HabboStats = null;
+        var holder = WiredVariableRuntimeFrames.UserHolder(avatar);
+        var frame = new WiredVariableFrame(RoomId, [holder]);
+        var builtins = new RoomWiredBuiltinVariables(_room);
+        WiredVariableValue? Read(string key) => builtins.Read(new(holder.Target, "internal:" + key), holder, frame);
+        Assert.False(avatar.IsBot);
+        Assert.False(avatar.IsPet);
+        Assert.Equal(1, Read("@type")?.Value);
+        Assert.Equal(7, Read("@user_id")?.Value);
+        Assert.Null(Read("@bot_id"));
+        Assert.Null(Read("@pet_id"));
+        Assert.Null(Read("@achievement_score"));
+        Assert.Null(Read("@favourite_group_id"));
+        habbo.HabboStats = new(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 0);
+        Assert.Equal(0, Read("@achievement_score")?.Value);
+        Assert.Null(Read("@favourite_group_id"));
+        habbo.HabboStats.AchievementPoints = 17;
+        Assert.Equal(17, Read("@achievement_score")?.Value);
+        Assert.True(RoomWiredBuiltinVariables.HasNumericValue(new(holder.Target, "internal:@achievement_score")));
+        Assert.Empty(_client.Sent);
+    }
+
+    [Fact]
+    public void MissingPetDataDoesNotInventPetIdsStatsOrHorseDefaults()
+    {
+        var avatar = BuiltinPet(15);
+        var actual = avatar.PetData;
+        var holder = WiredVariableRuntimeFrames.UserHolder(avatar);
+        var frame = new WiredVariableFrame(RoomId, [holder]);
+        var builtins = new RoomWiredBuiltinVariables(_room);
+        WiredVariableValue? Read(string key) => builtins.Read(new(holder.Target, "internal:" + key), holder, frame);
+        avatar.PetData = null;
+
+        try {
+            Assert.True(avatar.IsPet);
+            Assert.Equal(2, Read("@type")?.Value);
+
+            foreach (var key in new[] { "@pet_id", "@pet_owner_id", "~pet.creation_time", "~pet.energy", "~pet.experience",
+                "~pet.experience_required", "~pet.happiness", "~pet.level", "~pet.max_energy", "~pet.max_happiness",
+                "~pet.max_level", "~pet.owner_id", "~pet.scratches", "~horse.controller_user_id", "~horse.has_saddle", "~horse.is_riding" }) {
+                Assert.Null(Read(key));
+            }
+
+            Assert.Null(Read("@bot_id"));
+            Assert.Null(Read("@user_id"));
+        }
+        finally {
+            avatar.PetData = actual;
+        }
+
+        Assert.Equal(80, Read("@pet_id")?.Value);
+        Assert.Equal(70, Read("~pet.energy")?.Value);
+        Assert.Equal(7, Read("~pet.owner_id")?.Value);
+        Assert.Equal(0, Read("~horse.controller_user_id")?.Value);
+        Assert.Empty(_client.Sent);
+    }
+
     [Theory]
     [InlineData("~pet.creation_time", 1609459200123L)]
     [InlineData("~pet.energy", 70L)]
