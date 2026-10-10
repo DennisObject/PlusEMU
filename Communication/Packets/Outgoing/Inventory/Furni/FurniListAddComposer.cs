@@ -7,5 +7,9 @@ public sealed class FurniListAddComposer(InventoryItemSnapshot item) : IServerPa
 {
     public uint MessageId => ServerPacketHeader.FurniListAddComposer;
 
-    public void Compose(IOutgoingPacket packet) => InventoryFurnitureSerializer.Write(packet, item, added: true);
+    public void Compose(IOutgoingPacket packet)
+    {
+        packet.WriteInteger(1);
+        InventoryFurnitureSerializer.Write(packet, item, added: true);
+    }
 }
