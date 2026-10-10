@@ -275,30 +275,30 @@ namespace Plus.Tests
         {
             var incoming = new Dictionary<string, uint>
             {
-                [nameof(GetForumStatsEvent)] = 3149,
-                [nameof(GetForumsListDataEvent)] = 873,
-                [nameof(GetThreadsListDataEvent)] = 436,
-                [nameof(GetThreadDataEvent)] = 232,
-                [nameof(GetForumThreadEvent)] = 3900,
-                [nameof(PostGroupContentEvent)] = 3529,
-                [nameof(DeleteGroupThreadEvent)] = 1397,
-                [nameof(DeleteGroupPostEvent)] = 286,
-                [nameof(UpdateThreadEvent)] = 3045,
-                [nameof(UpdateForumSettingsEvent)] = 2214,
-                [nameof(UpdateForumReadMarkersEvent)] = 1855,
-                [nameof(GetForumsUnreadCountEvent)] = 2908
+                [nameof(GetForumStatsEvent)] = ClientPacketHeader.GetForumStatsEvent,
+                [nameof(GetForumsListDataEvent)] = ClientPacketHeader.GetForumsListDataEvent,
+                [nameof(GetThreadsListDataEvent)] = ClientPacketHeader.GetThreadsListDataEvent,
+                [nameof(GetThreadDataEvent)] = ClientPacketHeader.GetThreadDataEvent,
+                [nameof(GetForumThreadEvent)] = ClientPacketHeader.GetForumThreadEvent,
+                [nameof(PostGroupContentEvent)] = ClientPacketHeader.PostGroupContentEvent,
+                [nameof(DeleteGroupThreadEvent)] = ClientPacketHeader.DeleteGroupThreadEvent,
+                [nameof(DeleteGroupPostEvent)] = ClientPacketHeader.DeleteGroupPostEvent,
+                [nameof(UpdateThreadEvent)] = ClientPacketHeader.UpdateThreadEvent,
+                [nameof(UpdateForumSettingsEvent)] = ClientPacketHeader.UpdateForumSettingsEvent,
+                [nameof(UpdateForumReadMarkersEvent)] = ClientPacketHeader.UpdateForumReadMarkersEvent,
+                [nameof(GetForumsUnreadCountEvent)] = ClientPacketHeader.GetForumsUnreadCountEvent
             };
             var outgoing = new Dictionary<string, uint>
             {
-                [nameof(ForumDataComposer)] = 3011,
-                [nameof(ForumsListDataComposer)] = 3001,
-                [nameof(ThreadsListDataComposer)] = 1073,
-                [nameof(ThreadDataComposer)] = 509,
-                [nameof(ThreadCreatedComposer)] = 1862,
-                [nameof(ThreadUpdatedComposer)] = 2528,
-                [nameof(ThreadReplyComposer)] = 2049,
-                [nameof(PostUpdatedComposer)] = 324,
-                [nameof(ForumsUnreadCountComposer)] = 2379
+                [nameof(ForumDataComposer)] = ServerPacketHeader.ForumDataComposer,
+                [nameof(ForumsListDataComposer)] = ServerPacketHeader.ForumsListDataComposer,
+                [nameof(ThreadsListDataComposer)] = ServerPacketHeader.ThreadsListDataComposer,
+                [nameof(ThreadDataComposer)] = ServerPacketHeader.ThreadDataComposer,
+                [nameof(ThreadCreatedComposer)] = ServerPacketHeader.ThreadCreatedComposer,
+                [nameof(ThreadUpdatedComposer)] = ServerPacketHeader.ThreadUpdatedComposer,
+                [nameof(ThreadReplyComposer)] = ServerPacketHeader.ThreadReplyComposer,
+                [nameof(PostUpdatedComposer)] = ServerPacketHeader.PostUpdatedComposer,
+                [nameof(ForumsUnreadCountComposer)] = ServerPacketHeader.ForumsUnreadCountComposer
             };
 
             foreach (var (type, headers) in new[] { (typeof(ClientPacketHeader), incoming), (typeof(ServerPacketHeader), outgoing) }) {
@@ -309,13 +309,11 @@ namespace Plus.Tests
 
             foreach (var file in Directory.GetFiles(Path.Combine(GroupForumDatabaseTests.RepositoryRoot(), "Resources", "Revisions"), "*.json")) {
                 using var json = JsonDocument.Parse(File.ReadAllText(file));
-                var revision = JsonSerializer.Deserialize<Plus.Communication.Revisions.Revision>(File.ReadAllText(file))!;
-                revision.BuildMappings(HabbiconTestSupport.InternalRevision());
+                var revision = new Plus.Communication.Revisions.RevisionsCache().InternalRevision;
 
                 foreach (var (key, headers, type) in new[] { ("IncomingHeaders", incoming, typeof(ClientPacketHeader)), ("OutgoingHeaders", outgoing, typeof(ServerPacketHeader)) }) {
                     foreach (var (name, header) in headers) {
-                        var expected = Path.GetFileName(file) == "example.json"
-                            ? (uint)type.GetField(name)!.GetRawConstantValue()! : header;
+                        var expected = header;
                         var wire = json.RootElement.GetProperty(key).GetProperty(name).GetUInt32();
 
                         Assert.Equal(expected, wire);

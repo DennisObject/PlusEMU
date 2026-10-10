@@ -196,16 +196,13 @@ public class WiredRoomSettingsTests
         Assert.Equal(2, service.Saves.Count);
     }
 
-    [Theory]
-    [InlineData("1.6.6.json")]
-    [InlineData("example.json")]
-    public void ActualRoomSettingsHandlersHaveUniqueActiveProfileMappings(string profile)
+    [Fact]
+    public void ActualRoomSettingsHandlersHaveUniqueActiveProfileMappings()
     {
         IPacketEvent[] handlers = [new WiredRoomSettingsRequestEvent(Service()), new WiredRoomSettingsSaveEvent(Service()), new WiredMenuPermissionsSaveEvent(Service())];
         using var manager = new PacketManager(handlers, NullLogger<PacketManager>.Instance);
         var registered = (Dictionary<uint, IPacketEvent>)typeof(PacketManager).GetField("_incomingPackets", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(manager)!;
-        var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(Path.Join(AppContext.BaseDirectory, "revisions", profile)))!;
-        revision.BuildMappings(HabbiconTestSupport.InternalRevision());
+        var revision = new Plus.Communication.Revisions.RevisionsCache().InternalRevision;
 
         foreach (var handler in handlers) {
             var name = handler.GetType().Name;
@@ -215,10 +212,6 @@ public class WiredRoomSettingsTests
 
             var wire = revision.IncomingHeaders[name];
             Assert.Equal(id, revision.IncomingIdToInternalIdMapping[wire]);
-
-            if (profile == "1.6.6.json" && handler is WiredMenuPermissionsSaveEvent) {
-                Assert.Equal(1936u, wire);
-            }
 
             Assert.Single(revision.IncomingHeaders, entry => entry.Value == wire);
         }

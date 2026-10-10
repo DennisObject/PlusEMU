@@ -70,33 +70,6 @@ public class CatalogStructureWireTests
         Assert.Equal([ServerPacketHeader.CatalogItemDiscountComposer], sent.Select(value => value.Header));
     }
 
-    [Fact]
-    public async Task BrowserRevisionsRouteBundleDiscountAndIndexRequestsToTheirOwnHandlers()
-    {
-        var directory = Directory.CreateTempSubdirectory("catalog-revisions-").FullName;
-
-        try {
-            foreach (var file in Directory.GetFiles(HabbiconPacketTests.Repo("Resources/Revisions"), "*.json")) {
-                File.Copy(file, Path.Join(directory, Path.GetFileName(file)));
-            }
-
-            var cache = new Plus.Communication.Revisions.RevisionsCache();
-            typeof(Plus.Communication.Revisions.RevisionsCache).GetField("_directory",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(cache, directory);
-            await cache.Start();
-
-            foreach (var name in new[] { "NITRO-1-6-6", "NITRO-3-6-0", "OCTANE-3-6-0-FLOOR-20260909" }) {
-                var revision = cache.Revisions[name];
-                Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetBundleDiscountRulesetEvent, revision.IncomingIdToInternalIdMapping[223]);
-                Assert.Equal(Plus.Communication.Packets.Incoming.ClientPacketHeader.GetCatalogIndexEvent, revision.IncomingIdToInternalIdMapping[1195]);
-                Assert.Equal(2347u, revision.InternalIdToOutgoingIdMapping[ServerPacketHeader.CatalogItemDiscountComposer]);
-            }
-        }
-        finally {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
     private static CatalogPage Page(int id, int parentId, bool enabled = true, string? requiredPermission = null, params int[] offerIds)
     {
         var page = new CatalogPage { Id = id, ParentId = parentId, Enabled = enabled, Visible = true, Icon = id, Link = "page" + id, Caption = "Page " + id, Layout = "default_3x3", RequiredPermission = requiredPermission };

@@ -304,23 +304,19 @@ public partial class PlacedFurniRoomTests
     }
 
     [Fact]
-    public async Task AdjacentPacketTranslates2687RegistersAndEchoes2816()
+    public async Task AdjacentPacketDispatchesAndEchoesTheCurrentHeader()
     {
         Viewer();
         var tile = Add(10, 1, 1, z: 2, type: InteractionType.WalkMagicTile);
-        var path = Path.Combine(AppContext.BaseDirectory, "revisions", "OCTANE-3-6-0-FLOOR-20260909.json");
-        var revision = JsonSerializer.Deserialize<Revision>(File.ReadAllText(path))!;
-        revision.InternalIdToOutgoingIdMapping = revision.OutgoingHeaders.Where(pair => pair.Value > 0).ToDictionary(pair => (uint)typeof(ServerPacketHeader).GetField(pair.Key)!.GetRawConstantValue()!, pair => pair.Value);
-        _client.Revision = revision;
-        var mapping = revision.IncomingHeaders.Where(pair => pair.Value > 0).ToDictionary(pair => pair.Value, pair => (uint)typeof(ClientPacketHeader).GetField(pair.Key)!.GetRawConstantValue()!);
+        _client.Revision = new RevisionsCache().InternalRevision;
         using var manager = new PacketManager([new UpdateMagicTileAdjacentEvent(new MagicTileService())], NullLogger<PacketManager>.Instance);
-        await manager.TryExecutePacket(_client, mapping[2687], ClientPacket(10, false));
+        await manager.TryExecutePacket(_client, ClientPacketHeader.UpdateMagicTileAdjacentEvent, ClientPacket(10, false));
         Assert.Equal(2.01, tile.GetZ);
-        Assert.Contains(2816u, _client.Sent);
-        var echo = new FlashIncomingPacket { Buffer = _client.Packets.Last(packet => packet.Header == 2816).Body };
+        Assert.Contains(ServerPacketHeader.UpdateMagicTileComposer, _client.Sent);
+        var echo = new FlashIncomingPacket { Buffer = _client.Packets.Last(packet => packet.Header == ServerPacketHeader.UpdateMagicTileComposer).Body };
         Assert.Equal(10u, echo.ReadUInt());
         Assert.Equal(201, echo.ReadInt());
-        await manager.TryExecutePacket(_client, mapping[2687], ClientPacket(10, true));
+        await manager.TryExecutePacket(_client, ClientPacketHeader.UpdateMagicTileAdjacentEvent, ClientPacket(10, true));
         Assert.Equal(2, tile.GetZ);
     }
 

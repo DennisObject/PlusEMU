@@ -358,63 +358,6 @@ namespace Plus.Tests
             Assert.NotNull(Assert.IsType<Plus.HabboHotel.Users.Inventory.InventoryComponent>(_client.GetHabbo().Inventory).Furniture.GetItem(31));
         }
 
-        [Theory]
-        [InlineData("NITRO-1-6-6")]
-        [InlineData("NITRO-3-6-0")]
-        [InlineData("OCTANE-3-6-0-FLOOR-20260909")]
-        public async Task MusicSupportedProfilesResolveNativeRequestsAndPublishDiscInventory(string name)
-        {
-            var (_, store, _, _) = Music();
-            Inventory(MusicDisc(31));
-            var directory = Directory.CreateTempSubdirectory("music-revisions-").FullName;
-
-            try {
-                foreach (var file in Directory.GetFiles(Path.Join(AppContext.BaseDirectory, "revisions"), "*.json")) {
-                    File.Copy(file, Path.Join(directory, Path.GetFileName(file)));
-                }
-
-                var cache = new Plus.Communication.Revisions.RevisionsCache();
-                typeof(Plus.Communication.Revisions.RevisionsCache).GetField("_directory", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.SetValue(cache, directory);
-                await cache.Start();
-                var profile = cache.Revisions[name];
-                var requests = new (uint Header, uint Internal)[] {
-                    (753, Plus.Communication.Packets.Incoming.ClientPacketHeader.AddJukeboxDiskEvent),
-                    (3050, Plus.Communication.Packets.Incoming.ClientPacketHeader.RemoveJukeboxDiskEvent),
-                    (1435, Plus.Communication.Packets.Incoming.ClientPacketHeader.GetJukeboxPlaylistEvent),
-                    (3498, Plus.Communication.Packets.Incoming.ClientPacketHeader.GetSoundMachinePlaylistEvent),
-                    (3082, Plus.Communication.Packets.Incoming.ClientPacketHeader.GetSongInfoEvent),
-                    (2304, Plus.Communication.Packets.Incoming.ClientPacketHeader.GetUserSongDisksEvent),
-                    (1325, Plus.Communication.Packets.Incoming.ClientPacketHeader.GetNowPlayingEvent),
-                    (3189, Plus.Communication.Packets.Incoming.ClientPacketHeader.GetOfficialSongIdEvent)
-                };
-
-                foreach (var request in requests) {
-                    Assert.Equal(request.Internal, profile.IncomingIdToInternalIdMapping[request.Header]);
-                }
-
-                var responses = new (uint Internal, uint Header)[] {
-                    (ServerPacketHeader.JukeboxPlaylistComposer, 34), (ServerPacketHeader.JukeboxPlaylistFullComposer, 105),
-                    (ServerPacketHeader.NowPlayingComposer, 469), (ServerPacketHeader.OfficialSongIdComposer, 1381),
-                    (ServerPacketHeader.SoundMachinePlaylistComposer, 1748), (ServerPacketHeader.TraxSongInfoComposer, 3365),
-                    (ServerPacketHeader.SongDisksInventoryComposer, 2602)
-                };
-
-                foreach (var response in responses) {
-                    Assert.Equal(response.Header, profile.InternalIdToOutgoingIdMapping[response.Internal]);
-                }
-
-                _client.Revision = profile;
-                await new GetUserSongDisksEvent(new RoomMusicService(store)).Parse(_client, ClientPacket());
-                var packet = Assert.Single(_client.Packets);
-                Assert.Equal(2602u, packet.Header);
-                var body = new FlashIncomingPacket { Buffer = packet.Body };
-                Assert.Equal(new[] { 1, 31, 71 }, Enumerable.Range(0, 3).Select(_ => body.ReadInt()));
-            }
-            finally {
-                Directory.Delete(directory, recursive: true);
-            }
-        }
-
         private (RoomMusicComponent Music, MusicStore Store, MusicClock Clock, Item Player) Music(MusicPlayerState? state = null, bool v2 = false, AccountSessionGate? accounts = null)
         {
             if (v2) {

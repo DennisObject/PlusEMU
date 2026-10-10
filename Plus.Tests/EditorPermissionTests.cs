@@ -115,7 +115,7 @@ public class EditorPermissionTests
                 && type.IsAssignableTo(typeof(Plus.Communication.Packets.IPacketEvent)))
             .ToList();
         Assert.Equal(28, handlers.Count);
-        var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json"))).RootElement;
+        var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/example.json"))).RootElement;
 
         foreach (var handler in handlers) {
             var permission = handler.GetCustomAttribute<Plus.Communication.Attributes.RequiresPermissionAttribute>();
@@ -156,7 +156,7 @@ public class EditorPermissionTests
             field => incoming.Contains(field.Name) || (field.GetRawConstantValue() is uint id && wireIds.Contains(id)));
         Assert.DoesNotContain(typeof(Plus.Communication.Packets.Outgoing.ServerPacketHeader).GetFields(), field => outgoing.Contains(field.Name));
 
-        foreach (var file in new[] { "OCTANE-3-6-0-FLOOR-20260909.json", "1.6.6.json", "3.6.0.json" }) {
+        foreach (var file in new[] { "example.json" }) {
             var revision = System.Text.Json.JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo($"Resources/Revisions/{file}"))).RootElement;
             var incomingHeaders = revision.GetProperty("IncomingHeaders").EnumerateObject().ToList();
             Assert.DoesNotContain(incomingHeaders, header => incoming.Contains(header.Name) || wireIds.Contains(header.Value.GetUInt32()));

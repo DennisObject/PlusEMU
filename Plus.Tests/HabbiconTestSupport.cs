@@ -16,7 +16,6 @@ internal static class HabbiconTestSupport
 {
     internal static Revision InternalRevision() => new()
     {
-        ZeroHeaderIsValid = true,
         IncomingHeaders = typeof(ClientPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)
             .ToDictionary(field => field.Name, field => (uint)field.GetRawConstantValue()!),
         OutgoingHeaders = typeof(ServerPacketHeader).GetFields(BindingFlags.Public | BindingFlags.Static)

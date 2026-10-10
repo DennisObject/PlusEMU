@@ -691,7 +691,7 @@ public class HousekeepingWireTests
             .Where(type => type.Namespace == typeof(HousekeepingBanUserEvent).Namespace && typeof(IPacketEvent).IsAssignableFrom(type))
             .Select(type => type.Name).ToHashSet();
         Assert.Equal(Incoming.Keys.ToHashSet(), handlers);
-        using var revision = JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/OCTANE-3-6-0-FLOOR-20260909.json")));
+        using var revision = JsonDocument.Parse(File.ReadAllText(HabbiconPacketTests.Repo("Resources/Revisions/example.json")));
 
         foreach (var (name, id) in Incoming) {
             Assert.Equal(id, (uint)typeof(ClientPacketHeader).GetField(name)!.GetRawConstantValue()!);

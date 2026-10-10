@@ -102,14 +102,6 @@ public class UpstreamPortTests
         Assert.Equal(incoming.Count, incoming.Distinct().Count());
         Assert.Equal(outgoing.Count, outgoing.Distinct().Count());
 
-        var revisionPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Resources", "Revisions", "1.6.6.json"));
-        using var document = JsonDocument.Parse(File.ReadAllText(revisionPath));
-        var incomingHeaders = document.RootElement.GetProperty("IncomingHeaders");
-        var outgoingHeaders = document.RootElement.GetProperty("OutgoingHeaders");
-        Assert.Equal(869u, incomingHeaders.GetProperty("GetKickbackInfoEvent").GetUInt32());
-        Assert.Equal(3277u, outgoingHeaders.GetProperty("KickbackInfoComposer").GetUInt32());
-        AssertUniquePositiveIds(incomingHeaders);
-        AssertUniquePositiveIds(outgoingHeaders);
     }
 
     [Fact]

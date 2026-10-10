@@ -5,19 +5,17 @@ namespace Plus.Communication.Packets.Outgoing.Crafting;
 
 public sealed record CraftingProduct(string RecipeCode, string ProductCode, string FurnitureClassName)
 {
-    public void Compose(IOutgoingPacket packet, bool native)
+    public void Compose(IOutgoingPacket packet)
     {
         packet.WriteString(RecipeCode);
 
-        if (native) {
-            packet.WriteString(ProductCode);
-        }
+        packet.WriteString(ProductCode);
 
         packet.WriteString(FurnitureClassName);
     }
 }
 
-public sealed class CraftableProductsComposer(ImmutableArray<CraftingProduct> products, ImmutableArray<string> ingredients, bool native = true) : IServerPacket
+public sealed class CraftableProductsComposer(ImmutableArray<CraftingProduct> products, ImmutableArray<string> ingredients) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.CraftableProductsComposer;
     public void Compose(IOutgoingPacket packet)
@@ -25,7 +23,7 @@ public sealed class CraftableProductsComposer(ImmutableArray<CraftingProduct> pr
         packet.WriteInteger(products.Length);
 
         foreach (var product in products) {
-            product.Compose(packet, native);
+            product.Compose(packet);
         }
 
         packet.WriteInteger(ingredients.Length);
@@ -60,12 +58,12 @@ public sealed class CraftingRecipesAvailableComposer(int count, bool complete) :
     }
 }
 
-public sealed class CraftingResultComposer(CraftingProduct? product, bool native = true) : IServerPacket
+public sealed class CraftingResultComposer(CraftingProduct? product) : IServerPacket
 {
     public uint MessageId => ServerPacketHeader.CraftingResultComposer;
     public void Compose(IOutgoingPacket packet)
     {
         packet.WriteBoolean(product is not null);
-        product?.Compose(packet, native);
+        product?.Compose(packet);
     }
 }

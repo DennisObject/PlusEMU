@@ -203,7 +203,7 @@ public static class ServerPacketHeader
     // Sound
     public const uint SoundSettingsComposer = 1501;
 
-    public const uint AvatarAspectUpdateComposer = 65416;
+    public const uint AvatarAspectUpdateComposer = 1822;
     public const uint HelperToolComposer = 3539;
     public const uint RoomErrorNotifComposer = 1111;
     public const uint FollowFriendFailedComposer = 857;
