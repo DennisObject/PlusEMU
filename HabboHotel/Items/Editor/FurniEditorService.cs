@@ -378,7 +378,7 @@ public sealed class FurniEditorService : IFurniEditorService
             ? new FurnitureDataReloadComposer(FurnitureDataReloadComposer.Delta, [edit])
             : new FurnitureDataReloadComposer(FurnitureDataReloadComposer.ReloadHint, []);
 
-        // Only Octane revisions map this packet; sending it to other clients would fail on the missing id.
+        // Only Volt revisions map this packet; sending it to other clients would fail on the missing id.
         foreach (var client in _gameClientManager.GetClients.ToList()) {
             if (client?.GetHabbo() != null && client.Revision?.InternalIdToOutgoingIdMapping.ContainsKey(composer.MessageId) == true) {
                 client.Send(composer);

@@ -359,7 +359,7 @@ public static class ServerPacketHeader
     public const uint RewardTrackClaimResultComposer = 3629;
     public const uint RewardTrackProgressComposer = 465;
     public const uint RewardTrackPremiumPurchaseResultComposer = 1374;
-    // Octane catalog editor and furni editor; the same ids on the wire.
+    // Volt catalog editor and furni editor; the same ids on the wire.
     public const uint FurniEditorSearchResultComposer = 10040;
     public const uint FurniEditorDetailResultComposer = 10041;
     public const uint FurniEditorInteractionsResultComposer = 10043;
@@ -372,7 +372,7 @@ public static class ServerPacketHeader
     public const uint CatalogStudioSessionComposer = 10067;
     public const uint CatalogStudioHistoryComposer = 10071;
     public const uint CatalogStudioOperationComposer = 10072;
-    // Housekeeping (in-client admin panel); internal IDs match Octane's wire IDs.
+    // Housekeeping (in-client admin panel); internal IDs match Volt's wire IDs.
     public const uint HousekeepingUserDetailComposer = 9200;
     public const uint HousekeepingActionResultComposer = 9201;
     public const uint HousekeepingRoomDetailComposer = 9202;
@@ -386,7 +386,7 @@ public static class ServerPacketHeader
     public const uint HousekeepingRoleMembersComposer = 9211;
     public const uint HousekeepingUserOverridesComposer = 9212;
     public const uint HousekeepingRolesAuditComposer = 9213;
-    // SnowStorm (AIR Game2 payloads); internal IDs match Octane's wire IDs except where noted.
+    // SnowStorm (AIR Game2 payloads); internal IDs match Volt's wire IDs except where noted.
     public const uint Game2GameDirectoryStatusComposer = 2084;
     public const uint Game2GameCreatedComposer = 5000;
     public const uint Game2InArenaQueueComposer = 715;

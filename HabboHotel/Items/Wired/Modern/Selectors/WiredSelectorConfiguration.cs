@@ -4,7 +4,7 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Selectors;
 
-/// <summary>Decodes the active Octane/Polaris action envelope, not Turbo's compact selector fields.</summary>
+/// <summary>Decodes the active Volt/Polaris action envelope, not Turbo's compact selector fields.</summary>
 public static class WiredSelectorConfiguration
 {
     public static WiredConfiguration Normalize(string name, WiredConfiguration c)
@@ -25,7 +25,7 @@ public static class WiredSelectorConfiguration
             _ => 0
         };
 
-        // Octane uses retained picks only when an older layout omitted the source field.
+        // Volt uses retained picks only when an older layout omitted the source field.
         int AnchorSource(int index) => index >= c.IntParams.Length && !c.SelectedItems.IsEmpty ? 100 : Source(index);
 
         int[] fields = name switch

@@ -19,7 +19,7 @@ namespace Plus.Tests;
 public class HabbiconPacketTests
 {
     [Fact]
-    public void ShopAndUserPayloadsMatchOctaneFieldOrderAndExcludeUnownedItems()
+    public void ShopAndUserPayloadsMatchVoltFieldOrderAndExcludeUnownedItems()
     {
         var snapshot = Snapshot();
         var shop = new RecordingPacket();

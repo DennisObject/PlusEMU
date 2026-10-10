@@ -3,7 +3,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.Communication.Packets.Incoming.Catalog.Admin;
 
-// Reads Octane's catalog editor packets (Octane-Renderer outgoing/catalog/CatalogAdmin*Composer), field by field.
+// Reads Volt's catalog editor packets (Volt-Renderer outgoing/catalog/CatalogAdmin*Composer), field by field.
 internal static class CatalogAdminPacketReader
 {
     public const int MaxReorderCount = 500;

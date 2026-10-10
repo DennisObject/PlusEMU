@@ -30,10 +30,10 @@ public sealed class PacketManager : IPacketManager, IDisposable
     {
         _maximumRunTimeInSec = Debugger.IsAttached ? TimeSpan.FromMinutes(30) : TimeSpan.FromSeconds(5);
         _logger = logger;
-        var octaneAdminEnabled = authOptions?.Value.Enabled ?? true;
+        var voltAdminEnabled = authOptions?.Value.Enabled ?? true;
 
         foreach (var packet in incomingPackets) {
-            if (!octaneAdminEnabled && IsOctaneAdminPacket(packet.GetType())) {
+            if (!voltAdminEnabled && IsVoltAdminPacket(packet.GetType())) {
                 continue;
             }
 
@@ -58,7 +58,7 @@ public sealed class PacketManager : IPacketManager, IDisposable
         }
     }
 
-    internal static bool IsOctaneAdminPacket(Type type)
+    internal static bool IsVoltAdminPacket(Type type)
     {
         var name = type.Namespace ?? string.Empty;
 

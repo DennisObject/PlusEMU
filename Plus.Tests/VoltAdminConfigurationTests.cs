@@ -13,7 +13,7 @@ using Xunit;
 
 namespace Plus.Tests;
 
-public class OctaneAdminConfigurationTests
+public class VoltAdminConfigurationTests
 {
     [Fact]
     public void ExternalAuthOmitsAdminHandlersButKeepsGameAuthenticationAndCatalog()

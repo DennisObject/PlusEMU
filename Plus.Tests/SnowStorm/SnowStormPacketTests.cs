@@ -90,7 +90,7 @@ public class SnowStormPacketTests
     };
 
     [Fact]
-    public void EveryHeaderIsMappedToItsOctaneIdInEveryRevisionWithoutCollisions()
+    public void EveryHeaderIsMappedToItsVoltIdInEveryRevisionWithoutCollisions()
     {
         foreach (var file in Directory.GetFiles(HabbiconPacketTests.Repo("Resources/Revisions"), "*.json")) {
             using var json = JsonDocument.Parse(File.ReadAllText(file));

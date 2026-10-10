@@ -6,7 +6,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
-/// <summary>Active Octane ABI: WiredMovementsParser, furniture type 1 / avatar type 0.</summary>
+/// <summary>Active Volt ABI: WiredMovementsParser, furniture type 1 / avatar type 0.</summary>
 public sealed record WiredMovementComposer(int Type, int Id, int FromX, int FromY, double FromZ,
     int ToX, int ToY, double ToZ, int BodyRotation, int HeadRotation, int DurationMs) : IServerPacket
 {

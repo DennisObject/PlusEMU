@@ -6,7 +6,7 @@ namespace Plus.Communication.Http;
 /// </summary>
 public class AuthApiConfiguration
 {
-    /// <summary>Enables the emulator-owned Octane account and session endpoints.</summary>
+    /// <summary>Enables the emulator-owned Volt account and session endpoints.</summary>
     public bool Enabled { get; set; } = true;
 
     public string Hostname { get; set; } = "127.0.0.1";
@@ -51,7 +51,7 @@ public class AuthApiConfiguration
 public class RegistrationDefaults
 {
     public string Look { get; set; } = "hd-180-1.hr-100-61.ch-210-66.lg-270-82.sh-290-80";
-    public string Motto { get; set; } = "Octane";
+    public string Motto { get; set; } = "Volt";
     public int Credits { get; set; } = 50000;
     public int ActivityPoints { get; set; } = 5000;
     public string[] Roles { get; set; } = [];

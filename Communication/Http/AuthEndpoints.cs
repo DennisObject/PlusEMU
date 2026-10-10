@@ -9,7 +9,7 @@ using Plus.HabboHotel.Users.Registration;
 namespace Plus.Communication.Http;
 
 /// <summary>
-/// Routes used by the Octane login screen. Response fields (ssoTicket, accessToken,
+/// Routes used by the Volt login screen. Response fields (ssoTicket, accessToken,
 /// accessTokenExpiresAt, available, error) are what the client reads.
 /// </summary>
 public class AuthEndpoints

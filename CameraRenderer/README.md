@@ -4,7 +4,7 @@ The emulator supplies a room snapshot. The browser receives only a viewpoint and
 
 Apply `Resources/SQLs/Updates/15_TrustedCamera.sql` once before enabling the camera. It is safe to rerun and preserves existing settings. Configure `Camera` in `Config/config.json`; keep its case, especially bearer and effect names. An empty bearer rejects captures. Prices use credits and duckets; other point types fail closed. Competition defaults to disabled and fails closed if email verification is required because Plus has no verified-email flag.
 
-Build with the sibling `Octane-Renderer` checkout and its dependencies installed:
+Build with the sibling `Volt-Renderer` checkout (or an older `Octane-Renderer` one) and its dependencies installed:
 
 ```sh
 cd CameraRenderer

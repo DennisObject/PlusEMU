@@ -12,14 +12,14 @@ public static class CatalogAdminTypes
     public static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 }
 
-// Field names follow Octane's CatalogStudioPageSnapshot so the JSON can be sent as the save acknowledgement entity.
+// Field names follow Volt's CatalogStudioPageSnapshot so the JSON can be sent as the save acknowledgement entity.
 public sealed record CatalogAdminPage(
     string CatalogType, int PageId, int ParentId, string CaptionSave, string Caption, string PageLayout,
     int IconColor, int IconImage, string RequiredPermission, int OrderNum, bool Visible, bool Enabled, bool ClubOnly,
     string CatalogMode, string PageHeadline, string PageTeaser, string PageSpecial,
     string PageText1, string PageText2, string PageTextDetails, string PageTextTeaser, int RoomId, string Includes);
 
-// Field names follow Octane's CatalogStudioOfferSnapshot. OfferId is the id the client knows the offer by.
+// Field names follow Volt's CatalogStudioOfferSnapshot. OfferId is the id the client knows the offer by.
 public sealed record CatalogAdminOffer(
     string CatalogType, int OfferId, string ItemIds, int PageId, string CatalogName, int CostCredits, int CostPoints,
     int PointsType, int Amount, int LimitedStack, int OrderNumber, int OfferIdClient, int SongId, string Extradata,

@@ -3,7 +3,7 @@ using Plus.HabboHotel.Items.Wired.Variables.Fx;
 
 namespace Plus.Communication.Packets.Outgoing.WiredVariables;
 
-/// <summary>Octane FX messages. The revision must explicitly map these IDs before sending.</summary>
+/// <summary>Volt FX messages. The revision must explicitly map these IDs before sending.</summary>
 public sealed class WiredVariableFxComposer : IServerPacket
 {
     public const uint ConfigsId = 9473;

@@ -2,7 +2,7 @@ namespace Plus.HabboHotel.Items.Wired.Variables;
 
 public static class WiredVariablePredicates
 {
-    // Polaris/Octane comparison codes.
+    // Polaris/Volt comparison codes.
     public static bool Compare(int comparison, long value, long reference) => comparison switch
     {
         0 => value > reference,

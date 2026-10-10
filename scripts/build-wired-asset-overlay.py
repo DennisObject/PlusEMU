@@ -107,7 +107,7 @@ def main():
             raise ValueError('Converted/native SWF model disagrees: ' + name)
         if (metadata['xdim'], metadata['ydim']) != (model['dimensions']['x'], model['dimensions']['y']):
             raise ValueError('Original geometry disagrees: ' + name)
-        # HabboFurni serializes an absent XML color list as null; Octane iterates an array.
+        # HabboFurni serializes an absent XML color list as null; Volt iterates an array.
         client_metadata = json.loads(json.dumps(metadata))
         normalized = []
         if client_metadata.get('partcolors', {}).get('color') is None:

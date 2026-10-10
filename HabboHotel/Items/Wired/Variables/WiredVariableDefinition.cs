@@ -1,6 +1,6 @@
 namespace Plus.HabboHotel.Items.Wired.Variables;
 
-// These are Octane's scalar editor codes, not the unrelated array target codes.
+// These are Volt's scalar editor codes, not the unrelated array target codes.
 public enum WiredVariableTarget
 {
     User = 0, Furni = 1, Context = 2, Global = 3

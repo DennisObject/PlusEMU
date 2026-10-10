@@ -7,7 +7,7 @@ using Plus.HabboHotel.Users.Authentication;
 namespace Plus.Communication.Http;
 
 /// <summary>
-/// GET /api/badges/leaderboard for the Octane badge leaderboard and rarity labels. A bearer
+/// GET /api/badges/leaderboard for the Volt badge leaderboard and rarity labels. A bearer
 /// token adds the caller's own rank to each board.
 /// </summary>
 public class BadgeLeaderboardEndpoints(IBadgeRarityManager rarity, IAccessTokenStore accessTokens)
@@ -49,7 +49,7 @@ public class BadgeLeaderboardEndpoints(IBadgeRarityManager rarity, IAccessTokenS
         var result = new Dictionary<string, object>
         {
             ["entries"] = board.Top.Select((score, index) => Entry(score.UserId, index + 1, score.Score, snapshot.Profiles.GetValueOrDefault(score.UserId))),
-            // Octane pages through the entries it was sent, so the total counts those only.
+            // Volt pages through the entries it was sent, so the total counts those only.
             ["totalPlayers"] = board.Top.Count()
         };
 

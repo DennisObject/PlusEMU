@@ -27,7 +27,7 @@ public class RewardTrackLiveTests
     private const string Badge = "ACH_RewardTracksCompleted1";
 
     [Fact]
-    public async Task LoginSendsTracksToTheOctaneClient()
+    public async Task LoginSendsTracksToTheVoltClient()
     {
         var client = new TestClient(await Profile());
         client.SetHabbo(new Habbo { Id = 7 });

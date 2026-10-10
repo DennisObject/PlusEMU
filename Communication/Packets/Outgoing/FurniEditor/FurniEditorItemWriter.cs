@@ -3,7 +3,7 @@ using Plus.HabboHotel.Items.Editor;
 
 namespace Plus.Communication.Packets.Outgoing.FurniEditor;
 
-// Octane-Renderer's FurniItemData.
+// Volt-Renderer's FurniItemData.
 internal static class FurniEditorItemWriter
 {
     public static void Write(IOutgoingPacket packet, FurniEditorItem item)

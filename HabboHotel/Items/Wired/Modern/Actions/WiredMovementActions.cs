@@ -5,7 +5,7 @@ using Plus.HabboHotel.Rooms;
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
 /// <summary>
-/// Executes the existing Octane movement editors. Resolved movers and targets are separate;
+/// Executes the existing Volt movement editors. Resolved movers and targets are separate;
 /// the caller owns source selection, scheduling and packet policy.
 /// </summary>
 public sealed class WiredMovementActions
@@ -87,7 +87,7 @@ public sealed class WiredMovementActions
             case "wf_act_move_furni_as_group":
                 var groupOffset = WiredRoomOperations.Offset(Param(0));
 
-                // Octane/Polaris direction editor: leading edge first, blocked members skipped.
+                // Volt/Polaris direction editor: leading edge first, blocked members skipped.
                 affected = together(movers.OrderByDescending(item => item.GetX * groupOffset.X + item.GetY * groupOffset.Y).ToArray(),
                     (item, step) => step(item.GetX + groupOffset.X, item.GetY + groupOffset.Y, item.Rotation));
 

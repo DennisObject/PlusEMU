@@ -29,7 +29,7 @@ internal static class EditorTestSupport
         [new RoleAssignment(new AccessRole(9, "editor", "Editor", weight, 1, "", true, rights, new Dictionary<string, int>()))],
         overrides: overrides, registry: PermissionKeys.All.Select(permission => permission.Key).Append(RestrictedPagePermission).Concat(rights).Distinct());
 
-    // Writes values the way Octane's EvaWire encoder does: int32, int16-prefixed UTF-8 string, one byte boolean.
+    // Writes values the way Volt's EvaWire encoder does: int32, int16-prefixed UTF-8 string, one byte boolean.
     public static FlashIncomingPacket Incoming(params object[] values)
     {
         using var stream = new MemoryStream();

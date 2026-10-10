@@ -2,7 +2,7 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Variables;
 
-/// <summary>Executable scalar boxes decoded from the active Octane legacy editor ABI.</summary>
+/// <summary>Executable scalar boxes decoded from the active Volt legacy editor ABI.</summary>
 public sealed class WiredVariableExecutors(WiredVariableModule variables, TimeProvider clock)
 {
     public static bool Supports(string name) => name is "wf_act_give_var" or "wf_act_remove_var" or "wf_act_change_var_val"
@@ -133,7 +133,7 @@ public sealed class WiredVariableExecutors(WiredVariableModule variables, TimePr
         }
 
         if (name == "wf_cnd_var_age_match") {
-            // Octane duration units: milliseconds, seconds, minutes, hours, days, weeks, months, years.
+            // Volt duration units: milliseconds, seconds, minutes, hours, days, weeks, months, years.
             long[] units = [1, 1000, 60000, 3600000, 86400000, 604800000, 2592000000, 31536000000];
             var durationTicks = (decimal)p[3] * units[p[4]] * TimeSpan.TicksPerMillisecond;
             var now = clock.GetUtcNow();

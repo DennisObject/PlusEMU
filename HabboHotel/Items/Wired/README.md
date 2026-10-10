@@ -26,7 +26,7 @@ of Turbo's complete wired catalogue.
   firing. Equal deadlines execute in height/item-ID order, with stable ordering across
   firings. A zero-delay action executes immediately even when another action waits; two
   delay-1 actions both become due after 500ms. A late room tick executes due actions within
-  the execution budget. This preserves Plus/Octane independent effect timing instead of
+  the execution budget. This preserves Plus/Volt independent effect timing instead of
   adopting Turbo's cumulative chain delays, which would change existing rooms. Legacy
   shared flags and inconsistent tick offsets no longer collapse or postpone firings.
 - Each firing retains its own actor and captures the actual RoomUser visit reference.

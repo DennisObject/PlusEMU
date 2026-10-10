@@ -4,10 +4,10 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Actions;
 
-/// <summary>Validates the current Octane editors and decodes named source roles without changing wire fields.</summary>
+/// <summary>Validates the current Volt editors and decodes named source roles without changing wire fields.</summary>
 public static class WiredMovementConfiguration
 {
-    // wf_act_move_rotate: index = current Octane editor option, value = stored direction/turn.
+    // wf_act_move_rotate: index = current Volt editor option, value = stored direction/turn.
     // AIR's move/rotate radios: 4 ↗ 8 → 5 ↘ 9 ↓ 6 ↙ 10 ← 7 ↖ 11 ↑ (icons move_0..move_7).
     private static readonly int[] EditorMovement = [-1, 8, 9, 10, 0, 2, 4, 6, 1, 3, 5, 7];
     private static readonly int[] EditorRotation = [0, 2, 4, 6];

@@ -386,7 +386,7 @@ public class HousekeepingHandlerTests
         Assert.Equal(("user.give_currency_-1", false, 0, HousekeepingErrors.InvalidInput), Result(Assert.Single(sent).Payload));
     }
 
-    // Arguments are listed in the order Octane's composers write them.
+    // Arguments are listed in the order Volt's composers write them.
     public static TheoryData<Type, object[], string, string, string> Mutations => new()
     {
         { typeof(HousekeepingBanUserEvent), new object[] { 2, "spam", 24 }, HousekeepingRights.Sanction, "user.ban", "Ban 2 spam 24" },
@@ -608,7 +608,7 @@ public class HousekeepingWireTests
         Assert.Equal("hotel", HousekeepingAuditLog.TargetTypeName(HousekeepingTargetType.Hotel));
     }
 
-    // IDs from Octane-Renderer OutgoingHeader.ts / IncomingHeader.ts (HOUSEKEEPING_*).
+    // IDs from Volt-Renderer OutgoingHeader.ts / IncomingHeader.ts (HOUSEKEEPING_*).
     private static readonly Dictionary<string, uint> Incoming = new()
     {
         ["HousekeepingFindUserByNameEvent"] = 9100,
@@ -685,7 +685,7 @@ public class HousekeepingWireTests
     }
 
     [Fact]
-    public void EveryHandlerIsRegisteredUnderTheRendererHeaderInTheOctaneRevision()
+    public void EveryHandlerIsRegisteredUnderTheRendererHeaderInTheVoltRevision()
     {
         var handlers = typeof(HousekeepingBanUserEvent).Assembly.GetTypes()
             .Where(type => type.Namespace == typeof(HousekeepingBanUserEvent).Namespace && typeof(IPacketEvent).IsAssignableFrom(type))

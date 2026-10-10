@@ -4,7 +4,7 @@ namespace Plus.HabboHotel.Items.Wired.Configuration;
 
 /// <summary>
 /// Immutable editor settings and their decoded runtime inputs. Concrete boxes own the mapping
-/// from Octane's per-name int/text fields to sources and variable references; there are no shared slots.
+/// from Volt's per-name int/text fields to sources and variable references; there are no shared slots.
 /// </summary>
 public sealed record WiredConfiguration
 {

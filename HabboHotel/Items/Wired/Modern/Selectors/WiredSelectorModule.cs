@@ -3,7 +3,7 @@ using Plus.HabboHotel.Items.Wired.Configuration;
 
 namespace Plus.HabboHotel.Items.Wired.Modern.Selectors;
 
-/// <summary>Selection behavior uses Octane's per-box fields; inversion/filtering is composed exactly once.</summary>
+/// <summary>Selection behavior uses Volt's per-box fields; inversion/filtering is composed exactly once.</summary>
 public static class WiredSelectorModule
 {
     public static IReadOnlyList<string> Names { get; } =

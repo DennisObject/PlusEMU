@@ -1,6 +1,6 @@
 namespace Plus.HabboHotel.Items.Editor;
 
-// A furniture row as Octane's furni editor shows it (FurniItemData / FurniDetailData). PlusEMU has no lay flag,
+// A furniture row as Volt's furni editor shows it (FurniItemData / FurniDetailData). PlusEMU has no lay flag,
 // custom params, per-gender effects or walk clothing: those are reported as false/empty/the one effect id.
 public sealed class FurniEditorItem
 {

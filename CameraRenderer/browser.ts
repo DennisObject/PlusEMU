@@ -21,10 +21,10 @@ import
     GetEventDispatcher,
     LegacyDataType,
     LegacyWallGeometry,
-    OctaneAdjustmentFilter,
-    OctaneRectangle,
-    OctaneSprite,
-    OctaneTexture,
+    VoltAdjustmentFilter,
+    VoltRectangle,
+    VoltSprite,
+    VoltTexture,
     PrepareRenderer,
     RoomCameraWidgetSelectedEffect,
     RoomContentLoadedEvent,
@@ -39,7 +39,7 @@ import
     RoomVariableEnum,
     Vector3d,
     loadGamedata
-} from '@octane/renderer';
+} from '@volt/renderer';
 
 interface CameraViewport
 {
@@ -533,7 +533,7 @@ function mountDisplay(scene: CameraScene, viewport: CameraViewport): void
     geometry.location = new Vector3d(viewport.locationX, viewport.locationY, viewport.locationZ);
     engine.setRoomInstanceRenderingCanvasOffset(scene.roomId, CANVAS_ID, { x: viewport.offsetX, y: viewport.offsetY } as never);
 
-    const background = new OctaneSprite(OctaneTexture.WHITE);
+    const background = new VoltSprite(VoltTexture.WHITE);
 
     background.tint = 0;
     background.width = viewport.width;
@@ -773,7 +773,7 @@ async function encodeCrop(roomId: number, viewport: CameraViewport, effects: Cam
 {
     const engine = GetRoomEngine();
     const camera = GetRoomCameraWidgetManager();
-    const texture = engine.createTextureFromRoom(roomId, CANVAS_ID, new OctaneRectangle(viewport.x, viewport.y, viewport.cropWidth, viewport.cropHeight));
+    const texture = engine.createTextureFromRoom(roomId, CANVAS_ID, new VoltRectangle(viewport.x, viewport.y, viewport.cropWidth, viewport.cropHeight));
 
     if(!texture) fail('Room texture was not created');
 
@@ -837,7 +837,7 @@ function applyMoodlight(roomId: number, dimmer: RoomObjectDimmerStateUpdateEvent
     if(!master) fail('Room display is missing');
 
     const color = ColorConverter.hslToRGB((ColorConverter.rgbToHSL(dimmer.color) & 0xFFFF00) + dimmer.brightness);
-    const filter = new OctaneAdjustmentFilter();
+    const filter = new VoltAdjustmentFilter();
 
     filter.red = ((color >> 16) & 0xFF) / 255;
     filter.green = ((color >> 8) & 0xFF) / 255;

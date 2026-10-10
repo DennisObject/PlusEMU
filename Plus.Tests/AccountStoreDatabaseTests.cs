@@ -25,7 +25,7 @@ public sealed class AccountStoreDatabaseTests : IDisposable
         Assert.Equal("hd-180-1", (string)row.look);
         Assert.Equal("F", (string)row.gender);
         Assert.Equal(1234, (int)row.credits);
-        Assert.Equal("Octane", (string)row.motto);
+        Assert.Equal("Volt", (string)row.motto);
         Assert.Equal("10.1.2.3", (string)row.ip_reg);
         Assert.Equal("", (string)row.auth_ticket);
         Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM user_statistics WHERE id = @id", new { id }));

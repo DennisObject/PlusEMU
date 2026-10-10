@@ -4,7 +4,7 @@ using Plus.HabboHotel.GameClients;
 
 namespace Plus.HabboHotel.Items.Wired.Configuration;
 
-/// <summary>Octane's established three-envelope ABI, shared by configured boxes of all six categories.</summary>
+/// <summary>Volt's established three-envelope ABI, shared by configured boxes of all six categories.</summary>
 public static class WiredLegacyProtocol
 {
     // The caller has already read the item id. Never read or mutate the live configuration here.
