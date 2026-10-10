@@ -216,7 +216,7 @@
     "ApplyDecorationEvent": 2144,
     "GetRecipeConfigEvent": 2428,
     "ScrGetUserInfoEvent": 477,
-    "RemoveGroupMemberEvent": 65409,
+    "RemoveGroupMemberEvent": 1397,
     "ConfirmRemoveGroupMemberEvent": 2359,
     "DiceOffEvent": 1535,
     "YouTubeGetNextVideo": 3201,

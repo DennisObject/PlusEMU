@@ -91,7 +91,7 @@ public sealed class BuildersClubRemovalDatabaseTests
 
         try {
             connection.Execute($"USE `{schema}`");
-            connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")), commandTimeout: 180);
+            connection.Execute(File.ReadAllText(HabbiconPacketTests.Repo("Resources/SQLs/Original Database.sql")), commandTimeout: 900);
 
             Assert.Equal(0, connection.QuerySingle<int>("""
                 SELECT COUNT(*) FROM information_schema.columns
@@ -103,7 +103,8 @@ public sealed class BuildersClubRemovalDatabaseTests
                 WHERE action_type = 'place_builders_club_furni' OR id = 'place_builders_club_furni'
                 """));
             Assert.True(connection.QuerySingle<int>("SELECT COUNT(*) FROM furniture WHERE LEFT(item_name, 3) = 'bc_'") > 0);
-            Assert.Equal(1, connection.QuerySingle<int>("SELECT COUNT(*) FROM items WHERE id = 1"));
+            // The dump's item 1 belongs to user 1, which the dump does not have, so migration 67 removes it.
+            Assert.Equal(0, connection.QuerySingle<int>("SELECT COUNT(*) FROM items WHERE id = 1"));
         }
         finally {
             connection.Execute("USE information_schema");

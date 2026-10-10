@@ -402,6 +402,8 @@ public sealed class MarketplaceDatabaseTests
         using var connection = new MySqlConnection(_connectionString);
         // Zero and negative epochs are the unknown time the migration keeps as NULL.
         DateTime? listedAt = timestamp <= 0 ? null : DateTimeOffset.FromUnixTimeSeconds(timestamp).UtcDateTime;
+        // Offers and furni belong to real accounts and rooms; the keys reject anything else.
+        connection.Execute("INSERT IGNORE INTO `users` (`id`,`username`,`auth_ticket`) VALUES (@seller, CONCAT('marketplace_', @seller), '')", new { seller });
         connection.Execute("INSERT INTO `catalog_marketplace_offers` (`offer_id`,`item_id`,`user_id`,`asking_price`,`total_price`,`public_name`,`sprite_id`,`item_type`,`listed_at`,`extra_data`,`limited_number`,`limited_stack`,`furni_id`,`state`) " +
             "VALUES (@offerId,@itemId,@seller,@asking,@total,'probe',@sprite,@itemType,@listedAt,'',0,0,@furniId,@state)",
             new { offerId, itemId, seller, asking, total, sprite, itemType, listedAt, furniId, state });
@@ -508,7 +510,8 @@ public sealed class MarketplaceDatabaseTests
         Insert(1, sprite: 55, asking: 100, total: 101, state: "1", timestamp: Now.ToUnixTimeSeconds() - 1000, seller: SellerId, furniId: 77);
 
         using (var connection = new MySqlConnection(_connectionString)) {
-            connection.Execute("INSERT INTO `items` (`id`,`user_id`,`room_id`,`base_item`,`extra_data`) VALUES (77, 9, 0, 1, '')");
+            connection.Execute("INSERT IGNORE INTO `users` (`id`,`username`,`auth_ticket`) VALUES (9, 'marketplace_9', ''); " +
+                "INSERT INTO `items` (`id`,`user_id`,`room_id`,`base_item`,`extra_data`) VALUES (77, 9, 0, 1, '')");
         }
 
         var buyer = Buyer(credits: 1000);
@@ -528,6 +531,8 @@ public sealed class MarketplaceDatabaseTests
     private void InsertFurni(uint id, int owner, int roomId)
     {
         using var connection = new MySqlConnection(_connectionString);
+        connection.Execute("INSERT IGNORE INTO `users` (`id`,`username`,`auth_ticket`) VALUES (@owner, CONCAT('marketplace_', @owner), '')", new { owner });
+        connection.Execute("INSERT IGNORE INTO `rooms` (`id`,`model_name`,`owner`) SELECT @roomId, 'model_a', @owner FROM DUAL WHERE @roomId <> 0", new { roomId, owner });
         connection.Execute("INSERT INTO `items` (`id`,`user_id`,`room_id`,`base_item`,`extra_data`) VALUES (@id,@owner,@roomId,1,'')", new { id, owner, roomId });
     }
 

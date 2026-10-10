@@ -68,8 +68,8 @@ public class HousekeepingDatabaseTests : IDisposable
         }
 
         _database = new(connectionString);
-        Execute("DELETE FROM user_roles WHERE user_id BETWEEN 920000 AND 920099; DELETE FROM users WHERE id BETWEEN 920000 AND 920099; DELETE FROM user_info WHERE user_id BETWEEN 920000 AND 920099; " +
-                "DELETE FROM rooms WHERE id BETWEEN 920000 AND 920099; DELETE FROM bans; DELETE FROM housekeeping_log; " +
+        Execute("DELETE FROM user_roles WHERE user_id BETWEEN 920000 AND 920099; DELETE FROM rooms WHERE id BETWEEN 920000 AND 920099; " +
+                "DELETE FROM users WHERE id BETWEEN 920000 AND 920099; DELETE FROM user_info WHERE user_id BETWEEN 920000 AND 920099; DELETE FROM bans; DELETE FROM housekeeping_log; " +
                 "DELETE FROM housekeeping_online_peaks; DELETE FROM user_club_memberships WHERE user_id BETWEEN 920000 AND 920099");
         Execute("INSERT INTO users (id, username, auth_ticket, `rank`, credits, mail, ip_last, online) VALUES " +
                 $"({Owner}, 'hk_owner', '', 9, 0, 'owner@hotel', '10.0.0.1', 0), ({Target}, 'hk_o''brien', 'old-ticket', 1, 100, 'target@hotel', '10.0.0.2', 0), " +

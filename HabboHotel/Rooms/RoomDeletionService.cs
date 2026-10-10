@@ -43,6 +43,8 @@ public sealed class RoomDeletionService : IRoomDeletionService
             using var transaction = connection.BeginTransaction();
             connection.Execute("UPDATE room_music_players player JOIN items item ON item.id=player.item_id SET player.started_at=NULL,player.version=player.version+1,item.extra_data='0' WHERE item.room_id=@roomId", new { roomId }, transaction);
             connection.Execute("UPDATE items SET room_id=0 WHERE room_id=@roomId", new { roomId }, transaction);
+            // Bots and pets go back to their owners' inventories too.
+            connection.Execute("UPDATE bots SET room_id=0 WHERE room_id=@roomId", new { roomId }, transaction);
             connection.Execute("DELETE FROM user_roomvisits WHERE room_id=@roomId", new { roomId }, transaction);
             connection.Execute("DELETE FROM user_favorites WHERE room_id=@roomId", new { roomId }, transaction);
             connection.Execute("DELETE FROM room_rights WHERE room_id=@roomId", new { roomId }, transaction);

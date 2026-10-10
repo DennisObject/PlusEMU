@@ -93,7 +93,7 @@ public class CatalogManager : ICatalogManager, IStartable
             botPresets.Add(bot.Id, bot);
         }
 
-        var promotions = await connection.QueryAsync<CatalogPromotion>("SELECT `id`,`title`,`image`,`unknown`,`page_link`,`parent_id`,`position`,`item_type` AS `ItemType`,`offer_id` AS `OfferId`,`product_code` AS `ProductCode`,`expires_at` AS `ExpiresAt` FROM `catalog_promotions`");
+        var promotions = await connection.QueryAsync<CatalogPromotion>("SELECT `id`,`title`,`image`,`page_link`,`position`,`item_type` AS `ItemType`,`offer_id` AS `OfferId`,`product_code` AS `ProductCode`,`expires_at` AS `ExpiresAt` FROM `catalog_promotions`");
 
         foreach (CatalogPromotion promotion in promotions) {
             if (promotionsById.ContainsKey(promotion.Id)) {

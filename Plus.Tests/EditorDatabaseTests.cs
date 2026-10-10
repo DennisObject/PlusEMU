@@ -244,7 +244,7 @@ public sealed class EditorDatabaseTests : IDisposable
         var staff = EditorTestSupport.Staff();
         var chair = InsertFurniture($"{Tag}_chair", 990002);
         var placed = InsertFurniture($"{Tag}_placed", 990003);
-        Execute($"INSERT INTO items (user_id, room_id, base_item, extra_data, x, y, z, rot, wall_pos) VALUES (0, 0, {placed}, '', 0, 0, 0, 0, '')");
+        Execute($"INSERT IGNORE INTO users (id, username, auth_ticket) VALUES (990001, '{Tag}_owner', ''); INSERT INTO items (user_id, room_id, base_item, extra_data, x, y, z, rot, wall_pos) VALUES (990001, 0, {placed}, '', 0, 0, 0, 0, '')");
         GiveFurnidata(chair, "Old chair", "Old");
         var furni = Furni();
 
@@ -263,7 +263,8 @@ public sealed class EditorDatabaseTests : IDisposable
         Assert.Equal("Cannot delete: still used by 1 placed or owned items", furni.Delete(staff, placed).Message);
         var gifted = InsertFurniture($"{Tag}_gifted", 990005);
         Execute($"""
-            INSERT INTO user_presents (item_id, base_id, extra_data) VALUES (0, {gifted}, '');
+            INSERT INTO items (id, user_id, room_id, base_item, extra_data) VALUES (990099, 990001, 0, {placed}, '');
+            INSERT INTO user_presents (item_id, base_id, extra_data) VALUES (990099, {gifted}, '');
             INSERT INTO catalog_offers (id, localization_key) VALUES (1999999901, 'e3test bundle');
             INSERT INTO catalog_offer_products (offer_id, position, product_type, furniture_id, amount) VALUES (1999999901, 0, 'furni', {chair}, 2), (1999999901, 1, 'furni', {gifted}, 3);
             """);
