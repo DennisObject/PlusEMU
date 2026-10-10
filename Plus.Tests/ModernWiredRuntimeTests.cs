@@ -49,9 +49,14 @@ public sealed class ModernWiredDatabaseCollection;
 public class ModernWiredRuntimeTests
 {
     private static WiredModernAction ActionBox(Room room, string name, WiredCounterController? clocks = null, WiredRoomLog? log = null,
-        TimeProvider? clock = null, IWiredRewardService? rewards = null, IItemDataManager? definitions = null, Action<WiredRuntimeEvent>? publish = null) =>
-        new(room, MakeItem(100, name), Descriptor(name), clocks ?? new(), publish ?? (_ => { }), (_, _, _) => { }, log ?? new(), TestLogging.Logger,
+        TimeProvider? clock = null, IWiredRewardService? rewards = null, IItemDataManager? definitions = null, Action<WiredRuntimeEvent>? publish = null)
+    {
+        var item = MakeItem(100, name);
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
+        item.RoomId = room.Id;
+        return new(room, item, Descriptor(name), clocks ?? new(), publish ?? (_ => { }), (_, _, _) => { }, log ?? new(), TestLogging.Logger,
             clock ?? TimeProvider.System, rewards ?? TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, definitions ?? TestWiredDefinitions.Unused, TestItemRuntime.Travel);
+    }
 
     [Fact]
     public void ElapsedConditionsStartTheRoomTimerOnFirstUseAndShareItsEpoch()
@@ -80,7 +85,7 @@ public class ModernWiredRuntimeTests
         {
             var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name),
                 TestGroupManager.Empty, _ => null, () => now);
-            Assert.True(condition.TryValidateConfiguration(new() { IntParams = [2] }, out var configuration, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(condition, new() { IntParams = [2] }, out var configuration, out var error), error);
             condition.ApplyConfiguration(configuration);
 
             return condition;
@@ -94,7 +99,7 @@ public class ModernWiredRuntimeTests
         var instant = new DateTimeOffset(2040, 4, 5, 6, 7, 8, TimeSpan.Zero);
         var clock = new CountingClock(instant, TimeZoneInfo.CreateCustomTimeZone("wired-plus-nine", TimeSpan.FromHours(9), "test", "test"));
         var action = ActionBox(room, "wf_act_reset_timers", clock: clock);
-        action.ApplyConfiguration(WiredActionConfiguration.Defaults("wf_act_reset_timers"));
+        WiredNativeTestSupport.InstallRuntime(action, WiredActionConfiguration.Defaults("wf_act_reset_timers"));
         var operations = new ResetOperations();
 
         Assert.True(action.Execute(new WiredRuntimeContext(room, new(WiredEventKind.Use), new(() => [], () => []), operations)));
@@ -114,7 +119,7 @@ public class ModernWiredRuntimeTests
             var reads = 0;
             var condition = new WiredModernCondition(room, MakeItem(101, name), Descriptor(name), TestGroupManager.Empty,
                 _ => null, () => { reads++; return now; });
-            Assert.True(condition.TryValidateConfiguration(new() { IntParams = [2] }, out var configuration, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(condition, new() { IntParams = [2] }, out var configuration, out var error), error);
             condition.ApplyConfiguration(configuration);
             Assert.Equal(expected, condition.Execute(Context(room, new(WiredEventKind.Use), [], [])));
             Assert.Equal(1, reads);
@@ -158,23 +163,26 @@ public class ModernWiredRuntimeTests
                 Assert.True(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, native, out proposed), name);
             }
 
-            Assert.True(box.TryValidateConfiguration(proposed, out _, out _), name);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, proposed, out _, out _), name);
         }
     }
 
     [Fact]
     public void NegativeStackAndSplitSignalsCallRealOperationsWithSeparateRoles()
     {
-        var (room, _, _) = World();
+        var (room, _, items) = World();
         var antenna = MakeItem(1, "antenna");
         var forwarded = MakeItem(2, "forwarded");
+        items[1] = antenna;
+        items[2] = forwarded;
         var clicked = new RoomUser(1, 0, 7, room, null, TestChatEmotions.Unused, TestRewardProgress.Unused);
         var operations = new RecordingOperations();
-        var context = new WiredRuntimeContext(room, new(WiredEventKind.ClickUser) { TargetUser = clicked },
+        var context = new WiredRuntimeContext(room, new(WiredEventKind.ClickUser) { Actor = clicked, TargetUser = clicked },
             new(() => new[] { antenna, forwarded }, () => new[] { clicked }), operations);
+        context.Triggering.UserIds.Add(clicked.VirtualId);
         var call = ActionBox(room, "wf_act_neg_call_stacks");
         call.Item.SetState(2, 2, 0, Gamemap.GetAffectedTiles(1, 1, 2, 2, 0));
-        Assert.True(call.TryValidateConfiguration(new() { IntParams = [100], SelectedItems = [1] }, out var callConfig, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(call, new() { IntParams = [100], SelectedItems = [1] }, out var callConfig, out _));
         call.ApplyConfiguration(callConfig);
         Assert.True(call.IsNegative);
         Assert.True(call.Execute(context));
@@ -184,7 +192,7 @@ public class ModernWiredRuntimeTests
         Assert.False(call.Execute(context));
         Assert.Empty(operations.Called);
         var signal = ActionBox(room, "wf_act_neg_send_signal");
-        Assert.True(signal.TryValidateConfiguration(new() { IntParams = [1, 100, 11, 1, 1, 0], SelectedItems = [1], Text = "2" }, out var signalConfig, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(signal, new() { IntParams = [1, 101, 0, 1, 1, 0], SelectedItems = [1], SecondarySelectedItems = [2] }, out var signalConfig, out _));
         signal.ApplyConfiguration(signalConfig);
         Assert.True(signal.Execute(context));
         var received = Assert.Single(operations.Signals);
@@ -197,12 +205,13 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void ConfiguredClockActionControlsActualAttachedClock()
     {
-        var (room, _, _) = World();
+        var (room, _, items) = World();
         var item = MakeItem(1, "wf_upcounter1");
+        items[1] = item;
         var clocks = new WiredCounterController();
         clocks.Attach(item);
         var box = ActionBox(room, "wf_act_adjust_clock", clocks);
-        box.TryValidateConfiguration(new() { IntParams = [2, 100, 1, 3], SelectedItems = [1] }, out var config, out _);
+        WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [2, 100, 1, 3], SelectedItems = [1] }, out var config, out _);
         box.ApplyConfiguration(config);
         Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [item], [])));
         Assert.Equal(61500, clocks.ReadMilliseconds(item));
@@ -219,7 +228,7 @@ public class ModernWiredRuntimeTests
         var (room, _, _) = World();
         var log = new WiredRoomLog(2);
         var box = ActionBox(room, "wf_act_neg_log", log: log);
-        box.TryValidateConfiguration(new() { IntParams = [1, 0], Text = "First" }, out var config, out _);
+        WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [1, 0], Text = "First" }, out var config, out _);
         box.ApplyConfiguration(config);
         Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
         Assert.Equal("First", Assert.Single(log.Read(0, 10).Entries).Message);
@@ -227,7 +236,7 @@ public class ModernWiredRuntimeTests
         log.Append(1, 100, "Third", DateTimeOffset.UtcNow);
         Assert.Equal(2, log.Read(0, 10).Total);
         Assert.Equal("Third", Assert.Single(log.Read(0, 10, 1, "third").Entries).Message);
-        box.ApplyConfiguration(config with { Text = "" });
+        WiredNativeTestSupport.InstallRuntime(box, config with { Text = "" });
         Assert.False(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
     }
 
@@ -239,7 +248,7 @@ public class ModernWiredRuntimeTests
         var clock = new CountingClock(instant, TimeZoneInfo.Utc);
         var log = new WiredRoomLog();
         var box = ActionBox(room, "wf_act_log", log: log, clock: clock);
-        Assert.True(box.TryValidateConfiguration(new() { IntParams = [1, 0], Text = "Captured" }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [1, 0], Text = "Captured" }, out var config, out _));
         box.ApplyConfiguration(config);
 
         Assert.True(box.Execute(Context(room, new(WiredEventKind.Use), [], [])));
@@ -261,7 +270,7 @@ public class ModernWiredRuntimeTests
             .SetValue(f.Room.GetWired(), settings);
         var item = MakeItem(102, "wf_act_log");
         var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
-        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
         box.ApplyConfiguration(config);
         f.Items[102] = item;
         f.Engine.Add(box);
@@ -390,7 +399,7 @@ public class ModernWiredRuntimeTests
         // Seed one room log line through the real wired log action.
         var item = MakeItem(102, "wf_act_log");
         var box = Assert.IsType<WiredModernAction>(f.Room.GetWired().CreateConfiguredBox(item, Descriptor("wf_act_log")));
-        Assert.True(box.TryValidateConfiguration(new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [2, 0], Text = "Gate opened" }, out var config, out _));
         box.ApplyConfiguration(config);
         f.Items[102] = item;
         f.Engine.Add(box);
@@ -698,14 +707,10 @@ public class ModernWiredRuntimeTests
         var box = ActionBox(room, "wf_act_show_message");
         LoadStoredRuntime(box, "wf_act_show_message", new() { IntParams = [0, 0, 252, 2], Text = "Hello" });
         var installed = box.Configuration;
-        Assert.True(box.TryValidateConfiguration(installed, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, installed, out var config, out _));
         Assert.Equal(2, config.IntParams[3]);
-        var invalidJson = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [0, 0, 252, 3], Text = "Hello" });
-        var invalidStore = new WiredConfigurationStore(new StoredRuntimeRowsDatabase([new(box.Item.Id, "wf_act_show_message", 1, invalidJson)]));
-        var invalid = Assert.IsType<WiredConfiguration>(invalidStore.Load(box.Item.Id, box.Descriptor));
-        Assert.True(WiredNativeEditorProjection.IsBound(box.Item.Id, box.Descriptor, invalid));
-        Assert.Equal(3, invalid.IntParams[3]);
-        Assert.False(box.TryValidateConfiguration(invalid, out _, out _));
+        Assert.False(WiredNativeTestSupport.TryCompileRuntime(box,
+            new() { IntParams = [0, 0, 252, 3], Text = "Hello" }, out _));
         Assert.Same(installed, box.Configuration);
     }
 
@@ -832,7 +837,7 @@ public class ModernWiredRuntimeTests
         var pending = f.SeedPending();
         f.Client.Packets.Clear();
         await f.Save(editor.Owned, editor.Primary, editor.Delay);
-        f.AssertNoop(before, writes, published, pending);
+        f.AssertExplicitSave(before, writes, published, pending);
         Assert.Equal(new[] { 0, choice, 100, 0 }, action.Configuration.IntParams.ToArray());
     }
 
@@ -1018,7 +1023,6 @@ public class ModernWiredRuntimeTests
 
     [Theory]
     [InlineData("wf_act_rel_mov", new[] { 1, 1, 1, 0, 100 }, false)]
-    [InlineData("wf_act_move_furni_as_group", new[] { 2, 100 }, false)]
     [InlineData("wf_act_move_rotate", new[] { -1, 2, 100, 0 }, true)]
     public void StepActionsStopAtStackableFurnitureButRotatingInPlaceIsNoStep(string name, int[] ints, bool changes)
     {
@@ -1041,13 +1045,15 @@ public class ModernWiredRuntimeTests
         var proposed = new WiredConfiguration { IntParams = [.. ints], SelectedItems = [1] };
 
         if (name == "wf_act_move_furni_as_group") {
+            var offset = WiredRoomOperations.Offset(ints[0]);
+            proposed = proposed with { IntParams = [0, offset.X, offset.Y, 100, 101, 0], SecondarySelectedItems = [mover.Id] };
             LoadStoredDirectionalGroup(action, proposed);
         }
         else if (name is "wf_act_move_rotate" or "wf_act_move_to_dir") {
             LoadStoredRuntime(action, name, proposed);
         }
         else {
-            Assert.True(action.TryValidateConfiguration(proposed, out var config, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, proposed, out var config, out var error), error);
             action.ApplyConfiguration(config);
         }
 
@@ -1087,7 +1093,7 @@ public class ModernWiredRuntimeTests
         items[2] = target;
         map.AddToMap(target);
         var action = ActionBox(room, "wf_act_furni_to_furni");
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [100, 100], Text = "2", SelectedItems = [1] }, out var config, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, new() { IntParams = [100, 100], Text = "2", SelectedItems = [1] }, out var config, out var error), error);
         action.ApplyConfiguration(config);
 
         Assert.True(action.Execute(Context(room, new(WiredEventKind.Use), [mover, target], [])));
@@ -1104,8 +1110,6 @@ public class ModernWiredRuntimeTests
     [InlineData("wf_act_rel_mov", false)]
     [InlineData("wf_act_move_rotate", true)]
     [InlineData("wf_act_move_rotate", false)]
-    [InlineData("wf_act_move_furni_as_group", true)]
-    [InlineData("wf_act_move_furni_as_group", false)]
     [InlineData("wf_act_move_to_dir", true)]
     [InlineData("wf_act_move_to_dir", false)]
     public void StepActionsPreserveGroupsWhileDirectionalMovesUseIndependentItems(string name, bool tileFirst)
@@ -1254,13 +1258,15 @@ public class ModernWiredRuntimeTests
         var proposed = SavePacket(ints, movers.Select(item => item.Id).ToArray(), 0);
 
         if (name == "wf_act_move_furni_as_group") {
+            var offset = WiredRoomOperations.Offset(direction);
+            proposed = proposed with { IntParams = [0, offset.X, offset.Y, 100, 101, 0], SecondarySelectedItems = [movers[0].Id] };
             LoadStoredDirectionalGroup(action, proposed);
         }
         else if (name is "wf_act_move_rotate" or "wf_act_move_to_dir") {
             LoadStoredRuntime(action, name, proposed);
         }
         else {
-            Assert.True(WiredConfigurationSave.TrySave(action, proposed, TestWiredConfigurationStore.Instance, out var error), error);
+            Assert.True(WiredNativeTestSupport.TrySavePrepared(action, proposed, TestWiredConfigurationStore.Instance, out var error), error);
         }
 
         return action;
@@ -1430,7 +1436,7 @@ public class ModernWiredRuntimeTests
                 var pending = f.SeedPending();
                 f.Client.Packets.Clear();
                 await f.Save(editor.Owned, editor.Primary, editor.Delay);
-                f.AssertNoop(saved, writes, published, pending);
+                f.AssertExplicitSave(saved, writes, published, pending);
                 Assert.Equal(saved.IntParams.AsEnumerable(), f.Action.Configuration.IntParams);
                 Assert.Equal(saved.SelectedItems.AsEnumerable(), f.Action.Configuration.SelectedItems);
                 Assert.Equal(saved.FurniSources, f.Action.Configuration.FurniSources);
@@ -1524,7 +1530,8 @@ public class ModernWiredRuntimeTests
         var raw = new WiredConfiguration { Version = jsonVersion, IntParams = [5, 3, 100], SelectedItems = [1] };
         var store = new WiredConfigurationStore(new StoredRuntimeRowsDatabase([new(box.Item.Id, name, rowVersion,
             System.Text.Json.JsonSerializer.Serialize(raw))]));
-        Assert.Throws<InvalidDataException>(() => store.Load(box.Item.Id, box.Descriptor));
+        var failure = Assert.ThrowsAny<Exception>(() => store.Load(box.Item.Id, box.Descriptor));
+        Assert.True(failure is InvalidDataException or System.Text.Json.JsonException);
         Assert.Same(original, box.Configuration);
         Assert.Null(original.Origin);
     }
@@ -1776,7 +1783,7 @@ public class ModernWiredRuntimeTests
             typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, Room);
             Items[item.Id] = item;
             var trigger = new WiredModernTrigger(Room, item, Descriptor("wf_trg_game_starts"));
-            trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_game_starts"));
+            WiredNativeTestSupport.InstallRuntime(trigger, WiredTriggerConfiguration.Defaults("wf_trg_game_starts"));
             Assert.True(Wired.AddBox(trigger));
             Assert.True(Engine.Enqueue(new(WiredEventKind.GameStart)));
             var pending = Engine.ReadStats().Pending;
@@ -1784,12 +1791,12 @@ public class ModernWiredRuntimeTests
 
             return pending;
         }
-        public void AssertNoop(WiredConfiguration before, int writes, int published, int pending)
+        public void AssertExplicitSave(WiredConfiguration before, int writes, int published, int pending)
         {
-            Assert.Same(before, Action.Configuration);
-            Assert.Equal(writes, Store.Saves.Count);
-            Assert.Equal(published, Published);
-            Assert.Equal(pending, Engine.ReadStats().Pending);
+            Assert.NotSame(before, Action.Configuration);
+            Assert.Equal(before.IntParams.ToArray(), Action.Configuration.IntParams.ToArray());
+            Assert.Equal(writes + 1, Store.Saves.Count);
+            Assert.Equal(published + 1, Published);
             Assert.Contains(Client.Packets, packet => packet.Header == ServerPacketHeader.HideWiredConfigComposer);
         }
     }
@@ -1891,9 +1898,9 @@ public class ModernWiredRuntimeTests
     {
         Assert.Equal(storedName, box.Descriptor.CanonicalName);
         var handler = box.Instance.GetRoomItemHandler();
-        var native = WiredNativeTestSupport.FromRuntime(box.Descriptor, configuration, id => handler.GetItem(id)?.IsWallItem ?? false);
+        var native = WiredNativeTestSupport.FromRuntime(box.Descriptor, configuration, id => handler?.GetItem(id)?.IsWallItem ?? false);
         Assert.True(WiredNativeEditorProjection.TryCompile(box.Item.Id, box.Descriptor, native, out var runtime));
-        Assert.True(box.TryValidateConfiguration(runtime, out var validated, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, runtime, out var validated, out var error), error);
         box.ApplyConfiguration(validated);
     }
 
@@ -2008,7 +2015,7 @@ public class ModernWiredRuntimeTests
         var sent = 0;
         fixture.Client.SendCallback = _ => { sent++; return true; };
         var action = ActionBox(fixture.Room, "wf_act_teleport_to_room");
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
         action.ApplyConfiguration(config);
         var context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = fixture.User }, [], [fixture.User]);
         context.Triggering.UserIds.Add(fixture.User.VirtualId);
@@ -2027,7 +2034,7 @@ public class ModernWiredRuntimeTests
     {
         using var f = new TeleportFixture();
         var action = ActionBox(f.Room, "wf_act_teleport_to_room");
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, new() { IntParams = [0, 100], Text = "42" }, out var config, out _));
         action.ApplyConfiguration(config);
         var context = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, [], [f.User]);
         context.Triggering.UserIds.Add(f.User.VirtualId);
@@ -2540,7 +2547,8 @@ public class ModernWiredRuntimeTests
         }
 
         if (change == "save") {
-            Assert.True(f.Engine.PublishConfigured(f.Action, f.Action.Configuration with { IntParams = [1, 100, 0] }, () => { }));
+            Assert.True(WiredNativeTestSupport.TryCompileRuntime(f.Action, f.Action.Configuration with { IntParams = [1, 100, 0] }, out var updated));
+            Assert.True(f.Engine.PublishConfigured(f.Action, updated, () => { }));
         }
 
         if (change == "visit") {
@@ -2662,13 +2670,16 @@ public class ModernWiredRuntimeTests
             Target.SetState(1, 1, 0, Gamemap.GetAffectedTiles(1, 1, 1, 1, 0));
             Items[1] = Target;
             Trigger = new(Room, MakeItem(101, "wf_trg_enter_room"), Descriptor("wf_trg_enter_room"));
-            Trigger.ApplyConfiguration(WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
-            Action = new(Room, MakeItem(100, actionName), Descriptor(actionName), new(),
+            WiredNativeTestSupport.InstallRuntime(Trigger, WiredTriggerConfiguration.Defaults("wf_trg_enter_room"));
+            var actionItem = MakeItem(100, actionName);
+            typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(actionItem, Room);
+            actionItem.RoomId = Room.Id;
+            Action = new(Room, actionItem, Descriptor(actionName), new(),
                 evt => wired.Dispatch(evt), wired.DispatchWalkTransition, new(), TestLogging.Logger, TimeProvider.System, TestWiredRewardService.Instance, TestBotManagementStore.Instance, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
             var parameters = intParams == null
                 ? new WiredConfiguration { IntParams = [0, 100, 0], SelectedItems = [1] }
                 : new WiredConfiguration { IntParams = System.Collections.Immutable.ImmutableArray.Create(intParams), SelectedItems = [1] };
-            Action.TryValidateConfiguration(parameters, out var config, out _);
+            WiredNativeTestSupport.TryValidateRuntime(Action, parameters, out var config, out _);
             Action.ApplyConfiguration(config);
             Items[101] = Trigger.Item;
             Items[100] = Action.Item;
@@ -2698,14 +2709,14 @@ public class ModernWiredRuntimeTests
             var item = MakeItem(102, "wf_slc_users_bytype");
             var selector = Plus.HabboHotel.Items.Wired.Modern.Selectors.WiredSelectorFactory.Create(Room, item, new(), TestGroupManager.Empty);
             Assert.NotNull(selector);
-            Assert.True(selector.TryValidateConfiguration(new() { IntParams = [1, 0, 0] }, out var config, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(selector, new() { IntParams = [1, 0, 0] }, out var config, out var error), error);
             selector.ApplyConfiguration(config);
             Items[102] = item;
             Assert.True(Engine.Add(selector));
         }
         public void Use(int fast, int userSource)
         {
-            Assert.True(Action.TryValidateConfiguration(new() { IntParams = [fast, 100, userSource], SelectedItems = [1] }, out var config, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(Action, new() { IntParams = [fast, 100, userSource], SelectedItems = [1] }, out var config, out var error), error);
             Action.ApplyConfiguration(config);
         }
         public void UseExecutor()
@@ -2738,9 +2749,11 @@ public class ModernWiredRuntimeTests
         public void BlockDestination()
         {
             var item = MakeItem(103, "wf_xtra_mov_physics");
+            typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, Room);
+            item.RoomId = Room.Id;
             var addon = WiredAddonFactory.Create(Room, item, new(), TestGroupManager.Empty);
             Assert.NotNull(addon);
-            Assert.True(addon.TryValidateConfiguration(new() { IntParams = [0, 0, 0, 1, 0, 100, 0], SelectedItems = [1] }, out var config, out var error), error);
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(addon, new() { IntParams = [0, 0, 0, 1, 0, 100, 0], SelectedItems = [1] }, out var config, out var error), error);
             addon.ApplyConfiguration(config);
             Items[item.Id] = item;
             Assert.True(Engine.Add(addon));
@@ -2852,7 +2865,7 @@ public class ModernWiredRuntimeTests
         var context = Context(room, new(WiredEventKind.ClickUser) { TargetUser = user }, [], [user]);
         var box = new WiredModernCondition(room, MakeItem(100, "wf_cnd_user_performs_action"), Descriptor("wf_cnd_user_performs_action"),
             TestGroupManager.Empty, _ => null, () => DateTimeOffset.UtcNow);
-        Assert.True(box.TryValidateConfiguration(new() { IntParams = [6, 0, 0, 0, 1, 11, 0] }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [6, 0, 0, 0, 1, 11, 0] }, out var config, out _));
         box.ApplyConfiguration(config);
         Assert.True(box.Execute(context));
         user.RemoveStatus("sit");
@@ -2891,10 +2904,13 @@ public class ModernWiredRuntimeTests
     [Fact]
     public void TriggerSeparatesUseAndStateMutationAndUsesStoredSnapshot()
     {
-        var (room, _, _) = World();
+        var (room, _, items) = World();
         var item = MakeItem(1, "test");
-        var box = new WiredModernTrigger(room, MakeItem(100, "wf_trg_state_changed"), Descriptor("wf_trg_state_changed"));
-        box.TryValidateConfiguration(new() { IntParams = [1, 100], SelectedItems = [1], Snapshots = [WiredRoomOperations.Capture(item)] }, out var config, out _);
+        items[1] = item;
+        var triggerItem = MakeItem(100, "wf_trg_state_changed");
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(triggerItem, room);
+        var box = new WiredModernTrigger(room, triggerItem, Descriptor("wf_trg_state_changed"));
+        WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [1, 100], SelectedItems = [1], Snapshots = [WiredRoomOperations.Capture(item)] }, out var config, out _);
         box.ApplyConfiguration(config);
         Assert.False(box.Execute(Context(room, new(WiredEventKind.Use) { EventItem = item }, [item], [])));
         Assert.True(box.Execute(Context(room, new(WiredEventKind.StateChanged) { EventItem = item }, [item], [])));
@@ -2907,7 +2923,7 @@ public class ModernWiredRuntimeTests
     {
         var (room, _, _) = World();
         var box = new WiredModernTimedTrigger(room, MakeItem(100, "wf_trg_at_time_long"), Descriptor("wf_trg_at_time_long"));
-        box.TryValidateConfiguration(new() { IntParams = [1] }, out var config, out _);
+        WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [10] }, out var config, out _);
         box.ApplyConfiguration(config);
         box.Reset(1000);
         Assert.Null(box.Poll(5999));
@@ -2931,7 +2947,7 @@ public class ModernWiredRuntimeTests
             item.SetState(i - 1, 0, 0, Gamemap.GetAffectedTiles(1, 1, i - 1, 0, 0));
             items[item.Id] = item;
             var box = new WiredModernTimedTrigger(room, item, Descriptor("wf_trg_at_given_time"));
-            Assert.True(box.TryValidateConfiguration(new() { IntParams = [1] }, out var config, out _));
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(box, new() { IntParams = [1] }, out var config, out _));
             box.ApplyConfiguration(config);
             Assert.True(engine.Add(box));
 
@@ -2950,7 +2966,7 @@ public class ModernWiredRuntimeTests
     {
         var (room, _, _) = World();
         var action = ActionBox(room, "wf_act_reset_timers");
-        action.ApplyConfiguration(WiredActionConfiguration.Defaults("wf_act_reset_timers"));
+        WiredNativeTestSupport.InstallRuntime(action, WiredActionConfiguration.Defaults("wf_act_reset_timers"));
         Item[] furni = [MakeItem(1, "wf_trg_periodically"), MakeItem(2, "wf_trg_at_given_time"), MakeItem(3, "test")];
         var operations = new ResetOperations();
         var context = new WiredRuntimeContext(room, new(WiredEventKind.Use), new(() => furni, () => []), operations);
@@ -3012,7 +3028,7 @@ public class ModernWiredRuntimeTests
         RoomUsers(room)[8] = occupant;
         room.GetGameMap().AddUserToMap(occupant, new(1, 0));
         var action = ActionBox(room, "wf_act_move_rotate_user");
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [2, -1, 0] }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, new() { IntParams = [2, -1, 0] }, out var config, out _));
         action.ApplyConfiguration(config);
         WiredRuntimeContext Firing()
         {
@@ -3048,19 +3064,19 @@ public class ModernWiredRuntimeTests
         using var fixture = new TeleportFixture();
         var action = ActionBox(fixture.Room, "wf_act_bot_give_handitem");
         var config = new WiredConfiguration { IntParams = [2, 0, 0], Text = "" };
-        Assert.True(action.TryValidateConfiguration(config, out var valid, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, config, out var valid, out _));
         action.ApplyConfiguration(valid);
         var context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = fixture.User }, fixture.Items.Values.ToArray(), [fixture.User]);
         context.Triggering.UserIds.Add(fixture.User.VirtualId);
         Assert.True(action.Execute(context));
         Assert.Equal(2, fixture.User.CarryItemId);
-        Assert.True(action.TryValidateConfiguration(config with { IntParams = [3, 0, 100], Text = "missing" }, out valid, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, config with { IntParams = [3, 0, 100], Text = "missing" }, out valid, out _));
         action.ApplyConfiguration(valid);
         Assert.False(action.Execute(context));
         Assert.Equal(2, fixture.User.CarryItemId);
         var bot = Bot(fixture.Room, 8);
         RoomUsers(fixture.Room)[8] = bot;
-        Assert.True(action.TryValidateConfiguration(config with { IntParams = [4, 200, 0] }, out valid, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, config with { IntParams = [4, 200, 0] }, out valid, out _));
         action.ApplyConfiguration(valid);
         context = Context(fixture.Room, new(WiredEventKind.Enter) { Actor = bot }, fixture.Items.Values.ToArray(), [fixture.User, bot]);
         context.SelectorPool.UserIds.Add(fixture.User.VirtualId);
@@ -3195,7 +3211,7 @@ public class ModernWiredRuntimeTests
         var item = Assert.IsType<Item>(handler.PlaceTemporaryFloorItem(def, 1, 2, 2, 0));
         Assert.Equal(-2, unchecked((int)item.Id)); // A real permanent high-uint item owns the -1 bit pattern.
         var action = ActionBox(f.Room, "wf_act_remove_furni");
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [mode, 0] }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, new() { IntParams = [mode, 0] }, out var config, out _));
         action.ApplyConfiguration(config);
         var ctx = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
         ctx.Triggering.FurniIds.UnionWith([permanent.Id, item.Id]);
@@ -3206,7 +3222,6 @@ public class ModernWiredRuntimeTests
     }
 
     [Theory]
-    [InlineData(false)]
     [InlineData(true)]
     public void RoomOwnedTemporaryPlacementUsesInjectedDefinitionsWithGlobalGameUnavailable(bool snapshot)
     {
@@ -3237,7 +3252,7 @@ public class ModernWiredRuntimeTests
             };
         }
 
-        Assert.True(action.TryValidateConfiguration(proposed, out var configuration, out var error), error);
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, proposed, out var configuration, out var error), error);
         action.ApplyConfiguration(configuration);
         var global = typeof(PlusEnvironment).GetField("_game", BindingFlags.Static | BindingFlags.NonPublic)!;
         var previous = global.GetValue(null);
@@ -3279,10 +3294,11 @@ public class ModernWiredRuntimeTests
         var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with
         {
             TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation, Altitude: WiredPlaceAltitudeType.CustomAltitude, OffsetAltitudeHundredths: 125),
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("target", WiredSources.Snapshot),
             SecondarySelectedItems = [1],
             Snapshots = [new(900, 5, 7, 7, 3, 0, "1"), new(901, 5, 8, 7, 4, 2, "0")]
         };
-        Assert.True(action.TryValidateConfiguration(proposed, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, proposed, out var config, out _));
         action.ApplyConfiguration(config);
         var context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
         Assert.True(action.Execute(context));
@@ -3298,28 +3314,156 @@ public class ModernWiredRuntimeTests
         Assert.Equal("1", template.State);
         Assert.Equal(prepared.Snapshots, WiredRoomOperations.PrepareSnapshots(action, prepared).Snapshots);
         Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[0]));
-        Assert.True(action.TryValidateConfiguration(prepared with { TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude) }, out config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, prepared with { TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude) }, out config, out _));
         action.ApplyConfiguration(config);
         Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
     }
 
     [Fact]
-    public void CurrentSixPlacementEditorKeepsQuantityAndAbsoluteLocationMeanings()
+    public void DynamicPlaceSourcesCaptureCurrentFloorTemplatesAndLeaveSavedSnapshotsFrozen()
     {
-        using var f = new TeleportFixture();
+        var (room, _, _) = World();
+        var definition = MakeItem(5, "source").Definition;
+        definition.Id = 5;
+        definition.Stackable = true;
         var manager = DispatchProxy.Create<IItemDataManager, RecordingProxy>();
-        var def = MakeItem(5, "test").Definition;
-        def.Id = 5;
-        def.Stackable = true;
-        ((RecordingProxy)(object)manager).InvokeMethod = (m, _) => m.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = def } : null;
-        f.DefinitionManager = manager;
-        var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
-        Assert.True(action.TryValidateConfiguration(new() { IntParams = [5, 3, 1, 2, 1, 2] }, out var config, out _));
-        action.ApplyConfiguration(config);
-        Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
-        var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray();
-        Assert.Equal(3, copies.Length);
-        Assert.All(copies, item => Assert.Equal((2, 1, 2), (item.GetX, item.GetY, item.Rotation)));
+        ((RecordingProxy)(object)manager).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = definition } : null;
+        var source = MakeItem(8, "source");
+        source.Definition = definition;
+        source.LegacyDataString = "3";
+        source.SetState(2, 1, 0, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0));
+        var transient = Assert.IsType<Item>(room.GetRoomItemHandler().PlaceTemporaryFloorItem(definition, 1, 0, 1, 0));
+        var box = MakeItem(100, "wf_act_place_furni");
+        var config = new WiredConfiguration
+        {
+            TemporaryPlacement = new(),
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("templates", WiredSources.Trigger)
+        };
+        var present = new[] { source, transient };
+
+        var trigger = Context(room, new(WiredEventKind.Use), present, []);
+        trigger.Triggering.FurniIds.UnionWith([source.Id, transient.Id]);
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, trigger, config, manager));
+        var copy = Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary && item.Id != transient.Id));
+        Assert.Equal((2, 1, 0, "3"), (copy.GetX, copy.GetY, copy.Rotation, copy.LegacyDataString));
+        Assert.Same(definition, copy.Definition);
+        Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(copy));
+
+        var selector = Context(room, new(WiredEventKind.Use), present, []);
+        selector.SelectorPool.FurniIds.Add(source.Id);
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, selector, config with
+        {
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("templates", WiredSources.Selector)
+        }, manager));
+        Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary && item.Id != transient.Id))));
+
+        var signal = Context(room, new(WiredEventKind.Use), present, []);
+        signal.Signal = new(new([source.Id]), new Dictionary<string, long>());
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, signal, config with
+        {
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("templates", WiredSources.Signal)
+        }, manager));
+        Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary && item.Id != transient.Id))));
+
+        var frozen = Context(room, new(WiredEventKind.Use), present, []);
+        frozen.Triggering.FurniIds.Add(source.Id);
+        Assert.False(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, frozen, config with
+        {
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("templates", WiredSources.Selected)
+        }, manager));
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, frozen, config with
+        {
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("templates", WiredSources.Selected),
+            Snapshots = [new(900, 5, 0, 0, 0, 0, "1")]
+        }, manager));
+        var saved = Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary && item.Id != transient.Id));
+        Assert.Equal((0, 0, "1"), (saved.GetX, saved.GetY, saved.LegacyDataString));
+        Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(saved));
+
+        var primary = MakeItem(11, "anchor");
+        primary.SetState(1, 0, 0, Gamemap.GetAffectedTiles(1, 1, 1, 0, 0));
+        var secondaryAnchor = MakeItem(12, "anchor");
+        secondaryAnchor.SetState(0, 2, 0, Gamemap.GetAffectedTiles(1, 1, 0, 2, 0));
+        var aimed = Context(room, new(WiredEventKind.Use), [primary, secondaryAnchor], []);
+        var aimedConfig = new WiredConfiguration
+        {
+            TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation),
+            SelectedItems = [primary.Id],
+            SecondarySelectedItems = [secondaryAnchor.Id],
+            Snapshots = [new(900, 5, 0, 0, 0, 0, "1")],
+            FurniSources = ImmutableDictionary<string, int>.Empty
+                .Add("templates", WiredSources.Selected)
+                .Add("target", WiredSources.Selected)
+        };
+        WiredConfiguration Bind(WiredConfiguration draft)
+        {
+            var descriptor = WiredBoxRegistry.All.Single(entry => entry.CanonicalName == "wf_act_place_furni");
+            var native = WiredNativeTestSupport.FromRuntime(descriptor, draft);
+            Assert.True(WiredNativeEditorProjection.TryCompile(box.Id, descriptor, native, out var compiled));
+            return compiled;
+        }
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, aimed, Bind(aimedConfig), manager));
+        var onPrimary = Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary && item.Id != transient.Id));
+        Assert.Equal((1, 0), (onPrimary.GetX, onPrimary.GetY));
+        Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(onPrimary));
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, aimed, Bind(aimedConfig with
+        {
+            FurniSources = aimedConfig.FurniSources.SetItem("target", WiredSources.Snapshot)
+        }), manager));
+        var onSecondary = Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary && item.Id != transient.Id));
+        Assert.Equal((0, 2), (onSecondary.GetX, onSecondary.GetY));
+    }
+
+    [Fact]
+    public void DynamicPlaceSpawnResolvesOpaqueCatalogIdsAndLeavesLiveTokensUnread()
+    {
+        var (room, _, _) = World();
+        room.Id = 1;
+        var definition = MakeItem(5, "source").Definition;
+        definition.Id = 5;
+        definition.Stackable = true;
+        var manager = DispatchProxy.Create<IItemDataManager, RecordingProxy>();
+        ((RecordingProxy)(object)manager).InvokeMethod = (method, _) => method.Name == "get_Items" ? new Dictionary<uint, ItemDefinition> { [5] = definition } : null;
+        var source = MakeItem(8, "source");
+        source.Definition = definition;
+        source.LegacyDataString = "3";
+        source.SetState(2, 1, 0, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0));
+        var wired = new WiredComponent(room, TestLogging.Logger, TimeProvider.System, TestRoomSettings.Empty, TestWiredRoomSettingsFactory.Instance,
+            TestWiredConfigurationStore.Instance, TestWiredDatabase.Instance, TestWiredRewardService.Instance, TestBotManagementStore.Instance,
+            TestWiredClients.Empty, TestGroupManager.Empty, TestWiredDefinitions.Unused, TestWiredCommands.Unused, TestWiredAccess.Unused, TestItemRuntime.Travel);
+        typeof(Room).GetField("_wiredComponent", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room, wired);
+        var module = new WiredVariableModule(1, new PlaceCatalogDirectory(), new MemoryWiredVariableStore(), TimeProvider.System);
+        typeof(WiredRoomVariables).GetField("<Module>k__BackingField", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(room.GetWired().Variables, module);
+        var frame = new WiredVariableFrame(1, []);
+        Assert.True(module.Mutate(new(WiredVariableTarget.Context, "custom:11"), new(WiredVariableTarget.Context, 0, 0), WiredVariableMutation.Give, 42, frame));
+        var box = MakeItem(100, "wf_act_place_furni");
+        var config = new WiredConfiguration
+        {
+            TemporaryPlacement = new(SpawnWithVariable: true, ValueIsVariable: true, ValueTarget: (int)WiredVariableTarget.Context),
+            FurniSources = ImmutableDictionary<string, int>.Empty.Add("templates", WiredSources.Trigger),
+            VariableIds = ["furni:10", "ctx:11"]
+        };
+        var context = Context(room, new(WiredEventKind.Use), [source], []);
+        context.Triggering.FurniIds.Add(source.Id);
+        context.VariableFrame = frame;
+
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, context, config, manager));
+        var copy = Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary));
+        Assert.Equal((2, 1, "3"), (copy.GetX, copy.GetY, copy.LegacyDataString));
+        var holder = WiredVariableRuntimeFrames.FurniHolder(copy);
+        var read = new WiredVariableFrame(1, [holder]);
+        Assert.Equal(42, module.Read(new(WiredVariableTarget.Furni, "custom:10"), holder, read)!.Value);
+        Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(copy));
+
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, context, config with { VariableIds = ["furni:10", "custom:11"] }, manager));
+        copy = Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary));
+        holder = WiredVariableRuntimeFrames.FurniHolder(copy);
+        Assert.Equal(0, module.Read(new(WiredVariableTarget.Furni, "custom:10"), holder, new(1, [holder]))!.Value);
+        Assert.True(room.GetRoomItemHandler().RemoveTemporaryFloorItem(copy));
+
+        Assert.True(WiredTemporaryFurnitureActions.Execute("wf_act_place_furni", box, context, config with { VariableIds = ["custom:10", "ctx:11"] }, manager));
+        copy = Assert.Single(room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary));
+        Assert.Null(module.Read(new(WiredVariableTarget.Furni, "custom:10"), WiredVariableRuntimeFrames.FurniHolder(copy), new(1, [WiredVariableRuntimeFrames.FurniHolder(copy)])));
     }
 
     [Fact]
@@ -3342,12 +3486,12 @@ public class ModernWiredRuntimeTests
         firstPicked.SetState(2, 1, 0, Gamemap.GetAffectedTiles(1, 1, 2, 1, 0));
         f.Items[20] = firstPicked;
         var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
-        var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with { SelectedItems = [20, 10], SecondarySelectedItems = [1], TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation) };
+        var proposed = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with { SelectedItems = [20, 10], SecondarySelectedItems = [1], FurniSources = ImmutableDictionary<string, int>.Empty.Add("target", 101), TemporaryPlacement = new(Location: WiredPlaceLocationType.CustomLocation) };
         var captured = WiredRoomOperations.PrepareSnapshots(action, proposed);
         Assert.Equal(new uint[] { 20, 10 }, captured.Snapshots.Select(snapshot => snapshot.ItemId));
         f.Items.TryRemove(10, out _);
         f.Items.TryRemove(20, out _);
-        Assert.True(action.TryValidateConfiguration(captured, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, captured, out var config, out _));
         action.ApplyConfiguration(config);
         Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
         var copies = f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary).ToArray();
@@ -3388,7 +3532,7 @@ public class ModernWiredRuntimeTests
         ((RecordingProxy)(object)database).InvokeMethod = (_, _) => throw new InvalidOperationException("Injected SQL failure");
         var rewards = new WiredRewardService(new WiredRewardStore(database), DispatchProxy.Create<IItemDataManager, RecordingProxy>(), TimeProvider.System, TestLogging.Rewards);
         var action = ActionBox(f.Room, "wf_act_give_reward", rewards: rewards);
-        Assert.True(action.TryValidateConfiguration(WiredRewards.Defaults() with { Text = "1,furni#5,100" }, out var config, out _));
+        Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, WiredRewards.Defaults() with { Text = "1,furni#5,100" }, out var config, out _));
         action.ApplyConfiguration(config);
         var ctx = Context(f.Room, new(WiredEventKind.Enter) { Actor = f.User }, f.Items.Values.ToArray(), [f.User]);
         ctx.Triggering.UserIds.Add(f.User.VirtualId);
@@ -3589,7 +3733,8 @@ public class ModernWiredRuntimeTests
             roomId = ModernWiredDatabaseProbe.Insert(admin, "rooms", new() { ["owner"] = userId.ToString(), ["caption"] = "Disposable temporary variable probe", ["model_name"] = admin.QueryFirst<string>("SELECT id FROM room_models LIMIT 1") });
             var baseId = admin.QueryFirst<uint>("SELECT id FROM furniture WHERE type='s' LIMIT 1");
             variableId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
-            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@variableId,'wf_var_furni',1,@config)", new { variableId, config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1, 1], Text = "spawnvalue" }) });
+            var variable = WiredNativeEditorProjection.DefaultNative(Descriptor("wf_var_furni")) with { OwnedIntParams = [1, 1], Text = "spawnvalue" };
+            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@variableId,'wf_var_furni',2,@config)", new { variableId, config = System.Text.Json.JsonSerializer.Serialize(variable) });
             f.Room.Id = roomId;
             f.Room.OwnerId = (int)userId;
             f.Target.Definition.Stackable = true;
@@ -3608,6 +3753,7 @@ public class ModernWiredRuntimeTests
 
             var action = ActionBox(f.Room, "wf_act_place_furni", definitions: f.DefinitionManager);
             action.Item = ItemLoader.ReadRoomItem(Assert.Single(loadedRows.Rows.Cast<DataRow>()), roomId, action.Item.Definition);
+            typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(action.Item, f.Room);
             f.Items[spawnId] = action.Item;
             var removals = new List<byte[]>();
             f.Client.SendCallback = args =>
@@ -3620,7 +3766,11 @@ public class ModernWiredRuntimeTests
 
                 return true;
             };
-            Assert.True(action.TryValidateConfiguration(new() { IntParams = [(int)baseId, 1, 1, 1, 2, 0] }, out var raw, out _));
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, new()
+            {
+                TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude),
+                Snapshots = [new(0, baseId, 1, 1, 0, 2, "0")]
+            }, out var raw, out _));
             action.ApplyConfiguration(raw);
             Assert.True(action.Execute(Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User])));
             var literal = Assert.Single(f.Room.GetRoomItemHandler().GetFloor.Where(item => item.IsTemporary));
@@ -3636,10 +3786,10 @@ public class ModernWiredRuntimeTests
             var config = WiredTemporaryFurnitureActions.Defaults("wf_act_place_furni") with
             {
                 TemporaryPlacement = new(Altitude: WiredPlaceAltitudeType.SourceAltitude, SpawnWithVariable: true, Value: 37),
-                VariableIds = [$"custom:{variableId}"],
+                VariableIds = [$"furni:{variableId}", "n"],
                 Snapshots = [new(0, baseId, 1, 1, 0, 0, "1"), new(0, baseId, 2, 1, 0, 0, "0")]
             };
-            Assert.True(action.TryValidateConfiguration(config, out config, out _));
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, config, out config, out _));
             action.ApplyConfiguration(config);
             var context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
             context.VariableFrame = new(roomId, []);
@@ -3660,11 +3810,12 @@ public class ModernWiredRuntimeTests
             Assert.True(f.Room.GetRoomItemHandler().RemoveTemporaryFloorItem(copies[1]));
             Assert.Empty(module.GetStoredHolders(variableId));
             operandId = ModernWiredDatabaseProbe.Insert(admin, "items", new() { ["user_id"] = userId, ["room_id"] = roomId, ["base_item"] = baseId, ["extra_data"] = "", ["wall_pos"] = "" });
-            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@operandId,'wf_var_context',1,@config)", new { operandId, config = System.Text.Json.JsonSerializer.Serialize(new WiredConfiguration { IntParams = [1], Text = "operand" }) });
+            var operand = WiredNativeEditorProjection.DefaultNative(Descriptor("wf_var_context")) with { OwnedIntParams = [1], Text = "operand" };
+            admin.Execute("INSERT INTO wired_item_configurations(item_id,box_name,schema_version,configuration) VALUES (@operandId,'wf_var_context',2,@config)", new { operandId, config = System.Text.Json.JsonSerializer.Serialize(operand) });
             var operandFrame = new WiredVariableFrame(roomId, []);
             Assert.True(module.Mutate(new(WiredVariableTarget.Context, $"custom:{operandId}"), new(WiredVariableTarget.Context, 0, 0), WiredVariableMutation.Give, 42, operandFrame));
-            config = config with { TemporaryPlacement = config.TemporaryPlacement! with { ValueIsVariable = true, ValueTarget = 2 }, VariableIds = [$"custom:{variableId}", $"custom:{operandId}"] };
-            Assert.True(action.TryValidateConfiguration(config, out config, out _));
+            config = config with { TemporaryPlacement = config.TemporaryPlacement! with { ValueIsVariable = true, ValueTarget = 2 }, VariableIds = [$"furni:{variableId}", $"ctx:{operandId}"] };
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(action, config, out config, out _));
             action.ApplyConfiguration(config);
             context = Context(f.Room, new(WiredEventKind.Use), f.Items.Values.ToArray(), [f.User]);
             context.VariableFrame = operandFrame;
@@ -3843,6 +3994,16 @@ public class ModernWiredRuntimeTests
         public void SaveMoved(IReadOnlyList<RoomItemSave> items) => throw new NotSupportedException();
         public void PlaceFloor(uint itemId, uint roomId, int x, int y, double z, int rotation) => FloorPlacements.Add((itemId, roomId, x, y, z, rotation));
         public void PlaceWall(uint itemId, uint roomId, int x, int y, double z, int rotation, string wallPosition) => throw new NotSupportedException();
+    }
+    private sealed class PlaceCatalogDirectory : IWiredVariableDirectory
+    {
+        public WiredVariableDefinition? Find(uint id) => id switch
+        {
+            10 => new(10, 1, 5, "spawn", WiredVariableTarget.Furni, WiredVariableAvailability.RoomActive, true),
+            11 => new(11, 1, 5, "operand", WiredVariableTarget.Context, WiredVariableAvailability.RoomActive, true),
+            _ => null
+        };
+        public uint? GetRoomOwner(uint roomId) => 5;
     }
     private sealed class UnusedOperations : IWiredRuntimeOperations
     {

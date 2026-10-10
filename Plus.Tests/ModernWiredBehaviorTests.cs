@@ -172,7 +172,7 @@ public class ModernWiredBehaviorTests
     public void OneShotLongTimerDoesNotRepeatUntilRoomTimerReset()
     {
         var timers = new WiredTimedTriggers();
-        var config = new WiredConfiguration { IntParams = [2] };
+        var config = new WiredConfiguration { IntParams = [20] }; // Current one-shot form uses half-second units.
         Assert.False(timers.TryFire("wf_trg_at_time_long", 1, config, 9999, 9999, 0));
         Assert.True(timers.TryFire("wf_trg_at_time_long", 1, config, 10000, 10000, 0));
         Assert.False(timers.TryFire("wf_trg_at_time_long", 1, config, 20000, 20000, 0));
@@ -211,7 +211,7 @@ public class ModernWiredBehaviorTests
     [InlineData("wf_trg_period_short", 10)]
     [InlineData("wf_trg_periodically", 120)]
     [InlineData("wf_trg_period_long", 120)]
-    [InlineData("wf_trg_at_time_long", 120)]
+    [InlineData("wf_trg_at_time_long", 1200)]
     [InlineData("wf_trg_at_given_time", 1200)]
     public void TimedTriggersAcceptTheirEditorRangeOnly(string name, int max)
     {

@@ -131,7 +131,7 @@ public sealed class WiredBotAppearancePersistenceTests
             var action = new WiredModernAction(Room, new Item { Id = 1 }, descriptor, new(), _ => { },
                 (_, _, _) => { }, new(), TestLogging.Logger, TimeProvider.System,
                 TestWiredRewardService.Instance, store, TestWiredClients.Empty, TestWiredDefinitions.Unused, TestItemRuntime.Travel);
-            Assert.True(action.TryValidateConfiguration(
+            Assert.True(WiredNativeTestSupport.TryValidateRuntime(action,
                 new() { IntParams = [0], Text = "\thd-200-1" }, out var configuration, out var error), error);
             action.ApplyConfiguration(configuration);
 

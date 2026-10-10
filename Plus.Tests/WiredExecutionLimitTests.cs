@@ -29,8 +29,7 @@ public sealed class WiredExecutionLimitTests
         var action = Add(engine, furniture, room, new Effect());
         var limitItem = Furni(furniture, "wf_xtra_execution_limit");
         var limit = WiredAddonFactory.Create(room, limitItem, new(), TestGroupManager.Empty, readWorld: _ => new(1, 1, [], []))!;
-        Assert.True(limit.TryValidateConfiguration(new() { IntParams = [1, 2] }, out var valid, out var error), error);
-        limit.ApplyConfiguration(valid);
+        WiredNativeTestSupport.Install(limit, WiredNativeEditorProjection.DefaultNative(limit.Descriptor) with { OwnedIntParams = [1, 2] });
         Assert.False(limit.AfterConditions);
         Assert.Equal(1000, limit.Configuration.IntParams[1]);
         Assert.True(engine.Add(limit));

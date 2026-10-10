@@ -29,13 +29,23 @@ public sealed class WiredSignalValidationTests
         var items = (ConcurrentDictionary<uint, Item>)typeof(RoomItemHandling).GetField(field, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(handler)!;
         items[picked.Id] = picked;
         Assert.True(WiredBoxRegistry.TryGet("wf_trg_recv_signal", out var descriptor));
-        var trigger = new WiredModernTrigger(room, new Item { Id = 2 }, descriptor);
-        var saved = WiredConfigurationSave.TrySave(trigger, new() { IntParams = [0, 100], SelectedItems = [1] },
-            TestWiredConfigurationStore.Instance, out var error, existsInRoom: id => handler.GetItem(id) != null);
+        var item = new Item { Id = 2 };
+        typeof(Item).GetField("_room", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(item, room);
+        var trigger = new WiredModernTrigger(room, item, descriptor);
+        var native = WiredNativeEditorProjection.DefaultNative(descriptor) with { PrimaryItems = [new(1, type == ItemType.Wall)] };
+        var error = "Invalid Wired configuration.";
+        var saved = WiredNativeEditorProjection.TryCompile(item.Id, descriptor, native, out var compiled)
+            && WiredConfigurationSave.TrySave(trigger, compiled, TestWiredConfigurationStore.Instance,
+                out error, existsInRoom: id => handler.GetItem(id) != null);
         Assert.Equal(accepted, saved);
 
         if (!accepted) {
-            Assert.Equal("wiredfurni.error.require_antenna_furni", error);
+            if (type == ItemType.Wall) {
+                Assert.NotEmpty(error); // The native receiver form rejects wall picks before antenna validation.
+            }
+            else {
+                Assert.Equal("wiredfurni.error.require_antenna_furni", error);
+            }
             Assert.Empty(trigger.Configuration.SelectedItems);
         }
     }
