@@ -70,8 +70,7 @@ public sealed class WiredUserVariableUpdate64Event(IWiredVariableMenuService men
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         if (WiredUserVariableUpdateEvent.TryRead(packet, false, out var request, exact: true)) {
-            WiredVariableWireProtocol.Enable(session);
-            menus.Write(room, session, request!);
+            menus.WriteExact(room, session, request!);
         }
 
         return Task.CompletedTask;
@@ -82,8 +81,7 @@ public sealed class WiredUserVariableManage64Event(IWiredVariableMenuService men
     public override Task Parse(Room room, GameClient session, IIncomingPacket packet)
     {
         if (WiredUserVariableUpdateEvent.TryRead(packet, true, out var request, exact: true)) {
-            WiredVariableWireProtocol.Enable(session);
-            menus.Manage(room, session, request!);
+            menus.ManageExact(room, session, request!);
         }
 
         return Task.CompletedTask;

@@ -57,32 +57,28 @@ public sealed class WiredVariableExactWireTests
     }
 
     [Fact]
-    public async Task CapabilityChangesOnlyAfterCompleteValidFrameAndStaysWithConnectionThroughRefresh()
+    public async Task ExplicitReadsAndWritesNeverChangeNativeDelegation()
     {
         var (client, _) = Client(new Habbo { Id = 1 });
-        var (second, _) = Client(new Habbo { Id = 1 });
         var menus = new Menus();
-        var request = new WiredUserVariablesRequestEvent(menus);
+        var exact = new WiredUserVariablesRequest64Event(menus);
 
         foreach (var bad in new[] { Packet(2), Packet(1, 0), new FlashIncomingPacket { Buffer = new byte[] { 0, 0, 0 } } }) {
-            await request.Parse(null!, client, bad);
-            Assert.False(WiredVariableWireProtocol.IsExact(client));
+            await exact.Parse(null!, client, bad);
         }
 
-        await new WiredUserVariableUpdate64Event(menus).Parse(null!, client, Packet(2, 3, 0, 10, 1, 2));
-        Assert.False(WiredVariableWireProtocol.IsExact(client));
+        Assert.Empty(menus.Snapshots);
+        await exact.Parse(null!, client, Packet(1));
         await new WiredUserVariableUpdate64Event(menus).Parse(null!, client, Packet(1, 3, 0, 10, 1, 2));
-        Assert.True(WiredVariableWireProtocol.IsExact(client));
-        Assert.Equal(4294967298L, Assert.Single(menus.Writes).Value);
-        await request.Parse(null!, client, Packet());
+        await new WiredUserVariablesRequestEvent(menus).Parse(null!, client, Packet());
         await new WiredUserVariableManage64Event(menus).Parse(null!, client, Packet(1, 1, 3, 0, 10, 0, 0));
-        await request.Parse(null!, second, Packet());
-        Assert.Equal(new[] { true, true, true, false }, menus.Snapshots);
-        Assert.False(WiredVariableWireProtocol.IsExact(second));
+        await new WiredUserVariablesRequestEvent(menus).Parse(null!, client, Packet());
+        Assert.Equal(4294967298L, Assert.Single(menus.Writes).Value);
+        Assert.Equal(new[] { true, true, false, true, false }, menus.Snapshots);
     }
 
     [WiredChestDatabaseFact]
-    public async Task ActualMenuServiceKeepsExactRefreshReportsFailedWriteAndPreflightsLegacyResponses()
+    public async Task ActualMenuServiceUsesOriginatingRefreshReportsFailedWriteAndPreflightsNativeResponses()
     {
         using var fixture = new WiredChestDatabaseTests.Fixture();
         var config = new WiredConfiguration { Text = "exact_score", IntParams = [1, 0] };
@@ -105,16 +101,17 @@ public sealed class WiredVariableExactWireTests
         var service = new WiredVariableMenuService();
         await new WiredUserVariableUpdate64Event(service).Parse(world.Room, world.Client,
             Packet(1, 3, 0, 10, int.MaxValue, -1));
-        Assert.True(WiredVariableWireProtocol.IsExact(world.Client));
         Assert.Equal(long.MaxValue, Assert.Single(new WiredVariableMenu(world.Room, variables).Snapshot().Assignments).Value.Value);
         Assert.Equal(9480u, Assert.Single(world.Packets).Header);
         world.Packets.Clear();
         await new WiredUserVariablesRequestEvent(service).Parse(world.Room, world.Client, Packet());
-        service.Manage(world.Room, world.Client, new(0, WiredVariableTarget.Global, 0, 10, long.MinValue, ""));
-        Assert.Equal(new uint[] { 9480, 9480 }, world.Packets.Select(x => x.Header));
+        service.ManageExact(world.Room, world.Client, new(0, WiredVariableTarget.Global, 0, 10, long.MinValue, ""));
+        Assert.Equal(2, world.Packets.Count);
+        Assert.NotEqual(9480u, world.Packets[0].Header);
+        Assert.Equal(9480u, world.Packets[1].Header);
         Assert.Equal(long.MinValue, Assert.Single(new WiredVariableMenu(world.Room, variables).Snapshot().Assignments).Value.Value);
         world.Packets.Clear();
-        service.Write(world.Room, world.Client, new(0, WiredVariableTarget.Global, 0, 999, 123, ""));
+        service.WriteExact(world.Room, world.Client, new(0, WiredVariableTarget.Global, 0, 999, 123, ""));
         Assert.Equal(2, world.Packets.Count);
         Assert.NotEqual(9480u, world.Packets[0].Header); // Visible failure precedes the authoritative refresh.
         Assert.Equal(9480u, world.Packets[1].Header);
@@ -125,21 +122,19 @@ public sealed class WiredVariableExactWireTests
         service.ShowHolderPage(world.Room, legacy, "room:10", 1, 50, 0, -1);
         Assert.Equal(3, packets.Count);
         Assert.DoesNotContain(packets, packet => packet.Header is 5103 or 9461 or 9462 or 9480 or 9481 or 9482);
-        Assert.False(WiredVariableWireProtocol.IsExact(legacy));
         world.Habbo.Access = EditorTestSupport.Access([]);
         Assert.True(world.Room.GetWired().Settings.TrySave(world.Client, 1, 0, "", out _));
         var (guest, guestPackets) = Client(new Habbo { Id = 2, Username = "Guest", CurrentRoom = world.Room, Access = EditorTestSupport.Access([]) });
-        WiredVariableWireProtocol.Enable(guest);
         Assert.True(world.Room.GetWired().Settings.CanInspect(guest));
         Assert.False(world.Room.GetWired().Settings.CanModify(guest));
-        service.Write(world.Room, guest, new(0, WiredVariableTarget.Global, 0, 10, 123, ""));
+        service.WriteExact(world.Room, guest, new(0, WiredVariableTarget.Global, 0, 10, 123, ""));
         Assert.Equal(2, guestPackets.Count);
         Assert.NotEqual(9480u, guestPackets[0].Header);
         Assert.Equal(9480u, guestPackets[1].Header);
         Assert.Equal(long.MinValue, Assert.Single(new WiredVariableMenu(world.Room, variables).Snapshot().Assignments).Value.Value);
         guest.GetHabbo().Access = EditorTestSupport.Access([PermissionKeys.RoomRightsAny]);
         guestPackets.Clear();
-        service.Manage(world.Room, guest, new(2, WiredVariableTarget.Global, 0, 10, 0, ""));
+        service.ManageExact(world.Room, guest, new(2, WiredVariableTarget.Global, 0, 10, 0, ""));
         Assert.Equal(2, guestPackets.Count);
         Assert.NotEqual(9480u, guestPackets[0].Header);
         Assert.Equal(9480u, guestPackets[1].Header);
@@ -147,17 +142,16 @@ public sealed class WiredVariableExactWireTests
     }
 
     [Fact]
-    public void LegacyWidePreflightRefusesVisiblyAndLegacyInt32WriteStillHasSameShape()
+    public void NativeWidePreflightAndInt32WriteKeepTheirDomains()
     {
         var (client, packets) = Client(new Habbo { Id = 1 });
         var holder = new WiredVariableStoredHolder(new(10, WiredVariableTarget.Global, 0), "", new(long.MaxValue, null, null));
-        Assert.False(WiredVariableWireProtocol.CanSend(client, [holder]));
-        Assert.NotEmpty(packets);
+        Assert.False(WiredVariableWireProtocol.CanSend([holder]));
+        Assert.Empty(packets);
         Assert.DoesNotContain(packets, packet => packet.Header is 5103 or 9461 or 9462);
         Assert.True(WiredUserVariableUpdateEvent.TryRead(Packet(3, 0, 10, int.MinValue), false, out var legacy));
         Assert.Equal(int.MinValue, legacy!.Value);
-        WiredVariableWireProtocol.Enable(client);
-        Assert.True(WiredVariableWireProtocol.CanSend(client, [holder]));
+        Assert.True(WiredVariableWireProtocol.CanSend([holder], exact: true));
     }
 
     [Fact]
@@ -176,12 +170,35 @@ public sealed class WiredVariableExactWireTests
     }
 
     [Fact]
+    public void ExactReadEnvelopesRejectVersionsTruncationAndTailsWithoutAffectingNativeShapes()
+    {
+        Assert.True(WiredExactReadRequest.TryRead(Packet(1), 0, out _));
+        Assert.True(WiredExactReadRequest.TryRead(Packet(1, "room:10"), 1, out _));
+        Assert.True(WiredExactReadRequest.TryRead(Packet(1, "room:10", 1, 50, 0, -1), 2, out _));
+
+        foreach (var packet in new[] { Packet(), Packet(0), Packet(2), Packet(1, 0) }) {
+            Assert.False(WiredExactReadRequest.TryRead(packet, 0, out _));
+        }
+
+        foreach (var packet in new[] { Packet("room:10"), Packet(2, "room:10"), Packet(1, ""), Packet(1, "room:10", 0) }) {
+            Assert.False(WiredExactReadRequest.TryRead(packet, 1, out _));
+        }
+
+        foreach (var packet in new[] { Packet(1, "room:10", 1, 50, 0), Packet(1, "room:10", 1, 50, 2, -1), Packet(1, "room:10", 1, 50, 0, 3), Packet(1, "room:10", 1, 50, 0, -1, 0) }) {
+            Assert.False(WiredExactReadRequest.TryRead(packet, 2, out _));
+        }
+    }
+
+    [Fact]
     public void CompiledCurrentRevisionRegistersExactExtensionsWithoutHeaderRemapping()
     {
         var revision = new Plus.Communication.Revisions.RevisionsCache().InternalRevision;
         Assert.Equal("WIN63-202609161723-93809945", revision.Name);
         Assert.Equal(10110u, revision.IncomingHeaders["WiredUserVariableUpdate64Event"]);
         Assert.Equal(10111u, revision.IncomingHeaders["WiredUserVariableManage64Event"]);
+        Assert.Equal(10113u, revision.IncomingHeaders["WiredUserVariablesRequest64Event"]);
+        Assert.Equal(10114u, revision.IncomingHeaders["WiredVariableHoldersRequest64Event"]);
+        Assert.Equal(10115u, revision.IncomingHeaders["WiredVariableHoldersPage64Event"]);
         Assert.Equal(10025u, revision.IncomingHeaders["WiredUserVariableUpdateEvent"]);
         Assert.Equal(9480u, revision.OutgoingHeaders["WiredUserVariablesData64Composer"]);
         Assert.Equal(9481u, revision.OutgoingHeaders["WiredVariableHolders64Composer"]);
@@ -195,13 +212,22 @@ public sealed class WiredVariableExactWireTests
     {
         public List<bool> Snapshots = [];
         public List<WiredVariableMenuWrite> Writes = [];
-        public void ShowSnapshot(Room room, GameClient session) => Snapshots.Add(WiredVariableWireProtocol.IsExact(session));
+        public void ShowSnapshot(Room room, GameClient session) => Snapshots.Add(false);
         public void Write(Room room, GameClient session, WiredVariableMenuWrite request)
         {
             Writes.Add(request);
             ShowSnapshot(room, session);
         }
         public void Manage(Room room, GameClient session, WiredVariableMenuWrite request) => ShowSnapshot(room, session);
+        public void ShowExactSnapshot(Room room, GameClient session) => Snapshots.Add(true);
+        public void ShowExactHolders(Room room, GameClient session, string id) { }
+        public void ShowExactHolderPage(Room room, GameClient session, string id, int page, int size, int users, int sort) { }
+        public void WriteExact(Room room, GameClient session, WiredVariableMenuWrite request)
+        {
+            Writes.Add(request);
+            ShowExactSnapshot(room, session);
+        }
+        public void ManageExact(Room room, GameClient session, WiredVariableMenuWrite request) => ShowExactSnapshot(room, session);
         public void ShowCatalogHash(Room room, GameClient session) { }
         public void ShowCatalogDiff(Room room, GameClient session, IReadOnlyDictionary<string, int> known) { }
         public void ShowHolders(Room room, GameClient session, string id) { }

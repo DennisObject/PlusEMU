@@ -120,6 +120,11 @@ public sealed class WiredMenuDelegationTests
 
     private sealed class RecordingMenus : IWiredVariableMenuService
     {
+        public void ShowExactSnapshot(Room room, GameClient session) => Calls.Add("ExactSnapshot");
+        public void ShowExactHolders(Room room, GameClient session, string id) => Calls.Add("ExactHolders " + id);
+        public void ShowExactHolderPage(Room room, GameClient session, string id, int page, int size, int users, int sort) => Calls.Add("ExactPage " + id);
+        public void WriteExact(Room room, GameClient session, WiredVariableMenuWrite request) => Writes.Add(request);
+        public void ManageExact(Room room, GameClient session, WiredVariableMenuWrite request) => Manages.Add(request);
         public List<string> Calls { get; } = [];
         public List<WiredVariableMenuWrite> Writes { get; } = [];
         public List<WiredVariableMenuWrite> Manages { get; } = [];

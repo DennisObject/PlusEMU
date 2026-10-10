@@ -532,6 +532,9 @@ public static class ClientPacketHeader
     public const uint WiredVariableInspectionRequestEvent = 10112;
     public const uint WiredUserVariableUpdate64Event = 10110;
     public const uint WiredUserVariableManage64Event = 10111;
+    public const uint WiredUserVariablesRequest64Event = 10113;
+    public const uint WiredVariableHoldersRequest64Event = 10114;
+    public const uint WiredVariableHoldersPage64Event = 10115;
     public const uint ChestOpenEvent = 9327;
     public const uint ChestCloseEvent = 9339;
     public const uint ChestStartDepositEvent = 9324;
